@@ -6,6 +6,7 @@ import { TermGateLink } from "@/components/academy/TermGateLink";
 import { EnglishShell } from "./components/EnglishUI";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
 import type { MarketCurrency } from "@/types/market";
@@ -503,7 +504,7 @@ export default function EnglishLandingClient({
   return (
     <EnglishShell>
       {schema}
-      <section className="relative isolate overflow-hidden bg-[color:var(--tp-bg)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section data-home-section="hero" className="relative isolate overflow-hidden bg-[color:var(--tp-bg)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.16),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(30,64,175,.10),transparent_32%)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
           <div className="text-left">
@@ -550,6 +551,7 @@ export default function EnglishLandingClient({
         </div>
       </section>
 
+      <HomeDiscoveryStrip locale="en" radar={growthRadar} />
       <CryptoNewsCenter locale="en" compact />
       <HomeAiMentorSpotlight locale="en" />
       <HomeLearningJourney locale="en" />

@@ -1,0 +1,218 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { ArrowLeft, ArrowRight, Coins, Sparkles, Wrench } from "lucide-react";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
+import type { ContentLocale } from "@/lib/content-growth";
+import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
+
+type DiscoveryMode = "coins" | "tools";
+
+const copy = {
+  fa: {
+    badge: "کشف سریع",
+    title: "۵ مسیر برتر در یک نگاه",
+    description: "۵ کوین و ۵ ابزار منتخب؛ فشرده، قابل مقایسه و به‌روز.",
+    groupLabel: "انتخاب نوع مسیرهای کشف",
+    coins: "کوین‌ها",
+    tools: "ابزارها",
+    rank: "رتبه",
+    score: "امتیاز",
+    updated: "به‌روزرسانی شواهد",
+    ready: "آماده",
+    degraded: "نیازمند تکمیل",
+    viewCoins: "همه کوین‌ها",
+    viewTools: "همه ابزارها",
+    educational: "رتبه‌بندی آموزشی؛ نه توصیه مالی.",
+  },
+  en: {
+    badge: "Quick discovery",
+    title: "Five top routes at a glance",
+    description: "Five coins and five tools—compact, comparable and current.",
+    groupLabel: "Choose a discovery route type",
+    coins: "Coins",
+    tools: "Tools",
+    rank: "Rank",
+    score: "Score",
+    updated: "Evidence updated",
+    ready: "Ready",
+    degraded: "Needs review",
+    viewCoins: "All coins",
+    viewTools: "All tools",
+    educational: "Educational ranking; not financial advice.",
+  },
+} as const;
+
+const rankTone = [
+  "border-cyan-300/45 bg-cyan-400/18 text-cyan-800 dark:text-cyan-100",
+  "border-sky-300/40 bg-sky-400/15 text-sky-800 dark:text-sky-100",
+  "border-blue-300/35 bg-blue-400/14 text-blue-800 dark:text-blue-100",
+  "border-slate-300/30 bg-slate-400/12 text-slate-700 dark:text-slate-200",
+  "border-slate-300/25 bg-slate-400/10 text-slate-700 dark:text-slate-200",
+] as const;
+
+function rankLabel(rank: number, locale: ContentLocale) {
+  return new Intl.NumberFormat(locale === "fa" ? "fa-IR" : "en-US").format(rank);
+}
+
+function evidenceDate(value: string, locale: ContentLocale) {
+  return new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : "en-GB", {
+    dateStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(value));
+}
+
+export function HomeDiscoveryStrip({
+  locale,
+  radar,
+}: {
+  locale: ContentLocale;
+  radar?: LandingGrowthRadarModel;
+}) {
+  const [mode, setMode] = useState<DiscoveryMode>("coins");
+  const strings = copy[locale];
+  const isFa = locale === "fa";
+  const coins = radar?.coins.slice(0, 5) ?? [];
+  const tools = radar?.tools.slice(0, 5) ?? [];
+  const itemsAvailable = coins.length === 5 && tools.length === 5;
+
+  if (!itemsAvailable) return null;
+
+  const listHref = mode === "coins"
+    ? isFa ? "/coins" : "/en/coins"
+    : isFa ? "/trading-tools" : "/en/trading-tools";
+  const listLabel = mode === "coins" ? strings.viewCoins : strings.viewTools;
+  const Arrow = isFa ? ArrowLeft : ArrowRight;
+
+  return (
+    <section
+      data-home-section="discovery"
+      aria-labelledby={`home-discovery-title-${locale}`}
+      className="tecpey-section relative z-10 py-5 sm:px-6 sm:py-7 lg:px-8"
+    >
+      <div className="tecpey-section-inner overflow-hidden rounded-[26px] border border-cyan-300/20 bg-[color:var(--tp-card)] p-3 shadow-[0_18px_55px_rgba(8,145,178,.10)] sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-black text-cyan-800 dark:text-cyan-100 sm:text-xs">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              {strings.badge}
+            </div>
+            <h2
+              id={`home-discovery-title-${locale}`}
+              className="mt-2 text-base font-black leading-6 text-[color:var(--tp-text)] sm:text-xl"
+            >
+              {strings.title}
+            </h2>
+            <p className="mt-1 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)] sm:text-sm">
+              {strings.description}
+            </p>
+          </div>
+
+          <div
+            role="group"
+            aria-label={strings.groupLabel}
+            className="grid grid-cols-2 rounded-2xl border border-cyan-300/15 bg-slate-950/[0.035] p-1 dark:bg-white/[0.035] sm:w-[260px]"
+          >
+            {(["coins", "tools"] as const).map((value) => {
+              const selected = mode === value;
+              const Icon = value === "coins" ? Coins : Wrench;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setMode(value)}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                    selected
+                      ? "bg-cyan-600 text-white shadow-sm dark:bg-cyan-500 dark:text-slate-950"
+                      : "text-[color:var(--tp-muted)] hover:bg-cyan-500/10 hover:text-[color:var(--tp-text)]"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {value === "coins" ? strings.coins : strings.tools}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-5 gap-1.5 sm:mt-5 sm:gap-3" aria-live="polite">
+          {mode === "coins"
+            ? coins.map((coin, index) => {
+                const rank = index + 1;
+                const href = isFa ? `/coins/${coin.slug}` : `/en/coins/${coin.slug}`;
+                const name = isFa ? coin.faName : coin.name;
+                return (
+                  <Link
+                    key={coin.symbol}
+                    href={href}
+                    aria-label={`${strings.rank} ${rankLabel(rank, locale)}: ${name} (${coin.symbol})`}
+                    className="tecpey-pressable group flex min-h-[88px] min-w-0 flex-col items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-500/[0.045] px-1 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px] sm:px-2"
+                  >
+                    <CoinVisual
+                      symbol={coin.symbol}
+                      slug={coin.slug}
+                      name={coin.name}
+                      faName={coin.faName}
+                      locale={locale}
+                      variant="avatar"
+                    />
+                    <span className="mt-1.5 truncate text-[10px] font-black text-[color:var(--tp-text)] sm:text-xs">
+                      {coin.symbol}
+                    </span>
+                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[9px] font-black sm:text-[10px] ${rankTone[index]}`}>
+                      <span aria-hidden="true">#{rankLabel(rank, locale)}</span>
+                      <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
+                    </span>
+                  </Link>
+                );
+              })
+            : tools.map((tool, index) => {
+                const rank = index + 1;
+                const score = Math.round(tool.growthRank.rankScore * 100);
+                const href = isFa ? `/trading-tools/${tool.slug}` : `/en/trading-tools/${tool.slug}`;
+                return (
+                  <Link
+                    key={tool.slug}
+                    href={href}
+                    aria-label={`${strings.rank} ${rankLabel(rank, locale)}: ${tool.name}; ${strings.score} ${score}`}
+                    className="tecpey-pressable group flex min-h-[88px] min-w-0 flex-col items-center justify-center rounded-2xl border border-blue-300/15 bg-blue-500/[0.045] px-1 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px] sm:px-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-cyan-300/25 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.34),transparent_30%),linear-gradient(145deg,#0f172a,#0e7490)] text-sm font-black text-white shadow-[0_9px_20px_rgba(8,145,178,.16)]"
+                    >
+                      {tool.logo || tool.name.slice(0, 1)}
+                    </span>
+                    <span dir="ltr" className="mt-1.5 w-full truncate text-[9px] font-black text-[color:var(--tp-text)] sm:text-[11px]">
+                      {tool.name}
+                    </span>
+                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[9px] font-black sm:text-[10px] ${rankTone[index]}`}>
+                      <span aria-hidden="true">#{rankLabel(rank, locale)}</span>
+                      <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
+                    </span>
+                  </Link>
+                );
+              })}
+        </div>
+
+        <div className="mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-cyan-300/10 pt-2.5 text-[10px] font-bold text-[color:var(--tp-muted)] sm:text-xs">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{strings.educational}</span>
+            {radar?.evidence ? (
+              <span className="inline-flex items-center gap-1">
+                <span className={`h-1.5 w-1.5 rounded-full ${radar.evidence.status === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} aria-hidden="true" />
+                {strings.updated}: {evidenceDate(radar.evidence.updatedAt, locale)} · {radar.evidence.status === "ready" ? strings.ready : strings.degraded}
+              </span>
+            ) : null}
+          </div>
+          <Link href={listHref} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 font-black text-cyan-700 hover:bg-cyan-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-cyan-200">
+            {listLabel}
+            <Arrow className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}

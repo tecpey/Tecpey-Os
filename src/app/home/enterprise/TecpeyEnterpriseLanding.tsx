@@ -31,13 +31,12 @@ import {
   PenLine,
   ShieldAlert,
   PlayCircle,
-  Coins,
-  Wrench,
 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
 import type { MarketCurrency } from "@/types/market";
@@ -47,10 +46,10 @@ const exchangeSignupHref = "https://my.tecpey.ir/signup";
 const academyHref = "/academy";
 
 const marketRows = [
-  { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین", price: "۶,۸۹۲,۰۰۰,۰۰۰", change: "+۲.۴٪", tone: "up" },
-  { symbol: "ETH", name: "Ethereum", fa: "اتریوم", price: "۲۳۵,۴۰۰,۰۰۰", change: "+۱.۱٪", tone: "up" },
-  { symbol: "USDT", name: "Tether", fa: "تتر", price: "۸۳,۱۲۰", change: "۰.۰٪", tone: "flat" },
-  { symbol: "TON", name: "Toncoin", fa: "تون‌کوین", price: "۲۸۸,۰۰۰", change: "+۳.۲٪", tone: "up" },
+  { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین", change: "+۲.۴٪" },
+  { symbol: "ETH", name: "Ethereum", fa: "اتریوم", change: "+۱.۱٪" },
+  { symbol: "USDT", name: "Tether", fa: "تتر", change: "۰.۰٪" },
+  { symbol: "TON", name: "Toncoin", fa: "تون‌کوین", change: "+۳.۲٪" },
 ];
 
 const proofEvents = [
@@ -95,15 +94,6 @@ function resolveUsdLast(row: MarketCurrency, symbol: string) {
   );
 }
 
-function resolveIrtPrice(row: MarketCurrency, symbol: string, usdtIrt: unknown) {
-  const direct = Number(row?.priceData?.priceIRT ?? row?.priceIRT ?? 0);
-  if (Number.isFinite(direct) && direct > 0) return direct;
-  const usd = resolveUsdLast(row, symbol);
-  const rate = Number(usdtIrt ?? 0);
-  if (symbol === "USDT") return rate > 0 ? rate : 0;
-  return usd > 0 && rate > 0 ? usd * rate : 0;
-}
-
 function getMarketFallback(): MarketCurrency[] {
   return marketRows.map((row) => ({
     symbol: row.symbol,
@@ -124,7 +114,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function DeviceFrame() {
   const event = useRotator(proofEvents);
-  const { currencies, USDT_IRT } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT", "USDTUSDT", "TONUSDT"]);
+  const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT", "USDTUSDT", "TONUSDT"]);
   const dynamicRows = (currencies.length ? currencies : getMarketFallback()).slice(0, 6);
   return (
     <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[620px]">
@@ -135,8 +125,8 @@ function DeviceFrame() {
             <div className="flex items-center gap-3">
               <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
               <div>
-                <p className="text-sm font-extrabold text-[color:var(--tp-text)]">بازار تک‌پی</p>
-                <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">بازار، آموزش و مسیر ورود آگاهانه</p>
+                <p className="text-sm font-extrabold text-[color:var(--tp-text)]">نمای آموزشی بازار تک‌پی</p>
+                <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">داده مرجع برای آموزش و تمرین مجازی · USD/USDT</p>
               </div>
             </div>
             <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-500 sm:block">آموزشی</div>
@@ -161,16 +151,16 @@ function DeviceFrame() {
               const symbol = normalizeSymbol(row);
               const faName = row?.faName ?? row?.fa ?? ({ BTC: "بیت‌کوین", ETH: "اتریوم", USDT: "تتر", TON: "تون‌کوین" } as Record<string, string>)[symbol] ?? symbol;
               const name = row?.name ?? symbol;
-              const price = resolveIrtPrice(row, symbol, USDT_IRT);
+              const price = resolveUsdLast(row, symbol);
               const change = Number(row?.priceData?.changePercent ?? row?.changePercent ?? 0);
               return (
                 <div key={`${symbol}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1.1fr_1fr_auto]">
                   <CoinVisual symbol={symbol} name={name} faName={faName} variant="avatar" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-extrabold text-[color:var(--tp-text)]">{faName}</p>
-                    <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{name} / IRT</p>
+                    <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{name} / USD</p>
                   </div>
-                  <p className="hidden text-xs font-bold text-[color:var(--tp-text)] sm:block">{formatFaNumber(price)}</p>
+                  <p className="hidden text-xs font-bold text-[color:var(--tp-text)] sm:block"><bdi>USD {formatFaNumber(price)}</bdi></p>
                   <span className={`rounded-full px-2 py-1 text-[10px] font-black sm:px-3 sm:text-xs ${change >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-500" : "bg-rose-500/10 text-rose-700 dark:text-rose-500"}`}>{Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}٪` : "—"}</span>
                 </div>
               );
@@ -189,7 +179,7 @@ function DeviceFrame() {
 
 function Hero() {
   return (
-    <section className="tecpey-section relative isolate overflow-hidden pt-20 sm:px-6 sm:pt-24 lg:px-8">
+    <section data-home-section="hero" className="tecpey-section relative isolate overflow-hidden pt-20 sm:px-6 sm:pt-24 lg:px-8">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(11,217,222,.20),transparent_30%),radial-gradient(circle_at_10%_30%,rgba(30,64,175,.16),transparent_28%)]" />
       <div className="tecpey-section-inner grid grid-cols-1 items-center gap-10 pb-14 pt-6 lg:grid-cols-[.95fr_1.05fr] lg:pb-20">
         <div className="text-center lg:text-right">
@@ -222,145 +212,6 @@ function Hero() {
     </section>
   );
 }
-
-function TopDiscoveryGateway({
-  radar,
-}: {
-  radar?: LandingGrowthRadarModel;
-}) {
-  const tools = radar?.tools.slice(0, 5) ?? [];
-  const coins = radar?.coins.slice(0, 5) ?? [];
-  const evidence = radar?.evidence;
-  const evidenceUpdatedAt = evidence
-    ? new Intl.DateTimeFormat("fa-IR", {
-        dateStyle: "short",
-        timeStyle: "short",
-        timeZone: "Asia/Tehran",
-      }).format(new Date(evidence.updatedAt))
-    : null;
-  if (tools.length === 0 && coins.length === 0) return null;
-
-  return (
-    <section
-      aria-labelledby="top-discovery-gateway-title"
-      className="tecpey-section relative z-10 pt-5 sm:px-6 lg:px-8"
-    >
-      <div className="tecpey-section-inner tecpey-glass rounded-[28px] p-4 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-              ورودی سریع بازار و ابزار
-            </div>
-            <h2 id="top-discovery-gateway-title" className="mt-3 text-xl font-black leading-8 text-[color:var(--tp-text)] sm:text-2xl">
-              ۵ کوین مهم و ۵ ابزار ترند برای شروع هوشمند
-            </h2>
-            <p className="mt-1 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
-              قبل از ورود جدی، اول دارایی‌های مهم و ابزارهای معتبر را ببین؛ تصمیم آگاهانه از همین‌جا شروع می‌شود.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {evidence && evidenceUpdatedAt && (
-              <div
-                aria-label="وضعیت شواهد ورودی سریع بازار و ابزار"
-                className="inline-flex min-h-11 flex-wrap items-center gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-[11px] font-black text-emerald-800 dark:text-emerald-100"
-              >
-                <Clock3 className="h-4 w-4" aria-hidden="true" />
-                <span>آخرین شواهد: {evidenceUpdatedAt}</span>
-                <span className="rounded-full bg-white/55 px-2 py-1 text-[10px] dark:bg-white/10">
-                  گیت: {evidence.status === "ready" ? "آماده" : "ناقص"}
-                </span>
-                <span className="rounded-full bg-white/55 px-2 py-1 text-[10px] dark:bg-white/10">
-                  {evidence.coinCount} کوین + {evidence.toolCount} ابزار
-                </span>
-              </div>
-            )}
-            <Link href="/coins" className="tecpey-action-ghost tecpey-action-compact">
-              <Coins className="h-4 w-4" aria-hidden="true" />
-              همه رمزارزها
-            </Link>
-            <Link href="/trading-tools" className="tecpey-action-primary tecpey-action-compact">
-              <Wrench className="h-4 w-4" aria-hidden="true" />
-              تب ابزارها
-            </Link>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-black text-[color:var(--tp-muted)]">
-              <Coins className="h-4 w-4 text-cyan-600 dark:text-cyan-300" aria-hidden="true" />
-              کوین‌های مهم ابتدای مسیر
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:grid md:grid-cols-5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
-              {coins.map((coin, index) => (
-                <Link
-                  key={coin.symbol}
-                  href={`/coins/${coin.slug}`}
-                  className="tecpey-pressable group min-w-[178px] overflow-hidden rounded-2xl border border-cyan-300/15 bg-[color:var(--tp-card)] p-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
-                >
-                  <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} variant="cover" />
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="-mt-5 ms-2 grid h-8 min-w-8 shrink-0 place-items-center rounded-xl border border-white/20 bg-slate-950/70 px-2 text-[10px] font-black text-cyan-100 shadow-lg backdrop-blur">
-                      رتبه {index + 1}
-                    </span>
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
-                      ترند
-                    </span>
-                  </div>
-                  <p className="mt-3 truncate text-sm font-black text-[color:var(--tp-text)]">{coin.faName}</p>
-                  <p className="mt-0.5 text-xs font-black text-cyan-700 dark:text-cyan-200">{coin.symbol}</p>
-                  <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)]">
-                    {coin.category}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-black text-[color:var(--tp-muted)]">
-              <Wrench className="h-4 w-4 text-cyan-600 dark:text-cyan-300" aria-hidden="true" />
-              ابزارهای ترند و کاربردی
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:grid md:grid-cols-5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
-              {tools.map((tool) => (
-                <Link
-                  key={tool.slug}
-                  href={`/trading-tools/${tool.slug}`}
-                  className="tecpey-pressable group min-w-[152px] rounded-2xl border border-blue-300/15 bg-[color:var(--tp-card)] p-3 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.36),transparent_28%),linear-gradient(145deg,#0f172a,#0e7490)] text-sm font-black text-white shadow-[0_12px_26px_rgba(8,145,178,.18)]"
-                    >
-                      <span className="absolute inset-x-1 top-1 h-3 rounded-full bg-white/18" />
-                      {tool.logo || tool.name.slice(0, 1)}
-                    </span>
-                    <span className="rounded-full bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-700 dark:text-cyan-200">
-                      {Math.round(tool.growthRank.rankScore * 100)}
-                    </span>
-                  </div>
-                  <p dir="ltr" className="mt-3 truncate text-left text-[10px] font-black leading-4 text-[color:var(--tp-text)] sm:text-[11px]">
-                    {tool.name}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs font-black text-cyan-700 dark:text-cyan-200">{tool.categoryFa}</p>
-                  <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)]">
-                    {tool.summaryFa}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-
-
 function GlobalUxMetrics() {
   const metrics = [
     { value: "۷", label: "ترم آموزشی", hint: "از صفر تا روانشناسی معامله", href: "/academy/curriculum" },
@@ -1291,8 +1142,8 @@ export default function TecpeyEnterpriseLanding({
 }) {
   return (
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
-      <TopDiscoveryGateway radar={growthRadar} />
       <Hero />
+      <HomeDiscoveryStrip locale="fa" radar={growthRadar} />
       <CryptoNewsCenter locale="fa" compact />
       <HomeAiMentorSpotlight locale="fa" />
       <HomeLearningJourney locale="fa" />
