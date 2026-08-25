@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "caf200f1b70e9973acd3954e97330e90c406880f",
-      "sha256": "d3a9b9b20a6c2b940bb41b209843840aae11314377e98de9fdf83ac86e8d58af",
-      "lines": 246,
+      "gitObjectId": "ba5e4aa4c8ac1cdacda602e09e8d50545ec1990d",
+      "sha256": "71eadf0c897ca81cd782d9603869210f561607af9d24949d716dc2d9e03a45ee",
+      "lines": 247,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 246
+          "endLine": 247
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -112,16 +112,17 @@
         "2026-08-23: re-reviewed after adding launch:recovery-reconciliation-evidence:check and composing it into launch:decision:check. The command is a local read-only authority guard over the exact-candidate protected recovery status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, and preserves fail-closed NO-GO on NOG-07/NOG-08/NOG-09. The file now has 245 lines.",
         "2026-08-23: re-reviewed after adding ops:incident-readiness:evidence:collect and extending test:incident-readiness-evidence. The collector is reachable only through the protected staging workflow, uses the existing isolated server-only CLI runtime, persists two synthetic critical operational alerts through the governed spool/webhook path, emits only counts, timings, role identities and hashes, and fails closed on queue drift, acknowledgement latency, reviewer dependence or runbook gaps. The command adds no dependency, engine or override and does not enable any product, exchange, custody or real-money capability. The file now has 246 lines.",
         "2026-08-23: re-reviewed after replacing the incident-readiness request-only launch guard with the accepted exact-candidate execution-status guard. The command remains a local read-only validator over canonical status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, preserves the immutable runtime candidate, and keeps controlled launch fail-closed on NOG-08/NOG-09. The file remains 246 lines.",
-        "2026-08-24: re-reviewed after test:deployment additionally executes src/tests/runtime/optional-profile.test.ts. The focused unit suite proves that the optional navbar profile lookup degrades only known upstream ApiError failures to an anonymous profile while preserving unknown-error propagation; it adds no dependency, engine, override, real network/database access, runtime mutation path or activation surface, and the file remains 246 lines."
+        "2026-08-24: re-reviewed after test:deployment additionally executes src/tests/runtime/optional-profile.test.ts. The focused unit suite proves that the optional navbar profile lookup degrades only known upstream ApiError failures to an anonymous profile while preserving unknown-error propagation; it adds no dependency, engine, override, real network/database access, runtime mutation path or activation surface, and the file remains 246 lines.",
+        "2026-08-25: re-reviewed after adding test:home-locale-parity and composing it into check. The new command runs one local node:test suite that statically verifies shared FA/EN home discovery content, locale-specific market labels and the compact five-item mobile strip contract; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, leaves release:check composition unchanged beyond its existing call to check, and does not claim parity outside the reviewed home discovery surface. The file now has 247 lines."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 163,
+          "line": 164,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 163 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 164 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
