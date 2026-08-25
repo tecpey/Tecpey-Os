@@ -14,6 +14,9 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     NEXT_PUBLIC_API_BACKEND_URL: "https://backend.tecpey.test",
     NEXT_PUBLIC_API_SOCKET_URL: "wss://tecpey.test/ws",
     TECPEY_SESSION_SECRET: secret("session"),
+    TECPEY_ADMIN_SESSION_SECRET: secret("admin-session"),
+    TECPEY_2FA_SECRET: secret("totp-encryption"),
+    TECPEY_ADMIN_TOKEN: secret("admin-bootstrap"),
     TECPEY_REFRESH_SECRET: secret("refresh"),
     TECPEY_ACADEMY_AUTH_SECRET: secret("academy"),
     CERTIFICATE_SIGNING_SECRET: secret("certificate"),
@@ -47,6 +50,35 @@ describe("production custody environment validation", () => {
     const result = validate();
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /environment validation passed/);
+  });
+
+  it("requires strong, isolated administrator authentication secrets", () => {
+    const requiredAdminSecrets = [
+      "TECPEY_ADMIN_SESSION_SECRET",
+      "TECPEY_2FA_SECRET",
+      "TECPEY_ADMIN_TOKEN",
+    ];
+
+    for (const name of requiredAdminSecrets) {
+      const result = validate({ [name]: "" });
+      assert.notEqual(result.status, 0, `${name} must fail production env validation`);
+      assert.match(result.stderr, new RegExp(`${name} is missing`));
+    }
+
+    const shortSecret = validate({ TECPEY_ADMIN_SESSION_SECRET: "too-short" });
+    assert.notEqual(shortSecret.status, 0);
+    assert.match(shortSecret.stderr, /TECPEY_ADMIN_SESSION_SECRET must be at least 32 characters/);
+
+    const reusedSecret = `reused-${"x".repeat(48)}`;
+    const reused = validate({
+      TECPEY_SESSION_SECRET: reusedSecret,
+      TECPEY_ADMIN_SESSION_SECRET: reusedSecret,
+    });
+    assert.notEqual(reused.status, 0);
+    assert.match(
+      reused.stderr,
+      /TECPEY_SESSION_SECRET and TECPEY_ADMIN_SESSION_SECRET must be distinct/,
+    );
   });
 
   it("rejects real withdrawal activation", () => {

@@ -6,12 +6,14 @@ does not require Apple ID, iCloud Keychain, a second device, or QR scanning.
 ## Required production configuration
 
 - `TECPEY_ADMIN_TOKEN`: one-time bootstrap credential, at least 32 random characters.
+- `TECPEY_ADMIN_SESSION_SECRET`: distinct secret, at least 32 characters, used to sign revocable administrator sessions.
 - `TECPEY_2FA_SECRET`: distinct secret, at least 32 characters, used to encrypt TOTP material.
 - `TECPEY_ADMIN_PASSKEY_ENABLED=false`.
 - `TECPEY_CUSTOMER_PASSKEY_ENABLED=false`.
 
-Keep all values in the approved host secret store. Never paste them into source,
-logs, browser storage, screenshots, or an administrator provider record.
+Keep all values in the approved host secret store, and never reuse a bootstrap,
+session, TOTP, or application secret for another purpose. Never paste them into
+source, logs, browser storage, screenshots, or an administrator provider record.
 
 ## First administrator
 

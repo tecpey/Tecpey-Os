@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { adminAuthenticationModes, customerPasskeysEnabled } from "@/lib/admin-auth-policy";
 import { ADMIN_PASSWORD_MAX_LENGTH, ADMIN_PASSWORD_MIN_LENGTH, hashAdminPassword, validateAdminPassword, verifyAdminPassword } from "@/lib/security/admin-password-totp";
@@ -41,4 +42,22 @@ test("password hashes and recovery codes never persist plaintext", () => {
   assert.equal(new Set(codes).size, 10);
   assert.equal(findBackupCode(codes[3], hashes), 3);
   assert.equal(hashes.includes(codes[3]), false);
+});
+
+test("administrator authentication secrets stay in the production contract", () => {
+  const envTemplate = readFileSync(".env.production.example", "utf8");
+  const validator = readFileSync("scripts/validate-env.mjs", "utf8");
+  const runbook = readFileSync("docs/security/ADMIN_PASSWORD_TOTP_RUNBOOK.md", "utf8");
+  const requiredBlock = validator.match(/const required = \[([\s\S]*?)\];/)?.[1] ?? "";
+  const secretNames = [
+    "TECPEY_ADMIN_SESSION_SECRET",
+    "TECPEY_2FA_SECRET",
+    "TECPEY_ADMIN_TOKEN",
+  ];
+
+  for (const name of secretNames) {
+    assert.match(envTemplate, new RegExp(`^${name}=`, "m"));
+    assert.match(requiredBlock, new RegExp(`['"]${name}['"]`));
+    assert.ok(runbook.includes("`" + name + "`"));
+  }
 });
