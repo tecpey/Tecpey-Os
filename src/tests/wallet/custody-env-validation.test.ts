@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { describe, it } from "node:test";
+import { ADMIN_AUTH_ENV_SECRET_NAMES, adminAuthEnvFixture } from "../../../scripts/admin-auth-env-test-fixture";
 
 type EnvOverrides = Record<string, string | undefined>;
 
@@ -14,9 +15,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     NEXT_PUBLIC_API_BACKEND_URL: "https://backend.tecpey.test",
     NEXT_PUBLIC_API_SOCKET_URL: "wss://tecpey.test/ws",
     TECPEY_SESSION_SECRET: secret("session"),
-    TECPEY_ADMIN_SESSION_SECRET: secret("admin-session"),
-    TECPEY_2FA_SECRET: secret("totp-encryption"),
-    TECPEY_ADMIN_TOKEN: secret("admin-bootstrap"),
+    ...adminAuthEnvFixture(secret),
     TECPEY_REFRESH_SECRET: secret("refresh"),
     TECPEY_ACADEMY_AUTH_SECRET: secret("academy"),
     CERTIFICATE_SIGNING_SECRET: secret("certificate"),
@@ -53,11 +52,7 @@ describe("production custody environment validation", () => {
   });
 
   it("requires strong, isolated administrator authentication secrets", () => {
-    const requiredAdminSecrets = [
-      "TECPEY_ADMIN_SESSION_SECRET",
-      "TECPEY_2FA_SECRET",
-      "TECPEY_ADMIN_TOKEN",
-    ];
+    const requiredAdminSecrets = ADMIN_AUTH_ENV_SECRET_NAMES;
 
     for (const name of requiredAdminSecrets) {
       const result = validate({ [name]: "" });

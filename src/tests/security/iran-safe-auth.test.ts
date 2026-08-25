@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { ADMIN_AUTH_ENV_SECRET_NAMES } from "../../../scripts/admin-auth-env-test-fixture";
 import { adminAuthenticationModes, customerPasskeysEnabled } from "@/lib/admin-auth-policy";
 import { ADMIN_PASSWORD_MAX_LENGTH, ADMIN_PASSWORD_MIN_LENGTH, hashAdminPassword, validateAdminPassword, verifyAdminPassword } from "@/lib/security/admin-password-totp";
 import { findBackupCode, generateBackupCodes, hashBackupCode } from "@/lib/security/totp";
@@ -49,11 +50,7 @@ test("administrator authentication secrets stay in the production contract", () 
   const validator = readFileSync("scripts/validate-env.mjs", "utf8");
   const runbook = readFileSync("docs/security/ADMIN_PASSWORD_TOTP_RUNBOOK.md", "utf8");
   const requiredBlock = validator.match(/const required = \[([\s\S]*?)\];/)?.[1] ?? "";
-  const secretNames = [
-    "TECPEY_ADMIN_SESSION_SECRET",
-    "TECPEY_2FA_SECRET",
-    "TECPEY_ADMIN_TOKEN",
-  ];
+  const secretNames = ADMIN_AUTH_ENV_SECRET_NAMES;
 
   for (const name of secretNames) {
     assert.match(envTemplate, new RegExp(`^${name}=`, "m"));
