@@ -19,6 +19,10 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
+import {
+  resolveAcademyPostAuthPath,
+  resolveAcademyProfileReadState,
+} from "@/lib/academy-profile-read-state";
 
 type Locale = "fa" | "en";
 type Mode = "login" | "signup";
@@ -290,16 +294,11 @@ export function AcademyAuthClient({
       const profileData = profileResponse
         ? await profileResponse.json().catch(() => null)
         : null;
+      const profileState = resolveAcademyProfileReadState<{
+        display_name?: string | null;
+      }>(profileResponse, profileData);
       window.dispatchEvent(new Event("tecpey-academy-auth-ready"));
-      router.replace(
-        profileData?.profile?.display_name
-          ? locale === "en"
-            ? "/en/academy/profile"
-            : "/academy/profile"
-          : locale === "en"
-            ? "/en/academy/onboarding"
-            : "/academy/onboarding",
-      );
+      router.replace(resolveAcademyPostAuthPath(locale, profileState));
       router.refresh();
     } catch (err) {
       const code = (err as Error)?.message || "auth_failed";
