@@ -143,7 +143,7 @@ export function HomeDiscoveryStrip({
                   onClick={() => setMode(value)}
                   className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-45 ${
                     selected
-                      ? "bg-cyan-600 text-white shadow-sm dark:bg-cyan-500 dark:text-slate-950"
+                      ? "bg-cyan-700 text-white shadow-sm dark:bg-cyan-500 dark:text-slate-950"
                       : "text-[color:var(--tp-muted)] hover:bg-cyan-500/10 hover:text-[color:var(--tp-text)]"
                   }`}
                 >
