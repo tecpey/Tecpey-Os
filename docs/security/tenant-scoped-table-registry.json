@@ -481,6 +481,24 @@
       "adversarialProof": "proven",
       "testReference": "src/tests/security/certificate-share-events-cross-tenant-isolation-postgres.test.ts",
       "issue": "#20"
+    },
+    {
+      "table": "communication_provider_configs",
+      "domain": "communications",
+      "sourceFile": "src/lib/db-migrate-communication-provider-config.ts; src/lib/communication-provider-store.ts",
+      "isolationModel": "tenant_id + workspace_id + provider_id form the primary key; every admin read, lock, insert, conflict update, test-status update and runtime lookup filters or writes the same tenant/workspace scope. Provider ciphertext authenticated data also includes tenant_id, workspace_id and provider_id, so a stored credential cannot be decrypted under another tenant or provider scope.",
+      "adversarialProof": "pending",
+      "issue": "#109",
+      "isolationNote": "The source-level communication provider boundary tests cover scoped encryption, masked responses and append-only evidence, but no PostgreSQL tenant A/B negative test currently exercises the real store. Keep this entry pending until that database proof is added."
+    },
+    {
+      "table": "communication_provider_config_events",
+      "domain": "communications",
+      "sourceFile": "src/lib/db-migrate-communication-provider-config.ts; src/lib/communication-provider-store.ts",
+      "isolationModel": "Every event copies tenant_id + workspace_id + provider_id from the authorized configuration mutation or test operation, and the table is indexed by that full scope. UPDATE and DELETE triggers make the audit stream append-only, while all event creation occurs inside the same transaction and tenant/workspace scope as the provider configuration change.",
+      "adversarialProof": "pending",
+      "issue": "#109",
+      "isolationNote": "The append-only trigger is source-tested, but a PostgreSQL tenant A/B negative test has not yet proven that two tenant event streams remain independently attributable through the real store. Keep this entry pending until that proof exists."
     }
   ]
 }
