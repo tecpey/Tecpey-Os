@@ -13,7 +13,9 @@ const copy = {
   fa: {
     badge: "کشف سریع",
     title: "۵ مسیر برتر در یک نگاه",
+    partialTitle: "مسیرهای معتبرِ در دسترس",
     description: "۵ کوین و ۵ ابزار منتخب؛ فشرده، قابل مقایسه و به‌روز.",
+    partialDescription: "فقط مسیرهای دارای شواهد معتبر نمایش داده می‌شوند؛ موارد دیگر پس از تکمیل بررسی اضافه خواهند شد.",
     groupLabel: "انتخاب نوع مسیرهای کشف",
     coins: "کوین‌ها",
     tools: "ابزارها",
@@ -22,6 +24,7 @@ const copy = {
     updated: "به‌روزرسانی شواهد",
     ready: "آماده",
     degraded: "نیازمند تکمیل",
+    available: "مسیر موجود",
     viewCoins: "همه کوین‌ها",
     viewTools: "همه ابزارها",
     educational: "رتبه‌بندی آموزشی؛ نه توصیه مالی.",
@@ -29,7 +32,9 @@ const copy = {
   en: {
     badge: "Quick discovery",
     title: "Five top routes at a glance",
+    partialTitle: "Verified routes currently available",
     description: "Five coins and five tools—compact, comparable and current.",
+    partialDescription: "Only routes backed by current evidence are shown; additional routes appear after review is complete.",
     groupLabel: "Choose a discovery route type",
     coins: "Coins",
     tools: "Tools",
@@ -38,6 +43,7 @@ const copy = {
     updated: "Evidence updated",
     ready: "Ready",
     degraded: "Needs review",
+    available: "routes available",
     viewCoins: "All coins",
     viewTools: "All tools",
     educational: "Educational ranking; not financial advice.",
@@ -75,14 +81,23 @@ export function HomeDiscoveryStrip({
   const isFa = locale === "fa";
   const coins = radar?.coins.slice(0, 5) ?? [];
   const tools = radar?.tools.slice(0, 5) ?? [];
-  const itemsAvailable = coins.length === 5 && tools.length === 5;
+  const hasAnyItems = coins.length > 0 || tools.length > 0;
+  const isPartial = coins.length < 5 || tools.length < 5;
+  const activeMode: DiscoveryMode = mode === "coins" && coins.length > 0
+    ? "coins"
+    : mode === "tools" && tools.length > 0
+      ? "tools"
+      : coins.length > 0
+        ? "coins"
+        : "tools";
+  const activeItemCount = activeMode === "coins" ? coins.length : tools.length;
 
-  if (!itemsAvailable) return null;
+  if (!hasAnyItems) return null;
 
-  const listHref = mode === "coins"
+  const listHref = activeMode === "coins"
     ? isFa ? "/coins" : "/en/coins"
     : isFa ? "/trading-tools" : "/en/trading-tools";
-  const listLabel = mode === "coins" ? strings.viewCoins : strings.viewTools;
+  const listLabel = activeMode === "coins" ? strings.viewCoins : strings.viewTools;
   const Arrow = isFa ? ArrowLeft : ArrowRight;
 
   return (
@@ -102,10 +117,10 @@ export function HomeDiscoveryStrip({
               id={`home-discovery-title-${locale}`}
               className="mt-2 text-base font-black leading-6 text-[color:var(--tp-text)] sm:text-xl"
             >
-              {strings.title}
+              {isPartial ? strings.partialTitle : strings.title}
             </h2>
             <p className="mt-1 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)] sm:text-sm">
-              {strings.description}
+              {isPartial ? strings.partialDescription : strings.description}
             </p>
           </div>
 
@@ -115,15 +130,18 @@ export function HomeDiscoveryStrip({
             className="grid grid-cols-2 rounded-2xl border border-cyan-300/15 bg-slate-950/[0.035] p-1 dark:bg-white/[0.035] sm:w-[260px]"
           >
             {(["coins", "tools"] as const).map((value) => {
-              const selected = mode === value;
+              const selected = activeMode === value;
+              const available = value === "coins" ? coins.length > 0 : tools.length > 0;
               const Icon = value === "coins" ? Coins : Wrench;
               return (
                 <button
                   key={value}
                   type="button"
                   aria-pressed={selected}
+                  aria-disabled={!available}
+                  disabled={!available}
                   onClick={() => setMode(value)}
-                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-45 ${
                     selected
                       ? "bg-cyan-600 text-white shadow-sm dark:bg-cyan-500 dark:text-slate-950"
                       : "text-[color:var(--tp-muted)] hover:bg-cyan-500/10 hover:text-[color:var(--tp-text)]"
@@ -138,7 +156,7 @@ export function HomeDiscoveryStrip({
         </div>
 
         <div className="mt-3 grid grid-cols-5 gap-1.5 sm:mt-5 sm:gap-3" aria-live="polite">
-          {mode === "coins"
+          {activeMode === "coins"
             ? coins.map((coin, index) => {
                 const rank = index + 1;
                 const href = isFa ? `/coins/${coin.slug}` : `/en/coins/${coin.slug}`;
@@ -202,8 +220,9 @@ export function HomeDiscoveryStrip({
             <span>{strings.educational}</span>
             {radar?.evidence ? (
               <span className="inline-flex items-center gap-1">
-                <span className={`h-1.5 w-1.5 rounded-full ${radar.evidence.status === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} aria-hidden="true" />
-                {strings.updated}: {evidenceDate(radar.evidence.updatedAt, locale)} · {radar.evidence.status === "ready" ? strings.ready : strings.degraded}
+                <span className={`h-1.5 w-1.5 rounded-full ${!isPartial && radar.evidence.status === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} aria-hidden="true" />
+                {strings.updated}: {evidenceDate(radar.evidence.updatedAt, locale)} · {!isPartial && radar.evidence.status === "ready" ? strings.ready : strings.degraded}
+                {isPartial ? ` · ${rankLabel(activeItemCount, locale)}/${rankLabel(5, locale)} ${strings.available}` : null}
               </span>
             ) : null}
           </div>

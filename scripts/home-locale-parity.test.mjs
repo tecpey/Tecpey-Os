@@ -52,6 +52,17 @@ test("mobile discovery keeps five items visible without horizontal scrolling", a
   assert.match(strip, /sr-only/);
 });
 
+test("partial authority data preserves the mobile discovery surface", async () => {
+  const strip = await source(stripPath);
+
+  assert.match(strip, /const hasAnyItems = coins\.length > 0 \|\| tools\.length > 0/);
+  assert.match(strip, /if \(!hasAnyItems\) return null/);
+  assert.doesNotMatch(strip, /coins\.length === 5 && tools\.length === 5/);
+  assert.match(strip, /const activeMode: DiscoveryMode/);
+  assert.match(strip, /disabled=\{!available\}/);
+  assert.match(strip, /isPartial \? strings\.partialDescription : strings\.description/);
+});
+
 test("shared discovery owns localized routes and equivalent copy", async () => {
   const strip = await source(stripPath);
 
@@ -67,7 +78,9 @@ test("shared discovery owns localized routes and equivalent copy", async () => {
   for (const key of [
     "badge",
     "title",
+    "partialTitle",
     "description",
+    "partialDescription",
     "groupLabel",
     "coins",
     "tools",
@@ -76,6 +89,7 @@ test("shared discovery owns localized routes and equivalent copy", async () => {
     "updated",
     "ready",
     "degraded",
+    "available",
     "viewCoins",
     "viewTools",
     "educational",
