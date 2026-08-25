@@ -200,11 +200,11 @@ function Hero() {
               <LineChart className="h-5 w-5 text-[color:var(--tp-primary)]" />
             </Link>
           </div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs font-bold text-[color:var(--tp-muted)] lg:justify-start">
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-500"><CheckCircle2 className="h-4 w-4" />۷ ترم آموزشی</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-500"><ShieldCheck className="h-4 w-4" />۵۰+ پرونده رمزارز</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-500"><Clock3 className="h-4 w-4" />۲۰+ ابزار حرفه‌ای</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-[color:var(--tp-primary-soft)] px-3 py-2 text-[color:var(--tp-primary)]"><BookOpen className="h-4 w-4" />آموزش فارسی</span>
+          <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-[color:var(--tp-muted)] sm:text-xs lg:max-w-xl">
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-4 w-4 shrink-0" />۷ ترم پایه + رشد پیوسته</span>
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-400"><Clock3 className="h-4 w-4 shrink-0" />اخبار و ابزارهای مهم روز</span>
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-400"><ShieldCheck className="h-4 w-4 shrink-0" />پرونده تحلیلی رمزارزها</span>
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[color:var(--tp-primary-soft)] px-3 py-2 text-[color:var(--tp-primary)]"><BookOpen className="h-4 w-4 shrink-0" />شبیه‌ساز + مربی هوشمند</span>
           </div>
         </div>
         <DeviceFrame />
@@ -214,19 +214,41 @@ function Hero() {
 }
 function GlobalUxMetrics() {
   const metrics = [
-    { value: "۷", label: "ترم آموزشی", hint: "از صفر تا روانشناسی معامله", href: "/academy/curriculum" },
-    { value: "۵۰+", label: "پرونده رمزارز", hint: "با Market Data و تحلیل ریسک", href: "/coins" },
-    { value: "۲۰+", label: "ابزار حرفه‌ای", hint: "تحلیل، ریسک، آنچین و اقتصاد کلان", href: "/academy/tools" },
-    { value: "۱ مسیر", label: "ورود امن", hint: "یادگیری → تحلیل → تمرین → تصمیم", href: "/academy/safe-entry" },
+    {
+      label: "۷ ترم پایه + مسیر رشد پیوسته",
+      hint: "آموزش مرحله‌ای از مبانی پول و بلاکچین تا تحلیل، امنیت و مدیریت ریسک؛ همراه با ارزیابی و ادامه مسیر متناسب با عملکرد.",
+      href: "/academy/curriculum",
+      icon: GraduationCap,
+    },
+    {
+      label: "اخبار و ابزارهای مهم روز جهان",
+      hint: "رویدادهای اثرگذار بازار، داده‌های کلیدی و ابزارهای معتبر؛ همراه با منبع، زمان انتشار و توضیح اثر احتمالی.",
+      href: "/crypto-news",
+      icon: Clock3,
+    },
+    {
+      label: "پرونده‌های تحلیلی رمزارزها",
+      hint: "بررسی کاربرد، اقتصاد توکن، ریسک‌ها، داده‌های رسمی و رفتار بازار هر دارایی.",
+      href: "/coins",
+      icon: ShieldCheck,
+    },
+    {
+      label: "شبیه‌ساز بازار + بازخورد مربی هوشمند",
+      hint: "تمرین معامله بدون سرمایه واقعی و دریافت بازخورد درباره منطق تصمیم، مدیریت ریسک و خطاهای رفتاری.",
+      href: "/academy/trading-arena",
+      icon: LineChart,
+    },
   ];
   return (
     <section className="bg-[color:var(--tp-bg)] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item) => (
-          <Link key={item.label} href={item.href} className="group block rounded-[28px] border border-cyan-300/15 bg-white/80 p-5 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:bg-white/[0.055]">
-            <p className="text-3xl font-black text-[color:var(--tp-primary)]">{item.value}</p>
-            <p className="mt-2 text-sm font-black text-[color:var(--tp-text)]">{item.label}</p>
-            <p className="mt-1 text-xs font-bold leading-6 text-[color:var(--tp-muted)]">{item.hint}</p>
+          <Link key={item.label} href={item.href} className="group block rounded-[28px] border border-cyan-300/15 bg-white/80 p-5 text-right shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:bg-white/[0.055]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--tp-primary-soft)] text-[color:var(--tp-primary)]">
+              <item.icon className="h-5 w-5" />
+            </span>
+            <p className="mt-4 text-base font-black leading-7 text-[color:var(--tp-text)]">{item.label}</p>
+            <p className="mt-2 text-xs font-bold leading-7 text-[color:var(--tp-muted)]">{item.hint}</p>
             <span className="mt-3 inline-flex text-[11px] font-black text-cyan-300 opacity-0 transition group-hover:opacity-100">مشاهده مسیر</span>
           </Link>
         ))}

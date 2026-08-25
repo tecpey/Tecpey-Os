@@ -42,20 +42,43 @@ function resolveUsdPrice(coin: MarketCurrency, symbol: string) {
 
 function GlobalUxMetricsEn() {
   const metrics = [
-    { value: "7", label: "academy terms", hint: "from basics to trading psychology" },
-    { value: "50+", label: "crypto dossiers", hint: "with market data and risk context" },
-    { value: "20+", label: "trader tools", hint: "analysis, risk, on-chain and macro" },
-    { value: "1 path", label: "safer entry", hint: "learn → analyze → practice → decide" },
+    {
+      label: "7 foundation terms + a continuous growth path",
+      hint: "Step-by-step learning from money and blockchain fundamentals to analysis, security, and risk management—with assessments and adaptive next steps.",
+      href: "/en/academy/curriculum",
+      icon: GraduationCap,
+    },
+    {
+      label: "Important global news and tools",
+      hint: "Market-moving events, key data, and credible tools—with sources, publication time, and a clear explanation of possible impact.",
+      href: "/en/crypto-news",
+      icon: BookMarked,
+    },
+    {
+      label: "Crypto asset research dossiers",
+      hint: "Use cases, token economics, risks, official data, and market behaviour for each asset.",
+      href: "/en/coins",
+      icon: ShieldCheck,
+    },
+    {
+      label: "Market simulator + Learning Coach feedback",
+      hint: "Practice without real capital and receive feedback on decision logic, risk management, and behavioural mistakes.",
+      href: "/en/academy/trading-arena",
+      icon: LineChart,
+    },
   ];
   return (
     <section className="px-4 pb-10 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item) => (
-          <div key={item.label} className="rounded-[28px] border border-cyan-200 bg-white/80 p-5 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.055]">
-            <p className="text-3xl font-black text-cyan-700 dark:text-cyan-500">{item.value}</p>
-            <p className="mt-2 text-sm font-black text-slate-950 dark:text-white">{item.label}</p>
-            <p className="mt-1 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">{item.hint}</p>
-          </div>
+          <Link key={item.label} href={item.href} className="group block rounded-[28px] border border-cyan-200 bg-white/80 p-5 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:border-white/10 dark:bg-white/[0.055]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 dark:bg-cyan-300/10 dark:text-cyan-300">
+              <item.icon className="h-5 w-5" />
+            </span>
+            <p className="mt-4 text-base font-black leading-7 text-slate-950 dark:text-white">{item.label}</p>
+            <p className="mt-2 text-xs font-bold leading-7 text-slate-600 dark:text-slate-300">{item.hint}</p>
+            <span className="mt-3 inline-flex text-[11px] font-black text-cyan-600 opacity-0 transition group-hover:opacity-100 dark:text-cyan-300">Explore path</span>
+          </Link>
         ))}
       </div>
     </section>
@@ -528,6 +551,12 @@ export default function EnglishLandingClient({
                 </Link>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">For a confident start, the Academy is with you.</p>
               </div>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-slate-600 dark:text-slate-300 sm:text-xs lg:max-w-xl">
+              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />7 foundation terms + continuous growth</span>
+              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-300"><BookMarked className="h-4 w-4 shrink-0" />Important news and tools</span>
+              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-300"><ShieldCheck className="h-4 w-4 shrink-0" />Crypto research dossiers</span>
+              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-300"><LineChart className="h-4 w-4 shrink-0" />Simulator + Learning Coach</span>
             </div>
           </div>
 

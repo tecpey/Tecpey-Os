@@ -17,6 +17,13 @@ export type RawNewsQuizQuestion = {
   explanation?: unknown;
   difficulty?: unknown;
   conceptTag?: unknown;
+  source?: unknown;
+  learningObjective?: unknown;
+  optionRationales?: unknown;
+  mentorTakeaway?: unknown;
+  checklist?: unknown;
+  lessonHref?: unknown;
+  provenanceStatus?: unknown;
 };
 
 export type SafeNewsQuizQuestion = {
@@ -26,6 +33,16 @@ export type SafeNewsQuizQuestion = {
   correctAnswer: string;
   explanation: string;
   difficulty: "easy" | "medium" | "hard";
+  source: {
+    name: string;
+    url: string;
+    publishedAt: string;
+  };
+  learningObjective: string;
+  optionRationales: Record<string, string>;
+  mentorTakeaway: string;
+  checklist: string[];
+  lessonHref: string;
 };
 
 function asString(value: unknown): string {
@@ -49,7 +66,46 @@ export function toSafeNewsQuizQuestion(raw: RawNewsQuizQuestion): SafeNewsQuizQu
     : [];
   const correctAnswer = asString(raw.correctAnswer);
   const id = asString(raw.id).trim();
-  if (!question || options.length < 2 || !options.includes(correctAnswer)) return null;
+  const sourceRaw = raw.source && typeof raw.source === "object"
+    ? (raw.source as { name?: unknown; url?: unknown; publishedAt?: unknown })
+    : {};
+  const source = {
+    name: asString(sourceRaw.name).trim(),
+    url: asString(sourceRaw.url).trim(),
+    publishedAt: asString(sourceRaw.publishedAt).trim(),
+  };
+  const learningObjective = asString(raw.learningObjective).trim();
+  const mentorTakeaway = asString(raw.mentorTakeaway).trim();
+  const lessonHref = asString(raw.lessonHref).trim();
+  const checklist = Array.isArray(raw.checklist)
+    ? raw.checklist.map(asString).map((item) => item.trim()).filter(Boolean)
+    : [];
+  const rationalesRaw = raw.optionRationales && typeof raw.optionRationales === "object"
+    ? (raw.optionRationales as Record<string, unknown>)
+    : {};
+  const optionRationales = Object.fromEntries(
+    Object.entries(rationalesRaw)
+      .map(([key, value]) => [key, asString(value).trim()])
+      .filter(([, value]) => value.length > 0),
+  );
+  const completeSource = Boolean(
+    source.name &&
+      (source.url.startsWith("https://") || source.url.startsWith("/")) &&
+      Number.isFinite(Date.parse(source.publishedAt)),
+  );
+  const completeRationales = options.every((option) => Boolean(optionRationales[option]));
+  if (
+    !question ||
+    options.length < 2 ||
+    !options.includes(correctAnswer) ||
+    raw.provenanceStatus !== "complete" ||
+    !completeSource ||
+    !learningObjective ||
+    !mentorTakeaway ||
+    checklist.length === 0 ||
+    !lessonHref ||
+    !completeRationales
+  ) return null;
   const difficulty =
     raw.difficulty === "easy" || raw.difficulty === "hard" ? raw.difficulty : "medium";
   return {
@@ -59,6 +115,12 @@ export function toSafeNewsQuizQuestion(raw: RawNewsQuizQuestion): SafeNewsQuizQu
     correctAnswer,
     explanation: asString(raw.explanation),
     difficulty,
+    source,
+    learningObjective,
+    optionRationales,
+    mentorTakeaway,
+    checklist,
+    lessonHref,
   };
 }
 

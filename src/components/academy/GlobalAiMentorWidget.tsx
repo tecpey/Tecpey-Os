@@ -265,6 +265,7 @@ export function GlobalAiMentorWidget() {
     pathname.startsWith("/academy/") ||
     pathname === "/en/academy" ||
     pathname.startsWith("/en/academy/");
+  const isNewsQuiz = /\/(?:en\/)?academy\/news-quiz(?:\/|$)/.test(pathname);
   const [open, setOpen] = useState(false);
 
   // Server-driven mentor profile and insights (Phase 7).
@@ -551,18 +552,18 @@ export function GlobalAiMentorWidget() {
   const readiness = mentorLearningReadiness(profile, locale);
   const coachActions = mentorQuickActions(locale, pageContext.section, profile);
 
-  if (!academyChecked || !academyProfileReady) return null;
+  if (!academyChecked || !academyProfileReady || isNewsQuiz) return null;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex max-w-[42vw] items-center justify-center gap-1.5 rounded-2xl border border-cyan-300/40 bg-slate-950/95 px-3 py-2.5 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-cyan-950/95 sm:bottom-5 sm:left-5 sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:px-4 sm:py-3 sm:text-xs"
-        aria-label={isEn ? "Ask TecPey learning mentor" : "از مربی آموزشی تک‌پی بپرس"}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-cyan-950/95 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs"
+        aria-label={isEn ? "Ask TecPey Learning Coach" : "از مربی هوشمند تک‌پی بپرس"}
       >
         <MessageCircleQuestion className="h-5 w-5 shrink-0 text-cyan-300" />
-        <span className="truncate">{isEn ? "Ask mentor" : "از مربی بپرس"}</span>
+        <span className="sr-only sm:not-sr-only sm:truncate">{isEn ? "Learning Coach" : "مربی هوشمند تک‌پی"}</span>
       </button>
 
       {open ? (
@@ -577,7 +578,7 @@ export function GlobalAiMentorWidget() {
                   <Bot className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-black sm:text-sm">{isEn ? "TecPey Learning Mentor" : "مربی آموزشی تک‌پی"}</p>
+                  <p className="truncate text-xs font-black sm:text-sm">{isEn ? "TecPey Learning Coach" : "مربی هوشمند تک‌پی"}</p>
                   <p className="truncate text-[10px] font-bold text-cyan-100/80 sm:text-[11px]">
                     {isEn ? `With you on: ${pageContext.section}` : `همراه تو در: ${pageContext.section}`}
                   </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Cloud, CloudOff, RotateCw } from "lucide-react";
 import type { OfflineEventType, OfflineSyncResult } from "@/lib/offline-sync";
 
@@ -247,6 +248,8 @@ async function syncQueue() {
 }
 
 export function OfflineSyncManager() {
+  const pathname = usePathname() || "/";
+  const isNewsQuiz = /\/(?:en\/)?academy\/news-quiz(?:\/|$)/.test(pathname);
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
@@ -257,7 +260,7 @@ export function OfflineSyncManager() {
     if (queueWriteFailed) {
       return "حافظه آفلاین پر یا غیرقابل‌دسترسی است؛ این رویداد ثبت نشد";
     }
-    if (scopeRequired) return "برای ثبت آفلاین، ابتدا وارد حساب آکادمی شوید";
+    if (scopeRequired) return "برای ذخیره پیشرفت و ادامه در دستگاه‌های دیگر، وارد حساب آکادمی شوید.";
     if (!online) return "حالت آفلاین فعال است؛ داده‌ها بعداً همگام می‌شوند";
     if (syncing) return "در حال همگام‌سازی تمرین‌های ذخیره‌شده…";
     if (pending > 0) return `${pending} رویداد آماده همگام‌سازی`;
@@ -284,7 +287,7 @@ export function OfflineSyncManager() {
       setSyncing(true);
       try {
         const scope = await refreshPrincipalScope();
-        setScopeRequired(!scope);
+        setScopeRequired(!scope && readQueue().length > 0);
         await syncQueue();
       } finally {
         setSyncing(false);
@@ -318,6 +321,10 @@ export function OfflineSyncManager() {
   }, []);
 
   if (online && pending === 0 && !scopeRequired && !queueWriteFailed) return null;
+  // The quiz owns its sign-in guidance inline. Keeping a second fixed status
+  // chip here would cover answer choices on narrow screens. A storage failure
+  // remains global because it means the learner's action was not recorded.
+  if (isNewsQuiz && !queueWriteFailed) return null;
   return (
     <div
       className="fixed bottom-4 left-4 z-[70] max-w-[calc(100vw-2rem)] rounded-2xl border border-cyan-300/20 bg-slate-950/92 px-4 py-3 text-xs font-black text-white shadow-2xl shadow-cyan-500/10 backdrop-blur-xl"

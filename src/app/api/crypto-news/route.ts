@@ -311,9 +311,9 @@ export async function GET(request: NextRequest) {
     const locale = request.nextUrl.searchParams.get("locale") === "fa" ? "fa" : "en";
     const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 8);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 24) : 8;
-    // Opt-in: turn the same items into validated, risk-first quiz questions.
-    // The bank is built through the fail-closed integrity gate, so it never
-    // surfaces an unanswerable question or profit-promise copy.
+    // Opt-in: turn traceable live items into validated learning exercises.
+    // Editorial fallback cards remain available to the news surface, but they
+    // never masquerade as current sourced reports inside the quiz.
     const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
     const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
     const quizFor = (items: NewsItem[]) =>
@@ -336,7 +336,7 @@ export async function GET(request: NextRequest) {
         mode: unique.length ? "live" : "fallback" as const,
         marketIntelligence: marketIntelligence(locale, responseItems),
         items: responseItems,
-        ...quizFor(responseItems),
+        ...quizFor(unique),
         ...automationPayloadFor(responseItems, updatedAt),
       });
     } catch {
@@ -347,7 +347,7 @@ export async function GET(request: NextRequest) {
         mode: "fallback" as const,
         marketIntelligence: marketIntelligence(locale, fallback),
         items: fallback,
-        ...quizFor(fallback),
+        ...quizFor([]),
         ...automationPayloadFor(fallback, updatedAt),
       });
     }
