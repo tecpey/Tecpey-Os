@@ -185,6 +185,9 @@ jobs:
       - name: Public UI interaction foundation guard
         run: npm run ui:public:check
 
+      - name: Home locale parity tests
+        run: npm run test:home-locale-parity
+
       - name: Internal route integrity guard
         run: npm run routes:integrity:check
 
