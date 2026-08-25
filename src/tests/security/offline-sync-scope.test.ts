@@ -130,4 +130,23 @@ describe("Offline principal scope authority", () => {
     assert.match(client, /tecpey-offline-scope-required/);
     assert.equal(client.includes('return "";'), false);
   });
+
+  it("keeps actionable offline status visible on news quiz routes", async () => {
+    const client = await readFile(
+      "src/components/offline/OfflineSyncManager.tsx",
+      "utf8",
+    );
+    const idleGuard = client.indexOf(
+      "if (online && pending === 0 && !scopeRequired && !queueWriteFailed) return null;",
+    );
+    const statusSurface = client.indexOf('role="status"');
+
+    assert.ok(idleGuard >= 0, "the idle sync chip stays suppressed");
+    assert.ok(statusSurface > idleGuard, "actionable states reach the global status surface");
+    assert.equal(client.includes("isNewsQuiz"), false);
+    assert.equal(client.includes("usePathname"), false);
+    assert.match(client, /if \(!online\) return/);
+    assert.match(client, /if \(scopeRequired\) return/);
+    assert.match(client, /if \(pending > 0\) return/);
+  });
 });

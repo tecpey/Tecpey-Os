@@ -1,4 +1,4 @@
-import { afterEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { GET } from "../../app/api/crypto-news/route";
@@ -11,9 +11,16 @@ import { findInvalidQuizQuestions } from "../../lib/academy-quiz-authority";
 // fallback cards never masquerade as current news inside the quiz.
 
 const realFetch = globalThis.fetch;
+const TEST_NOW = Date.parse("2030-03-15T12:00:00.000Z");
+const LIVE_PUBLISHED_AT = new Date(TEST_NOW - 60 * 60 * 1000).toUTCString();
+
+beforeEach(() => {
+  mock.timers.enable({ apis: ["Date"], now: TEST_NOW });
+});
 
 afterEach(() => {
   globalThis.fetch = realFetch;
+  mock.timers.reset();
 });
 
 const liveFeedEn = `<?xml version="1.0" encoding="UTF-8"?>
@@ -21,7 +28,7 @@ const liveFeedEn = `<?xml version="1.0" encoding="UTF-8"?>
     <title>Spot ETF flows reshape Bitcoin liquidity</title>
     <description>Daily creations and redemptions changed available market liquidity.</description>
     <link>https://example.com/research/bitcoin-etf-flows</link>
-    <pubDate>Tue, 25 Aug 2026 08:00:00 GMT</pubDate>
+    <pubDate>${LIVE_PUBLISHED_AT}</pubDate>
   </item></channel></rss>`;
 
 const liveFeedFa = `<?xml version="1.0" encoding="UTF-8"?>
@@ -29,7 +36,7 @@ const liveFeedFa = `<?xml version="1.0" encoding="UTF-8"?>
     <title>جریان صندوق‌های بیت‌کوین بر نقدشوندگی بازار اثر گذاشت</title>
     <description>داده‌های روزانه صندوق‌ها برای ارزیابی اثر بازار منتشر شد.</description>
     <link>https://example.com/fa/research/bitcoin-etf-flows</link>
-    <pubDate>Tue, 25 Aug 2026 08:00:00 GMT</pubDate>
+    <pubDate>${LIVE_PUBLISHED_AT}</pubDate>
   </item></channel></rss>`;
 
 async function callRoute(
