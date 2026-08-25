@@ -4,10 +4,11 @@ import { NextRequest } from "next/server";
 import { GET } from "../../app/api/crypto-news/route";
 import { findInvalidQuizQuestions } from "../../lib/academy-quiz-authority";
 
-// The crypto-news route gained an opt-in `quiz=1` mode that turns the day's news
-// items into validated, risk-first quiz questions. These tests drive the real
-// route handler with the network disabled, so it uses its deterministic
-// fallback items — no live RSS, no flakiness.
+// The crypto-news route gained an opt-in `quiz=1` mode that turns traceable live
+// reports into validated, risk-first quiz questions. These tests drive the real
+// route handler with deterministic RSS fixtures: the positive path proves a
+// sourced report can become a question, while the offline path proves editorial
+// fallback cards never masquerade as current news inside the quiz.
 
 const realFetch = globalThis.fetch;
 
@@ -15,10 +16,34 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-async function callRoute(url: string): Promise<Record<string, unknown>> {
-  // Force every RSS fetch to fail so the route falls back to its static items.
-  globalThis.fetch = (async () => {
-    throw new Error("network disabled in test");
+const liveFeedEn = `<?xml version="1.0" encoding="UTF-8"?>
+  <rss><channel><item>
+    <title>Spot ETF flows reshape Bitcoin liquidity</title>
+    <description>Daily creations and redemptions changed available market liquidity.</description>
+    <link>https://example.com/research/bitcoin-etf-flows</link>
+    <pubDate>Tue, 25 Aug 2026 08:00:00 GMT</pubDate>
+  </item></channel></rss>`;
+
+const liveFeedFa = `<?xml version="1.0" encoding="UTF-8"?>
+  <rss><channel><item>
+    <title>جریان صندوق‌های بیت‌کوین بر نقدشوندگی بازار اثر گذاشت</title>
+    <description>داده‌های روزانه صندوق‌ها برای ارزیابی اثر بازار منتشر شد.</description>
+    <link>https://example.com/fa/research/bitcoin-etf-flows</link>
+    <pubDate>Tue, 25 Aug 2026 08:00:00 GMT</pubDate>
+  </item></channel></rss>`;
+
+async function callRoute(
+  url: string,
+  mode: "live" | "offline" = "live",
+): Promise<Record<string, unknown>> {
+  globalThis.fetch = (async (input) => {
+    if (mode === "offline") throw new Error("network disabled in test");
+    const requestUrl = input instanceof Request ? input.url : String(input);
+    const body = requestUrl.includes("arzdigital.com") ? liveFeedFa : liveFeedEn;
+    return new Response(body, {
+      status: 200,
+      headers: { "content-type": "application/rss+xml; charset=utf-8" },
+    });
   }) as typeof fetch;
   const response = await GET(new NextRequest(url));
   return (await response.json()) as Record<string, unknown>;
@@ -49,5 +74,15 @@ describe("crypto-news route quiz mode", () => {
     const quiz = body.newsQuiz as Array<{ question: string }>;
     assert.ok(Array.isArray(quiz) && quiz.length > 0);
     assert.match(quiz[0].question, /[؀-ۿ]/, "the Persian quiz prompt must contain Persian text");
+  });
+
+  it("does not turn editorial fallback cards into current-news questions", async () => {
+    const body = await callRoute(
+      "http://localhost/api/crypto-news?locale=en&quiz=1",
+      "offline",
+    );
+    assert.equal(body.mode, "fallback");
+    assert.deepEqual(body.newsQuiz, []);
+    assert.ok(Array.isArray(body.items) && body.items.length > 0, "fallback news cards remain available");
   });
 });
