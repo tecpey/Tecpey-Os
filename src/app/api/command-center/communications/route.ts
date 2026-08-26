@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited, Validate } from "@/lib/api-validation";
 import { authorizeAdminRequest } from "@/lib/admin-control-plane";
+import { withTx } from "@/lib/db";
 import {
   COMMUNICATION_PROVIDER_IDS,
   loadCommunicationProviderSnapshots,
@@ -15,6 +16,13 @@ import { sendEmailWithManagedProvider } from "@/lib/email";
 import { withObservability } from "@/lib/observe";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import {
+  claimApiCommandTx,
+  completeApiCommandTx,
+  hashApiCommand,
+  parseApiIdempotencyKey,
+  type ApiCommandScope,
+} from "@/lib/security/api-command-idempotency";
 import {
   getLimooCurrentCredit,
   getLimooMessageStatus,
@@ -38,6 +46,18 @@ const LIMOO_ACTIONS = [
   "limoo_status",
   "limoo_received",
 ] as const;
+const LIMOO_SEND_ACTIONS = [
+  "limoo_send_sms",
+  "limoo_send_peer",
+  "limoo_send_pattern",
+] as const;
+type LimooSendAction = typeof LIMOO_SEND_ACTIONS[number];
+type LimooCommandReceipt = {
+  providerId: "limoo_sms";
+  action: LimooSendAction;
+  result: unknown;
+};
+
 function providerId(value: unknown): CommunicationProviderId | null {
   return COMMUNICATION_PROVIDER_IDS.includes(value as CommunicationProviderId)
     ? value as CommunicationProviderId
@@ -92,7 +112,9 @@ function stringList(value: unknown, maxItems: number, maxLength: number): string
   if (source.length < 1 || source.length > maxItems) return null;
   const output: string[] = [];
   for (const item of source) {
-    const text = Validate.text(item, 1, maxLength);
+    const raw = String(item ?? "").trim();
+    if (raw.length < 1 || raw.length > maxLength) return null;
+    const text = Validate.text(raw, 1, maxLength);
     if (!text) return null;
     output.push(text);
   }
@@ -118,6 +140,55 @@ function senderNumber(value: unknown): string | null {
 
 function limooDependencies(tenantId: string, workspaceId: string) {
   return { tenantId, workspaceId };
+}
+
+type AuthorizedAdmin = Awaited<ReturnType<typeof authorizeAdminRequest>> & { ok: true };
+
+async function claimLimooSendCommand(
+  request: NextRequest,
+  authorization: AuthorizedAdmin,
+  value: Record<string, unknown>,
+  action: LimooSendAction,
+  canonicalPayload: Record<string, unknown>,
+): Promise<
+  | { scope: ApiCommandScope; response?: never }
+  | { scope?: never; response: ReturnType<typeof apiError> }
+> {
+  const idempotencyKey = parseApiIdempotencyKey(
+    request.headers.get("Idempotency-Key"),
+    value.idempotencyKey,
+  );
+  if (!idempotencyKey) {
+    return { response: apiError("idempotency_key_required", 400) };
+  }
+  const scope: ApiCommandScope = {
+    tenantId: authorization.principal.tenantId,
+    principalType: "admin",
+    principalId: authorization.principal.adminId,
+    operation: `communications.${action}`,
+    idempotencyKey,
+    requestHash: hashApiCommand(canonicalPayload),
+  };
+  try {
+    const claimed = await withTx((client) =>
+      claimApiCommandTx<LimooCommandReceipt>(client, scope)
+    );
+    if (!claimed.enabled) {
+      return { response: apiError("communication_provider_receipt_unavailable", 503) };
+    }
+    if (claimed.value.status === "conflict") {
+      return { response: apiError("idempotency_conflict", 409) };
+    }
+    if (claimed.value.status === "in_progress") {
+      return { response: apiError("idempotency_in_progress", 409) };
+    }
+    if (claimed.value.status === "replayed") {
+      return { response: apiOk(claimed.value.response, claimed.value.httpStatus) };
+    }
+    return { scope };
+  } catch {
+    return { response: apiError("communication_provider_receipt_unavailable", 503) };
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -286,6 +357,7 @@ export async function POST(request: NextRequest) {
     );
     let result: LimooOperationResult;
     let metadata: Record<string, string | number | boolean> = {};
+    let receiptScope: ApiCommandScope | null = null;
 
     if (action === "limoo_credit") {
       result = await getLimooCurrentCredit(dependencies);
@@ -294,13 +366,17 @@ export async function POST(request: NextRequest) {
       const message = safeMessage(value.message);
       const recipients = iranianMobiles(value.mobileNumbers);
       if (!sender || !message || !recipients) return apiError("invalid_limoo_sms_request", 400);
-      metadata = { recipientCount: recipients.length };
-      result = await sendLimooSms({
+      const command = {
         senderNumber: sender,
         message,
         mobileNumbers: recipients,
         sendToBlockedNumbers: value.sendToBlockedNumbers === true,
-      }, dependencies);
+      };
+      const claimed = await claimLimooSendCommand(request, authorization, value, action, command);
+      if (claimed.response) return claimed.response;
+      receiptScope = claimed.scope;
+      metadata = { recipientCount: recipients.length };
+      result = await sendLimooSms(command, dependencies);
     } else if (action === "limoo_send_peer") {
       const sender = senderNumber(value.senderNumber);
       const messagesRaw = Array.isArray(value.messages)
@@ -315,13 +391,17 @@ export async function POST(request: NextRequest) {
       if (!sender || !recipients || messages.length !== recipients.length || messages.length < 1) {
         return apiError("invalid_limoo_peer_request", 400);
       }
-      metadata = { recipientCount: recipients.length, messageCount: messages.length };
-      result = await sendLimooPeerToPeerSms({
+      const command = {
         senderNumber: sender,
         messages,
         mobileNumbers: recipients,
         sendToBlockedNumbers: value.sendToBlockedNumbers === true,
-      }, dependencies);
+      };
+      const claimed = await claimLimooSendCommand(request, authorization, value, action, command);
+      if (claimed.response) return claimed.response;
+      receiptScope = claimed.scope;
+      metadata = { recipientCount: recipients.length, messageCount: messages.length };
+      result = await sendLimooPeerToPeerSms(command, dependencies);
     } else if (action === "limoo_send_pattern") {
       const patternId = Validate.int(value.patternId, 1, Number.MAX_SAFE_INTEGER);
       const replacements = stringList(value.replaceTokens, 10, 128);
@@ -329,12 +409,16 @@ export async function POST(request: NextRequest) {
       if (!patternId || !replacements || !recipients?.[0]) {
         return apiError("invalid_limoo_pattern_request", 400);
       }
-      metadata = { recipientCount: 1, tokenCount: replacements.length, patternId };
-      result = await sendLimooPatternMessage({
+      const command = {
         patternId,
         replaceTokens: replacements,
         mobileNumber: recipients[0],
-      }, dependencies);
+      };
+      const claimed = await claimLimooSendCommand(request, authorization, value, action, command);
+      if (claimed.response) return claimed.response;
+      receiptScope = claimed.scope;
+      metadata = { recipientCount: 1, tokenCount: replacements.length, patternId };
+      result = await sendLimooPatternMessage(command, dependencies);
     } else if (action === "limoo_status") {
       const messageIds = stringList(value.messageIds, 100, 128);
       if (!messageIds) return apiError("invalid_limoo_status_request", 400);
@@ -362,8 +446,29 @@ export async function POST(request: NextRequest) {
       ...auditContext(request),
     });
     if (!operationRecorded) return apiError("communication_provider_audit_unavailable", 503);
-    return result.ok
-      ? apiOk({ providerId: "limoo_sms", action, result: result.data })
-      : apiError("limoo_operation_failed", 502, { reason: result.reason });
+    if (!result.ok) return apiError("limoo_operation_failed", 502, { reason: result.reason });
+
+    const responsePayload: LimooCommandReceipt = {
+      providerId: "limoo_sms",
+      action,
+      result: result.data,
+    };
+    if (receiptScope) {
+      try {
+        const completed = await withTx(async (client) => {
+          await completeApiCommandTx(client, receiptScope as ApiCommandScope, {
+            httpStatus: 200,
+            response: responsePayload,
+          });
+          return true;
+        });
+        if (!completed.enabled) {
+          return apiError("communication_provider_receipt_unavailable", 503);
+        }
+      } catch {
+        return apiError("communication_provider_receipt_unavailable", 503);
+      }
+    }
+    return apiOk(responsePayload);
   });
 }
