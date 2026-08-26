@@ -647,7 +647,7 @@
           "contentTypeCheck": false,
           "inputParser": "local:bounded-json-helper",
           "idempotency": false,
-          "transaction": false,
+          "transaction": true,
           "verifiedPrincipal": true,
           "tenantFromVerifiedContext": true,
           "noStore": true,
