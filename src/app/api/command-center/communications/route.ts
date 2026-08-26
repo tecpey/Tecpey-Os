@@ -33,6 +33,8 @@ import {
   sendLimooVerificationCode,
   type LimooOperationResult,
 } from "@/lib/security/limoo-sms";
+import { normalizeLimooPatternId } from "@/lib/security/limoo-pattern-id";
+import { generatePhoneOtpCode } from "@/lib/security/phone-otp-code";
 import { normalizeIranianMobile, providerMobileFromE164 } from "@/lib/security/phone-identity";
 
 export const runtime = "nodejs";
@@ -70,12 +72,14 @@ function optionalText(value: unknown, max: number): string | undefined | null {
 function normalizeSettings(
   provider: CommunicationProviderId,
   value: unknown,
+  enabled: boolean | null,
 ): CommunicationProviderSettings | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
   if (provider === "limoo_sms") {
-    const otpFooter = Validate.text(raw.otpFooter, 2, 90);
-    return otpFooter ? { otpFooter } : null;
+    if (String(raw.otpPatternId ?? "").trim() === "" && enabled === false) return {};
+    const otpPatternId = normalizeLimooPatternId(raw.otpPatternId);
+    return otpPatternId ? { otpPatternId } : null;
   }
   const fromEmail = Validate.email(raw.fromEmail);
   const fromName = Validate.text(raw.fromName, 2, 100);
@@ -231,7 +235,7 @@ export async function PUT(request: NextRequest) {
     };
     const id = providerId(value.providerId);
     const enabled = typeof value.enabled === "boolean" ? value.enabled : null;
-    const settings = id ? normalizeSettings(id, value.settings) : null;
+    const settings = id ? normalizeSettings(id, value.settings, enabled) : null;
     const apiKey = value.apiKey === undefined || value.apiKey === ""
       ? undefined
       : typeof value.apiKey === "string" && value.apiKey.trim().length >= 8 && value.apiKey.trim().length <= 2_048
@@ -269,10 +273,14 @@ async function testProvider(
     if (id === "limoo_sms") {
       const phone = normalizeIranianMobile(value.testPhone);
       if (!phone) return null;
-      passed = (await sendLimooVerificationCode(providerMobileFromE164(phone), limooDependencies(
-        authorization.principal.tenantId,
-        authorization.principal.workspaceId,
-      ))).ok;
+      passed = (await sendLimooVerificationCode(
+        providerMobileFromE164(phone),
+        generatePhoneOtpCode(),
+        limooDependencies(
+          authorization.principal.tenantId,
+          authorization.principal.workspaceId,
+        ),
+      )).ok;
     } else {
       const result = await sendEmailWithManagedProvider(
         id,
@@ -401,7 +409,7 @@ export async function POST(request: NextRequest) {
       metadata = { recipientCount: recipients.length, messageCount: messages.length };
       result = await sendLimooPeerToPeerSms(command, dependencies);
     } else if (action === "limoo_send_pattern") {
-      const patternId = Validate.int(value.patternId, 1, Number.MAX_SAFE_INTEGER);
+      const patternId = normalizeLimooPatternId(value.patternId);
       const replacements = stringList(value.replaceTokens, 10, 128);
       const recipients = iranianMobiles([value.mobileNumber]);
       if (!patternId || !replacements || !recipients?.[0]) {

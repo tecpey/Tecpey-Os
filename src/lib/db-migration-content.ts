@@ -89,6 +89,7 @@ import { NOTIFICATION_SUPPRESS_DECISION_SQL } from "./db-migrate-notification-su
 import { PHONE_IDENTITY_OTP_SQL } from "./db-migrate-phone-identity-otp";
 import { COMMUNICATION_PROVIDER_CONFIG_SQL } from "./db-migrate-communication-provider-config";
 import { ADMIN_PASSWORD_TOTP_SQL } from "./db-migrate-admin-password-totp";
+import { PHONE_OTP_LOCAL_VERIFIER_SQL } from "./db-migrate-phone-otp-local-verifier";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -381,5 +382,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   adminPasswordTotp: one(
     "0089_admin_password_totp.sql",
     ADMIN_PASSWORD_TOTP_SQL,
+  ),
+  phoneOtpLocalVerifier: one(
+    "0090_phone_otp_local_verifier.sql",
+    PHONE_OTP_LOCAL_VERIFIER_SQL,
   ),
 });

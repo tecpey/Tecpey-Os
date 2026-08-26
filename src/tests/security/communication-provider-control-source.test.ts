@@ -78,8 +78,15 @@ describe("communication provider admin boundary", () => {
     assert.match(store, /revision: row \? Number\(row\.revision\) : 0/);
   });
 
-  it("applies the admin-managed SMS footer and email template at delivery time", () => {
-    assert.match(sms, /managed\.config\.settings\.otpFooter/);
+  it("applies the admin-managed SMS Pattern ID and email template at delivery time", () => {
+    assert.match(sms, /managed\.config\.settings\.otpPatternId/);
+    assert.match(sms, /sendpatternmessage/);
+    assert.match(sms, /ReplaceToken: \[code\]/);
+    assert.doesNotMatch(sms, /sendcode|checkcode|otpFooter/);
+    assert.match(client, /Pattern ID لیمو/);
+    assert.match(route, /generatePhoneOtpCode/);
+    assert.match(route, /normalizeLimooPatternId/);
+    assert.match(route, /enabled === false\) return \{\}/);
     assert.match(email, /managed\?\.settings\.defaultTemplateId/);
     assert.match(email, /dynamic_template_data: message\.templateVariables/);
     assert.match(email, /template: \{ id: templateId, variables: message\.templateVariables/);
@@ -87,6 +94,9 @@ describe("communication provider admin boundary", () => {
 
   it("serializes rotations and makes an admin disable override environment fallback", () => {
     assert.match(store, /pg_advisory_xact_lock\(hashtextextended\(\$1, 0\)\)/);
+    assert.match(store, /last_test_status = NULL,\s+last_tested_at = NULL/);
+    assert.match(client, /communication_provider_test_failed"\) await load\(\)/);
+    assert.match(client, /provider\.lastTestStatus === "passed"/);
     assert.match(email, /managedFallback\.status === "disabled"/);
     assert.match(health, /isEmailRuntimeConfigured\(\)/);
   });

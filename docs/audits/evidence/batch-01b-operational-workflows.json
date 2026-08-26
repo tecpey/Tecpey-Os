@@ -101,13 +101,13 @@
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "41f8a80ddc1ceca5ad4bc241c84c1ac94db94442",
-      "sha256": "ee0d7100a252b20116570d962d37ab72064ef9a5378d7f2c6673a759eede5284",
-      "lines": 174,
+      "gitObjectId": "bf75913d70bd11ea63667f61553b7e413f2ba605",
+      "sha256": "e2327397b91b1741eb553140555fbc2ed61502e1a20976a59a5c359af93886d8",
+      "lines": 175,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 174
+          "endLine": 175
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -116,7 +116,8 @@
         "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path.",
         "2026-08-15: re-reviewed after adding the qa:academy-arena-mentor-a11y:check step before the production environment contract. The guard is a local read-only evidence harness check for the Academy/Arena/Mentor accessibility surfaces; workflow permissions, exact-head verification, browser execution, failure evidence upload and production activation boundaries are unchanged.",
         "2026-08-21: re-reviewed after adding explicit low-entropy synthetic EMAIL_PROVIDER=resend and RESEND_API_KEY fixtures to the production environment contract. The values are non-secret test fixtures used only to exercise the fail-closed email readiness validator; unconditional triggers, read-only permissions, exact-head checkout, pinned actions, browser execution and bounded evidence upload remain unchanged.",
-        "2026-08-25: re-reviewed after adding synthetic GitHub Actions-only values for the administrator session, TOTP, bootstrap, phone identity, phone OTP encryption, communication-provider encryption and Limoo SMS environment contract. Job-scoped expressions and deterministic non-secret base64 fixtures satisfy production validation without granting provider or deployment authority; exact-head binding, build, database, browser scenarios and artifact handling are unchanged."
+        "2026-08-25: re-reviewed after adding synthetic GitHub Actions-only values for the administrator session, TOTP, bootstrap, phone identity, phone OTP encryption, communication-provider encryption and Limoo SMS environment contract. Job-scoped expressions and deterministic non-secret base64 fixtures satisfy production validation without granting provider or deployment authority; exact-head binding, build, database, browser scenarios and artifact handling are unchanged.",
+        "2026-08-26: re-reviewed after adding the non-secret numeric LIMOO_SMS_PATTERN_ID fixture required by the Pattern OTP environment contract. The value is job-scoped test configuration only; pull-request and main triggers, read-only permissions, exact-head checkout, production build, browser scenarios, failure evidence and deployment boundaries are unchanged."
       ],
       "findings": [
         {

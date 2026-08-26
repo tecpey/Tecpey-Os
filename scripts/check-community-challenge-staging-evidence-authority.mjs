@@ -52,6 +52,7 @@ for (const invariant of [
   "TECPEY_STAGING_RUN_USER",
   "TECPEY_STAGING_RUN_GROUP",
   "Configure governed alert CA trust",
+  "parseSystemdEnvironmentFile",
   "NODE_EXTRA_CA_CERTS",
   "new X509Certificate",
   "GITHUB_ENV",
@@ -182,6 +183,7 @@ for (const invariant of [
   'createHash("sha256")',
   "JSON.stringify(evidence",
   "path.basename(outputFile)",
+  "parseSystemdEnvironmentFile",
 ]) {
   requireText("collectCli", invariant, `collector executable is missing ${invariant}`);
 }

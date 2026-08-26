@@ -63,7 +63,10 @@ export async function POST(request: NextRequest) {
     }
     if (challenge.status === "unavailable") return apiError("phone_otp_authority_unavailable", 503);
 
-    const provider = await sendLimooVerificationCode(providerMobileFromE164(phoneE164));
+    const provider = await sendLimooVerificationCode(
+      providerMobileFromE164(phoneE164),
+      challenge.code,
+    );
     const sendRecorded = await finalizePhoneOtpSend({
       challengeId: challenge.challengeId,
       sent: provider.ok,

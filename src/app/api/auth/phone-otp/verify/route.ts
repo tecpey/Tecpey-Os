@@ -4,12 +4,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
-import { providerMobileFromE164 } from "@/lib/security/phone-identity";
-import {
-  claimPhoneOtpVerification,
-  completePhoneOtpVerification,
-} from "@/lib/security/phone-otp-authority";
-import { checkLimooVerificationCode } from "@/lib/security/limoo-sms";
+import { verifyPhoneOtpChallenge } from "@/lib/security/phone-otp-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +19,7 @@ export async function POST(request: NextRequest) {
     const challengeId = Validate.uuid(value.challengeId);
     const code = String(value.code ?? "").trim();
     if (!challengeId) return apiError("invalid_otp_challenge", 400);
-    if (!/^\d{4,8}$/.test(code)) return apiError("invalid_otp_code", 400);
+    if (!/^\d{6}$/.test(code)) return apiError("invalid_otp_code", 400);
 
     const limit = await rateLimit(request, {
       namespace: "phone-otp-verify",
@@ -34,39 +29,18 @@ export async function POST(request: NextRequest) {
     });
     if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-    const claim = await claimPhoneOtpVerification(challengeId);
-    if (claim.status !== "claimed") {
+    const verification = await verifyPhoneOtpChallenge({ challengeId, code });
+    if (verification.status !== "verified") {
       const map: Record<string, [string, number]> = {
+        invalid_code: ["invalid_otp_code", 401],
         expired: ["otp_challenge_expired", 410],
         attempts_exhausted: ["otp_attempts_exhausted", 429],
         unavailable: ["phone_otp_authority_unavailable", 503],
       };
-      const [error, status] = map[claim.status] ?? ["invalid_otp_challenge", 409];
+      const [error, status] = map[verification.status] ?? ["invalid_otp_challenge", 409];
       return apiError(error, status);
     }
 
-    const provider = await checkLimooVerificationCode(
-      providerMobileFromE164(claim.phoneE164),
-      code,
-    );
-    const retryableProviderFailure = !provider.ok && ["disabled", "timeout", "network_error"].includes(provider.reason);
-    const completion = await completePhoneOtpVerification({
-      challengeId,
-      verified: provider.ok,
-      retryableProviderFailure,
-      failureReason: provider.ok ? undefined : provider.reason,
-    });
-    if (completion === "unavailable") return apiError("phone_otp_authority_unavailable", 503);
-    if (!provider.ok) {
-      const providerError = provider.reason === "disabled"
-        ? "limoo_sms_not_configured"
-        : retryableProviderFailure
-          ? "otp_verification_unavailable"
-          : "invalid_otp_code";
-      return apiError(providerError, retryableProviderFailure ? 503 : 401);
-    }
-    if (completion !== "verified") return apiError("invalid_otp_challenge", 409);
-
-    return apiOk({ verified: true, challengeId, purpose: claim.purpose });
+    return apiOk({ verified: true, challengeId, purpose: verification.purpose });
   });
 }

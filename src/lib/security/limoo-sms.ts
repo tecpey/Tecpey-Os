@@ -2,10 +2,9 @@ import {
   resolveRuntimeCommunicationProvider,
   type RuntimeProviderResolution,
 } from "@/lib/communication-provider-store";
+import { normalizeLimooPatternId } from "@/lib/security/limoo-pattern-id";
 
 type LimooEndpoint =
-  | "sendcode"
-  | "checkcode"
   | "sendsms"
   | "sendpeertopeersms"
   | "sendpatternmessage"
@@ -53,6 +52,11 @@ type Dependencies = {
 
 const BLOCKED_RESPONSE_KEYS = /(?:api.?key|authorization|token|secret|password|credential)/i;
 
+function mayUseEnvironmentFallback(resolved: RuntimeProviderResolution): boolean {
+  return resolved.status === "unconfigured" ||
+    (resolved.status === "unavailable" && process.env.NODE_ENV !== "production");
+}
+
 function sanitizeProviderPayload(
   value: unknown,
   depth = 0,
@@ -87,9 +91,9 @@ async function callLimoo(
   const managed = resolved ?? await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
   const apiKey = managed.status === "configured"
     ? managed.config.apiKey
-    : managed.status === "disabled"
-      ? ""
-      : process.env.LIMOO_SMS_API_KEY?.trim() ?? "";
+    : mayUseEnvironmentFallback(managed)
+      ? process.env.LIMOO_SMS_API_KEY?.trim() ?? ""
+      : "";
   if (!apiKey) return { ok: false, reason: "disabled" };
 
   const controller = new AbortController();
@@ -143,26 +147,26 @@ function otpResult(result: LimooOperationResult): LimooSmsResult {
 
 export function sendLimooVerificationCode(
   mobile: string,
+  code: string,
   dependencies?: Dependencies,
 ): Promise<LimooSmsResult> {
   return (async () => {
     const managed = await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
-    const footer = managed.status === "configured"
-      ? managed.config.settings.otpFooter
-      : undefined;
-    return otpResult(await callLimoo("sendcode", {
-      Mobile: mobile,
-      Footer: footer?.trim() || process.env.LIMOO_SMS_OTP_FOOTER?.trim() || "تک‌پی؛ کد ورود شما",
+    const configuredPatternId = normalizeLimooPatternId(managed.status === "configured"
+      ? managed.config.settings.otpPatternId
+      : mayUseEnvironmentFallback(managed)
+        ? process.env.LIMOO_SMS_PATTERN_ID
+        : undefined);
+    if (!configuredPatternId) {
+      return { ok: false, reason: "disabled" };
+    }
+    if (!/^\d{6}$/.test(code)) return { ok: false, reason: "invalid_response" };
+    return otpResult(await callLimoo("sendpatternmessage", {
+      OtpId: configuredPatternId,
+      ReplaceToken: [code],
+      MobileNumber: mobile,
     }, dependencies, managed));
   })();
-}
-
-export async function checkLimooVerificationCode(
-  mobile: string,
-  code: string,
-  dependencies?: Dependencies,
-): Promise<LimooSmsResult> {
-  return otpResult(await callLimoo("checkcode", { Mobile: mobile, Code: code }, dependencies));
 }
 
 export function sendLimooSms(input: {
@@ -193,13 +197,15 @@ export function sendLimooPeerToPeerSms(input: {
   }, dependencies);
 }
 
-export function sendLimooPatternMessage(input: {
-  patternId: number;
+export async function sendLimooPatternMessage(input: {
+  patternId: string | number;
   replaceTokens: string[];
   mobileNumber: string;
 }, dependencies?: Dependencies): Promise<LimooOperationResult> {
+  const patternId = normalizeLimooPatternId(input.patternId);
+  if (!patternId) return { ok: false, reason: "invalid_response" };
   return callLimoo("sendpatternmessage", {
-    OtpId: input.patternId,
+    OtpId: patternId,
     ReplaceToken: input.replaceTokens,
     MobileNumber: input.mobileNumber,
   }, dependencies);

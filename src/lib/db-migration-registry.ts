@@ -79,6 +79,7 @@ import { runNotificationSuppressDecisionMigrations } from "./db-migrate-notifica
 import { runPhoneIdentityOtpMigrations } from "./db-migrate-phone-identity-otp";
 import { runCommunicationProviderConfigMigrations } from "./db-migrate-communication-provider-config";
 import { runAdminPasswordTotpMigrations } from "./db-migrate-admin-password-totp";
+import { runPhoneOtpLocalVerifierMigrations } from "./db-migrate-phone-otp-local-verifier";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -195,6 +196,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(72, "migration-step-072", CANONICAL_MIGRATION_CONTENT.phoneIdentityOtp, "security-platform", "authentication", runPhoneIdentityOtpMigrations),
   entry(73, "migration-step-073", CANONICAL_MIGRATION_CONTENT.communicationProviderConfig, "platform-security", "communications", runCommunicationProviderConfigMigrations),
   entry(74, "migration-step-074", CANONICAL_MIGRATION_CONTENT.adminPasswordTotp, "platform-security", "admin-authentication", runAdminPasswordTotpMigrations),
+  entry(75, "migration-step-075", CANONICAL_MIGRATION_CONTENT.phoneOtpLocalVerifier, "security-platform", "authentication", runPhoneOtpLocalVerifierMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

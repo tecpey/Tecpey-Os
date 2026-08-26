@@ -1024,6 +1024,7 @@ test("production template fails unchanged and passes after complete governed rep
     TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: Buffer.alloc(32, 9).toString("base64"),
     TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: Buffer.alloc(32, 10).toString("base64"),
     LIMOO_SMS_API_KEY: "limoo-test-api-key",
+    LIMOO_SMS_PATTERN_ID: "42",
     DATABASE_URL: "postgresql://tecpey:test-password@postgres:5432/tecpey",
     REDIS_URL: "redis://:test-password@redis:6379",
     UPSTASH_REDIS_REST_URL: "https://rate-limit-redis.example.invalid",

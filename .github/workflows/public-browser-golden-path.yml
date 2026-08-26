@@ -66,6 +66,7 @@ jobs:
       TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: ${{ 'CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=' }}
       TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: ${{ 'CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=' }}
       LIMOO_SMS_API_KEY: ${{ format('e2e-limoo-sms-fixture-{0}', github.run_id) }}
+      LIMOO_SMS_PATTERN_ID: "42"
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
       TECPEY_TRUSTED_PROXY_HOPS: "1"
       DATABASE_URL: postgresql://e2e:e2e@127.0.0.1:5432/e2e

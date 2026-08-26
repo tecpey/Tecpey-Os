@@ -7,12 +7,13 @@ import {
   encryptCommunicationProviderSecret,
   providerSecretFingerprint,
 } from "./security/communication-provider-secret";
+import { normalizeLimooPatternId } from "./security/limoo-pattern-id";
 
 export const COMMUNICATION_PROVIDER_IDS = ["limoo_sms", "resend", "sendgrid"] as const;
 export type CommunicationProviderId = typeof COMMUNICATION_PROVIDER_IDS[number];
 
 export type CommunicationProviderSettings = {
-  otpFooter?: string;
+  otpPatternId?: string;
   fromName?: string;
   fromEmail?: string;
   replyTo?: string;
@@ -65,7 +66,9 @@ function cleanSettings(value: unknown): CommunicationProviderSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;
   const output: CommunicationProviderSettings = {};
-  for (const key of ["otpFooter", "fromName", "fromEmail", "replyTo", "defaultTemplateId"] as const) {
+  const otpPatternId = normalizeLimooPatternId(source.otpPatternId);
+  if (otpPatternId) output.otpPatternId = otpPatternId;
+  for (const key of ["fromName", "fromEmail", "replyTo", "defaultTemplateId"] as const) {
     if (typeof source[key] === "string") output[key] = source[key].slice(0, 320);
   }
   return output;
@@ -227,6 +230,8 @@ export async function updateCommunicationProvider(
            settings = EXCLUDED.settings,
            revision = EXCLUDED.revision,
            rotated_at = EXCLUDED.rotated_at,
+           last_test_status = NULL,
+           last_tested_at = NULL,
            updated_by = EXCLUDED.updated_by,
            updated_at = NOW()
          RETURNING provider_id, enabled, encrypted_api_key, api_key_fingerprint,

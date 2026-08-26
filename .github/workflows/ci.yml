@@ -95,6 +95,7 @@ jobs:
       TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: ${{ 'CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=' }}
       TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: ${{ 'CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=' }}
       LIMOO_SMS_API_KEY: ${{ format('ci-limoo-sms-fixture-{0}', github.run_id) }}
+      LIMOO_SMS_PATTERN_ID: "42"
       TECPEY_CRM_WEBHOOK_SECRET: ci-placeholder-crm-webhook-secret-32-min
       ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
