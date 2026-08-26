@@ -2,9 +2,9 @@
 
 - **Status:** active candidate identity ledger, not Go approval
 - **Decision:** NO-GO until accepted current-candidate operational evidence is attached
-- **Current candidate SHA:** `4bc251725ce574d87258b52773e4a52ff3367252`
-- **Candidate source:** `main` after PR #566 pinned the OpenSSL runtime security remediation
-- **Candidate selected at:** `2026-08-26T12:34:02Z`
+- **Current candidate SHA:** `9c210885b48f36a478d6a12fc369f822db259559`
+- **Candidate source:** `main` after PR #568 implemented secure Limoo Pattern OTP
+- **Candidate selected at:** `2026-08-26T20:55:00Z`
 - **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 - **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260826.json`
 - **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260826.json`
@@ -20,12 +20,13 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #566 advanced main to the pinned OpenSSL runtime security remediation.
-Candidate Evidence Recollection Authority #177 attempt 2 then accepted genuine
+PR #568 advanced main from the prior OpenSSL candidate to secure Limoo Pattern
+OTP with local digest verification and managed-provider hardening. Candidate
+Evidence Recollection Authority #183 attempt 1 then accepted genuine
 exact-main workflow, runtime image and rollback/volume-restore evidence for:
 
 ```text
-4bc251725ce574d87258b52773e4a52ff3367252
+9c210885b48f36a478d6a12fc369f822db259559
 ```
 
 The prior controlled-scope Go packet for `79c48a16cb685a88315a44e103b3758cf7845d65` remains immutable historical
@@ -61,6 +62,7 @@ artifact collected next must bind the exact SHA above.
 | `80223ac41e6200c25b65777a4a98b5f2e90f56a1` | Current controlled-launch candidate after PR #541 server-only runtime fix | Superseded by PR #543 safe npm symlink host-evidence fix and exact-candidate evidence promotion. |
 | `159c315cb26677edfa5b05c1708c93bed316ebe9` | Current controlled-launch candidate after PR #543 safe npm symlink host-evidence fix | Superseded by PR #545 live health migration contract alignment and exact-candidate evidence promotion. |
 | `79c48a16cb685a88315a44e103b3758cf7845d65` | Controlled soft launch candidate with a governed final Go packet | Historical final Go evidence only; superseded by PR #566 for all new current-candidate operational evidence. |
+| `4bc251725ce574d87258b52773e4a52ff3367252` | Current controlled-launch candidate after PR #566 pinned the OpenSSL runtime remediation | Superseded by PR #568 secure Limoo Pattern OTP for all new current-candidate operational evidence. |
 
 ## Candidate Identity Rules
 
@@ -93,7 +95,7 @@ artifact collected next must bind the exact SHA above.
 ## Historical Final Evidence
 
 The governed final manifest and release packet dated 2026-08-24 remain archived
-for `79c48a16cb685a88315a44e103b3758cf7845d65`. They are not active inputs for `4bc251725ce574d87258b52773e4a52ff3367252` and do not authorize
+for `79c48a16cb685a88315a44e103b3758cf7845d65`. They are not active inputs for `9c210885b48f36a478d6a12fc369f822db259559` and do not authorize
 merge, staging deployment or launch of the current candidate.
 
 ## Decision

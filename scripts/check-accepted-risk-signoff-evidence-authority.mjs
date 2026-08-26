@@ -154,7 +154,7 @@ requireEqual("request.status", request.status, "open");
 requireEqual("request.blocker", request.blocker, "NOG-08");
 requireEqual("request.selectedSha", request.selectedSha, currentCandidateSha);
 requireEqual("request.sourceBranch", request.sourceBranch, "main");
-requireEqual("request.sourcePullRequest", request.sourcePullRequest, 566);
+requireEqual("request.sourcePullRequest", request.sourcePullRequest, 568);
 requireArrayExact("request.acceptedForBlockers", request.acceptedForBlockers, []);
 requireArrayExact("request.notAcceptedForBlockers", request.notAcceptedForBlockers, OPEN_BLOCKERS);
 requireEqual("request.requiredArtifact.schemaVersion", request.requiredArtifact?.schemaVersion, 2);

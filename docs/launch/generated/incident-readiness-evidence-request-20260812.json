@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "incident-readiness-evidence-request",
-  "generatedAt": "2026-08-26T12:34:02Z",
+  "generatedAt": "2026-08-26T20:55:00Z",
   "decision": "NO_GO_NOG_07_INCIDENT_READINESS_EVIDENCE_REQUIRED",
   "executionState": "blocked_pending_protected_staging_incident_drill",
-  "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+  "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
   "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "requestPath": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
   "blocker": "NOG-07",
@@ -27,14 +27,14 @@
   "collector": "scripts/collect-protected-incident-readiness-evidence.ts",
   "collectorCommand": "npm run ops:incident-readiness:evidence:collect",
   "verifier": "scripts/verify-incident-readiness-evidence.mjs",
-  "verificationCommand": "npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha 4bc251725ce574d87258b52773e4a52ff3367252",
+  "verificationCommand": "npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha 9c210885b48f36a478d6a12fc369f822db259559",
   "authorityGuard": "scripts/check-incident-readiness-evidence-authority.mjs",
   "requiredArtifact": {
     "schemaVersion": 1,
     "authority": "tecpey-incident-readiness-v1",
     "evidenceClass": "protected-staging-incident-readiness",
     "environment": "protected-staging",
-    "sourceSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "sourceSha": "9c210885b48f36a478d6a12fc369f822db259559",
     "supportWindow": {
       "timezone": "Asia/Tehran",
       "dailyStart": "09:00",
@@ -88,7 +88,7 @@
     },
     {
       "name": "ops:incident-readiness:evidence:verify",
-      "command": "node scripts/verify-incident-readiness-evidence.mjs <artifact.json> --expected-sha 4bc251725ce574d87258b52773e4a52ff3367252",
+      "command": "node scripts/verify-incident-readiness-evidence.mjs <artifact.json> --expected-sha 9c210885b48f36a478d6a12fc369f822db259559",
       "disposition": "required_for_final_artifact"
     },
     {
