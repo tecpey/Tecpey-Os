@@ -20,6 +20,8 @@ on:
       - scripts/exact-head-workflow-evidence-origin.mjs
       - scripts/exact-head-workflow-evidence-origin.test.mjs
       - scripts/check-exact-head-workflow-evidence-authority.mjs
+      - scripts/prepare-trusted-exact-head-evidence-overlay.mjs
+      - scripts/prepare-trusted-exact-head-evidence-overlay.test.mjs
       - scripts/check-controlled-launch-candidate-lineage.mjs
       - .github/workflows/candidate-evidence-recollection-authority.yml
   push:
@@ -56,6 +58,7 @@ jobs:
           scripts/candidate-evidence-recollection-policy.test.mjs
           scripts/exact-head-workflow-evidence-policy.test.mjs
           scripts/exact-head-workflow-evidence-origin.test.mjs
+          scripts/prepare-trusted-exact-head-evidence-overlay.test.mjs
 
       - name: Verify current recollection contract
         run: node scripts/check-candidate-evidence-recollection-authority.mjs
@@ -71,26 +74,27 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/check-exact-head-workflow-evidence-authority.mjs
 
-      - name: Verify current exact-head evidence origin from trusted main on PR
+      - name: Prepare trusted-main exact-head evidence overlay on PR
         if: github.event_name == 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ github.token }}
           TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git init ../trusted-source
           git -C ../trusted-source remote add origin "https://github.com/${{ github.repository }}.git"
           git -C ../trusted-source fetch --no-tags --depth=1 origin "$TRUSTED_BASE_SHA"
           git -C ../trusted-source checkout --detach FETCH_HEAD
-          for path in \
-            docs/launch/generated/exact-head-workflow-evidence-20260812.json \
-            docs/launch/generated/protected-staging-no-go-register-20260810.json \
-            docs/launch/generated/current-controlled-launch-candidate.json \
-            docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md \
-            docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md \
-            package.json
-          do
-            cp "$path" "../trusted-source/$path"
-          done
+          test "$(git -C ../trusted-source rev-parse HEAD)" = "$TRUSTED_BASE_SHA"
+          node scripts/prepare-trusted-exact-head-evidence-overlay.mjs --trusted-root ../trusted-source
+
+      - name: Verify current exact-head evidence origin from trusted main on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git -C ../trusted-source diff --exit-code HEAD -- \
+            scripts/check-exact-head-workflow-evidence-authority.mjs \
+            scripts/exact-head-workflow-evidence-policy.mjs \
+            scripts/exact-head-workflow-evidence-origin.mjs
           cd ../trusted-source
           node scripts/check-exact-head-workflow-evidence-authority.mjs
 
