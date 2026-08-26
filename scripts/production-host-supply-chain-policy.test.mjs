@@ -414,22 +414,27 @@ test("published images bake public configuration and Compose validates before st
   );
 });
 
-test("production runtime rejects the vulnerable Debian package surface", () => {
-  const vulnerableRuntime = sources.dockerfile.replaceAll(
-    "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
-    "node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3",
-  );
+test("production runtime rejects an unapproved runtime base", () => {
+  const unapprovedRuntime = sources.dockerfile
+    .replace(
+      "FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS production-deps",
+      "FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS production-deps",
+    )
+    .replace(
+      "FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS runner",
+      "FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner",
+    );
   assert.match(
     productionHostSupplyChainFindings({
       ...sources,
-      dockerfile: vulnerableRuntime,
+      dockerfile: unapprovedRuntime,
     }).join("\n"),
-    /exact minimal Alpine image/,
+    /exact digest-pinned minimal runtime image/,
   );
   assert.match(
     productionHostSupplyChainFindings({
       ...sources,
-      dockerfile: vulnerableRuntime.replace("USER node", "USER root"),
+      dockerfile: unapprovedRuntime.replace("USER node", "USER root"),
     }).join("\n"),
     /image-owned non-root identity/,
   );
