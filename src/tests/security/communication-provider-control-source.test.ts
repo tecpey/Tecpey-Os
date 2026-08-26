@@ -63,6 +63,21 @@ describe("communication provider admin boundary", () => {
     assert.match(operations, /disabled=\{busy/);
   });
 
+  it("guards Limoo sends with durable idempotency receipts", () => {
+    assert.match(route, /claimApiCommandTx<LimooCommandReceipt>/);
+    assert.match(route, /completeApiCommandTx/);
+    assert.match(route, /parseApiIdempotencyKey/);
+    assert.match(route, /communications\.\$\{action\}/);
+    assert.match(operations, /Idempotency-Key/);
+    assert.match(operations, /crypto\.randomUUID\(\)/);
+  });
+
+  it("rejects oversized list items and audits environment-backed providers", () => {
+    assert.match(route, /raw\.length < 1 \|\| raw\.length > maxLength/);
+    assert.match(store, /configurationSource: row \? "managed" : "environment"/);
+    assert.match(store, /revision: row \? Number\(row\.revision\) : 0/);
+  });
+
   it("applies the admin-managed SMS footer and email template at delivery time", () => {
     assert.match(sms, /managed\.config\.settings\.otpFooter/);
     assert.match(email, /managed\?\.settings\.defaultTemplateId/);
