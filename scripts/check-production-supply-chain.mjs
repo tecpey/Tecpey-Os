@@ -41,16 +41,31 @@ const localInstallDocs = [
 const workflows = fs.readdirSync(".github/workflows")
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
     .map((name) => [name, read(`.github/workflows/${name}`)]);
-const immutableProductionRuntime =
-  "node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3";
+const immutableAlpineRuntime =
+  "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
+const pinnedOpenSslUpgrade =
+  "RUN apk upgrade --no-cache libcrypto3=3.5.8-r0 libssl3=3.5.8-r0";
 
 requireText(dockerfile, "@sha256:", "Docker base image must be digest-pinned");
+requireText(
+  dockerfile,
+  `FROM ${immutableAlpineRuntime} AS hardened-production-runtime`,
+  "production runtime hardening must start from the exact digest-pinned minimal Alpine image",
+);
+requireText(
+  dockerfile,
+  pinnedOpenSslUpgrade,
+  "production runtime must install the exact fixed OpenSSL package versions",
+);
 for (const stage of ["production-deps", "runner"]) {
   requireText(
     dockerfile,
-    `FROM ${immutableProductionRuntime} AS ${stage}`,
-    `production ${stage} must use the exact digest-pinned minimal runtime image`,
+    `FROM hardened-production-runtime AS ${stage}`,
+    `production ${stage} must inherit the reviewed hardened Alpine runtime`,
   );
+}
+if ((dockerfile.match(/\bapk\s+(?:add|upgrade)\b/g) ?? []).length !== 1) {
+  failures.push("production runtime must contain only the single exact pinned OpenSSL package mutation");
 }
 reject(dockerfile, /^ARG\s+.*IMAGE/m, "Docker base-image authority must not be build-argument overridable");
 requireText(dockerfile, "npm ci --omit=dev", "runtime dependencies must exclude dev dependencies");

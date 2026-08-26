@@ -414,27 +414,55 @@ test("published images bake public configuration and Compose validates before st
   );
 });
 
-test("production runtime rejects an unapproved runtime base", () => {
-  const unapprovedRuntime = sources.dockerfile
-    .replace(
-      "FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS production-deps",
-      "FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS production-deps",
-    )
-    .replace(
-      "FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS runner",
-      "FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS runner",
-    );
+test("production runtime requires the reviewed Alpine base and exact OpenSSL remediation", () => {
+  const unapprovedRuntime = sources.dockerfile.replace(
+    "FROM node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS hardened-production-runtime",
+    "FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS hardened-production-runtime",
+  );
   assert.match(
     productionHostSupplyChainFindings({
       ...sources,
       dockerfile: unapprovedRuntime,
     }).join("\n"),
-    /exact digest-pinned minimal runtime image/,
+    /exact digest-pinned minimal Alpine image/,
+  );
+
+  const mutableOpenSslUpgrade = sources.dockerfile.replace(
+    "RUN apk upgrade --no-cache libcrypto3=3.5.8-r0 libssl3=3.5.8-r0",
+    "RUN apk upgrade --no-cache libcrypto3 libssl3",
   );
   assert.match(
     productionHostSupplyChainFindings({
       ...sources,
-      dockerfile: unapprovedRuntime.replace("USER node", "USER root"),
+      dockerfile: mutableOpenSslUpgrade,
+    }).join("\n"),
+    /exact fixed OpenSSL package versions/,
+  );
+
+  const bypassedHardenedRuntime = sources.dockerfile.replace(
+    "FROM hardened-production-runtime AS runner",
+    "FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS runner",
+  );
+  assert.match(
+    productionHostSupplyChainFindings({
+      ...sources,
+      dockerfile: bypassedHardenedRuntime,
+    }).join("\n"),
+    /inherit the reviewed hardened Alpine runtime/,
+  );
+
+  const extraPackageMutation = `${sources.dockerfile}\nRUN apk add --no-cache curl\n`;
+  assert.match(
+    productionHostSupplyChainFindings({
+      ...sources,
+      dockerfile: extraPackageMutation,
+    }).join("\n"),
+    /only the single exact pinned OpenSSL package mutation/,
+  );
+  assert.match(
+    productionHostSupplyChainFindings({
+      ...sources,
+      dockerfile: sources.dockerfile.replace("USER node", "USER root"),
     }).join("\n"),
     /image-owned non-root identity/,
   );

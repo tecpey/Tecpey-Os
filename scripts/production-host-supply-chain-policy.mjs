@@ -46,8 +46,10 @@ const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
   "REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379";
-const IMMUTABLE_PRODUCTION_RUNTIME =
-  "node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3";
+const IMMUTABLE_ALPINE_RUNTIME =
+  "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
+const PINNED_OPENSSL_UPGRADE =
+  "RUN apk upgrade --no-cache libcrypto3=3.5.8-r0 libssl3=3.5.8-r0";
 const PRODUCTION_VERIFICATION_LINES = [
   "#!/usr/bin/env bash",
   "set -euo pipefail",
@@ -434,12 +436,29 @@ export function productionHostSupplyChainFindings({
     /NEXT_PUBLIC_GIT_COMMIT/,
     "Health must not trust a runtime-overridable public Git commit",
   );
+  requireText(
+    findings,
+    dockerfile,
+    `FROM ${IMMUTABLE_ALPINE_RUNTIME} AS hardened-production-runtime`,
+    "Production runtime hardening must start from the exact digest-pinned minimal Alpine image",
+  );
+  requireText(
+    findings,
+    dockerfile,
+    PINNED_OPENSSL_UPGRADE,
+    "Production runtime must install the exact fixed OpenSSL package versions",
+  );
   for (const stage of ["production-deps", "runner"]) {
     requireText(
       findings,
       dockerfile,
-      `FROM ${IMMUTABLE_PRODUCTION_RUNTIME} AS ${stage}`,
-      `Production ${stage} must use the exact digest-pinned minimal runtime image`,
+      `FROM hardened-production-runtime AS ${stage}`,
+      `Production ${stage} must inherit the reviewed hardened Alpine runtime`,
+    );
+  }
+  if ((dockerfile.match(/\bapk\s+(?:add|upgrade)\b/g) ?? []).length !== 1) {
+    findings.push(
+      "Production runtime must contain only the single exact pinned OpenSSL package mutation",
     );
   }
   requireText(
