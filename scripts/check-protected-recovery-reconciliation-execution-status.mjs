@@ -2,7 +2,15 @@ import { readFile } from "node:fs/promises";
 
 const STATUS_PATH =
   "docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json";
-const REMAINING_OPEN_BLOCKERS = [];
+const HISTORICAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const REMAINING_OPEN_BLOCKERS = [
+  "NOG-01",
+  "NOG-02",
+  "NOG-05",
+  "NOG-07",
+  "NOG-08",
+  "NOG-09",
+];
 const REQUIRED_DOMAINS = {
   academy: { tablesCovered: 5, records: 0 },
   tradingArena: { tablesCovered: 6, records: 0 },
@@ -114,7 +122,7 @@ requireEqual(
 requireEqual(
   "status.releaseLineage.protectedStagingEvidenceTargetSha",
   status.releaseLineage?.protectedStagingEvidenceTargetSha,
-  candidate.currentCandidate?.sha,
+  HISTORICAL_CANDIDATE_SHA,
 );
 requireEqual("status.releaseLineage.runtimeCandidatePreserved", status.releaseLineage?.runtimeCandidatePreserved, true);
 
@@ -134,7 +142,7 @@ requireEqual("status.workflow.runConclusion", status.workflow?.runConclusion, "s
 requireEqual(
   "status.workflow.selectedReleaseSha",
   status.workflow?.selectedReleaseSha,
-  candidate.currentCandidate?.sha,
+  HISTORICAL_CANDIDATE_SHA,
 );
 requireEqual("status.workflow.operator", status.workflow?.operator, "github:tecpey");
 requireEqual(
@@ -155,7 +163,7 @@ requireEqual("status.artifact.id", status.artifact?.id, 9498352217);
 requireEqual(
   "status.artifact.name",
   status.artifact?.name,
-  `protected-staging-recovery-reconciliation-${candidate.currentCandidate?.sha}`,
+  `protected-staging-recovery-reconciliation-${HISTORICAL_CANDIDATE_SHA}`,
 );
 requirePattern("status.artifact.zipDigest", status.artifact?.zipDigest, sha256Pattern);
 requirePattern("status.artifact.evidenceFileDigest", status.artifact?.evidenceFileDigest, sha256Pattern);
@@ -174,7 +182,7 @@ requireEqual(
   status.recovery?.evidenceClass,
   "protected-staging-domain-recovery-reconciliation",
 );
-requireEqual("status.recovery.sourceSha", status.recovery?.sourceSha, candidate.currentCandidate?.sha);
+requireEqual("status.recovery.sourceSha", status.recovery?.sourceSha, HISTORICAL_CANDIDATE_SHA);
 requirePattern("status.recovery.imageDigest", status.recovery?.imageDigest, sha256Pattern);
 requirePattern("status.recovery.migrationPlanHash", `sha256:${status.recovery?.migrationPlanHash}`, sha256Pattern);
 requirePattern("status.recovery.backupDigest", status.recovery?.backupDigest, sha256Pattern);
@@ -204,24 +212,37 @@ for (const [field, expected] of Object.entries({
 
 requireEqual("request.selectedSha", request.selectedSha, candidate.currentCandidate?.sha);
 requireEqual("request.relatedBlockers", request.relatedBlockers?.includes("NOG-05"), true);
+requireEqual(
+  "request.decision",
+  request.decision,
+  "NO_GO_RECOVERY_RECONCILIATION_EVIDENCE_MISSING",
+);
+requireEqual(
+  "request.status",
+  request.status,
+  "blocked_pending_protected_staging_restore_and_domain_reconciliation",
+);
 requireEqual("request.requiredEvidenceShape.finalDisposition", request.requiredEvidenceShape?.finalDisposition, "accepted");
 
 const nog05 = register.blockers?.find((entry) => entry.id === "NOG-05");
-requireEqual("register.NOG-05.status", nog05?.status, "accepted");
-requireEqual("register.NOG-05.evidence", nog05?.evidence, STATUS_PATH);
-requireEqual("register.NOG-05.selectedSha", nog05?.selectedSha, candidate.currentCandidate?.sha);
-requireEqual("register.NOG-05.workflowRunUrl", nog05?.workflowRunUrl, status.workflow?.runUrl);
-requireEqual("register.NOG-05.artifactDigest", nog05?.artifactDigest, status.artifact?.zipDigest);
+requireEqual("register.NOG-05.status", nog05?.status, "open");
+requireEqual(
+  "register.NOG-05.executionState",
+  nog05?.executionState,
+  "blocked_pending_protected_staging_restore_and_domain_reconciliation",
+);
+if (nog05?.evidence || nog05?.selectedSha || nog05?.workflowRunUrl || nog05?.artifactDigest) {
+  failures.push("register.NOG-05: open blocker must not claim current-candidate accepted evidence");
+}
 
 for (const [label, entries] of [
   ["register.acceptedEvidence", register.acceptedEvidence],
   ["candidate.acceptedEvidence", candidate.acceptedEvidence],
 ]) {
   const accepted = entries?.find((entry) => entry.id === "NOG-05");
-  requireEqual(`${label}.NOG-05.status`, accepted?.status, "accepted");
-  requireEqual(`${label}.NOG-05.evidence`, accepted?.evidence, STATUS_PATH);
-  requireEqual(`${label}.NOG-05.selectedSha`, accepted?.selectedSha, candidate.currentCandidate?.sha);
-  requireEqual(`${label}.NOG-05.artifactDigest`, accepted?.artifactDigest, status.artifact?.zipDigest);
+  if (accepted) {
+    failures.push(`${label}.NOG-05: historical evidence must not appear as active accepted evidence`);
+  }
 }
 
 const executionRequest = register.executionRequests?.find(
@@ -230,9 +251,33 @@ const executionRequest = register.executionRequests?.find(
 requireEqual(
   "register.NOG-05.executionRequest.status",
   executionRequest?.status,
-  "accepted_exact_candidate_protected_recovery_reconciliation",
+  "blocked_pending_protected_staging_restore_and_domain_reconciliation",
 );
-requireEqual("register.NOG-05.executionRequest.evidence", executionRequest?.evidence, STATUS_PATH);
+requireEqual(
+  "register.NOG-05.executionRequest.selectedSha",
+  executionRequest?.selectedSha,
+  candidate.currentCandidate?.sha,
+);
+requireEqual(
+  "register.NOG-05.executionRequest.machineReadableRequest",
+  executionRequest?.machineReadableRequest,
+  files.request,
+);
+requireEqual(
+  "register.NOG-05.executionRequest.historicalExecutionStatusObservation",
+  executionRequest?.historicalExecutionStatusObservation,
+  STATUS_PATH,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.priorCandidateSha",
+  register.historicalAcceptedEvidence?.priorCandidateSha,
+  HISTORICAL_CANDIDATE_SHA,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.recoveryReconciliation",
+  register.historicalAcceptedEvidence?.recoveryReconciliation,
+  STATUS_PATH,
+);
 requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, REMAINING_OPEN_BLOCKERS);
 requireArrayExact(
   "register.openBlockerTrackingIssues",
@@ -257,29 +302,23 @@ if (
     "npm run launch:recovery-reconciliation-evidence:check",
   )
 ) {
-  failures.push("package.json: launch:decision:check must enforce NOG-05 accepted evidence authority");
-}
+    failures.push("package.json: launch:decision:check must enforce the NOG-05 evidence boundary");
+  }
 
 for (const invariant of [
-  "NOG-05 is accepted",
-  "32659459702",
-  "sha256:e55f5eb887bde6d15d41f955d7a39345fa5f0472c4ef688c3d54b98203fd1e69",
-  STATUS_PATH,
-  "NOG-09 remains open",
+  "NOG-05 remains open",
+  HISTORICAL_CANDIDATE_SHA,
 ]) {
   requireText("packet", source.packet, invariant);
 }
 for (const invariant of [
-  "Accepted for NOG-05",
-  "32659459702",
-  STATUS_PATH,
+  "NO-GO until restore and reconciliation evidence is accepted",
 ]) {
   requireText("checklist", source.checklist, invariant);
 }
 for (const invariant of [
-  "Protected recovery reconciliation evidence",
-  STATUS_PATH,
-  "Accepted for NOG-05",
+  "protected staging recovery reconciliation remains required for NOG-05",
+  HISTORICAL_CANDIDATE_SHA,
 ]) {
   requireText("candidate ledger", source.candidateHuman, invariant);
 }
@@ -310,5 +349,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Protected recovery reconciliation execution status passed for ${candidate.currentCandidate.sha}; NOG-05 is accepted and NOG-09 now carries the separate controlled-scope Go matrix.`,
+  `Historical protected recovery evidence passed for ${HISTORICAL_CANDIDATE_SHA}; NOG-05 remains open for current candidate ${candidate.currentCandidate.sha}.`,
 );

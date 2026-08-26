@@ -2,7 +2,15 @@ import { readFile } from "node:fs/promises";
 
 const STATUS_PATH =
   "docs/launch/generated/protected-incident-readiness-execution-status-20260823.json";
-const REMAINING_OPEN_BLOCKERS = [];
+const HISTORICAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const REMAINING_OPEN_BLOCKERS = [
+  "NOG-01",
+  "NOG-02",
+  "NOG-05",
+  "NOG-07",
+  "NOG-08",
+  "NOG-09",
+];
 const REQUIRED_RUNBOOKS = [
   "database",
   "redis",
@@ -101,7 +109,7 @@ requireEqual(
 requireEqual(
   "status.releaseLineage.protectedStagingEvidenceTargetSha",
   status.releaseLineage?.protectedStagingEvidenceTargetSha,
-  candidate.currentCandidate?.sha,
+  HISTORICAL_CANDIDATE_SHA,
 );
 requireEqual("status.releaseLineage.runtimeCandidatePreserved", status.releaseLineage?.runtimeCandidatePreserved, true);
 
@@ -118,7 +126,7 @@ requireEqual("status.workflow.runId", status.workflow?.runId, 32663989309);
 requirePattern("status.workflow.runUrl", status.workflow?.runUrl, governedRunPattern);
 requireEqual("status.workflow.jobId", status.workflow?.jobId, 97254429079);
 requireEqual("status.workflow.runConclusion", status.workflow?.runConclusion, "success");
-requireEqual("status.workflow.selectedReleaseSha", status.workflow?.selectedReleaseSha, candidate.currentCandidate?.sha);
+requireEqual("status.workflow.selectedReleaseSha", status.workflow?.selectedReleaseSha, HISTORICAL_CANDIDATE_SHA);
 requireEqual("status.workflow.operator", status.workflow?.operator, "github:tecpey");
 requireEqual("status.workflow.incidentCommander", status.workflow?.incidentCommander, "github:tecpey");
 requireEqual("status.workflow.sreOwner", status.workflow?.sreOwner, "github:tecpey");
@@ -133,7 +141,7 @@ requireEqual("status.artifact.id", status.artifact?.id, 9500016153);
 requireEqual(
   "status.artifact.name",
   status.artifact?.name,
-  `protected-staging-incident-readiness-${candidate.currentCandidate?.sha}`,
+  `protected-staging-incident-readiness-${HISTORICAL_CANDIDATE_SHA}`,
 );
 requireEqual(
   "status.artifact.zipDigest",
@@ -162,7 +170,7 @@ requireEqual(
   status.incidentReadiness?.evidenceClass,
   "protected-staging-incident-readiness",
 );
-requireEqual("status.incidentReadiness.sourceSha", status.incidentReadiness?.sourceSha, candidate.currentCandidate?.sha);
+requireEqual("status.incidentReadiness.sourceSha", status.incidentReadiness?.sourceSha, HISTORICAL_CANDIDATE_SHA);
 requireEqual("status.incidentReadiness.supportWindow.timezone", status.incidentReadiness?.supportWindow?.timezone, "Asia/Tehran");
 requireEqual("status.incidentReadiness.supportWindow.dailyStart", status.incidentReadiness?.supportWindow?.dailyStart, "09:00");
 requireEqual("status.incidentReadiness.supportWindow.dailyEnd", status.incidentReadiness?.supportWindow?.dailyEnd, "23:00");
@@ -221,24 +229,38 @@ for (const [field, expected] of Object.entries({
 
 requireEqual("request.selectedSha", request.selectedSha, candidate.currentCandidate?.sha);
 requireEqual("request.blocker", request.blocker, "NOG-07");
+requireEqual(
+  "request.decision",
+  request.decision,
+  "NO_GO_NOG_07_INCIDENT_READINESS_EVIDENCE_REQUIRED",
+);
+requireEqual("request.status", request.status, "open");
+requireEqual(
+  "request.executionState",
+  request.executionState,
+  "blocked_pending_protected_staging_incident_drill",
+);
 requireEqual("request.requiredArtifact.finalDisposition", request.requiredArtifact?.finalDisposition, "accepted");
 
 const nog07 = register.blockers?.find((entry) => entry.id === "NOG-07");
-requireEqual("register.NOG-07.status", nog07?.status, "accepted");
-requireEqual("register.NOG-07.evidence", nog07?.evidence, STATUS_PATH);
-requireEqual("register.NOG-07.selectedSha", nog07?.selectedSha, candidate.currentCandidate?.sha);
-requireEqual("register.NOG-07.workflowRunUrl", nog07?.workflowRunUrl, status.workflow?.runUrl);
-requireEqual("register.NOG-07.artifactDigest", nog07?.artifactDigest, status.artifact?.zipDigest);
+requireEqual("register.NOG-07.status", nog07?.status, "open");
+requireEqual(
+  "register.NOG-07.executionState",
+  nog07?.executionState,
+  "blocked_pending_protected_staging_incident_drill",
+);
+if (nog07?.evidence || nog07?.selectedSha || nog07?.workflowRunUrl || nog07?.artifactDigest) {
+  failures.push("register.NOG-07: open blocker must not claim current-candidate accepted evidence");
+}
 
 for (const [label, entries] of [
   ["register.acceptedEvidence", register.acceptedEvidence],
   ["candidate.acceptedEvidence", candidate.acceptedEvidence],
 ]) {
   const accepted = entries?.find((entry) => entry.id === "NOG-07");
-  requireEqual(`${label}.NOG-07.status`, accepted?.status, "accepted");
-  requireEqual(`${label}.NOG-07.evidence`, accepted?.evidence, STATUS_PATH);
-  requireEqual(`${label}.NOG-07.selectedSha`, accepted?.selectedSha, candidate.currentCandidate?.sha);
-  requireEqual(`${label}.NOG-07.artifactDigest`, accepted?.artifactDigest, status.artifact?.zipDigest);
+  if (accepted) {
+    failures.push(`${label}.NOG-07: historical evidence must not appear as active accepted evidence`);
+  }
 }
 
 const executionRequest = register.executionRequests?.find(
@@ -247,9 +269,33 @@ const executionRequest = register.executionRequests?.find(
 requireEqual(
   "register.NOG-07.executionRequest.status",
   executionRequest?.status,
-  "accepted_exact_candidate_protected_incident_readiness",
+  "blocked_pending_protected_staging_incident_drill",
 );
-requireEqual("register.NOG-07.executionRequest.evidence", executionRequest?.evidence, STATUS_PATH);
+requireEqual(
+  "register.NOG-07.executionRequest.selectedSha",
+  executionRequest?.selectedSha,
+  candidate.currentCandidate?.sha,
+);
+requireEqual(
+  "register.NOG-07.executionRequest.machineReadableRequest",
+  executionRequest?.machineReadableRequest,
+  files.request,
+);
+requireEqual(
+  "register.NOG-07.executionRequest.historicalExecutionStatusObservation",
+  executionRequest?.historicalExecutionStatusObservation,
+  STATUS_PATH,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.priorCandidateSha",
+  register.historicalAcceptedEvidence?.priorCandidateSha,
+  HISTORICAL_CANDIDATE_SHA,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.incidentReadiness",
+  register.historicalAcceptedEvidence?.incidentReadiness,
+  STATUS_PATH,
+);
 requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, REMAINING_OPEN_BLOCKERS);
 requireArrayExact(
   "register.openBlockerTrackingIssues",
@@ -267,22 +313,19 @@ for (const [name, command] of [
   requireEqual(`package ${name}`, packageJson.scripts?.[name], command);
 }
 if (!packageJson.scripts?.["launch:decision:check"]?.includes("npm run launch:incident-readiness-evidence:check")) {
-  failures.push("package.json: launch:decision:check must enforce NOG-07 accepted evidence authority");
+  failures.push("package.json: launch:decision:check must enforce the NOG-07 evidence boundary");
 }
 
 for (const invariant of [
-  "NOG-07 is accepted",
-  "32663989309",
-  "sha256:e9bf68a588571fcf8cf91b22ff8fbf1fe92734cced0321e286ad27921591a8a5",
-  STATUS_PATH,
-  "NOG-09 remains open",
+  "NOG-07 remains open",
+  HISTORICAL_CANDIDATE_SHA,
 ]) {
   requireText("packet", source.packet, invariant);
 }
-for (const invariant of ["Accepted for NOG-07", "32663989309", STATUS_PATH]) {
+for (const invariant of ["NO-GO until incident evidence is accepted", files.request]) {
   requireText("checklist", source.checklist, invariant);
 }
-for (const invariant of ["Protected incident readiness evidence", STATUS_PATH, "Accepted for NOG-07"]) {
+for (const invariant of ["NOG-07 remains open", files.request, HISTORICAL_CANDIDATE_SHA]) {
   requireText("candidate ledger", source.candidateHuman, invariant);
 }
 for (const invariant of [
@@ -312,5 +355,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Protected incident readiness execution status passed for ${candidate.currentCandidate.sha}; NOG-07 is accepted and NOG-09 now carries the separate controlled-scope Go matrix.`,
+  `Historical protected incident evidence passed for ${HISTORICAL_CANDIDATE_SHA}; NOG-07 remains open for current candidate ${candidate.currentCandidate.sha}.`,
 );

@@ -3,7 +3,7 @@ import { exactHeadWorkflowEvidenceFindings } from "./exact-head-workflow-evidenc
 import { exactHeadWorkflowEvidenceOriginFindings } from "./exact-head-workflow-evidence-origin.mjs";
 
 const files = {
-  evidence: "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
+  evidence: "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   candidate: "docs/launch/generated/current-controlled-launch-candidate.json",
   packet: "docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md",

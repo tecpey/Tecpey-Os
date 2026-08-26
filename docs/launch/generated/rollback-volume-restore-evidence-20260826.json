@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "rollback-volume-restore-evidence",
+  "generatedAt": "2026-08-26T12:34:02Z",
+  "decision": "NO_GO_NOG_06_ACCEPTED_EPHEMERAL_ROLLBACK_VOLUME_RESTORE_ONLY",
+  "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+  "previousReleaseSha": "e9621ac583cbac4e42a7c1aec71478a8d1b3ec56",
+  "sourceBranch": "main",
+  "sourcePullRequest": 566,
+  "acceptedForBlockers": [
+    "NOG-06"
+  ],
+  "observedVia": {
+    "provider": "github-actions-api",
+    "workflow": "Container Supply Chain",
+    "workflowPath": ".github/workflows/container-supply-chain.yml",
+    "runNumber": 663,
+    "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835574",
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "createdAt": "2026-08-26T10:57:07Z",
+    "updatedAt": "2026-08-26T11:03:44Z",
+    "runAttempt": 1
+  },
+  "rollbackJob": {
+    "name": "Ephemeral staging rollback and volume restore",
+    "jobId": 98152586454,
+    "status": "completed",
+    "conclusion": "success",
+    "requiredSteps": [
+      "Checkout exact source",
+      "Verify exact checkout",
+      "Build exact candidate image",
+      "Checkout exact previous release",
+      "Build and deploy exact previous release image",
+      "Restore PostgreSQL and Redis persistent volumes",
+      "Upload recovery evidence"
+    ]
+  },
+  "artifact": {
+    "id": 9603881243,
+    "name": "container-recovery-4bc251725ce574d87258b52773e4a52ff3367252",
+    "apiUrl": "https://api.github.com/repos/tecpey/Tecpey-Os/actions/artifacts/9603881243",
+    "digest": "sha256:bc5e5e82f9e6e0a74255cebe364c9bb1cc7af437aeb43b5583ecd10568b09440",
+    "sizeInBytes": 115735,
+    "createdAt": "2026-08-26T11:00:19Z",
+    "expiresAt": "2026-09-25T11:00:18Z"
+  },
+  "downloadVerification": {
+    "verifiedAt": "2026-08-26T12:34:02Z",
+    "zipSha256": "bc5e5e82f9e6e0a74255cebe364c9bb1cc7af437aeb43b5583ecd10568b09440",
+    "resultVerifier": "node scripts/verify-operational-recovery-evidence.mjs /tmp/tecpey-recovery-result-4bc251.json --expected-sha 4bc251725ce574d87258b52773e4a52ff3367252",
+    "resultVerifierDisposition": "success"
+  },
+  "rollbackResult": {
+    "environment": "ephemeral-staging",
+    "candidate": "served",
+    "rollback": "previous-release-served",
+    "candidateImageId": "sha256:a0d78bf3da57d213be7490acf9b98d60aeb47cae149bfb7517f23f1424ffd2f3",
+    "previousImageId": "sha256:48da063880e1e8c9ac9918ebddd27c9830f87382436b8be8dafd09d3d9dc3eba"
+  },
+  "volumeRestoreResult": {
+    "authority": "tecpey-operational-recovery-drill-v1",
+    "environment": "ephemeral-ci",
+    "sourceSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "imageId": "sha256:a0d78bf3da57d213be7490acf9b98d60aeb47cae149bfb7517f23f1424ffd2f3",
+    "maximumRecoverySeconds": 300,
+    "backupDurationMs": 2891,
+    "recoveryDurationMs": 7084,
+    "totalDurationMs": 23398,
+    "rpoBoundary": "all-probe-writes-committed-before-backup-are-present-and-later-writes-are-absent",
+    "migrationPlanHash": "b58ea4c29f70dc3c5ee043151896fe3a94d4d4ae07e263584155a964437a3e12",
+    "restoredMigrationPlanHash": "b58ea4c29f70dc3c5ee043151896fe3a94d4d4ae07e263584155a964437a3e12",
+    "postgresBackupSha256": "06fc235236c952cf3f0fc078f137e53e35594367c0546d6b5c3df5acf080a45d",
+    "redisBackupSha256": "eb8b310a6cd17bf383d6e272a83199f2606af1482cdc80219ecc4e03d18c367b"
+  },
+  "notAcceptedForBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09",
+    "NOG-10",
+    "NOG-11",
+    "NOG-12"
+  ],
+  "remainingFinalManifestGaps": [
+    "protected staging evidence URL and digest",
+    "redacted protected staging env:check evidence",
+    "protected staging recovery reconciliation evidence and digest",
+    "incident readiness evidence and digest",
+    "accepted-risk sign-off URL",
+    "Go approval matrix URL"
+  ],
+  "acceptanceBoundary": [
+    "NOG-06 is accepted only for exact-candidate ephemeral rollback and synthetic PostgreSQL/Redis volume-restore mechanics; the immediate previous main parent is recorded only as the rollback target and is not approved as a healthy release.",
+    "NOG-05 remains open because protected staging domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation has not been executed for this candidate.",
+    "NOG-01 and NOG-02 remain open because protected staging activation and redacted environment evidence have not been executed for this candidate.",
+    "This evidence does not authorize real-money Exchange, custody, deposits, withdrawals, enterprise, white-label or public reward activation."
+  ],
+  "privacyBoundary": [
+    "repository evidence records GitHub Actions URLs, artifact identifiers, SHA-256 digests, image IDs, plan hashes, durations and dispositions only",
+    "no secrets, database URLs, host IPs, raw logs, raw customer data, private keys, provider payloads or prompt transcripts are recorded"
+  ]
+}

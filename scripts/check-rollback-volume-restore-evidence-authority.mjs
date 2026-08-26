@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 const files = {
-  evidence: "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+  evidence: "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   candidate: "docs/launch/generated/current-controlled-launch-candidate.json",
   packet: "docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md",
@@ -163,7 +163,9 @@ if (!protectedStagingOpen && !protectedStagingAccepted) {
   );
 }
 const nog05 = register.blockers?.find((entry) => entry.id === "NOG-05");
-requireEqual("NOG-05.status", nog05?.status, "accepted");
+if (!["open", "accepted"].includes(nog05?.status)) {
+  failures.push(`NOG-05.status: expected "open" or "accepted", got ${JSON.stringify(nog05?.status)}`);
+}
 
 requireEqual("evidence.observedVia.workflow", evidence.observedVia?.workflow, "Container Supply Chain");
 requireEqual("evidence.observedVia.workflowPath", evidence.observedVia?.workflowPath, ".github/workflows/container-supply-chain.yml");
@@ -236,7 +238,9 @@ if (
 for (const invariant of [
   files.evidence,
   "NOG-06 is accepted for exact-candidate ephemeral rollback and synthetic PostgreSQL/Redis volume-restore mechanics only",
-  "protected staging domain recovery reconciliation is accepted separately under NOG-05",
+  nog05?.status === "accepted"
+    ? "protected staging domain recovery reconciliation is accepted separately under NOG-05"
+    : "protected staging domain recovery reconciliation remains under NOG-05",
 ]) {
   requireText(files.packet, packet, invariant, `packet is missing NOG-06 invariant: ${invariant}`);
 }

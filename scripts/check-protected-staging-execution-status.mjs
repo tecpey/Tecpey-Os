@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 const files = {
-  status: "docs/launch/generated/protected-staging-execution-status-20260812.json",
+  status: "docs/launch/generated/protected-staging-execution-status-20260826.json",
   request: "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   packet: "docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md",
@@ -23,9 +23,6 @@ const status = JSON.parse(source.status);
 const request = JSON.parse(source.request);
 const register = JSON.parse(source.register);
 const failures = [];
-const sha256Pattern = /^sha256:[0-9a-f]{64}$/;
-const exactShaPattern = /^[0-9a-f]{40}$/;
-const remainingBlockers = [];
 
 function requireEqual(label, actual, expected) {
   if (actual !== expected) {
@@ -36,22 +33,6 @@ function requireEqual(label, actual, expected) {
 function requireArrayIncludes(label, value, expected) {
   if (!Array.isArray(value) || !value.includes(expected)) {
     failures.push(`${label}: missing ${expected}`);
-  }
-}
-
-function requireArrayExact(label, value, expected) {
-  if (!Array.isArray(value)) {
-    failures.push(`${label}: expected array`);
-    return;
-  }
-  if (value.length !== expected.length || expected.some((item) => !value.includes(item))) {
-    failures.push(`${label}: expected exactly ${expected.join(", ")}`);
-  }
-}
-
-function requirePattern(label, value, pattern) {
-  if (typeof value !== "string" || !pattern.test(value)) {
-    failures.push(`${label}: invalid value ${JSON.stringify(value)}`);
   }
 }
 
@@ -70,31 +51,33 @@ requireEqual(
 requireEqual(
   "status.decision",
   status.decision,
-  "NO_GO_NOG_01_NOG_02_ACCEPTED_REMAINING_BLOCKERS_OPEN",
+  "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
 );
 for (const blocker of ["NOG-01", "NOG-02"]) {
   requireArrayIncludes("status.relatedBlockers", status.relatedBlockers, blocker);
 }
 
 const currentSha = request.releaseLineage?.protectedStagingEvidenceTargetSha;
-requirePattern("request.releaseLineage.protectedStagingEvidenceTargetSha", currentSha, exactShaPattern);
 requireEqual(
   "status.releaseLineage.protectedStagingEvidenceTargetSha",
   status.releaseLineage?.protectedStagingEvidenceTargetSha,
   currentSha,
 );
-requireEqual("status.runtimeDeployment.releaseSha", status.runtimeDeployment?.releaseSha, currentSha);
-requireEqual("status.runtimeDeployment.healthCommitSha", status.runtimeDeployment?.healthCommitSha, currentSha);
 requireEqual(
-  "status.runtimeDeployment.deploymentDisposition",
-  status.runtimeDeployment?.deploymentDisposition,
-  "accepted_exact_candidate_immutable_release",
+  "register.stagingEvidenceTargetSha",
+  register.stagingEvidenceTargetSha,
+  currentSha,
 );
-requireEqual("status.runtimeDeployment.serviceActiveState", status.runtimeDeployment?.serviceActiveState, "active");
-requireEqual("status.runtimeDeployment.serviceSubState", status.runtimeDeployment?.serviceSubState, "running");
-requireEqual("register.stagingEvidenceTargetSha", register.stagingEvidenceTargetSha, currentSha);
-requireEqual("request.executionStatusObservation", request.executionStatusObservation, files.status);
-requireEqual("register.executionStatusObservation", register.executionStatusObservation, files.status);
+requireEqual(
+  "request.executionStatusObservation",
+  request.executionStatusObservation,
+  files.status,
+);
+requireEqual(
+  "register.executionStatusObservation",
+  register.executionStatusObservation,
+  files.status,
+);
 requireEqual(
   "request.environmentProtectionRunbook",
   request.environmentProtectionRunbook,
@@ -113,56 +96,43 @@ requireEqual(
   status.githubEnvironment?.protectionDisposition,
   "passed_required_reviewer_and_branch_policy_no_admin_bypass",
 );
-requireEqual("status.githubEnvironment.protectionRulesCount", status.githubEnvironment?.protectionRulesCount, 2);
-requireEqual("status.githubEnvironment.canAdminsBypass", status.githubEnvironment?.canAdminsBypass, false);
+requireEqual(
+  "status.githubEnvironment.protectionRulesCount",
+  status.githubEnvironment?.protectionRulesCount,
+  2,
+);
+requireEqual(
+  "status.githubEnvironment.canAdminsBypass",
+  status.githubEnvironment?.canAdminsBypass,
+  false,
+);
 for (const ruleType of ["required_reviewers", "branch_policy"]) {
-  requireArrayIncludes("status.githubEnvironment.observedRuleTypes", status.githubEnvironment?.observedRuleTypes, ruleType);
-}
-
-const workflowExpectations = [
-  {
-    key: "protectedStagingEnvEvidence",
-    blocker: "NOG-02",
-    runUrl: "https://github.com/tecpey/Tecpey-Os/actions/runs/32644937055",
-    artifactName: `tecpey-staging-env-evidence-${currentSha}`,
-    artifactDigest: "sha256:bd8cd520526d7520883218697dad9af9eec1dcbe8eca7db163493d5dd254f5d5",
-  },
-  {
-    key: "stagingCommunityChallengeSchedulerEvidence",
-    blocker: "NOG-01",
-    runUrl: "https://github.com/tecpey/Tecpey-Os/actions/runs/32648754664",
-    artifactName: `tecpey-staging-scheduler-evidence-${currentSha}`,
-    artifactDigest: "sha256:ea3cfb4bbd188988063d31e393556aebb4ea9359e9c96d2b9a68de44b14dde4d",
-  },
-];
-
-for (const expected of workflowExpectations) {
-  const workflow = status.workflows?.[expected.key];
-  requireEqual(`${expected.key}.acceptedForBlocker`, workflow?.acceptedForBlocker, expected.blocker);
-  requireEqual(`${expected.key}.selectedReleaseSha`, workflow?.selectedReleaseSha, currentSha);
-  requireEqual(`${expected.key}.runConclusion`, workflow?.runConclusion, "success");
-  requireEqual(`${expected.key}.acceptedRunUrl`, workflow?.acceptedRunUrl, expected.runUrl);
-  requireEqual(`${expected.key}.acceptedArtifactName`, workflow?.acceptedArtifactName, expected.artifactName);
-  requireEqual(`${expected.key}.artifactDigest`, workflow?.artifactDigest, expected.artifactDigest);
-  requirePattern(`${expected.key}.artifactDigest format`, workflow?.artifactDigest, sha256Pattern);
-  requireEqual(`${expected.key}.detachedDigestDisposition`, workflow?.detachedDigestDisposition, "verified");
-  requireEqual(`${expected.key}.offlineVerifierDisposition`, workflow?.offlineVerifierDisposition, "passed");
-  requireEqual(
-    `${expected.key}.disposition`,
-    workflow?.disposition,
-    "accepted_exact_candidate_artifact_and_detached_digest",
+  requireArrayIncludes(
+    "status.githubEnvironment.observedRuleTypes",
+    status.githubEnvironment?.observedRuleTypes,
+    ruleType,
   );
 }
 
 requireEqual(
-  "protectedStagingEnvEvidence.environmentSource",
-  status.workflows?.protectedStagingEnvEvidence?.environmentSource,
-  "protected_host_env_file",
+  "status.workflows.protectedStagingEnvEvidence.disposition",
+  status.workflows?.protectedStagingEnvEvidence?.disposition,
+  "blocked_no_accepted_current_candidate_run",
 );
 requireEqual(
-  "stagingCommunityChallengeSchedulerEvidence.alertProbeDelivered",
-  status.workflows?.stagingCommunityChallengeSchedulerEvidence?.alertProbeDelivered,
-  true,
+  "status.workflows.stagingCommunityChallengeSchedulerEvidence.disposition",
+  status.workflows?.stagingCommunityChallengeSchedulerEvidence?.disposition,
+  "blocked_no_accepted_current_candidate_run",
+);
+requireEqual(
+  "status.workflows.protectedStagingEnvEvidence.acceptedRunUrl",
+  status.workflows?.protectedStagingEnvEvidence?.acceptedRunUrl,
+  null,
+);
+requireEqual(
+  "status.workflows.stagingCommunityChallengeSchedulerEvidence.acceptedRunUrl",
+  status.workflows?.stagingCommunityChallengeSchedulerEvidence?.acceptedRunUrl,
+  null,
 );
 
 for (const field of [
@@ -175,46 +145,36 @@ for (const field of [
   requireEqual(`status.privacyBoundary.${field}`, status.privacyBoundary?.[field], false);
 }
 
-requireEqual(
-  "request.decision",
-  request.decision,
-  "NO_GO_NOG_01_NOG_02_ACCEPTED_EXACT_CANDIDATE_ONLY",
-);
-requireEqual("request.nog01.status", request.nog01?.status, "accepted_exact_candidate_evidence");
-requireEqual("request.nog02.status", request.nog02?.status, "accepted_exact_candidate_evidence");
-requireEqual("request.nog01.acceptedEvidence.selectedReleaseSha", request.nog01?.acceptedEvidence?.selectedReleaseSha, currentSha);
-requireEqual("request.nog02.acceptedEvidence.selectedReleaseSha", request.nog02?.acceptedEvidence?.selectedReleaseSha, currentSha);
-
-for (const blockerId of ["NOG-01", "NOG-02"]) {
-  const blocker = register.blockers.find((entry) => entry.id === blockerId);
-  const accepted = register.acceptedEvidence.find((entry) => entry.id === blockerId);
-  requireEqual(`${blockerId}.status`, blocker?.status, "accepted");
-  requireEqual(`${blockerId}.currentObservationState`, blocker?.currentObservationState, "accepted_exact_candidate_evidence_verified");
-  requireEqual(`${blockerId}.selectedSha`, blocker?.selectedSha, currentSha);
-  requireEqual(`${blockerId}.acceptedEvidence.status`, accepted?.status, "accepted");
-  requireEqual(`${blockerId}.acceptedEvidence.selectedSha`, accepted?.selectedSha, currentSha);
-  requirePattern(`${blockerId}.acceptedEvidence.artifactDigest`, accepted?.artifactDigest, sha256Pattern);
+for (const blocker of register.blockers.filter((entry) => ["NOG-01", "NOG-02"].includes(entry.id))) {
+  requireEqual(`${blocker.id}.status`, blocker.status, "open");
+  requireEqual(
+    `${blocker.id}.executionState`,
+    blocker.executionState,
+    "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+  );
+  requireEqual(
+    `${blocker.id}.currentObservationState`,
+    blocker.currentObservationState,
+    "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
+  );
 }
 requireEqual(
   "register.executionRequests[0].status",
   register.executionRequests?.[0]?.status,
-  "accepted_exact_candidate_protected_staging_and_env_evidence",
+  "blocked_pending_protected_environment_rules_and_workflow_dispatch",
 );
 requireEqual(
   "register.executionRequests[0].currentObservationState",
   register.executionRequests?.[0]?.currentObservationState,
-  "accepted_exact_candidate_evidence_verified",
+  "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
 );
-requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, remainingBlockers);
 
 for (const invariant of [
   "protected-staging-execution-status-20260812.json",
-  "NO_GO_NOG_01_NOG_02_ACCEPTED_REMAINING_BLOCKERS_OPEN",
+  "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
   "required_reviewers",
   "branch_policy",
-  "NOG-01 and NOG-02 are accepted",
-  "32644937055",
-  "32648754664",
+  "NOG-01 and NOG-02 remain open",
 ]) {
   requireText("packet", invariant, `packet is missing execution-status invariant: ${invariant}`);
   requireText("runbook", invariant, `runbook is missing execution-status invariant: ${invariant}`);

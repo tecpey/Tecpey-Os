@@ -1,14 +1,12 @@
 # Controlled Soft Launch Go/No-Go Checklist
 
-**Status:** GO — controlled soft launch only; every governed blocker has accepted evidence
-**Current candidate SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
-**Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
-**Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`  
-**Final governed evidence manifest:** `docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json`
-**Final governed release packet:** `docs/launch/generated/controlled-soft-launch-final-release-packet-20260824.json`
-**Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`  
-**Active protected staging NO-GO register:** `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`  
-**Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, #377, #378, #433, #435, #434, #436, #438, #439, #440, #441, #437, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
+- **Status:** NO-GO until every blocking row below has accepted evidence
+- **Current candidate SHA:** `4bc251725ce574d87258b52773e4a52ff3367252`
+- **Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`
+- **Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
+- **Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`
+- **Active protected staging NO-GO register:** `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`
+- **Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, #377, #378, #433, #435, #434, #436, #438, #439, #440, #441, #437, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
 
 This checklist is the release-decision surface for the narrow controlled Soft
 Launch. It is not a marketing readiness claim, and it does not authorize
@@ -31,42 +29,36 @@ labelled as gated. All new evidence collection must use the current candidate
 ledger above; older packet SHAs are historical draft baselines only unless a
 release-owner promotion PR explicitly reselects them.
 
+The governed final manifest and release packet for `79c48a16cb685a88315a44e103b3758cf7845d65` remain
+historical evidence only. They are not active evidence for `4bc251725ce574d87258b52773e4a52ff3367252` and do not
+authorize its staging deployment, merge or launch.
+
 ## Blocking checklist
 
 | Gate | Required accepted evidence | Current decision |
 |---|---|---|
-| Exact release identity | One immutable release candidate SHA, image digest, migration plan hash, CI run, and deployment artifact recorded together. | Accepted for exact runtime candidate `79c48a16cb685a88315a44e103b3758cf7845d65`. |
-| Full CI and release gates | `release:check` constituents, build, runtime smoke, API security, sensitive mutation audit, repository audit, secret scanning, browser Golden Path, container and recovery workflows pass on the exact candidate. | Exact-head CI, Full Suite, API Security, Sensitive Mutation, Repository Audit, Public Golden Path, Container Supply Chain and Secret Scanning URLs are accepted for NOG-04. |
-| Protected staging activation | Staging evidence satisfies `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`: exact SHA, protected runner, immutable host layout, health, systemd, database operational evidence, alert probe, spool drain, artifact digest and verifier summary. | Accepted for NOG-01/NOG-02 on exact runtime candidate `79c48a16cb685a88315a44e103b3758cf7845d65`; governed runs `32648754664` and `32644937055`, ZIP digests, detached digests and offline verifier summaries passed. |
-| Backup, restore and recovery | Restore evidence satisfies `docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md` for Academy, Arena, Mentor, Exchange ledger/balances/orders, notifications, tenant/principal isolation and audit trails, and the protected staging domain artifact passes `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. | Accepted for NOG-05 on exact runtime candidate `79c48a16cb685a88315a44e103b3758cf7845d65`: governed run `32659459702`, ZIP digest `sha256:e55f5eb887bde6d15d41f955d7a39345fa5f0472c4ef688c3d54b98203fd1e69`, detached digest and offline verifier passed; canonical status is `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`. |
-| Rollback and forward-fix | Candidate-to-previous rollback and volume-restore evidence exist; any irreversible migration has an approved forward-fix decision and owner. | Exact-candidate rollback and synthetic PostgreSQL/Redis volume-restore evidence is accepted for NOG-06. |
+| Exact release identity | One immutable release candidate SHA, image digest, migration plan hash, CI run, and deployment artifact recorded together. | NOG-03/NOG-04/NOG-06 exact-candidate evidence is accepted; operational blockers remain NO-GO. |
+| Full CI and release gates | `release:check` constituents, build, runtime smoke, API security, sensitive mutation audit, repository audit, secret scanning, browser Golden Path, container and recovery workflows pass on the exact candidate. | Exact-head CI, Full Suite, API Security, Sensitive Mutation, Repository Audit, Public Golden Path, Container Supply Chain and Secret Scanning URLs are accepted for NOG-04; NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted. |
+| Protected staging activation | Staging evidence satisfies `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`: exact SHA, protected runner, immutable host layout, health, systemd, database operational evidence, alert probe, spool drain, artifact digest and verifier summary. | NO-GO until protected staging evidence is accepted. |
+| Backup, restore and recovery | Restore evidence satisfies `docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md` for Academy, Arena, Mentor, Exchange ledger/balances/orders, notifications, tenant/principal isolation and audit trails, and the protected staging domain artifact passes `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. | NO-GO until restore and reconciliation evidence is accepted. |
+| Rollback and forward-fix | Candidate-to-previous rollback and volume-restore evidence exist; any irreversible migration has an approved forward-fix decision and owner. | Exact-candidate rollback and synthetic PostgreSQL/Redis volume-restore evidence is accepted for NOG-06; NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted. |
 | Disabled financial surfaces | Real-money Exchange, custody, deposits, withdrawals, public financial rewards and enterprise claims are impossible to activate accidentally through routes, env flags, UI copy or worker execution. | Disabled-capability attestation is accepted for NOG-10/NOG-11/NOG-12. Controlled launch may proceed only while these surfaces remain disabled; any accidental activation is NO-GO. |
 | Exchange safety boundary | Decimal conservation, order/trade/hold/balance/fee/ledger reconciliation, ambiguous-result recovery and provider evidence are either accepted or the Exchange remains launch-disabled. | Accepted as launch-disabled scope only. Real-money Exchange activation remains NO-GO until separately certified. |
 | Custody and withdrawal boundary | HSM/MPC, chain-provider certification, testnet/on-chain reconciliation and withdrawal settlement evidence are accepted, or every real withdrawal path remains custody-gated and product-disabled. | Accepted as product-disabled scope only. Custody, deposits and withdrawals remain NO-GO until separately certified. |
 | Compliance activation | KYC/AML provider configuration, production-negative mock tests, jurisdiction/legal review and evidence retention plan are accepted, or compliance-dependent flows remain disabled. | NO-GO for compliance-dependent real-money flows. |
 | Product truth and UX | Public copy, README, in-app states and docs preserve the launch boundary: education, Mentor and virtual Arena only; no live exchange/custody promise. | NO-GO if any user-facing surface overclaims readiness. |
-| Accepted risks | Every remaining non-blocking risk has a named owner, expiration/review date, mitigation, rollback condition and approval owner; the final owner sign-off artifact passes `scripts/verify-accepted-risk-signoff-evidence.mjs`. | Accepted for NOG-08 on exact runtime candidate `79c48a16cb685a88315a44e103b3758cf7845d65`: three attributable owners cover all nine controlled-launch risks, the register digest and current review dates are recorded, immutable issue-comment IDs are bound to each risk, and CI verifies live GitHub authorship plus exact body digests. |
-| Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` for DB, Redis, migration, alert, provider, worker and reconciliation failures, and the protected staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. | Accepted for NOG-07 on exact runtime candidate `79c48a16cb685a88315a44e103b3758cf7845d65`: governed run `32663989309`, ZIP digest `sha256:e9bf68a588571fcf8cf91b22ff8fbf1fe92734cced0321e286ad27921591a8a5`, detached digest, independent review and offline verifier passed; canonical status is `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`. |
-| Go approval matrix | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approve the exact candidate SHA and controlled launch scope after prerequisite evidence is accepted; the final artifact passes `scripts/verify-go-approval-matrix-evidence.mjs`. | Accepted for NOG-09 in `docs/launch/generated/go-approval-matrix-execution-status-20260824.json`; Issue #410 comment authors, timestamps and exact body digests are verified live and fail-closed. |
-
-Transition note: before the protected recovery run was accepted, the governed
-boundary read “NO-GO remains until recovery reconciliation, incident,
-accepted-risk owner sign-off and approval evidence is accepted.” That historical
-boundary is retained for trusted-main guard compatibility and is superseded by
-the accepted NOG-05 row above. The later protected incident-readiness run also
-accepted NOG-07, and attributable owner sign-offs accepted NOG-08; the current
-No controlled soft launch blocker remains. Expanded financial and enterprise
-activation remains separately NO-GO and disabled.
+| Accepted risks | Every remaining non-blocking risk has a named owner, expiration/review date, mitigation, rollback condition and approval owner; the final owner sign-off artifact passes `scripts/verify-accepted-risk-signoff-evidence.mjs`. | Accepted-risk owner sign-off evidence is missing for NOG-08. The register structure, freshness guard and final artifact verifier are prepared, but Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals. |
+| Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` for DB, Redis, migration, alert, provider, worker and reconciliation failures, and the protected staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. | NO-GO until incident evidence is accepted; request is prepared in `docs/launch/generated/incident-readiness-evidence-request-20260812.json`. |
+| Go approval matrix | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approve the exact candidate SHA and controlled launch scope after prerequisite evidence is accepted; the final artifact passes `scripts/verify-go-approval-matrix-evidence.mjs`. | NO-GO until approval evidence is accepted; request is prepared in `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`. |
 
 ## Required decision record
 
 The final Go/No-Go record must contain:
 
-The governed manifest and generated final packet named above are the accepted
-record for candidate `79c48a16cb685a88315a44e103b3758cf7845d65`. The packet is valid only while
-its decision is `GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY`, every referenced
-digest and immutable URL matches the manifest, and every disabled-capability
-attestation remains enforced.
+The governed manifest and generated final packet dated 2026-08-24 are archived
+for candidate `79c48a16cb685a88315a44e103b3758cf7845d65` only. A new final record for `4bc251725ce574d87258b52773e4a52ff3367252` may be generated
+only after every active blocker is accepted for this exact candidate; the
+historical packet must never be copied or relabelled.
 
 1. exact release candidate SHA and image digest;
 2. a governed controlled-launch evidence manifest with `schemaVersion: 2`,

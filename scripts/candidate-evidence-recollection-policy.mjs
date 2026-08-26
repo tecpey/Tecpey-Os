@@ -27,9 +27,9 @@ const REQUIRED_BOUNDARIES = [
   "public rewards",
 ];
 const ACCEPTED_EVIDENCE_PATHS = Object.freeze({
-  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260826.json",
+  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
+  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
 });
 const REQUIRED_NOG04_ACCEPTANCE = [
   "each workflow run is bound to selectedSha",

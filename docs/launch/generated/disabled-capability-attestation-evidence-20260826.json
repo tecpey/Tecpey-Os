@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "disabled-capability-attestation-evidence",
+  "generatedAt": "2026-08-26T12:34:02Z",
+  "decision": "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
+  "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+  "sourceBranch": "main",
+  "sourcePullRequest": 566,
+  "executionState": "accepted_launch_disabled_attestation",
+  "acceptedForBlockers": [
+    "NOG-10",
+    "NOG-11",
+    "NOG-12"
+  ],
+  "observedVia": {
+    "provider": "repository-local-authority",
+    "guardCommands": [
+      {
+        "name": "launch:disabled-capabilities:check",
+        "command": "node scripts/check-disabled-capability-attestation.mjs",
+        "disposition": "pass"
+      },
+      {
+        "name": "test:disabled-capability-attestation",
+        "command": "node --test scripts/disabled-capability-attestation-policy.test.mjs",
+        "disposition": "pass",
+        "tests": 17
+      }
+    ],
+    "policy": "scripts/disabled-capability-attestation-policy.mjs",
+    "policyCheck": "scripts/check-disabled-capability-attestation.mjs",
+    "negativeTests": "scripts/disabled-capability-attestation-policy.test.mjs"
+  },
+  "attestedBoundaries": {
+    "publicCopy": [
+      "README.md and README.fa.md state that repository capability presence is not production activation evidence.",
+      "Public English and Persian product surfaces preserve launch-gated language for real-money Exchange, custody, deposits and withdrawals.",
+      "Structured data remains EducationalOrganization scoped and does not advertise FinancialService activation."
+    ],
+    "runtimeActivation": [
+      "FEATURE_EXCHANGE_ENABLED=true is forbidden in production until separate real-money Exchange certification is accepted.",
+      "TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden until custody, provider, reconciliation and settlement evidence is accepted.",
+      "TECPEY_PUBLIC_FINANCIAL_REWARDS_ENABLED=1, TECPEY_ENTERPRISE_ACTIVATION_ENABLED=1 and TECPEY_WHITE_LABEL_ACTIVATION_ENABLED=1 are forbidden in production until separate approval."
+    ],
+    "workerExecution": [
+      "Withdrawal workers start only when Redis is configured and custodyStatus.workerEnabled is true.",
+      "Custody status remains productionReady: false and withdrawalsAvailable: false.",
+      "Environment-backed private keys and HSM/MPC placeholders are rejected until an approved signer exists."
+    ],
+    "routeAndRenderedData": [
+      "Enterprise, white-label, rewards, exchange, deposit, withdrawal and custody public routes remain absent unless implemented behind an accepted launch gate.",
+      "Rendered exchange comparison data keeps TecPey spot trading launch-gated.",
+      "Swap pages are educational and reject live-trading activation copy."
+    ]
+  },
+  "notAcceptedAs": [
+    "real-money Exchange certification",
+    "custody, deposit or withdrawal readiness",
+    "public financial reward activation",
+    "enterprise activation approval",
+    "white-label activation approval",
+    "KYC/AML/compliance activation evidence",
+    "provider or settlement reconciliation evidence"
+  ],
+  "notAcceptedForBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
+  "remainingFinalManifestGaps": [
+    "protected staging evidence URL and digest",
+    "redacted protected staging env:check evidence",
+    "protected staging recovery reconciliation evidence and digest",
+    "incident readiness evidence and digest",
+    "accepted-risk sign-off URL",
+    "Go approval matrix URL"
+  ],
+  "acceptanceBoundary": [
+    "NOG-10 is accepted only as launch-disabled real-money Exchange scope for the controlled public launch.",
+    "NOG-11 is accepted only as product-disabled custody, deposit and withdrawal scope for the controlled public launch.",
+    "NOG-12 is accepted only as disabled enterprise, white-label and public rewards scope for the controlled public launch.",
+    "This evidence does not authorize real-money Exchange, custody, deposits, withdrawals, enterprise, white-label or public reward activation."
+  ],
+  "privacyBoundary": [
+    "repository evidence records release identifiers, guard commands, policy paths, dispositions and public boundary summaries only",
+    "no secrets, database URLs, host IPs, raw logs, raw customer data, private keys, provider payloads or prompt transcripts are recorded"
+  ]
+}

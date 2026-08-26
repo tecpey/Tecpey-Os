@@ -1,15 +1,22 @@
 {
   "schemaVersion": 2,
   "evidenceClass": "go-approval-matrix-evidence-request",
-  "generatedAt": "2026-08-24T06:45:00Z",
-  "decision": "GO_NOG_09_EXACT_CANDIDATE_MATRIX_ACCEPTED",
-  "executionState": "accepted_exact_candidate_go_approval_matrix",
-  "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+  "generatedAt": "2026-08-26T12:34:02Z",
+  "decision": "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED",
+  "executionState": "blocked_pending_final_go_approval_matrix",
+  "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
   "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "requestPath": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
   "blocker": "NOG-09",
-  "status": "accepted",
-  "notAcceptedForBlockers": [],
+  "status": "open",
+  "notAcceptedForBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
   "requiredEnvironment": "release-control",
   "prerequisiteBlockers": [
     "NOG-01",
@@ -20,15 +27,14 @@
   ],
   "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
   "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
-  "verificationCommand": "npm run ops:go-approval-matrix:evidence:verify -- docs/launch/generated/go-approval-matrix-execution-status-20260824.json --expected-sha 79c48a16cb685a88315a44e103b3758cf7845d65",
+  "verificationCommand": "npm run ops:go-approval-matrix:evidence:verify -- <artifact.json> --expected-sha 4bc251725ce574d87258b52773e4a52ff3367252",
   "authorityGuard": "scripts/check-go-approval-matrix-evidence-authority.mjs",
   "requiredArtifact": {
-    "path": "docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
     "schemaVersion": 2,
     "authority": "tecpey-go-approval-matrix-v1",
     "evidenceClass": "controlled-soft-launch-go-approval-matrix",
     "environment": "release-control",
-    "sourceSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "sourceSha": "4bc251725ce574d87258b52773e4a52ff3367252",
     "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
     "allowedSurfaces": [
       "public-fa-en",
@@ -98,11 +104,11 @@
     {
       "name": "launch:go-approval-matrix-evidence:check",
       "command": "node scripts/check-go-approval-matrix-evidence-authority.mjs",
-      "disposition": "pass_only_with_verified_matrix_and_live_origin"
+      "disposition": "pass_no_acceptance_without_verified_matrix"
     },
     {
       "name": "ops:go-approval-matrix:evidence:verify",
-      "command": "node scripts/verify-go-approval-matrix-evidence.mjs docs/launch/generated/go-approval-matrix-execution-status-20260824.json --expected-sha 79c48a16cb685a88315a44e103b3758cf7845d65",
+      "command": "node scripts/verify-go-approval-matrix-evidence.mjs <artifact.json> --expected-sha 4bc251725ce574d87258b52773e4a52ff3367252",
       "disposition": "required_for_final_artifact"
     },
     {
@@ -112,25 +118,26 @@
     }
   ],
   "acceptanceBoundary": [
-    "NOG-09 is accepted only for the exact selected SHA and controlled launch scope recorded in the canonical final artifact.",
-    "The final artifact passes scripts/verify-go-approval-matrix-evidence.mjs and live GitHub origin verification is fail-closed.",
-    "The approval matrix includes CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approvals.",
-    "Every prerequisite blocker except NOG-09 has an accepted immutable evidence URL and recomputed file digest.",
+    "NOG-09 is not accepted by this request because a new final Go approval matrix for the exact selected SHA is missing.",
+    "The final artifact must pass scripts/verify-go-approval-matrix-evidence.mjs and fail-closed live GitHub origin verification for the exact selected SHA before release-owner acceptance.",
+    "The approval matrix must include CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approvals.",
+    "Every prerequisite blocker except NOG-09 must have accepted current-candidate evidence URL and digest before the matrix can pass.",
     "The approval matrix can approve only controlled public FA/EN, Academy, Mentor and virtual Arena scope; real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label remain disabled or separately blocked."
   ],
   "notAcceptedAs": [
-    "protected staging evidence",
-    "production-like environment evidence",
-    "recovery reconciliation evidence",
-    "incident readiness evidence",
-    "accepted-risk owner sign-off",
+    "unrestricted production approval",
     "real-money Exchange activation",
     "custody or withdrawal activation",
     "enterprise or white-label activation",
-    "unrestricted production approval"
+    "final Go approval matrix"
   ],
   "privacyBoundary": [
     "request and final evidence contain release identifiers, role identities, repository URLs, SHA-256 digests and dispositions only",
     "final evidence must not contain raw secrets, database URLs, host IPs, raw logs, customer data, provider payloads, private keys, webhook URLs or prompt transcripts"
-  ]
+  ],
+  "historicalAcceptedEvidence": {
+    "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "evidence": "docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
+    "disposition": "historical_only_not_accepted_for_current_candidate"
+  }
 }

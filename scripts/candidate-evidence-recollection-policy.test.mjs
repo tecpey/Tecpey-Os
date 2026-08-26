@@ -19,9 +19,9 @@ const boundaries = [
   "public rewards",
 ];
 const evidencePaths = {
-  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260826.json",
+  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
+  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
 };
 const requestPrivacy = [
   "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
