@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-execution-status-observation",
-  "observedAt": "2026-08-26T12:34:02.000Z",
+  "observedAt": "2026-08-26T20:55:00.000Z",
   "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "currentMainSha": "4bc251725ce574d87258b52773e4a52ff3367252",
-    "protectedStagingEvidenceTargetSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "currentMainSha": "9c210885b48f36a478d6a12fc369f822db259559",
+    "protectedStagingEvidenceTargetSha": "9c210885b48f36a478d6a12fc369f822db259559",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "postMergeObservation": {
-    "mergedPullRequest": 566,
-    "mergedPullRequestTitle": "security: upgrade OpenSSL runtime packages",
-    "mergeCommitSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "mergedPullRequest": 568,
+    "mergedPullRequestTitle": "fix(auth): implement secure Limoo Pattern OTP",
+    "mergeCommitSha": "9c210885b48f36a478d6a12fc369f822db259559",
     "targetShaUnchanged": false,
-    "targetShaDisposition": "candidate rebaselined to the exact post-PR #566 main SHA; no protected staging deployment or governed NOG-01/NOG-02 artifact is accepted for this candidate"
+    "targetShaDisposition": "candidate rebaselined to the exact post-PR #568 main SHA; no protected staging deployment or governed NOG-01/NOG-02 artifact is accepted for this candidate"
   },
   "observationSource": {
     "githubApi": [
@@ -82,10 +82,10 @@
     "rawLogsRecorded": false
   },
   "requiredBeforeAcceptance": [
-    "Deploy an immutable release directory for exact candidate 4bc251725ce574d87258b52773e4a52ff3367252 on staging and align the governed current-release pointer to it.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 4bc251725ce574d87258b52773e4a52ff3367252 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha 4bc251725ce574d87258b52773e4a52ff3367252 with one accepted environment_source.",
+    "Deploy an immutable release directory for exact candidate 9c210885b48f36a478d6a12fc369f822db259559 on staging and align the governed current-release pointer to it.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 9c210885b48f36a478d6a12fc369f822db259559 with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha 9c210885b48f36a478d6a12fc369f822db259559 with one accepted environment_source.",
     "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
   ],
-  "decisionAfterObservation": "NOG-01 and NOG-02 remain open: historical staging evidence is bound to superseded candidate 79c48a16cb685a88315a44e103b3758cf7845d65, and no accepted deployment or governed workflow evidence exists for 4bc251725ce574d87258b52773e4a52ff3367252."
+  "decisionAfterObservation": "NOG-01 and NOG-02 remain open: historical staging evidence is bound to superseded candidate 79c48a16cb685a88315a44e103b3758cf7845d65, and no accepted deployment or governed workflow evidence exists for 9c210885b48f36a478d6a12fc369f822db259559."
 }

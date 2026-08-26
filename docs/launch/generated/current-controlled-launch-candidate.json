@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-26T12:34:02Z",
+  "generatedAt": "2026-08-26T20:55:00Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
   "currentCandidate": {
-    "sha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "sha": "9c210885b48f36a478d6a12fc369f822db259559",
     "sourceBranch": "main",
-    "sourcePullRequest": 566,
-    "selectedAt": "2026-08-26T12:34:02Z",
-    "reason": "Rebaselines the controlled-launch evidence target to the exact post-PR #566 main SHA after Candidate Evidence Recollection Authority #177 attempt 2 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this immutable SHA. The prior 79c48a16 controlled-scope Go packet remains historical evidence only and does not authorize this candidate."
+    "sourcePullRequest": 568,
+    "selectedAt": "2026-08-26T20:55:00Z",
+    "reason": "Rebaselines the controlled-launch evidence target to the exact post-PR #568 main SHA after Candidate Evidence Recollection Authority #183 attempt 1 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this immutable SHA. The prior 4bc25172 candidate and 79c48a16 controlled-scope Go packet remain historical evidence only and do not authorize this candidate."
   },
   "supersedes": [
     {
@@ -172,57 +172,57 @@
       "id": "NOG-03",
       "status": "accepted",
       "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260826.json",
-      "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
-      "imageDigest": "sha256:71981a38cb0e276115b74453e99c37c812c28c9a90383e60305dace9eb8712cc",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835574",
-      "containerReleaseArtifactDigest": "sha256:1bf2bc0a8151803425173155c736625352bcbcf4fe19cdbfb5585c7ef233ab72"
+      "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
+      "imageDigest": "sha256:3d1a2ee36d48fb89e97f18f61ebdad67b177fceb401dec3009907d45dcf49850",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030564",
+      "containerReleaseArtifactDigest": "sha256:71d2663315182d024223df04243c8885ecded9dddf7333b597944a533b46a26c"
     },
     {
       "id": "NOG-04",
       "status": "accepted",
       "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
-      "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+      "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
       "workflowEvidence": {
-        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835596",
-        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835537",
-        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835564",
-        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835598",
-        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835675",
-        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835624",
-        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835574",
-        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835603",
-        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960849170"
+        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030711",
+        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030578",
+        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030576",
+        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030653",
+        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030612",
+        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030602",
+        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030564",
+        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030600",
+        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012041832"
       }
     },
     {
       "id": "NOG-06",
       "status": "accepted",
       "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
-      "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252",
-      "previousReleaseSha": "e9621ac583cbac4e42a7c1aec71478a8d1b3ec56",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32960835574",
-      "rollbackJobId": 98152586454,
-      "containerRecoveryArtifact": "container-recovery-4bc251725ce574d87258b52773e4a52ff3367252",
-      "containerRecoveryArtifactDigest": "sha256:bc5e5e82f9e6e0a74255cebe364c9bb1cc7af437aeb43b5583ecd10568b09440",
+      "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
+      "previousReleaseSha": "321897091874b8702426db33501694b1af95055c",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/33012030564",
+      "rollbackJobId": 98320483524,
+      "containerRecoveryArtifact": "container-recovery-9c210885b48f36a478d6a12fc369f822db259559",
+      "containerRecoveryArtifactDigest": "sha256:9fb1597956d431f8407333cef347348dc3a94e782187d2f4ac175dfd1ab1cc73",
       "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; protected staging activation and redacted env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
     },
     {
       "id": "NOG-10",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260826.json",
-      "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252"
+      "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559"
     },
     {
       "id": "NOG-11",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260826.json",
-      "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252"
+      "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559"
     },
     {
       "id": "NOG-12",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260826.json",
-      "selectedSha": "4bc251725ce574d87258b52773e4a52ff3367252"
+      "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559"
     }
   ],
   "privacyBoundary": [
@@ -231,7 +231,7 @@
   ],
   "currentMainShaAfterAcceptedRiskFreshnessReviewMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
   "currentMainShaAfterDecisionAuthorityPermissionsMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-  "currentMainShaAfterControlledLaunchCandidatePromotionMerge": "4bc251725ce574d87258b52773e4a52ff3367252",
+  "currentMainShaAfterControlledLaunchCandidatePromotionMerge": "9c210885b48f36a478d6a12fc369f822db259559",
   "currentMainShaAfterGovernanceRestorePr539Merge": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
   "currentMainShaAfterServerOnlyRuntimeFixPr541Merge": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
   "currentMainShaAfterSafeNpmSymlinkHostEvidencePr543Merge": "159c315cb26677edfa5b05c1708c93bed316ebe9",
@@ -239,5 +239,6 @@
   "currentMainShaAfterPrivateCaTrustPr547Merge": "313e1f6234ac13e0fd8ed55a14867edfb30926e4",
   "currentMainShaAfterProtectedRecoveryAuthorityPr551Merge": "a1cec3e412fad729fa2e7a86c7f5a10602d5174d",
   "currentMainShaAfterProtectedIncidentReadinessAuthorityPr553Merge": "7a8e2cb83b51ee375f732bc72703cab2b11cb74c",
-  "currentMainShaAfterOpenSslRuntimePr566Merge": "4bc251725ce574d87258b52773e4a52ff3367252"
+  "currentMainShaAfterOpenSslRuntimePr566Merge": "4bc251725ce574d87258b52773e4a52ff3367252",
+  "currentMainShaAfterLimooPatternOtpPr568Merge": "9c210885b48f36a478d6a12fc369f822db259559"
 }
