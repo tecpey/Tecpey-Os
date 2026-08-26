@@ -63,7 +63,7 @@ describe("Limoo SMS provider boundary", () => {
       {
         url: "https://api.limosms.com/api/sendpatternmessage",
         key: "server-secret",
-        body: { OtpId: 42, ReplaceToken: ["123456"], MobileNumber: "09123456789" },
+        body: { OtpId: "42", ReplaceToken: ["123456"], MobileNumber: "09123456789" },
       },
     ]);
   });
@@ -106,7 +106,7 @@ describe("Limoo SMS provider boundary", () => {
       mobileNumbers: ["09123456789", "09120000000"],
     }, { fetchImpl });
     await sendLimooPatternMessage({
-      patternId: 42,
+      patternId: "315421354564",
       replaceTokens: ["654321"],
       mobileNumber: "09123456789",
     }, { fetchImpl });
@@ -132,9 +132,26 @@ describe("Limoo SMS provider boundary", () => {
       },
       {
         url: "https://api.limosms.com/api/sendpatternmessage",
-        body: { OtpId: 42, ReplaceToken: ["654321"], MobileNumber: "09123456789" },
+        body: { OtpId: "315421354564", ReplaceToken: ["654321"], MobileNumber: "09123456789" },
       },
     ]);
+  });
+
+  it("preserves the official signed 64-bit Pattern ID without number coercion", async () => {
+    process.env.LIMOO_SMS_API_KEY = "server-secret";
+    process.env.LIMOO_SMS_PATTERN_ID = "9223372036854775807";
+    const observed: ObservedCall[] = [];
+
+    assert.deepEqual(
+      await sendLimooVerificationCode("09123456789", "000042", {
+        fetchImpl: successfulFetch(observed),
+      }),
+      { ok: true },
+    );
+    assert.equal(
+      (observed[0]?.body as { OtpId?: unknown }).OtpId,
+      "9223372036854775807",
+    );
   });
 
   it("matches the official credit, status and received-message contracts", async () => {

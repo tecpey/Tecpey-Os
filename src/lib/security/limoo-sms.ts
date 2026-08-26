@@ -2,6 +2,7 @@ import {
   resolveRuntimeCommunicationProvider,
   type RuntimeProviderResolution,
 } from "@/lib/communication-provider-store";
+import { normalizeLimooPatternId } from "@/lib/security/limoo-pattern-id";
 
 type LimooEndpoint =
   | "sendsms"
@@ -146,14 +147,10 @@ export function sendLimooVerificationCode(
 ): Promise<LimooSmsResult> {
   return (async () => {
     const managed = await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
-    const configuredPatternId = managed.status === "configured"
+    const configuredPatternId = normalizeLimooPatternId(managed.status === "configured"
       ? managed.config.settings.otpPatternId
-      : Number(process.env.LIMOO_SMS_PATTERN_ID?.trim() ?? "");
-    if (
-      !Number.isSafeInteger(configuredPatternId) ||
-      Number(configuredPatternId) < 1 ||
-      Number(configuredPatternId) > 2_147_483_647
-    ) {
+      : process.env.LIMOO_SMS_PATTERN_ID);
+    if (!configuredPatternId) {
       return { ok: false, reason: "disabled" };
     }
     if (!/^\d{6}$/.test(code)) return { ok: false, reason: "invalid_response" };
@@ -193,13 +190,15 @@ export function sendLimooPeerToPeerSms(input: {
   }, dependencies);
 }
 
-export function sendLimooPatternMessage(input: {
-  patternId: number;
+export async function sendLimooPatternMessage(input: {
+  patternId: string | number;
   replaceTokens: string[];
   mobileNumber: string;
 }, dependencies?: Dependencies): Promise<LimooOperationResult> {
+  const patternId = normalizeLimooPatternId(input.patternId);
+  if (!patternId) return { ok: false, reason: "invalid_response" };
   return callLimoo("sendpatternmessage", {
-    OtpId: input.patternId,
+    OtpId: patternId,
     ReplaceToken: input.replaceTokens,
     MobileNumber: input.mobileNumber,
   }, dependencies);

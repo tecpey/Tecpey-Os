@@ -51,6 +51,10 @@ describe("phone OTP local verifier", () => {
     mutableEnvironment.NODE_ENV = "production";
     delete process.env.TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64;
     assert.throws(() => phoneOtpCodeDigest(binding), /phone_otp_code_key_unavailable/);
+    assert.throws(
+      () => verifyPhoneOtpCode({ ...binding, expectedDigest: "a".repeat(64) }),
+      /phone_otp_code_key_unavailable/,
+    );
     process.env.TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64 = "not-a-32-byte-key";
     assert.throws(() => phoneOtpCodeDigest(binding), /phone_otp_code_key_unavailable/);
   });

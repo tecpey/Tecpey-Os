@@ -19,7 +19,7 @@ type ChallengeRow = {
   encrypted_phone: string;
   purpose: PhoneOtpPurpose;
   status: "prepared" | "sent" | "verifying" | "verified" | "consumed" | "failed" | "expired";
-  otp_code_digest: string;
+  otp_code_digest: string | null;
   attempt_count: number;
   max_attempts: number;
   expires_at: Date;
@@ -131,138 +131,118 @@ export async function finalizePhoneOtpSend(input: {
   return transaction.enabled ? transaction.value : false;
 }
 
-export async function claimPhoneOtpVerification(challengeId: string): Promise<
+export type PhoneOtpVerificationResult =
+  | { status: "verified"; purpose: PhoneOtpPurpose }
   | {
-      status: "claimed";
-      phoneFingerprint: string;
-      purpose: PhoneOtpPurpose;
-      otpCodeDigest: string;
-    }
-  | { status: "not_found" | "invalid_state" | "expired" | "attempts_exhausted" | "unavailable" }
-> {
-  const transaction = await withTx(async (client) => {
-    const selected = await client.query<ChallengeRow>(
-      `SELECT id, phone_fingerprint, encrypted_phone, purpose, status,
-              otp_code_digest, attempt_count, max_attempts, expires_at
-         FROM identity_phone_otp_challenges
-        WHERE id = $1
-        FOR UPDATE`,
-      [challengeId],
-    );
-    const row = selected.rows[0];
-    if (!row) return { status: "not_found" } as const;
-    if (row.expires_at.getTime() <= Date.now()) {
-      if (["prepared", "sent", "verifying", "verified"].includes(row.status)) {
+      status:
+        | "invalid_code"
+        | "not_found"
+        | "invalid_state"
+        | "expired"
+        | "attempts_exhausted"
+        | "unavailable";
+    };
+
+export async function verifyPhoneOtpChallenge(input: {
+  challengeId: string;
+  code: string;
+}): Promise<PhoneOtpVerificationResult> {
+  try {
+    const transaction = await withTx(async (client): Promise<PhoneOtpVerificationResult> => {
+      const selected = await client.query<ChallengeRow>(
+        `SELECT id, phone_fingerprint, encrypted_phone, purpose, status,
+                otp_code_digest, attempt_count, max_attempts, expires_at
+           FROM identity_phone_otp_challenges
+          WHERE id = $1
+          FOR UPDATE`,
+        [input.challengeId],
+      );
+      const row = selected.rows[0];
+      if (!row) return { status: "not_found" };
+      if (row.expires_at.getTime() <= Date.now()) {
+        if (["prepared", "sent", "verifying", "verified"].includes(row.status)) {
+          await client.query(
+            `UPDATE identity_phone_otp_challenges
+                SET status = 'expired', verified_at = NULL, otp_code_digest = NULL,
+                    updated_at = NOW()
+              WHERE id = $1`,
+            [row.id],
+          );
+          await appendEvent(client, {
+            challengeId: row.id,
+            eventType: "expired",
+            phoneFingerprint: row.phone_fingerprint,
+          });
+        }
+        return { status: "expired" };
+      }
+      if (row.attempt_count >= row.max_attempts) return { status: "attempts_exhausted" };
+      if (row.status !== "sent" || !row.otp_code_digest) return { status: "invalid_state" };
+
+      const attempt = row.attempt_count + 1;
+      const verified = verifyPhoneOtpCode({
+        challengeId: row.id,
+        phoneFingerprint: row.phone_fingerprint,
+        purpose: row.purpose,
+        code: input.code,
+        expectedDigest: row.otp_code_digest,
+      });
+      await client.query(
+        `UPDATE identity_phone_otp_challenges
+            SET status = 'verifying', attempt_count = $2, updated_at = NOW()
+          WHERE id = $1`,
+        [row.id, attempt],
+      );
+      await appendEvent(client, {
+        challengeId: row.id,
+        eventType: "verification_started",
+        phoneFingerprint: row.phone_fingerprint,
+        metadata: { attempt },
+      });
+
+      if (verified) {
         await client.query(
           `UPDATE identity_phone_otp_challenges
-              SET status = 'expired', verified_at = NULL, otp_code_digest = NULL,
+              SET status = 'verified', verified_at = NOW(), otp_code_digest = NULL,
                   updated_at = NOW()
             WHERE id = $1`,
           [row.id],
         );
         await appendEvent(client, {
           challengeId: row.id,
-          eventType: "expired",
+          eventType: "verified",
           phoneFingerprint: row.phone_fingerprint,
+          metadata: { provider: "limoo_sms", verification: "local_hmac" },
         });
+        return { status: "verified", purpose: row.purpose };
       }
-      return { status: "expired" } as const;
-    }
-    if (row.attempt_count >= row.max_attempts) return { status: "attempts_exhausted" } as const;
-    if (row.status !== "sent") return { status: "invalid_state" } as const;
 
-    await client.query(
-      `UPDATE identity_phone_otp_challenges
-          SET status = 'verifying', attempt_count = attempt_count + 1, updated_at = NOW()
-        WHERE id = $1`,
-      [row.id],
-    );
-    await appendEvent(client, {
-      challengeId: row.id,
-      eventType: "verification_started",
-      phoneFingerprint: row.phone_fingerprint,
-      metadata: { attempt: row.attempt_count + 1 },
-    });
-    return {
-      status: "claimed",
-      phoneFingerprint: row.phone_fingerprint,
-      purpose: row.purpose,
-      otpCodeDigest: row.otp_code_digest,
-    } as const;
-  });
-  return transaction.enabled ? transaction.value : { status: "unavailable" };
-}
-
-export async function completePhoneOtpVerification(input: {
-  challengeId: string;
-  verified: boolean;
-  failureReason?: string;
-}): Promise<"verified" | "rejected" | "unavailable"> {
-  const transaction = await withTx(async (client) => {
-    const selected = await client.query<ChallengeRow>(
-      `SELECT id, phone_fingerprint, encrypted_phone, purpose, status,
-              otp_code_digest, attempt_count, max_attempts, expires_at
-         FROM identity_phone_otp_challenges
-        WHERE id = $1
-        FOR UPDATE`,
-      [input.challengeId],
-    );
-    const row = selected.rows[0];
-    if (!row || row.status !== "verifying") return "rejected" as const;
-    if (input.verified) {
+      const exhausted = attempt >= row.max_attempts;
+      const nextStatus = exhausted ? "failed" : "sent";
       await client.query(
         `UPDATE identity_phone_otp_challenges
-            SET status = 'verified', verified_at = NOW(), updated_at = NOW()
+            SET status = $2,
+                otp_code_digest = CASE WHEN $2 = 'failed' THEN NULL ELSE otp_code_digest END,
+                updated_at = NOW()
           WHERE id = $1`,
-        [row.id],
+        [row.id, nextStatus],
       );
       await appendEvent(client, {
         challengeId: row.id,
-        eventType: "verified",
+        eventType: "verification_failed",
         phoneFingerprint: row.phone_fingerprint,
-        metadata: { provider: "limoo_sms" },
+        metadata: {
+          provider: "limoo_sms",
+          reason: "invalid_code",
+          verification: "local_hmac",
+        },
       });
-      return "verified" as const;
-    }
-    const exhausted = row.attempt_count >= row.max_attempts;
-    const nextStatus = exhausted ? "failed" : "sent";
-    await client.query(
-      `UPDATE identity_phone_otp_challenges
-          SET status = $2,
-              otp_code_digest = CASE WHEN $2 = 'failed' THEN NULL ELSE otp_code_digest END,
-              updated_at = NOW()
-        WHERE id = $1`,
-      [row.id, nextStatus],
-    );
-    await appendEvent(client, {
-      challengeId: row.id,
-      eventType: "verification_failed",
-      phoneFingerprint: row.phone_fingerprint,
-      metadata: {
-        provider: "limoo_sms",
-        reason: input.failureReason?.slice(0, 80) || "invalid_code",
-        verification: "local_hmac",
-      },
+      return { status: "invalid_code" };
     });
-    return "rejected" as const;
-  });
-  return transaction.enabled ? transaction.value : "unavailable";
-}
-
-export function verifyClaimedPhoneOtpCode(input: {
-  challengeId: string;
-  phoneFingerprint: string;
-  purpose: PhoneOtpPurpose;
-  code: string;
-  otpCodeDigest: string;
-}): boolean {
-  return verifyPhoneOtpCode({
-    challengeId: input.challengeId,
-    phoneFingerprint: input.phoneFingerprint,
-    purpose: input.purpose,
-    code: input.code,
-    expectedDigest: input.otpCodeDigest,
-  });
+    return transaction.enabled ? transaction.value : { status: "unavailable" };
+  } catch {
+    return { status: "unavailable" };
+  }
 }
 
 export async function loadVerifiedPhoneChallenge(input: {

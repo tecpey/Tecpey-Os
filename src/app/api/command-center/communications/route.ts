@@ -33,6 +33,7 @@ import {
   sendLimooVerificationCode,
   type LimooOperationResult,
 } from "@/lib/security/limoo-sms";
+import { normalizeLimooPatternId } from "@/lib/security/limoo-pattern-id";
 import { generatePhoneOtpCode } from "@/lib/security/phone-otp-code";
 import { normalizeIranianMobile, providerMobileFromE164 } from "@/lib/security/phone-identity";
 
@@ -76,13 +77,9 @@ function normalizeSettings(
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
   if (provider === "limoo_sms") {
-    const patternText = String(raw.otpPatternId ?? "").trim();
-    if (!patternText && enabled === false) return {};
-    if (!/^\d{1,10}$/.test(patternText)) return null;
-    const otpPatternId = Number(patternText);
-    return Number.isSafeInteger(otpPatternId) && otpPatternId > 0 && otpPatternId <= 2_147_483_647
-      ? { otpPatternId }
-      : null;
+    if (String(raw.otpPatternId ?? "").trim() === "" && enabled === false) return {};
+    const otpPatternId = normalizeLimooPatternId(raw.otpPatternId);
+    return otpPatternId ? { otpPatternId } : null;
   }
   const fromEmail = Validate.email(raw.fromEmail);
   const fromName = Validate.text(raw.fromName, 2, 100);
@@ -412,7 +409,7 @@ export async function POST(request: NextRequest) {
       metadata = { recipientCount: recipients.length, messageCount: messages.length };
       result = await sendLimooPeerToPeerSms(command, dependencies);
     } else if (action === "limoo_send_pattern") {
-      const patternId = Validate.int(value.patternId, 1, Number.MAX_SAFE_INTEGER);
+      const patternId = normalizeLimooPatternId(value.patternId);
       const replacements = stringList(value.replaceTokens, 10, 128);
       const recipients = iranianMobiles([value.mobileNumber]);
       if (!patternId || !replacements || !recipients?.[0]) {

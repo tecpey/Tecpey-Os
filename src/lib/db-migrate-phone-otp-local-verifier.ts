@@ -24,7 +24,7 @@ ALTER TABLE identity_phone_otp_challenges
 ALTER TABLE identity_phone_otp_challenges
   ADD CONSTRAINT identity_phone_otp_active_code_digest
   CHECK (
-    status NOT IN ('prepared', 'sent', 'verifying', 'verified')
+    status NOT IN ('prepared', 'sent', 'verifying')
     OR otp_code_digest IS NOT NULL
   );
 `;

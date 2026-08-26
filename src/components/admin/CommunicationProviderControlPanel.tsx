@@ -21,7 +21,7 @@ type ProviderSnapshot = {
   secretConfigured: boolean;
   keyFingerprint: string | null;
   settings: {
-    otpPatternId?: number;
+    otpPatternId?: string;
     fromName?: string;
     fromEmail?: string;
     replyTo?: string;
@@ -291,7 +291,7 @@ export function CommunicationProviderControlPanel() {
               {isSms ? (
                 <>
                   <label className="mt-4 block text-xs font-black text-slate-300">Pattern ID لیمو
-                    <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.otpPatternId} onChange={(event) => updateForm(meta.id, { otpPatternId: event.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="شناسه عددی پترن تأییدشده" className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left font-mono text-sm text-white outline-none transition-colors focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20" dir="ltr" />
+                    <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.otpPatternId} onChange={(event) => updateForm(meta.id, { otpPatternId: event.target.value.replace(/\D/g, "").slice(0, 19) })} placeholder="شناسه عددی پترن تأییدشده" className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left font-mono text-sm text-white outline-none transition-colors focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20" dir="ltr" />
                     <span className="mt-2 block text-[11px] font-bold leading-5 text-slate-500">پترن تأییدشده در لیمو باید دقیقاً یک متغیر برای رمز ۶ رقمی تولیدشده توسط تک‌پی داشته باشد.</span>
                   </label>
                   <label className="mt-4 block text-xs font-black text-slate-300">شماره تست

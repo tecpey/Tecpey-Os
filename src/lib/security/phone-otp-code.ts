@@ -78,7 +78,10 @@ export function verifyPhoneOtpCode(
   let observed: Buffer;
   try {
     observed = Buffer.from(phoneOtpCodeDigest(input), "hex");
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "phone_otp_code_key_unavailable") {
+      throw error;
+    }
     return false;
   }
   const expected = Buffer.from(input.expectedDigest, "hex");

@@ -196,14 +196,12 @@ if (providerSecretEncryptionKey) {
 
 const limooPatternIdText = process.env.LIMOO_SMS_PATTERN_ID?.trim();
 if (limooPatternIdText) {
-  const limooPatternId = Number(limooPatternIdText);
   if (
-    !/^\d{1,10}$/.test(limooPatternIdText) ||
-    !Number.isSafeInteger(limooPatternId) ||
-    limooPatternId < 1 ||
-    limooPatternId > 2_147_483_647
+    !/^\d{1,19}$/.test(limooPatternIdText) ||
+    BigInt(limooPatternIdText) < 1n ||
+    BigInt(limooPatternIdText) > 9_223_372_036_854_775_807n
   ) {
-    errors.push('LIMOO_SMS_PATTERN_ID must be a positive integer no greater than 2147483647');
+    errors.push('LIMOO_SMS_PATTERN_ID must be a positive signed 64-bit integer');
   }
 }
 

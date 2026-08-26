@@ -85,7 +85,8 @@ describe("communication provider admin boundary", () => {
     assert.doesNotMatch(sms, /sendcode|checkcode|otpFooter/);
     assert.match(client, /Pattern ID لیمو/);
     assert.match(route, /generatePhoneOtpCode/);
-    assert.match(route, /!patternText && enabled === false/);
+    assert.match(route, /normalizeLimooPatternId/);
+    assert.match(route, /enabled === false\) return \{\}/);
     assert.match(email, /managed\?\.settings\.defaultTemplateId/);
     assert.match(email, /dynamic_template_data: message\.templateVariables/);
     assert.match(email, /template: \{ id: templateId, variables: message\.templateVariables/);

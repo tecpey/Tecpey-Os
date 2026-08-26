@@ -53,11 +53,14 @@ describe("production custody environment validation", () => {
   });
 
   it("requires a governed numeric Limoo Pattern ID", () => {
-    for (const value of ["", "0", "12.5", "pattern-42", "2147483648"]) {
+    for (const value of ["", "0", "12.5", "pattern-42", "9223372036854775808"]) {
       const result = validate({ LIMOO_SMS_PATTERN_ID: value });
       assert.notEqual(result.status, 0, `LIMOO_SMS_PATTERN_ID=${value} must fail validation`);
       assert.match(result.stderr, /LIMOO_SMS_PATTERN_ID/);
     }
+
+    const longPatternId = validate({ LIMOO_SMS_PATTERN_ID: "315421354564" });
+    assert.equal(longPatternId.status, 0, longPatternId.stderr);
   });
 
   it("requires strong, isolated administrator authentication secrets", () => {

@@ -4,11 +4,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
-import {
-  claimPhoneOtpVerification,
-  completePhoneOtpVerification,
-  verifyClaimedPhoneOtpCode,
-} from "@/lib/security/phone-otp-authority";
+import { verifyPhoneOtpChallenge } from "@/lib/security/phone-otp-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -33,33 +29,18 @@ export async function POST(request: NextRequest) {
     });
     if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-    const claim = await claimPhoneOtpVerification(challengeId);
-    if (claim.status !== "claimed") {
+    const verification = await verifyPhoneOtpChallenge({ challengeId, code });
+    if (verification.status !== "verified") {
       const map: Record<string, [string, number]> = {
+        invalid_code: ["invalid_otp_code", 401],
         expired: ["otp_challenge_expired", 410],
         attempts_exhausted: ["otp_attempts_exhausted", 429],
         unavailable: ["phone_otp_authority_unavailable", 503],
       };
-      const [error, status] = map[claim.status] ?? ["invalid_otp_challenge", 409];
+      const [error, status] = map[verification.status] ?? ["invalid_otp_challenge", 409];
       return apiError(error, status);
     }
 
-    const verified = verifyClaimedPhoneOtpCode({
-      challengeId,
-      phoneFingerprint: claim.phoneFingerprint,
-      purpose: claim.purpose,
-      code,
-      otpCodeDigest: claim.otpCodeDigest,
-    });
-    const completion = await completePhoneOtpVerification({
-      challengeId,
-      verified,
-      failureReason: verified ? undefined : "invalid_code",
-    });
-    if (completion === "unavailable") return apiError("phone_otp_authority_unavailable", 503);
-    if (!verified) return apiError("invalid_otp_code", 401);
-    if (completion !== "verified") return apiError("invalid_otp_challenge", 409);
-
-    return apiOk({ verified: true, challengeId, purpose: claim.purpose });
+    return apiOk({ verified: true, challengeId, purpose: verification.purpose });
   });
 }

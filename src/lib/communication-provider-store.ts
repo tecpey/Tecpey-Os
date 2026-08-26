@@ -7,12 +7,13 @@ import {
   encryptCommunicationProviderSecret,
   providerSecretFingerprint,
 } from "./security/communication-provider-secret";
+import { normalizeLimooPatternId } from "./security/limoo-pattern-id";
 
 export const COMMUNICATION_PROVIDER_IDS = ["limoo_sms", "resend", "sendgrid"] as const;
 export type CommunicationProviderId = typeof COMMUNICATION_PROVIDER_IDS[number];
 
 export type CommunicationProviderSettings = {
-  otpPatternId?: number;
+  otpPatternId?: string;
   fromName?: string;
   fromEmail?: string;
   replyTo?: string;
@@ -65,14 +66,8 @@ function cleanSettings(value: unknown): CommunicationProviderSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;
   const output: CommunicationProviderSettings = {};
-  if (
-    typeof source.otpPatternId === "number" &&
-    Number.isSafeInteger(source.otpPatternId) &&
-    source.otpPatternId > 0 &&
-    source.otpPatternId <= 2_147_483_647
-  ) {
-    output.otpPatternId = source.otpPatternId;
-  }
+  const otpPatternId = normalizeLimooPatternId(source.otpPatternId);
+  if (otpPatternId) output.otpPatternId = otpPatternId;
   for (const key of ["fromName", "fromEmail", "replyTo", "defaultTemplateId"] as const) {
     if (typeof source[key] === "string") output[key] = source[key].slice(0, 320);
   }
