@@ -1,19 +1,32 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-24T06:45:00Z",
+  "generatedAt": "2026-08-26T11:31:01Z",
   "issue": 515,
-  "status": "promoted_exact_candidate_evidence",
+  "status": "pending_evidence_recollection",
   "currentAcceptedCandidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
   "proposedCandidate": {
-    "sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "sha": "4bc251725ce574d87258b52773e4a52ff3367252",
     "sourceBranch": "main",
-    "sourcePullRequest": 545,
-    "reason": "PR #545 aligned protected staging host evidence and advanced the immutable runtime candidate to 79c48a16cb685a88315a44e103b3758cf7845d65. Exact-candidate evidence accepted NOG-01 through NOG-08 and NOG-10 through NOG-12; attributable, live-origin-verified approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and independent QA now accept NOG-09 for the controlled scope only."
+    "sourcePullRequest": 566,
+    "reason": "Main advanced beyond the accepted 79c48a16 controlled-launch candidate through public runtime resilience, Academy login/profile continuity, Iran-safe authentication, secure Limoo/Resend communications operations and the PR #566 pinned OpenSSL runtime security remediation. New exact-candidate release and protected-staging evidence must therefore target the exact post-PR #566 main SHA 4bc251725ce574d87258b52773e4a52ff3367252 or a later explicitly refreshed stable main SHA."
   },
-  "protectedExecutionAllowed": true,
+  "protectedExecutionAllowed": false,
   "requiredAcceptanceSchemaVersion": 2,
-  "staleAcceptedEvidence": [],
+  "staleAcceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "reason": "runtime image digest evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    },
+    {
+      "id": "NOG-04",
+      "reason": "exact-head workflow URL evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    },
+    {
+      "id": "NOG-06",
+      "reason": "rollback and volume-restore evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    }
+  ],
   "stillOpenBlockers": [],
   "launchDisabledBoundaries": [
     "real-money Exchange",
@@ -34,27 +47,5 @@
   "privacyBoundary": [
     "state contains release identifiers, blocker IDs, status and policy text only",
     "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
-  ],
-  "acceptedRecollectedEvidence": [
-    {
-      "id": "NOG-03",
-      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-04",
-      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-06",
-      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
-    }
-  ],
-  "promotionCompletedChecks": [
-    "exact-head workflow evidence schema v2 accepted for the selected SHA",
-    "runtime image digest evidence accepted for the selected SHA",
-    "rollback and volume-restore evidence accepted for the selected SHA",
-    "candidate and protected-staging lineage aligned to the selected SHA",
-    "all controlled-scope blockers are accepted for the exact candidate",
-    "real-money and expanded-scope launch boundaries remain disabled"
   ]
 }
