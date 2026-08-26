@@ -135,6 +135,26 @@ jobs:
           ignore-unfixed: false
           exit-code: '1'
 
+      - name: Summarize rejected runtime vulnerabilities
+        if: ${{ always() }}
+        run: |
+          if test -s artifacts/container/trivy.json; then
+            jq -r '
+              .Results[]?
+              | .Target as $target
+              | .Vulnerabilities[]?
+              | [
+                  $target,
+                  .Severity,
+                  .VulnerabilityID,
+                  .PkgName,
+                  .InstalledVersion,
+                  (.FixedVersion // "unfixed")
+                ]
+              | @tsv
+            ' artifacts/container/trivy.json
+          fi
+
       - name: Upload immutable container evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
