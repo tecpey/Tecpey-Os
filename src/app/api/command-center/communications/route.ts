@@ -38,8 +38,6 @@ const LIMOO_ACTIONS = [
   "limoo_status",
   "limoo_received",
 ] as const;
-type LimooAction = typeof LIMOO_ACTIONS[number];
-
 function providerId(value: unknown): CommunicationProviderId | null {
   return COMMUNICATION_PROVIDER_IDS.includes(value as CommunicationProviderId)
     ? value as CommunicationProviderId
