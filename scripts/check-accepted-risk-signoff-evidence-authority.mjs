@@ -9,6 +9,7 @@ const EVIDENCE_PATH =
 const REQUEST_PATH =
   "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
 const SELECTED_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const PROPOSED_OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
 const REQUIRED_APPROVAL_OWNERS = [
   "github:tecpey",
@@ -188,7 +189,19 @@ for (const [label, accepted] of [["register", registerAccepted], ["candidate", c
 }
 
 requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, []);
-requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, []);
+requireEqual("promotion.status", promotion.status, "pending_evidence_recollection");
+requireEqual("promotion.currentAcceptedCandidateSha", promotion.currentAcceptedCandidateSha, SELECTED_SHA);
+requireEqual("promotion.protectedExecutionAllowed", promotion.protectedExecutionAllowed, false);
+if (!/^[0-9a-f]{40}$/.test(promotion.proposedCandidate?.sha ?? "")) {
+  failures.push("promotion.proposedCandidate.sha must be an exact lowercase 40-character SHA");
+} else if (promotion.proposedCandidate.sha === SELECTED_SHA) {
+  failures.push("promotion.proposedCandidate.sha must differ from the accepted candidate while promotion is pending");
+}
+requireArrayExact(
+  "promotion.stillOpenBlockers",
+  promotion.stillOpenBlockers,
+  PROPOSED_OPEN_BLOCKERS,
+);
 requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, []);
 requireEqual("register.acceptedRiskSignoffEvidence", register.acceptedRiskSignoffEvidence, EVIDENCE_PATH);
 requireEqual("candidate.activeInputs.acceptedRiskSignoffEvidence", candidate.activeInputs?.acceptedRiskSignoffEvidence, EVIDENCE_PATH);

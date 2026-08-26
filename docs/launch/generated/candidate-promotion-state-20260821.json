@@ -27,7 +27,14 @@
       "reason": "rollback and volume-restore evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
     }
   ],
-  "stillOpenBlockers": [],
+  "stillOpenBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
   "launchDisabledBoundaries": [
     "real-money Exchange",
     "custody/deposits/withdrawals",

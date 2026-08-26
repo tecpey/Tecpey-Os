@@ -16,7 +16,8 @@ const shaPattern = /^[0-9a-f]{40}$/;
 const failures = [];
 const RECOLLECTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06"];
 const ACCEPTED_PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
-const OPEN_BLOCKERS = [];
+const CURRENT_ACCEPTED_OPEN_BLOCKERS = [];
+const PROPOSED_OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const DISABLED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",
@@ -241,7 +242,7 @@ for (const blocker of ACCEPTED_PROTECTED_STAGING_BLOCKERS) {
 requireArrayExact(
   `${paths.protectedStagingRegister}: remainingOpenBlockers`,
   protectedStagingRegister.remainingOpenBlockers,
-  OPEN_BLOCKERS,
+  CURRENT_ACCEPTED_OPEN_BLOCKERS,
 );
 
 for (const label of ["self-hosted", "linux", "x64", "tecpey-staging"]) {
@@ -305,7 +306,7 @@ requireEqual(
 requireArrayExact(
   `${paths.promotionState}: stillOpenBlockers`,
   promotionState.stillOpenBlockers,
-  OPEN_BLOCKERS,
+  PROPOSED_OPEN_BLOCKERS,
 );
 for (const boundary of DISABLED_BOUNDARIES) {
   requireArrayIncludes(

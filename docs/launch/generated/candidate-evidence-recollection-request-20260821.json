@@ -63,7 +63,14 @@
       ]
     }
   },
-  "stillOpenBlockers": [],
+  "stillOpenBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
   "launchDisabledBoundaries": [
     "real-money Exchange",
     "custody/deposits/withdrawals",

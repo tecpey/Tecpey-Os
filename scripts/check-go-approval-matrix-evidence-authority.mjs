@@ -8,6 +8,7 @@ const BASE_MAIN_SHA = "ffa005707250f95dd975b4a973626580fc6871ab";
 const REQUEST_PATH = "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json";
 const EVIDENCE_PATH = "docs/launch/generated/go-approval-matrix-execution-status-20260824.json";
 const ISSUE_URL = "https://github.com/tecpey/Tecpey-Os/issues/410";
+const PROPOSED_OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 
 const REQUIRED_APPROVALS = {
   ceo: { role: "CEO", owner: "github:tecpey", id: 5391626720, digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438" },
@@ -151,7 +152,19 @@ requireEqual("candidate.currentCandidate.sha", candidate.currentCandidate?.sha, 
 requireEqual("candidate.decision", candidate.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
 requireEqual("register.decision", register.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
 requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, []);
-requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, []);
+requireEqual("promotion.status", promotion.status, "pending_evidence_recollection");
+requireEqual("promotion.currentAcceptedCandidateSha", promotion.currentAcceptedCandidateSha, SELECTED_SHA);
+requireEqual("promotion.protectedExecutionAllowed", promotion.protectedExecutionAllowed, false);
+if (!/^[0-9a-f]{40}$/.test(promotion.proposedCandidate?.sha ?? "")) {
+  failures.push("promotion.proposedCandidate.sha: expected exact lowercase 40-character SHA");
+} else if (promotion.proposedCandidate.sha === SELECTED_SHA) {
+  failures.push("promotion.proposedCandidate.sha: pending promotion must differ from the accepted candidate");
+}
+requireArrayExact(
+  "promotion.stillOpenBlockers",
+  promotion.stillOpenBlockers,
+  PROPOSED_OPEN_BLOCKERS,
+);
 requireArrayExact("candidate.requiredNextEvidence", candidate.requiredNextEvidence, []);
 requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, []);
 requireEqual("candidate.activeInputs.goApprovalMatrixEvidence", candidate.activeInputs?.goApprovalMatrixEvidence, EVIDENCE_PATH);
