@@ -294,23 +294,24 @@ export async function recordCommunicationProviderTest(input: {
     const result = await withTx(async (client) => {
       await lockProviderScope(client, input.tenantId, input.workspaceId, input.providerId);
       const row = await selectProvider(client, input.tenantId, input.workspaceId, input.providerId, true);
-      if (!row) return false;
       const status = input.passed ? "passed" : "failed";
-      await client.query(
-        `UPDATE communication_provider_configs
-            SET last_test_status = $4, last_tested_at = NOW(), updated_at = NOW()
-          WHERE tenant_id = $1 AND workspace_id = $2 AND provider_id = $3`,
-        [input.tenantId, input.workspaceId, input.providerId, status],
-      );
-      await client.query(
-        `INSERT INTO communication_provider_config_events
-           (tenant_id, workspace_id, provider_id, event_type, revision,
-            api_key_fingerprint, settings_snapshot, actor_admin_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::uuid)`,
-        [input.tenantId, input.workspaceId, input.providerId,
-          input.passed ? "test_passed" : "test_failed", Number(row.revision),
-          row.api_key_fingerprint, JSON.stringify(cleanSettings(row.settings)), input.actorAdminId],
-      );
+      if (row) {
+        await client.query(
+          `UPDATE communication_provider_configs
+              SET last_test_status = $4, last_tested_at = NOW(), updated_at = NOW()
+            WHERE tenant_id = $1 AND workspace_id = $2 AND provider_id = $3`,
+          [input.tenantId, input.workspaceId, input.providerId, status],
+        );
+        await client.query(
+          `INSERT INTO communication_provider_config_events
+             (tenant_id, workspace_id, provider_id, event_type, revision,
+              api_key_fingerprint, settings_snapshot, actor_admin_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::uuid)`,
+          [input.tenantId, input.workspaceId, input.providerId,
+            input.passed ? "test_passed" : "test_failed", Number(row.revision),
+            row.api_key_fingerprint, JSON.stringify(cleanSettings(row.settings)), input.actorAdminId],
+        );
+      }
       await writeAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
@@ -321,7 +322,11 @@ export async function recordCommunicationProviderTest(input: {
         requestId: input.requestId,
         sourceIp: input.sourceIp,
         userAgent: input.userAgent,
-        afterState: { testStatus: status, revision: Number(row.revision) },
+        afterState: {
+          testStatus: status,
+          revision: row ? Number(row.revision) : 0,
+          configurationSource: row ? "managed" : "environment",
+        },
         outcome: input.passed ? "success" : "failed",
         errorCode: input.passed ? null : "provider_test_failed",
       });
@@ -356,7 +361,6 @@ export async function recordCommunicationProviderOperation(input: {
         input.workspaceId,
         input.providerId,
       );
-      if (!row) return false;
       await writeAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
@@ -370,7 +374,8 @@ export async function recordCommunicationProviderOperation(input: {
         afterState: {
           operation: input.operation,
           passed: input.passed,
-          revision: Number(row.revision),
+          revision: row ? Number(row.revision) : 0,
+          configurationSource: row ? "managed" : "environment",
           ...(input.metadata ?? {}),
         },
         outcome: input.passed ? "success" : "failed",
