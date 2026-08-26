@@ -646,7 +646,7 @@
           "bodySizeLimit": true,
           "contentTypeCheck": false,
           "inputParser": "local:bounded-json-helper",
-          "idempotency": true,
+          "idempotency": false,
           "transaction": false,
           "verifiedPrincipal": true,
           "tenantFromVerifiedContext": true,
