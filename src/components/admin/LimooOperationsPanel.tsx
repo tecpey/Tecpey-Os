@@ -43,6 +43,10 @@ const errorLabels: Record<string, string> = {
   invalid_message_ids: "شناسه‌های پیام معتبر نیستند.",
   limoo_operation_failed: "عملیات لیمو ناموفق بود. تنظیمات سرویس و پاسخ پنل را بررسی کنید.",
   communication_provider_not_configured: "ارائه‌دهنده لیمو هنوز کامل پیکربندی نشده است.",
+  idempotency_key_required: "شناسه امن درخواست ارسال ایجاد نشد؛ صفحه را تازه‌سازی و دوباره تلاش کنید.",
+  idempotency_conflict: "این شناسه قبلاً برای درخواست دیگری استفاده شده است.",
+  idempotency_in_progress: "این ارسال در حال پردازش است؛ از ارسال دوباره خودداری کنید.",
+  communication_provider_receipt_unavailable: "ثبت امن رسید ارسال موقتاً در دسترس نیست.",
 };
 
 export function LimooOperationsPanel() {
@@ -65,9 +69,19 @@ export function LimooOperationsPanel() {
     setBusy(action);
     setResult(null);
     try {
+      const isSendAction =
+        action === "limoo_send_sms"
+        || action === "limoo_send_peer"
+        || action === "limoo_send_pattern";
+      const idempotencyKey = isSendAction
+        ? `communications:${crypto.randomUUID()}`
+        : null;
       const response = await fetch("/api/command-center/communications", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+        },
         body: JSON.stringify({ action, ...payload }),
       });
       const body = (await response.json().catch(() => ({}))) as OperationResult;
