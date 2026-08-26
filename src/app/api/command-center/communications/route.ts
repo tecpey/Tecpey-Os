@@ -448,17 +448,21 @@ export async function POST(request: NextRequest) {
     if (!operationRecorded) return apiError("communication_provider_audit_unavailable", 503);
     if (!result.ok) return apiError("limoo_operation_failed", 502, { reason: result.reason });
 
-    const responsePayload: LimooCommandReceipt = {
-      providerId: "limoo_sms",
+    const responsePayload = {
+      providerId: "limoo_sms" as const,
       action,
       result: result.data,
     };
     if (receiptScope) {
+      const receiptPayload: LimooCommandReceipt = {
+        ...responsePayload,
+        action: action as LimooSendAction,
+      };
       try {
         const completed = await withTx(async (client) => {
           await completeApiCommandTx(client, receiptScope as ApiCommandScope, {
             httpStatus: 200,
-            response: responsePayload,
+            response: receiptPayload,
           });
           return true;
         });
