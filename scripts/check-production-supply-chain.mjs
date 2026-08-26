@@ -44,7 +44,7 @@ const workflows = fs.readdirSync(".github/workflows")
 const immutableAlpineRuntime =
   "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
 const pinnedOpenSslUpgrade =
-  "RUN apk upgrade --no-cache libcrypto3=3.5.8-r0 libssl3=3.5.8-r0";
+  "RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0";
 
 requireText(dockerfile, "@sha256:", "Docker base image must be digest-pinned");
 requireText(
