@@ -332,3 +332,54 @@ export async function recordCommunicationProviderTest(input: {
     return false;
   }
 }
+
+
+export async function recordCommunicationProviderOperation(input: {
+  tenantId: string;
+  workspaceId: string;
+  actorAdminId: string;
+  sessionId: string;
+  effectiveRoles: string[];
+  providerId: CommunicationProviderId;
+  operation: string;
+  passed: boolean;
+  metadata?: Record<string, string | number | boolean>;
+  requestId?: string | null;
+  sourceIp?: string | null;
+  userAgent?: string | null;
+}): Promise<boolean> {
+  try {
+    const result = await withTx(async (client) => {
+      const row = await selectProvider(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.providerId,
+      );
+      if (!row) return false;
+      await writeAdminAuditEvent(client, {
+        actorAdminId: input.actorAdminId,
+        sessionId: input.sessionId,
+        effectiveRoles: input.effectiveRoles,
+        action: `communication_provider.${input.operation}`,
+        resourceType: "communication_provider",
+        resourceId: input.providerId,
+        requestId: input.requestId,
+        sourceIp: input.sourceIp,
+        userAgent: input.userAgent,
+        afterState: {
+          operation: input.operation,
+          passed: input.passed,
+          revision: Number(row.revision),
+          ...(input.metadata ?? {}),
+        },
+        outcome: input.passed ? "success" : "failed",
+        errorCode: input.passed ? null : "provider_operation_failed",
+      });
+      return true;
+    });
+    return result.enabled && result.value;
+  } catch {
+    return false;
+  }
+}
