@@ -1,18 +1,48 @@
-type LimooResponse = {
-  Success?: unknown;
-  success?: unknown;
-  Message?: unknown;
-  message?: unknown;
-};
-
 import {
   resolveRuntimeCommunicationProvider,
   type RuntimeProviderResolution,
 } from "@/lib/communication-provider-store";
 
+type LimooEndpoint =
+  | "sendcode"
+  | "checkcode"
+  | "sendsms"
+  | "sendpeertopeersms"
+  | "sendpatternmessage"
+  | "getcurrentcredit"
+  | "getstatus"
+  | "getreceivedmessage";
+
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+type LimooResponse = {
+  Success?: unknown;
+  success?: unknown;
+  Message?: unknown;
+  message?: unknown;
+  [key: string]: unknown;
+};
+
+export type LimooFailureReason =
+  | "disabled"
+  | "timeout"
+  | "network_error"
+  | "rejected"
+  | "invalid_response";
+
 export type LimooSmsResult =
   | { ok: true }
-  | { ok: false; reason: "disabled" | "timeout" | "network_error" | "rejected" | "invalid_response" };
+  | { ok: false; reason: LimooFailureReason };
+
+export type LimooOperationResult =
+  | { ok: true; data: JsonValue }
+  | { ok: false; reason: LimooFailureReason };
 
 type Dependencies = {
   fetchImpl?: typeof fetch;
@@ -21,12 +51,39 @@ type Dependencies = {
   workspaceId?: string;
 };
 
+const BLOCKED_RESPONSE_KEYS = /(?:api.?key|authorization|token|secret|password|credential)/i;
+
+function sanitizeProviderPayload(
+  value: unknown,
+  depth = 0,
+  budget = { keys: 0 },
+): JsonValue {
+  if (depth > 6 || budget.keys > 400) return "[truncated]";
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") return value.slice(0, 2_000);
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map((item) => sanitizeProviderPayload(item, depth + 1, budget));
+  }
+  if (!value || typeof value !== "object") return String(value ?? "").slice(0, 2_000);
+
+  const output: Record<string, JsonValue> = {};
+  for (const [key, child] of Object.entries(value).slice(0, 100)) {
+    budget.keys += 1;
+    output[key.slice(0, 100)] = BLOCKED_RESPONSE_KEYS.test(key)
+      ? "[redacted]"
+      : sanitizeProviderPayload(child, depth + 1, budget);
+  }
+  return output;
+}
+
 async function callLimoo(
-  endpoint: "sendcode" | "checkcode",
-  body: Record<string, string>,
+  endpoint: LimooEndpoint,
+  body: Record<string, unknown>,
   dependencies: Dependencies = {},
   resolved?: RuntimeProviderResolution,
-): Promise<LimooSmsResult> {
+  maxResponseBytes = 8_192,
+): Promise<LimooOperationResult> {
   const managed = resolved ?? await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
   const apiKey = managed.status === "configured"
     ? managed.config.apiKey
@@ -36,7 +93,7 @@ async function callLimoo(
   if (!apiKey) return { ok: false, reason: "disabled" };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), dependencies.timeoutMs ?? 6_000);
+  const timeout = setTimeout(() => controller.abort(), dependencies.timeoutMs ?? 8_000);
   timeout.unref?.();
   try {
     const response = await (dependencies.fetchImpl ?? fetch)(
@@ -53,17 +110,23 @@ async function callLimoo(
       },
     );
     const text = await response.text();
-    if (text.length > 8_192) return { ok: false, reason: "invalid_response" };
+    if (text.length > maxResponseBytes) return { ok: false, reason: "invalid_response" };
     if (!response.ok) return { ok: false, reason: "rejected" };
+
     let payload: LimooResponse;
     try {
-      payload = JSON.parse(text) as LimooResponse;
+      const parsed = JSON.parse(text) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { ok: false, reason: "invalid_response" };
+      }
+      payload = parsed as LimooResponse;
     } catch {
       return { ok: false, reason: "invalid_response" };
     }
+
     const success = payload.Success ?? payload.success;
     return success === true
-      ? { ok: true }
+      ? { ok: true, data: sanitizeProviderPayload(payload) }
       : { ok: false, reason: "rejected" };
   } catch (error) {
     const timeoutFailure = controller.signal.aborted ||
@@ -72,6 +135,10 @@ async function callLimoo(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function otpResult(result: LimooOperationResult): LimooSmsResult {
+  return result.ok ? { ok: true } : result;
 }
 
 export function sendLimooVerificationCode(
@@ -83,17 +150,82 @@ export function sendLimooVerificationCode(
     const footer = managed.status === "configured"
       ? managed.config.settings.otpFooter
       : undefined;
-    return callLimoo("sendcode", {
+    return otpResult(await callLimoo("sendcode", {
       Mobile: mobile,
       Footer: footer?.trim() || process.env.LIMOO_SMS_OTP_FOOTER?.trim() || "تک‌پی؛ کد ورود شما",
-    }, dependencies, managed);
+    }, dependencies, managed));
   })();
 }
 
-export function checkLimooVerificationCode(
+export async function checkLimooVerificationCode(
   mobile: string,
   code: string,
   dependencies?: Dependencies,
 ): Promise<LimooSmsResult> {
-  return callLimoo("checkcode", { Mobile: mobile, Code: code }, dependencies);
+  return otpResult(await callLimoo("checkcode", { Mobile: mobile, Code: code }, dependencies));
+}
+
+export function sendLimooSms(input: {
+  senderNumber: string;
+  message: string;
+  mobileNumbers: string[];
+  sendToBlockedNumbers?: boolean;
+}, dependencies?: Dependencies): Promise<LimooOperationResult> {
+  return callLimoo("sendsms", {
+    SenderNumber: input.senderNumber,
+    Message: input.message,
+    MobileNumber: input.mobileNumbers,
+    SendToBlocksNumber: Boolean(input.sendToBlockedNumbers),
+  }, dependencies);
+}
+
+export function sendLimooPeerToPeerSms(input: {
+  senderNumber: string;
+  messages: string[];
+  mobileNumbers: string[];
+  sendToBlockedNumbers?: boolean;
+}, dependencies?: Dependencies): Promise<LimooOperationResult> {
+  return callLimoo("sendpeertopeersms", {
+    SenderNumber: input.senderNumber,
+    Message: input.messages,
+    MobileNumber: input.mobileNumbers,
+    SendToBlocksNumber: Boolean(input.sendToBlockedNumbers),
+  }, dependencies);
+}
+
+export function sendLimooPatternMessage(input: {
+  patternId: number;
+  replaceTokens: string[];
+  mobileNumber: string;
+}, dependencies?: Dependencies): Promise<LimooOperationResult> {
+  return callLimoo("sendpatternmessage", {
+    OtpId: input.patternId,
+    ReplaceToken: input.replaceTokens,
+    MobileNumber: input.mobileNumber,
+  }, dependencies);
+}
+
+export function getLimooCurrentCredit(
+  dependencies?: Dependencies,
+): Promise<LimooOperationResult> {
+  return callLimoo("getcurrentcredit", {}, dependencies);
+}
+
+export function getLimooMessageStatus(
+  messageIds: string[],
+  dependencies?: Dependencies,
+): Promise<LimooOperationResult> {
+  return callLimoo("getstatus", { MessageId: messageIds }, dependencies, undefined, 65_536);
+}
+
+export function getLimooReceivedMessages(input: {
+  number: string;
+  page: number;
+  size: number;
+}, dependencies?: Dependencies): Promise<LimooOperationResult> {
+  return callLimoo("getreceivedmessage", {
+    Number: input.number,
+    Page: input.page,
+    Size: input.size,
+  }, dependencies, undefined, 65_536);
 }
