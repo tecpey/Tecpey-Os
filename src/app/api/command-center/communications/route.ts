@@ -46,12 +46,10 @@ const LIMOO_ACTIONS = [
   "limoo_status",
   "limoo_received",
 ] as const;
-const LIMOO_SEND_ACTIONS = [
-  "limoo_send_sms",
-  "limoo_send_peer",
-  "limoo_send_pattern",
-] as const;
-type LimooSendAction = typeof LIMOO_SEND_ACTIONS[number];
+type LimooSendAction =
+  | "limoo_send_sms"
+  | "limoo_send_peer"
+  | "limoo_send_pattern";
 type LimooCommandReceipt = {
   providerId: "limoo_sms";
   action: LimooSendAction;
