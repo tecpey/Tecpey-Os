@@ -80,10 +80,13 @@ jobs:
           TECPEY_EVIDENCE_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
         run: |
           set -Eeuo pipefail
-          node <<'NODE'
+          node --import tsx <<'NODE'
           const { X509Certificate } = require("node:crypto");
           const { appendFileSync, lstatSync, readFileSync } = require("node:fs");
           const path = require("node:path");
+          const {
+            parseSystemdEnvironmentFile,
+          } = require("./src/lib/ops/systemd-environment-file.ts");
 
           const MAX_ENV_FILE_BYTES = 64 * 1024;
           const MAX_CA_FILE_BYTES = 256 * 1024;
@@ -106,15 +109,11 @@ jobs:
             throw new Error("staging_alert_ca_environment_file_unsafe");
           }
 
-          const values = new Map();
-          for (const rawLine of readFileSync(environmentFile, "utf8").split(/\r?\n/)) {
-            const line = rawLine.trim();
-            if (!line || line.startsWith("#")) continue;
-            const match = /^([A-Z][A-Z0-9_]*)=([^\s]*)$/.exec(line);
-            if (!match || match[2] === "" || values.has(match[1])) {
-              throw new Error("staging_alert_ca_environment_file_format_invalid");
-            }
-            values.set(match[1], match[2]);
+          let values;
+          try {
+            values = parseSystemdEnvironmentFile(readFileSync(environmentFile, "utf8"));
+          } catch {
+            throw new Error("staging_alert_ca_environment_file_format_invalid");
           }
 
           const configuredCaPath = values.get("NODE_EXTRA_CA_CERTS");

@@ -12,7 +12,7 @@ export const COMMUNICATION_PROVIDER_IDS = ["limoo_sms", "resend", "sendgrid"] as
 export type CommunicationProviderId = typeof COMMUNICATION_PROVIDER_IDS[number];
 
 export type CommunicationProviderSettings = {
-  otpFooter?: string;
+  otpPatternId?: number;
   fromName?: string;
   fromEmail?: string;
   replyTo?: string;
@@ -65,7 +65,15 @@ function cleanSettings(value: unknown): CommunicationProviderSettings {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;
   const output: CommunicationProviderSettings = {};
-  for (const key of ["otpFooter", "fromName", "fromEmail", "replyTo", "defaultTemplateId"] as const) {
+  if (
+    typeof source.otpPatternId === "number" &&
+    Number.isSafeInteger(source.otpPatternId) &&
+    source.otpPatternId > 0 &&
+    source.otpPatternId <= 2_147_483_647
+  ) {
+    output.otpPatternId = source.otpPatternId;
+  }
+  for (const key of ["fromName", "fromEmail", "replyTo", "defaultTemplateId"] as const) {
     if (typeof source[key] === "string") output[key] = source[key].slice(0, 320);
   }
   return output;

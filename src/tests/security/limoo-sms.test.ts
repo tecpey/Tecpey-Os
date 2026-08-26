@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import {
-  checkLimooVerificationCode,
   getLimooCurrentCredit,
   getLimooMessageStatus,
   getLimooReceivedMessages,
@@ -12,13 +11,13 @@ import {
 } from "../../lib/security/limoo-sms";
 
 const originalApiKey = process.env.LIMOO_SMS_API_KEY;
-const originalFooter = process.env.LIMOO_SMS_OTP_FOOTER;
+const originalPatternId = process.env.LIMOO_SMS_PATTERN_ID;
 
 afterEach(() => {
   if (originalApiKey === undefined) delete process.env.LIMOO_SMS_API_KEY;
   else process.env.LIMOO_SMS_API_KEY = originalApiKey;
-  if (originalFooter === undefined) delete process.env.LIMOO_SMS_OTP_FOOTER;
-  else process.env.LIMOO_SMS_OTP_FOOTER = originalFooter;
+  if (originalPatternId === undefined) delete process.env.LIMOO_SMS_PATTERN_ID;
+  else process.env.LIMOO_SMS_PATTERN_ID = originalPatternId;
 });
 
 type ObservedCall = { url: string; key: string; body: unknown };
@@ -37,8 +36,9 @@ function successfulFetch(observed: ObservedCall[], data: unknown = { MessageId: 
 describe("Limoo SMS provider boundary", () => {
   it("fails closed without a server-side API key", async () => {
     delete process.env.LIMOO_SMS_API_KEY;
+    process.env.LIMOO_SMS_PATTERN_ID = "42";
     let called = false;
-    const result = await sendLimooVerificationCode("09123456789", {
+    const result = await sendLimooVerificationCode("09123456789", "123456", {
       fetchImpl: async () => {
         called = true;
         return new Response(JSON.stringify({ Success: true }));
@@ -48,27 +48,45 @@ describe("Limoo SMS provider boundary", () => {
     assert.equal(called, false);
   });
 
-  it("uses the official OTP endpoints and ApiKey header", async () => {
+  it("sends a TecPey-generated OTP through the official Pattern endpoint", async () => {
     process.env.LIMOO_SMS_API_KEY = "server-secret";
-    process.env.LIMOO_SMS_OTP_FOOTER = "TecPey";
+    process.env.LIMOO_SMS_PATTERN_ID = "42";
     const observed: ObservedCall[] = [];
     const fetchImpl = successfulFetch(observed);
 
-    assert.deepEqual(await sendLimooVerificationCode("09123456789", { fetchImpl }), { ok: true });
-    assert.deepEqual(await checkLimooVerificationCode("09123456789", "123456", { fetchImpl }), { ok: true });
+    assert.deepEqual(
+      await sendLimooVerificationCode("09123456789", "123456", { fetchImpl }),
+      { ok: true },
+    );
 
     assert.deepEqual(observed, [
       {
-        url: "https://api.limosms.com/api/sendcode",
+        url: "https://api.limosms.com/api/sendpatternmessage",
         key: "server-secret",
-        body: { Mobile: "09123456789", Footer: "TecPey" },
-      },
-      {
-        url: "https://api.limosms.com/api/checkcode",
-        key: "server-secret",
-        body: { Mobile: "09123456789", Code: "123456" },
+        body: { OtpId: 42, ReplaceToken: ["123456"], MobileNumber: "09123456789" },
       },
     ]);
+  });
+
+  it("fails closed before the network when the Pattern ID or code is invalid", async () => {
+    process.env.LIMOO_SMS_API_KEY = "server-secret";
+    delete process.env.LIMOO_SMS_PATTERN_ID;
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ Success: true }));
+    };
+
+    assert.deepEqual(
+      await sendLimooVerificationCode("09123456789", "123456", { fetchImpl }),
+      { ok: false, reason: "disabled" },
+    );
+    process.env.LIMOO_SMS_PATTERN_ID = "42";
+    assert.deepEqual(
+      await sendLimooVerificationCode("09123456789", "12345", { fetchImpl }),
+      { ok: false, reason: "invalid_response" },
+    );
+    assert.equal(calls, 0);
   });
 
   it("matches the official send, peer and pattern contracts", async () => {
@@ -159,11 +177,12 @@ describe("Limoo SMS provider boundary", () => {
 
   it("bounds provider responses and rejects malformed payloads", async () => {
     process.env.LIMOO_SMS_API_KEY = "server-secret";
-    const malformed = await sendLimooVerificationCode("09123456789", {
+    process.env.LIMOO_SMS_PATTERN_ID = "42";
+    const malformed = await sendLimooVerificationCode("09123456789", "123456", {
       fetchImpl: async () => new Response("not-json", { status: 200 }),
     });
     assert.deepEqual(malformed, { ok: false, reason: "invalid_response" });
-    const oversized = await sendLimooVerificationCode("09123456789", {
+    const oversized = await sendLimooVerificationCode("09123456789", "123456", {
       fetchImpl: async () => new Response("x".repeat(9_000), { status: 200 }),
     });
     assert.deepEqual(oversized, { ok: false, reason: "invalid_response" });

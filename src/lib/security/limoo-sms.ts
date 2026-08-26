@@ -4,8 +4,6 @@ import {
 } from "@/lib/communication-provider-store";
 
 type LimooEndpoint =
-  | "sendcode"
-  | "checkcode"
   | "sendsms"
   | "sendpeertopeersms"
   | "sendpatternmessage"
@@ -143,26 +141,28 @@ function otpResult(result: LimooOperationResult): LimooSmsResult {
 
 export function sendLimooVerificationCode(
   mobile: string,
+  code: string,
   dependencies?: Dependencies,
 ): Promise<LimooSmsResult> {
   return (async () => {
     const managed = await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
-    const footer = managed.status === "configured"
-      ? managed.config.settings.otpFooter
-      : undefined;
-    return otpResult(await callLimoo("sendcode", {
-      Mobile: mobile,
-      Footer: footer?.trim() || process.env.LIMOO_SMS_OTP_FOOTER?.trim() || "تک‌پی؛ کد ورود شما",
+    const configuredPatternId = managed.status === "configured"
+      ? managed.config.settings.otpPatternId
+      : Number(process.env.LIMOO_SMS_PATTERN_ID?.trim() ?? "");
+    if (
+      !Number.isSafeInteger(configuredPatternId) ||
+      Number(configuredPatternId) < 1 ||
+      Number(configuredPatternId) > 2_147_483_647
+    ) {
+      return { ok: false, reason: "disabled" };
+    }
+    if (!/^\d{6}$/.test(code)) return { ok: false, reason: "invalid_response" };
+    return otpResult(await callLimoo("sendpatternmessage", {
+      OtpId: configuredPatternId,
+      ReplaceToken: [code],
+      MobileNumber: mobile,
     }, dependencies, managed));
   })();
-}
-
-export async function checkLimooVerificationCode(
-  mobile: string,
-  code: string,
-  dependencies?: Dependencies,
-): Promise<LimooSmsResult> {
-  return otpResult(await callLimoo("checkcode", { Mobile: mobile, Code: code }, dependencies));
 }
 
 export function sendLimooSms(input: {

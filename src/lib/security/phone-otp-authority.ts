@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
 import {
-  decryptPhone,
   encryptPhone,
   phoneFingerprint,
 } from "@/lib/security/phone-identity";
+import {
+  generatePhoneOtpCode,
+  phoneOtpCodeDigest,
+  verifyPhoneOtpCode,
+} from "@/lib/security/phone-otp-code";
 
 export type PhoneOtpPurpose = "signup" | "login" | "profile_verify";
 
@@ -15,6 +19,7 @@ type ChallengeRow = {
   encrypted_phone: string;
   purpose: PhoneOtpPurpose;
   status: "prepared" | "sent" | "verifying" | "verified" | "consumed" | "failed" | "expired";
+  otp_code_digest: string;
   attempt_count: number;
   max_attempts: number;
   expires_at: Date;
@@ -46,15 +51,26 @@ export async function preparePhoneOtpChallenge(input: {
   phoneE164: string;
   purpose: PhoneOtpPurpose;
   ttlSeconds?: number;
-}): Promise<{ status: "prepared"; challengeId: string; expiresAt: Date } | { status: "unavailable" }> {
+}): Promise<
+  | { status: "prepared"; challengeId: string; code: string; expiresAt: Date }
+  | { status: "unavailable" }
+> {
   const challengeId = randomUUID();
   const fingerprint = phoneFingerprint(input.phoneE164);
+  const code = generatePhoneOtpCode();
+  const codeDigest = phoneOtpCodeDigest({
+    challengeId,
+    phoneFingerprint: fingerprint,
+    purpose: input.purpose,
+    code,
+  });
   const expiresAt = new Date(Date.now() + Math.min(Math.max(input.ttlSeconds ?? 300, 120), 600) * 1000);
   const encrypted = encryptPhone(input.phoneE164);
   const transaction = await withTx(async (client) => {
     await client.query(
       `UPDATE identity_phone_otp_challenges
-          SET status = 'expired', verified_at = NULL, updated_at = NOW()
+          SET status = 'expired', verified_at = NULL, otp_code_digest = NULL,
+              updated_at = NOW()
         WHERE phone_fingerprint = $1
           AND purpose = $2
           AND status IN ('prepared', 'sent', 'verifying', 'verified')`,
@@ -62,9 +78,10 @@ export async function preparePhoneOtpChallenge(input: {
     );
     await client.query(
       `INSERT INTO identity_phone_otp_challenges
-         (id, phone_fingerprint, encrypted_phone, purpose, provider, expires_at)
-       VALUES ($1, $2, $3, $4, 'limoo_sms', $5)`,
-      [challengeId, fingerprint, encrypted, input.purpose, expiresAt],
+         (id, phone_fingerprint, encrypted_phone, purpose, provider,
+          otp_code_digest, expires_at)
+       VALUES ($1, $2, $3, $4, 'limoo_sms', $5, $6)`,
+      [challengeId, fingerprint, encrypted, input.purpose, codeDigest, expiresAt],
     );
     await appendEvent(client, {
       challengeId,
@@ -74,7 +91,7 @@ export async function preparePhoneOtpChallenge(input: {
     });
   });
   if (!transaction.enabled) return { status: "unavailable" };
-  return { status: "prepared", challengeId, expiresAt };
+  return { status: "prepared", challengeId, code, expiresAt };
 }
 
 export async function finalizePhoneOtpSend(input: {
@@ -85,7 +102,7 @@ export async function finalizePhoneOtpSend(input: {
   const transaction = await withTx(async (client) => {
     const selected = await client.query<ChallengeRow>(
       `SELECT id, phone_fingerprint, encrypted_phone, purpose, status,
-              attempt_count, max_attempts, expires_at
+              otp_code_digest, attempt_count, max_attempts, expires_at
          FROM identity_phone_otp_challenges
         WHERE id = $1
         FOR UPDATE`,
@@ -95,9 +112,11 @@ export async function finalizePhoneOtpSend(input: {
     if (!row || row.status !== "prepared") return false;
     await client.query(
       `UPDATE identity_phone_otp_challenges
-          SET status = $2, updated_at = NOW()
+          SET status = $2,
+              otp_code_digest = CASE WHEN $3 THEN otp_code_digest ELSE NULL END,
+              updated_at = NOW()
         WHERE id = $1`,
-      [row.id, input.sent ? "sent" : "failed"],
+      [row.id, input.sent ? "sent" : "failed", input.sent],
     );
     await appendEvent(client, {
       challengeId: row.id,
@@ -113,13 +132,18 @@ export async function finalizePhoneOtpSend(input: {
 }
 
 export async function claimPhoneOtpVerification(challengeId: string): Promise<
-  | { status: "claimed"; phoneE164: string; phoneFingerprint: string; purpose: PhoneOtpPurpose }
+  | {
+      status: "claimed";
+      phoneFingerprint: string;
+      purpose: PhoneOtpPurpose;
+      otpCodeDigest: string;
+    }
   | { status: "not_found" | "invalid_state" | "expired" | "attempts_exhausted" | "unavailable" }
 > {
   const transaction = await withTx(async (client) => {
     const selected = await client.query<ChallengeRow>(
       `SELECT id, phone_fingerprint, encrypted_phone, purpose, status,
-              attempt_count, max_attempts, expires_at
+              otp_code_digest, attempt_count, max_attempts, expires_at
          FROM identity_phone_otp_challenges
         WHERE id = $1
         FOR UPDATE`,
@@ -130,7 +154,10 @@ export async function claimPhoneOtpVerification(challengeId: string): Promise<
     if (row.expires_at.getTime() <= Date.now()) {
       if (["prepared", "sent", "verifying", "verified"].includes(row.status)) {
         await client.query(
-          "UPDATE identity_phone_otp_challenges SET status = 'expired', verified_at = NULL, updated_at = NOW() WHERE id = $1",
+          `UPDATE identity_phone_otp_challenges
+              SET status = 'expired', verified_at = NULL, otp_code_digest = NULL,
+                  updated_at = NOW()
+            WHERE id = $1`,
           [row.id],
         );
         await appendEvent(client, {
@@ -158,9 +185,9 @@ export async function claimPhoneOtpVerification(challengeId: string): Promise<
     });
     return {
       status: "claimed",
-      phoneE164: decryptPhone(row.encrypted_phone),
       phoneFingerprint: row.phone_fingerprint,
       purpose: row.purpose,
+      otpCodeDigest: row.otp_code_digest,
     } as const;
   });
   return transaction.enabled ? transaction.value : { status: "unavailable" };
@@ -169,13 +196,12 @@ export async function claimPhoneOtpVerification(challengeId: string): Promise<
 export async function completePhoneOtpVerification(input: {
   challengeId: string;
   verified: boolean;
-  retryableProviderFailure?: boolean;
   failureReason?: string;
 }): Promise<"verified" | "rejected" | "unavailable"> {
   const transaction = await withTx(async (client) => {
     const selected = await client.query<ChallengeRow>(
       `SELECT id, phone_fingerprint, encrypted_phone, purpose, status,
-              attempt_count, max_attempts, expires_at
+              otp_code_digest, attempt_count, max_attempts, expires_at
          FROM identity_phone_otp_challenges
         WHERE id = $1
         FOR UPDATE`,
@@ -199,10 +225,12 @@ export async function completePhoneOtpVerification(input: {
       return "verified" as const;
     }
     const exhausted = row.attempt_count >= row.max_attempts;
-    const nextStatus = input.retryableProviderFailure ? "sent" : exhausted ? "failed" : "sent";
+    const nextStatus = exhausted ? "failed" : "sent";
     await client.query(
       `UPDATE identity_phone_otp_challenges
-          SET status = $2, updated_at = NOW()
+          SET status = $2,
+              otp_code_digest = CASE WHEN $2 = 'failed' THEN NULL ELSE otp_code_digest END,
+              updated_at = NOW()
         WHERE id = $1`,
       [row.id, nextStatus],
     );
@@ -213,12 +241,28 @@ export async function completePhoneOtpVerification(input: {
       metadata: {
         provider: "limoo_sms",
         reason: input.failureReason?.slice(0, 80) || "invalid_code",
-        retryable: Boolean(input.retryableProviderFailure),
+        verification: "local_hmac",
       },
     });
     return "rejected" as const;
   });
   return transaction.enabled ? transaction.value : "unavailable";
+}
+
+export function verifyClaimedPhoneOtpCode(input: {
+  challengeId: string;
+  phoneFingerprint: string;
+  purpose: PhoneOtpPurpose;
+  code: string;
+  otpCodeDigest: string;
+}): boolean {
+  return verifyPhoneOtpCode({
+    challengeId: input.challengeId,
+    phoneFingerprint: input.phoneFingerprint,
+    purpose: input.purpose,
+    code: input.code,
+    expectedDigest: input.otpCodeDigest,
+  });
 }
 
 export async function loadVerifiedPhoneChallenge(input: {
@@ -260,7 +304,7 @@ export async function consumeVerifiedPhoneChallengeTx(
   const updated = await client.query<{ phone_fingerprint: string }>(
     `UPDATE identity_phone_otp_challenges
         SET status = 'consumed', consumed_at = NOW(), consumed_by_account_id = $4,
-            updated_at = NOW()
+            otp_code_digest = NULL, updated_at = NOW()
       WHERE id = $1
         AND phone_fingerprint = $2
         AND purpose = $3

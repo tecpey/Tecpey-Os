@@ -21,7 +21,7 @@ type ProviderSnapshot = {
   secretConfigured: boolean;
   keyFingerprint: string | null;
   settings: {
-    otpFooter?: string;
+    otpPatternId?: number;
     fromName?: string;
     fromEmail?: string;
     replyTo?: string;
@@ -34,7 +34,11 @@ type ProviderSnapshot = {
   updatedAt: string | null;
 };
 
-type FormState = ProviderSnapshot["settings"] & { enabled: boolean; apiKey: string };
+type FormState = Omit<ProviderSnapshot["settings"], "otpPatternId"> & {
+  enabled: boolean;
+  apiKey: string;
+  otpPatternId: string;
+};
 
 const PROVIDERS: Array<{
   id: ProviderId;
@@ -45,7 +49,7 @@ const PROVIDERS: Array<{
   {
     id: "limoo_sms",
     title: "Limoo SMS",
-    detail: "ارسال و بررسی کد یک‌بارمصرف شماره موبایل ایران",
+    detail: "ارسال رمز یک‌بارمصرف تولیدشده توسط تک‌پی با پترن تأییدشده لیمو",
     icon: MessageSquareText,
   },
   {
@@ -66,7 +70,7 @@ function initialForm(snapshot?: ProviderSnapshot): FormState {
   return {
     enabled: snapshot?.enabled ?? false,
     apiKey: "",
-    otpFooter: snapshot?.settings.otpFooter ?? "تک‌پی؛ کد ورود شما",
+    otpPatternId: snapshot?.settings.otpPatternId?.toString() ?? "",
     fromName: snapshot?.settings.fromName ?? "TecPey",
     fromEmail: snapshot?.settings.fromEmail ?? "noreply@tecpey.ir",
     replyTo: snapshot?.settings.replyTo ?? "",
@@ -120,7 +124,11 @@ export function CommunicationProviderControlPanel() {
   }, [load]);
 
   const configuredCount = useMemo(
-    () => providers.filter((provider) => provider.secretConfigured && provider.enabled).length,
+    () => providers.filter((provider) =>
+      provider.secretConfigured &&
+      provider.enabled &&
+      (provider.providerId !== "limoo_sms" || Boolean(provider.settings.otpPatternId))
+    ).length,
     [providers],
   );
 
@@ -147,7 +155,7 @@ export function CommunicationProviderControlPanel() {
           enabled: form.enabled,
           ...(form.apiKey ? { apiKey: form.apiKey } : {}),
           settings: isSms
-            ? { otpFooter: form.otpFooter }
+            ? { otpPatternId: form.otpPatternId }
             : {
                 fromName: form.fromName,
                 fromEmail: form.fromEmail,
@@ -247,7 +255,11 @@ export function CommunicationProviderControlPanel() {
           const form = forms[meta.id] ?? initialForm(provider);
           const Icon = meta.icon;
           const isSms = meta.id === "limoo_sms";
-          const ready = Boolean(provider?.secretConfigured && provider.enabled);
+          const ready = Boolean(
+            provider?.secretConfigured &&
+            provider.enabled &&
+            (!isSms || provider.settings.otpPatternId),
+          );
           return (
             <article key={meta.id} className="rounded-[26px] border border-white/10 bg-[#07111e] p-5 md:p-6">
               <div className="flex items-start justify-between gap-4">
@@ -278,8 +290,9 @@ export function CommunicationProviderControlPanel() {
 
               {isSms ? (
                 <>
-                  <label className="mt-4 block text-xs font-black text-slate-300">متن Footer الگوی OTP
-                    <input value={form.otpFooter ?? ""} onChange={(event) => updateForm(meta.id, { otpFooter: event.target.value })} maxLength={90} className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-sm text-white outline-none transition-colors focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20" />
+                  <label className="mt-4 block text-xs font-black text-slate-300">Pattern ID لیمو
+                    <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.otpPatternId} onChange={(event) => updateForm(meta.id, { otpPatternId: event.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="شناسه عددی پترن تأییدشده" className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left font-mono text-sm text-white outline-none transition-colors focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20" dir="ltr" />
+                    <span className="mt-2 block text-[11px] font-bold leading-5 text-slate-500">پترن تأییدشده در لیمو باید دقیقاً یک متغیر برای رمز ۶ رقمی تولیدشده توسط تک‌پی داشته باشد.</span>
                   </label>
                   <label className="mt-4 block text-xs font-black text-slate-300">شماره تست
                     <input value={testPhone} onChange={(event) => setTestPhone(event.target.value)} inputMode="tel" placeholder="09123456789" className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left text-sm text-white outline-none transition-colors focus:border-cyan-300/50 focus:ring-2 focus:ring-cyan-300/20" dir="ltr" />
@@ -303,7 +316,7 @@ export function CommunicationProviderControlPanel() {
                 <button type="button" onClick={() => void save(meta.id)} disabled={busy !== null || testing !== null || loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-cyan-500 to-blue-600 px-3 text-sm font-black text-white outline-none transition-transform duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:opacity-50 motion-reduce:transform-none">
                   {busy === meta.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />} ذخیره امن
                 </button>
-                <button type="button" onClick={() => void test(meta.id)} disabled={!provider?.secretConfigured || !provider.enabled || busy !== null || testing !== null || loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-cyan-100 outline-none transition-[background-color,transform] duration-150 active:scale-[0.97] hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:opacity-40 motion-reduce:transform-none">
+                <button type="button" onClick={() => void test(meta.id)} disabled={!ready || busy !== null || testing !== null || loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-cyan-100 outline-none transition-[background-color,transform] duration-150 active:scale-[0.97] hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:opacity-40 motion-reduce:transform-none">
                   {testing === meta.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />} تست اتصال
                 </button>
               </div>

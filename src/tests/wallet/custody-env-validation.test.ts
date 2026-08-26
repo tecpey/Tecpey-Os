@@ -27,6 +27,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: Buffer.alloc(32, 9).toString("base64"),
     TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: Buffer.alloc(32, 10).toString("base64"),
     LIMOO_SMS_API_KEY: "limoo-test-api-key",
+    LIMOO_SMS_PATTERN_ID: "42",
     TECPEY_TRUSTED_PROXY_HEADER: "x-real-ip",
     TECPEY_TRUSTED_PROXY_HOPS: "1",
     DATABASE_URL: "postgresql://tecpey:test@127.0.0.1:5432/tecpey",
@@ -49,6 +50,14 @@ describe("production custody environment validation", () => {
     const result = validate();
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /environment validation passed/);
+  });
+
+  it("requires a governed numeric Limoo Pattern ID", () => {
+    for (const value of ["", "0", "12.5", "pattern-42", "2147483648"]) {
+      const result = validate({ LIMOO_SMS_PATTERN_ID: value });
+      assert.notEqual(result.status, 0, `LIMOO_SMS_PATTERN_ID=${value} must fail validation`);
+      assert.match(result.stderr, /LIMOO_SMS_PATTERN_ID/);
+    }
   });
 
   it("requires strong, isolated administrator authentication secrets", () => {

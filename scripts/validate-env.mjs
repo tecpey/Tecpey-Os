@@ -78,6 +78,7 @@ const required = [
   'TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64',
   'TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64',
   'LIMOO_SMS_API_KEY',
+  'LIMOO_SMS_PATTERN_ID',
   'TECPEY_TRUSTED_PROXY_HEADER',
   'TECPEY_TRUSTED_PROXY_HOPS',
   'DATABASE_URL',
@@ -190,6 +191,19 @@ if (providerSecretEncryptionKey) {
     }
   } catch {
     errors.push('TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64 must be valid base64');
+  }
+}
+
+const limooPatternIdText = process.env.LIMOO_SMS_PATTERN_ID?.trim();
+if (limooPatternIdText) {
+  const limooPatternId = Number(limooPatternIdText);
+  if (
+    !/^\d{1,10}$/.test(limooPatternIdText) ||
+    !Number.isSafeInteger(limooPatternId) ||
+    limooPatternId < 1 ||
+    limooPatternId > 2_147_483_647
+  ) {
+    errors.push('LIMOO_SMS_PATTERN_ID must be a positive integer no greater than 2147483647');
   }
 }
 

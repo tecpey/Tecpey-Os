@@ -30,6 +30,7 @@ import type {
   OperationalAlertEvidence,
   OperationalJobRunEvidence,
 } from "../src/lib/ops/operational-job-evidence";
+import { parseSystemdEnvironmentFile } from "../src/lib/ops/systemd-environment-file";
 
 const MAX_ENV_FILE_BYTES = 64 * 1024;
 const MAX_HEALTH_BODY_BYTES = 128 * 1024;
@@ -68,17 +69,11 @@ async function parseRuntimeEnvironment(filePath: string): Promise<Map<string, st
     throw new Error("host_evidence_environment_file_unsafe");
   }
   const content = await readFile(filePath, "utf8");
-  const values = new Map<string, string>();
-  for (const rawLine of content.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const match = /^([A-Z][A-Z0-9_]*)=([^\s]*)$/.exec(line);
-    if (!match || match[2] === "" || values.has(match[1])) {
-      throw new Error("host_evidence_environment_file_format_invalid");
-    }
-    values.set(match[1], match[2]);
+  try {
+    return parseSystemdEnvironmentFile(content);
+  } catch {
+    throw new Error("host_evidence_environment_file_format_invalid");
   }
-  return values;
 }
 
 function requiredRuntimeValue(values: Map<string, string>, name: string): string {
