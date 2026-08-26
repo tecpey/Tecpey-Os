@@ -95,7 +95,7 @@ export function LimooOperationsPanel() {
     "min-h-12 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-5 py-3 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/15 focus:outline-none focus:ring-2 focus:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
-    <section className="space-y-5 rounded-[2rem] border border-cyan-300/15 bg-slate-950/55 p-4 shadow-2xl shadow-cyan-950/20 backdrop-blur sm:p-6" dir="rtl">
+    <section aria-busy={busy !== null} className="space-y-5 rounded-[2rem] border border-cyan-300/15 bg-slate-950/55 p-4 shadow-2xl shadow-cyan-950/20 backdrop-blur sm:p-6" dir="rtl">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold tracking-wide text-cyan-300">LIMOO OPERATIONS</p>
