@@ -41,7 +41,8 @@ describe("communication provider admin boundary", () => {
     assert.match(migration, /BEFORE DELETE ON communication_provider_config_events/);
     assert.match(migration, /NOT \(settings \?\| ARRAY\['apiKey', 'api_key', 'secret', 'token', 'password', 'credential'\]\)/);
     assert.match(route, /recordCommunicationProviderOperation/);
-    assert.match(store, /communication_provider_operation/);
+    assert.match(store, /action: `communication_provider\.\$\{input\.operation\}`/);
+    assert.match(store, /resourceType: "communication_provider"/);
     assert.doesNotMatch(operations, /LIMOO_SMS_API_KEY|process\.env|encrypted_api_key/);
   });
 
