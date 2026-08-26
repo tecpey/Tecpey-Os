@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -350,8 +357,47 @@ function createCleanRepositoryClone() {
     maxBuffer: 16 * 1024 * 1024,
   });
   assert.equal(clone.status, 0, clone.stderr || clone.stdout);
+  // Keep clean-clone authority tests honest during local development: a plain
+  // clone would otherwise test committed HEAD and silently ignore the files
+  // being reviewed in the current worktree. The snapshot exists only in tmp.
+  const worktreeDiff = spawnSync("git", ["diff", "--binary", "HEAD"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  assert.equal(worktreeDiff.status, 0, worktreeDiff.stderr || worktreeDiff.stdout);
+  if (worktreeDiff.stdout) {
+    const apply = spawnSync("git", ["apply", "--binary", "-"], {
+      cwd: root,
+      encoding: "utf8",
+      input: worktreeDiff.stdout,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    assert.equal(apply.status, 0, apply.stderr || apply.stdout);
+  }
+  const untracked = spawnSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  assert.equal(untracked.status, 0, untracked.stderr || untracked.stdout);
+  for (const file of untracked.stdout.split("\0").filter(Boolean)) {
+    const destination = path.join(root, file);
+    mkdirSync(path.dirname(destination), { recursive: true });
+    copyFileSync(path.join(process.cwd(), file), destination);
+  }
+  if (gitIn(root, ["status", "--porcelain"])) {
+    commitAll(root, "snapshot current launch authority worktree");
+  }
   gitIn(root, ["update-ref", "refs/remotes/origin/main", gitIn(process.cwd(), ["rev-parse", "origin/main"])]);
   return { parent, root, approvalEnv: approvalOriginEnv(parent) };
+}
+
+function createHistoricalFinalAuthorityFixture() {
+  const fixture = createCleanRepositoryClone();
+  const packet = readJson(fixture.root, "docs/launch/generated/controlled-soft-launch-final-release-packet-20260824.json");
+  gitIn(fixture.root, ["checkout", "--detach", packet.releaseControl.sourceRevision]);
+  return fixture;
 }
 
 function commitAll(root, message) {
@@ -491,7 +537,7 @@ test("final launch packet rejects unmerged release candidates", () => {
 });
 
 test("final launch packet fails closed without live accepted-risk origin verification", () => {
-  const fixture = createCleanRepositoryClone();
+  const fixture = createHistoricalFinalAuthorityFixture();
   try {
     const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], {
       GITHUB_TOKEN: "",
@@ -508,71 +554,110 @@ test("final launch packet fails closed without live accepted-risk origin verific
   }
 });
 
-test("final authority accepts attributable live accepted-risk and Go approval origins", async () => {
-  const authority = await verifyControlledLaunchFinalAuthority(
-    readJson(process.cwd(), FINAL_MANIFEST_PATH),
-    { root: process.cwd(), githubToken: "test-token", fetchImpl: approvalFetch() },
-  );
+test("active NO-GO candidate cannot reuse the historical final manifest", () => {
+  const fixture = createCleanRepositoryClone();
+  try {
+    const result = runPacketIn(
+      fixture.root,
+      ["--manifest", FINAL_MANIFEST_PATH],
+      fixture.approvalEnv,
+    );
 
-  assert.equal(authority.authority.status, "verified");
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /current candidate decision expected "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY", got "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE"/,
+    );
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("final authority accepts attributable live accepted-risk and Go approval origins", async () => {
+  const fixture = createHistoricalFinalAuthorityFixture();
+  try {
+    const authority = await verifyControlledLaunchFinalAuthority(
+      readJson(fixture.root, FINAL_MANIFEST_PATH),
+      { root: fixture.root, githubToken: "test-token", fetchImpl: approvalFetch() },
+    );
+
+    assert.equal(authority.authority.status, "verified");
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
 });
 
 test("final authority rejects edited live accepted-risk comments", async () => {
+  const fixture = createHistoricalFinalAuthorityFixture();
   const editedId = "5388723104";
-  await assert.rejects(
-    () => verifyControlledLaunchFinalAuthority(
-      readJson(process.cwd(), FINAL_MANIFEST_PATH),
-      {
-        root: process.cwd(),
-        githubToken: "test-token",
-        fetchImpl: approvalFetch({
-          [editedId]: {
-            body: `${acceptedRiskComments[editedId].body}\nedited after acceptance`,
-          },
-        }),
-      },
-    ),
-    /accepted-risk origin verification failed:.*origin.bodyDigest/,
-  );
+  try {
+    await assert.rejects(
+      () => verifyControlledLaunchFinalAuthority(
+        readJson(fixture.root, FINAL_MANIFEST_PATH),
+        {
+          root: fixture.root,
+          githubToken: "test-token",
+          fetchImpl: approvalFetch({
+            [editedId]: {
+              body: `${acceptedRiskComments[editedId].body}\nedited after acceptance`,
+            },
+          }),
+        },
+      ),
+      /accepted-risk origin verification failed:.*origin.bodyDigest/,
+    );
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
 });
 
 test("final authority rejects expired accepted-risk review dates", async () => {
-  await assert.rejects(
-    () => verifyControlledLaunchFinalAuthority(
-      readJson(process.cwd(), FINAL_MANIFEST_PATH),
-      {
-        root: process.cwd(),
-        githubToken: "test-token",
-        fetchImpl: approvalFetch(),
-        referenceDate: "2026-09-06T00:00:00.000Z",
-      },
-    ),
-    /accepted-risk register authority failed:.*review date .* is stale before 2026-09-06/,
-  );
+  const fixture = createHistoricalFinalAuthorityFixture();
+  try {
+    await assert.rejects(
+      () => verifyControlledLaunchFinalAuthority(
+        readJson(fixture.root, FINAL_MANIFEST_PATH),
+        {
+          root: fixture.root,
+          githubToken: "test-token",
+          fetchImpl: approvalFetch(),
+          referenceDate: "2026-09-06T00:00:00.000Z",
+        },
+      ),
+      /accepted-risk register authority failed:.*review date .* is stale before 2026-09-06/,
+    );
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
 });
 
 test("final authority rejects edited live Go approval comments", async () => {
+  const fixture = createHistoricalFinalAuthorityFixture();
   const editedId = approvalComments.tecpey.id;
-  await assert.rejects(
-    () => verifyControlledLaunchFinalAuthority(
-      readJson(process.cwd(), FINAL_MANIFEST_PATH),
-      {
-        root: process.cwd(),
-        githubToken: "test-token",
-        fetchImpl: approvalFetch({
-          [editedId]: {
-            body: `${approvalCommentBody("tecpey")}\nedited after approval`,
-            updated_at: "2026-08-24T10:00:00Z",
-          },
-        }),
-      },
-    ),
-    /Go approval origin verification failed:.*origin.updated_at.*origin.bodyDigest/,
-  );
+  try {
+    await assert.rejects(
+      () => verifyControlledLaunchFinalAuthority(
+        readJson(fixture.root, FINAL_MANIFEST_PATH),
+        {
+          root: fixture.root,
+          githubToken: "test-token",
+          fetchImpl: approvalFetch({
+            [editedId]: {
+              body: `${approvalCommentBody("tecpey")}\nedited after approval`,
+              updated_at: "2026-08-24T10:00:00Z",
+            },
+          }),
+        },
+      ),
+      /Go approval origin verification failed:.*origin.updated_at.*origin.bodyDigest/,
+    );
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
 });
 
 test("final launch packet emits only after all release evidence is complete", () => {
-  const fixture = createCleanRepositoryClone();
+  const fixture = createHistoricalFinalAuthorityFixture();
   try {
     const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], fixture.approvalEnv);
 
@@ -599,7 +684,7 @@ test("final launch packet emits only after all release evidence is complete", ()
 });
 
 test("final packet records the independent release-control revision", () => {
-  const fixture = createCleanRepositoryClone();
+  const fixture = createHistoricalFinalAuthorityFixture();
   try {
     const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], fixture.approvalEnv);
     assert.equal(result.status, 0, result.stderr);
@@ -631,7 +716,7 @@ test("final packet reproduces byte-for-byte from its recorded source revision", 
 });
 
 test("final packet authority rejects invented workflow conclusions", () => {
-  const fixture = createCleanRepositoryClone();
+  const fixture = createHistoricalFinalAuthorityFixture();
   try {
     const evidencePath = "docs/launch/generated/exact-head-workflow-evidence-20260812.json";
     const evidence = readJson(fixture.root, evidencePath);
@@ -661,7 +746,7 @@ test("decision authority rejects same-length disabled capability substitutions",
     });
 
     assert.notEqual(result.status, 0);
-    assert.match(`${result.stdout}\n${result.stderr}`, /final packet disabled capability attestations/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /historical packet disabled capability attestations/);
   } finally {
     rmSync(fixture.parent, { recursive: true, force: true });
   }

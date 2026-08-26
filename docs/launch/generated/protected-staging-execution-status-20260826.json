@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-staging-execution-status-observation",
+  "observedAt": "2026-08-26T12:34:02.000Z",
+  "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
+  "relatedBlockers": [
+    "NOG-01",
+    "NOG-02"
+  ],
+  "releaseLineage": {
+    "currentMainSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "protectedStagingEvidenceTargetSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
+  },
+  "postMergeObservation": {
+    "mergedPullRequest": 566,
+    "mergedPullRequestTitle": "security: upgrade OpenSSL runtime packages",
+    "mergeCommitSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "targetShaUnchanged": false,
+    "targetShaDisposition": "candidate rebaselined to the exact post-PR #566 main SHA; no protected staging deployment or governed NOG-01/NOG-02 artifact is accepted for this candidate"
+  },
+  "observationSource": {
+    "githubApi": [
+      "GET /repos/tecpey/Tecpey-Os/environments/staging",
+      "GET /repos/tecpey/Tecpey-Os/actions/workflows/protected-staging-env-evidence.yml/runs",
+      "GET /repos/tecpey/Tecpey-Os/actions/workflows/staging-community-challenge-scheduler-evidence.yml/runs"
+    ],
+    "localTooling": [
+      "The last recorded staging protection observation is historical and is not treated as fresh acceptance evidence.",
+      "No protected staging deployment or dispatch is authorized by this local evidence-promotion phase.",
+      "The prior accepted protected-staging artifacts are bound to 79c48a16cb685a88315a44e103b3758cf7845d65 and are not reusable for the current candidate.",
+      "Raw runner names, host identifiers, secrets and raw environment values are intentionally not recorded."
+    ]
+  },
+  "githubEnvironment": {
+    "name": "staging",
+    "exists": true,
+    "protectionRulesCount": 2,
+    "observedRuleTypes": [
+      "required_reviewers",
+      "branch_policy"
+    ],
+    "canAdminsBypass": false,
+    "protectionDisposition": "passed_required_reviewer_and_branch_policy_no_admin_bypass",
+    "observationFreshness": "historical_2026-08-23_not_reverified_for_current_candidate"
+  },
+  "workflows": {
+    "protectedStagingEnvEvidence": {
+      "name": "Protected Staging Env Evidence",
+      "path": ".github/workflows/protected-staging-env-evidence.yml",
+      "state": "active",
+      "totalRunsObserved": 3,
+      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32641299129",
+      "latestRunHeadSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
+      "latestRunConclusion": "success",
+      "latestRejectedCandidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "rejectionReason": "historical_accepted_artifact_bound_to_superseded_candidate_not_reusable",
+      "acceptedRunUrl": null,
+      "acceptedArtifactName": null,
+      "disposition": "blocked_no_accepted_current_candidate_run"
+    },
+    "stagingCommunityChallengeSchedulerEvidence": {
+      "name": "Staging Community Challenge Scheduler Evidence",
+      "path": ".github/workflows/staging-community-challenge-scheduler-evidence.yml",
+      "state": "active",
+      "totalRunsObserved": 4,
+      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32641669277",
+      "latestRunHeadSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
+      "latestRunConclusion": "failure",
+      "latestRejectedCandidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "rejectionReason": "historical_accepted_artifact_bound_to_superseded_candidate_not_reusable",
+      "acceptedRunUrl": null,
+      "acceptedArtifactName": null,
+      "disposition": "blocked_no_accepted_current_candidate_run"
+    }
+  },
+  "privacyBoundary": {
+    "rawSecretsObserved": false,
+    "rawSecretsRecorded": false,
+    "hostIdentifiersRecorded": false,
+    "runnerNamesRecorded": false,
+    "rawLogsRecorded": false
+  },
+  "requiredBeforeAcceptance": [
+    "Deploy an immutable release directory for exact candidate 4bc251725ce574d87258b52773e4a52ff3367252 on staging and align the governed current-release pointer to it.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 4bc251725ce574d87258b52773e4a52ff3367252 with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha 4bc251725ce574d87258b52773e4a52ff3367252 with one accepted environment_source.",
+    "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
+  ],
+  "decisionAfterObservation": "NOG-01 and NOG-02 remain open: historical staging evidence is bound to superseded candidate 79c48a16cb685a88315a44e103b3758cf7845d65, and no accepted deployment or governed workflow evidence exists for 4bc251725ce574d87258b52773e4a52ff3367252."
+}

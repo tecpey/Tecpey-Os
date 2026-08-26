@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
 const files = {
-  evidence: "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
+  evidence: "docs/launch/generated/disabled-capability-attestation-evidence-20260826.json",
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   candidate: "docs/launch/generated/current-controlled-launch-candidate.json",
   candidateHuman: "docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md",
@@ -31,7 +31,7 @@ const REQUIRED_SOURCE_FILES = [
 
 const REQUIRED_ACCEPTED_BLOCKERS = ["NOG-10", "NOG-11", "NOG-12"];
 const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
-const REQUIRED_OPEN_BLOCKERS = [];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const EVIDENCE_PATH = files.evidence;
 
 async function collectPublicSourceFiles(root) {
@@ -111,7 +111,12 @@ requireEqual(
   "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
 );
 requireEqual(failures, "evidence.selectedSha", evidence.selectedSha, candidate.currentCandidate?.sha);
-requireEqual(failures, "evidence.sourcePullRequest", evidence.sourcePullRequest, 388);
+requireEqual(
+  failures,
+  "evidence.sourcePullRequest",
+  evidence.sourcePullRequest,
+  candidate.currentCandidate?.sourcePullRequest,
+);
 requireEqual(failures, "evidence.observedVia.provider", evidence.observedVia?.provider, "repository-local-authority");
 requireEqual(
   failures,

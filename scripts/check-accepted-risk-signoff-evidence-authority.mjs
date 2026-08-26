@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
 import { acceptedRiskSignoffEvidenceOriginFindings } from "./accepted-risk-signoff-evidence-origin.mjs";
 import { verifyAcceptedRiskSignoffEvidence } from "./verify-accepted-risk-signoff-evidence.mjs";
 
-const EVIDENCE_PATH =
+const HISTORICAL_EVIDENCE_PATH =
   "docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json";
-const REQUEST_PATH =
-  "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
-const SELECTED_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const REQUEST_PATH = "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
+const HISTORICAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
 const REQUIRED_APPROVAL_OWNERS = [
   "github:tecpey",
@@ -35,7 +36,7 @@ const REQUIRED_APPROVAL_COMMENTS = {
 };
 
 const files = {
-  evidence: EVIDENCE_PATH,
+  historicalEvidence: HISTORICAL_EVIDENCE_PATH,
   request: REQUEST_PATH,
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   candidate: "docs/launch/generated/current-controlled-launch-candidate.json",
@@ -55,13 +56,14 @@ const files = {
 const source = Object.fromEntries(
   await Promise.all(Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")])),
 );
-const evidence = JSON.parse(source.evidence);
+const historicalEvidence = JSON.parse(source.historicalEvidence);
 const request = JSON.parse(source.request);
 const register = JSON.parse(source.register);
 const candidate = JSON.parse(source.candidate);
 const promotion = JSON.parse(source.promotion);
 const goRequest = JSON.parse(source.goRequest);
 const packageJson = JSON.parse(source.packageJson);
+const currentCandidateSha = candidate.currentCandidate?.sha;
 const failures = [];
 const originVerificationMode =
   process.argv.includes("--static-only")
@@ -74,7 +76,9 @@ function normalized(value) {
 }
 
 function requireEqual(label, actual, expected) {
-  if (actual !== expected) failures.push(`${label} must be ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected) {
+    failures.push(`${label} must be ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
 }
 
 function requireArrayExact(label, actual, expected) {
@@ -87,30 +91,133 @@ function requireText(label, text, token) {
   if (!normalized(text).includes(normalized(token))) failures.push(`${label} is missing ${token}`);
 }
 
+function requireNoActiveAcceptance(label, entries, blocker) {
+  if (entries?.some((entry) => entry.id === blocker)) {
+    failures.push(`${label}.${blocker} must not treat historical evidence as current accepted evidence`);
+  }
+}
+
 try {
-  verifyAcceptedRiskSignoffEvidence(evidence, SELECTED_SHA);
+  verifyAcceptedRiskSignoffEvidence(historicalEvidence, HISTORICAL_CANDIDATE_SHA);
 } catch (error) {
-  failures.push(`accepted-risk verifier failed: ${error instanceof Error ? error.message : String(error)}`);
+  failures.push(`historical accepted-risk verifier failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 if (originVerificationMode === "required") {
   failures.push(...(await acceptedRiskSignoffEvidenceOriginFindings({
-    evidence,
-    selectedSha: SELECTED_SHA,
+    evidence: historicalEvidence,
+    selectedSha: HISTORICAL_CANDIDATE_SHA,
     token: process.env.GITHUB_TOKEN,
   })));
 }
 
+requireEqual("historical evidence sourceSha", historicalEvidence.sourceSha, HISTORICAL_CANDIDATE_SHA);
+requireEqual("historical evidence risk register path", historicalEvidence.riskRegister?.path, files.acceptedRisks);
+requireEqual(
+  "historical evidence risk register candidate",
+  historicalEvidence.riskRegister?.candidateSha,
+  HISTORICAL_CANDIDATE_SHA,
+);
+requireArrayExact(
+  "historical evidence covered risks",
+  historicalEvidence.riskRegister?.coveredRisks,
+  REQUIRED_RISKS,
+);
+const registerDigest = `sha256:${createHash("sha256").update(source.acceptedRisks, "utf8").digest("hex")}`;
+requireEqual("historical evidence risk register digest", historicalEvidence.riskRegister?.digest, registerDigest);
+failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: new Date() }));
+
+const approvalOwners = [...new Set(
+  Object.values(historicalEvidence.riskOwnerSignoffs ?? {})
+    .map((entry) => entry.approvalOwnerExternalIdentity),
+)];
+requireArrayExact("historical evidence approval owners", approvalOwners, REQUIRED_APPROVAL_OWNERS);
+for (const signoff of Object.values(historicalEvidence.riskOwnerSignoffs ?? {})) {
+  const expectedComment = REQUIRED_APPROVAL_COMMENTS[signoff.approvalOwnerExternalIdentity];
+  requireEqual(`${signoff.risk}.candidateSha`, signoff.candidateSha, HISTORICAL_CANDIDATE_SHA);
+  requireEqual(`${signoff.risk}.acceptanceEvidenceType`, signoff.acceptanceEvidenceType, "github-issue-comment");
+  requireEqual(`${signoff.risk}.acceptanceEvidenceCommentId`, signoff.acceptanceEvidenceCommentId, expectedComment?.id);
+  requireEqual(`${signoff.risk}.acceptanceEvidenceUrl`, signoff.acceptanceEvidenceUrl, expectedComment?.url);
+  requireEqual(`${signoff.risk}.evidenceDigest`, signoff.evidenceDigest, expectedComment?.digest);
+}
+requireEqual("historical evidence release owner", historicalEvidence.releaseOwner?.externalIdentity, "github:tecpey");
+requireEqual(
+  "historical evidence independent reviewer",
+  historicalEvidence.reviewer?.externalIdentity,
+  "github:xrayman6zfm-ux",
+);
+
 requireEqual("request.schemaVersion", request.schemaVersion, 2);
-try {
-  verifyAcceptedRiskSignoffEvidence(request.requiredArtifact, SELECTED_SHA);
-} catch (error) {
-  failures.push(
-    `request requiredArtifact verifier failed: ${error instanceof Error ? error.message : String(error)}`,
-  );
-}
-if (JSON.stringify(request.requiredArtifact) !== JSON.stringify(evidence)) {
-  failures.push("request.requiredArtifact must mirror the complete canonical schema-v2 execution artifact");
-}
+requireEqual("request.evidenceClass", request.evidenceClass, "accepted-risk-signoff-evidence-request");
+requireEqual("request.decision", request.decision, "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED");
+requireEqual("request.executionState", request.executionState, "prepared_owner_approval_required");
+requireEqual("request.status", request.status, "open");
+requireEqual("request.blocker", request.blocker, "NOG-08");
+requireEqual("request.selectedSha", request.selectedSha, currentCandidateSha);
+requireEqual("request.sourceBranch", request.sourceBranch, "main");
+requireEqual("request.sourcePullRequest", request.sourcePullRequest, 566);
+requireArrayExact("request.acceptedForBlockers", request.acceptedForBlockers, []);
+requireArrayExact("request.notAcceptedForBlockers", request.notAcceptedForBlockers, OPEN_BLOCKERS);
+requireEqual("request.requiredArtifact.schemaVersion", request.requiredArtifact?.schemaVersion, 2);
+requireEqual(
+  "request.requiredArtifact.authority",
+  request.requiredArtifact?.authority,
+  "tecpey-accepted-risk-owner-signoff-v1",
+);
+requireEqual("request.requiredArtifact.sourceSha", request.requiredArtifact?.sourceSha, currentCandidateSha);
+requireEqual(
+  "request.requiredArtifact.releaseScope.candidateSha",
+  request.requiredArtifact?.releaseScope?.candidateSha,
+  currentCandidateSha,
+);
+requireEqual(
+  "request.requiredArtifact.riskRegister.candidateSha",
+  request.requiredArtifact?.riskRegister?.candidateSha,
+  currentCandidateSha,
+);
+requireEqual("request.requiredArtifact.riskRegister.digest", request.requiredArtifact?.riskRegister?.digest, registerDigest);
+requireArrayExact(
+  "request.requiredArtifact.riskRegister.coveredRisks",
+  request.requiredArtifact?.riskRegister?.coveredRisks,
+  REQUIRED_RISKS,
+);
+requireEqual(
+  "request.requiredArtifact.riskRegister.referenceDate",
+  request.requiredArtifact?.riskRegister?.referenceDate,
+  "2026-08-26",
+);
+requireEqual(
+  "request.requiredArtifact.riskRegister.minimumReviewDate",
+  request.requiredArtifact?.riskRegister?.minimumReviewDate,
+  "2026-08-29",
+);
+requireArrayExact(
+  "request.requiredArtifact.riskOwnerSignoffs",
+  Object.keys(request.requiredArtifact?.riskOwnerSignoffs ?? {}),
+  [],
+);
+requireArrayExact(
+  "request.requiredArtifact.requiredRiskOwnerSignoffRisks",
+  request.requiredArtifact?.requiredRiskOwnerSignoffRisks,
+  REQUIRED_RISKS,
+);
+requireEqual(
+  "request.requiredArtifact.collectionState",
+  request.requiredArtifact?.collectionState,
+  "missing_current_candidate_owner_approvals",
+);
+requireEqual("request.requiredArtifact.finalDisposition", request.requiredArtifact?.finalDisposition, "accepted");
+requireEqual("request.requiredOwnerApprovalEvidence.required", request.requiredOwnerApprovalEvidence?.required, true);
+requireEqual(
+  "request.requiredOwnerApprovalEvidence.requiredBeforeStatus",
+  request.requiredOwnerApprovalEvidence?.requiredBeforeStatus,
+  "accepted",
+);
+requireEqual(
+  "request.requiredOwnerApprovalEvidence.currentEvidenceUrl",
+  request.requiredOwnerApprovalEvidence?.currentEvidenceUrl,
+  null,
+);
+requireEqual("request.requiredOwnerApprovalEvidence.currentState", request.requiredOwnerApprovalEvidence?.currentState, "missing");
 requireEqual(
   "request.requiredArtifactOriginVerification.provider",
   request.requiredArtifactOriginVerification?.provider,
@@ -126,80 +233,59 @@ requireEqual(
   request.requiredArtifactOriginVerification?.requiredCredentialEnvironment,
   "GITHUB_TOKEN",
 );
-requireEqual(
-  "request.requiredArtifactOriginVerification.failureMode",
-  request.requiredArtifactOriginVerification?.failureMode,
-  "fail-closed",
-);
-requireArrayExact(
-  "request.requiredArtifactOriginVerification.requiredBindings",
-  request.requiredArtifactOriginVerification?.requiredBindings,
-  [
-    "remote-comment-id-matches-acceptanceEvidenceCommentId",
-    "remote-html-url-matches-acceptanceEvidenceUrl",
-    "remote-issue-is-409",
-    "remote-author-matches-approvalOwnerExternalIdentity",
-    "sha256-exact-remote-body-matches-evidenceDigest",
-    "body-attests-exact-candidate-scope-register-risks-review-dates-roles-decision-attestation-and-conditions",
-  ],
-);
+requireEqual("request.requiredArtifactOriginVerification.failureMode", request.requiredArtifactOriginVerification?.failureMode, "fail-closed");
+requireEqual("request.historicalAcceptedEvidence.selectedSha", request.historicalAcceptedEvidence?.selectedSha, HISTORICAL_CANDIDATE_SHA);
 
-requireEqual("candidate.currentCandidate.sha", candidate.currentCandidate?.sha, SELECTED_SHA);
-requireEqual("evidence.sourceSha", evidence.sourceSha, candidate.currentCandidate?.sha);
-requireEqual("evidence.riskRegister.path", evidence.riskRegister?.path, files.acceptedRisks);
-requireEqual("evidence.riskRegister.candidateSha", evidence.riskRegister?.candidateSha, SELECTED_SHA);
-requireArrayExact("evidence.riskRegister.coveredRisks", evidence.riskRegister?.coveredRisks, REQUIRED_RISKS);
-
-const registerDigest = `sha256:${createHash("sha256").update(source.acceptedRisks, "utf8").digest("hex")}`;
-requireEqual("evidence.riskRegister.digest", evidence.riskRegister?.digest, registerDigest);
-failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: new Date() }));
-
-const approvalOwners = [...new Set(
-  Object.values(evidence.riskOwnerSignoffs ?? {}).map((entry) => entry.approvalOwnerExternalIdentity),
-)];
-requireArrayExact("evidence approval owners", approvalOwners, REQUIRED_APPROVAL_OWNERS);
-for (const signoff of Object.values(evidence.riskOwnerSignoffs ?? {})) {
-  const expectedComment = REQUIRED_APPROVAL_COMMENTS[signoff.approvalOwnerExternalIdentity];
-  requireEqual(`${signoff.risk}.acceptanceEvidenceType`, signoff.acceptanceEvidenceType, "github-issue-comment");
-  requireEqual(`${signoff.risk}.acceptanceEvidenceCommentId`, signoff.acceptanceEvidenceCommentId, expectedComment?.id);
-  requireEqual(`${signoff.risk}.acceptanceEvidenceUrl`, signoff.acceptanceEvidenceUrl, expectedComment?.url);
-  requireEqual(`${signoff.risk}.evidenceDigest`, signoff.evidenceDigest, expectedComment?.digest);
-}
-requireEqual("evidence.releaseOwner.externalIdentity", evidence.releaseOwner?.externalIdentity, "github:tecpey");
-requireEqual("evidence.reviewer.externalIdentity", evidence.reviewer?.externalIdentity, "github:xrayman6zfm-ux");
+requireEqual("candidate.currentCandidate.sha", currentCandidateSha, promotion.currentAcceptedCandidateSha);
+requireEqual("candidate.decision", candidate.decision, "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE");
+requireEqual("promotion.status", promotion.status, "promoted_exact_candidate_evidence");
+requireEqual("promotion.protectedExecutionAllowed", promotion.protectedExecutionAllowed, true);
+requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, OPEN_BLOCKERS);
+requireEqual("register.decision", register.decision, "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE");
+requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, OPEN_BLOCKERS);
+requireArrayExact("register.openBlockerTrackingIssues", Object.keys(register.openBlockerTrackingIssues ?? {}), OPEN_BLOCKERS);
 
 const nog08 = register.blockers?.find((entry) => entry.id === "NOG-08");
-requireEqual("NOG-08.status", nog08?.status, "accepted");
-requireEqual("NOG-08.executionState", nog08?.executionState, "accepted_exact_candidate_accepted_risk_owner_signoff");
-requireEqual("NOG-08.evidence", nog08?.evidence, EVIDENCE_PATH);
-requireEqual("NOG-08.selectedSha", nog08?.selectedSha, SELECTED_SHA);
-requireEqual("NOG-08.approvalEvidenceUrl", nog08?.approvalEvidenceUrl, ISSUE_URL);
-requireArrayExact("NOG-08.approvalOwners", nog08?.approvalOwners, REQUIRED_APPROVAL_OWNERS);
-requireEqual("NOG-08.riskRegisterDigest", nog08?.riskRegisterDigest, registerDigest);
+requireEqual("NOG-08.status", nog08?.status, "open");
+requireEqual("NOG-08.executionState", nog08?.executionState, "blocked_pending_accepted_risk_owner_signoff_artifact");
+requireEqual("NOG-08.evidence request", nog08?.evidence, REQUEST_PATH);
+requireNoActiveAcceptance("register.acceptedEvidence", register.acceptedEvidence, "NOG-08");
+requireNoActiveAcceptance("candidate.acceptedEvidence", candidate.acceptedEvidence, "NOG-08");
 
-const registerAccepted = register.acceptedEvidence?.find((entry) => entry.id === "NOG-08");
-const candidateAccepted = candidate.acceptedEvidence?.find((entry) => entry.id === "NOG-08");
-for (const [label, accepted] of [["register", registerAccepted], ["candidate", candidateAccepted]]) {
-  requireEqual(`${label}.NOG-08.status`, accepted?.status, "accepted");
-  requireEqual(`${label}.NOG-08.evidence`, accepted?.evidence, EVIDENCE_PATH);
-  requireEqual(`${label}.NOG-08.selectedSha`, accepted?.selectedSha, SELECTED_SHA);
-  requireEqual(`${label}.NOG-08.riskRegisterDigest`, accepted?.riskRegisterDigest, registerDigest);
-  requireArrayExact(`${label}.NOG-08.approvalOwners`, accepted?.approvalOwners, REQUIRED_APPROVAL_OWNERS);
-}
-
-requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, []);
-requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, []);
-requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, []);
-requireEqual("register.acceptedRiskSignoffEvidence", register.acceptedRiskSignoffEvidence, EVIDENCE_PATH);
-requireEqual("candidate.activeInputs.acceptedRiskSignoffEvidence", candidate.activeInputs?.acceptedRiskSignoffEvidence, EVIDENCE_PATH);
-requireArrayExact("candidate.requiredNextEvidence", candidate.requiredNextEvidence, []);
-
-const nog09 = register.blockers?.find((entry) => entry.id === "NOG-09");
-requireEqual("NOG-09.status", nog09?.status, "accepted");
-requireEqual("NOG-09.executionState", nog09?.executionState, "accepted_exact_candidate_go_approval_matrix");
-requireEqual("register.NOG-09 accepted", register.acceptedEvidence?.some((entry) => entry.id === "NOG-09"), true);
-requireEqual("candidate.NOG-09 accepted", candidate.acceptedEvidence?.some((entry) => entry.id === "NOG-09"), true);
-requireEqual("goRequest.selectedSha", goRequest.selectedSha, SELECTED_SHA);
+const executionRequest = register.executionRequests?.find(
+  (entry) => Array.isArray(entry.ids) && entry.ids.length === 1 && entry.ids[0] === "NOG-08",
+);
+requireEqual(
+  "register.NOG-08.executionRequest.status",
+  executionRequest?.status,
+  "blocked_pending_accepted_risk_owner_signoff_artifact",
+);
+requireEqual("register.NOG-08.executionRequest.selectedSha", executionRequest?.selectedSha, currentCandidateSha);
+requireEqual("register.NOG-08.executionRequest.machineReadableRequest", executionRequest?.machineReadableRequest, REQUEST_PATH);
+requireEqual(
+  "register.NOG-08.executionRequest.historicalExecutionStatusObservation",
+  executionRequest?.historicalExecutionStatusObservation,
+  HISTORICAL_EVIDENCE_PATH,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.priorCandidateSha",
+  register.historicalAcceptedEvidence?.priorCandidateSha,
+  HISTORICAL_CANDIDATE_SHA,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.acceptedRisks",
+  register.historicalAcceptedEvidence?.acceptedRisks,
+  HISTORICAL_EVIDENCE_PATH,
+);
+requireEqual("register.acceptedRiskSignoffEvidence", register.acceptedRiskSignoffEvidence, REQUEST_PATH);
+requireEqual("candidate.activeInputs.acceptedRiskSignoffEvidence", candidate.activeInputs?.acceptedRiskSignoffEvidence, REQUEST_PATH);
+requireEqual(
+  "candidate required next accepted-risk evidence",
+  candidate.requiredNextEvidence?.some((entry) => entry.includes("accepted-risk owner sign-off evidence")),
+  true,
+);
+requireEqual("goRequest.selectedSha", goRequest.selectedSha, currentCandidateSha);
+requireEqual("goRequest.status", goRequest.status, "open");
 
 for (const [label, text] of [
   ["candidate ledger", source.candidateHuman],
@@ -207,10 +293,12 @@ for (const [label, text] of [
   ["checklist", source.checklist],
 ]) {
   requireText(label, text, "NOG-08");
-  requireText(label, text, "accepted");
-  requireText(label, text, "NOG-09");
+  requireText(label, text, "owner sign-off evidence");
   requireText(label, text, "NO-GO");
 }
+requireText("candidate ledger", source.candidateHuman, HISTORICAL_CANDIDATE_SHA);
+requireText("packet", source.packet, HISTORICAL_CANDIDATE_SHA);
+requireText("checklist", source.checklist, "historical packet must never be copied or relabelled");
 
 for (const invariant of [
   "acceptedRiskSignoffEvidenceOriginFindings",
@@ -253,16 +341,21 @@ requireText(
   "Accepted-risk signoff evidence authority guard env: GITHUB_TOKEN: ${{ github.token }} run: npm run launch:accepted-risk-evidence:check",
 );
 
-const serializedEvidence = JSON.stringify(evidence);
-for (const forbidden of [
-  /postgres(?:ql)?:\/\//i,
-  /DATABASE_URL/i,
-  /BEGIN [A-Z ]*PRIVATE KEY/i,
-  /\bsk-[A-Za-z0-9_-]{20,}\b/,
-  /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
+for (const [label, value] of [
+  [HISTORICAL_EVIDENCE_PATH, historicalEvidence],
+  [REQUEST_PATH, request],
 ]) {
-  if (forbidden.test(serializedEvidence)) {
-    failures.push(`${EVIDENCE_PATH}: evidence must not contain secrets, connection strings or host identifiers`);
+  const serialized = JSON.stringify(value);
+  for (const forbidden of [
+    /postgres(?:ql)?:\/\//i,
+    /DATABASE_URL/i,
+    /BEGIN [A-Z ]*PRIVATE KEY/i,
+    /\bsk-[A-Za-z0-9_-]{20,}\b/,
+    /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
+  ]) {
+    if (forbidden.test(serialized)) {
+      failures.push(`${label}: evidence must not contain secrets, connection strings or host identifiers`);
+    }
   }
 }
 
@@ -272,5 +365,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Accepted-risk signoff evidence authority passed for ${SELECTED_SHA}: NOG-08 is accepted and NOG-09 now carries the separate controlled-scope Go matrix.`,
+  `Historical accepted-risk evidence passed for ${HISTORICAL_CANDIDATE_SHA}; NOG-08 remains open for current candidate ${currentCandidateSha}.`,
 );

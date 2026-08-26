@@ -1,25 +1,85 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+
 import { goApprovalMatrixEvidenceOriginFindings } from "./go-approval-matrix-evidence-origin.mjs";
 import { verifyGoApprovalMatrixEvidence } from "./verify-go-approval-matrix-evidence.mjs";
 
-const SELECTED_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
-const BASE_MAIN_SHA = "ffa005707250f95dd975b4a973626580fc6871ab";
+const HISTORICAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const HISTORICAL_BASE_MAIN_SHA = "ffa005707250f95dd975b4a973626580fc6871ab";
 const REQUEST_PATH = "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json";
-const EVIDENCE_PATH = "docs/launch/generated/go-approval-matrix-execution-status-20260824.json";
+const HISTORICAL_EVIDENCE_PATH =
+  "docs/launch/generated/go-approval-matrix-execution-status-20260824.json";
 const ISSUE_URL = "https://github.com/tecpey/Tecpey-Os/issues/410";
+const OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const REQUIRED_PREREQUISITES = [
+  "NOG-01",
+  "NOG-02",
+  "NOG-03",
+  "NOG-04",
+  "NOG-05",
+  "NOG-06",
+  "NOG-07",
+  "NOG-08",
+  "NOG-10",
+  "NOG-11",
+  "NOG-12",
+];
+const REQUIRED_APPROVAL_ROLES = [
+  "CEO",
+  "CTO or Chief Architect",
+  "Security",
+  "Product",
+  "Compliance",
+  "SRE",
+  "QA",
+];
 
 const REQUIRED_APPROVALS = {
-  ceo: { role: "CEO", owner: "github:tecpey", id: 5391626720, digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438" },
-  ctoOrChiefArchitect: { role: "CTO or Chief Architect", owner: "github:mvexhiiii", id: 5391640345, digest: "sha256:c154a67c3f2154e60608928e851477f8bfb2045780578d551554eb42e5c1ac0e" },
-  security: { role: "Security", owner: "github:mvexhiiii", id: 5391640345, digest: "sha256:c154a67c3f2154e60608928e851477f8bfb2045780578d551554eb42e5c1ac0e" },
-  product: { role: "Product", owner: "github:tecpey", id: 5391626720, digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438" },
-  compliance: { role: "Compliance", owner: "github:tecpey", id: 5391626720, digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438" },
-  sre: { role: "SRE", owner: "github:mvexhiiii", id: 5391640345, digest: "sha256:c154a67c3f2154e60608928e851477f8bfb2045780578d551554eb42e5c1ac0e" },
-  qa: { role: "QA", owner: "github:tecpeysup", id: 5391646913, digest: "sha256:aab3471303eee769582a0ff27dcb959986a2f65a0a7a5ae74b4cb9bf817e9d0b" },
+  ceo: {
+    role: "CEO",
+    owner: "github:tecpey",
+    id: 5391626720,
+    digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438",
+  },
+  ctoOrChiefArchitect: {
+    role: "CTO or Chief Architect",
+    owner: "github:mvexhiiii",
+    id: 5391640345,
+    digest: "sha256:c154a67c3f2154e60608928e851477f8bfb2045780578d551554eb42e5c1ac0e",
+  },
+  security: {
+    role: "Security",
+    owner: "github:mvexhiiii",
+    id: 5391640345,
+    digest: "sha256:c154a67c3f2154e60608928e851477f8bfb2045780578d551554eb42e5c1ac0e",
+  },
+  product: {
+    role: "Product",
+    owner: "github:tecpey",
+    id: 5391626720,
+    digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438",
+  },
+  compliance: {
+    role: "Compliance",
+    owner: "github:tecpey",
+    id: 5391626720,
+    digest: "sha256:27ecd2ddd60cb240aeb657508e29e047cc708f58ff844e195031549401a47438",
+  },
+  sre: {
+    role: "SRE",
+    owner: "github:mvexhiiii",
+    id: 5391640345,
+    digest: "sha256:c154a67c3f2154e60608928e851477f8bfb2045780578d551554eb42e5c1ac0e",
+  },
+  qa: {
+    role: "QA",
+    owner: "github:tecpeysup",
+    id: 5391646913,
+    digest: "sha256:aab3471303eee769582a0ff27dcb959986a2f65a0a7a5ae74b4cb9bf817e9d0b",
+  },
 };
 
-const PREREQUISITE_FILES = {
+const HISTORICAL_PREREQUISITE_FILES = {
   "NOG-01": "docs/launch/generated/protected-staging-execution-status-20260812.json",
   "NOG-02": "docs/launch/generated/protected-staging-execution-status-20260812.json",
   "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
@@ -35,7 +95,7 @@ const PREREQUISITE_FILES = {
 
 const files = {
   request: REQUEST_PATH,
-  evidence: EVIDENCE_PATH,
+  historicalEvidence: HISTORICAL_EVIDENCE_PATH,
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   candidate: "docs/launch/generated/current-controlled-launch-candidate.json",
   promotion: "docs/launch/generated/candidate-promotion-state-20260821.json",
@@ -47,18 +107,21 @@ const files = {
   verifierTest: "scripts/go-approval-matrix-evidence.test.mjs",
   packageJson: "package.json",
   workflow: ".github/workflows/ci.yml",
-  ...Object.fromEntries(Object.entries(PREREQUISITE_FILES).map(([id, path]) => [`prerequisite:${id}`, path])),
+  ...Object.fromEntries(
+    Object.entries(HISTORICAL_PREREQUISITE_FILES).map(([id, path]) => [`prerequisite:${id}`, path]),
+  ),
 };
 
 const source = Object.fromEntries(
   await Promise.all(Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")])),
 );
 const request = JSON.parse(source.request);
-const evidence = JSON.parse(source.evidence);
+const historicalEvidence = JSON.parse(source.historicalEvidence);
 const register = JSON.parse(source.register);
 const candidate = JSON.parse(source.candidate);
 const promotion = JSON.parse(source.promotion);
 const packageJson = JSON.parse(source.packageJson);
+const currentCandidateSha = candidate.currentCandidate?.sha;
 const failures = [];
 
 function normalized(value) {
@@ -66,7 +129,9 @@ function normalized(value) {
 }
 
 function requireEqual(label, actual, expected) {
-  if (actual !== expected) failures.push(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  if (actual !== expected) {
+    failures.push(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
 }
 
 function requireArrayExact(label, actual, expected) {
@@ -83,30 +148,87 @@ function sha256(value) {
   return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 
+function requireNoActiveAcceptance(label, entries, blocker) {
+  if (entries?.some((entry) => entry.id === blocker)) {
+    failures.push(`${label}.${blocker}: historical evidence must not be active for the current candidate`);
+  }
+}
+
 try {
-  verifyGoApprovalMatrixEvidence(evidence, SELECTED_SHA);
+  verifyGoApprovalMatrixEvidence(historicalEvidence, HISTORICAL_CANDIDATE_SHA);
 } catch (error) {
-  failures.push(`canonical artifact verifier failed: ${error instanceof Error ? error.message : String(error)}`);
+  failures.push(`historical artifact verifier failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 const staticOnly = process.argv.includes("--static-only")
   || process.env.TECPEY_GO_APPROVAL_EVIDENCE_ORIGIN_MODE === "static-only";
 if (!staticOnly) {
   failures.push(...(await goApprovalMatrixEvidenceOriginFindings({
-    evidence,
-    selectedSha: SELECTED_SHA,
+    evidence: historicalEvidence,
+    selectedSha: HISTORICAL_CANDIDATE_SHA,
     token: process.env.GITHUB_TOKEN,
   })));
 }
 
+requireEqual("historical evidence sourceSha", historicalEvidence.sourceSha, HISTORICAL_CANDIDATE_SHA);
+requireEqual("historical evidence release owner", historicalEvidence.releaseOwner?.externalIdentity, "github:tecpey");
+requireEqual("historical evidence operator", historicalEvidence.operator?.externalIdentity, "protected-staging:operator");
+requireEqual("historical evidence reviewer", historicalEvidence.reviewer?.externalIdentity, "github:tecpeysup");
+for (const [key, expected] of Object.entries(REQUIRED_APPROVALS)) {
+  const approval = historicalEvidence.approvalMatrix?.[key];
+  requireEqual(`${key}.role`, approval?.role, expected.role);
+  requireEqual(`${key}.approver`, approval?.approverExternalIdentity, expected.owner);
+  requireEqual(`${key}.type`, approval?.approvalEvidenceType, "github-issue-comment");
+  requireEqual(`${key}.commentId`, approval?.approvalEvidenceCommentId, expected.id);
+  requireEqual(`${key}.url`, approval?.approvalEvidenceUrl, `${ISSUE_URL}#issuecomment-${expected.id}`);
+  requireEqual(`${key}.digest`, approval?.evidenceDigest, expected.digest);
+}
+for (const [id, path] of Object.entries(HISTORICAL_PREREQUISITE_FILES)) {
+  const prerequisite = historicalEvidence.prerequisiteEvidence?.[id];
+  requireEqual(`${id}.historical evidence digest`, prerequisite?.evidenceDigest, sha256(source[`prerequisite:${id}`]));
+  requireEqual(
+    `${id}.historical evidence URL`,
+    prerequisite?.evidenceUrl,
+    `https://github.com/tecpey/Tecpey-Os/blob/${HISTORICAL_BASE_MAIN_SHA}/${path}`,
+  );
+}
+
 requireEqual("request.schemaVersion", request.schemaVersion, 2);
-requireEqual("request.decision", request.decision, "GO_NOG_09_EXACT_CANDIDATE_MATRIX_ACCEPTED");
-requireEqual("request.executionState", request.executionState, "accepted_exact_candidate_go_approval_matrix");
-requireEqual("request.selectedSha", request.selectedSha, SELECTED_SHA);
-requireEqual("request.status", request.status, "accepted");
-requireEqual("request.requiredArtifact.path", request.requiredArtifact?.path, EVIDENCE_PATH);
+requireEqual("request.evidenceClass", request.evidenceClass, "go-approval-matrix-evidence-request");
+requireEqual("request.decision", request.decision, "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED");
+requireEqual("request.executionState", request.executionState, "blocked_pending_final_go_approval_matrix");
+requireEqual("request.selectedSha", request.selectedSha, currentCandidateSha);
+requireEqual("request.status", request.status, "open");
+requireEqual("request.blocker", request.blocker, "NOG-09");
+requireArrayExact("request.notAcceptedForBlockers", request.notAcceptedForBlockers, OPEN_BLOCKERS);
+requireArrayExact(
+  "request.prerequisiteBlockers",
+  request.prerequisiteBlockers,
+  ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08"],
+);
 requireEqual("request.requiredArtifact.schemaVersion", request.requiredArtifact?.schemaVersion, 2);
-requireEqual("request.requiredArtifact.sourceSha", request.requiredArtifact?.sourceSha, SELECTED_SHA);
+requireEqual("request.requiredArtifact.authority", request.requiredArtifact?.authority, "tecpey-go-approval-matrix-v1");
+requireEqual("request.requiredArtifact.sourceSha", request.requiredArtifact?.sourceSha, currentCandidateSha);
+requireEqual(
+  "request.requiredArtifact.launchScopeId",
+  request.requiredArtifact?.launchScopeId,
+  "controlled-public-fa-en-academy-mentor-arena",
+);
+requireArrayExact(
+  "request.requiredArtifact.requiredPrerequisiteBlockers",
+  request.requiredArtifact?.requiredPrerequisiteBlockers,
+  REQUIRED_PREREQUISITES,
+);
+requireArrayExact(
+  "request.requiredArtifact.approvalRoles",
+  request.requiredArtifact?.approvalRoles,
+  REQUIRED_APPROVAL_ROLES,
+);
+requireEqual(
+  "request.requiredArtifact.finalDisposition",
+  request.requiredArtifact?.finalDisposition,
+  "approved_for_controlled_soft_launch",
+);
 requireEqual(
   "request.requiredArtifactOriginVerification.endpointTemplate",
   request.requiredArtifactOriginVerification?.endpointTemplate,
@@ -118,57 +240,58 @@ requireEqual(
   "GITHUB_TOKEN",
 );
 requireEqual("request.requiredArtifactOriginVerification.failureMode", request.requiredArtifactOriginVerification?.failureMode, "fail-closed");
+requireEqual("request.historicalAcceptedEvidence.selectedSha", request.historicalAcceptedEvidence?.selectedSha, HISTORICAL_CANDIDATE_SHA);
+requireEqual("request.historicalAcceptedEvidence.evidence", request.historicalAcceptedEvidence?.evidence, HISTORICAL_EVIDENCE_PATH);
 
-requireEqual("evidence.sourceSha", evidence.sourceSha, SELECTED_SHA);
-requireEqual("evidence.releaseOwner.externalIdentity", evidence.releaseOwner?.externalIdentity, "github:tecpey");
-requireEqual("evidence.operator.externalIdentity", evidence.operator?.externalIdentity, "protected-staging:operator");
-requireEqual("evidence.reviewer.externalIdentity", evidence.reviewer?.externalIdentity, "github:tecpeysup");
-for (const [key, expected] of Object.entries(REQUIRED_APPROVALS)) {
-  const approval = evidence.approvalMatrix?.[key];
-  requireEqual(`${key}.role`, approval?.role, expected.role);
-  requireEqual(`${key}.approver`, approval?.approverExternalIdentity, expected.owner);
-  requireEqual(`${key}.type`, approval?.approvalEvidenceType, "github-issue-comment");
-  requireEqual(`${key}.commentId`, approval?.approvalEvidenceCommentId, expected.id);
-  requireEqual(`${key}.url`, approval?.approvalEvidenceUrl, `${ISSUE_URL}#issuecomment-${expected.id}`);
-  requireEqual(`${key}.digest`, approval?.evidenceDigest, expected.digest);
-}
-
-for (const [id, path] of Object.entries(PREREQUISITE_FILES)) {
-  const prerequisite = evidence.prerequisiteEvidence?.[id];
-  const expectedDigest = sha256(source[`prerequisite:${id}`]);
-  requireEqual(`${id}.evidenceDigest`, prerequisite?.evidenceDigest, expectedDigest);
-  requireEqual(
-    `${id}.evidenceUrl`,
-    prerequisite?.evidenceUrl,
-    `https://github.com/tecpey/Tecpey-Os/blob/${BASE_MAIN_SHA}/${path}`,
-  );
-  const accepted = register.acceptedEvidence?.find((entry) => entry.id === id);
-  requireEqual(`${id}.registerAccepted`, accepted?.status, "accepted");
-  requireEqual(`${id}.selectedSha`, accepted?.selectedSha, SELECTED_SHA);
-}
-
-requireEqual("candidate.currentCandidate.sha", candidate.currentCandidate?.sha, SELECTED_SHA);
-requireEqual("candidate.decision", candidate.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
-requireEqual("register.decision", register.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
-requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, []);
-requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, []);
-requireArrayExact("candidate.requiredNextEvidence", candidate.requiredNextEvidence, []);
-requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, []);
-requireEqual("candidate.activeInputs.goApprovalMatrixEvidence", candidate.activeInputs?.goApprovalMatrixEvidence, EVIDENCE_PATH);
-requireEqual("register.goApprovalMatrixEvidence", register.goApprovalMatrixEvidence, EVIDENCE_PATH);
+requireEqual("candidate.currentCandidate.sha", currentCandidateSha, promotion.currentAcceptedCandidateSha);
+requireEqual("candidate.decision", candidate.decision, "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE");
+requireEqual("register.decision", register.decision, "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE");
+requireEqual("promotion.status", promotion.status, "promoted_exact_candidate_evidence");
+requireEqual("promotion.protectedExecutionAllowed", promotion.protectedExecutionAllowed, true);
+requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, OPEN_BLOCKERS);
+requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, OPEN_BLOCKERS);
+requireArrayExact("register.openBlockerTrackingIssues", Object.keys(register.openBlockerTrackingIssues ?? {}), OPEN_BLOCKERS);
+requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, ["NOG-01", "NOG-02"]);
+requireEqual("candidate.activeInputs.goApprovalMatrixEvidenceRequest", candidate.activeInputs?.goApprovalMatrixEvidenceRequest, REQUEST_PATH);
+requireEqual(
+  "candidate required next Go approval matrix",
+  candidate.requiredNextEvidence?.some((entry) => entry.includes("Go approval matrix")),
+  true,
+);
 
 const nog09 = register.blockers?.find((entry) => entry.id === "NOG-09");
-const registerAccepted = register.acceptedEvidence?.find((entry) => entry.id === "NOG-09");
-const candidateAccepted = candidate.acceptedEvidence?.find((entry) => entry.id === "NOG-09");
-for (const [label, entry] of [["blocker", nog09], ["register", registerAccepted], ["candidate", candidateAccepted]]) {
-  requireEqual(`${label}.NOG-09.status`, entry?.status, "accepted");
-  requireEqual(`${label}.NOG-09.evidence`, entry?.evidence, EVIDENCE_PATH);
-  requireEqual(`${label}.NOG-09.selectedSha`, entry?.selectedSha, SELECTED_SHA);
-  requireArrayExact(`${label}.NOG-09.approvalOwners`, entry?.approvalOwners, ["github:tecpey", "github:mvexhiiii", "github:tecpeysup"]);
-  requireEqual(`${label}.NOG-09.independentReviewer`, entry?.independentReviewer, "github:tecpeysup");
-}
-requireEqual("NOG-09.executionState", nog09?.executionState, "accepted_exact_candidate_go_approval_matrix");
+requireEqual("NOG-09.status", nog09?.status, "open");
+requireEqual("NOG-09.executionState", nog09?.executionState, "blocked_pending_final_go_approval_matrix");
+requireEqual("NOG-09.executionRequest", nog09?.executionRequest, REQUEST_PATH);
 requireEqual("NOG-09.trackingIssue", nog09?.trackingIssue, ISSUE_URL);
+requireNoActiveAcceptance("register.acceptedEvidence", register.acceptedEvidence, "NOG-09");
+requireNoActiveAcceptance("candidate.acceptedEvidence", candidate.acceptedEvidence, "NOG-09");
+
+const executionRequest = register.executionRequests?.find(
+  (entry) => Array.isArray(entry.ids) && entry.ids.length === 1 && entry.ids[0] === "NOG-09",
+);
+requireEqual(
+  "register.NOG-09.executionRequest.status",
+  executionRequest?.status,
+  "blocked_pending_final_go_approval_matrix",
+);
+requireEqual("register.NOG-09.executionRequest.selectedSha", executionRequest?.selectedSha, currentCandidateSha);
+requireEqual("register.NOG-09.executionRequest.machineReadableRequest", executionRequest?.machineReadableRequest, REQUEST_PATH);
+requireEqual(
+  "register.NOG-09.executionRequest.historicalExecutionStatusObservation",
+  executionRequest?.historicalExecutionStatusObservation,
+  HISTORICAL_EVIDENCE_PATH,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.priorCandidateSha",
+  register.historicalAcceptedEvidence?.priorCandidateSha,
+  HISTORICAL_CANDIDATE_SHA,
+);
+requireEqual(
+  "register.historicalAcceptedEvidence.goApprovalMatrix",
+  register.historicalAcceptedEvidence?.goApprovalMatrix,
+  HISTORICAL_EVIDENCE_PATH,
+);
 
 requireEqual(
   "package launch:go-approval-matrix-evidence:check",
@@ -211,16 +334,20 @@ for (const token of [
 for (const [label, text] of [
   ["candidate ledger", source.candidateHuman],
   ["packet", source.packet],
-  ["checklist", source.checklist],
 ]) {
   requireText(label, text, "NOG-09");
-  requireText(label, text, "accepted");
-  requireText(label, text, "controlled soft launch");
-  requireText(label, text, "Exchange");
-  requireText(label, text, "disabled");
+  requireText(label, text, "remains open");
+  requireText(label, text, "Go approval matrix");
 }
+requireText("checklist", source.checklist, "NO-GO until approval evidence is accepted");
+requireText("checklist", source.checklist, "historical packet must never be copied or relabelled");
+requireText("candidate ledger", source.candidateHuman, HISTORICAL_CANDIDATE_SHA);
+requireText("packet", source.packet, HISTORICAL_CANDIDATE_SHA);
 
-for (const [label, value] of [[EVIDENCE_PATH, evidence], [REQUEST_PATH, request]]) {
+for (const [label, value] of [
+  [HISTORICAL_EVIDENCE_PATH, historicalEvidence],
+  [REQUEST_PATH, request],
+]) {
   const serialized = JSON.stringify(value);
   for (const forbidden of [
     /postgres(?:ql)?:\/\//i,
@@ -229,7 +356,9 @@ for (const [label, value] of [[EVIDENCE_PATH, evidence], [REQUEST_PATH, request]
     /\bsk-[A-Za-z0-9_-]{20,}\b/,
     /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
   ]) {
-    if (forbidden.test(serialized)) failures.push(`${label}: evidence must not contain secrets, connection strings or host identifiers`);
+    if (forbidden.test(serialized)) {
+      failures.push(`${label}: evidence must not contain secrets, connection strings or host identifiers`);
+    }
   }
 }
 
@@ -239,5 +368,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Go approval matrix evidence authority passed for ${SELECTED_SHA}: NOG-09 is accepted from attributable live-origin approvals; only the controlled soft launch scope is approved.`,
+  `Historical Go approval matrix passed for ${HISTORICAL_CANDIDATE_SHA}; NOG-09 remains open for current candidate ${currentCandidateSha}.`,
 );

@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-env-evidence-request",
-  "generatedAt": "2026-08-23T15:40:25Z",
-  "decision": "NO_GO_NOG_01_NOG_02_ACCEPTED_EXACT_CANDIDATE_ONLY",
+  "generatedAt": "2026-08-26T12:34:02Z",
+  "decision": "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
-    "runtimeCandidateBaselineSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "protectedStagingEvidenceTargetSha": "4bc251725ce574d87258b52773e4a52ff3367252",
+    "runtimeCandidateBaselineSha": "4bc251725ce574d87258b52773e4a52ff3367252",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
-  "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
+  "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260826.json",
   "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
   "environmentProtectionRunbook": "docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
   "requiredContext": {
@@ -27,12 +27,12 @@
     ],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
     "workflowInputs": {
-      "release_sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "release_sha": "4bc251725ce574d87258b52773e4a52ff3367252",
       "run_alert_probe": true
     },
     "envEvidenceWorkflowName": "Protected Staging Env Evidence",
     "envEvidenceWorkflowInputs": {
-      "release_sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "release_sha": "4bc251725ce574d87258b52773e4a52ff3367252",
       "environment_source": "protected_host_env_file"
     }
   },
@@ -62,19 +62,7 @@
   },
   "nog01": {
     "title": "Protected staging activation evidence",
-    "status": "accepted_exact_candidate_evidence",
-    "acceptedAt": "2026-08-23T15:40:25Z",
-    "acceptedEvidence": {
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32648754664",
-      "workflowDefinitionHeadSha": "313e1f6234ac13e0fd8ed55a14867edfb30926e4",
-      "selectedReleaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
-      "artifactId": 9495616024,
-      "artifactName": "tecpey-staging-scheduler-evidence-79c48a16cb685a88315a44e103b3758cf7845d65",
-      "artifactDigest": "sha256:ea3cfb4bbd188988063d31e393556aebb4ea9359e9c96d2b9a68de44b14dde4d",
-      "detachedDigestDisposition": "verified",
-      "offlineVerifierDisposition": "passed",
-      "alertProbeDelivered": true
-    },
+    "status": "awaiting_protected_execution",
     "requiredArtifacts": [
       "tecpey-staging-scheduler-evidence.json",
       "tecpey-staging-scheduler-evidence.json.sha256",
@@ -97,19 +85,7 @@
   },
   "nog02": {
     "title": "Redacted protected env evidence",
-    "status": "accepted_exact_candidate_evidence",
-    "acceptedAt": "2026-08-23T15:40:25Z",
-    "acceptedEvidence": {
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32644937055",
-      "workflowDefinitionHeadSha": "e4a3e0e1c31329fc77bb1a9b2901918b093eb32b",
-      "selectedReleaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
-      "artifactId": 9494655047,
-      "artifactName": "tecpey-staging-env-evidence-79c48a16cb685a88315a44e103b3758cf7845d65",
-      "artifactDigest": "sha256:bd8cd520526d7520883218697dad9af9eec1dcbe8eca7db163493d5dd254f5d5",
-      "environmentSource": "protected_host_env_file",
-      "detachedDigestDisposition": "verified",
-      "offlineVerifierDisposition": "passed"
-    },
+    "status": "awaiting_protected_execution",
     "environmentSourcePolicy": {
       "acceptedModes": [
         "protected_host_env_file",
@@ -123,7 +99,7 @@
     "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
     "workflowName": "Protected Staging Env Evidence",
     "workflowInputs": {
-      "release_sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "release_sha": "4bc251725ce574d87258b52773e4a52ff3367252",
       "environment_source": "protected_host_env_file"
     },
     "requiredArtifacts": [
@@ -168,5 +144,7 @@
     "env:check fails, cannot run with the protected staging env file loaded, or cannot run through a governed service-manager validation unit/equivalent command that uses the same environment source as the staging application",
     "evidence contains forbidden sensitive material"
   ],
-  "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_RECONCILIATION_INCIDENT_RISK_AND_APPROVAL_EVIDENCE_IS_ACCEPTED"
+  "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_RECONCILIATION_INCIDENT_RISK_AND_APPROVAL_EVIDENCE_IS_ACCEPTED",
+  "executionStatusObservationState": "historical_superseded_candidate_only",
+  "historicalExecutionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json"
 }

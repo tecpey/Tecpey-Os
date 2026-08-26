@@ -33,6 +33,17 @@ const files = {
     "docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json",
   finalReleasePacket:
     "docs/launch/generated/controlled-soft-launch-final-release-packet-20260824.json",
+  candidate: "docs/launch/generated/current-controlled-launch-candidate.json",
+  candidateHuman: "docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md",
+  promotion: "docs/launch/generated/candidate-promotion-state-20260821.json",
+  noGoRegister: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
+  activeRuntimeImageEvidence: "docs/launch/generated/runtime-image-digest-evidence-20260826.json",
+  activeExactHeadWorkflowEvidence: "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
+  activeRollbackExecutionStatus: "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
+  activeProtectedStagingExecutionStatus:
+    "docs/launch/generated/protected-staging-execution-status-20260826.json",
+  activeGatedCapabilityEvidence:
+    "docs/launch/generated/disabled-capability-attestation-evidence-20260826.json",
   packageLock: "package-lock.json",
   runtimeImageEvidence: "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
   exactHeadWorkflowEvidence: "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
@@ -45,6 +56,8 @@ const files = {
     "scripts/check-protected-recovery-reconciliation-execution-status.mjs",
   recoveryReconciliationExecutionStatus:
     "docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json",
+  recoveryReconciliationRequest:
+    "docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   acceptedRiskRequest: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
@@ -165,6 +178,266 @@ function gitSourceDigest(revision, file) {
   const result = spawnSync("git", ["show", `${revision}:${file}`]);
   if (result.status !== 0) return null;
   return `sha256:${createHash("sha256").update(result.stdout).digest("hex")}`;
+}
+
+const ACTIVE_NO_GO_DECISION = "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE";
+const ACTIVE_CANDIDATE_SHA = "4bc251725ce574d87258b52773e4a52ff3367252";
+const HISTORICAL_FINAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const ACTIVE_OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const ACTIVE_ACCEPTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06", "NOG-10", "NOG-11", "NOG-12"];
+const ACTIVE_EVIDENCE_PATHS = {
+  "NOG-03": files.activeRuntimeImageEvidence,
+  "NOG-04": files.activeExactHeadWorkflowEvidence,
+  "NOG-06": files.activeRollbackExecutionStatus,
+  "NOG-10": files.activeGatedCapabilityEvidence,
+  "NOG-11": files.activeGatedCapabilityEvidence,
+  "NOG-12": files.activeGatedCapabilityEvidence,
+};
+
+const activeCandidate = parseJson("candidate");
+if (activeCandidate?.decision === ACTIVE_NO_GO_DECISION) {
+  const activePromotion = parseJson("promotion");
+  const activeRegister = parseJson("noGoRegister");
+  const activeRuntimeImageEvidence = parseJson("activeRuntimeImageEvidence");
+  const activeExactHeadWorkflowEvidence = parseJson("activeExactHeadWorkflowEvidence");
+  const activeRollbackExecutionStatus = parseJson("activeRollbackExecutionStatus");
+  const activeProtectedStagingExecutionStatus = parseJson("activeProtectedStagingExecutionStatus");
+  const activeGatedCapabilityEvidence = parseJson("activeGatedCapabilityEvidence");
+  const recoveryRequest = parseJson("recoveryReconciliationRequest");
+  const incidentRequest = parseJson("incidentReadinessRequest");
+  const acceptedRiskRequest = parseJson("acceptedRiskRequest");
+  const goApprovalRequest = parseJson("goApprovalMatrixRequest");
+  const historicalManifest = parseJson("finalEvidenceManifest");
+  const historicalPacket = parseJson("finalReleasePacket");
+
+  requireEqualValue("active candidate SHA", activeCandidate.currentCandidate?.sha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue("active candidate branch", activeCandidate.currentCandidate?.sourceBranch, "main");
+  requireEqualValue("active candidate source PR", activeCandidate.currentCandidate?.sourcePullRequest, 566);
+  requireEqualValue("active promotion status", activePromotion?.status, "promoted_exact_candidate_evidence");
+  requireEqualValue(
+    "active promotion candidate",
+    activePromotion?.currentAcceptedCandidateSha,
+    ACTIVE_CANDIDATE_SHA,
+  );
+  requireEqualValue("protected execution permission", activePromotion?.protectedExecutionAllowed, true);
+  requireEqualValue("promotion open blockers", activePromotion?.stillOpenBlockers, ACTIVE_OPEN_BLOCKERS);
+
+  requireEqualValue("active register decision", activeRegister?.decision, ACTIVE_NO_GO_DECISION);
+  requireEqualValue("active register target", activeRegister?.stagingEvidenceTargetSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue("active register runtime baseline", activeRegister?.runtimeCandidateBaselineSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue("active register open blockers", activeRegister?.remainingOpenBlockers, ACTIVE_OPEN_BLOCKERS);
+  requireEqualValue(
+    "active register open blocker tracking",
+    Object.keys(activeRegister?.openBlockerTrackingIssues ?? {}),
+    ACTIVE_OPEN_BLOCKERS,
+  );
+
+  const candidateAcceptedIds = (activeCandidate.acceptedEvidence ?? []).map((entry) => entry.id).sort();
+  const registerAcceptedIds = (activeRegister?.acceptedEvidence ?? []).map((entry) => entry.id).sort();
+  requireEqualValue("active candidate accepted blocker IDs", candidateAcceptedIds, [...ACTIVE_ACCEPTED_BLOCKERS].sort());
+  requireEqualValue("active register accepted blocker IDs", registerAcceptedIds, [...ACTIVE_ACCEPTED_BLOCKERS].sort());
+  for (const [label, entries] of [
+    ["candidate", activeCandidate.acceptedEvidence],
+    ["register", activeRegister?.acceptedEvidence],
+  ]) {
+    for (const blocker of ACTIVE_ACCEPTED_BLOCKERS) {
+      const accepted = entries?.find((entry) => entry.id === blocker);
+      requireEqualValue(`${label} ${blocker} status`, accepted?.status, "accepted");
+      requireEqualValue(`${label} ${blocker} candidate`, accepted?.selectedSha, ACTIVE_CANDIDATE_SHA);
+      requireEqualValue(`${label} ${blocker} evidence`, accepted?.evidence, ACTIVE_EVIDENCE_PATHS[blocker]);
+    }
+    for (const blocker of ACTIVE_OPEN_BLOCKERS) {
+      if (entries?.some((entry) => entry.id === blocker)) {
+        failures.push(`${label} ${blocker}: open blocker must not appear in active accepted evidence`);
+      }
+    }
+  }
+  for (const blocker of ACTIVE_OPEN_BLOCKERS) {
+    const entry = activeRegister?.blockers?.find((candidateBlocker) => candidateBlocker.id === blocker);
+    requireEqualValue(`active register ${blocker} status`, entry?.status, "open");
+  }
+
+  requireEqualValue(
+    "active runtime-image decision",
+    activeRuntimeImageEvidence?.decision,
+    "NOG_03_ACCEPTED_FOR_EXACT_CANDIDATE_RUNTIME_IMAGE_IDENTITY",
+  );
+  requireEqualValue(
+    "active runtime-image candidate",
+    activeRuntimeImageEvidence?.releaseCandidate?.sha,
+    ACTIVE_CANDIDATE_SHA,
+  );
+  requireEqualValue(
+    "active exact-head decision",
+    activeExactHeadWorkflowEvidence?.decision,
+    "NO_GO_NOG_04_ACCEPTED_EXACT_HEAD_WORKFLOW_URLS_ONLY",
+  );
+  requireEqualValue("active exact-head candidate", activeExactHeadWorkflowEvidence?.selectedSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue(
+    "active rollback decision",
+    activeRollbackExecutionStatus?.decision,
+    "NO_GO_NOG_06_ACCEPTED_EPHEMERAL_ROLLBACK_VOLUME_RESTORE_ONLY",
+  );
+  requireEqualValue("active rollback candidate", activeRollbackExecutionStatus?.selectedSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue(
+    "active protected-staging observation decision",
+    activeProtectedStagingExecutionStatus?.decision,
+    "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
+  );
+  requireEqualValue(
+    "active protected-staging observation candidate",
+    activeProtectedStagingExecutionStatus?.releaseLineage?.protectedStagingEvidenceTargetSha,
+    ACTIVE_CANDIDATE_SHA,
+  );
+  requireEqualValue(
+    "active disabled-capability decision",
+    activeGatedCapabilityEvidence?.decision,
+    "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
+  );
+  requireEqualValue("active disabled-capability candidate", activeGatedCapabilityEvidence?.selectedSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue(
+    "active disabled-capability blockers",
+    activeGatedCapabilityEvidence?.acceptedForBlockers,
+    ["NOG-10", "NOG-11", "NOG-12"],
+  );
+
+  requireEqualValue(
+    "active recovery request candidate",
+    recoveryRequest?.selectedSha,
+    ACTIVE_CANDIDATE_SHA,
+  );
+  requireEqualValue(
+    "active recovery request status",
+    recoveryRequest?.status,
+    "blocked_pending_protected_staging_restore_and_domain_reconciliation",
+  );
+  requireEqualValue("active incident request candidate", incidentRequest?.selectedSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue("active incident request status", incidentRequest?.status, "open");
+  requireEqualValue("active accepted-risk request candidate", acceptedRiskRequest?.selectedSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue("active accepted-risk request status", acceptedRiskRequest?.status, "open");
+  requireEqualValue("active Go approval request candidate", goApprovalRequest?.selectedSha, ACTIVE_CANDIDATE_SHA);
+  requireEqualValue("active Go approval request status", goApprovalRequest?.status, "open");
+  requireEqualValue(
+    "historical register candidate",
+    activeRegister?.historicalAcceptedEvidence?.priorCandidateSha,
+    HISTORICAL_FINAL_CANDIDATE_SHA,
+  );
+  requireEqualValue(
+    "historical register final manifest",
+    activeRegister?.historicalAcceptedEvidence?.finalEvidenceManifest,
+    files.finalEvidenceManifest,
+  );
+  requireEqualValue(
+    "historical register final packet",
+    activeRegister?.historicalAcceptedEvidence?.finalReleasePacket,
+    files.finalReleasePacket,
+  );
+
+  if (historicalManifest) {
+    try {
+      validateControlledLaunchEvidenceManifest(historicalManifest, {
+        expectedHeadSha: HISTORICAL_FINAL_CANDIDATE_SHA,
+      });
+    } catch (error) {
+      failures.push(
+        `${files.finalEvidenceManifest}: historical manifest invalid: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    requireEqualValue(
+      "historical manifest candidate",
+      historicalManifest.releaseCandidate?.sha,
+      HISTORICAL_FINAL_CANDIDATE_SHA,
+    );
+    requireEqualValue(
+      "historical manifest authority",
+      historicalManifest.authorityVerification?.authority,
+      FINAL_AUTHORITY,
+    );
+    requireEqualValue("historical manifest authority status", historicalManifest.authorityVerification?.status, "verified");
+    for (const [key, target] of [
+      ["protectedStaging", "protectedStagingExecutionStatus"],
+      ["recoveryReconciliation", "recoveryReconciliationExecutionStatus"],
+      ["rollbackOrForwardFix", "rollbackExecutionStatus"],
+      ["incidentReadiness", "incidentReadinessExecutionStatus"],
+      ["acceptedRisks", "acceptedRiskEvidence"],
+      ["approvals", "goApprovalMatrixEvidence"],
+      ["disabledCapabilities", "gatedCapabilityEvidence"],
+    ]) {
+      requireEqualValue(
+        `historical manifest ${key} digest`,
+        historicalManifest.requiredExternalEvidence?.[key]?.artifactDigest,
+        sourceDigest(target),
+      );
+    }
+  }
+
+  if (historicalPacket && historicalManifest) {
+    requireEqualValue("historical packet decision", historicalPacket.decision, FINAL_DECISION);
+    requireEqualValue(
+      "historical packet candidate",
+      historicalPacket.releaseCandidate?.sha,
+      HISTORICAL_FINAL_CANDIDATE_SHA,
+    );
+    requireEqualValue("historical packet manifest path", historicalPacket.releaseControl?.manifest?.path, FINAL_MANIFEST_PATH);
+    requireEqualValue(
+      "historical packet manifest digest",
+      historicalPacket.releaseControl?.manifest?.sourceDigest,
+      sourceDigest("finalEvidenceManifest"),
+    );
+    requireEqualValue(
+      "historical packet disabled capability attestations",
+      historicalPacket.disabledCapabilityAttestation,
+      DISABLED_CAPABILITY_ATTESTATION,
+    );
+    requireEqualValue(
+      "historical packet privacy boundary",
+      historicalPacket.privacyBoundary,
+      PRIVACY_BOUNDARY,
+    );
+    const sourceRevision = historicalPacket.releaseControl?.sourceRevision;
+    if (!/^[a-f0-9]{40}$/.test(sourceRevision ?? "")) {
+      failures.push("historical packet release-control source revision must be a 40-character git SHA");
+    } else if (spawnSync("git", ["merge-base", "--is-ancestor", sourceRevision, "HEAD"]).status !== 0) {
+      failures.push("historical packet release-control source revision must remain an ancestor of HEAD");
+    } else {
+      for (const [label, identity] of [
+        ["generator", historicalPacket.releaseControl?.generator],
+        ["verifier", historicalPacket.releaseControl?.verifier],
+        ["manifest", historicalPacket.releaseControl?.manifest],
+      ]) {
+        requireEqualValue(
+          `historical packet ${label} digest at source revision`,
+          gitSourceDigest(sourceRevision, identity?.path),
+          identity?.sourceDigest,
+        );
+      }
+    }
+  }
+
+  requireText("candidateHuman", "**Decision:** NO-GO", "candidate ledger must remain NO-GO");
+  requireText("candidateHuman", ACTIVE_CANDIDATE_SHA, "candidate ledger must name the active candidate");
+  requireText(
+    "candidateHuman",
+    HISTORICAL_FINAL_CANDIDATE_SHA,
+    "candidate ledger must preserve the historical final-evidence boundary",
+  );
+  requireText("checklist", "**Status:** NO-GO", "checklist must remain NO-GO");
+  requireText("checklist", ACTIVE_CANDIDATE_SHA, "checklist must name the active candidate");
+  requireText(
+    "checklist",
+    "historical packet must never be copied or relabelled",
+    "checklist must reject reusing historical Go evidence",
+  );
+
+  if (failures.length > 0) {
+    console.error("Controlled launch NO-GO decision authority failed:\n- " + failures.join("\n- "));
+    process.exit(1);
+  }
+
+  console.log(
+    `Controlled launch decision authority passed for active NO-GO candidate ${ACTIVE_CANDIDATE_SHA}; historical Go evidence remains bound to ${HISTORICAL_FINAL_CANDIDATE_SHA}.`,
+  );
+  process.exit(0);
 }
 
 const selectedSha = "79c48a16cb685a88315a44e103b3758cf7845d65";

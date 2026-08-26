@@ -9,7 +9,7 @@ import {
 
 const oldSha = "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913";
 const newSha = "cbbdebe0b09801c314ed0b048c6ed19873d23300";
-const open = [];
+const open = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const recollected = ["NOG-03", "NOG-04", "NOG-06"];
 const boundaries = [
   "real-money Exchange",
@@ -19,9 +19,9 @@ const boundaries = [
   "public rewards",
 ];
 const evidencePaths = {
-  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260826.json",
+  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
+  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
 };
 const requestPrivacy = [
   "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
@@ -53,7 +53,7 @@ const promotionCompletedChecks = [
   "runtime image digest evidence accepted for the selected SHA",
   "rollback and volume-restore evidence accepted for the selected SHA",
   "candidate and protected-staging lineage aligned to the selected SHA",
-  "all controlled-scope blockers are accepted for the exact candidate",
+  "remaining operational blockers remain open",
   "real-money and expanded-scope launch boundaries remain disabled",
 ];
 
@@ -264,6 +264,15 @@ test("rejects silent removal of a launch-disabled boundary", () => {
   assert.match(
     candidateEvidenceRecollectionFindings(value).join("\n"),
     /launchDisabledBoundaries/,
+  );
+});
+
+test("rejects silent removal of an operational blocker", () => {
+  const value = fixture();
+  value.request.stillOpenBlockers.pop();
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /request\.stillOpenBlockers/,
   );
 });
 

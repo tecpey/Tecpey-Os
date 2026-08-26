@@ -18,7 +18,7 @@ export const REQUIRED_WORKFLOWS = [
 ];
 
 const REQUIRED_RECOLLECTED = ["NOG-03", "NOG-04", "NOG-06"];
-const REQUIRED_OPEN = [];
+const REQUIRED_OPEN = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",
@@ -27,9 +27,9 @@ const REQUIRED_BOUNDARIES = [
   "public rewards",
 ];
 const ACCEPTED_EVIDENCE_PATHS = Object.freeze({
-  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260826.json",
+  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260826.json",
+  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260826.json",
 });
 const REQUIRED_NOG04_ACCEPTANCE = [
   "each workflow run is bound to selectedSha",
@@ -79,7 +79,7 @@ const REQUIRED_COMPLETED_CHECKS = [
   "runtime image digest evidence accepted for the selected SHA",
   "rollback and volume-restore evidence accepted for the selected SHA",
   "candidate and protected-staging lineage aligned to the selected SHA",
-  "all controlled-scope blockers are accepted for the exact candidate",
+  "remaining operational blockers remain open",
   "real-money and expanded-scope launch boundaries remain disabled",
 ];
 const REQUIRED_REQUEST_PRIVACY = [
