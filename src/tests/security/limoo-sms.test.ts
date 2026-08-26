@@ -12,12 +12,19 @@ import {
 
 const originalApiKey = process.env.LIMOO_SMS_API_KEY;
 const originalPatternId = process.env.LIMOO_SMS_PATTERN_ID;
+const originalDatabaseUrl = process.env.DATABASE_URL;
+const originalNodeEnv = process.env.NODE_ENV;
+const mutableEnvironment = process.env as Record<string, string | undefined>;
 
 afterEach(() => {
   if (originalApiKey === undefined) delete process.env.LIMOO_SMS_API_KEY;
   else process.env.LIMOO_SMS_API_KEY = originalApiKey;
   if (originalPatternId === undefined) delete process.env.LIMOO_SMS_PATTERN_ID;
   else process.env.LIMOO_SMS_PATTERN_ID = originalPatternId;
+  if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+  else process.env.DATABASE_URL = originalDatabaseUrl;
+  if (originalNodeEnv === undefined) delete mutableEnvironment.NODE_ENV;
+  else mutableEnvironment.NODE_ENV = originalNodeEnv;
 });
 
 type ObservedCall = { url: string; key: string; body: unknown };
@@ -44,6 +51,24 @@ describe("Limoo SMS provider boundary", () => {
         return new Response(JSON.stringify({ Success: true }));
       },
     });
+    assert.deepEqual(result, { ok: false, reason: "disabled" });
+    assert.equal(called, false);
+  });
+
+  it("does not bypass an unavailable managed control plane in production", async () => {
+    mutableEnvironment.NODE_ENV = "production";
+    delete process.env.DATABASE_URL;
+    process.env.LIMOO_SMS_API_KEY = "stale-environment-secret";
+    process.env.LIMOO_SMS_PATTERN_ID = "42";
+    let called = false;
+
+    const result = await sendLimooVerificationCode("09123456789", "123456", {
+      fetchImpl: async () => {
+        called = true;
+        return new Response(JSON.stringify({ Success: true }));
+      },
+    });
+
     assert.deepEqual(result, { ok: false, reason: "disabled" });
     assert.equal(called, false);
   });

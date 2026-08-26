@@ -77,8 +77,6 @@ const required = [
   'TECPEY_PHONE_IDENTITY_HASH_SECRET',
   'TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64',
   'TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64',
-  'LIMOO_SMS_API_KEY',
-  'LIMOO_SMS_PATTERN_ID',
   'TECPEY_TRUSTED_PROXY_HEADER',
   'TECPEY_TRUSTED_PROXY_HOPS',
   'DATABASE_URL',
@@ -113,6 +111,8 @@ const optional = [
   'TECPEY_APNS_TEAM_ID',
   'TECPEY_APNS_BUNDLE_ID',
   'TECPEY_APNS_PRIVATE_KEY',
+  'LIMOO_SMS_API_KEY',
+  'LIMOO_SMS_PATTERN_ID',
   'ACADEMY_LEADS_WEBHOOK_URL',
   'TECPEY_CRM_WEBHOOK_SECRET',
   'TECPEY_PHONE_IDENTITY_HASH_SECRET',
@@ -195,6 +195,10 @@ if (providerSecretEncryptionKey) {
 }
 
 const limooPatternIdText = process.env.LIMOO_SMS_PATTERN_ID?.trim();
+const limooApiKey = process.env.LIMOO_SMS_API_KEY?.trim();
+if (Boolean(limooApiKey) !== Boolean(limooPatternIdText)) {
+  errors.push('LIMOO_SMS_API_KEY and LIMOO_SMS_PATTERN_ID must be configured together when using the environment fallback');
+}
 if (limooPatternIdText) {
   if (
     !/^\d{1,19}$/.test(limooPatternIdText) ||

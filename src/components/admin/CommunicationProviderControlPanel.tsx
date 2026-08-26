@@ -123,10 +123,11 @@ export function CommunicationProviderControlPanel() {
     return () => window.clearTimeout(pendingLoad);
   }, [load]);
 
-  const configuredCount = useMemo(
+  const readyCount = useMemo(
     () => providers.filter((provider) =>
       provider.secretConfigured &&
       provider.enabled &&
+      provider.lastTestStatus === "passed" &&
       (provider.providerId !== "limoo_sms" || Boolean(provider.settings.otpPatternId))
     ).length,
     [providers],
@@ -176,7 +177,7 @@ export function CommunicationProviderControlPanel() {
       const updated = data.provider as ProviderSnapshot;
       setProviders((current) => current.map((provider) => provider.providerId === id ? updated : provider));
       setForms((current) => ({ ...current, [id]: { ...form, apiKey: "" } }));
-      setMessage(`${PROVIDERS.find((provider) => provider.id === id)?.title} با موفقیت و به‌صورت رمز‌شده ذخیره شد.`);
+      setMessage(`${PROVIDERS.find((provider) => provider.id === id)?.title} با موفقیت و به‌صورت رمز‌شده ذخیره شد؛ برای تأیید تنظیمات فعلی، تست اتصال را اجرا کنید.`);
     } catch {
       setError("ارتباط هنگام ذخیره قطع شد؛ وضعیت فعلی تغییر نکرد.");
     } finally {
@@ -197,6 +198,7 @@ export function CommunicationProviderControlPanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.ok) {
+        if (data?.error === "communication_provider_test_failed") await load();
         setError(data?.error === "invalid_iranian_mobile"
           ? "برای تست SMS یک شماره موبایل معتبر ایران وارد کنید."
           : data?.error === "step_up_required"
@@ -228,7 +230,7 @@ export function CommunicationProviderControlPanel() {
                 <ShieldCheck className="h-4 w-4" aria-hidden="true" /> Secret-safe control plane
               </span>
               <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1.5 text-xs font-black text-emerald-100">
-                {configuredCount} اتصال فعال
+                {readyCount} اتصال آماده
               </span>
             </div>
             <h1 className="mt-5 text-3xl font-black md:text-5xl">مرکز ارتباطات و Providerها</h1>
@@ -255,11 +257,21 @@ export function CommunicationProviderControlPanel() {
           const form = forms[meta.id] ?? initialForm(provider);
           const Icon = meta.icon;
           const isSms = meta.id === "limoo_sms";
-          const ready = Boolean(
+          const testable = Boolean(
             provider?.secretConfigured &&
             provider.enabled &&
             (!isSms || provider.settings.otpPatternId),
           );
+          const ready = testable && provider?.lastTestStatus === "passed";
+          const status = !provider?.secretConfigured
+            ? "نیازمند کلید"
+            : !testable
+              ? "غیرفعال"
+              : provider.lastTestStatus === "failed"
+                ? "خطای تست"
+                : ready
+                  ? "آماده"
+                  : "نیازمند تست";
           return (
             <article key={meta.id} className="rounded-[26px] border border-white/10 bg-[#07111e] p-5 md:p-6">
               <div className="flex items-start justify-between gap-4">
@@ -273,7 +285,7 @@ export function CommunicationProviderControlPanel() {
                   </div>
                 </div>
                 <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${ready ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : "border-amber-300/20 bg-amber-300/[0.08] text-amber-100"}`}>
-                  {ready ? "فعال" : provider?.secretConfigured ? "غیرفعال" : "نیازمند کلید"}
+                  {status}
                 </span>
               </div>
 
@@ -316,7 +328,7 @@ export function CommunicationProviderControlPanel() {
                 <button type="button" onClick={() => void save(meta.id)} disabled={busy !== null || testing !== null || loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-cyan-500 to-blue-600 px-3 text-sm font-black text-white outline-none transition-transform duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:opacity-50 motion-reduce:transform-none">
                   {busy === meta.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="h-4 w-4" aria-hidden="true" />} ذخیره امن
                 </button>
-                <button type="button" onClick={() => void test(meta.id)} disabled={!ready || busy !== null || testing !== null || loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-cyan-100 outline-none transition-[background-color,transform] duration-150 active:scale-[0.97] hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:opacity-40 motion-reduce:transform-none">
+                <button type="button" onClick={() => void test(meta.id)} disabled={!testable || busy !== null || testing !== null || loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-sm font-black text-cyan-100 outline-none transition-[background-color,transform] duration-150 active:scale-[0.97] hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:opacity-40 motion-reduce:transform-none">
                   {testing === meta.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />} تست اتصال
                 </button>
               </div>

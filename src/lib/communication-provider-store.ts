@@ -230,6 +230,8 @@ export async function updateCommunicationProvider(
            settings = EXCLUDED.settings,
            revision = EXCLUDED.revision,
            rotated_at = EXCLUDED.rotated_at,
+           last_test_status = NULL,
+           last_tested_at = NULL,
            updated_by = EXCLUDED.updated_by,
            updated_at = NOW()
          RETURNING provider_id, enabled, encrypted_api_key, api_key_fingerprint,

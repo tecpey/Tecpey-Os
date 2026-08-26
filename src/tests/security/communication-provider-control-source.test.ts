@@ -94,6 +94,9 @@ describe("communication provider admin boundary", () => {
 
   it("serializes rotations and makes an admin disable override environment fallback", () => {
     assert.match(store, /pg_advisory_xact_lock\(hashtextextended\(\$1, 0\)\)/);
+    assert.match(store, /last_test_status = NULL,\s+last_tested_at = NULL/);
+    assert.match(client, /communication_provider_test_failed"\) await load\(\)/);
+    assert.match(client, /provider\.lastTestStatus === "passed"/);
     assert.match(email, /managedFallback\.status === "disabled"/);
     assert.match(health, /isEmailRuntimeConfigured\(\)/);
   });

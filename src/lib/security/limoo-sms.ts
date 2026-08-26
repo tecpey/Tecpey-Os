@@ -52,6 +52,11 @@ type Dependencies = {
 
 const BLOCKED_RESPONSE_KEYS = /(?:api.?key|authorization|token|secret|password|credential)/i;
 
+function mayUseEnvironmentFallback(resolved: RuntimeProviderResolution): boolean {
+  return resolved.status === "unconfigured" ||
+    (resolved.status === "unavailable" && process.env.NODE_ENV !== "production");
+}
+
 function sanitizeProviderPayload(
   value: unknown,
   depth = 0,
@@ -86,9 +91,9 @@ async function callLimoo(
   const managed = resolved ?? await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
   const apiKey = managed.status === "configured"
     ? managed.config.apiKey
-    : managed.status === "disabled"
-      ? ""
-      : process.env.LIMOO_SMS_API_KEY?.trim() ?? "";
+    : mayUseEnvironmentFallback(managed)
+      ? process.env.LIMOO_SMS_API_KEY?.trim() ?? ""
+      : "";
   if (!apiKey) return { ok: false, reason: "disabled" };
 
   const controller = new AbortController();
@@ -149,7 +154,9 @@ export function sendLimooVerificationCode(
     const managed = await resolveRuntimeCommunicationProvider("limoo_sms", dependencies);
     const configuredPatternId = normalizeLimooPatternId(managed.status === "configured"
       ? managed.config.settings.otpPatternId
-      : process.env.LIMOO_SMS_PATTERN_ID);
+      : mayUseEnvironmentFallback(managed)
+        ? process.env.LIMOO_SMS_PATTERN_ID
+        : undefined);
     if (!configuredPatternId) {
       return { ok: false, reason: "disabled" };
     }

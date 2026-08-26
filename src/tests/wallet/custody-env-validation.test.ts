@@ -53,7 +53,7 @@ describe("production custody environment validation", () => {
   });
 
   it("requires a governed numeric Limoo Pattern ID", () => {
-    for (const value of ["", "0", "12.5", "pattern-42", "9223372036854775808"]) {
+    for (const value of ["0", "12.5", "pattern-42", "9223372036854775808"]) {
       const result = validate({ LIMOO_SMS_PATTERN_ID: value });
       assert.notEqual(result.status, 0, `LIMOO_SMS_PATTERN_ID=${value} must fail validation`);
       assert.match(result.stderr, /LIMOO_SMS_PATTERN_ID/);
@@ -61,6 +61,20 @@ describe("production custody environment validation", () => {
 
     const longPatternId = validate({ LIMOO_SMS_PATTERN_ID: "315421354564" });
     assert.equal(longPatternId.status, 0, longPatternId.stderr);
+  });
+
+  it("allows managed Limoo configuration while keeping the environment fallback paired", () => {
+    const managedOnly = validate({ LIMOO_SMS_API_KEY: "", LIMOO_SMS_PATTERN_ID: "" });
+    assert.equal(managedOnly.status, 0, managedOnly.stderr);
+
+    for (const overrides of [
+      { LIMOO_SMS_API_KEY: "limoo-test-api-key", LIMOO_SMS_PATTERN_ID: "" },
+      { LIMOO_SMS_API_KEY: "", LIMOO_SMS_PATTERN_ID: "42" },
+    ]) {
+      const result = validate(overrides);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /must be configured together/);
+    }
   });
 
   it("requires strong, isolated administrator authentication secrets", () => {
