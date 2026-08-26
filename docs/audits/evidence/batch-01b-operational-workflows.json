@@ -30,26 +30,27 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "863c6910b2ad52b3a5c8f79f8d6fb83a8ec38256",
-      "sha256": "3012a51793ec7463c2e39c58a2e816d96b01a1669deea5e3dc290b0acd3df8a7",
-      "lines": 282,
+      "gitObjectId": "d85efcb44a2df5087c0c5e7b29cfcfb64983ebd7",
+      "sha256": "4a60671815edda66d95e6a88c022fd6c69e90e3225a0c117df7eab957093e7d8",
+      "lines": 302,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 282
+          "endLine": 302
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Triggers, read-only default permissions, exact-head checkout, governed policy tests, Compose input validation, immutable build identity, rootless runtime inspection, SBOM generation, vulnerability gating, recovery jobs, publication permissions, digest signing and evidence retention were reviewed as one release sequence.",
         "Publication now requires both the verification and recovery jobs, and the Trivy gate rejects HIGH or CRITICAL findings even when no upstream fix is currently available.",
-        "The effective image gate exposed the former Debian runtime package surface; the runtime now uses the current digest-pinned Alpine Node image and its image-owned non-root identity."
+        "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
+        "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged."
       ],
       "findings": [
         {
           "id": "B01B-P1-001",
           "severity": "P1",
-          "line": 203,
+          "line": 223,
           "attackPath": "A push to main could publish, attest and sign an immutable production image after artifact verification while the rollback or persistent-volume recovery job had failed.",
           "affectedInvariant": "No production image may be published unless both artifact verification and recovery evidence succeed for the same release workflow.",
           "evidence": "The former publish job declared needs: verify only; the remediated job declares the exact dependency set [verify, recovery].",
@@ -154,20 +155,20 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "333970ad0af488bd0d523d8c2be46ee1cc9e33cd",
-      "sha256": "69b6ca12a26147cfc3f6478c435f4529dd270508476cbc82d9fe6cd30e5e8dfe",
-      "lines": 591,
+      "gitObjectId": "03f887cfb8c3283655db6e744cf42d381c5a232e",
+      "sha256": "1ad363311f91b9f25f62c51284288ca4991dee6c183dc9255eaa1519ad95e7c2",
+      "lines": 613,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 591
+          "endLine": 613
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Retired-script fail-closed behavior, mutable installer rejection, production documentation constraints, environment-template completeness, exact Node/npm/systemd contracts, clean candidate binding, immutable build identity, Compose/public inputs, container trigger coverage, readiness probes and production-verification delegation were reviewed line by line.",
-        "The authority now parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
-        "The production-dependency and runner stages are bound to the exact digest-pinned Alpine Node image and the image-owned non-root identity; regression to the prior Debian runtime is rejected."
+        "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
+        "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation."
       ],
       "findings": []
     }
