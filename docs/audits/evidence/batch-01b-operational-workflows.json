@@ -154,20 +154,20 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "333970ad0af488bd0d523d8c2be46ee1cc9e33cd",
-      "sha256": "69b6ca12a26147cfc3f6478c435f4529dd270508476cbc82d9fe6cd30e5e8dfe",
-      "lines": 591,
+      "gitObjectId": "2e2d56fa7959392c322bc84a8c107af92a424cd4",
+      "sha256": "1f5570415f34838d59d301f8b6438623bd56b6cbede251636e18a679d7792f4c",
+      "lines": 594,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 591
+          "endLine": 594
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Retired-script fail-closed behavior, mutable installer rejection, production documentation constraints, environment-template completeness, exact Node/npm/systemd contracts, clean candidate binding, immutable build identity, Compose/public inputs, container trigger coverage, readiness probes and production-verification delegation were reviewed line by line.",
-        "The authority now parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
-        "The production-dependency and runner stages are bound to the exact digest-pinned Alpine Node image and the image-owned non-root identity; regression to the prior Debian runtime is rejected."
+        "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
+        "The production-dependency and runner stages are now each bound to the same exact digest-pinned official Node 22 Debian slim runtime; stage-specific checks reject unapproved base substitutions without introducing a mutable package-upgrade step."
       ],
       "findings": []
     }
