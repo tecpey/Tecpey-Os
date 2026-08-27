@@ -49,7 +49,9 @@ rejectText(footer, "E-trust status", "Persian Footer must not contain mixed-lang
 rejectText(footer, "Digital media registration", "Persian Footer must not contain mixed-language registration labels");
 requireText(footer, "تریدینگ آرنا", "Footer must expose the Trading Arena product path");
 requireText(footer, "منتور هوشمند", "Footer must expose the AI Mentor product path");
-requireText(footer, "هنوز نهایی یا تأیید نشده‌اند", "Pending trust signals must be disclosed without implying approval");
+rejectText(footer, "trustSignals", "Footer must not render trust-badge panels");
+rejectText(footer, "ContactPanel", "Footer must not render a global contact panel");
+rejectText(footer, "info@tecpey.ir", "Footer must not expose contact details on every page");
 
 if (failures.length) {
   console.error("Public UI foundation check failed:");

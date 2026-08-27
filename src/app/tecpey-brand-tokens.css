@@ -84,7 +84,12 @@ body.tecpey-motion-route {
   overflow: hidden;
   background: var(--tp-bg);
   pointer-events: none;
-  animation: tecpey-motion-background-enter var(--tp-duration-panel) var(--tp-ease-out) both;
+  opacity: 0;
+  transition: opacity var(--tp-duration-panel) var(--tp-ease-out);
+}
+
+.tecpey-scroll-motion-background[data-visible="true"] {
+  opacity: 1;
 }
 
 .tecpey-scroll-motion-background__media {
@@ -100,6 +105,26 @@ body.tecpey-motion-route {
   object-fit: cover;
   object-position: center;
   opacity: 0.50;
+}
+
+.tecpey-scroll-motion-background__marks {
+  position: absolute;
+  inset: 0;
+  contain: layout paint;
+}
+
+.tecpey-scroll-motion-background__mark {
+  position: absolute;
+  display: block;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+.tecpey-scroll-motion-background__mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .tecpey-scroll-motion-background__wash {
@@ -142,13 +167,9 @@ body.tecpey-motion-route .tecpey-motion-content-surface--dark {
   background-color: rgba(2, 6, 23, 0.68) !important;
 }
 
-@keyframes tecpey-motion-background-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
+@media (max-width: 640px) {
+  .tecpey-scroll-motion-background__mark:nth-child(n + 7) {
+    display: none;
   }
 }
 
@@ -511,10 +532,11 @@ body.tecpey-motion-route .tecpey-motion-content-surface--dark {
 
 @media (prefers-reduced-motion: reduce) {
   .tecpey-scroll-motion-background {
-    animation: none;
+    transition: none;
   }
 
-  .tecpey-scroll-motion-background__media {
+  .tecpey-scroll-motion-background__media,
+  .tecpey-scroll-motion-background__mark {
     transform: none !important;
     will-change: auto;
   }

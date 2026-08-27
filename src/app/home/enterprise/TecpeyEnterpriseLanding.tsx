@@ -44,6 +44,7 @@ import type { MarketCurrency } from "@/types/market";
 const exchangeHref = "https://my.tecpey.ir";
 const exchangeSignupHref = "https://my.tecpey.ir/signup";
 const academyHref = "/academy";
+const academyAuthHref = "/academy/login";
 
 const marketRows = [
   { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین" },
@@ -70,10 +71,11 @@ function useRotator(items: string[]) {
 
 
 
-function formatFaNumber(value: unknown) {
+function formatUsdPrice(value: unknown) {
   const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "در حال دریافت قیمت";
-  return new Intl.NumberFormat("fa-IR").format(Math.round(n));
+  if (!Number.isFinite(n) || n <= 0) return "در حال دریافت";
+  const maximumFractionDigits = n < 1 ? 4 : n < 100 ? 2 : 0;
+  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(n)}`;
 }
 
 function normalizeSymbol(row: MarketCurrency) {
@@ -154,14 +156,15 @@ function DeviceFrame() {
               const rawChange = row?.priceData?.changePercent ?? row?.changePercent;
               const change = rawChange === null || rawChange === undefined ? null : Number(rawChange);
               return (
-                <div key={`${symbol}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1.1fr_1fr_auto]">
+                <div key={`${symbol}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] px-3 py-2 last:border-b-0">
                   <CoinVisual symbol={symbol} name={name} faName={faName} variant="avatar" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-extrabold text-[color:var(--tp-text)]">{faName}</p>
                     <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{name} / USD</p>
                   </div>
-                  <p className="hidden text-xs font-bold text-[color:var(--tp-text)] sm:block"><bdi>USD {formatFaNumber(price)}</bdi></p>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-black sm:px-3 sm:text-xs ${change !== null && change >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-500" : change !== null ? "bg-rose-500/10 text-rose-700 dark:text-rose-500" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{change !== null && Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}٪` : "در حال دریافت"}</span>
+                  <span dir="ltr" className={`rounded-full px-2 py-1 text-[10px] font-black tabular-nums sm:px-3 sm:text-xs ${change !== null && Number.isFinite(change) && change > 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : change !== null && Number.isFinite(change) && change < 0 ? "bg-rose-500/10 text-rose-700 dark:text-rose-400" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>
+                    <bdi>{formatUsdPrice(price)}</bdi>
+                  </span>
                 </div>
               );
             })}
@@ -197,7 +200,7 @@ function Hero() {
             </Link>
             <Link href={academyHref} className="tecpey-action-secondary sm:text-base">
               آکادمی رایگان
-              <LineChart className="h-5 w-5 text-[color:var(--tp-primary)]" />
+              <GraduationCap className="h-5 w-5 text-[color:var(--tp-primary)]" />
             </Link>
           </div>
           <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-[color:var(--tp-muted)] sm:text-xs lg:max-w-xl">
@@ -205,6 +208,8 @@ function Hero() {
             <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-400"><Clock3 className="h-4 w-4 shrink-0" />اخبار و ابزارهای مهم روز</span>
             <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-400"><ShieldCheck className="h-4 w-4 shrink-0" />پرونده تحلیلی رمزارزها</span>
             <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[color:var(--tp-primary-soft)] px-3 py-2 text-[color:var(--tp-primary)]"><BookOpen className="h-4 w-4 shrink-0" />شبیه‌ساز + مربی هوشمند</span>
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-violet-500/10 px-3 py-2 text-violet-700 dark:text-violet-300"><Trophy className="h-4 w-4 shrink-0" />رنکینگ و لیگ‌های آموزشی</span>
+            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300"><Gift className="h-4 w-4 shrink-0" />جوایز برای برترین‌ها</span>
           </div>
         </div>
         <DeviceFrame />
@@ -1086,8 +1091,8 @@ function StickyMobileCta() {
         <Link href={exchangeHref} className="rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
           ورود به صرافی
         </Link>
-        <Link href={academyHref} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-center text-xs font-black text-white transition hover:bg-white/15">
-          آکادمی رایگان
+        <Link href={academyAuthHref} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-center text-xs font-black text-white transition hover:bg-white/15">
+          ورود به آکادمی
         </Link>
       </div>
     </div>

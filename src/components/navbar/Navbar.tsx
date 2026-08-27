@@ -241,10 +241,14 @@ export default function Navbar({
   }, [knowledgeOpen]);
 
   useEffect(() => {
-    setKnowledgeOpen(false);
-    setMobileKnowledgeOpen(false);
-    setProfileOpen(false);
-    setIsOpen(false);
+    const frame = window.requestAnimationFrame(() => {
+      setKnowledgeOpen(false);
+      setMobileKnowledgeOpen(false);
+      setProfileOpen(false);
+      setIsOpen(false);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [pathname]);
 
   useEffect(() => {

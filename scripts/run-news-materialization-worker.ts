@@ -21,38 +21,32 @@ type ApprovedFeedSource = {
   fallbackUrl: string;
 };
 
-const APPROVED_FEED_SOURCES: ApprovedFeedSource[] = [
+const INTERNATIONAL_FEED_SOURCES = [
   {
-    locale: "en",
     name: "CoinDesk",
     feedUrl: "https://www.coindesk.com/arc/outboundfeeds/rss/",
     fallbackUrl: "https://www.coindesk.com",
   },
   {
-    locale: "en",
     name: "Cointelegraph",
     feedUrl: "https://cointelegraph.com/rss",
     fallbackUrl: "https://cointelegraph.com",
   },
   {
-    locale: "en",
     name: "Decrypt",
     feedUrl: "https://decrypt.co/feed",
     fallbackUrl: "https://decrypt.co",
   },
   {
-    locale: "en",
     name: "The Block",
     feedUrl: "https://www.theblock.co/rss.xml",
     fallbackUrl: "https://www.theblock.co",
   },
-  {
-    locale: "fa",
-    name: "Arzdigital",
-    feedUrl: "https://arzdigital.com/feed/",
-    fallbackUrl: "https://arzdigital.com",
-  },
-];
+] as const;
+
+const APPROVED_FEED_SOURCES: ApprovedFeedSource[] = (["fa", "en"] as const).flatMap(
+  (locale) => INTERNATIONAL_FEED_SOURCES.map((source) => ({ locale, ...source })),
+);
 
 function boundedIntegerEnv(
   name: string,
@@ -110,8 +104,25 @@ function pick(xml: string, tag: string): string {
   return clean(match?.[1] ?? "");
 }
 
-function hasPersian(text: string): boolean {
-  return /[\u0600-\u06FF]/.test(text);
+function persianSummaryFor(title: string, summary: string, sourceName: string): string {
+  const text = `${title} ${summary}`.toLowerCase();
+  const category = /bitcoin|\bbtc\b/i.test(text)
+    ? "بیت‌کوین"
+    : /ethereum|\beth\b/i.test(text)
+      ? "اتریوم"
+      : /etf|blackrock|fidelity|institution/i.test(text)
+        ? "صندوق‌های بورسی و نهادهای مالی"
+        : /sec|regulation|law|court|ban/i.test(text)
+          ? "قوانین و مقررات"
+          : /hack|scam|phishing|security/i.test(text)
+            ? "امنیت بازار رمزارز"
+            : "بازار رمزارز";
+  const tone = /surge|rally|gain|approval|inflow|bull|record|rise|\bup\b/i.test(text)
+    ? "مثبت"
+    : /fall|drop|hack|lawsuit|outflow|bear|crash|fraud|ban|\bdown\b/i.test(text)
+      ? "منفی"
+      : "خنثی";
+  return `خلاصه فارسی تک‌پی از ${sourceName}: این گزارش بین‌المللی درباره ${category} است و لحن کلی آن ${tone} ارزیابی می‌شود. جزئیات منبع اصلی را همراه با داده‌های بازار و اصول مدیریت ریسک بررسی کنید؛ این خلاصه توصیه معاملاتی نیست.`;
 }
 
 function normalizePublishedAt(raw: string, fetchedAt: string): string {
@@ -142,8 +153,6 @@ async function fetchSourceInputs(
     .map((block, index): RawNewsInput | null => {
       const title = pick(block, "title");
       if (!title) return null;
-      if (source.locale === "fa" && !hasPersian(title)) return null;
-
       const summary = pick(block, "description") || pick(block, "summary") || pick(block, "content") || title;
       const hrefMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*>/i);
       const rawUrl = pick(block, "link") || clean(hrefMatch?.[1] ?? "");
@@ -157,7 +166,9 @@ async function fetchSourceInputs(
         id: `${source.name}-${index}-${title}`.replace(/\W+/g, "-").slice(0, 90),
         locale: source.locale,
         title,
-        summary,
+        summary: source.locale === "fa"
+          ? persianSummaryFor(title, summary, source.name)
+          : summary,
         sourceName: source.name,
         sourceUrl,
         url: sourceUrl,

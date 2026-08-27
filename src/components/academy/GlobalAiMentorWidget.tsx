@@ -392,8 +392,6 @@ export function GlobalAiMentorWidget() {
     if (!open || !academyProfileReady) return;
 
     let active = true;
-    setHistoryLoading(true);
-
     type ServerConv = { id: string; role: "user" | "assistant"; content: string; createdAt: string };
     fetch("/api/mentor-conversations?limit=30", { cache: "no-store" })
       .then((r) => r.json())
@@ -444,6 +442,7 @@ export function GlobalAiMentorWidget() {
   useEffect(() => {
     const handler = (event: Event) => {
       const custom = event as CustomEvent<{ question?: string }>;
+      setHistoryLoading(true);
       setOpen(true);
       if (custom.detail?.question) setQuestion(custom.detail.question);
       window.setTimeout(() => textareaRef.current?.focus(), 120);
@@ -467,6 +466,7 @@ export function GlobalAiMentorWidget() {
   }, [history, loading, streaming, open]);
 
   function fillSuggestion(value: string) {
+    setHistoryLoading(true);
     setOpen(true);
     setSuggestionsOpen(false);
     void ask(value);
@@ -499,6 +499,7 @@ export function GlobalAiMentorWidget() {
 
   async function ask(providedQuestion?: string) {
     if (!academyProfileReady) {
+      setHistoryLoading(true);
       setOpen(true);
       return;
     }
@@ -582,7 +583,10 @@ export function GlobalAiMentorWidget() {
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setHistoryLoading(true);
+          setOpen(true);
+        }}
         className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-cyan-950/95 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs"
         aria-label={isEn ? "Ask TecPey Learning Coach" : "از مربی هوشمند تک‌پی بپرس"}
       >

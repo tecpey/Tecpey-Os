@@ -4,6 +4,7 @@ import {
   getLandingGrowthRadarFromNewsItems,
   type LandingGrowthRadarModel,
 } from "./landing-growth";
+import { getNewsImpactHistoryItems } from "./news-impact-history";
 import { getNewsImpactHistoryAuthoritySnapshot } from "./news-impact-history-authority";
 
 export async function getLandingGrowthRadarFromAuthority(
@@ -14,7 +15,7 @@ export async function getLandingGrowthRadarFromAuthority(
     sourceAuthority: authority.sourceAuthority,
     authorityUpdatedAt: authority.latestPersistedRecordedAt,
     authorityHighPriorityNewsCount: authority.highPriorityPersistedCount,
-  });
+  }, getNewsImpactHistoryItems(locale));
 }
 
 export async function buildLandingGrowthSchemasFromAuthority(locale: ContentLocale) {

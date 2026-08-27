@@ -365,6 +365,24 @@ describe("Content growth entity contract", () => {
     assert.ok(faRadar.coins.every((coin) => coin.impactRankScore >= 0.89));
   });
 
+  it("keeps five clickable coin routes when the live authority is temporarily empty", () => {
+    const radar = getLandingGrowthRadarFromNewsItems(
+      "fa",
+      [],
+      {
+        sourceAuthority: "news-impact-history:seed-fallback",
+        authorityHighPriorityNewsCount: 0,
+        now: "2026-08-27T12:00:00.000Z",
+      },
+      getNewsImpactHistoryItems("fa"),
+    );
+
+    assert.deepEqual(radar.coins.map((coin) => coin.symbol), ["BTC", "ETH", "USDT", "TON", "SOL"]);
+    assert.ok(radar.coins.every((coin) => coin.newsDetailPath.startsWith("/crypto-news/")));
+    assert.equal(radar.evidence.coinCount, 5);
+    assert.equal(radar.evidence.status, "degraded");
+  });
+
   it("marks the landing growth gate ready only with fresh materialized authority", () => {
     const newsItems = getNewsImpactHistoryItems("fa");
     const radar = getLandingGrowthRadarFromNewsItems("fa", newsItems, {

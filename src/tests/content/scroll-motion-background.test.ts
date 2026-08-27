@@ -97,10 +97,18 @@ describe("TecPey scroll motion background", () => {
     assert.match(component, /requestAnimationFrame\(updatePosition\)/);
     assert.match(component, /addEventListener\("scroll", schedulePositionUpdate, \{ passive: true \}\)/);
     assert.match(component, /translate3d\(0,/);
+    assert.match(component, /MOTION_FADE_MS = 260/);
+    assert.match(component, /data-visible=\{isVisible \? "true" : "false"\}/);
+    assert.match(component, /window\.setTimeout\(\(\) => commitSource\(null\), MOTION_FADE_MS\)/);
+    assert.match(component, /markOffset = offset \* mark\.depth/);
+    assert.match(component, /<TecpeyMark alt=""/);
     assert.match(component, /connection\?\.saveData === true/);
     assert.match(component, /addEventListener\("visibilitychange", syncPlayback\)/);
     assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(styles, /\.tecpey-scroll-motion-background__media/);
+    assert.match(styles, /transition: opacity var\(--tp-duration-panel\) var\(--tp-ease-out\)/);
+    assert.match(styles, /\.tecpey-scroll-motion-background__mark:nth-child\(n \+ 7\)/);
+    assert.match(styles, /\.tecpey-scroll-motion-background__mark[\s\S]*?will-change: transform/);
     assert.doesNotMatch(
       styles,
       /\.tecpey-scroll-motion-background[\s\S]*?\{[^}]*transition:\s*all/

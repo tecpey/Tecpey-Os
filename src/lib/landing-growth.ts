@@ -150,13 +150,21 @@ export function getLandingGrowthRadarFromNewsItems(
   locale: ContentLocale,
   newsItems: NewsImpactHistoryItem[],
   evidenceInput?: LandingGrowthEvidenceInput,
+  fallbackNewsItems: NewsImpactHistoryItem[] = [],
 ) {
   const tools = getFeaturedTraderTools(REQUIRED_LANDING_TOOL_COUNT);
-  const coins = getFeaturedLandingCoinsFromNewsItems(
+  const primaryCoins = getFeaturedLandingCoinsFromNewsItems(
     locale,
     newsItems,
     REQUIRED_LANDING_COIN_COUNT,
   );
+  const selectedSymbols = new Set(primaryCoins.map((coin) => coin.symbol));
+  const fallbackCoins = getFeaturedLandingCoinsFromNewsItems(
+    locale,
+    fallbackNewsItems,
+    REQUIRED_LANDING_COIN_COUNT,
+  ).filter((coin) => !selectedSymbols.has(coin.symbol));
+  const coins = [...primaryCoins, ...fallbackCoins].slice(0, REQUIRED_LANDING_COIN_COUNT);
   const evidence = buildLandingGrowthEvidence({
     coins,
     tools,

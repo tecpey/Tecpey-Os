@@ -2,10 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, MapPin, Phone, Smartphone } from "lucide-react";
-import { FaDiscord, FaInstagram } from "react-icons/fa6";
-import { FaTelegramPlane } from "react-icons/fa";
-import { TecpeyMark } from "@/components/brand/TecpeyMark";
 
 const footerSquareGroups = [
   {
@@ -56,37 +52,6 @@ const footerSquareGroups = [
   },
 ];
 
-const trustSignals = [
-  {
-    title: "نماد اعتماد الکترونیکی",
-    status: "در حال اقدام",
-    note: "فرآیند دریافت و تأیید نهایی هنوز تکمیل نشده است",
-    image: "/assets/trust/enamad.png",
-    href: "https://enamad.ir/",
-  },
-  {
-    title: "عضویت صنفی حوزه بلاکچین",
-    status: "در حال اقدام",
-    note: "بررسی الزامات و تعامل صنفی در حال پیگیری است",
-    image: "/assets/trust/mojavez.png",
-    href: "https://iranblockchain.org/",
-  },
-  {
-    title: "ثبت و ساماندهی رسانه دیجیتال",
-    status: "در حال اقدام",
-    note: "فرآیند ثبت رسانه و تأیید اطلاعات در جریان است",
-    image: "/assets/trust/samandehi.png",
-    href: "https://samandehi.ir/",
-  },
-  {
-    title: "عضویت تخصصی فناوری بلاکچین",
-    status: "در حال اقدام",
-    note: "عضویت تخصصی پس از تکمیل بررسی‌ها اعلام خواهد شد",
-    image: "/assets/trust/blockchain-association.png",
-    href: "https://iranblockchain.org/",
-  },
-];
-
 const footerSectionsEn = [
   {
     title: "TecPey",
@@ -131,34 +96,6 @@ const footerSectionsEn = [
   },
 ];
 
-const contactItemsFa = [
-  { icon: MapPin, label: "دفتر", value: "مازندران، بابل، چهارراه تندست، جنب کریستال، دفتر تک‌پی", href: "/contact-us" },
-  { icon: Phone, label: "تلفن", value: "۰۱۱۳۲۳۳۸۰۲۶", href: "tel:01132338026" },
-  { icon: Smartphone, label: "همراه", value: "۰۹۱۱۱۱۶۶۴۴۰", href: "tel:09111166440" },
-  { icon: Mail, label: "ایمیل عمومی", value: "info@tecpey.ir", href: "mailto:info@tecpey.ir" },
-  { icon: Mail, label: "ایمیل پشتیبانی", value: "support@tecpey.ir", href: "mailto:support@tecpey.ir" },
-];
-
-const contactItemsEn = [
-  { icon: MapPin, label: "Office", value: "Mazandaran, Babol, TecPey office", href: "/en/contact-us" },
-  { icon: Phone, label: "Phone", value: "+98 11 3233 8026", href: "tel:+981132338026" },
-  { icon: Smartphone, label: "Mobile", value: "+98 911 116 6440", href: "tel:+989111166440" },
-  { icon: Mail, label: "General Email", value: "info@tecpey.ir", href: "mailto:info@tecpey.ir" },
-  { icon: Mail, label: "Support Email", value: "support@tecpey.ir", href: "mailto:support@tecpey.ir" },
-];
-
-const socialLinks = [
-  { label: "تلگرام تک‌پی", href: "https://t.me/tecpeyco", icon: FaTelegramPlane },
-  { label: "اینستاگرام تک‌پی", href: "https://instagram.com/tecpeyco", icon: FaInstagram },
-  { label: "دیسکورد تک‌پی", href: "https://discord.gg/tecpeyex", icon: FaDiscord },
-];
-
-const socialLinksEn = [
-  { label: "Official TecPey Telegram", href: "https://t.me/tecpeyco", icon: FaTelegramPlane },
-  { label: "Official TecPey Instagram", href: "https://instagram.com/tecpeyco", icon: FaInstagram },
-  { label: "Official TecPey Discord", href: "https://discord.gg/tecpeyex", icon: FaDiscord },
-];
-
 function isFooterActive(pathname: string, href: string) {
   if (href === "/" || href === "/en") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -166,44 +103,6 @@ function isFooterActive(pathname: string, href: string) {
 
 function footerLinkClass(active: boolean) {
   return `text-sm font-bold leading-7 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${active ? "text-cyan-300" : "text-white/70 hover:text-cyan-200"}`;
-}
-
-function ContactPanel({ isEnglish }: { isEnglish: boolean }) {
-  const items = isEnglish ? contactItemsEn : contactItemsFa;
-  const socials = isEnglish ? socialLinksEn : socialLinks;
-  return (
-    <section className="rounded-[30px] border border-cyan-300/15 bg-white/[0.035] p-5">
-      <Link href={isEnglish ? "/en" : "/"} className="inline-flex items-center" aria-label="TecPey Home">
-        <TecpeyMark
-          alt={isEnglish ? "Official TecPey lockup" : "لوگوی رسمی تک‌پی"}
-          variant="lockup"
-          width={220}
-          height={101}
-          className="h-[64px] w-auto max-w-full object-contain"
-        />
-      </Link>
-      <p className="mt-4 text-sm font-bold leading-8 text-white/68">
-        {isEnglish
-          ? "TecPey — Your Safe Entry Point to the Crypto Market. Education, security, risk awareness and responsible crypto market entry."
-          : "تک‌پی، نقطه امن ورود به بازار رمزارز؛ یک مسیر یکپارچه برای آموزش، تمرین، شناخت ریسک و ورود مسئولانه به بازار."}
-      </p>
-      <div className="mt-5 grid gap-3">
-        {items.map((item) => (
-          <Link key={item.label} href={item.href} className="flex items-start gap-3 rounded-2xl bg-white/[0.04] p-3 transition hover:bg-cyan-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
-            <item.icon className="mt-1 h-5 w-5 shrink-0 text-cyan-300" />
-            <span className="text-sm leading-7 text-white/75"><strong className="text-white">{item.label}: </strong>{item.value}</span>
-          </Link>
-        ))}
-      </div>
-      <div className="mt-5 flex flex-wrap gap-3">
-        {socials.map((item) => (
-          <Link key={item.href} href={item.href} target="_blank" rel="noopener noreferrer" aria-label={item.label} className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl text-white/80 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
-            <item.icon />
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
 }
 
 export default function Footer() {
@@ -215,8 +114,7 @@ export default function Footer() {
     <footer dir={isEnglish ? "ltr" : "rtl"} className="border-t border-white/10 bg-[#06111f] px-4 py-14 text-white md:px-8">
       <div className="mx-auto max-w-7xl">
         {isEnglish ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            <ContactPanel isEnglish />
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {footerSectionsEn.map((section) => (
               <section key={section.title} className="min-h-[270px] rounded-[30px] border border-white/10 bg-white/[0.035] p-5">
                 <h3 className="text-lg font-black text-white">{section.title}</h3>
@@ -231,7 +129,6 @@ export default function Footer() {
             ))}
           </div>
         ) : (
-          <>
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
               {footerSquareGroups.map((group) => (
                 <section key={group.title} className="min-h-[230px] rounded-[30px] border border-cyan-300/15 bg-white/[0.035] p-5 shadow-[0_18px_55px_rgba(0,0,0,.18)]">
@@ -246,39 +143,11 @@ export default function Footer() {
                 </section>
               ))}
             </div>
-
-            <div className="mt-7 rounded-[30px] border border-cyan-300/15 bg-white/[0.035] p-5">
-              <h3 className="text-xl font-black text-white">وضعیت اعتماد، ثبت و مجوزهای تک‌پی</h3>
-              <p className="mt-2 max-w-4xl text-sm font-bold leading-8 text-white/62">
-                موارد زیر هنوز نهایی یا تأیید نشده‌اند و صرفاً وضعیت پیگیری فرایندهای رسمی را نشان می‌دهند. تک‌پی پس از دریافت هر تأیید معتبر، وضعیت و مستندات قابل استناد آن را در همین بخش منتشر می‌کند.
-              </p>
-            </div>
-
-            <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-              {trustSignals.map((item) => (
-                <Link key={item.title} href={item.href} target="_blank" rel="noopener noreferrer" className="group relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-[30px] border border-cyan-300/15 bg-[#071827]/80 p-5 shadow-[0_18px_55px_rgba(0,0,0,.20)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" aria-label={`${item.title} - ${item.status}`}>
-                  <span className="absolute right-4 top-4 rounded-full border border-amber-300/35 bg-amber-300/12 px-3 py-1 text-[11px] font-black text-amber-100">{item.status}</span>
-                  <div className="flex min-h-[130px] items-center justify-center pt-8">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- #162: external trust-badge URLs are not part of the governed Next image allowlist. */}
-                    <img src={item.image} alt={item.title} className="max-h-32 max-w-[190px] object-contain opacity-100 drop-shadow-[0_0_18px_rgba(34,211,238,.18)] transition group-hover:scale-105" />
-                  </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-3 text-center">
-                    <h4 className="text-sm font-black leading-7 text-white">{item.title}</h4>
-                    <p className="mt-1 text-xs font-bold leading-6 text-cyan-200/80">{item.note}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-6">
-              <ContactPanel isEnglish={false} />
-            </div>
-          </>
         )}
 
         <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs leading-6 text-white/50 md:flex-row md:items-center md:justify-between">
           <p>© 2025–{year} TecPey. {isEnglish ? "All rights reserved." : "تمامی حقوق محفوظ است."}</p>
-          <p>{isEnglish ? "Official site: tecpey.ir | Email: info@tecpey.ir" : "نشانی رسمی: tecpey.ir | ایمیل رسمی: info@tecpey.ir"}</p>
+          <p>{isEnglish ? "Official site: tecpey.ir" : "نشانی رسمی: tecpey.ir"}</p>
         </div>
       </div>
     </footer>

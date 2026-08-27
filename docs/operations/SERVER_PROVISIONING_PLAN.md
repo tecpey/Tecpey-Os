@@ -42,7 +42,7 @@ The application calls these third parties at runtime:
 | `api.openai.com` | AI Mentor | Mentor stops working. Mentor is one of the three pillars of the controlled soft-launch scope. |
 | `api.resend.com` / `api.sendgrid.com` | transactional email | Every send fails. `env:check` requires a delivering provider in production. |
 | `api.binance.com`, `api.coingecko.com`, `api.kraken.com`, `api.exchange.coinbase.com` | price feeds | Market data goes stale. |
-| news sources (`cointelegraph.com`, `decrypt.co`, `arzdigital.com`) | news materialization | Staging news evidence cannot be collected. |
+| news sources (`coindesk.com`, `cointelegraph.com`, `decrypt.co`, `theblock.co`) | news materialization for both locales | Staging news evidence cannot be collected. |
 | `github.com` | self-hosted runner, checkout | No staging evidence workflow at all. |
 | `registry.npmjs.org`, container registry | `npm ci`, digest-pinned image pull | No build, no deploy. |
 

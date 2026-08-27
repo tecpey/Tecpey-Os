@@ -148,7 +148,7 @@ for (const invariant of [
   requireText("service", invariant, `systemd service is missing ${invariant}`);
 }
 for (const invariant of [
-  "OnCalendar=*-*-* *:0/10:00 UTC",
+  "OnCalendar=hourly",
   "Persistent=true",
   "Unit=tecpey-news-materialization.service",
 ]) {

@@ -42,6 +42,18 @@ test("FA and EN homes share the governed core section order", async () => {
   assert.doesNotMatch(fa, /TopDiscoveryGateway/);
 });
 
+test("FA mobile conversion and market cards expose the corrected academy journey", async () => {
+  const fa = await source(faPath);
+
+  assert.match(fa, /const academyAuthHref = "\/academy\/login"/);
+  assert.match(fa, /href=\{academyAuthHref\}[\s\S]*ورود به آکادمی/);
+  assert.match(fa, /<GraduationCap className="h-5 w-5 text-\[color:var\(--tp-primary\)\]"/);
+  assert.match(fa, /رنکینگ و لیگ‌های آموزشی/);
+  assert.match(fa, /جوایز برای برترین‌ها/);
+  assert.match(fa, /formatUsdPrice\(price\)/);
+  assert.doesNotMatch(fa, /change\.toFixed\(2\).*٪/);
+});
+
 test("mobile discovery prioritizes readable controls without horizontal scrolling", async () => {
   const strip = await source(stripPath);
 
