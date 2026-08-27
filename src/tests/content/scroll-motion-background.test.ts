@@ -2,6 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  isTecpeyDarkScrollMotionSurface,
+  isTecpeyScrollMotionRoute,
+} from "@/components/brand/tecpey-scroll-motion-routes";
+import { academyArticles } from "@/data/academy";
+import { academyPathTerms } from "@/data/academyPath";
+import { academyPathTermsEn } from "@/data/academyPathEn";
+import { learningSeoPages } from "@/data/organicSeo";
 
 const root = process.cwd();
 const componentPath = path.join(
@@ -26,11 +34,55 @@ describe("TecPey scroll motion background", () => {
     assert.match(component, /\bloop\b/);
     assert.match(component, /\bplaysInline\b/);
     assert.match(layout, /<TecpeyScrollMotionBackground \/>/);
-    assert.doesNotMatch(component, /"\/academy\/trading-arena"/);
-    assert.doesNotMatch(component, /"\/(?:en\/)?sign(?:in|up)"/);
-    assert.doesNotMatch(component, /"\/(?:en\/)?academy\/(?:login|signup)"/);
-    assert.doesNotMatch(component, /"\/swap"/);
-    assert.doesNotMatch(component, /"\/command-center"/);
+  });
+
+  it("covers every Academy term, lesson, and long-form learning surface", () => {
+    for (const term of academyPathTerms) {
+      assert.equal(isTecpeyScrollMotionRoute(`/academy/${term.slug}`), true);
+    }
+
+    for (const term of academyPathTermsEn) {
+      assert.equal(isTecpeyScrollMotionRoute(`/en/academy/${term.slug}`), true);
+    }
+
+    for (const article of academyArticles) {
+      assert.equal(isTecpeyScrollMotionRoute(`/academy/${article.slug}`), true);
+    }
+
+    for (const page of learningSeoPages) {
+      assert.equal(isTecpeyScrollMotionRoute(`/learn/${page.slug}`), true);
+    }
+
+    assert.equal(isTecpeyScrollMotionRoute("/academy/learn/term-1/1"), true);
+    assert.equal(isTecpeyScrollMotionRoute("/academy/learn/term-1/12/"), true);
+    assert.equal(isTecpeyDarkScrollMotionSurface("/academy/learn/term-1/1"), true);
+    assert.equal(isTecpeyScrollMotionRoute("/academy/what-is-bitcoin"), true);
+    assert.equal(isTecpeyScrollMotionRoute("/learn/technical-analysis-basics"), true);
+    assert.equal(isTecpeyScrollMotionRoute("/glossary/liquidity"), true);
+    assert.equal(isTecpeyScrollMotionRoute("/en/glossary/liquidity"), true);
+  });
+
+  it("keeps auth, assessment, interactive practice, and financial surfaces motion-free", () => {
+    const excludedRoutes = [
+      "/signin",
+      "/signup",
+      "/academy/login",
+      "/academy/signup",
+      "/academy/final-assessment",
+      "/academy/trading-arena",
+      "/academy/trading-arena/journal",
+      "/academy/simulator",
+      "/academy/practice-lab",
+      "/academy/flashcards",
+      "/academy/ai-guide",
+      "/markets",
+      "/swap",
+      "/command-center",
+    ];
+
+    for (const route of excludedRoutes) {
+      assert.equal(isTecpeyScrollMotionRoute(route), false, route);
+    }
   });
 
   it("links scroll through a passive rAF transform and honours motion/data preferences", () => {

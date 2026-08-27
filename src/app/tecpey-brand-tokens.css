@@ -133,6 +133,15 @@ body.tecpey-motion-route .tecpey-enterprise > section:nth-of-type(even) {
   background-color: var(--tp-motion-section-alt) !important;
 }
 
+body.tecpey-motion-route .tecpey-motion-content-surface {
+  background-color: rgba(247, 251, 255, 0.58) !important;
+}
+
+.dark body.tecpey-motion-route .tecpey-motion-content-surface,
+body.tecpey-motion-route .tecpey-motion-content-surface--dark {
+  background-color: rgba(2, 6, 23, 0.68) !important;
+}
+
 @keyframes tecpey-motion-background-enter {
   from {
     opacity: 0;

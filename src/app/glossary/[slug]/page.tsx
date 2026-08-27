@@ -16,7 +16,7 @@ export default async function GlossaryTermPage({ params }: Props) {
   const { slug } = await params; const term = getTerm(slug); if (!term) return notFound();
   const schema = { "@context":"https://schema.org", "@type":"DefinedTerm", name: term.fa, alternateName: term.en, description: term.summaryFa, inDefinedTermSet:"https://tecpey.ir/glossary", url:`https://tecpey.ir/glossary/${term.slug}` };
   const faqSchema = { "@context":"https://schema.org", "@type":"FAQPage", mainEntity: term.faqFa.map((f)=>({"@type":"Question", name:f.q, acceptedAnswer:{"@type":"Answer", text:f.a}})) };
-  return <main dir="rtl" className="min-h-screen bg-[color:var(--tp-bg)] px-4 py-14 text-[color:var(--tp-text)] sm:px-6 lg:px-8">
+  return <main dir="rtl" className="tecpey-motion-content-surface min-h-screen bg-[color:var(--tp-bg)] px-4 py-14 text-[color:var(--tp-text)] sm:px-6 lg:px-8">
     <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(schema)}} />
     <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(faqSchema)}} />
     <article className="mx-auto max-w-4xl">

@@ -3,17 +3,11 @@
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useRef } from "react";
-
-const MOTION_ROUTES = new Set([
-  "/",
-  "/en",
-  "/academy",
-  "/en/academy",
-  "/academy/onboarding",
-  "/academy/free",
-  "/en/academy/onboarding",
-  "/en/academy/free",
-]);
+import {
+  isTecpeyDarkScrollMotionSurface,
+  isTecpeyScrollMotionRoute,
+  normalizeTecpeyScrollMotionPathname,
+} from "@/components/brand/tecpey-scroll-motion-routes";
 
 type NavigatorWithConnection = Navigator & {
   connection?: {
@@ -21,20 +15,16 @@ type NavigatorWithConnection = Navigator & {
   };
 };
 
-function normalizePathname(pathname: string) {
-  if (pathname === "/") return pathname;
-  return pathname.replace(/\/+$/, "");
-}
-
 export function TecpeyScrollMotionBackground() {
-  const pathname = normalizePathname(usePathname() || "/");
-  const enabled = MOTION_ROUTES.has(pathname);
+  const pathname = normalizeTecpeyScrollMotionPathname(usePathname() || "/");
+  const enabled = isTecpeyScrollMotionRoute(pathname);
+  const usesDarkSurface = isTecpeyDarkScrollMotionSurface(pathname);
   const { resolvedTheme } = useTheme();
   const mediaLayerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const videoSource = resolvedTheme === "light"
+  const videoSource = !usesDarkSurface && resolvedTheme === "light"
     ? "/media/tecpey-scroll-motion-light.mp4"
-    : resolvedTheme === "dark"
+    : usesDarkSurface || resolvedTheme === "dark"
       ? "/media/tecpey-scroll-motion-dark.mp4"
       : null;
 

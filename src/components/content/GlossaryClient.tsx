@@ -18,7 +18,7 @@ export default function GlossaryClient({ locale = "fa" }: { locale?: Locale }) {
   }, [query]);
 
   return (
-    <main dir={isEn ? "ltr" : "rtl"} className="min-h-screen bg-[color:var(--tp-bg)] px-4 py-10 text-[color:var(--tp-text)] sm:px-6 lg:px-8">
+    <main dir={isEn ? "ltr" : "rtl"} className="tecpey-motion-content-surface min-h-screen bg-[color:var(--tp-bg)] px-4 py-10 text-[color:var(--tp-text)] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <section className="rounded-[34px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.18),transparent_34%),rgba(255,255,255,.045)] p-6 shadow-2xl shadow-cyan-500/10 lg:p-8">
           <div className="inline-flex rounded-full bg-cyan-500/10 px-4 py-2 text-xs font-black text-cyan-500">{isEn ? "TecPey Crypto Wiki" : "ویکی تخصصی رمزارز تک‌پی"}</div>
