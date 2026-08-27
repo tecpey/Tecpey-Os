@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-student-profile",
+      "method": "POST",
+      "previousSourceHash": "0f57bc56bdf24616ba9ccce4",
+      "issue": "#571",
+      "owner": "academy-platform",
+      "reason": "Reviewed the Academy profile operation after correcting schema ownership drift shared by its GET and POST implementations. public_student_id and streak_days now read and write only through academy_student_cartax, matching the canonical migration schema. The authenticated POST keeps the same bounded-body, CSRF, strict-revocation, rate-limit, verified-principal, audit, redaction, no-store and fail-closed controls; only the route source hash changed.",
+      "replacement": {
+        "route": "/api/academy-student-profile",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-student-profile/route.ts",
+        "sourceHash": "ebbd4414886f338457cd152e",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-student-profile-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-student-profile",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-student-profile/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": []
+}

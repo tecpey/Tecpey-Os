@@ -4,6 +4,10 @@ import { after, before, describe, it } from "node:test";
 import { Pool } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { refreshAcademyProgressProjection } from "../../lib/academy-progress-projection";
+import {
+  findStudentCartaxProfile,
+  upsertStudentCartax,
+} from "../../lib/student-cartax";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -181,5 +185,84 @@ describe("Academy PostgreSQL progress authority v2", () => {
         "academy_progress_legacy_reward_quarantine_no_delete",
       ]),
     );
+  });
+
+  it("keeps profile identity and streak fields on the canonical cartax owner", {
+    skip: !databaseConfigured,
+    timeout: 30_000,
+  }, async () => {
+    const client = await pool!.connect();
+    try {
+      await client.query("BEGIN");
+      const identity = randomUUID();
+      const email = `${identity}@academy-profile.test`;
+
+      assert.equal(
+        await findStudentCartaxProfile(client, { email }),
+        null,
+        "an authenticated pre-student account must reach onboarding without a schema error",
+      );
+
+      const created = await upsertStudentCartax(client, {
+        email,
+        displayName: "Academy Profile Contract",
+        locale: "fa",
+        source: "academy-profile-contract-test",
+      });
+      assert.match(created.publicStudentId, /^TP-STD-[0-9A-F]{8}$/);
+      assert.equal(created.streakDays, 1);
+
+      const profile = await findStudentCartaxProfile(client, {
+        studentId: created.studentId,
+      });
+      assert.equal(profile?.id, created.studentId);
+      assert.equal(profile?.public_student_id, created.publicStudentId);
+      assert.equal(profile?.streak_days, 1);
+
+      const sameDayRetry = await upsertStudentCartax(client, {
+        email,
+        displayName: "Academy Profile Contract",
+        locale: "fa",
+        source: "academy-profile-contract-test",
+      });
+      assert.equal(
+        sameDayRetry.streakDays,
+        1,
+        "a same-day retry must not inflate the learning streak",
+      );
+
+      await client.query(
+        `UPDATE academy_students
+            SET last_active_day = CURRENT_DATE - 1
+          WHERE id = $1::uuid`,
+        [created.studentId],
+      );
+      const nextDay = await upsertStudentCartax(client, {
+        email,
+        displayName: "Academy Profile Contract",
+        locale: "fa",
+        source: "academy-profile-contract-test",
+      });
+      assert.equal(nextDay.streakDays, 2);
+
+      const ownership = await client.query<{
+        table_name: string;
+        column_name: string;
+      }>(
+        `SELECT table_name, column_name
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND column_name IN ('public_student_id', 'streak_days')
+            AND table_name IN ('academy_students', 'academy_student_cartax')
+          ORDER BY table_name, column_name`,
+      );
+      assert.deepEqual(ownership.rows, [
+        { table_name: "academy_student_cartax", column_name: "public_student_id" },
+        { table_name: "academy_student_cartax", column_name: "streak_days" },
+      ]);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
   });
 });
