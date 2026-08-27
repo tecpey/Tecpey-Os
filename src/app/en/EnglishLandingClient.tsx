@@ -9,7 +9,7 @@ import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/
 import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
-import { formatMarketPrice } from "@/lib/market-price-format";
+import { formatMarketPrice } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
 const features = [

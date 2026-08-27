@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
-import { formatMarketPrice } from "@/lib/market-price-format";
+import { formatMarketPrice } from "@/lib/public-market-data";
 
 describe("public market visual integrity", () => {
   it("preserves Tether when normalizing direct symbols and trading pairs", () => {
