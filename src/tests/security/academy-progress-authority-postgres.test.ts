@@ -266,6 +266,42 @@ describe("Academy PostgreSQL progress authority v2", () => {
         "projection refresh must not preserve arbitrary legacy/client keys",
       );
 
+      await client.query(
+        `UPDATE academy_student_cartax
+            SET progress = progress || '{"clientForgedAfterProjection": true}'::jsonb
+          WHERE student_id = $1::uuid`,
+        [created.studentId],
+      );
+      const idempotentProjection = await refreshAcademyProgressProjection(
+        client,
+        created.studentId,
+        "fa",
+      );
+      assert.equal(
+        idempotentProjection.revision,
+        projection.revision,
+        "an unchanged learning projection must not increment its revision",
+      );
+      const repairedCartax = await client.query<{
+        public_student_id: string;
+        streak_days: number;
+        progress: Record<string, unknown>;
+      }>(
+        `SELECT public_student_id, streak_days, progress
+           FROM academy_student_cartax
+          WHERE student_id = $1::uuid`,
+        [created.studentId],
+      );
+      assert.equal(repairedCartax.rows[0]?.public_student_id, created.publicStudentId);
+      assert.equal(repairedCartax.rows[0]?.streak_days, 1);
+      assert.equal(repairedCartax.rows[0]?.progress.publicStudentId, created.publicStudentId);
+      assert.equal(repairedCartax.rows[0]?.progress.streakDays, 1);
+      assert.equal(
+        repairedCartax.rows[0]?.progress.clientForgedAfterProjection,
+        undefined,
+        "an idempotent refresh must still repair the cartax projection",
+      );
+
       const sameDayRetry = await upsertStudentCartax(client, {
         email,
         displayName: "Academy Profile Contract",

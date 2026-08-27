@@ -84,6 +84,32 @@ async function loadChallengeLifecycle(challengeId: string) {
   return result.value;
 }
 
+async function cloneVerifiedSignupChallenge(challengeId: string): Promise<string> {
+  const clonedId = randomUUID();
+  const result = await withDb(async (client) => {
+    const inserted = await client.query<{ id: string }>(
+      `INSERT INTO identity_phone_otp_challenges
+         (id, phone_fingerprint, encrypted_phone, purpose, provider, status,
+          otp_code_digest, expires_at, verified_at)
+       SELECT $2::uuid, phone_fingerprint, encrypted_phone, purpose, provider,
+              'verified', NULL, expires_at, NOW()
+         FROM identity_phone_otp_challenges
+        WHERE id = $1
+          AND purpose = 'signup'
+          AND status = 'verified'
+          AND expires_at > NOW()
+       RETURNING id::text`,
+      [challengeId, clonedId],
+    );
+    return inserted.rows[0]?.id ?? null;
+  });
+  assert.equal(result.enabled, true);
+  if (!result.enabled || result.value !== clonedId) {
+    throw new Error("academy_account_test_otp_clone_failed");
+  }
+  return clonedId;
+}
+
 function audit(input: {
   tenantId: string;
   accountId: string;
@@ -363,6 +389,40 @@ describe("Academy account credential authority", () => {
 
       const otherPhoneE164 = iranianMobile();
       const mismatchChallengeId = await verifiedSignupChallenge(otherPhoneE164);
+      const wrongPasswordMismatch = await authenticateOrRegisterAcademyAccount({
+        mode: "signup",
+        accountId,
+        email,
+        username: storedUsername,
+        displayName: "Wrong Password Must Stay Generic",
+        password: "definitely-wrong-password",
+        phoneVerification: {
+          phoneE164: otherPhoneE164,
+          challengeId: mismatchChallengeId,
+          required: true,
+        },
+        audit: audit({ tenantId, accountId, username: storedUsername }),
+      });
+      assert.deepEqual(wrongPasswordMismatch, { status: "invalid_credentials" });
+
+      const unverifiedMismatch = await authenticateOrRegisterAcademyAccount({
+        mode: "signup",
+        accountId,
+        email,
+        username: storedUsername,
+        displayName: "Unverified Mismatch Must Stay Generic",
+        password,
+        phoneVerification: {
+          phoneE164: otherPhoneE164,
+          challengeId: randomUUID(),
+          required: true,
+        },
+        audit: audit({ tenantId, accountId, username: storedUsername }),
+      });
+      assert.deepEqual(unverifiedMismatch, {
+        status: "phone_verification_required",
+      });
+
       const mismatched = await authenticateOrRegisterAcademyAccount({
         mode: "signup",
         accountId,
@@ -388,6 +448,80 @@ describe("Academy account credential authority", () => {
         mismatch.events.filter((event) => event === "consumed").length,
         0,
       );
+    },
+  );
+
+  it(
+    "serializes concurrent ownership claims for one verified phone",
+    { skip: !integrationConfigured, timeout: 45_000 },
+    async () => {
+      // The winning account is intentionally retained because consumed OTP
+      // evidence has a RESTRICT reference to it and is append-only.
+      const phoneE164 = iranianMobile();
+      const firstChallengeId = await verifiedSignupChallenge(phoneE164);
+      const secondChallengeId = await cloneVerifiedSignupChallenge(firstChallengeId);
+      const tenantId = identity("academy-account-phone-race-tenant");
+      const first = {
+        accountId: identity("academy-account-phone-race-a"),
+        email: `${randomUUID()}@example.com`,
+        username: username(),
+        challengeId: firstChallengeId,
+      };
+      const second = {
+        accountId: identity("academy-account-phone-race-b"),
+        email: `${randomUUID()}@example.com`,
+        username: username(),
+        challengeId: secondChallengeId,
+      };
+
+      const results = await Promise.all(
+        [first, second].map((candidate) =>
+          authenticateOrRegisterAcademyAccount({
+            mode: "signup",
+            accountId: candidate.accountId,
+            email: candidate.email,
+            username: candidate.username,
+            displayName: "Phone Ownership Race",
+            password: `A!${randomUUID()}-secure`,
+            phoneVerification: {
+              phoneE164,
+              challengeId: candidate.challengeId,
+              required: true,
+            },
+            audit: audit({
+              tenantId,
+              accountId: candidate.accountId,
+              username: candidate.username,
+            }),
+          }),
+        ),
+      );
+
+      assert.equal(
+        results.filter((result) => result.status === "created").length,
+        1,
+      );
+      assert.equal(
+        results.filter((result) => result.status === "phone_taken").length,
+        1,
+      );
+      const winnerIndex = results.findIndex((result) => result.status === "created");
+      const loserIndex = winnerIndex === 0 ? 1 : 0;
+      const candidates = [first, second];
+      const winningLifecycle = await loadChallengeLifecycle(
+        candidates[winnerIndex]!.challengeId,
+      );
+      assert.deepEqual(winningLifecycle.challenge, {
+        status: "consumed",
+        consumed_by_account_id: candidates[winnerIndex]!.accountId,
+      });
+      const losingLifecycle = await loadChallengeLifecycle(
+        candidates[loserIndex]!.challengeId,
+      );
+      assert.deepEqual(losingLifecycle.challenge, {
+        status: "verified",
+        consumed_by_account_id: null,
+      });
     },
   );
 
