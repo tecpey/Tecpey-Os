@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-25",
+  "reviewedAt": "2026-08-27",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "ba5e4aa4c8ac1cdacda602e09e8d50545ec1990d",
-      "sha256": "71eadf0c897ca81cd782d9603869210f561607af9d24949d716dc2d9e03a45ee",
+      "gitObjectId": "ecad0a2ebafd48e8c813692079e0b97c9c38e7c9",
+      "sha256": "11b18b34338f3deb7144e0ee952707ba850273b9ce9c0b96e7f94f0ccf8262a3",
       "lines": 247,
       "reviewedRanges": [
         {
@@ -113,7 +113,8 @@
         "2026-08-23: re-reviewed after adding ops:incident-readiness:evidence:collect and extending test:incident-readiness-evidence. The collector is reachable only through the protected staging workflow, uses the existing isolated server-only CLI runtime, persists two synthetic critical operational alerts through the governed spool/webhook path, emits only counts, timings, role identities and hashes, and fails closed on queue drift, acknowledgement latency, reviewer dependence or runbook gaps. The command adds no dependency, engine or override and does not enable any product, exchange, custody or real-money capability. The file now has 246 lines.",
         "2026-08-23: re-reviewed after replacing the incident-readiness request-only launch guard with the accepted exact-candidate execution-status guard. The command remains a local read-only validator over canonical status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, preserves the immutable runtime candidate, and keeps controlled launch fail-closed on NOG-08/NOG-09. The file remains 246 lines.",
         "2026-08-24: re-reviewed after test:deployment additionally executes src/tests/runtime/optional-profile.test.ts. The focused unit suite proves that the optional navbar profile lookup degrades only known upstream ApiError failures to an anonymous profile while preserving unknown-error propagation; it adds no dependency, engine, override, real network/database access, runtime mutation path or activation surface, and the file remains 246 lines.",
-        "2026-08-25: re-reviewed after adding test:home-locale-parity and composing it into check. The new command runs one local node:test suite that statically verifies shared FA/EN home discovery content, locale-specific market labels and the compact five-item mobile strip contract; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, leaves release:check composition unchanged beyond its existing call to check, and does not claim parity outside the reviewed home discovery surface. The file now has 247 lines."
+        "2026-08-25: re-reviewed after adding test:home-locale-parity and composing it into check. The new command runs one local node:test suite that statically verifies shared FA/EN home discovery content, locale-specific market labels and the compact five-item mobile strip contract; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, leaves release:check composition unchanged beyond its existing call to check, and does not claim parity outside the reviewed home discovery surface. The file now has 247 lines.",
+        "2026-08-27: re-reviewed after wiring src/tests/security/service-worker-cache-policy.test.ts into test:offline-sync. The added test reads only the checked-in service worker, registration client and Next.js configuration to enforce network-first Academy navigation, owned-cache rotation and no-store auth headers; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, and test:offline-sync remains a composition of governed tests. The file remains 247 lines."
       ],
       "findings": [
         {
