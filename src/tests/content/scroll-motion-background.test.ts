@@ -18,6 +18,8 @@ const componentPath = path.join(
 );
 const stylesPath = path.join(root, "src/app/tecpey-brand-tokens.css");
 const layoutPath = path.join(root, "src/app/layout.tsx");
+const academyPagePath = path.join(root, "src/app/academy/page.tsx");
+const academyPageEnPath = path.join(root, "src/app/en/academy/page.tsx");
 const darkVideoPath = path.join(root, "public/media/tecpey-scroll-motion-dark.mp4");
 const lightVideoPath = path.join(root, "public/media/tecpey-scroll-motion-light.mp4");
 
@@ -102,6 +104,32 @@ describe("TecPey scroll motion background", () => {
     assert.doesNotMatch(
       styles,
       /\.tecpey-scroll-motion-background[\s\S]*?\{[^}]*transition:\s*all/
+    );
+  });
+
+  it("keeps dark Academy callouts readable over the light motion surface", () => {
+    const academyPage = fs.readFileSync(academyPagePath, "utf8");
+    const academyPageEn = fs.readFileSync(academyPageEnPath, "utf8");
+
+    assert.match(
+      academyPage,
+      /border-emerald-300\/20 bg-\[radial-gradient\([^\n]+linear-gradient\(145deg,#06131f,#0f172a\)\]/
+    );
+    assert.match(
+      academyPageEn,
+      /border-emerald-300\/20 bg-\[radial-gradient\([^\n]+linear-gradient\(145deg,#06131f,#0f172a\)\]/
+    );
+    assert.match(
+      academyPage,
+      /border-violet-300\/20 bg-\[radial-gradient\([^\n]+linear-gradient\(145deg,#0b1022,#17122e\)\]/
+    );
+    assert.match(
+      academyPage,
+      /Case Study Lab؛ یادگیری از سناریوهای واقعی بازار<\/h2>/
+    );
+    assert.match(
+      academyPage,
+      /text-3xl font-black text-slate-950 dark:text-white">Case Study Lab/
     );
   });
 

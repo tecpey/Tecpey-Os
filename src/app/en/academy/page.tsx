@@ -62,7 +62,7 @@ export default function AcademyPage() {
         </div>
       </section>
       <section className="px-4 pb-10 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-[34px] border border-emerald-300/20 bg-emerald-500/10 p-6 shadow-[0_24px_80px_rgba(16,185,129,.10)]">
+        <div className="mx-auto max-w-7xl rounded-[34px] border border-emerald-300/20 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,.18),transparent_38%),linear-gradient(145deg,#06131f,#0f172a)] p-6 shadow-[0_24px_80px_rgba(16,185,129,.10)]">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
             <div>
               <p className="text-xs font-black text-emerald-300">TecPey Verified Certificate</p>
