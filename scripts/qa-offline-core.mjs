@@ -26,6 +26,9 @@ const checks = [
   ['payload cap exists', route.includes('80_000')],
   ['service worker skips api', sw.includes("/api/")],
   ['service worker has fallback', sw.includes('/academy/offline-ready')],
+  ['service worker versions owned caches', sw.includes("`${CACHE_PREFIX}v2`")],
+  ['academy documents use network-first', sw.includes('handleAcademyNavigation(request)')],
+  ['auth documents stay out of app shell', !sw.includes("'/academy/signup',") && !sw.includes("'/academy/login',")],
 ];
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {

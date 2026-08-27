@@ -1,12 +1,37 @@
-const CACHE_NAME = 'tecpey-academy-offline-v1';
+const CACHE_PREFIX = 'tecpey-academy-offline-';
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const OFFLINE_FALLBACK = '/academy/offline-ready';
 const APP_SHELL = [
-  '/academy',
-  '/academy/login',
-  '/academy/signup',
-  '/academy/offline-ready',
+  OFFLINE_FALLBACK,
   '/site.webmanifest',
   '/favicon.ico'
 ];
+
+function isAcademyNavigation(request, url) {
+  return request.mode === 'navigate' && /^\/(?:en\/)?academy(?:\/|$)/.test(url.pathname);
+}
+
+async function handleAcademyNavigation(request) {
+  try {
+    // Academy documents can contain release-specific auth UI and user state.
+    // Always prefer the network and never persist these responses in Cache API.
+    return await fetch(request);
+  } catch {
+    return (await caches.match(OFFLINE_FALLBACK)) || Response.error();
+  }
+}
+
+async function handleStaticAsset(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  }
+  return response;
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => null));
@@ -15,7 +40,11 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+    caches.keys().then((keys) => Promise.all(
+      keys
+        .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+        .map((key) => caches.delete(key))
+    ))
   );
   self.clients.claim();
 });
@@ -26,13 +55,13 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
-  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/academy')) {
-    event.respondWith(
-      caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => null);
-        return response;
-      }).catch(() => caches.match('/academy/offline-ready')))
-    );
+
+  if (isAcademyNavigation(request, url)) {
+    event.respondWith(handleAcademyNavigation(request));
+    return;
+  }
+
+  if (url.pathname.startsWith('/_next/static/') || APP_SHELL.includes(url.pathname)) {
+    event.respondWith(handleStaticAsset(request));
   }
 });
