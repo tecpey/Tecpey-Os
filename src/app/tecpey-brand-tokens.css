@@ -65,6 +65,84 @@
   --tp-icon-bg: rgba(34, 211, 238, 0.13);
 }
 
+body.tecpey-motion-route {
+  --tp-motion-section-bg: rgba(247, 251, 255, 0.22);
+  --tp-motion-section-alt: rgba(238, 246, 255, 0.34);
+  isolation: isolate;
+  background: var(--tp-bg);
+}
+
+.dark body.tecpey-motion-route {
+  --tp-motion-section-bg: rgba(2, 6, 23, 0.28);
+  --tp-motion-section-alt: rgba(7, 17, 31, 0.40);
+}
+
+.tecpey-scroll-motion-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: var(--tp-bg);
+  pointer-events: none;
+  animation: tecpey-motion-background-enter var(--tp-duration-panel) var(--tp-ease-out) both;
+}
+
+.tecpey-scroll-motion-background__media {
+  position: absolute;
+  inset: -12vh -4vw;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+.tecpey-scroll-motion-background__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0.50;
+}
+
+.tecpey-scroll-motion-background__wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(247, 251, 255, 0.24),
+    rgba(247, 251, 255, 0.42)
+  );
+}
+
+.dark .tecpey-scroll-motion-background__wash {
+  background: linear-gradient(
+    180deg,
+    rgba(2, 6, 23, 0.18),
+    rgba(2, 6, 23, 0.42)
+  );
+}
+
+body.tecpey-motion-route .tecpey-enterprise {
+  background-color: transparent !important;
+}
+
+body.tecpey-motion-route .tecpey-enterprise > section {
+  position: relative;
+  background-color: var(--tp-motion-section-bg) !important;
+}
+
+body.tecpey-motion-route .tecpey-enterprise > section:nth-of-type(even) {
+  background-color: var(--tp-motion-section-alt) !important;
+}
+
+@keyframes tecpey-motion-background-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .tecpey-enterprise {
   background: var(--tp-bg);
   color: var(--tp-text);
@@ -423,6 +501,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tecpey-scroll-motion-background {
+    animation: none;
+  }
+
+  .tecpey-scroll-motion-background__media {
+    transform: none !important;
+    will-change: auto;
+  }
+
   .tecpey-pressable,
   .tecpey-action-primary,
   .tecpey-action-secondary,

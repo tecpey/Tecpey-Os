@@ -15,6 +15,7 @@ import { PublicMentorEntry } from "@/components/academy/PublicMentorEntry";
 import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
 import { REQUEST_ROUTE_CONTEXT_HEADER } from "@/lib/request-route-context";
 import { safeJsonLd } from "@/lib/json-ld";
+import { TecpeyScrollMotionBackground } from "@/components/brand/TecpeyScrollMotionBackground";
 
 const globalSeoSchemas = [
   {
@@ -243,6 +244,7 @@ export default async function RootLayout({
         />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider nonce={nonce}>
+            <TecpeyScrollMotionBackground />
             <Providers>
               <HtmlLangDir />
               <Navbar user={user} />
