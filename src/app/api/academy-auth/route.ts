@@ -305,6 +305,7 @@ export async function POST(req: NextRequest) {
       }
       if (result.status === "username_taken") return apiError("username_taken", 409);
       if (result.status === "phone_taken") return apiError("phone_taken", 409);
+      if (result.status === "phone_mismatch") return apiError("phone_mismatch", 409);
       if (result.status === "phone_verification_required") {
         return apiError("phone_verification_required", 403);
       }

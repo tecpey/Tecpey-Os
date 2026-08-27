@@ -34,7 +34,7 @@ export type AcademyAccountAuthorityResult =
       account: AcademyCredentialAccount;
     }
   | {
-      status: "invalid_credentials" | "username_taken" | "phone_taken" | "phone_verification_required" | "unavailable";
+      status: "invalid_credentials" | "username_taken" | "phone_taken" | "phone_mismatch" | "phone_verification_required" | "unavailable";
     };
 
 type AcademyAccountRow = {
@@ -95,11 +95,14 @@ async function lockIdentity(client: PoolClient, identity: string): Promise<void>
 
 async function lockSignupIdentities(
   client: PoolClient,
-  input: { email: string; username: string },
+  input: { email: string; username: string; phoneE164?: string },
 ): Promise<void> {
   const locks = [
     `academy-account-email:${input.email}`,
     `academy-account-username:${input.username}`,
+    ...(input.phoneE164
+      ? [`academy-account-phone:${input.phoneE164}`]
+      : []),
   ].sort();
   for (const lock of locks) await lockIdentity(client, lock);
 }
@@ -153,7 +156,11 @@ export async function authenticateOrRegisterAcademyAccount(input: {
       } as const;
     }
 
-    await lockSignupIdentities(client, input);
+    await lockSignupIdentities(client, {
+      email: input.email,
+      username: input.username,
+      phoneE164: input.phoneVerification?.phoneE164,
+    });
     const selected = await client.query<AcademyAccountRow>(
       `SELECT id, email, username, display_name, password_hash, phone_e164
          FROM academy_auth_accounts
@@ -178,6 +185,24 @@ export async function authenticateOrRegisterAcademyAccount(input: {
     if (existing) {
       if (!verifyAcademyPassword(input.password, existing.password_hash)) {
         return { status: "invalid_credentials" } as const;
+      }
+      if (input.phoneVerification?.required) {
+        const verified = await lockVerifiedPhoneChallengeTx(client, {
+          challengeId: input.phoneVerification.challengeId,
+          phoneE164: input.phoneVerification.phoneE164,
+          purpose: "signup",
+        });
+        if (!verified) return { status: "phone_verification_required" } as const;
+        if (existing.phone_e164 !== input.phoneVerification.phoneE164) {
+          return { status: "phone_mismatch" } as const;
+        }
+        const consumed = await consumeVerifiedPhoneChallengeTx(client, {
+          challengeId: input.phoneVerification.challengeId,
+          phoneE164: input.phoneVerification.phoneE164,
+          purpose: "signup",
+          accountId: existing.id,
+        });
+        if (!consumed) throw new Error("phone_otp_consumption_invariant_failed");
       }
       return {
         status: "authenticated",

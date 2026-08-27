@@ -285,20 +285,15 @@ export async function refreshAcademyProgressProjection(
   });
   const hash = projectionHash(state);
 
-  if (
+  const projectionUnchanged =
     current?.progress_authority === "server_projection_v2"
-    && current.projection_hash === hash
-  ) {
-    return {
-      state,
-      revision: Number(current.revision),
-      updatedAt: current.updated_at,
-      legacySnapshotCaptured,
-    };
-  }
+    && current.projection_hash === hash;
+  let revision = Number(current?.revision ?? 1);
+  let updatedAt = current?.updated_at ?? new Date().toISOString();
 
-  const saved = await client.query<{ revision: string; updated_at: string }>(
-    `INSERT INTO academy_state_documents
+  if (!projectionUnchanged) {
+    const saved = await client.query<{ revision: string; updated_at: string }>(
+      `INSERT INTO academy_state_documents
       (student_id, locale, schema_version, revision, progress,
        progress_authority, projection_hash, projection_updated_at,
        created_at, updated_at)
@@ -312,21 +307,26 @@ export async function refreshAcademyProgressProjection(
        projection_updated_at = NOW(),
        updated_at = NOW()
      RETURNING revision::text, updated_at`,
-    [studentId, locale, JSON.stringify(state), hash],
-  );
+      [studentId, locale, JSON.stringify(state), hash],
+    );
+    revision = Number(saved.rows[0]?.revision ?? 1);
+    updatedAt = saved.rows[0]?.updated_at ?? updatedAt;
+  }
 
   await client.query(
     `INSERT INTO academy_student_cartax
       (student_id, progress, total_xp, completed_terms, overall_progress,
-       earned_badges, streak_days, updated_at)
-     VALUES ($1::uuid, $2::jsonb, $3, $4, $5, $6::jsonb, $7, NOW())
+       earned_badges, updated_at)
+     VALUES ($1::uuid, $2::jsonb, $3, $4, $5, $6::jsonb, NOW())
      ON CONFLICT (student_id) DO UPDATE SET
-       progress = EXCLUDED.progress,
+       progress = EXCLUDED.progress || jsonb_strip_nulls(jsonb_build_object(
+         'publicStudentId', to_jsonb(academy_student_cartax.public_student_id),
+         'streakDays', to_jsonb(academy_student_cartax.streak_days)
+       )),
        total_xp = EXCLUDED.total_xp,
        completed_terms = EXCLUDED.completed_terms,
        overall_progress = EXCLUDED.overall_progress,
        earned_badges = EXCLUDED.earned_badges,
-       streak_days = EXCLUDED.streak_days,
        updated_at = NOW()`,
     [
       studentId,
@@ -338,14 +338,13 @@ export async function refreshAcademyProgressProjection(
           * 100,
       ),
       JSON.stringify(state.earnedBadges),
-      state.streak,
     ],
   );
 
   return {
     state,
-    revision: Number(saved.rows[0]?.revision ?? 1),
-    updatedAt: saved.rows[0]?.updated_at ?? new Date().toISOString(),
+    revision,
+    updatedAt,
     legacySnapshotCaptured,
   };
 }
