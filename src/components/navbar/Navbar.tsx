@@ -147,9 +147,16 @@ export default function Navbar({
   const resolvedSignupHref = isAcademyArea
     ? academySignupHref
     : authLink("https://my.tecpey.ir/signup");
-  const menuAriaLabel = isEnglish ? "Open menu" : "باز کردن منو";
+  const menuAriaLabel = isOpen
+    ? isEnglish
+      ? "Close menu"
+      : "بستن منو"
+    : isEnglish
+      ? "Open menu"
+      : "باز کردن منو";
   const knowledgeMenuId = "tecpey-knowledge-center-menu";
   const mobileKnowledgeMenuId = "tecpey-mobile-knowledge-center-menu";
+  const mobileMenuId = "tecpey-mobile-navigation-menu";
 
   useEffect(() => {
     let active = true;
@@ -239,6 +246,17 @@ export default function Navbar({
     setProfileOpen(false);
     setIsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   return (
     <nav
@@ -465,6 +483,7 @@ export default function Navbar({
             className="rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={menuAriaLabel}
             aria-expanded={isOpen}
+            aria-controls={mobileMenuId}
           >
             {isOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
@@ -472,7 +491,10 @@ export default function Navbar({
       </div>
 
       {isOpen && (
-        <div className="fixed inset-x-0 top-[88px] z-[110] h-[calc(100dvh-88px)] overflow-y-auto bg-navbar-bg/98 px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden">
+        <div
+          id={mobileMenuId}
+          className="fixed inset-x-0 top-16 z-[110] h-[calc(100dvh-4rem)] overflow-y-auto bg-navbar-bg px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden"
+        >
           <div className="flex flex-col gap-2">
             {activePrimaryLinks.map((item) => (
               <Link

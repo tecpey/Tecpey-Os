@@ -266,10 +266,13 @@ export function GlobalAiMentorWidget() {
     pathname === "/en/academy" ||
     pathname.startsWith("/en/academy/");
   const isNewsQuiz = /\/(?:en\/)?academy\/news-quiz(?:\/|$)/.test(pathname);
+  const isAcademyAuthRoute =
+    /^\/(?:en\/)?academy\/(?:login|signup|onboarding)\/?$/.test(pathname);
   const [open, setOpen] = useState(false);
 
   // Server-driven mentor profile and insights (Phase 7).
-  const shouldLoadMentorSession = open || isAcademyArea;
+  const shouldLoadMentorSession =
+    !isAcademyAuthRoute && (open || isAcademyArea);
   const { data: mentorData, error: insightsError } = useMentorInsights({
     enabled: shouldLoadMentorSession,
   });
@@ -566,7 +569,13 @@ export function GlobalAiMentorWidget() {
   const readiness = mentorLearningReadiness(profile, locale);
   const coachActions = mentorQuickActions(locale, pageContext.section, profile);
 
-  if (!academyChecked || !academyProfileReady || isNewsQuiz) return null;
+  if (
+    !academyChecked ||
+    !academyProfileReady ||
+    isNewsQuiz ||
+    isAcademyAuthRoute
+  )
+    return null;
 
   return (
     <>
