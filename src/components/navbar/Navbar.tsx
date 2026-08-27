@@ -256,6 +256,7 @@ export default function Navbar({
               alt="TecPey"
               width={120}
               height={48}
+              loading="eager"
               className="h-11 w-auto object-contain md:h-12 lg:h-14"
             />
           </Link>

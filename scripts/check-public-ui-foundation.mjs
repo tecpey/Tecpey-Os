@@ -40,6 +40,7 @@ requireText(navbar, "role=\"menu\"", "Knowledge Center panel must use menu seman
 requireText(navbar, "role=\"menuitem\"", "Knowledge Center links must use menu-item semantics");
 requireText(navbar, "absolute end-0", "Knowledge Center must use locale-aware logical alignment");
 requireText(navbar, "event.key !== \"Escape\"", "Knowledge Center must support Escape dismissal");
+requireText(navbar, "loading=\"eager\"", "Above-the-fold TecPey mark must not lazy-load");
 requireText(navbar, "تریدینگ آرنا", "Knowledge navigation must expose Trading Arena");
 requireText(navbar, "منتور هوشمند", "Knowledge navigation must expose the AI Mentor");
 
