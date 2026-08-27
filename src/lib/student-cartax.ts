@@ -50,6 +50,35 @@ export async function assertStudentCartaxSchema(client: SchemaQueryable) {
   ], "student_cartax");
 }
 
+export async function findStudentCartaxProfile(
+  client: SchemaQueryable,
+  identity: { studentId?: string | null; email?: string | null },
+) {
+  const values: unknown[] = [];
+  const filters: string[] = [];
+  if (identity.studentId) {
+    values.push(identity.studentId);
+    filters.push(`s.id = $${values.length}::uuid`);
+  }
+  if (identity.email) {
+    values.push(identity.email);
+    filters.push(`s.email = $${values.length}`);
+  }
+  if (!filters.length) return null;
+
+  const query = await client.query(
+    `SELECT s.id, c.public_student_id, s.email, s.phone, s.display_name, s.username, s.avatar, s.learning_goal, s.locale, c.streak_days, s.last_active_day,
+            c.progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
+            c.total_xp, c.completed_terms, c.overall_progress, c.identity_score, c.retention_score, c.community_score, c.updated_at
+       FROM academy_students s
+       LEFT JOIN academy_student_cartax c ON c.student_id = s.id
+      WHERE ${filters.join(" OR ")}
+      LIMIT 1`,
+    values,
+  );
+  return query.rows[0] || null;
+}
+
 export async function upsertStudentCartax(client: SchemaQueryable, input: StudentCartaxInput, fallbackStudentId?: string) {
   const id = fallbackStudentId || randomUUID();
   const email = cleanText(input.email, 180) || null;
@@ -78,8 +107,8 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
   const publicStudentId = makePublicStudentId(studentId);
 
   await client.query(
-    `INSERT INTO academy_students (id, email, phone, google_id, apple_id, display_name, username, avatar, learning_goal, locale, public_student_id, streak_days, last_active_day)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, CURRENT_DATE)
+    `INSERT INTO academy_students (id, email, phone, google_id, apple_id, display_name, username, avatar, learning_goal, locale)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (id) DO UPDATE SET
        email = COALESCE(EXCLUDED.email, academy_students.email),
        phone = COALESCE(EXCLUDED.phone, academy_students.phone),
@@ -90,16 +119,45 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
        avatar = COALESCE(EXCLUDED.avatar, academy_students.avatar),
        learning_goal = COALESCE(EXCLUDED.learning_goal, academy_students.learning_goal),
        locale = EXCLUDED.locale,
-       public_student_id = COALESCE(academy_students.public_student_id, EXCLUDED.public_student_id),
-       streak_days = CASE
-         WHEN academy_students.last_active_day = CURRENT_DATE THEN academy_students.streak_days
-         WHEN academy_students.last_active_day = CURRENT_DATE - INTERVAL '1 day' THEN academy_students.streak_days + 1
-         ELSE 1
-       END,
-       last_active_day = CURRENT_DATE,
        updated_at = NOW(),
        last_seen_at = NOW()`,
-    [studentId, email, phone, googleId, appleId, displayName, username, avatar, learningGoal, locale, publicStudentId],
+    [studentId, email, phone, googleId, appleId, displayName, username, avatar, learningGoal, locale],
+  );
+
+  // public_student_id and streak_days are cartax-owned fields in the canonical
+  // 0001 schema. Keep the daily streak update idempotent so retries on the same
+  // UTC database day cannot inflate it.
+  const cartaxIdentity = await client.query(
+    `INSERT INTO academy_student_cartax (student_id, public_student_id, streak_days)
+     VALUES ($1::uuid, $2, 1)
+     ON CONFLICT (student_id) DO UPDATE SET
+       public_student_id = COALESCE(academy_student_cartax.public_student_id, EXCLUDED.public_student_id),
+       streak_days = CASE
+         WHEN (SELECT last_active_day FROM academy_students WHERE id = $1::uuid) = CURRENT_DATE
+           THEN GREATEST(academy_student_cartax.streak_days, 1)
+         WHEN (SELECT last_active_day FROM academy_students WHERE id = $1::uuid) = CURRENT_DATE - 1
+           THEN GREATEST(academy_student_cartax.streak_days, 0) + 1
+         ELSE 1
+       END,
+       updated_at = NOW()
+     RETURNING public_student_id, streak_days`,
+    [studentId, publicStudentId],
+  );
+  const effectivePublicStudentId = String(
+    cartaxIdentity.rows[0]?.public_student_id ?? publicStudentId,
+  );
+  const streakDays = Math.max(
+    1,
+    Math.round(numeric(cartaxIdentity.rows[0]?.streak_days, 1)),
+  );
+
+  await client.query(
+    `UPDATE academy_students
+        SET last_active_day = CURRENT_DATE,
+            last_seen_at = NOW(),
+            updated_at = NOW()
+      WHERE id = $1::uuid`,
+    [studentId],
   );
 
   // Trust boundary: user-supplied progress/XP/badges are never authoritative.
@@ -126,13 +184,11 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
   );
   const decisionsCount = Math.max(0, Math.round(numeric(simulatorStats.rows[0]?.decisions_count)));
   const avgDecisionScore = Math.max(0, Math.min(100, Math.round(numeric(simulatorStats.rows[0]?.avg_decision_score))));
-  const streakQuery = await client.query(`SELECT streak_days FROM academy_students WHERE id = $1::uuid LIMIT 1`, [studentId]);
-  const streakDays = Math.max(1, Math.round(numeric(streakQuery.rows[0]?.streak_days, 1)));
   const totalXp = completedTerms * 1000 + avgPercent * 10 + decisionsCount * 80 + Math.min(streakDays, 30) * 25;
   const identityScore = Math.min(100, 25 + completedTerms * 8 + Math.min(decisionsCount, 10) * 3 + Math.min(streakDays, 10) * 2);
   const retentionScore = Math.min(100, streakDays * 10 + completedTerms * 7 + Math.min(decisionsCount, 8) * 4);
   const communityScore = Math.min(100, completedTerms * 10 + Math.min(decisionsCount, 10) * 3 + (completedTerms >= 7 ? 20 : 0));
-  const progress = { completedTerms, overallProgress, avgPercent, decisionsCount, avgDecisionScore, streakDays, publicStudentId };
+  const progress = { completedTerms, overallProgress, avgPercent, decisionsCount, avgDecisionScore, streakDays, publicStudentId: effectivePublicStudentId };
   const earnedBadges = [
     "account-ready",
     ...(streakDays >= 3 ? ["three-day-streak"] : []),
@@ -184,8 +240,8 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
   await client.query(
     `INSERT INTO academy_student_events (student_id, event_type, payload)
      VALUES ($1, 'cartax_sync', $2::jsonb)`,
-    [studentId, JSON.stringify({ totalXp, completedTerms, overallProgress, identityScore, retentionScore, communityScore, streakDays, publicStudentId, source: cleanText(input.source, 120) })],
+    [studentId, JSON.stringify({ totalXp, completedTerms, overallProgress, identityScore, retentionScore, communityScore, streakDays, publicStudentId: effectivePublicStudentId, source: cleanText(input.source, 120) })],
   );
 
-  return { studentId, publicStudentId, totalXp, completedTerms, overallProgress, identityScore, retentionScore, communityScore, streakDays, earnedBadges };
+  return { studentId, publicStudentId: effectivePublicStudentId, totalXp, completedTerms, overallProgress, identityScore, retentionScore, communityScore, streakDays, earnedBadges };
 }
