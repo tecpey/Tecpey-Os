@@ -270,7 +270,10 @@ export function OfflineSyncManager() {
     quarantineLegacyQueue();
 
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js").catch(() => null);
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .then((registration) => registration.update())
+        .catch(() => null);
     }
     const refresh = () => {
       setOnline(navigator.onLine);
