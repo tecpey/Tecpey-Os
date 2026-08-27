@@ -219,6 +219,53 @@ describe("Academy PostgreSQL progress authority v2", () => {
       assert.equal(profile?.public_student_id, created.publicStudentId);
       assert.equal(profile?.streak_days, 1);
 
+      await client.query(
+        `UPDATE academy_student_cartax
+            SET progress = progress || '{"clientForgedXp": 999999}'::jsonb
+          WHERE student_id = $1::uuid`,
+        [created.studentId],
+      );
+      const projection = await refreshAcademyProgressProjection(
+        client,
+        created.studentId,
+        "fa",
+      );
+      assert.equal(
+        projection.state.streak,
+        0,
+        "a new learner has no canonical learning-event streak yet",
+      );
+      const projectedCartax = await client.query<{
+        public_student_id: string;
+        streak_days: number;
+        progress: Record<string, unknown>;
+      }>(
+        `SELECT public_student_id, streak_days, progress
+           FROM academy_student_cartax
+          WHERE student_id = $1::uuid`,
+        [created.studentId],
+      );
+      assert.equal(
+        projectedCartax.rows[0]?.public_student_id,
+        created.publicStudentId,
+      );
+      assert.equal(
+        projectedCartax.rows[0]?.streak_days,
+        1,
+        "learning projection must not overwrite the cartax-owned activity streak",
+      );
+      assert.equal(
+        projectedCartax.rows[0]?.progress.publicStudentId,
+        created.publicStudentId,
+      );
+      assert.equal(projectedCartax.rows[0]?.progress.streakDays, 1);
+      assert.equal(projectedCartax.rows[0]?.progress.version, 2);
+      assert.equal(
+        projectedCartax.rows[0]?.progress.clientForgedXp,
+        undefined,
+        "projection refresh must not preserve arbitrary legacy/client keys",
+      );
+
       const sameDayRetry = await upsertStudentCartax(client, {
         email,
         displayName: "Academy Profile Contract",

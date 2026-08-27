@@ -34,7 +34,7 @@ export type AcademyAccountAuthorityResult =
       account: AcademyCredentialAccount;
     }
   | {
-      status: "invalid_credentials" | "username_taken" | "phone_taken" | "phone_verification_required" | "unavailable";
+      status: "invalid_credentials" | "username_taken" | "phone_taken" | "phone_mismatch" | "phone_verification_required" | "unavailable";
     };
 
 type AcademyAccountRow = {
@@ -178,6 +178,24 @@ export async function authenticateOrRegisterAcademyAccount(input: {
     if (existing) {
       if (!verifyAcademyPassword(input.password, existing.password_hash)) {
         return { status: "invalid_credentials" } as const;
+      }
+      if (input.phoneVerification?.required) {
+        if (existing.phone_e164 !== input.phoneVerification.phoneE164) {
+          return { status: "phone_mismatch" } as const;
+        }
+        const verified = await lockVerifiedPhoneChallengeTx(client, {
+          challengeId: input.phoneVerification.challengeId,
+          phoneE164: input.phoneVerification.phoneE164,
+          purpose: "signup",
+        });
+        if (!verified) return { status: "phone_verification_required" } as const;
+        const consumed = await consumeVerifiedPhoneChallengeTx(client, {
+          challengeId: input.phoneVerification.challengeId,
+          phoneE164: input.phoneVerification.phoneE164,
+          purpose: "signup",
+          accountId: existing.id,
+        });
+        if (!consumed) throw new Error("phone_otp_consumption_invariant_failed");
       }
       return {
         status: "authenticated",

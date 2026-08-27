@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { withDb } from "../../lib/db";
@@ -12,6 +12,11 @@ import {
   hashSensitiveAuditRequest,
   writeSensitiveMutationAuditTx,
 } from "../../lib/security/sensitive-mutation-audit";
+import {
+  finalizePhoneOtpSend,
+  preparePhoneOtpChallenge,
+  verifyPhoneOtpChallenge,
+} from "../../lib/security/phone-otp-authority";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const integrationConfigured = Boolean(
@@ -25,6 +30,58 @@ function identity(prefix: string): string {
 
 function username(): string {
   return `academy${randomUUID().replaceAll("-", "").slice(0, 20)}`;
+}
+
+function iranianMobile(): string {
+  return `+989${String(randomInt(100_000_000, 1_000_000_000)).padStart(9, "0")}`;
+}
+
+async function verifiedSignupChallenge(phoneE164: string): Promise<string> {
+  const prepared = await preparePhoneOtpChallenge({ phoneE164, purpose: "signup" });
+  assert.equal(prepared.status, "prepared");
+  if (prepared.status !== "prepared") {
+    throw new Error("academy_account_test_otp_unavailable");
+  }
+  assert.equal(
+    await finalizePhoneOtpSend({ challengeId: prepared.challengeId, sent: true }),
+    true,
+  );
+  assert.deepEqual(
+    await verifyPhoneOtpChallenge({
+      challengeId: prepared.challengeId,
+      code: prepared.code,
+    }),
+    { status: "verified", purpose: "signup" },
+  );
+  return prepared.challengeId;
+}
+
+async function loadChallengeLifecycle(challengeId: string) {
+  const result = await withDb(async (client) => {
+    const challenge = await client.query<{
+      status: string;
+      consumed_by_account_id: string | null;
+    }>(
+      `SELECT status, consumed_by_account_id
+         FROM identity_phone_otp_challenges
+        WHERE id = $1`,
+      [challengeId],
+    );
+    const events = await client.query<{ event_type: string }>(
+      `SELECT event_type
+         FROM identity_phone_otp_events
+        WHERE challenge_id = $1
+        ORDER BY created_at`,
+      [challengeId],
+    );
+    return {
+      challenge: challenge.rows[0] ?? null,
+      events: events.rows.map((row) => row.event_type),
+    };
+  });
+  assert.equal(result.enabled, true);
+  if (!result.enabled) throw new Error("academy_account_test_database_unavailable");
+  return result.value;
 }
 
 function audit(input: {
@@ -228,6 +285,109 @@ describe("Academy account credential authority", () => {
       assert.equal(state.account?.username, storedUsername);
       assert.equal(state.account?.display_name, storedDisplayName);
       assert.equal(state.evidence.length, 1);
+    },
+  );
+
+  it(
+    "consumes a same-phone signup challenge for an existing account exactly once and rejects phone mismatch",
+    { skip: !integrationConfigured, timeout: 45_000 },
+    async () => {
+      // Consumed OTP evidence is immutable and intentionally retains its account
+      // reference, so this isolated integration identity is not added to accountIds.
+      const accountId = identity("academy-account-existing-phone");
+      const tenantId = identity("academy-account-tenant");
+      const email = `${randomUUID()}@example.com`;
+      const storedUsername = username();
+      const password = `A!${randomUUID()}-secure`;
+      const phoneE164 = iranianMobile();
+      const initialChallengeId = await verifiedSignupChallenge(phoneE164);
+
+      const created = await authenticateOrRegisterAcademyAccount({
+        mode: "signup",
+        accountId,
+        email,
+        username: storedUsername,
+        displayName: "Existing Phone Account",
+        password,
+        phoneVerification: {
+          phoneE164,
+          challengeId: initialChallengeId,
+          required: true,
+        },
+        audit: audit({ tenantId, accountId, username: storedUsername }),
+      });
+      assert.equal(created.status, "created");
+
+      const existingChallengeId = await verifiedSignupChallenge(phoneE164);
+      const authenticated = await authenticateOrRegisterAcademyAccount({
+        mode: "signup",
+        accountId,
+        email,
+        username: storedUsername,
+        displayName: "Request Must Not Mutate",
+        password,
+        phoneVerification: {
+          phoneE164,
+          challengeId: existingChallengeId,
+          required: true,
+        },
+        audit: audit({ tenantId, accountId, username: storedUsername }),
+      });
+      assert.equal(authenticated.status, "authenticated");
+
+      const consumed = await loadChallengeLifecycle(existingChallengeId);
+      assert.deepEqual(consumed.challenge, {
+        status: "consumed",
+        consumed_by_account_id: accountId,
+      });
+      assert.equal(
+        consumed.events.filter((event) => event === "consumed").length,
+        1,
+      );
+
+      const replayed = await authenticateOrRegisterAcademyAccount({
+        mode: "signup",
+        accountId,
+        email,
+        username: storedUsername,
+        displayName: "Replay Must Fail",
+        password,
+        phoneVerification: {
+          phoneE164,
+          challengeId: existingChallengeId,
+          required: true,
+        },
+        audit: audit({ tenantId, accountId, username: storedUsername }),
+      });
+      assert.deepEqual(replayed, { status: "phone_verification_required" });
+
+      const otherPhoneE164 = iranianMobile();
+      const mismatchChallengeId = await verifiedSignupChallenge(otherPhoneE164);
+      const mismatched = await authenticateOrRegisterAcademyAccount({
+        mode: "signup",
+        accountId,
+        email,
+        username: storedUsername,
+        displayName: "Mismatch Must Fail",
+        password,
+        phoneVerification: {
+          phoneE164: otherPhoneE164,
+          challengeId: mismatchChallengeId,
+          required: true,
+        },
+        audit: audit({ tenantId, accountId, username: storedUsername }),
+      });
+      assert.deepEqual(mismatched, { status: "phone_mismatch" });
+
+      const mismatch = await loadChallengeLifecycle(mismatchChallengeId);
+      assert.deepEqual(mismatch.challenge, {
+        status: "verified",
+        consumed_by_account_id: null,
+      });
+      assert.equal(
+        mismatch.events.filter((event) => event === "consumed").length,
+        0,
+      );
     },
   );
 

@@ -318,15 +318,17 @@ export async function refreshAcademyProgressProjection(
   await client.query(
     `INSERT INTO academy_student_cartax
       (student_id, progress, total_xp, completed_terms, overall_progress,
-       earned_badges, streak_days, updated_at)
-     VALUES ($1::uuid, $2::jsonb, $3, $4, $5, $6::jsonb, $7, NOW())
+       earned_badges, updated_at)
+     VALUES ($1::uuid, $2::jsonb, $3, $4, $5, $6::jsonb, NOW())
      ON CONFLICT (student_id) DO UPDATE SET
-       progress = EXCLUDED.progress,
+       progress = EXCLUDED.progress || jsonb_strip_nulls(jsonb_build_object(
+         'publicStudentId', to_jsonb(academy_student_cartax.public_student_id),
+         'streakDays', to_jsonb(academy_student_cartax.streak_days)
+       )),
        total_xp = EXCLUDED.total_xp,
        completed_terms = EXCLUDED.completed_terms,
        overall_progress = EXCLUDED.overall_progress,
        earned_badges = EXCLUDED.earned_badges,
-       streak_days = EXCLUDED.streak_days,
        updated_at = NOW()`,
     [
       studentId,
@@ -338,7 +340,6 @@ export async function refreshAcademyProgressProjection(
           * 100,
       ),
       JSON.stringify(state.earnedBadges),
-      state.streak,
     ],
   );
 
