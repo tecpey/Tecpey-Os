@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
   isTecpeyDarkScrollMotionSurface,
   isTecpeyScrollMotionRoute,
@@ -15,16 +15,25 @@ type NavigatorWithConnection = Navigator & {
   };
 };
 
+const subscribeToHydration = () => () => undefined;
+const getHydratedSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export function TecpeyScrollMotionBackground() {
   const pathname = normalizeTecpeyScrollMotionPathname(usePathname() || "/");
   const enabled = isTecpeyScrollMotionRoute(pathname);
   const usesDarkSurface = isTecpeyDarkScrollMotionSurface(pathname);
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getHydratedSnapshot,
+    getServerSnapshot
+  );
   const { resolvedTheme } = useTheme();
   const mediaLayerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const videoSource = !usesDarkSurface && resolvedTheme === "light"
+  const videoSource = hydrated && !usesDarkSurface && resolvedTheme === "light"
     ? "/media/tecpey-scroll-motion-light.mp4"
-    : usesDarkSurface || resolvedTheme === "dark"
+    : hydrated && (usesDarkSurface || resolvedTheme === "dark")
       ? "/media/tecpey-scroll-motion-dark.mp4"
       : null;
 

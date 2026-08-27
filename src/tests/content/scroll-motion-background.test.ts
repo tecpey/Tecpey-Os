@@ -27,6 +27,8 @@ describe("TecPey scroll motion background", () => {
     const layout = fs.readFileSync(layoutPath, "utf8");
 
     assert.match(component, /resolvedTheme === "light"/);
+    assert.match(component, /useSyncExternalStore/);
+    assert.match(component, /getServerSnapshot = \(\) => false/);
     assert.match(component, /\/media\/tecpey-scroll-motion-dark\.mp4/);
     assert.match(component, /\/media\/tecpey-scroll-motion-light\.mp4/);
     assert.match(component, /aria-hidden="true"/);
