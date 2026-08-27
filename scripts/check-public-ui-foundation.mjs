@@ -25,7 +25,7 @@ rejectText(theme, "useState(theme ===", "Theme control must not freeze pre-hydra
 requireText(layout, "<PublicMentorEntry />", "Root layout must expose the public/locked Mentor entry");
 requireText(layout, "<GlobalAiMentorWidget />", "Root layout must preserve the personalized Mentor widget");
 requireText(publicMentor, 'type ProfileStatus = "checking" | "absent" | "ready" | "unavailable"', "Public Mentor must distinguish absent profile from API failure");
-requireText(publicMentor, 'if (profileStatus !== "absent") return null', "Public Mentor must show only after an authoritative absent-profile result");
+requireText(publicMentor, 'if (isAcademyAuthRoute || profileStatus !== "absent") return null', "Public Mentor must stay hidden on Academy auth routes and show only after an authoritative absent-profile result");
 requireText(publicMentor, 'setProfileStatus("unavailable")', "Mentor profile-check failure must fail closed instead of creating a duplicate launcher");
 requireText(publicMentor, "منتور هوشمند تک‌پی", "Public Mentor CTA must be visible in Persian");
 requireText(publicMentor, "AI Learning Mentor", "Public Mentor CTA must be visible in English");
