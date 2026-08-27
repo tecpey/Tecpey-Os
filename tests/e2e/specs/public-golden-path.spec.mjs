@@ -588,6 +588,30 @@ test.afterEach(async ({ page }, testInfo) => {
   );
 });
 
+test("Academy PWA fallbacks are standalone and redirect-free", async ({ request }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-fa-mobile",
+    "One governed HTTP contract run covers the locale-independent redirect boundary.",
+  );
+
+  const fallbacks = [
+    { path: "/academy-offline-fa.html", marker: "حالت امن آفلاین" },
+    { path: "/academy-offline-en.html", marker: "Safe offline mode" },
+  ];
+
+  for (const fallback of fallbacks) {
+    const response = await request.get(fallback.path, {
+      maxRedirects: 0,
+      timeout: 15_000,
+    });
+    const headers = response.headers();
+    expect(response.status(), `${fallback.path} must resolve directly`).toBe(200);
+    expect(headers.location, `${fallback.path} must not redirect`).toBeUndefined();
+    expect(headers["content-type"], `${fallback.path} must be an HTML document`).toMatch(/^text\/html\b/i);
+    expect(await response.text()).toContain(fallback.marker);
+  }
+});
+
 test("public Soft Launch Golden Path is localized, interactive, truthful and accessible", async ({ context, page }, testInfo) => {
   const contract = projectContract(testInfo);
   const errors = runtimeErrors.get(page) ?? [];
