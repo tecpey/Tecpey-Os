@@ -4,7 +4,11 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
-import { cleanText, upsertStudentCartax } from "@/lib/student-cartax";
+import {
+  cleanText,
+  findStudentCartaxProfile,
+  upsertStudentCartax,
+} from "@/lib/student-cartax";
 import { withDb } from "@/lib/db";
 import { isSessionConfigured } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
@@ -175,30 +179,12 @@ export async function GET(req: NextRequest) {
       const studentId = session.studentId;
 
       try {
-        const result = await withDb(async (client) => {
-          const values: unknown[] = [];
-          const filters: string[] = [];
-          if (studentId) {
-            values.push(studentId);
-            filters.push(`s.id = $${values.length}::uuid`);
-          }
-          if (session.email) {
-            values.push(session.email);
-            filters.push(`s.email = $${values.length}`);
-          }
-          if (!filters.length) return null;
-          const query = await client.query(
-            `SELECT s.id, s.public_student_id, s.email, s.phone, s.display_name, s.username, s.avatar, s.learning_goal, s.locale, s.streak_days, s.last_active_day,
-                    c.progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
-                    c.total_xp, c.completed_terms, c.overall_progress, c.identity_score, c.retention_score, c.community_score, c.updated_at
-               FROM academy_students s
-               LEFT JOIN academy_student_cartax c ON c.student_id = s.id
-              WHERE ${filters.join(" OR ")}
-              LIMIT 1`,
-            values,
-          );
-          return query.rows[0] || null;
-        });
+        const result = await withDb((client) =>
+          findStudentCartaxProfile(client, {
+            studentId,
+            email: session.email,
+          }),
+        );
         if (result.enabled) {
           const profile = result.value as { id?: string } | null;
           // academy_student_cartax is student_global (classification registry):
