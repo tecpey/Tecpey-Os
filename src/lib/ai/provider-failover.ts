@@ -164,9 +164,13 @@ export async function callAiProviderWithFailover(
     },
     dependencies,
   );
+  // Paid fallback is a spend-authorizing decision. Treat an unavailable key
+  // inspection or an unbounded/unknown remaining balance as unknown authority,
+  // never as implicit permission to spend. Public, noncritical, no-effect work
+  // may still continue through the separately governed free route below.
   const paidCreditAvailable =
-    !keyStatus.ok ||
-    keyStatus.limitRemainingUsdMicros === null ||
+    keyStatus.ok &&
+    keyStatus.limitRemainingUsdMicros !== null &&
     keyStatus.limitRemainingUsdMicros > openRouter.creditFloorUsdMicros;
 
   let paidResult: AiProviderCallResult | null = null;
