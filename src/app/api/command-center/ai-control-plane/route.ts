@@ -280,8 +280,14 @@ async function testProvider(
       toolsEnabled: false,
       requestSignal: request.signal,
     });
-    passed = result.ok && result.text.includes("TECPEY_PROVIDER_OK");
-    failureReason = result.ok ? passed ? null : "invalid_response" : result.reason;
+    // Connectivity is proven by a successful provider response that passes the
+    // shared response parser. Free routers may select instruction-following
+    // models that paraphrase even an exact-output request, so treating a
+    // missing sentinel as a transport failure creates a false negative.
+    // `result.ok` already guarantees a 2xx response with parseable, non-empty
+    // text; output quality remains governed by the normal trust boundary.
+    passed = result.ok;
+    failureReason = result.ok ? null : result.reason;
   }
   const recorded = await recordAiProviderTest({
     ...mutationContext(request, authorization),

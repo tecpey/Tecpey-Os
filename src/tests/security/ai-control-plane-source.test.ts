@@ -55,6 +55,15 @@ describe("AI control-plane source authority", () => {
     assert.match(route, /knowledgeAuthority: candidate \? "candidate_only"/);
   });
 
+  it("treats a parsed non-empty provider response as connectivity success", async () => {
+    const route = await source(
+      "src/app/api/command-center/ai-control-plane/route.ts",
+    );
+    assert.match(route, /passed = result\.ok;/);
+    assert.match(route, /failureReason = result\.ok \? null : result\.reason;/);
+    assert.doesNotMatch(route, /result\.text\.includes\("TECPEY_PROVIDER_OK"\)/);
+  });
+
   it("makes Mentor threads server-owned and user-bound", async () => {
     const [threads, conversations, migration, mentor, widget, coach] =
       await Promise.all([
