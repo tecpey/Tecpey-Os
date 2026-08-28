@@ -282,6 +282,8 @@ export function GlobalAiMentorWidget() {
     pathname === "/en/academy" ||
     pathname.startsWith("/en/academy/");
   const isNewsQuiz = /\/(?:en\/)?academy\/news-quiz(?:\/|$)/.test(pathname);
+  const isCommandCenter =
+    pathname === "/command-center" || pathname.startsWith("/command-center/");
   const [open, setOpen] = useState(false);
 
   // Server-driven mentor profile and insights (Phase 7).
@@ -688,7 +690,8 @@ export function GlobalAiMentorWidget() {
   const readiness = mentorLearningReadiness(profile, locale);
   const coachActions = mentorQuickActions(locale, pageContext.section, profile);
 
-  if (!academyChecked || !academyProfileReady || isNewsQuiz) return null;
+  if (!academyChecked || !academyProfileReady || isNewsQuiz || isCommandCenter)
+    return null;
 
   return (
     <>

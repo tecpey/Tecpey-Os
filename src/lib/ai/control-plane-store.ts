@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { writeAdminAuditEvent } from "@/lib/admin-control-plane";
 import { withDb, withTx } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
 import {
   AI_AGENT_CATALOG,
@@ -771,7 +772,13 @@ export async function updateAiProvider(
       return after;
     });
     return result.enabled ? result.value : "unavailable";
-  } catch {
+  } catch (error) {
+    logger.error("[ai-control-plane] provider update failed", {
+      providerId: input.providerId,
+      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return "unavailable";
   }
 }

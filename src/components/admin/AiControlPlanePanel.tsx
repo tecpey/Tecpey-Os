@@ -238,6 +238,7 @@ export function AiControlPlanePanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [providerMessages, setProviderMessages] = useState<Partial<Record<ProviderId, { kind: "error" | "success"; text: string }>>>({});
   const [research, setResearch] = useState({
     agentId: "news_x_researcher" as "news_x_researcher" | "coin_tool_researcher",
     query: "",
@@ -314,6 +315,7 @@ export function AiControlPlanePanel() {
     setBusy(`provider:${id}`);
     setError("");
     setNotice("");
+    setProviderMessages((current) => ({ ...current, [id]: undefined }));
     try {
       const response = await fetch("/api/command-center/ai-control-plane", {
         method: "PUT",
@@ -328,13 +330,19 @@ export function AiControlPlanePanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.ok) {
-        setError(errorMessage(data?.error));
+        const text = errorMessage(data?.error);
+        setError(text);
+        setProviderMessages((current) => ({ ...current, [id]: { kind: "error", text } }));
         return;
       }
-      setNotice("تنظیم Provider رمز‌شده ذخیره شد. پس از ثبت یا چرخش کلید، تست اتصال را دوباره اجرا کنید.");
+      const text = "تنظیم Provider رمز‌شده ذخیره شد. پس از ثبت یا چرخش کلید، تست اتصال را دوباره اجرا کنید.";
+      setNotice(text);
+      setProviderMessages((current) => ({ ...current, [id]: { kind: "success", text } }));
       await load();
     } catch {
-      setError("ذخیره Provider انجام نشد؛ وضعیت قبلی حفظ شد.");
+      const text = "ذخیره Provider انجام نشد؛ وضعیت قبلی حفظ شد.";
+      setError(text);
+      setProviderMessages((current) => ({ ...current, [id]: { kind: "error", text } }));
     } finally {
       setBusy(null);
     }
@@ -345,6 +353,7 @@ export function AiControlPlanePanel() {
     setBusy(`test:${id}`);
     setError("");
     setNotice("");
+    setProviderMessages((current) => ({ ...current, [id]: undefined }));
     try {
       const response = await fetch("/api/command-center/ai-control-plane", {
         method: "POST",
@@ -358,14 +367,20 @@ export function AiControlPlanePanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.ok) {
-        setError(errorMessage(data?.error));
+        const text = errorMessage(data?.error);
+        setError(text);
+        setProviderMessages((current) => ({ ...current, [id]: { kind: "error", text } }));
         await load();
         return;
       }
-      setNotice("اتصال Provider با دادهٔ تست غیرکاربری تأیید و evidence آن ثبت شد.");
+      const text = "اتصال Provider با دادهٔ تست غیرکاربری تأیید و evidence آن ثبت شد.";
+      setNotice(text);
+      setProviderMessages((current) => ({ ...current, [id]: { kind: "success", text } }));
       await load();
     } catch {
-      setError("تست اتصال کامل نشد.");
+      const text = "تست اتصال کامل نشد.";
+      setError(text);
+      setProviderMessages((current) => ({ ...current, [id]: { kind: "error", text } }));
     } finally {
       setBusy(null);
     }
@@ -539,6 +554,7 @@ export function AiControlPlanePanel() {
                 const current = snapshot?.providers.find((item) => item.providerId === definition.id);
                 const form = providerForms[definition.id] ?? providerForm(current);
                 const ready = Boolean(current?.enabled && current.secretConfigured && current.lastTestStatus === "passed");
+                const providerMessage = providerMessages[definition.id];
                 return (
                   <article key={definition.id} className="rounded-[24px] border border-white/10 bg-[#07111e] p-5">
                     <div className="flex items-start justify-between gap-3"><div><h3 className="font-black">{definition.label}</h3><p dir="ltr" className="mt-1 text-left text-[11px] font-bold text-slate-500">{definition.fixedEndpointHost}</p></div><StatusPill ready={ready}>{ready ? "آماده" : current?.lastTestStatus === "failed" ? "تست ناموفق" : "نیازمند تکمیل"}</StatusPill></div>
@@ -555,6 +571,7 @@ export function AiControlPlanePanel() {
                       <button type="button" onClick={() => void saveProvider(definition.id)} disabled={busy !== null} className={`${buttonClass} bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `provider:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} ذخیره</button>
                       <button type="button" onClick={() => void testProvider(definition.id)} disabled={busy !== null || !current?.secretConfigured || (definition.kind === "model" && !form.testModel)} className={`${buttonClass} border border-white/10 bg-white/[0.06] text-white hover:bg-white/10`}>{busy === `test:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} تست</button>
                     </div>
+                    {providerMessage && <div role={providerMessage.kind === "error" ? "alert" : "status"} className={`mt-3 rounded-xl border px-3 py-2 text-xs font-bold leading-6 ${providerMessage.kind === "error" ? "border-rose-300/20 bg-rose-300/[0.08] text-rose-100" : "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100"}`}>{providerMessage.text}</div>}
                   </article>
                 );
               })}

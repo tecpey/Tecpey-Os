@@ -31,6 +31,16 @@ describe("AI automation source authority", () => {
     assert.doesNotMatch(route, /claimApprovedAiAutomationExecution/);
   });
 
+  it("repairs the polymorphic JSON trigger without dereferencing absent record fields", async () => {
+    const repair = await source("src/lib/db-migrate-ai-control-json-trigger-repair.ts");
+    assert.match(repair, /row_document := to_jsonb\(NEW\)/);
+    assert.match(repair, /row_document -> 'settings'/);
+    assert.match(repair, /row_document -> 'settings_snapshot'/);
+    assert.match(repair, /row_document -> 'limits_snapshot'/);
+    assert.match(repair, /row_document -> 'metadata'/);
+    assert.doesNotMatch(repair, /NEW\.(?:settings|settings_snapshot|limits_snapshot|metadata)/);
+  });
+
   it("starts the worker only behind an explicit feature gate and leaves effects to domain executors", async () => {
     const [worker, internalExecutor, store] = await Promise.all([
       source("scripts/run-ai-automation-worker.ts"),

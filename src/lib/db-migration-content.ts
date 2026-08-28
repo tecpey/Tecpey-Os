@@ -92,6 +92,7 @@ import { ADMIN_PASSWORD_TOTP_SQL } from "./db-migrate-admin-password-totp";
 import { PHONE_OTP_LOCAL_VERIFIER_SQL } from "./db-migrate-phone-otp-local-verifier";
 import { AI_CONTROL_PLANE_SQL } from "./db-migrate-ai-control-plane";
 import { AI_AUTOMATION_ORCHESTRATION_SQL } from "./db-migrate-ai-automation";
+import { AI_CONTROL_JSON_TRIGGER_REPAIR_SQL } from "./db-migrate-ai-control-json-trigger-repair";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -396,5 +397,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   aiAutomationOrchestration: one(
     "0092_ai_automation_orchestration.sql",
     AI_AUTOMATION_ORCHESTRATION_SQL,
+  ),
+  aiControlJsonTriggerRepair: one(
+    "0093_ai_control_json_trigger_repair.sql",
+    AI_CONTROL_JSON_TRIGGER_REPAIR_SQL,
   ),
 });
