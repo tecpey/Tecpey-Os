@@ -46,6 +46,7 @@ type Limits = {
   dailyTokens: number;
   maxInputTokens: number;
   maxOutputTokens: number;
+  maxRequestCostUsdMicros: number;
   monthlyBudgetUsdMicros: number;
 };
 
@@ -137,6 +138,15 @@ type Snapshot = {
   knowledge: KnowledgeSnapshot[];
   knowledgeSummary: Record<KnowledgeSnapshot["status"], number>;
   usageToday: Record<AgentId, { requestCount: number; reservedTokens: number }>;
+  spendThisMonth: Record<
+    AgentId,
+    {
+      activeReservedUsdMicros: number;
+      settledUsdMicros: number;
+      budgetUsdMicros: number;
+      remainingUsdMicros: number;
+    }
+  >;
   openRouterQuota: {
     status: "healthy" | "low" | "exhausted" | "rate_limited" | "unavailable";
     limitUsdMicros: number | null;
@@ -166,6 +176,7 @@ type AgentForm = {
   dailyTokens: string;
   maxInputTokens: string;
   maxOutputTokens: string;
+  maxRequestCostUsd: string;
   monthlyBudgetUsd: string;
   openRouterFallbackEnabled: boolean;
   openRouterModel: string;
@@ -192,6 +203,7 @@ function agentForm(snapshot: AgentSnapshot | undefined, definition: AgentCatalog
     dailyTokens: String(limits.dailyTokens),
     maxInputTokens: String(limits.maxInputTokens),
     maxOutputTokens: String(limits.maxOutputTokens),
+    maxRequestCostUsd: String(limits.maxRequestCostUsdMicros / 1_000_000),
     monthlyBudgetUsd: String(limits.monthlyBudgetUsdMicros / 1_000_000),
     openRouterFallbackEnabled: snapshot?.routing.openRouterFallbackEnabled ?? false,
     openRouterModel: snapshot?.routing.openRouterModel ?? "",
@@ -466,6 +478,7 @@ export function AiControlPlanePanel() {
             dailyTokens: Number(form.dailyTokens),
             maxInputTokens: Number(form.maxInputTokens),
             maxOutputTokens: Number(form.maxOutputTokens),
+            maxRequestCostUsdMicros: Math.round(Number(form.maxRequestCostUsd) * 1_000_000),
             monthlyBudgetUsdMicros: Math.round(Number(form.monthlyBudgetUsd) * 1_000_000),
           },
           routing: {
@@ -652,15 +665,26 @@ export function AiControlPlanePanel() {
                 const current = snapshot?.agents.find((item) => item.agentId === definition.id);
                 const form = agentForms[definition.id] ?? agentForm(current, definition);
                 const usage = snapshot?.usageToday?.[definition.id] ?? { requestCount: 0, reservedTokens: 0 };
+                const spend = snapshot?.spendThisMonth?.[definition.id] ?? {
+                  activeReservedUsdMicros: 0,
+                  settledUsdMicros: 0,
+                  budgetUsdMicros: form.monthlyBudgetUsd
+                    ? Math.round(Number(form.monthlyBudgetUsd) * 1_000_000)
+                    : 0,
+                  remainingUsdMicros: form.monthlyBudgetUsd
+                    ? Math.round(Number(form.monthlyBudgetUsd) * 1_000_000)
+                    : 0,
+                };
                 return (
                   <article key={definition.id} className="rounded-[26px] border border-white/10 bg-[#07111e] p-5 md:p-6">
                     <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08]"><Bot className="h-5 w-5 text-cyan-100" /></span><div><h3 className="font-black">{definition.labelFa}</h3><p dir="ltr" className="mt-1 text-left text-[11px] font-bold text-slate-500">{definition.id}</p></div></div><StatusPill ready={Boolean(current?.enabled && current.providerReady)}>{current?.enabled && current.providerReady ? "فعال" : "غیرفعال"}</StatusPill></div>
                     <p className="mt-4 text-sm font-bold leading-7 text-slate-300">{definition.responsibilityFa}</p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <div className="rounded-xl border border-white/10 bg-[#030914] p-3"><p className="text-[10px] font-black text-slate-500">انتشار</p><p className="mt-2 text-xs font-black text-rose-200">هرگز مستقیم</p></div>
                       <div className="rounded-xl border border-white/10 bg-[#030914] p-3"><p className="text-[10px] font-black text-slate-500">Approval</p><p dir="ltr" className="mt-2 truncate text-left text-xs font-black text-amber-100">{definition.approvalMode}</p></div>
                       <div className="rounded-xl border border-white/10 bg-[#030914] p-3"><p className="text-[10px] font-black text-slate-500">Citation</p><p className="mt-2 text-xs font-black text-cyan-100">{definition.citationsRequired ? "اجباری" : "وابسته به کار"}</p></div>
                       <div className="rounded-xl border border-white/10 bg-[#030914] p-3"><p className="text-[10px] font-black text-slate-500">مصرف امروز</p><p className="mt-2 text-xs font-black text-cyan-100">{usage.requestCount.toLocaleString("fa-IR")} درخواست · {usage.reservedTokens.toLocaleString("fa-IR")} توکن</p></div>
+                      <div className="rounded-xl border border-white/10 bg-[#030914] p-3"><p className="text-[10px] font-black text-slate-500">بودجه باقی‌مانده ماه</p><p className="mt-2 text-xs font-black text-emerald-100">{usdLabel(spend.remainingUsdMicros)}</p><p className="mt-1 text-[9px] font-bold text-slate-600">تسویه {usdLabel(spend.settledUsdMicros)} · رزرو {usdLabel(spend.activeReservedUsdMicros)}</p></div>
                     </div>
                     <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.025] p-3 open:bg-white/[0.04]"><summary className="cursor-pointer text-xs font-black text-cyan-100">مشاهدهٔ scopeها، ابزارها و کارهای ممنوع</summary><div className="mt-4 grid gap-4 md:grid-cols-3"><div><p className="text-[10px] font-black text-slate-500">READ SCOPES</p>{definition.readableScopes.map((item) => <p key={item} dir="ltr" className="mt-2 break-all text-left text-[11px] font-bold text-slate-300">{item}</p>)}</div><div><p className="text-[10px] font-black text-slate-500">TOOLS</p>{definition.allowedTools.length ? definition.allowedTools.map((item) => <p key={item} dir="ltr" className="mt-2 text-left text-[11px] font-bold text-cyan-200">{item}</p>) : <p className="mt-2 text-[11px] font-bold text-slate-500">بدون ابزار</p>}</div><div><p className="text-[10px] font-black text-rose-300">FORBIDDEN</p>{definition.forbiddenActions.map((item) => <p key={item} dir="ltr" className="mt-2 break-all text-left text-[11px] font-bold text-rose-100/80">{item}</p>)}</div></div></details>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -669,12 +693,13 @@ export function AiControlPlanePanel() {
                       <label className="text-xs font-black text-slate-300">مدل جایگزین<input dir="ltr" value={form.fallbackModel} onChange={(event) => updateAgentForm(definition.id, definition, { fallbackModel: event.target.value })} className={`${inputClass} mt-2 text-left font-mono`} /></label>
                       <label className="flex min-h-[67px] items-center justify-between rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-black"><span>ایجنت فعال باشد</span><input type="checkbox" checked={form.enabled} onChange={(event) => updateAgentForm(definition.id, definition, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300" /></label>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-6">
                       {[
                         ["درخواست/روز", "dailyRequests"],
                         ["توکن/روز", "dailyTokens"],
                         ["ورودی", "maxInputTokens"],
                         ["خروجی", "maxOutputTokens"],
+                        ["حداکثر هزینه هر درخواست ($)", "maxRequestCostUsd"],
                         ["سقف قراردادی $/ماه", "monthlyBudgetUsd"],
                       ].map(([label, key]) => <label key={key} className="text-[10px] font-black text-slate-400">{label}<input dir="ltr" inputMode="numeric" value={form[key as keyof AgentForm] as string} onChange={(event) => updateAgentForm(definition.id, definition, { [key]: event.target.value })} className={`${inputClass} mt-2 px-2 text-left font-mono text-xs`} /></label>)}
                     </div>
@@ -689,7 +714,7 @@ export function AiControlPlanePanel() {
                       {(form.openRouterFallbackEnabled || form.providerId === "openrouter") && definition.openRouterFallback.freeAllowed && <label className="mt-3 flex min-h-11 items-center justify-between rounded-xl border border-amber-300/15 bg-amber-300/[0.04] px-3 text-xs font-black text-amber-100"><span>پس از اتمام اعتبار، مسیر <span dir="ltr">openrouter/free</span></span><input type="checkbox" checked={form.freeFallbackEnabled} onChange={(event) => updateAgentForm(definition.id, definition, { freeFallbackEnabled: event.target.checked, ...(event.target.checked ? {} : { openRouterCreditFloorUsd: form.openRouterFallbackEnabled ? form.openRouterCreditFloorUsd : "0" }) })} className="h-5 w-5 accent-amber-300" /></label>}
                       <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">داده‌های مجاز: {definition.openRouterFallback.allowedDataClasses.join("، ")}. fallback رایگان برای Mentor، داده خصوصی، تصمیم حساس و هر کار دارای اثر بیرونی در سرور رد می‌شود.</p>
                     </div>
-                    <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">سقف درخواست و توکن روزانه در زمان اجرا اتمیک اعمال می‌شود؛ مبلغ ماهانه فعلاً سقف قراردادی برای کنترل و تطبیق هزینه است و پس از اتصال گزارش صورتحساب Provider قابل enforce خواهد بود.</p>
+                    <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">درخواست، توکن، حداکثر هزینه هر فراخوانی و بودجه ماهانه پیش از خروج داده به Provider به‌صورت تراکنشی رزرو می‌شوند؛ هزینه نهایی پس از پاسخ تسویه و evidence تصمیم نگهداری می‌شود.</p>
                     <button type="button" onClick={() => void saveAgent(definition)} disabled={busy !== null || !form.model} className={`${buttonClass} mt-4 w-full bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `agent:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} ذخیره Binding و سقف‌ها</button>
                   </article>
                 );

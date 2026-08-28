@@ -80,6 +80,7 @@ export type AiAgentCatalogItem = Readonly<{
     dailyTokens: number;
     maxInputTokens: number;
     maxOutputTokens: number;
+    maxRequestCostUsdMicros: number;
     monthlyBudgetUsdMicros: number;
   }>;
 }>;
@@ -219,6 +220,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 4_000_000,
       maxInputTokens: 12_000,
       maxOutputTokens: 1_200,
+      maxRequestCostUsdMicros: 2_000_000,
       monthlyBudgetUsdMicros: 250_000_000,
     },
   },
@@ -256,6 +258,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 1_500_000,
       maxInputTokens: 4_000,
       maxOutputTokens: 1_600,
+      maxRequestCostUsdMicros: 1_500_000,
       monthlyBudgetUsdMicros: 150_000_000,
     },
   },
@@ -297,6 +300,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 2_000_000,
       maxInputTokens: 5_000,
       maxOutputTokens: 1_800,
+      maxRequestCostUsdMicros: 1_500_000,
       monthlyBudgetUsdMicros: 180_000_000,
     },
   },
@@ -336,6 +340,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 2_500_000,
       maxInputTokens: 12_000,
       maxOutputTokens: 2_000,
+      maxRequestCostUsdMicros: 1_500_000,
       monthlyBudgetUsdMicros: 160_000_000,
     },
   },
@@ -375,6 +380,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 900_000,
       maxInputTokens: 10_000,
       maxOutputTokens: 2_400,
+      maxRequestCostUsdMicros: 1_000_000,
       monthlyBudgetUsdMicros: 90_000_000,
     },
   },
@@ -420,6 +426,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 800_000,
       maxInputTokens: 10_000,
       maxOutputTokens: 2_000,
+      maxRequestCostUsdMicros: 1_000_000,
       monthlyBudgetUsdMicros: 80_000_000,
     },
   },
@@ -465,6 +472,7 @@ export const AI_AGENT_CATALOG: readonly AiAgentCatalogItem[] = Object.freeze([
       dailyTokens: 1_400_000,
       maxInputTokens: 10_000,
       maxOutputTokens: 1_600,
+      maxRequestCostUsdMicros: 1_500_000,
       monthlyBudgetUsdMicros: 120_000_000,
     },
   },

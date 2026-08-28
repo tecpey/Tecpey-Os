@@ -93,6 +93,7 @@ import { PHONE_OTP_LOCAL_VERIFIER_SQL } from "./db-migrate-phone-otp-local-verif
 import { AI_CONTROL_PLANE_SQL } from "./db-migrate-ai-control-plane";
 import { AI_AUTOMATION_ORCHESTRATION_SQL } from "./db-migrate-ai-automation";
 import { AI_CONTROL_JSON_TRIGGER_REPAIR_SQL } from "./db-migrate-ai-control-json-trigger-repair";
+import { AI_ROUTING_BUDGET_SQL } from "./db-migrate-ai-routing-budget";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -401,5 +402,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   aiControlJsonTriggerRepair: one(
     "0093_ai_control_json_trigger_repair.sql",
     AI_CONTROL_JSON_TRIGGER_REPAIR_SQL,
+  ),
+  aiRoutingBudget: one(
+    "0094_ai_routing_budget.sql",
+    AI_ROUTING_BUDGET_SQL,
   ),
 });

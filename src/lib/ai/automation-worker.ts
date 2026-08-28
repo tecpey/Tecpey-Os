@@ -3,8 +3,10 @@ import {
   type AiAgentId,
 } from "./control-plane-catalog";
 import {
-  admitAiAgentUsage,
+  admitAiAgentExecution,
+  recordAiRoutingDecision,
   resolveRuntimeAiAgent,
+  settleAiAgentSpend,
 } from "./control-plane-store";
 import {
   aiAutomationEvidenceHash,
@@ -103,10 +105,11 @@ async function reviewWithAgent(input: {
   const config = runtime.config;
   const prompt = reviewerInput(input.run);
   const maxOutputTokens = Math.min(900, config.limits.maxOutputTokens);
-  const admitted = await admitAiAgentUsage({
+  const admitted = await admitAiAgentExecution({
     tenantId: input.run.tenantId,
     workspaceId: input.run.workspaceId,
     agentId: input.agentId,
+    idempotencyKey: `automation:${input.run.id}:${input.agentId}`,
     estimatedInputTokens: Math.ceil(prompt.length / 3.2),
     maxOutputTokens,
     limits: config.limits,
@@ -134,6 +137,35 @@ async function reviewWithAgent(input: {
     circuitScope: `${input.run.tenantId}:${input.run.workspaceId}:automation`,
     toolsEnabled: ["news_x_researcher", "coin_tool_researcher"].includes(input.agentId),
   });
+  const spendSettlement = await settleAiAgentSpend({
+    tenantId: input.run.tenantId,
+    workspaceId: input.run.workspaceId,
+    agentId: input.agentId,
+    reservationId: admitted.spend.reservationId,
+    costUsdMicros: routed.result.ok ? routed.result.costUsdMicros : null,
+    providerAttempted: routed.result.attempts > 0,
+  });
+  if (!spendSettlement.ok) {
+    return { status: "deferred", reason: `spend_${spendSettlement.reason}` };
+  }
+  const routingRecorded = await recordAiRoutingDecision({
+    tenantId: input.run.tenantId,
+    workspaceId: input.run.workspaceId,
+    runId: input.run.id,
+    agentId: input.agentId,
+    providerId: routed.result.providerId,
+    routeMode: routed.routeMode,
+    decisionCode: routed.result.ok ? "provider_completed" : `provider_${routed.result.reason}`,
+    candidateCount: config.openRouterFallback ? 2 : 1,
+    dataClass: input.run.dataClass,
+    criticality: input.run.criticality,
+    externalEffect: input.run.externalEffect !== "none",
+    approvalMode: config.approvalMode,
+    spendReservationId: admitted.spend.reservationId,
+  });
+  if (!routingRecorded) {
+    return { status: "deferred", reason: "routing_evidence_unavailable" };
+  }
   if (routed.openRouterKeyStatus) {
     await recordOpenRouterQuotaSnapshot({
       tenantId: input.run.tenantId,

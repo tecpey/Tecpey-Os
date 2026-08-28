@@ -154,6 +154,35 @@ describe("AI control-plane source authority", () => {
     assert.match(store, /reserved_tokens \+ EXCLUDED\.reserved_tokens <= \$6/);
   });
 
+  it("enforces monthly spend before egress and records secret-free routing evidence", async () => {
+    const [migration, store, mentor, worker, panel, policy] = await Promise.all([
+      source("src/lib/db-migrate-ai-routing-budget.ts"),
+      source("src/lib/ai/control-plane-store.ts"),
+      source("src/app/api/ai-mentor/route.ts"),
+      source("src/lib/ai/automation-worker.ts"),
+      source("src/components/admin/AiControlPlanePanel.tsx"),
+      source("src/lib/ai/enterprise-routing-policy.ts"),
+    ]);
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_agent_spend_monthly/);
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_spend_reservations/);
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_routing_decision_events/);
+    assert.match(
+      store,
+      /active_reserved_usd_micros \+ settled_usd_micros \+ \$5 <= \$6/,
+    );
+    assert.match(store, /pg_advisory_xact_lock/);
+    assert.match(store, /recordAiRoutingDecision/);
+    assert.match(mentor, /admitAiAgentExecution\(\{/);
+    assert.match(mentor, /settleAiAgentSpend\(\{/);
+    assert.match(worker, /routing_evidence_unavailable/);
+    assert.match(panel, /حداکثر هزینه هر درخواست/);
+    assert.match(panel, /بودجه باقی‌مانده ماه/);
+    assert.match(policy, /zero_retention_required/);
+    assert.match(policy, /approval_required/);
+    assert.match(policy, /monthly_budget_exhausted/);
+    assert.doesNotMatch(migration, /api[_-]?key|authorization|credential/i);
+  });
+
   it("retrieves only human-verified, current and tenant-scoped knowledge for Mentor", async () => {
     const [store, mentor, trust] = await Promise.all([
       source("src/lib/ai/control-plane-store.ts"),

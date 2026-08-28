@@ -10,14 +10,16 @@ import {
   type AiModelProviderId,
 } from "@/lib/ai/control-plane-catalog";
 import {
-  admitAiAgentUsage,
+  admitAiAgentExecution,
   aiEvidenceHash,
   createAiKnowledgeCandidate,
   loadAiControlPlaneSnapshot,
   recordAiProviderTest,
+  recordAiRoutingDecision,
   recordAiWorkflowEvidence,
   resolveAiProviderForTest,
   resolveRuntimeAiAgent,
+  settleAiAgentSpend,
   reviewAiKnowledgeItem,
   safeAiCatalogForAdmin,
   updateAiAgentBinding,
@@ -80,12 +82,25 @@ function agentLimits(value: unknown): AiAgentLimits | null {
   const dailyTokens = integer(input.dailyTokens, 1_000, 100_000_000_000);
   const maxInputTokens = integer(input.maxInputTokens, 256, 1_000_000);
   const maxOutputTokens = integer(input.maxOutputTokens, 64, 100_000);
+  const maxRequestCostUsdMicros = integer(
+    input.maxRequestCostUsdMicros,
+    1_000,
+    100_000_000_000,
+  );
   const monthlyBudgetUsdMicros = integer(input.monthlyBudgetUsdMicros, 1_000_000, 1_000_000_000_000);
   if (
     dailyRequests === null || dailyTokens === null || maxInputTokens === null ||
-    maxOutputTokens === null || monthlyBudgetUsdMicros === null
+    maxOutputTokens === null || maxRequestCostUsdMicros === null ||
+    monthlyBudgetUsdMicros === null
   ) return null;
-  return { dailyRequests, dailyTokens, maxInputTokens, maxOutputTokens, monthlyBudgetUsdMicros };
+  return {
+    dailyRequests,
+    dailyTokens,
+    maxInputTokens,
+    maxOutputTokens,
+    maxRequestCostUsdMicros,
+    monthlyBudgetUsdMicros,
+  };
 }
 
 function agentRouting(value: unknown): {
@@ -372,10 +387,11 @@ async function researchPreview(
     sourcePolicy: "public_sources_only",
   });
   const maxOutputTokens = Math.min(2_000, config.limits.maxOutputTokens);
-  const usage = await admitAiAgentUsage({
+  const usage = await admitAiAgentExecution({
     tenantId: authorization.principal.tenantId,
     workspaceId: authorization.principal.workspaceId,
     agentId,
+    idempotencyKey: `admin-research:${runId}`,
     estimatedInputTokens: Math.ceil(input.length / 3.2),
     maxOutputTokens,
     limits: config.limits,
@@ -412,7 +428,17 @@ async function researchPreview(
     approvalMode: config.approvalMode,
     actorAdminId: authorization.principal.adminId,
   });
-  if (!admitted) return apiError("ai_workflow_evidence_unavailable", 503);
+  if (!admitted) {
+    await settleAiAgentSpend({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      agentId,
+      reservationId: usage.spend.reservationId,
+      costUsdMicros: 0,
+      providerAttempted: false,
+    });
+    return apiError("ai_workflow_evidence_unavailable", 503);
+  }
 
   const routedProvider = await callAiProviderWithFailover({
     agentId,
@@ -440,6 +466,39 @@ async function researchPreview(
     circuitScope: `${authorization.principal.tenantId}:${authorization.principal.workspaceId}`,
     requestSignal: request.signal,
   });
+  const spendSettlement = await settleAiAgentSpend({
+    tenantId: authorization.principal.tenantId,
+    workspaceId: authorization.principal.workspaceId,
+    agentId,
+    reservationId: usage.spend.reservationId,
+    costUsdMicros: routedProvider.result.ok
+      ? routedProvider.result.costUsdMicros
+      : null,
+    providerAttempted: routedProvider.result.attempts > 0,
+  });
+  if (!spendSettlement.ok) {
+    return apiError("ai_spend_settlement_unavailable", 503);
+  }
+  const routingRecorded = await recordAiRoutingDecision({
+    tenantId: authorization.principal.tenantId,
+    workspaceId: authorization.principal.workspaceId,
+    runId,
+    agentId,
+    providerId: routedProvider.result.providerId,
+    routeMode: routedProvider.routeMode,
+    decisionCode: routedProvider.result.ok
+      ? "provider_completed"
+      : `provider_${routedProvider.result.reason}`,
+    candidateCount: config.openRouterFallback ? 2 : 1,
+    dataClass: "public",
+    criticality: "noncritical",
+    externalEffect: false,
+    approvalMode: config.approvalMode,
+    spendReservationId: usage.spend.reservationId,
+  });
+  if (!routingRecorded) {
+    return apiError("ai_routing_evidence_unavailable", 503);
+  }
   if (routedProvider.openRouterKeyStatus) {
     const quotaRecorded = await recordOpenRouterQuotaSnapshot({
       tenantId: authorization.principal.tenantId,

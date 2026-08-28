@@ -149,6 +149,7 @@ describe("AI Mentor durable trust store", () => {
       dailyTokens: 10_000,
       maxInputTokens: 256,
       maxOutputTokens: 64,
+      maxRequestCostUsdMicros: 100_000,
       monthlyBudgetUsdMicros: 1_000_000,
     };
     assert.deepEqual(
@@ -562,6 +563,7 @@ describe("AI Mentor durable trust store", () => {
         dailyTokens: 148,
         maxInputTokens: 1_000,
         maxOutputTokens: 64,
+        maxRequestCostUsdMicros: 100_000,
         monthlyBudgetUsdMicros: 1_000_000,
       };
       const admit = (scope: typeof scopeA) => admitAiAgentUsage({

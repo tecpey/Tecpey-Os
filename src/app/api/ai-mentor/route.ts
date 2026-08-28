@@ -30,11 +30,13 @@ import { type AiSourceReference } from "@/lib/ai/provider-router";
 import { callAiProviderWithFailover } from "@/lib/ai/provider-failover";
 import { recordOpenRouterQuotaSnapshot } from "@/lib/ai/automation-store";
 import {
-  admitAiAgentUsage,
+  admitAiAgentExecution,
   aiEvidenceHash,
   loadVerifiedAiKnowledgeContext,
+  recordAiRoutingDecision,
   recordAiWorkflowEvidence,
   resolveRuntimeAiAgent,
+  settleAiAgentSpend,
 } from "@/lib/ai/control-plane-store";
 import {
   appendAiMentorEvidence,
@@ -756,10 +758,11 @@ export async function POST(request: NextRequest) {
         1_600,
         researchConfig.limits.maxOutputTokens,
       );
-      const researchUsage = await admitAiAgentUsage({
+      const researchUsage = await admitAiAgentExecution({
         tenantId: activeTenantId,
         workspaceId: activeWorkspaceId,
         agentId: selectedResearchRoute.agentId,
+        idempotencyKey: `mentor-research:${requestId}`,
         estimatedInputTokens: publicResearchEgress.estimatedInputTokens,
         maxOutputTokens: researchMaxOutputTokens,
         limits: researchConfig.limits,
@@ -844,6 +847,14 @@ export async function POST(request: NextRequest) {
         }),
       ]);
       if (!workflowAdmitted || !mentorAdmitted) {
+        await settleAiAgentSpend({
+          tenantId: activeTenantId,
+          workspaceId: activeWorkspaceId,
+          agentId: selectedResearchRoute.agentId,
+          reservationId: researchUsage.spend.reservationId,
+          costUsdMicros: 0,
+          providerAttempted: false,
+        });
         const answer = publicResearchUnavailableAnswer(locale, fallback.answer);
         const local = await persistLocal(
           answer,
@@ -891,6 +902,39 @@ export async function POST(request: NextRequest) {
         circuitScope: `${activeTenantId}:${activeWorkspaceId}`,
       });
       const researchProvider = researchRoute.result;
+      const researchSpendSettlement = await settleAiAgentSpend({
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        agentId: selectedResearchRoute.agentId,
+        reservationId: researchUsage.spend.reservationId,
+        costUsdMicros: researchProvider.ok
+          ? researchProvider.costUsdMicros
+          : null,
+        providerAttempted: researchProvider.attempts > 0,
+      });
+      if (!researchSpendSettlement.ok) {
+        throw new Error("ai_mentor_public_research_spend_settlement_failed");
+      }
+      const researchRoutingRecorded = await recordAiRoutingDecision({
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        runId: requestId,
+        agentId: selectedResearchRoute.agentId,
+        providerId: researchProvider.providerId,
+        routeMode: researchRoute.routeMode,
+        decisionCode: researchProvider.ok
+          ? "provider_completed"
+          : `provider_${researchProvider.reason}`,
+        candidateCount: researchConfig.openRouterFallback ? 2 : 1,
+        dataClass: "public",
+        criticality: "noncritical",
+        externalEffect: false,
+        approvalMode: researchConfig.approvalMode,
+        spendReservationId: researchUsage.spend.reservationId,
+      });
+      if (!researchRoutingRecorded) {
+        throw new Error("ai_mentor_public_research_routing_evidence_failed");
+      }
       if (researchRoute.openRouterKeyStatus) {
         await recordOpenRouterQuotaSnapshot({
           tenantId: activeTenantId,
@@ -1194,10 +1238,11 @@ export async function POST(request: NextRequest) {
       800,
       providerConfig.limits.maxOutputTokens,
     );
-    const usage = await admitAiAgentUsage({
+    const usage = await admitAiAgentExecution({
       tenantId: activeTenantId,
       workspaceId: activeWorkspaceId,
       agentId: "mentor_coach",
+      idempotencyKey: `mentor-response:${requestId}`,
       estimatedInputTokens: egress.estimatedInputTokens,
       maxOutputTokens,
       limits: providerConfig.limits,
@@ -1252,6 +1297,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (!admitted) {
+      await settleAiAgentSpend({
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        agentId: "mentor_coach",
+        reservationId: usage.spend.reservationId,
+        costUsdMicros: 0,
+        providerAttempted: false,
+      });
       const local = await persistLocal(fallback.answer, "evidence_unavailable");
       return apiOk(
         responseEnvelope({
@@ -1292,6 +1345,37 @@ export async function POST(request: NextRequest) {
       circuitScope: `${activeTenantId}:${activeWorkspaceId}`,
     });
     const provider = providerRoute.result;
+    const spendSettlement = await settleAiAgentSpend({
+      tenantId: activeTenantId,
+      workspaceId: activeWorkspaceId,
+      agentId: "mentor_coach",
+      reservationId: usage.spend.reservationId,
+      costUsdMicros: provider.ok ? provider.costUsdMicros : null,
+      providerAttempted: provider.attempts > 0,
+    });
+    if (!spendSettlement.ok) {
+      throw new Error("ai_mentor_spend_settlement_failed");
+    }
+    const routingRecorded = await recordAiRoutingDecision({
+      tenantId: activeTenantId,
+      workspaceId: activeWorkspaceId,
+      runId: requestId,
+      agentId: "mentor_coach",
+      providerId: provider.providerId,
+      routeMode: providerRoute.routeMode,
+      decisionCode: provider.ok
+        ? "provider_completed"
+        : `provider_${provider.reason}`,
+      candidateCount: providerConfig.openRouterFallback ? 2 : 1,
+      dataClass: "private_user",
+      criticality: "standard",
+      externalEffect: false,
+      approvalMode: providerConfig.approvalMode,
+      spendReservationId: usage.spend.reservationId,
+    });
+    if (!routingRecorded) {
+      throw new Error("ai_mentor_routing_evidence_failed");
+    }
     if (providerRoute.openRouterKeyStatus) {
       await recordOpenRouterQuotaSnapshot({
         tenantId: activeTenantId,
