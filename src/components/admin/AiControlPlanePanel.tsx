@@ -137,6 +137,15 @@ type Snapshot = {
   knowledge: KnowledgeSnapshot[];
   knowledgeSummary: Record<KnowledgeSnapshot["status"], number>;
   usageToday: Record<AgentId, { requestCount: number; reservedTokens: number }>;
+  openRouterQuota: {
+    status: "healthy" | "low" | "exhausted" | "rate_limited" | "unavailable";
+    limitUsdMicros: number | null;
+    remainingUsdMicros: number | null;
+    usageUsdMicros: number | null;
+    isFreeTier: boolean | null;
+    source: "provider_api" | "request_failure" | "worker_probe";
+    checkedAt: string;
+  } | null;
 };
 
 type Catalog = {
@@ -144,6 +153,8 @@ type Catalog = {
   agents: AgentCatalog[];
   workflows: WorkflowCatalog[];
 };
+
+type OpenRouterQuotaStatus = NonNullable<Snapshot["openRouterQuota"]>["status"];
 
 type ProviderForm = { enabled: boolean; apiKey: string; testModel: string };
 type AgentForm = {
@@ -196,6 +207,25 @@ function dateLabel(value: string | null): string {
   return new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+function usdLabel(value: number | null): string {
+  if (value === null) return "نامشخص";
+  return new Intl.NumberFormat("fa-IR", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 4,
+  }).format(value / 1_000_000);
+}
+
+function quotaStatusLabel(status: OpenRouterQuotaStatus): string {
+  return {
+    healthy: "سالم",
+    low: "اعتبار کم",
+    exhausted: "اعتبار تمام‌شده",
+    rate_limited: "محدودشده",
+    unavailable: "نامعلوم — مسیر پولی بسته",
+  }[status];
+}
+
 function errorMessage(code: unknown): string {
   const messages: Record<string, string> = {
     admin_session_required: "نشست مدیریتی منقضی شده است؛ دوباره وارد شوید.",
@@ -205,6 +235,7 @@ function errorMessage(code: unknown): string {
     ai_control_plane_unavailable: "دیتابیس کنترل‌پلین AI در دسترس نیست.",
     ai_provider_secret_required: "ابتدا کلید معتبر Provider را ثبت کنید.",
     ai_provider_test_failed: "تست Provider ناموفق بود؛ کلید، مدل و دسترسی حساب را بررسی کنید.",
+    ai_provider_quota_evidence_unavailable: "تست انجام شد اما evidence سهمیه ثبت نشد؛ برای جلوگیری از تصمیم هزینه‌ای نامطمئن، نتیجه پذیرفته نشد.",
     ai_agent_provider_not_ready: "Provider باید فعال، دارای کلید و دارای تست موفق باشد.",
     ai_agent_provider_forbidden: "این Provider در قرارداد ثابت این ایجنت مجاز نیست.",
     ai_agent_fallback_provider_not_ready: "OpenRouter باید فعال، دارای کلید و تست موفق باشد.",
@@ -591,6 +622,14 @@ export function AiControlPlanePanel() {
                       <div className="flex justify-between gap-3"><span>Secret</span><span dir="ltr" className="text-left text-slate-200">{current?.secretConfigured ? `•••• ${current.keyFingerprint}` : current?.configurationSource === "environment" ? "environment compatibility" : "ثبت نشده"}</span></div>
                       <div className="mt-2 flex justify-between gap-3"><span>آخرین تست</span><span>{dateLabel(current?.lastTestedAt ?? null)}</span></div>
                     </div>
+                    {definition.id === "openrouter" && snapshot?.openRouterQuota && (
+                      <div className="mt-3 rounded-xl border border-violet-300/15 bg-violet-300/[0.045] p-3 text-xs font-bold text-slate-400">
+                        <div className="flex justify-between gap-3"><span>وضعیت سهمیه</span><span className="text-violet-100">{quotaStatusLabel(snapshot.openRouterQuota.status)}</span></div>
+                        <div className="mt-2 flex justify-between gap-3"><span>باقی‌مانده</span><span dir="ltr" className="text-left text-slate-200">{usdLabel(snapshot.openRouterQuota.remainingUsdMicros)}</span></div>
+                        <div className="mt-2 flex justify-between gap-3"><span>مصرف ماه</span><span dir="ltr" className="text-left text-slate-200">{usdLabel(snapshot.openRouterQuota.usageUsdMicros)}</span></div>
+                        <div className="mt-2 flex justify-between gap-3"><span>آخرین بررسی</span><span>{dateLabel(snapshot.openRouterQuota.checkedAt)}</span></div>
+                      </div>
+                    )}
                     <label className="mt-4 block text-xs font-black text-slate-300">{definition.secretLabel}<input type="password" dir="ltr" autoComplete="new-password" spellCheck={false} value={form.apiKey} onChange={(event) => updateProviderForm(definition.id, { apiKey: event.target.value })} placeholder={current?.secretConfigured ? "برای حفظ کلید فعلی خالی بگذارید" : "کلید جدید"} className={`${inputClass} mt-2 text-left font-mono`} /></label>
                     {definition.kind === "model" && <label className="mt-3 block text-xs font-black text-slate-300">مدل برای تست اتصال<input dir="ltr" value={form.testModel} onChange={(event) => updateProviderForm(definition.id, { testModel: event.target.value })} placeholder="نام دقیق مدل حساب شما" className={`${inputClass} mt-2 text-left font-mono`} /></label>}
                     <label className="mt-4 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs font-black"><span>فعال‌سازی Provider</span><input type="checkbox" checked={form.enabled} onChange={(event) => updateProviderForm(definition.id, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300" /></label>
