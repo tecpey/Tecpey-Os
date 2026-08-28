@@ -25,7 +25,8 @@ import {
   type AdminAiMutationContext,
   type AiAgentLimits,
 } from "@/lib/ai/control-plane-store";
-import { callAiProvider, testXApiConnector } from "@/lib/ai/provider-router";
+import { recordOpenRouterQuotaSnapshot } from "@/lib/ai/automation-store";
+import { callAiProvider, inspectOpenRouterKey, testXApiConnector } from "@/lib/ai/provider-router";
 import { callAiProviderWithFailover } from "@/lib/ai/provider-failover";
 import {
   inspectMentorOutput,
@@ -298,6 +299,21 @@ async function testProvider(
     attempts = result.attempts;
     testedModel = result.ok ? result.model : result.model ?? model;
     providerStatus = result.ok ? 200 : result.status ?? null;
+    if (providerId === "openrouter") {
+      const quotaStatus = await inspectOpenRouterKey({
+        apiKey: secret.apiKey,
+        requestSignal: request.signal,
+        timeoutMs: 8_000,
+      });
+      const quotaRecorded = await recordOpenRouterQuotaSnapshot({
+        tenantId: authorization.principal.tenantId,
+        workspaceId: authorization.principal.workspaceId,
+        status: quotaStatus,
+        creditFloorUsdMicros: 0,
+        source: "worker_probe",
+      });
+      if (!quotaRecorded) return apiError("ai_provider_quota_evidence_unavailable", 503);
+    }
   }
   const recorded = await recordAiProviderTest({
     ...mutationContext(request, authorization),
@@ -424,6 +440,16 @@ async function researchPreview(
     circuitScope: `${authorization.principal.tenantId}:${authorization.principal.workspaceId}`,
     requestSignal: request.signal,
   });
+  if (routedProvider.openRouterKeyStatus) {
+    const quotaRecorded = await recordOpenRouterQuotaSnapshot({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      status: routedProvider.openRouterKeyStatus,
+      creditFloorUsdMicros: config.openRouterFallback?.creditFloorUsdMicros ?? 0,
+      source: "provider_api",
+    });
+    if (!quotaRecorded) return apiError("ai_provider_quota_evidence_unavailable", 503);
+  }
   const provider = routedProvider.result;
   if (!provider.ok) {
     await recordAiWorkflowEvidence({
