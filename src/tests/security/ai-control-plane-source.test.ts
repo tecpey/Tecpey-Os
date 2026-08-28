@@ -73,6 +73,39 @@ describe("AI control-plane source authority", () => {
     assert.match(panel, /سامانه پس از.*تلاش کنترل‌شده بازیابی شد/);
   });
 
+  it("makes OpenRouter spend authority fail closed and exposes the latest quota evidence", async () => {
+    const [route, failover, store, panel, automationStore] = await Promise.all([
+      source("src/app/api/command-center/ai-control-plane/route.ts"),
+      source("src/lib/ai/provider-failover.ts"),
+      source("src/lib/ai/control-plane-store.ts"),
+      source("src/components/admin/AiControlPlanePanel.tsx"),
+      source("src/lib/ai/automation-store.ts"),
+    ]);
+    assert.match(
+      failover,
+      /keyStatus\.ok\s*&&\s*keyStatus\.limitRemainingUsdMicros !== null/,
+    );
+    assert.doesNotMatch(failover, /!keyStatus\.ok\s*\|\|/);
+    assert.match(route, /inspectOpenRouterKey\(\{/);
+    assert.match(route, /source: "worker_probe"/);
+    assert.match(route, /source: "provider_api"/);
+    assert.match(
+      store,
+      /FROM ai_provider_quota_snapshots[\s\S]*provider_id = 'openrouter'[\s\S]*ORDER BY checked_at DESC, id DESC/,
+    );
+    assert.match(store, /openRouterQuota,/);
+    assert.match(panel, /وضعیت سهمیه/);
+    assert.match(panel, /نامعلوم — مسیر پولی بسته/);
+    assert.match(
+      automationStore,
+      /input\.status\.status === 429 \? "rate_limited" : "unavailable"/,
+    );
+    assert.match(
+      automationStore,
+      /input\.status\.limitRemainingUsdMicros === null\s*\? "unavailable"/,
+    );
+  });
+
   it("makes Mentor threads server-owned and user-bound", async () => {
     const [threads, conversations, migration, mentor, widget, coach] =
       await Promise.all([
