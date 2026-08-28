@@ -97,6 +97,71 @@ describe("AI provider budget failover", () => {
     assert.deepEqual(models, ["openrouter/free"]);
   });
 
+  it("fails closed on unknown paid credit and uses only the governed free route", async () => {
+    const models: string[] = [];
+    const result = await callAiProviderWithFailover(base, {
+      fetchImpl: async (url, init) => {
+        if (String(url).includes("api.perplexity.ai")) {
+          return new Response("{}", { status: 429 });
+        }
+        if (String(url).endsWith("/api/v1/key")) {
+          return new Response("{}", { status: 503 });
+        }
+        const body = JSON.parse(String(init?.body)) as { model: string };
+        models.push(body.model);
+        return new Response(successBody(body.model), { status: 200 });
+      },
+    });
+    assert.equal(result.result.ok, true);
+    assert.equal(result.routeMode, "openrouter_free");
+    assert.equal(result.openRouterKeyStatus?.ok, false);
+    assert.deepEqual(models, ["openrouter/free"]);
+  });
+
+  it("does not authorize paid fallback when the remaining balance is unknown", async () => {
+    const models: string[] = [];
+    const result = await callAiProviderWithFailover(base, {
+      fetchImpl: async (url, init) => {
+        if (String(url).includes("api.perplexity.ai")) {
+          return new Response("{}", { status: 402 });
+        }
+        if (String(url).endsWith("/api/v1/key")) {
+          return new Response(JSON.stringify({
+            data: { limit: null, limit_remaining: null, usage_monthly: 0, is_free_tier: false },
+          }), { status: 200 });
+        }
+        const body = JSON.parse(String(init?.body)) as { model: string };
+        models.push(body.model);
+        return new Response(successBody(body.model), { status: 200 });
+      },
+    });
+    assert.equal(result.result.ok, true);
+    assert.equal(result.routeMode, "openrouter_free");
+    assert.deepEqual(models, ["openrouter/free"]);
+  });
+
+  it("keeps sensitive workloads on the failed primary when paid credit authority is unavailable", async () => {
+    const urls: string[] = [];
+    const result = await callAiProviderWithFailover({
+      ...base,
+      agentId: "mentor_coach",
+      primary: { ...base.primary, providerId: "openai" },
+      dataClass: "private_user",
+      criticality: "standard",
+    }, {
+      fetchImpl: async (url) => {
+        urls.push(String(url));
+        if (String(url).includes("api.openai.com")) return new Response("{}", { status: 402 });
+        if (String(url).endsWith("/api/v1/key")) return new Response("{}", { status: 503 });
+        throw new Error("unknown paid authority reached an OpenRouter model endpoint");
+      },
+    });
+    assert.equal(result.result.ok, false);
+    assert.equal(result.routeMode, "primary");
+    assert.equal(result.fallbackAttempted, false);
+    assert.equal(urls.some((url) => url.endsWith("/chat/completions")), false);
+  });
+
   it("degrades a paid OpenRouter primary model to its free router after quota exhaustion", async () => {
     const models: string[] = [];
     const result = await callAiProviderWithFailover({
