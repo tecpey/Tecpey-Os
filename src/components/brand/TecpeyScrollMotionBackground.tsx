@@ -9,6 +9,12 @@ import {
   isTecpeyScrollMotionRoute,
   normalizeTecpeyScrollMotionPathname,
 } from "@/components/brand/tecpey-scroll-motion-routes";
+import {
+  calculateTecpeyMotionMarkFrame,
+  hashTecpeyMotionRoute,
+  seededTecpeyMotionUnit,
+  TECPEY_MOTION_MARKS,
+} from "@/components/brand/tecpey-scroll-motion-field";
 
 type NavigatorWithConnection = Navigator & {
   connection?: {
@@ -20,18 +26,7 @@ const subscribeToHydration = () => () => undefined;
 const getHydratedSnapshot = () => true;
 const getServerSnapshot = () => false;
 const MOTION_FADE_MS = 260;
-
-const motionMarks = [
-  { left: "7%", top: "16%", size: 30, opacity: 0.16, depth: 0.42 },
-  { left: "84%", top: "11%", size: 24, opacity: 0.12, depth: 0.68 },
-  { left: "18%", top: "43%", size: 42, opacity: 0.12, depth: 0.86 },
-  { left: "73%", top: "35%", size: 32, opacity: 0.14, depth: 0.54 },
-  { left: "91%", top: "61%", size: 26, opacity: 0.10, depth: 0.74 },
-  { left: "11%", top: "72%", size: 34, opacity: 0.13, depth: 0.62 },
-  { left: "58%", top: "78%", size: 22, opacity: 0.10, depth: 0.92 },
-  { left: "38%", top: "24%", size: 20, opacity: 0.09, depth: 0.48 },
-  { left: "47%", top: "56%", size: 28, opacity: 0.11, depth: 0.78 },
-] as const;
+const MOTION_ROUTE_EXIT_MS = 220;
 
 export function TecpeyScrollMotionBackground() {
   const pathname = normalizeTecpeyScrollMotionPathname(usePathname() || "/");
@@ -47,7 +42,9 @@ export function TecpeyScrollMotionBackground() {
   const markRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const renderedSourceRef = useRef<string | null>(null);
+  const renderedPathRef = useRef<string | null>(null);
   const [renderedSource, setRenderedSource] = useState<string | null>(null);
+  const [renderedPath, setRenderedPath] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const videoSource = hydrated && !usesDarkSurface && resolvedTheme === "light"
     ? "/media/tecpey-scroll-motion-light.mp4"
@@ -61,13 +58,15 @@ export function TecpeyScrollMotionBackground() {
     let enterFrame = 0;
     let exitTimer = 0;
 
-    const commitSource = (source: string | null) => {
+    const commitSurface = (source: string | null, path: string | null) => {
       renderedSourceRef.current = source;
+      renderedPathRef.current = path;
       setRenderedSource(source);
+      setRenderedPath(path);
     };
 
-    const revealSource = (source: string) => {
-      commitSource(source);
+    const revealSurface = (source: string, path: string) => {
+      commitSurface(source, path);
       setIsVisible(false);
       enterFrame = window.requestAnimationFrame(() => setIsVisible(true));
     };
@@ -78,15 +77,24 @@ export function TecpeyScrollMotionBackground() {
       if (!requestedSource) {
         setIsVisible(false);
         if (currentSource) {
-          exitTimer = window.setTimeout(() => commitSource(null), MOTION_FADE_MS);
+          exitTimer = window.setTimeout(
+            () => commitSurface(null, null),
+            MOTION_FADE_MS
+          );
         }
       } else if (!currentSource) {
-        revealSource(requestedSource);
-      } else if (currentSource === requestedSource) {
+        revealSurface(requestedSource, pathname);
+      } else if (
+        currentSource === requestedSource &&
+        renderedPathRef.current === pathname
+      ) {
         setIsVisible(true);
       } else {
         setIsVisible(false);
-        exitTimer = window.setTimeout(() => revealSource(requestedSource), MOTION_FADE_MS);
+        exitTimer = window.setTimeout(
+          () => revealSurface(requestedSource, pathname),
+          MOTION_ROUTE_EXIT_MS
+        );
       }
     });
 
@@ -95,7 +103,7 @@ export function TecpeyScrollMotionBackground() {
       if (enterFrame) window.cancelAnimationFrame(enterFrame);
       if (exitTimer) window.clearTimeout(exitTimer);
     };
-  }, [requestedSource]);
+  }, [pathname, requestedSource]);
 
   useEffect(() => {
     if (!renderedSource) return;
@@ -114,12 +122,29 @@ export function TecpeyScrollMotionBackground() {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const saveData = (navigator as NavigatorWithConnection).connection?.saveData === true;
     let animationFrame = 0;
+    let videoStartSeeded = false;
+    const routeSeed = hashTecpeyMotionRoute(renderedPath || "/");
+
+    const seedPlaybackPhase = () => {
+      if (
+        videoStartSeeded ||
+        reducedMotion.matches ||
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0
+      ) {
+        return;
+      }
+
+      video.currentTime = seededTecpeyMotionUnit(routeSeed) * video.duration;
+      videoStartSeeded = true;
+    };
 
     const syncPlayback = () => {
       const shouldPlay =
         !reducedMotion.matches && !saveData && document.visibilityState === "visible";
 
       if (shouldPlay) {
+        seedPlaybackPhase();
         void video.play().catch(() => undefined);
         return;
       }
@@ -136,7 +161,9 @@ export function TecpeyScrollMotionBackground() {
       if (reducedMotion.matches) {
         mediaLayer.style.transform = "translate3d(0, 0, 0)";
         for (const mark of markRefs.current) {
-          if (mark) mark.style.transform = "translate3d(0, 0, 0)";
+          if (!mark) continue;
+          mark.style.opacity = "0";
+          mark.style.transform = "translate3d(0, 0, 0)";
         }
         return;
       }
@@ -144,11 +171,21 @@ export function TecpeyScrollMotionBackground() {
       const maximumTravel = Math.min(window.innerHeight * 0.12, 112);
       const offset = Math.min(window.scrollY * 0.055, maximumTravel);
       mediaLayer.style.transform = `translate3d(0, -${offset.toFixed(2)}px, 0)`;
-      motionMarks.forEach((mark, index) => {
+
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      TECPEY_MOTION_MARKS.forEach((mark, index) => {
         const element = markRefs.current[index];
         if (!element) return;
-        const markOffset = offset * mark.depth;
-        element.style.transform = `translate3d(0, -${markOffset.toFixed(2)}px, 0)`;
+        const frame = calculateTecpeyMotionMarkFrame(mark, {
+          scrollY: window.scrollY,
+          viewportWidth,
+          viewportHeight,
+          routeSeed,
+        });
+
+        element.style.opacity = frame.opacity.toFixed(3);
+        element.style.transform = `translate3d(${frame.x.toFixed(2)}px, ${frame.y.toFixed(2)}px, 0)`;
       });
     };
 
@@ -180,7 +217,7 @@ export function TecpeyScrollMotionBackground() {
       reducedMotion.removeEventListener("change", handleMotionPreference);
       video.pause();
     };
-  }, [renderedSource]);
+  }, [renderedPath, renderedSource]);
 
   if (!renderedSource) return null;
 
@@ -192,7 +229,7 @@ export function TecpeyScrollMotionBackground() {
     >
       <div ref={mediaLayerRef} className="tecpey-scroll-motion-background__media">
         <video
-          key={renderedSource}
+          key={`${renderedSource}:${renderedPath}`}
           ref={videoRef}
           className="tecpey-scroll-motion-background__video"
           src={renderedSource}
@@ -205,19 +242,16 @@ export function TecpeyScrollMotionBackground() {
         />
       </div>
       <div className="tecpey-scroll-motion-background__marks">
-        {motionMarks.map((mark, index) => (
+        {TECPEY_MOTION_MARKS.map((mark, index) => (
           <span
-            key={`${mark.left}-${mark.top}`}
+            key={mark.seed}
             ref={(element) => {
               markRefs.current[index] = element;
             }}
             className="tecpey-scroll-motion-background__mark"
             style={{
-              left: mark.left,
-              top: mark.top,
               width: mark.size,
               height: mark.size,
-              opacity: mark.opacity,
             }}
           >
             <TecpeyMark alt="" width={mark.size} height={mark.size} />

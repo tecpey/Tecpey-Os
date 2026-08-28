@@ -6,6 +6,11 @@ import {
   isTecpeyDarkScrollMotionSurface,
   isTecpeyScrollMotionRoute,
 } from "@/components/brand/tecpey-scroll-motion-routes";
+import {
+  calculateTecpeyMotionMarkFrame,
+  hashTecpeyMotionRoute,
+  TECPEY_MOTION_MARKS,
+} from "@/components/brand/tecpey-scroll-motion-field";
 import { academyArticles } from "@/data/academy";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
@@ -98,21 +103,83 @@ describe("TecPey scroll motion background", () => {
     assert.match(component, /addEventListener\("scroll", schedulePositionUpdate, \{ passive: true \}\)/);
     assert.match(component, /translate3d\(0,/);
     assert.match(component, /MOTION_FADE_MS = 260/);
+    assert.match(component, /MOTION_ROUTE_EXIT_MS = 220/);
     assert.match(component, /data-visible=\{isVisible \? "true" : "false"\}/);
-    assert.match(component, /window\.setTimeout\(\(\) => commitSource\(null\), MOTION_FADE_MS\)/);
-    assert.match(component, /markOffset = offset \* mark\.depth/);
+    assert.match(component, /renderedPathRef\.current === pathname/);
+    assert.match(component, /commitSurface\(null, null\)/);
+    assert.match(component, /calculateTecpeyMotionMarkFrame\(mark/);
+    assert.match(component, /element\.style\.opacity = frame\.opacity\.toFixed\(3\)/);
+    assert.match(component, /scrollY: window\.scrollY/);
     assert.match(component, /<TecpeyMark alt=""/);
     assert.match(component, /connection\?\.saveData === true/);
     assert.match(component, /addEventListener\("visibilitychange", syncPlayback\)/);
     assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
     assert.match(styles, /\.tecpey-scroll-motion-background__media/);
     assert.match(styles, /transition: opacity var\(--tp-duration-panel\) var\(--tp-ease-out\)/);
-    assert.match(styles, /\.tecpey-scroll-motion-background__mark:nth-child\(n \+ 7\)/);
+    assert.match(styles, /mask-image: linear-gradient/);
+    assert.match(styles, /\.tecpey-scroll-motion-background__mark:nth-child\(n \+ 11\)/);
     assert.match(styles, /\.tecpey-scroll-motion-background__mark[\s\S]*?will-change: transform/);
     assert.doesNotMatch(
       styles,
       /\.tecpey-scroll-motion-background[\s\S]*?\{[^}]*transition:\s*all/
     );
+  });
+
+  it("moves, edge-fades, and deterministically relocates decorative marks", () => {
+    const mark = TECPEY_MOTION_MARKS[0];
+    const routeSeed = hashTecpeyMotionRoute("/academy/term-1");
+    const viewport = {
+      viewportWidth: 390,
+      viewportHeight: 844,
+      routeSeed,
+    };
+    const initial = calculateTecpeyMotionMarkFrame(mark, {
+      ...viewport,
+      scrollY: 0,
+    });
+    const scrolled = calculateTecpeyMotionMarkFrame(mark, {
+      ...viewport,
+      scrollY: 420,
+    });
+    const nextCycle = calculateTecpeyMotionMarkFrame(mark, {
+      ...viewport,
+      scrollY: 2_100,
+    });
+
+    assert.equal(TECPEY_MOTION_MARKS.length, 14);
+    for (const configuredMark of TECPEY_MOTION_MARKS) {
+      const before = calculateTecpeyMotionMarkFrame(configuredMark, {
+        ...viewport,
+        scrollY: 0,
+      });
+      const after = calculateTecpeyMotionMarkFrame(configuredMark, {
+        ...viewport,
+        scrollY: 48,
+      });
+
+      assert.ok(after.y < before.y, `mark ${configuredMark.seed} must move upward`);
+      assert.ok(before.x >= 0 && before.x + configuredMark.size <= viewport.viewportWidth);
+      assert.ok(before.opacity >= 0 && before.opacity <= configuredMark.opacity);
+    }
+
+    assert.ok(scrolled.y < initial.y, "scrolling down must move the mark upward");
+    assert.notEqual(nextCycle.cycleIndex, initial.cycleIndex);
+    assert.notEqual(nextCycle.x, initial.x, "a new cycle must choose a new x position");
+    assert.ok(initial.opacity < mark.opacity, "the lower edge must fade the mark in");
+    assert.ok(scrolled.opacity > 0);
+
+    const repeated = calculateTecpeyMotionMarkFrame(mark, {
+      ...viewport,
+      scrollY: 2_100,
+    });
+    assert.deepEqual(repeated, nextCycle, "placement must be stable for the same route and scroll");
+
+    const otherRoute = calculateTecpeyMotionMarkFrame(mark, {
+      ...viewport,
+      routeSeed: hashTecpeyMotionRoute("/academy/term-2"),
+      scrollY: 2_100,
+    });
+    assert.notEqual(otherRoute.x, nextCycle.x, "each route must receive a distinct placement field");
   });
 
   it("keeps dark Academy callouts readable over the light motion surface", () => {

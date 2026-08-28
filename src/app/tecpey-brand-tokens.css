@@ -97,6 +97,20 @@ body.tecpey-motion-route {
   inset: -12vh -4vw;
   transform: translate3d(0, 0, 0);
   will-change: transform;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 14%,
+    #000 86%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 14%,
+    #000 86%,
+    transparent 100%
+  );
 }
 
 .tecpey-scroll-motion-background__video {
@@ -115,7 +129,10 @@ body.tecpey-motion-route {
 
 .tecpey-scroll-motion-background__mark {
   position: absolute;
+  top: 0;
+  left: 0;
   display: block;
+  opacity: 0;
   transform: translate3d(0, 0, 0);
   will-change: transform;
 }
@@ -168,7 +185,7 @@ body.tecpey-motion-route .tecpey-motion-content-surface--dark {
 }
 
 @media (max-width: 640px) {
-  .tecpey-scroll-motion-background__mark:nth-child(n + 7) {
+  .tecpey-scroll-motion-background__mark:nth-child(n + 11) {
     display: none;
   }
 }
@@ -532,13 +549,17 @@ body.tecpey-motion-route .tecpey-motion-content-surface--dark {
 
 @media (prefers-reduced-motion: reduce) {
   .tecpey-scroll-motion-background {
-    transition: none;
+    transition: opacity var(--tp-duration-base) var(--tp-ease-out);
   }
 
   .tecpey-scroll-motion-background__media,
   .tecpey-scroll-motion-background__mark {
     transform: none !important;
     will-change: auto;
+  }
+
+  .tecpey-scroll-motion-background__mark {
+    opacity: 0 !important;
   }
 
   .tecpey-pressable,
