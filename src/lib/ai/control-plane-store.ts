@@ -1,0 +1,1546 @@
+import { createHash } from "node:crypto";
+import type { PoolClient } from "pg";
+import { writeAdminAuditEvent } from "@/lib/admin-control-plane";
+import { withDb, withTx } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
+import {
+  AI_AGENT_CATALOG,
+  AI_AGENT_IDS,
+  AI_PROVIDER_CATALOG,
+  AI_PROVIDER_IDS,
+  AI_WORKFLOW_CATALOG,
+  aiAgentDefinition,
+  assertAiAgentProviderAllowed,
+  isAiAgentId,
+  isAiModelProviderId,
+  type AiAgentId,
+  type AiApprovalMode,
+  type AiModelProviderId,
+  type AiProviderId,
+} from "./control-plane-catalog";
+import { safeAiSourceUrl, type AiSourceReference } from "./provider-router";
+import {
+  aiProviderSecretFingerprint,
+  decryptAiProviderSecret,
+  encryptAiProviderSecret,
+} from "@/lib/security/ai-provider-secret";
+
+export type AiProviderSnapshot = {
+  providerId: AiProviderId;
+  enabled: boolean;
+  secretConfigured: boolean;
+  keyFingerprint: string | null;
+  revision: number;
+  rotatedAt: string | null;
+  lastTestStatus: "passed" | "failed" | null;
+  lastTestedAt: string | null;
+  updatedAt: string | null;
+  configurationSource: "managed" | "environment" | "unconfigured";
+};
+
+export type AiAgentLimits = {
+  dailyRequests: number;
+  dailyTokens: number;
+  maxInputTokens: number;
+  maxOutputTokens: number;
+  monthlyBudgetUsdMicros: number;
+};
+
+export type AiAgentBindingSnapshot = {
+  agentId: AiAgentId;
+  configured: boolean;
+  enabled: boolean;
+  providerId: AiModelProviderId | null;
+  model: string | null;
+  fallbackModel: string | null;
+  limits: AiAgentLimits;
+  approvalMode: AiApprovalMode;
+  revision: number;
+  updatedAt: string | null;
+  providerReady: boolean;
+  routing: {
+    openRouterFallbackEnabled: boolean;
+    openRouterModel: string | null;
+    freeFallbackEnabled: boolean;
+    openRouterCreditFloorUsdMicros: number;
+    fallbackProviderReady: boolean;
+  };
+};
+
+export type AiKnowledgeSnapshot = {
+  id: string;
+  knowledgeType: "recurring_pattern" | "research_claim" | "operating_rule";
+  subjectType: string;
+  subjectId: string | null;
+  statement: string;
+  contentHash: string;
+  evidenceRefs: AiSourceReference[];
+  confidence: number;
+  dataClass: "public" | "aggregate_deidentified" | "approved_platform_content";
+  status: "candidate" | "verified" | "rejected" | "superseded";
+  derivedByAgent: AiAgentId | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VerifiedAiKnowledgeContextItem = {
+  knowledgeType: AiKnowledgeSnapshot["knowledgeType"];
+  subjectType: string;
+  subjectId: string | null;
+  statement: string;
+  contentHash: string;
+  confidence: number;
+  dataClass: AiKnowledgeSnapshot["dataClass"];
+  evidenceRefs: AiSourceReference[];
+};
+
+export type AiControlPlaneSnapshot = {
+  providers: AiProviderSnapshot[];
+  agents: AiAgentBindingSnapshot[];
+  knowledge: AiKnowledgeSnapshot[];
+  knowledgeSummary: Record<
+    "candidate" | "verified" | "rejected" | "superseded",
+    number
+  >;
+  usageToday: Record<
+    AiAgentId,
+    { requestCount: number; reservedTokens: number }
+  >;
+};
+
+type ProviderRow = {
+  provider_id: AiProviderId;
+  enabled: boolean;
+  encrypted_api_key: string | null;
+  api_key_fingerprint: string | null;
+  revision: string | number;
+  rotated_at: string | Date | null;
+  last_test_status: "passed" | "failed" | null;
+  last_tested_at: string | Date | null;
+  updated_at: string | Date;
+};
+
+type AgentRow = {
+  agent_id: AiAgentId;
+  enabled: boolean;
+  provider_id: AiModelProviderId;
+  model: string;
+  fallback_model: string | null;
+  daily_request_limit: number;
+  daily_token_limit: string | number;
+  max_input_tokens: number;
+  max_output_tokens: number;
+  monthly_budget_usd_micros: string | number;
+  openrouter_fallback_enabled: boolean;
+  openrouter_model: string | null;
+  free_fallback_enabled: boolean;
+  openrouter_credit_floor_usd_micros: string | number;
+  approval_mode: AiApprovalMode;
+  revision: string | number;
+  updated_at: string | Date;
+};
+
+type KnowledgeRow = {
+  id: string;
+  knowledge_type: AiKnowledgeSnapshot["knowledgeType"];
+  subject_type: string;
+  subject_id: string | null;
+  statement: string;
+  content_hash: string;
+  evidence_refs: unknown;
+  confidence: number;
+  data_class: AiKnowledgeSnapshot["dataClass"];
+  status: AiKnowledgeSnapshot["status"];
+  derived_by_agent: AiAgentId | null;
+  reviewed_at: string | Date | null;
+  review_note: string | null;
+  revision: string | number;
+  created_at: string | Date;
+  updated_at: string | Date;
+};
+
+export type AdminAiMutationContext = {
+  tenantId: string;
+  workspaceId: string;
+  actorAdminId: string;
+  sessionId: string;
+  effectiveRoles: string[];
+  requestId?: string | null;
+  sourceIp?: string | null;
+  userAgent?: string | null;
+};
+
+export type RuntimeAiAgent = {
+  agentId: AiAgentId;
+  providerId: AiModelProviderId;
+  apiKey: string;
+  model: string;
+  fallbackModel: string | null;
+  limits: AiAgentLimits;
+  approvalMode: AiApprovalMode;
+  configurationSource: "managed" | "environment";
+  openRouterFallback: {
+    apiKey: string;
+    paidModel: string;
+    freeFallbackEnabled: boolean;
+    creditFloorUsdMicros: number;
+  } | null;
+};
+
+export type RuntimeAiAgentResolution =
+  | { status: "configured"; config: RuntimeAiAgent }
+  | {
+      status:
+        "disabled" | "unconfigured" | "provider_not_ready" | "unavailable";
+      config: null;
+    };
+
+const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/;
+const OPENROUTER_FREE_MODEL_PATTERN = /(?:^openrouter\/free$|:free$)/i;
+
+function iso(value: string | Date | null): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
+function environmentKey(providerId: AiProviderId): string {
+  const value =
+    providerId === "openai"
+      ? process.env.OPENAI_API_KEY
+      : providerId === "anthropic"
+        ? process.env.ANTHROPIC_API_KEY
+        : providerId === "perplexity"
+          ? process.env.PERPLEXITY_API_KEY
+          : providerId === "xai"
+            ? process.env.XAI_API_KEY
+            : providerId === "openrouter"
+              ? process.env.OPENROUTER_API_KEY
+              : process.env.X_API_BEARER_TOKEN;
+  return value?.trim() ?? "";
+}
+
+function providerScope(
+  tenantId: string,
+  workspaceId: string,
+  providerId: AiProviderId,
+): string {
+  return `${tenantId}:${workspaceId}:${providerId}`;
+}
+
+function providerSnapshot(
+  row: ProviderRow | null,
+  providerId: AiProviderId,
+  allowEnvironmentFallback = false,
+): AiProviderSnapshot {
+  const environmentConfigured =
+    allowEnvironmentFallback && Boolean(environmentKey(providerId));
+  return {
+    providerId,
+    enabled: row?.enabled ?? false,
+    secretConfigured: Boolean(row?.encrypted_api_key),
+    keyFingerprint: row?.api_key_fingerprint ?? null,
+    revision: Number(row?.revision ?? 0),
+    rotatedAt: iso(row?.rotated_at ?? null),
+    lastTestStatus: row?.last_test_status ?? null,
+    lastTestedAt: iso(row?.last_tested_at ?? null),
+    updatedAt: iso(row?.updated_at ?? null),
+    configurationSource: row
+      ? "managed"
+      : environmentConfigured
+        ? "environment"
+        : "unconfigured",
+  };
+}
+
+function limitsFromAgentRow(row: AgentRow): AiAgentLimits {
+  return {
+    dailyRequests: Number(row.daily_request_limit),
+    dailyTokens: Number(row.daily_token_limit),
+    maxInputTokens: Number(row.max_input_tokens),
+    maxOutputTokens: Number(row.max_output_tokens),
+    monthlyBudgetUsdMicros: Number(row.monthly_budget_usd_micros),
+  };
+}
+
+function agentSnapshot(
+  row: AgentRow | null,
+  agentId: AiAgentId,
+  providers: Map<AiProviderId, ProviderRow>,
+): AiAgentBindingSnapshot {
+  const definition = aiAgentDefinition(agentId);
+  const provider = row ? providers.get(row.provider_id) : null;
+  const openRouterProvider = providers.get("openrouter") ?? null;
+  return {
+    agentId,
+    configured: Boolean(row),
+    enabled: row?.enabled ?? false,
+    providerId: row?.provider_id ?? null,
+    model: row?.model ?? null,
+    fallbackModel: row?.fallback_model ?? null,
+    limits: row ? limitsFromAgentRow(row) : { ...definition.defaultLimits },
+    approvalMode: definition.approvalMode,
+    revision: Number(row?.revision ?? 0),
+    updatedAt: iso(row?.updated_at ?? null),
+    providerReady: Boolean(
+      provider?.enabled &&
+      provider.encrypted_api_key &&
+      provider.last_test_status === "passed",
+    ),
+    routing: {
+      openRouterFallbackEnabled:
+        row?.openrouter_fallback_enabled ?? false,
+      openRouterModel: row?.openrouter_model ?? null,
+      freeFallbackEnabled: row?.free_fallback_enabled ?? false,
+      openRouterCreditFloorUsdMicros: Number(
+        row?.openrouter_credit_floor_usd_micros ?? 0,
+      ),
+      fallbackProviderReady: Boolean(
+        openRouterProvider?.enabled &&
+          openRouterProvider.encrypted_api_key &&
+          openRouterProvider.last_test_status === "passed",
+      ),
+    },
+  };
+}
+
+function sourceReferences(value: unknown): AiSourceReference[] {
+  if (!Array.isArray(value)) return [];
+  const output: AiSourceReference[] = [];
+  const seen = new Set<string>();
+  for (const item of value.slice(0, 12)) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const source = item as Record<string, unknown>;
+    const url = safeAiSourceUrl(source.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    output.push({
+      url,
+      title:
+        typeof source.title === "string" ? source.title.slice(0, 300) : null,
+    });
+  }
+  return output;
+}
+
+function knowledgeSnapshot(row: KnowledgeRow): AiKnowledgeSnapshot {
+  return {
+    id: String(row.id),
+    knowledgeType: row.knowledge_type,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    statement: row.statement,
+    contentHash: row.content_hash,
+    evidenceRefs: sourceReferences(row.evidence_refs),
+    confidence: Number(row.confidence),
+    dataClass: row.data_class,
+    status: row.status,
+    derivedByAgent: row.derived_by_agent,
+    reviewedAt: iso(row.reviewed_at),
+    reviewNote: row.review_note,
+    revision: Number(row.revision),
+    createdAt: iso(row.created_at) ?? new Date(0).toISOString(),
+    updatedAt: iso(row.updated_at) ?? new Date(0).toISOString(),
+  };
+}
+
+async function selectProvider(
+  client: PoolClient,
+  tenantId: string,
+  workspaceId: string,
+  providerId: AiProviderId,
+  lock = false,
+): Promise<ProviderRow | null> {
+  const result = await client.query<ProviderRow>(
+    `SELECT provider_id, enabled, encrypted_api_key, api_key_fingerprint,
+            revision, rotated_at, last_test_status, last_tested_at, updated_at
+       FROM ai_provider_configs
+      WHERE tenant_id = $1 AND workspace_id = $2 AND provider_id = $3
+      ${lock ? "FOR UPDATE" : ""}`,
+    [tenantId, workspaceId, providerId],
+  );
+  return result.rows[0] ?? null;
+}
+
+async function selectAgent(
+  client: PoolClient,
+  tenantId: string,
+  workspaceId: string,
+  agentId: AiAgentId,
+  lock = false,
+): Promise<AgentRow | null> {
+  const result = await client.query<AgentRow>(
+    `SELECT agent_id, enabled, provider_id, model, fallback_model,
+            daily_request_limit, daily_token_limit, max_input_tokens,
+            max_output_tokens, monthly_budget_usd_micros,
+            openrouter_fallback_enabled, openrouter_model,
+            free_fallback_enabled, openrouter_credit_floor_usd_micros,
+            approval_mode,
+            revision, updated_at
+       FROM ai_agent_bindings
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+      ${lock ? "FOR UPDATE" : ""}`,
+    [tenantId, workspaceId, agentId],
+  );
+  return result.rows[0] ?? null;
+}
+
+async function advisoryLock(client: PoolClient, scope: string): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    scope,
+  ]);
+}
+
+export async function loadAiControlPlaneSnapshot(input: {
+  tenantId: string;
+  workspaceId: string;
+}): Promise<AiControlPlaneSnapshot | "unavailable"> {
+  try {
+    const result = await withDb(async (client) => {
+      const providerRows = await client.query<ProviderRow>(
+        `SELECT provider_id, enabled, encrypted_api_key, api_key_fingerprint,
+                revision, rotated_at, last_test_status, last_tested_at, updated_at
+           FROM ai_provider_configs
+          WHERE tenant_id = $1 AND workspace_id = $2`,
+        [input.tenantId, input.workspaceId],
+      );
+      const agentRows = await client.query<AgentRow>(
+        `SELECT agent_id, enabled, provider_id, model, fallback_model,
+                daily_request_limit, daily_token_limit, max_input_tokens,
+                max_output_tokens, monthly_budget_usd_micros,
+                openrouter_fallback_enabled, openrouter_model,
+                free_fallback_enabled, openrouter_credit_floor_usd_micros,
+                approval_mode,
+                revision, updated_at
+           FROM ai_agent_bindings
+          WHERE tenant_id = $1 AND workspace_id = $2`,
+        [input.tenantId, input.workspaceId],
+      );
+      const knowledgeRows = await client.query<KnowledgeRow>(
+        `SELECT id, knowledge_type, subject_type, subject_id, statement,
+                content_hash, evidence_refs, confidence, data_class, status,
+                derived_by_agent, reviewed_at, review_note, revision,
+                created_at, updated_at
+           FROM ai_knowledge_items
+          WHERE tenant_id = $1 AND workspace_id = $2
+          ORDER BY updated_at DESC, id DESC
+          LIMIT 30`,
+        [input.tenantId, input.workspaceId],
+      );
+      const summaryRows = await client.query<{
+        status: AiKnowledgeSnapshot["status"];
+        count: string | number;
+      }>(
+        `SELECT status, COUNT(*) AS count
+           FROM ai_knowledge_items
+          WHERE tenant_id = $1 AND workspace_id = $2
+          GROUP BY status`,
+        [input.tenantId, input.workspaceId],
+      );
+      const usageRows = await client.query<{
+        agent_id: AiAgentId;
+        request_count: string | number;
+        reserved_tokens: string | number;
+      }>(
+        `SELECT agent_id, request_count, reserved_tokens
+           FROM ai_agent_usage_daily
+          WHERE tenant_id = $1 AND workspace_id = $2 AND usage_date = CURRENT_DATE`,
+        [input.tenantId, input.workspaceId],
+      );
+      const providers = new Map(
+        providerRows.rows.map((row) => [row.provider_id, row]),
+      );
+      const agents = new Map(agentRows.rows.map((row) => [row.agent_id, row]));
+      const knowledgeSummary = {
+        candidate: 0,
+        verified: 0,
+        rejected: 0,
+        superseded: 0,
+      };
+      for (const row of summaryRows.rows)
+        knowledgeSummary[row.status] = Number(row.count);
+      const usageByAgent = new Map(
+        usageRows.rows.map((row) => [row.agent_id, row]),
+      );
+      const usageToday = Object.fromEntries(
+        AI_AGENT_IDS.map((agentId) => {
+          const row = usageByAgent.get(agentId);
+          return [
+            agentId,
+            {
+              requestCount: Number(row?.request_count ?? 0),
+              reservedTokens: Number(row?.reserved_tokens ?? 0),
+            },
+          ];
+        }),
+      ) as AiControlPlaneSnapshot["usageToday"];
+      return {
+        providers: AI_PROVIDER_IDS.map((providerId) =>
+          providerSnapshot(
+            providers.get(providerId) ?? null,
+            providerId,
+            input.tenantId === PLATFORM.DEFAULT_TENANT_ID &&
+              input.workspaceId === PLATFORM.DEFAULT_WORKSPACE_ID,
+          ),
+        ),
+        agents: AI_AGENT_IDS.map((agentId) =>
+          agentSnapshot(agents.get(agentId) ?? null, agentId, providers),
+        ),
+        knowledge: knowledgeRows.rows.map(knowledgeSnapshot),
+        knowledgeSummary,
+        usageToday,
+      };
+    });
+    return result.enabled ? result.value : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+export type AiUsageAdmission =
+  | { ok: true; requestCount: number; reservedTokens: number }
+  | {
+      ok: false;
+      reason:
+        | "input_limit"
+        | "output_limit"
+        | "request_limit"
+        | "token_limit"
+        | "unavailable";
+    };
+
+/**
+ * Retrieves only human-promoted, currently valid knowledge in the acting
+ * tenant/workspace. Candidate and rejected content can never reach Mentor.
+ * Simple-language full-text ranking works for Persian, English and symbols;
+ * verified operating rules remain globally eligible within the same scope.
+ */
+export async function loadVerifiedAiKnowledgeContext(input: {
+  tenantId: string;
+  workspaceId: string;
+  query: string;
+  limit?: number;
+}): Promise<VerifiedAiKnowledgeContextItem[] | "unavailable"> {
+  const query = input.query.trim().slice(0, 2_000);
+  const limit = Math.max(1, Math.min(8, Math.trunc(input.limit ?? 6)));
+  try {
+    const result = await withDb(async (client) => {
+      const rows = await client.query<KnowledgeRow>(
+        `WITH eligible AS (
+           SELECT id, knowledge_type, subject_type, subject_id, statement,
+                  content_hash, evidence_refs, confidence, data_class, status,
+                  derived_by_agent, reviewed_at, review_note, revision,
+                  created_at, updated_at,
+                  to_tsvector(
+                    'simple',
+                    concat_ws(' ', subject_type, COALESCE(subject_id, ''), statement)
+                  ) AS search_vector
+             FROM ai_knowledge_items
+            WHERE tenant_id = $1
+              AND workspace_id = $2
+              AND status = 'verified'
+              AND reviewed_by IS NOT NULL
+              AND reviewed_at IS NOT NULL
+              AND valid_from <= NOW()
+              AND (valid_until IS NULL OR valid_until > NOW())
+         ), ranked AS (
+           SELECT *,
+                  search_vector @@ plainto_tsquery('simple', $3) AS matches_query,
+                  ts_rank_cd(search_vector, plainto_tsquery('simple', $3)) AS relevance
+             FROM eligible
+         )
+         SELECT id, knowledge_type, subject_type, subject_id, statement,
+                content_hash, evidence_refs, confidence, data_class, status,
+                derived_by_agent, reviewed_at, review_note, revision,
+                created_at, updated_at
+           FROM ranked
+          WHERE knowledge_type = 'operating_rule' OR matches_query
+          ORDER BY matches_query DESC, relevance DESC, confidence DESC,
+                   updated_at DESC, id DESC
+          LIMIT $4`,
+        [input.tenantId, input.workspaceId, query, limit],
+      );
+      return rows.rows.map((row) => {
+        const item = knowledgeSnapshot(row);
+        return {
+          knowledgeType: item.knowledgeType,
+          subjectType: item.subjectType,
+          subjectId: item.subjectId,
+          statement: item.statement,
+          contentHash: item.contentHash,
+          confidence: item.confidence,
+          dataClass: item.dataClass,
+          evidenceRefs: item.evidenceRefs,
+        } satisfies VerifiedAiKnowledgeContextItem;
+      });
+    });
+    return result.enabled ? result.value : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+/**
+ * Conservatively reserves the largest possible response before provider
+ * egress. The single conditional UPSERT keeps request and token ceilings
+ * race-safe across workers; unused output capacity is not returned.
+ */
+export async function admitAiAgentUsage(input: {
+  tenantId: string;
+  workspaceId: string;
+  agentId: AiAgentId;
+  estimatedInputTokens: number;
+  maxOutputTokens: number;
+  limits: AiAgentLimits;
+}): Promise<AiUsageAdmission> {
+  const inputTokens = Number.isFinite(input.estimatedInputTokens)
+    ? Math.max(1, Math.trunc(input.estimatedInputTokens))
+    : input.limits.maxInputTokens + 1;
+  const outputTokens = Number.isFinite(input.maxOutputTokens)
+    ? Math.max(64, Math.trunc(input.maxOutputTokens))
+    : input.limits.maxOutputTokens + 1;
+  if (inputTokens > input.limits.maxInputTokens)
+    return { ok: false, reason: "input_limit" };
+  if (outputTokens > input.limits.maxOutputTokens)
+    return { ok: false, reason: "output_limit" };
+  const reservation = inputTokens + outputTokens;
+  if (reservation > input.limits.dailyTokens)
+    return { ok: false, reason: "token_limit" };
+  try {
+    const result = await withDb(async (client) => {
+      const admitted = await client.query<{
+        request_count: string | number;
+        reserved_tokens: string | number;
+      }>(
+        `INSERT INTO ai_agent_usage_daily
+           (tenant_id, workspace_id, agent_id, usage_date, request_count, reserved_tokens)
+         VALUES ($1, $2, $3, CURRENT_DATE, 1, $4)
+         ON CONFLICT (tenant_id, workspace_id, agent_id, usage_date) DO UPDATE SET
+           request_count = ai_agent_usage_daily.request_count + 1,
+           reserved_tokens = ai_agent_usage_daily.reserved_tokens + EXCLUDED.reserved_tokens,
+           updated_at = NOW()
+         WHERE ai_agent_usage_daily.request_count < $5
+           AND ai_agent_usage_daily.reserved_tokens + EXCLUDED.reserved_tokens <= $6
+         RETURNING request_count, reserved_tokens`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.agentId,
+          reservation,
+          input.limits.dailyRequests,
+          input.limits.dailyTokens,
+        ],
+      );
+      if (admitted.rows[0]) {
+        return {
+          ok: true as const,
+          requestCount: Number(admitted.rows[0].request_count),
+          reservedTokens: Number(admitted.rows[0].reserved_tokens),
+        };
+      }
+      const current = await client.query<{
+        request_count: string | number;
+        reserved_tokens: string | number;
+      }>(
+        `SELECT request_count, reserved_tokens
+           FROM ai_agent_usage_daily
+          WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+            AND usage_date = CURRENT_DATE`,
+        [input.tenantId, input.workspaceId, input.agentId],
+      );
+      const row = current.rows[0];
+      return {
+        ok: false as const,
+        reason:
+          Number(row?.request_count ?? 0) >= input.limits.dailyRequests
+            ? ("request_limit" as const)
+            : ("token_limit" as const),
+      };
+    });
+    return result.enabled ? result.value : { ok: false, reason: "unavailable" };
+  } catch {
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+export async function updateAiProvider(
+  input: AdminAiMutationContext & {
+    providerId: AiProviderId;
+    enabled: boolean;
+    apiKey?: string;
+  },
+): Promise<AiProviderSnapshot | "secret_required" | "unavailable"> {
+  try {
+    const result = await withTx(async (client) => {
+      const lockScope = `ai-provider:${providerScope(input.tenantId, input.workspaceId, input.providerId)}`;
+      await advisoryLock(client, lockScope);
+      const before = await selectProvider(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.providerId,
+        true,
+      );
+      const apiKey = input.apiKey?.trim();
+      const encrypted = apiKey
+        ? encryptAiProviderSecret(
+            apiKey,
+            providerScope(input.tenantId, input.workspaceId, input.providerId),
+          )
+        : (before?.encrypted_api_key ?? null);
+      const fingerprint = apiKey
+        ? aiProviderSecretFingerprint(apiKey)
+        : (before?.api_key_fingerprint ?? null);
+      if (input.enabled && !encrypted) return "secret_required" as const;
+      const revision = Number(before?.revision ?? 0) + 1;
+      const rotatedAt = apiKey
+        ? new Date().toISOString()
+        : iso(before?.rotated_at ?? null);
+      const updated = await client.query<ProviderRow>(
+        `INSERT INTO ai_provider_configs
+           (tenant_id, workspace_id, provider_id, enabled, encrypted_api_key,
+            api_key_fingerprint, settings, revision, rotated_at, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, $7, $8::timestamptz, $9::uuid)
+         ON CONFLICT (tenant_id, workspace_id, provider_id) DO UPDATE SET
+           enabled = EXCLUDED.enabled,
+           encrypted_api_key = EXCLUDED.encrypted_api_key,
+           api_key_fingerprint = EXCLUDED.api_key_fingerprint,
+           settings = '{}'::jsonb,
+           revision = EXCLUDED.revision,
+           rotated_at = EXCLUDED.rotated_at,
+           last_test_status = NULL,
+           last_tested_at = NULL,
+           updated_by = EXCLUDED.updated_by,
+           updated_at = NOW()
+         RETURNING provider_id, enabled, encrypted_api_key, api_key_fingerprint,
+                   revision, rotated_at, last_test_status, last_tested_at, updated_at`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.providerId,
+          input.enabled,
+          encrypted,
+          fingerprint,
+          revision,
+          rotatedAt,
+          input.actorAdminId,
+        ],
+      );
+      const row = updated.rows[0];
+      const eventType = apiKey
+        ? before?.encrypted_api_key
+          ? "rotated"
+          : "configured"
+        : before?.enabled !== input.enabled
+          ? input.enabled
+            ? "enabled"
+            : "disabled"
+          : "configured";
+      await client.query(
+        `INSERT INTO ai_provider_config_events
+           (tenant_id, workspace_id, provider_id, event_type, revision,
+            api_key_fingerprint, settings_snapshot, actor_admin_id)
+         VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, $7::uuid)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.providerId,
+          eventType,
+          revision,
+          fingerprint,
+          input.actorAdminId,
+        ],
+      );
+      const after = providerSnapshot(row, input.providerId);
+      await writeAdminAuditEvent(client, {
+        actorAdminId: input.actorAdminId,
+        sessionId: input.sessionId,
+        effectiveRoles: input.effectiveRoles,
+        action: `ai_provider.${eventType}`,
+        resourceType: "ai_provider",
+        resourceId: input.providerId,
+        requestId: input.requestId,
+        sourceIp: input.sourceIp,
+        userAgent: input.userAgent,
+        beforeState: before ? providerSnapshot(before, input.providerId) : null,
+        afterState: after,
+      });
+      return after;
+    });
+    return result.enabled ? result.value : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+export async function resolveAiProviderForTest(input: {
+  tenantId: string;
+  workspaceId: string;
+  providerId: AiProviderId;
+}): Promise<{ apiKey: string } | null> {
+  try {
+    const result = await withDb((client) =>
+      selectProvider(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.providerId,
+      ),
+    );
+    if (!result.enabled || !result.value?.encrypted_api_key) return null;
+    return {
+      apiKey: decryptAiProviderSecret(
+        result.value.encrypted_api_key,
+        providerScope(input.tenantId, input.workspaceId, input.providerId),
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function recordAiProviderTest(
+  input: AdminAiMutationContext & {
+    providerId: AiProviderId;
+    passed: boolean;
+  },
+): Promise<boolean> {
+  try {
+    const result = await withTx(async (client) => {
+      await advisoryLock(
+        client,
+        `ai-provider:${providerScope(input.tenantId, input.workspaceId, input.providerId)}`,
+      );
+      const row = await selectProvider(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.providerId,
+        true,
+      );
+      if (!row) return false;
+      const status = input.passed ? "passed" : "failed";
+      await client.query(
+        `UPDATE ai_provider_configs
+            SET last_test_status = $4, last_tested_at = NOW(), updated_at = NOW()
+          WHERE tenant_id = $1 AND workspace_id = $2 AND provider_id = $3`,
+        [input.tenantId, input.workspaceId, input.providerId, status],
+      );
+      await client.query(
+        `INSERT INTO ai_provider_config_events
+           (tenant_id, workspace_id, provider_id, event_type, revision,
+            api_key_fingerprint, settings_snapshot, actor_admin_id)
+         VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, $7::uuid)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.providerId,
+          input.passed ? "test_passed" : "test_failed",
+          Number(row.revision),
+          row.api_key_fingerprint,
+          input.actorAdminId,
+        ],
+      );
+      await writeAdminAuditEvent(client, {
+        actorAdminId: input.actorAdminId,
+        sessionId: input.sessionId,
+        effectiveRoles: input.effectiveRoles,
+        action: input.passed
+          ? "ai_provider.test_passed"
+          : "ai_provider.test_failed",
+        resourceType: "ai_provider",
+        resourceId: input.providerId,
+        requestId: input.requestId,
+        sourceIp: input.sourceIp,
+        userAgent: input.userAgent,
+        afterState: { testStatus: status, revision: Number(row.revision) },
+        outcome: input.passed ? "success" : "failed",
+        errorCode: input.passed ? null : "ai_provider_test_failed",
+      });
+      return true;
+    });
+    return result.enabled && result.value;
+  } catch {
+    return false;
+  }
+}
+
+function limitsWithinCatalog(
+  agentId: AiAgentId,
+  limits: AiAgentLimits,
+): boolean {
+  const maximum = aiAgentDefinition(agentId).defaultLimits;
+  return (
+    Number.isSafeInteger(limits.dailyRequests) &&
+    limits.dailyRequests >= 1 &&
+    limits.dailyRequests <= maximum.dailyRequests &&
+    Number.isSafeInteger(limits.dailyTokens) &&
+    limits.dailyTokens >= 1_000 &&
+    limits.dailyTokens <= maximum.dailyTokens &&
+    Number.isSafeInteger(limits.maxInputTokens) &&
+    limits.maxInputTokens >= 256 &&
+    limits.maxInputTokens <= maximum.maxInputTokens &&
+    Number.isSafeInteger(limits.maxOutputTokens) &&
+    limits.maxOutputTokens >= 64 &&
+    limits.maxOutputTokens <= maximum.maxOutputTokens &&
+    Number.isSafeInteger(limits.monthlyBudgetUsdMicros) &&
+    limits.monthlyBudgetUsdMicros >= 1_000_000 &&
+    limits.monthlyBudgetUsdMicros <= maximum.monthlyBudgetUsdMicros
+  );
+}
+
+export async function updateAiAgentBinding(
+  input: AdminAiMutationContext & {
+    agentId: AiAgentId;
+    enabled: boolean;
+    providerId: AiModelProviderId;
+    model: string;
+    fallbackModel?: string | null;
+    limits: AiAgentLimits;
+    routing: {
+      openRouterFallbackEnabled: boolean;
+      openRouterModel?: string | null;
+      freeFallbackEnabled: boolean;
+      openRouterCreditFloorUsdMicros: number;
+    };
+  },
+): Promise<
+  | AiAgentBindingSnapshot
+  | "invalid_model"
+  | "invalid_limits"
+  | "invalid_routing"
+  | "provider_forbidden"
+  | "provider_not_configured"
+  | "provider_not_ready"
+  | "fallback_provider_not_ready"
+  | "unavailable"
+> {
+  const model = input.model.trim();
+  const fallbackModel = input.fallbackModel?.trim() || null;
+  const openRouterModel = input.routing.openRouterModel?.trim() || null;
+  const fallbackPolicy = aiAgentDefinition(input.agentId).openRouterFallback;
+  const directOpenRouterFreeFallback =
+    input.providerId === "openrouter" && input.routing.freeFallbackEnabled;
+  if (
+    !MODEL_PATTERN.test(model) ||
+    (fallbackModel && !MODEL_PATTERN.test(fallbackModel)) ||
+    (input.providerId === "openrouter" &&
+      (OPENROUTER_FREE_MODEL_PATTERN.test(model) ||
+        Boolean(fallbackModel && OPENROUTER_FREE_MODEL_PATTERN.test(fallbackModel))) &&
+      (!fallbackPolicy.freeAllowed ||
+        aiAgentDefinition(input.agentId).mayReceivePrivateUserData))
+  )
+    return "invalid_model";
+  if (!limitsWithinCatalog(input.agentId, input.limits))
+    return "invalid_limits";
+  if (
+    typeof input.routing.openRouterFallbackEnabled !== "boolean" ||
+    typeof input.routing.freeFallbackEnabled !== "boolean" ||
+    !Number.isSafeInteger(input.routing.openRouterCreditFloorUsdMicros) ||
+    input.routing.openRouterCreditFloorUsdMicros < 0 ||
+    input.routing.openRouterCreditFloorUsdMicros >
+      input.limits.monthlyBudgetUsdMicros ||
+    (input.routing.openRouterFallbackEnabled &&
+      (!openRouterModel ||
+        !MODEL_PATTERN.test(openRouterModel) ||
+        input.providerId === "openrouter")) ||
+    Boolean(openRouterModel && OPENROUTER_FREE_MODEL_PATTERN.test(openRouterModel)) ||
+    (!input.routing.openRouterFallbackEnabled && openRouterModel !== null) ||
+    (input.routing.freeFallbackEnabled &&
+      !input.routing.openRouterFallbackEnabled &&
+      input.providerId !== "openrouter") ||
+    (input.routing.freeFallbackEnabled && !fallbackPolicy.freeAllowed) ||
+    (!input.routing.openRouterFallbackEnabled &&
+      !directOpenRouterFreeFallback &&
+      input.routing.openRouterCreditFloorUsdMicros !== 0) ||
+    (directOpenRouterFreeFallback && OPENROUTER_FREE_MODEL_PATTERN.test(model))
+  ) {
+    return "invalid_routing";
+  }
+  try {
+    assertAiAgentProviderAllowed(input.agentId, input.providerId);
+  } catch {
+    return "provider_forbidden";
+  }
+  try {
+    const result = await withTx(async (client) => {
+      await advisoryLock(
+        client,
+        `ai-agent:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
+      );
+      const before = await selectAgent(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.agentId,
+        true,
+      );
+      const provider = await selectProvider(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.providerId,
+        true,
+      );
+      if (!provider) return "provider_not_configured" as const;
+      const providerReady = Boolean(
+        provider.enabled &&
+        provider.encrypted_api_key &&
+        provider.last_test_status === "passed",
+      );
+      if (input.enabled && !providerReady) return "provider_not_ready" as const;
+      const openRouterRouteEnabled =
+        input.routing.openRouterFallbackEnabled || directOpenRouterFreeFallback;
+      const openRouterProvider = input.routing.openRouterFallbackEnabled
+        ? await selectProvider(
+            client,
+            input.tenantId,
+            input.workspaceId,
+            "openrouter",
+            true,
+          )
+        : directOpenRouterFreeFallback
+          ? provider
+          : null;
+      const openRouterReady = Boolean(
+        openRouterProvider?.enabled &&
+          openRouterProvider.encrypted_api_key &&
+          openRouterProvider.last_test_status === "passed",
+      );
+      if (input.enabled && openRouterRouteEnabled && !openRouterReady) {
+        return "fallback_provider_not_ready" as const;
+      }
+      const revision = Number(before?.revision ?? 0) + 1;
+      const approvalMode = aiAgentDefinition(input.agentId).approvalMode;
+      const updated = await client.query<AgentRow>(
+        `INSERT INTO ai_agent_bindings
+           (tenant_id, workspace_id, agent_id, enabled, provider_id, model,
+            fallback_model, daily_request_limit, daily_token_limit,
+            max_input_tokens, max_output_tokens, monthly_budget_usd_micros,
+            openrouter_fallback_enabled, openrouter_model,
+            free_fallback_enabled, openrouter_credit_floor_usd_micros,
+            approval_mode, revision, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+                 $13, $14, $15, $16, $17, $18, $19::uuid)
+         ON CONFLICT (tenant_id, workspace_id, agent_id) DO UPDATE SET
+           enabled = EXCLUDED.enabled,
+           provider_id = EXCLUDED.provider_id,
+           model = EXCLUDED.model,
+           fallback_model = EXCLUDED.fallback_model,
+           daily_request_limit = EXCLUDED.daily_request_limit,
+           daily_token_limit = EXCLUDED.daily_token_limit,
+           max_input_tokens = EXCLUDED.max_input_tokens,
+           max_output_tokens = EXCLUDED.max_output_tokens,
+           monthly_budget_usd_micros = EXCLUDED.monthly_budget_usd_micros,
+           openrouter_fallback_enabled = EXCLUDED.openrouter_fallback_enabled,
+           openrouter_model = EXCLUDED.openrouter_model,
+           free_fallback_enabled = EXCLUDED.free_fallback_enabled,
+           openrouter_credit_floor_usd_micros = EXCLUDED.openrouter_credit_floor_usd_micros,
+           approval_mode = EXCLUDED.approval_mode,
+           revision = EXCLUDED.revision,
+           updated_by = EXCLUDED.updated_by,
+           updated_at = NOW()
+         RETURNING agent_id, enabled, provider_id, model, fallback_model,
+                   daily_request_limit, daily_token_limit, max_input_tokens,
+                   max_output_tokens, monthly_budget_usd_micros,
+                   openrouter_fallback_enabled, openrouter_model,
+                   free_fallback_enabled, openrouter_credit_floor_usd_micros,
+                   approval_mode,
+                   revision, updated_at`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.agentId,
+          input.enabled,
+          input.providerId,
+          model,
+          fallbackModel,
+          input.limits.dailyRequests,
+          input.limits.dailyTokens,
+          input.limits.maxInputTokens,
+          input.limits.maxOutputTokens,
+          input.limits.monthlyBudgetUsdMicros,
+          input.routing.openRouterFallbackEnabled,
+          openRouterModel,
+          input.routing.freeFallbackEnabled,
+          input.routing.openRouterCreditFloorUsdMicros,
+          approvalMode,
+          revision,
+          input.actorAdminId,
+        ],
+      );
+      const row = updated.rows[0];
+      const eventType =
+        before?.enabled !== input.enabled
+          ? input.enabled
+            ? "enabled"
+            : "disabled"
+          : "configured";
+      await client.query(
+        `INSERT INTO ai_agent_binding_events
+           (tenant_id, workspace_id, agent_id, event_type, provider_id, model,
+            limits_snapshot, approval_mode, revision, actor_admin_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::uuid)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.agentId,
+          eventType,
+          input.providerId,
+          model,
+          JSON.stringify({
+            ...input.limits,
+            routing: {
+              openRouterFallbackEnabled:
+                input.routing.openRouterFallbackEnabled,
+              openRouterModel,
+              freeFallbackEnabled: input.routing.freeFallbackEnabled,
+              openRouterCreditFloorUsdMicros:
+                input.routing.openRouterCreditFloorUsdMicros,
+            },
+          }),
+          approvalMode,
+          revision,
+          input.actorAdminId,
+        ],
+      );
+      const providers = new Map<AiProviderId, ProviderRow>([
+        [provider.provider_id, provider],
+      ]);
+      if (openRouterProvider)
+        providers.set(openRouterProvider.provider_id, openRouterProvider);
+      const after = agentSnapshot(row, input.agentId, providers);
+      await writeAdminAuditEvent(client, {
+        actorAdminId: input.actorAdminId,
+        sessionId: input.sessionId,
+        effectiveRoles: input.effectiveRoles,
+        action: `ai_agent.${eventType}`,
+        resourceType: "ai_agent_binding",
+        resourceId: input.agentId,
+        requestId: input.requestId,
+        sourceIp: input.sourceIp,
+        userAgent: input.userAgent,
+        beforeState: before
+          ? agentSnapshot(before, input.agentId, providers)
+          : null,
+        afterState: after,
+      });
+      return after;
+    });
+    return result.enabled ? result.value : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+function environmentMentorResolution(): RuntimeAiAgentResolution {
+  const apiKey = environmentKey("openai");
+  if (!apiKey) return { status: "unconfigured", config: null };
+  const definition = aiAgentDefinition("mentor_coach");
+  return {
+    status: "configured",
+    config: {
+      agentId: "mentor_coach",
+      providerId: "openai",
+      apiKey,
+      model: process.env.AI_MENTOR_MODEL?.trim() || "gpt-4o-mini",
+      fallbackModel:
+        process.env.AI_MENTOR_FALLBACK_MODEL?.trim() || "gpt-4.1-mini",
+      limits: { ...definition.defaultLimits },
+      approvalMode: definition.approvalMode,
+      configurationSource: "environment",
+      openRouterFallback:
+        process.env.AI_MENTOR_OPENROUTER_FALLBACK_ENABLED === "true" &&
+        environmentKey("openrouter")
+          ? {
+              apiKey: environmentKey("openrouter"),
+              paidModel:
+                process.env.OPENROUTER_FALLBACK_MODEL?.trim() ||
+                "openrouter/auto",
+              freeFallbackEnabled: false,
+              creditFloorUsdMicros: 0,
+            }
+          : null,
+    },
+  };
+}
+
+export async function resolveRuntimeAiAgent(
+  agentId: AiAgentId,
+  input: { tenantId?: string; workspaceId?: string } = {},
+): Promise<RuntimeAiAgentResolution> {
+  const tenantId = input.tenantId ?? PLATFORM.DEFAULT_TENANT_ID;
+  const workspaceId = input.workspaceId ?? PLATFORM.DEFAULT_WORKSPACE_ID;
+  try {
+    const result = await withDb(async (client) => {
+      const agent = await selectAgent(client, tenantId, workspaceId, agentId);
+      if (!agent) {
+        const environmentFallbackAllowed =
+          tenantId === PLATFORM.DEFAULT_TENANT_ID &&
+          workspaceId === PLATFORM.DEFAULT_WORKSPACE_ID;
+        return agentId === "mentor_coach" && environmentFallbackAllowed
+          ? environmentMentorResolution()
+          : ({ status: "unconfigured", config: null } as const);
+      }
+      if (!agent.enabled) return { status: "disabled", config: null } as const;
+      if (!isAiModelProviderId(agent.provider_id))
+        return { status: "unconfigured", config: null } as const;
+      assertAiAgentProviderAllowed(agentId, agent.provider_id);
+      const provider = await selectProvider(
+        client,
+        tenantId,
+        workspaceId,
+        agent.provider_id,
+      );
+      if (
+        !provider?.enabled ||
+        !provider.encrypted_api_key ||
+        provider.last_test_status !== "passed"
+      ) {
+        return { status: "provider_not_ready", config: null } as const;
+      }
+      const primaryApiKey = decryptAiProviderSecret(
+        provider.encrypted_api_key,
+        providerScope(tenantId, workspaceId, agent.provider_id),
+      );
+      const directOpenRouterFreeFallback =
+        agent.provider_id === "openrouter" && agent.free_fallback_enabled;
+      const openRouterProvider = agent.openrouter_fallback_enabled
+        ? await selectProvider(client, tenantId, workspaceId, "openrouter")
+        : directOpenRouterFreeFallback
+          ? provider
+          : null;
+      const paidOpenRouterFallback =
+        agent.openrouter_fallback_enabled &&
+        agent.openrouter_model &&
+        openRouterProvider?.enabled &&
+        openRouterProvider.encrypted_api_key &&
+        openRouterProvider.last_test_status === "passed"
+          ? {
+              apiKey: decryptAiProviderSecret(
+                openRouterProvider.encrypted_api_key,
+                providerScope(tenantId, workspaceId, "openrouter"),
+              ),
+              paidModel: agent.openrouter_model,
+              freeFallbackEnabled: Boolean(agent.free_fallback_enabled),
+              creditFloorUsdMicros: Number(
+                agent.openrouter_credit_floor_usd_micros,
+              ),
+            }
+          : null;
+      const openRouterFallback = paidOpenRouterFallback ??
+        (directOpenRouterFreeFallback
+          ? {
+              apiKey: primaryApiKey,
+              paidModel: agent.model,
+              freeFallbackEnabled: true,
+              creditFloorUsdMicros: Number(
+                agent.openrouter_credit_floor_usd_micros,
+              ),
+            }
+          : null);
+      return {
+        status: "configured",
+        config: {
+          agentId,
+          providerId: agent.provider_id,
+          apiKey: primaryApiKey,
+          model: agent.model,
+          fallbackModel: agent.fallback_model,
+          limits: limitsFromAgentRow(agent),
+          approvalMode: aiAgentDefinition(agentId).approvalMode,
+          configurationSource: "managed",
+          openRouterFallback,
+        },
+      } as const;
+    });
+    return result.enabled
+      ? result.value
+      : { status: "unavailable", config: null };
+  } catch {
+    return { status: "unavailable", config: null };
+  }
+}
+
+export function aiEvidenceHash(namespace: string, value: string): string {
+  return createHash("sha256")
+    .update(`tecpey-ai-evidence:${namespace}:v1\0`)
+    .update(value)
+    .digest("hex");
+}
+
+export async function recordAiWorkflowEvidence(input: {
+  tenantId: string;
+  workspaceId: string;
+  runId: string;
+  workflowId:
+    | "mentor_response"
+    | "mentor_public_research"
+    | "news_x_intelligence"
+    | "coin_tool_research"
+    | "governed_pattern_learning"
+    | "admin_research_preview";
+  agentId: AiAgentId;
+  providerId: AiModelProviderId;
+  model: string;
+  inputHash: string;
+  outputHash?: string | null;
+  status:
+    | "admitted"
+    | "completed"
+    | "blocked"
+    | "failed"
+    | "timeout"
+    | "output_rejected";
+  sources?: AiSourceReference[];
+  inputTokens?: number;
+  outputTokens?: number;
+  durationMs?: number;
+  approvalMode: AiApprovalMode;
+  actorAdminId?: string | null;
+}): Promise<boolean> {
+  if (!isAiAgentId(input.agentId) || !isAiModelProviderId(input.providerId))
+    return false;
+  try {
+    const result = await withDb(async (client) => {
+      await client.query(
+        `INSERT INTO ai_workflow_run_evidence
+           (tenant_id, workspace_id, run_id, workflow_id, agent_id,
+            provider_id, model, input_hash, output_hash, status, source_refs,
+            estimated_input_tokens, estimated_output_tokens, duration_ms,
+            approval_mode, actor_admin_id)
+         VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, $10,
+                 $11::jsonb, $12, $13, $14, $15, $16::uuid)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.runId,
+          input.workflowId,
+          input.agentId,
+          input.providerId,
+          input.model,
+          input.inputHash,
+          input.outputHash ?? null,
+          input.status,
+          JSON.stringify(sourceReferences(input.sources ?? [])),
+          Math.max(0, Math.trunc(input.inputTokens ?? 0)),
+          Math.max(0, Math.trunc(input.outputTokens ?? 0)),
+          Math.max(0, Math.trunc(input.durationMs ?? 0)),
+          input.approvalMode,
+          input.actorAdminId ?? null,
+        ],
+      );
+      return true;
+    });
+    return result.enabled && result.value;
+  } catch {
+    return false;
+  }
+}
+
+export async function createAiKnowledgeCandidate(input: {
+  tenantId: string;
+  workspaceId: string;
+  knowledgeType: AiKnowledgeSnapshot["knowledgeType"];
+  subjectType: string;
+  subjectId?: string | null;
+  statement: string;
+  evidenceRefs: AiSourceReference[];
+  confidence: number;
+  dataClass: AiKnowledgeSnapshot["dataClass"];
+  derivedByAgent: AiAgentId;
+  actorAdminId?: string | null;
+}): Promise<AiKnowledgeSnapshot | null> {
+  const statement = input.statement.trim();
+  const subjectType = input.subjectType.trim();
+  const subjectId = input.subjectId?.trim() || null;
+  const evidenceRefs = sourceReferences(input.evidenceRefs);
+  if (
+    !["recurring_pattern", "research_claim", "operating_rule"].includes(
+      input.knowledgeType,
+    ) ||
+    statement.length < 8 ||
+    statement.length > 8_000 ||
+    subjectType.length < 2 ||
+    subjectType.length > 80 ||
+    (subjectId !== null && subjectId.length > 160) ||
+    !Number.isFinite(input.confidence) ||
+    !isAiAgentId(input.derivedByAgent)
+  )
+    return null;
+  if (input.knowledgeType !== "operating_rule" && evidenceRefs.length === 0)
+    return null;
+  if (
+    input.dataClass !== "public" &&
+    input.dataClass !== "aggregate_deidentified" &&
+    input.dataClass !== "approved_platform_content"
+  )
+    return null;
+  const contentHash = aiEvidenceHash(
+    "knowledge",
+    [input.knowledgeType, subjectType, subjectId ?? "", statement].join("\0"),
+  );
+  try {
+    const result = await withTx(async (client) => {
+      const inserted = await client.query<KnowledgeRow>(
+        `INSERT INTO ai_knowledge_items
+           (tenant_id, workspace_id, knowledge_type, subject_type, subject_id,
+            statement, content_hash, evidence_refs, confidence, data_class,
+            status, derived_by_agent)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, 'candidate', $11)
+         ON CONFLICT (tenant_id, workspace_id, content_hash) DO UPDATE SET
+           evidence_refs = EXCLUDED.evidence_refs,
+           confidence = GREATEST(ai_knowledge_items.confidence, EXCLUDED.confidence),
+           updated_at = NOW()
+         WHERE ai_knowledge_items.status = 'candidate'
+         RETURNING id, knowledge_type, subject_type, subject_id, statement,
+                   content_hash, evidence_refs, confidence, data_class, status,
+                   derived_by_agent, reviewed_at, review_note, revision,
+                   created_at, updated_at`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.knowledgeType,
+          subjectType,
+          subjectId,
+          statement,
+          contentHash,
+          JSON.stringify(evidenceRefs),
+          Math.max(0, Math.min(100, Math.trunc(input.confidence))),
+          input.dataClass,
+          input.derivedByAgent,
+        ],
+      );
+      const row = inserted.rows[0];
+      // A hash that has already been reviewed is immutable through the agent
+      // candidate path. A human must supersede/review it explicitly instead.
+      if (!row) return null;
+      await client.query(
+        `INSERT INTO ai_knowledge_item_events
+           (tenant_id, workspace_id, knowledge_item_id, event_type,
+            content_hash, actor_admin_id, metadata)
+         VALUES ($1, $2, $3::uuid, 'candidate_created', $4, $5::uuid, $6::jsonb)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          row.id,
+          contentHash,
+          input.actorAdminId ?? null,
+          JSON.stringify({
+            confidence: row.confidence,
+            evidenceCount: evidenceRefs.length,
+          }),
+        ],
+      );
+      return knowledgeSnapshot(row);
+    });
+    return result.enabled ? result.value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function reviewAiKnowledgeItem(
+  input: AdminAiMutationContext & {
+    knowledgeItemId: string;
+    decision: "verified" | "rejected";
+    reviewNote: string;
+  },
+): Promise<
+  AiKnowledgeSnapshot | "not_found" | "invalid_state" | "unavailable"
+> {
+  try {
+    const result = await withTx(async (client) => {
+      await advisoryLock(
+        client,
+        `ai-knowledge:${input.tenantId}:${input.workspaceId}:${input.knowledgeItemId}`,
+      );
+      const selected = await client.query<KnowledgeRow>(
+        `SELECT id, knowledge_type, subject_type, subject_id, statement,
+                content_hash, evidence_refs, confidence, data_class, status,
+                derived_by_agent, reviewed_at, review_note, revision,
+                created_at, updated_at
+           FROM ai_knowledge_items
+          WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3
+          FOR UPDATE`,
+        [input.knowledgeItemId, input.tenantId, input.workspaceId],
+      );
+      const before = selected.rows[0];
+      if (!before) return "not_found" as const;
+      if (before.status !== "candidate") return "invalid_state" as const;
+      const updated = await client.query<KnowledgeRow>(
+        `UPDATE ai_knowledge_items
+            SET status = $4, reviewed_by = $5::uuid, reviewed_at = NOW(),
+                review_note = $6, revision = revision + 1, updated_at = NOW()
+          WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3
+          RETURNING id, knowledge_type, subject_type, subject_id, statement,
+                    content_hash, evidence_refs, confidence, data_class, status,
+                    derived_by_agent, reviewed_at, review_note, revision,
+                    created_at, updated_at`,
+        [
+          input.knowledgeItemId,
+          input.tenantId,
+          input.workspaceId,
+          input.decision,
+          input.actorAdminId,
+          input.reviewNote.slice(0, 2_000),
+        ],
+      );
+      const row = updated.rows[0];
+      await client.query(
+        `INSERT INTO ai_knowledge_item_events
+           (tenant_id, workspace_id, knowledge_item_id, event_type,
+            content_hash, actor_admin_id, metadata)
+         VALUES ($1, $2, $3::uuid, $4, $5, $6::uuid, $7::jsonb)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.knowledgeItemId,
+          input.decision,
+          row.content_hash,
+          input.actorAdminId,
+          JSON.stringify({
+            revision: Number(row.revision),
+            confidence: Number(row.confidence),
+          }),
+        ],
+      );
+      await writeAdminAuditEvent(client, {
+        actorAdminId: input.actorAdminId,
+        sessionId: input.sessionId,
+        effectiveRoles: input.effectiveRoles,
+        action: `ai_knowledge.${input.decision}`,
+        resourceType: "ai_knowledge_item",
+        resourceId: input.knowledgeItemId,
+        requestId: input.requestId,
+        sourceIp: input.sourceIp,
+        userAgent: input.userAgent,
+        beforeState: {
+          status: before.status,
+          contentHash: before.content_hash,
+          revision: Number(before.revision),
+        },
+        afterState: {
+          status: row.status,
+          contentHash: row.content_hash,
+          revision: Number(row.revision),
+        },
+      });
+      return knowledgeSnapshot(row);
+    });
+    return result.enabled ? result.value : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+export function safeAiCatalogForAdmin() {
+  return {
+    providers: AI_PROVIDER_CATALOG,
+    agents: AI_AGENT_CATALOG,
+    workflows: AI_WORKFLOW_CATALOG,
+  };
+}

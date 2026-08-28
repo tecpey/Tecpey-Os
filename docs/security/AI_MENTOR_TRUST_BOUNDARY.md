@@ -1,6 +1,6 @@
 # TecPey AI Mentor Trust and Egress Boundary
 
-**Policy version:** `2026-07-20.2`  
+**Policy version:** `2026-08-28.1`
 **Tracked blocker:** #105  
 **Canonical API:** `POST /api/ai-mentor`
 
@@ -40,13 +40,21 @@ Egress data classes are:
 
 Email addresses, phone numbers, and wallet addresses are redacted from provider input. The provider receives bounded structured Academy context and verified server context only. Client-supplied `history`, `progress`, or behavioral context fields are ignored.
 
+Platform knowledge is eligible for Mentor retrieval only after a human administrator promotes it to `verified`. Retrieval is scoped to the acting tenant/workspace, validity window, and question relevance. Candidate, rejected, expired, secret-bearing, or prompt-injection-shaped knowledge never enters model egress. Retrieved items remain quoted reference data—not instruction authority—and are recorded in evidence by content hash rather than raw text.
+
 Behavioral personalization is default-off and may be enabled only through the server-backed Mentor preference authority. Real-exchange behavioral signals remain disabled during this containment phase.
+
+## Public research isolation
+
+User-facing live research is an explicit mode, not a tool grant to the private Mentor agent. The server routes an eligible question to either `coin_tool_researcher` or `news_x_researcher` and constructs a new public-only payload. That payload has no field for conversation history, learner profile, weak areas, Academy progress, behavioral data, portfolio data, or governed private memory.
+
+Research egress is blocked when the question contains a secret, direct identifier, private financial context, prohibited content, or prompt-injection signal. Retrieved pages and X posts are untrusted data, not instructions. A provider result is rejected unless it passes Mentor output safety and includes at least one sanitized citation returned in provider citation/source metadata. Research workflow evidence records the fixed agent, tenant/workspace, provider, model, hashes, token usage, status, and sanitized sources; it grants no publishing, transaction, or automatic knowledge-promotion authority.
 
 ## Prompt integrity
 
 Provider instructions are static server policy. User questions and prior conversation turns are serialized as typed untrusted data. Stored turns containing prompt-injection markers or secret canaries are excluded from egress context.
 
-The provider is explicitly forbidden from treating quoted curriculum, memories, conversation turns, or behavioral data as system or tool instructions.
+The provider is explicitly forbidden from treating quoted curriculum, approved knowledge, memories, conversation turns, or behavioral data as system or tool instructions.
 
 ## Provider execution controls
 
@@ -57,8 +65,13 @@ The provider is explicitly forbidden from treating quoted curriculum, memories, 
 - process-local circuit breaker after repeated failures;
 - no raw provider response or error is returned to users;
 - immutable egress admission evidence must exist before an external provider call.
+- public-research provider circuits are isolated by tenant and workspace.
+- provider-credit and rate-limit failures may route to a configured paid OpenRouter model under mandatory ZDR/data-collection denial;
+- `openrouter/free` is limited to public, noncritical research with no external effect and is never eligible for private Mentor context.
 
 If evidence persistence is unavailable, Mentor fails closed to local Academy guidance and does not call the external provider.
+
+The full routing and approval contract is documented in [AI_AUTOMATION_AND_MODEL_ROUTING.md](./AI_AUTOMATION_AND_MODEL_ROUTING.md).
 
 ## Output safety
 

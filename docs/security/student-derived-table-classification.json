@@ -24,6 +24,12 @@
       "reason": "The learner's mentor chat history, keyed by student_id. The learner's relationship with the mentor is one relationship across tenants."
     },
     {
+      "table": "mentor_threads",
+      "domain": "mentor",
+      "verdict": "student_global",
+      "reason": "Server-owned conversation threads organize the learner's global Mentor relationship. A composite (thread_id, student_id) foreign key prevents another learner's thread from being attached to a conversation; acting-tenant binding remains enforced at the request edge."
+    },
+    {
       "table": "mentor_memories",
       "domain": "mentor",
       "verdict": "student_global",

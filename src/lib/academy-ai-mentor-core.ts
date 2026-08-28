@@ -25,6 +25,9 @@ export type MentorReply = {
   checklist?: string[];
   suggestedQuestions?: string[];
   sourceLessons?: { title: string; href: string }[];
+  sources?: { title: string | null; url: string }[];
+  researchMode?: "off" | "public" | "public_blocked";
+  threadId?: string | null;
 };
 
 /** One mode's curated coaching. All copy is education-first and hype-free. */
@@ -59,7 +62,6 @@ export const MENTOR_QUICK_QUESTIONS: Record<MentorLocale, string[]> = {
 function termHref(locale: MentorLocale, term: number): string {
   return locale === "fa" ? `/academy/term-${term}` : `/en/academy/term-${term}`;
 }
-
 // Keyword detection is intentionally bilingual: the same signal words (English
 // tickers/terms and their Persian equivalents) route a question to the right
 // coaching mode regardless of the language it was asked in.

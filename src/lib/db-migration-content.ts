@@ -90,6 +90,8 @@ import { PHONE_IDENTITY_OTP_SQL } from "./db-migrate-phone-identity-otp";
 import { COMMUNICATION_PROVIDER_CONFIG_SQL } from "./db-migrate-communication-provider-config";
 import { ADMIN_PASSWORD_TOTP_SQL } from "./db-migrate-admin-password-totp";
 import { PHONE_OTP_LOCAL_VERIFIER_SQL } from "./db-migrate-phone-otp-local-verifier";
+import { AI_CONTROL_PLANE_SQL } from "./db-migrate-ai-control-plane";
+import { AI_AUTOMATION_ORCHESTRATION_SQL } from "./db-migrate-ai-automation";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -386,5 +388,13 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   phoneOtpLocalVerifier: one(
     "0090_phone_otp_local_verifier.sql",
     PHONE_OTP_LOCAL_VERIFIER_SQL,
+  ),
+  aiControlPlane: one(
+    "0091_ai_control_plane.sql",
+    AI_CONTROL_PLANE_SQL,
+  ),
+  aiAutomationOrchestration: one(
+    "0092_ai_automation_orchestration.sql",
+    AI_AUTOMATION_ORCHESTRATION_SQL,
   ),
 });

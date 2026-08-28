@@ -4,50 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, CheckCircle2, Compass, GraduationCap, ShieldCheck, Sparkles, Target, UserRoundCheck } from "lucide-react";
 import { mentorProfiles, mentorRoadmapSteps, mentorWeaknessRules } from "@/data/academyMentorIntelligence";
+import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
 
 type Locale = "fa" | "en";
 type ProgressItem = { term: number; progress: number; xp: number; passed: boolean; quizPercent: number | null };
-
-function safeJson(value: string | null) {
-  try { return value ? JSON.parse(value) : null; } catch { return null; }
-}
-
-function isOfficialPass(term: number) {
-  const quizData = safeJson(window.localStorage.getItem(`tecpey-academy-term-${term}`));
-  return Boolean(Number.isFinite(Number(quizData?.score)) && Number(quizData?.percent) === 100);
-}
-
-function readTermProgress(locale: Locale): ProgressItem[] {
-  if (typeof window === "undefined") return [];
-  return Array.from({ length: 7 }, (_, index) => {
-    const term = index + 1;
-    const unlocked = term === 1 || isOfficialPass(term - 1);
-    const lessonKey = `tecpey-lesson-progress-${locale}-term-${term}`;
-    const quizKey = `tecpey-academy-term-${term}`;
-    const lessonData = safeJson(window.localStorage.getItem(lessonKey));
-    const quizData = safeJson(window.localStorage.getItem(quizKey));
-    const completedCount = lessonData?.completed ? Object.keys(lessonData.completed).filter((key) => lessonData.completed[key]).length : 0;
-    const answerCount = lessonData?.answers ? Object.keys(lessonData.answers).filter((key) => lessonData.answers[key]).length : 0;
-    const totalLessons = term === 7 ? 6 : 7;
-    const lessonProgress = unlocked ? Math.min(99, Math.round((completedCount / totalLessons) * 100)) : 0;
-    const quizPercent = typeof quizData?.percent === "number" ? quizData.percent : null;
-    const hasOfficialQuiz = Number.isFinite(Number(quizData?.score));
-    const progress = hasOfficialQuiz ? Math.max(0, Math.min(100, Number(quizPercent) || 0)) : lessonProgress;
-    const passed = hasOfficialQuiz && quizPercent === 100;
-    return { term, progress, xp: (unlocked ? completedCount * 10 + answerCount * 5 : 0) + (quizPercent || 0), passed, quizPercent };
-  });
-}
-
-function readMentorMemory(locale: Locale) {
-  if (typeof window === "undefined") return { weakAreas: [] as string[], questions: [] as string[], confidence: 0 };
-  const raw = safeJson(window.localStorage.getItem("tecpey-ai-mentor-memory"));
-  const history = safeJson(window.localStorage.getItem(`tecpey-ai-mentor-history-${locale}`));
-  return {
-    weakAreas: Array.isArray(raw?.weakAreas) ? raw.weakAreas.slice(0, 6) : [],
-    questions: Array.isArray(history) ? history.slice(-5).map((item: { question?: string }) => item.question).filter((item: unknown): item is string => typeof item === "string" && item.length > 0) : [],
-    confidence: Math.max(0, Math.min(100, Number(raw?.confidence || 0))),
-  };
-}
 
 function recommendedProfile(progress: ProgressItem[], weakAreas: string[]) {
   const completed = progress.filter((item) => item.passed).length;
@@ -61,29 +21,47 @@ function recommendedProfile(progress: ProgressItem[], weakAreas: string[]) {
 
 export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale }) {
   const isFa = locale === "fa";
-  const [progress, setProgress] = useState<ProgressItem[]>([]);
+  const officialProgress = useAcademyPathProgress(locale);
   const [memory, setMemory] = useState({ weakAreas: [] as string[], questions: [] as string[], confidence: 0 });
 
+  const progress = useMemo<ProgressItem[]>(() => Array.from({ length: 7 }, (_, index) => {
+    const term = index + 1;
+    const item = officialProgress.termProgress[`term-${term}`];
+    return {
+      term,
+      progress: item?.progress ?? 0,
+      xp: 0,
+      passed: item?.completed ?? false,
+      quizPercent: item?.completed ? 100 : item?.progress ?? null,
+    };
+  }), [officialProgress.termProgress]);
+
   useEffect(() => {
-    setProgress(readTermProgress(locale));
-    setMemory(readMentorMemory(locale));
     let active = true;
-    fetch("/api/academy/mentor-memory", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!active || !data?.ok || !data.memory) return;
-        const memorySnapshot = data.memory;
-        setMemory((current) => ({
-          weakAreas: Array.isArray(memorySnapshot.weakAreas) ? memorySnapshot.weakAreas : current.weakAreas,
-          questions: current.questions,
-          confidence: Number(memorySnapshot.confidence || current.confidence || 0),
-        }));
+    Promise.all([
+      fetch("/api/academy/mentor-memory", { cache: "no-store" }).then((response) => response.json()),
+      fetch("/api/mentor-conversations?limit=12", { cache: "no-store" }).then((response) => response.json()),
+    ])
+      .then(([memoryData, conversationData]) => {
+        if (!active) return;
+        const memorySnapshot = memoryData?.ok ? memoryData.memory : null;
+        const conversations = conversationData?.ok && Array.isArray(conversationData.conversations)
+          ? conversationData.conversations
+          : [];
+        setMemory({
+          weakAreas: Array.isArray(memorySnapshot?.weakAreas) ? memorySnapshot.weakAreas.slice(0, 6) : [],
+          questions: conversations
+            .filter((item: { role?: unknown; content?: unknown }) => item.role === "user" && typeof item.content === "string")
+            .map((item: { content: string }) => item.content)
+            .slice(0, 5),
+          confidence: Math.max(0, Math.min(100, Number(memorySnapshot?.confidence ?? 0))),
+        });
       })
       .catch(() => null);
     return () => { active = false; };
   }, [locale]);
 
-  const totalXp = useMemo(() => progress.reduce((sum, item) => sum + item.xp, 0), [progress]);
+  const totalXp = officialProgress.totalXp;
   const completedTerms = useMemo(() => progress.filter((item) => item.passed).length, [progress]);
   const weakRules = useMemo(() => {
     const text = [...memory.weakAreas, ...memory.questions].join(" ").toLowerCase();
@@ -155,14 +133,14 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
             </section>
 
             <aside className="space-y-6">
-              <section className="rounded-[34px] border border-violet-300/20 bg-violet-500/10 p-6">
-                <BrainCircuit className="h-8 w-8 text-violet-300" />
+              <section className="rounded-[34px] border border-cyan-300/20 bg-cyan-500/10 p-6">
+                <BrainCircuit className="h-8 w-8 text-cyan-300" />
                 <h2 className="mt-4 text-2xl font-black text-white">{isFa ? profile.titleFa : profile.titleEn}</h2>
                 <p className="mt-3 text-sm font-bold leading-8 text-slate-300">{isFa ? profile.toneFa : profile.toneEn}</p>
                 <div className="mt-4 grid gap-2">
                   {(isFa ? profile.bestForFa : profile.bestForEn).map((item) => (
                     <div key={item} className="flex gap-2 rounded-2xl bg-white/10 p-3 text-sm font-bold leading-7 text-slate-200">
-                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-violet-200" />
+                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
                       <span>{item}</span>
                     </div>
                   ))}
@@ -179,8 +157,8 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
                 </p>
                 <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-slate-950/35 p-3 text-xs font-bold leading-6 text-emerald-50">
                   {isFa
-                    ? "تا قبل از تکمیل packet لانچ، داده‌هایی که از cache مرورگر خوانده می‌شوند فقط برای راهنمایی آموزشی‌اند؛ قبولی، گواهی، رتبه و وضعیت رسمی باید از APIها و رکوردهای سرور تأیید شوند."
-                    : "Until the launch packet is complete, browser-cache snapshots are guidance only; passed terms, certificates, ranking and official status must be verified by server APIs and records."}
+                    ? "پیشرفت، سؤال‌های اخیر و حافظهٔ آموزشی از APIها و رکوردهای سرور خوانده می‌شوند؛ مرورگر فقط این نما را نمایش می‌دهد و منبع حقیقت نیست."
+                    : "Progress, recent questions and learning memory come from authenticated server records; the browser only renders this view and is not the source of truth."}
                 </p>
               </section>
             </aside>
