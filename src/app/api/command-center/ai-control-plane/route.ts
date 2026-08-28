@@ -261,6 +261,9 @@ async function testProvider(
 
   let passed = false;
   let failureReason: string | null = null;
+  let attempts = 1;
+  let testedModel: string | null = null;
+  let providerStatus: number | null = null;
   if (providerId === "x_api") {
     passed = await testXApiConnector(secret.apiKey);
     if (!passed) failureReason = "provider_rejected";
@@ -292,6 +295,9 @@ async function testProvider(
     // text; output quality remains governed by the normal trust boundary.
     passed = result.ok;
     failureReason = result.ok ? null : result.reason;
+    attempts = result.attempts;
+    testedModel = result.ok ? result.model : result.model ?? model;
+    providerStatus = result.ok ? 200 : result.status ?? null;
   }
   const recorded = await recordAiProviderTest({
     ...mutationContext(request, authorization),
@@ -301,8 +307,11 @@ async function testProvider(
   if (!recorded) return apiError("ai_provider_test_evidence_unavailable", 503);
   if (!passed) return apiError("ai_provider_test_failed", providerFailureStatus(failureReason ?? "provider_rejected"), {
     reason: failureReason,
+    attempts,
+    providerStatus,
+    testedModel,
   });
-  return apiOk({ providerId, passed: true }, 200, {
+  return apiOk({ providerId, passed: true, attempts, testedModel }, 200, {
     "Cache-Control": "private, no-store",
     Vary: "Cookie",
   });

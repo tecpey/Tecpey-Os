@@ -220,6 +220,27 @@ function errorMessage(code: unknown): string {
   return messages[typeof code === "string" ? code : ""] ?? "عملیات کامل نشد؛ ورودی، دسترسی و وضعیت Provider را بررسی کنید.";
 }
 
+function providerTestMessage(data: unknown): string {
+  const payload = data && typeof data === "object"
+    ? data as { error?: unknown; details?: { reason?: unknown; attempts?: unknown } }
+    : {};
+  const reason = payload.details?.reason;
+  const attempts = Number(payload.details?.attempts);
+  const suffix = Number.isSafeInteger(attempts) && attempts > 1
+    ? ` پس از ${new Intl.NumberFormat("fa-IR").format(attempts)} تلاش کنترل‌شده.`
+    : "";
+  const messages: Record<string, string> = {
+    rate_limited: "ظرفیت مدل انتخاب‌شده موقتاً محدود است؛ تک‌پی تلاش مجدد و مسیریابی جایگزین را انجام داد. چند دقیقه دیگر دوباره تست کنید.",
+    quota_exhausted: "اعتبار یا سهمیه این Provider تمام شده است؛ مسیر fallback را فعال یا اعتبار حساب را بررسی کنید.",
+    timeout: "Provider در مهلت امن پاسخ نداد؛ وضعیت سرویس و شبکه را بررسی و کمی بعد دوباره تلاش کنید.",
+    network_error: "ارتباط امن با Provider برقرار نشد؛ اتصال شبکه یا وضعیت سرویس را بررسی کنید.",
+    circuit_open: "مدار حفاظتی Provider پس از خطاهای متوالی موقتاً باز شده است؛ کمی بعد دوباره تست کنید.",
+    invalid_response: "Provider پاسخ موفق اما بدون محتوای قابل‌استفاده برگرداند؛ مدل دیگری انتخاب کنید یا دوباره تلاش کنید.",
+    provider_rejected: "Provider درخواست را نپذیرفت؛ نام مدل و سطح دسترسی حساب را بررسی کنید.",
+  };
+  return (messages[typeof reason === "string" ? reason : ""] ?? errorMessage(payload.error)) + suffix;
+}
+
 function StatusPill({ ready, children }: { ready: boolean; children: React.ReactNode }) {
   return (
     <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${ready ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : "border-amber-300/20 bg-amber-300/[0.08] text-amber-100"}`}>
@@ -367,13 +388,19 @@ export function AiControlPlanePanel() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.ok) {
-        const text = errorMessage(data?.error);
+        const text = providerTestMessage(data);
         setError(text);
         setProviderMessages((current) => ({ ...current, [id]: { kind: "error", text } }));
         await load();
         return;
       }
-      const text = "اتصال Provider با دادهٔ تست غیرکاربری تأیید و evidence آن ثبت شد.";
+      const attempts = Number(data?.attempts);
+      const testedModel = typeof data?.testedModel === "string" ? data.testedModel : "";
+      const recovered = Number.isSafeInteger(attempts) && attempts > 1
+        ? ` سامانه پس از ${new Intl.NumberFormat("fa-IR").format(attempts)} تلاش کنترل‌شده بازیابی شد.`
+        : "";
+      const routed = testedModel ? ` مدل پاسخ‌دهنده: ${testedModel}.` : "";
+      const text = `اتصال Provider با دادهٔ تست غیرکاربری تأیید و evidence آن ثبت شد.${recovered}${routed}`;
       setNotice(text);
       setProviderMessages((current) => ({ ...current, [id]: { kind: "success", text } }));
       await load();

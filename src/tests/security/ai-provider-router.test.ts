@@ -84,6 +84,144 @@ describe("multi-provider AI router", () => {
     }
   });
 
+  it("recovers OpenRouter free routing from a transient 429 with Retry-After and bounded jitter", async () => {
+    let clock = 1_000;
+    let calls = 0;
+    const delays: number[] = [];
+    const result = await callAiProvider({
+      providerId: "openrouter",
+      agentId: "coin_tool_researcher",
+      apiKey: "test-key",
+      model: "openrouter/free",
+      instructions: "trusted",
+      input: "public query",
+      timeoutMs: 12_000,
+    }, {
+      now: () => clock,
+      random: () => 0,
+      sleep: async (milliseconds) => {
+        delays.push(milliseconds);
+        clock += milliseconds;
+      },
+      fetchImpl: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return new Response("{}", {
+            status: 429,
+            headers: { "Retry-After": "0.5" },
+          });
+        }
+        return new Response(JSON.stringify({
+          model: "free-vendor/recovered-model",
+          choices: [{ message: { content: "recovered" } }],
+        }), { status: 200 });
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(delays, [500]);
+    assert.equal(calls, 2);
+    if (result.ok) {
+      assert.equal(result.attempts, 2);
+      assert.equal(result.model, "free-vendor/recovered-model");
+      assert.equal(result.requestedModel, "openrouter/free");
+    }
+  });
+
+  it("caps OpenRouter free retries and reports the final safe rate-limit reason", async () => {
+    let clock = 1_000;
+    let calls = 0;
+    const result = await callAiProvider({
+      providerId: "openrouter",
+      agentId: "coin_tool_researcher",
+      apiKey: "test-key",
+      model: "openrouter/free",
+      instructions: "trusted",
+      input: "public query",
+      timeoutMs: 12_000,
+    }, {
+      now: () => clock,
+      random: () => 0,
+      sleep: async (milliseconds) => {
+        clock += milliseconds;
+      },
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response("{}", { status: 429 });
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.equal(calls, 3);
+    if (!result.ok) {
+      assert.equal(result.reason, "rate_limited");
+      assert.equal(result.status, 429);
+      assert.equal(result.attempts, 3);
+    }
+  });
+
+  it("does not retry before a Retry-After value that exceeds the request deadline", async () => {
+    let calls = 0;
+    let sleeps = 0;
+    const result = await callAiProvider({
+      providerId: "openrouter",
+      agentId: "coin_tool_researcher",
+      apiKey: "test-key",
+      model: "openrouter/free",
+      instructions: "trusted",
+      input: "public query",
+      timeoutMs: 12_000,
+    }, {
+      now: () => 1_000,
+      random: () => 0,
+      sleep: async () => {
+        sleeps += 1;
+      },
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response("{}", {
+          status: 429,
+          headers: { "Retry-After": "60" },
+        });
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.equal(calls, 1);
+    assert.equal(sleeps, 0);
+    if (!result.ok) {
+      assert.equal(result.reason, "rate_limited");
+      assert.equal(result.attempts, 1);
+    }
+  });
+
+  it("reselects the OpenRouter free route when a reasoning model returns no final content", async () => {
+    let calls = 0;
+    const result = await callAiProvider({
+      providerId: "openrouter",
+      agentId: "coin_tool_researcher",
+      apiKey: "test-key",
+      model: "openrouter/free",
+      instructions: "trusted",
+      input: "public query",
+    }, {
+      random: () => 0,
+      sleep: async () => undefined,
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response(JSON.stringify(calls === 1
+          ? { choices: [{ message: { reasoning: "budget consumed" } }] }
+          : {
+              model: "free-vendor/final-answer-model",
+              choices: [{ message: { content: "usable final answer" } }],
+            }), { status: 200 });
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(calls, 2);
+    if (result.ok) {
+      assert.equal(result.attempts, 2);
+      assert.equal(result.model, "free-vendor/final-answer-model");
+    }
+  });
+
   it("reads bounded OpenRouter key limits without exposing the credential", async () => {
     let authorization = "";
     const result = await inspectOpenRouterKey({ apiKey: "openrouter-key" }, {

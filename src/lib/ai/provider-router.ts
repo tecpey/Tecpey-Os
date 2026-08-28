@@ -70,6 +70,8 @@ export type AiProviderCallInput = {
 export type AiProviderRouterDependencies = {
   fetchImpl?: typeof fetch;
   now?: () => number;
+  random?: () => number;
+  sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 };
 
 type CircuitState = { failures: number; openUntil: number };
@@ -77,6 +79,11 @@ const circuits = new Map<string, CircuitState>();
 const FAILURE_THRESHOLD = 3;
 const CIRCUIT_OPEN_MS = 60_000;
 const MAX_RESPONSE_CHARS = 256_000;
+const OPENROUTER_FREE_MAX_ATTEMPTS = 3;
+const OPENROUTER_FREE_RETRYABLE_STATUSES = new Set([408, 409, 429, 500, 502, 503, 504]);
+const RETRY_BACKOFF_BASE_MS = 250;
+const RETRY_BACKOFF_MAX_MS = 4_000;
+const RETRY_COMPLETION_RESERVE_MS = 1_000;
 
 function boundedInteger(value: number | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;
@@ -106,6 +113,52 @@ function recordFailure(key: string, now: number): void {
 
 function recordSuccess(key: string): void {
   circuits.set(key, { failures: 0, openUntil: 0 });
+}
+
+function isOpenRouterFreeRoute(input: AiProviderCallInput, model: string): boolean {
+  return input.providerId === "openrouter" && model.trim().toLowerCase() === "openrouter/free";
+}
+
+function retryAfterMilliseconds(response: Response, now: number): number | null {
+  const value = response.headers.get("retry-after")?.trim();
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1_000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : null;
+}
+
+function retryDelayMilliseconds(input: {
+  retryIndex: number;
+  response?: Response;
+  now: number;
+  random: () => number;
+}): number {
+  const exponential = Math.min(
+    RETRY_BACKOFF_MAX_MS,
+    RETRY_BACKOFF_BASE_MS * 2 ** input.retryIndex,
+  );
+  const jitter = Math.floor(Math.max(0, Math.min(1, input.random())) * RETRY_BACKOFF_BASE_MS);
+  const providerDelay = input.response
+    ? retryAfterMilliseconds(input.response, input.now)
+    : null;
+  return Math.max(exponential + jitter, providerDelay ?? 0);
+}
+
+async function sleepWithSignal(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (milliseconds <= 0) return;
+  if (signal?.aborted) throw signal.reason ?? new DOMException("Request aborted", "AbortError");
+  await new Promise<void>((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timeout);
+      reject(signal?.reason ?? new DOMException("Request aborted", "AbortError"));
+    };
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 const SENSITIVE_SOURCE_QUERY_KEY = /(?:api[_-]?key|access[_-]?token|token|secret|password|passphrase|authorization|auth|credential|signature|session|code)/i;
@@ -413,6 +466,8 @@ export async function callAiProvider(
   assertAiAgentProviderAllowed(input.agentId, input.providerId);
   const now = dependencies.now ?? Date.now;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
+  const random = dependencies.random ?? Math.random;
+  const sleep = dependencies.sleep ?? sleepWithSignal;
   const startedAt = now();
   const timeoutMs = boundedInteger(input.timeoutMs, 12_000, 2_000, 30_000);
   const deadline = startedAt + timeoutMs;
@@ -431,69 +486,145 @@ export async function callAiProvider(
   let lastModel: string | undefined;
   for (const model of models) {
     lastModel = model;
-    attempts += 1;
-    const called = await fetchWithDeadline(fetchImpl, input, model, deadline, now);
-    if (!called.ok) {
-      recordFailure(scopedCircuitKey, now());
+    const maxModelAttempts = isOpenRouterFreeRoute(input, model)
+      ? OPENROUTER_FREE_MAX_ATTEMPTS
+      : 1;
+    for (let retryIndex = 0; retryIndex < maxModelAttempts; retryIndex += 1) {
+      attempts += 1;
+      const called = await fetchWithDeadline(fetchImpl, input, model, deadline, now);
+      if (!called.ok) {
+        const retryable = isOpenRouterFreeRoute(input, model) &&
+          called.reason === "network_error" &&
+          retryIndex + 1 < maxModelAttempts;
+        if (retryable) {
+          const delay = retryDelayMilliseconds({ retryIndex, now: now(), random });
+          if (deadline - now() >= delay + RETRY_COMPLETION_RESERVE_MS) {
+            try {
+              await sleep(delay, input.requestSignal);
+              continue;
+            } catch {
+              return {
+                ok: false,
+                reason: "timeout",
+                providerId: input.providerId,
+                model,
+                attempts,
+                durationMs: now() - startedAt,
+              };
+            }
+          }
+        }
+        recordFailure(scopedCircuitKey, now());
+        return {
+          ok: false,
+          reason: called.reason,
+          providerId: input.providerId,
+          model,
+          attempts,
+          durationMs: now() - startedAt,
+        };
+      }
+      lastStatus = called.response.status;
+      if (!called.response.ok) {
+        const freeRouteRetry = isOpenRouterFreeRoute(input, model) &&
+          OPENROUTER_FREE_RETRYABLE_STATUSES.has(called.response.status) &&
+          retryIndex + 1 < maxModelAttempts;
+        if (freeRouteRetry) {
+          const delay = retryDelayMilliseconds({
+            retryIndex,
+            response: called.response,
+            now: now(),
+            random,
+          });
+          if (deadline - now() >= delay + RETRY_COMPLETION_RESERVE_MS) {
+            try {
+              await sleep(delay, input.requestSignal);
+              continue;
+            } catch {
+              return {
+                ok: false,
+                reason: "timeout",
+                providerId: input.providerId,
+                status: called.response.status,
+                model,
+                attempts,
+                durationMs: now() - startedAt,
+              };
+            }
+          }
+        }
+        const fallbackRetry = retryIndex + 1 === maxModelAttempts &&
+          models.length > 1 && model !== models.at(-1) &&
+          [400, 404, 408, 409, 429, 500, 502, 503, 504].includes(called.response.status) &&
+          deadline - now() >= 1_000;
+        if (fallbackRetry) break;
+        recordFailure(scopedCircuitKey, now());
+        const failureReason =
+          called.response.status === 402
+            ? "quota_exhausted"
+            : called.response.status === 429
+              ? "rate_limited"
+              : "provider_rejected";
+        return {
+          ok: false,
+          reason: failureReason,
+          providerId: input.providerId,
+          status: called.response.status,
+          model,
+          attempts,
+          durationMs: now() - startedAt,
+        };
+      }
+      const parsed = await parseResponse(called.response, input);
+      if (!parsed.ok) {
+        const retryable = isOpenRouterFreeRoute(input, model) &&
+          parsed.reason === "invalid_response" &&
+          retryIndex + 1 < maxModelAttempts;
+        if (retryable) {
+          const delay = retryDelayMilliseconds({ retryIndex, now: now(), random });
+          if (deadline - now() >= delay + RETRY_COMPLETION_RESERVE_MS) {
+            try {
+              await sleep(delay, input.requestSignal);
+              continue;
+            } catch {
+              return {
+                ok: false,
+                reason: "timeout",
+                providerId: input.providerId,
+                status: called.response.status,
+                model,
+                attempts,
+                durationMs: now() - startedAt,
+              };
+            }
+          }
+        }
+        recordFailure(scopedCircuitKey, now());
+        return {
+          ok: false,
+          reason: parsed.reason,
+          providerId: input.providerId,
+          status: called.response.status,
+          model,
+          attempts,
+          durationMs: now() - startedAt,
+        };
+      }
+      recordSuccess(scopedCircuitKey);
       return {
-        ok: false,
-        reason: called.reason,
+        ok: true,
+        text: parsed.text,
         providerId: input.providerId,
-        model,
+        model: parsed.model,
+        requestedModel: model,
+        sources: parsed.sources,
+        inputTokens: parsed.inputTokens,
+        outputTokens: parsed.outputTokens,
+        costUsdMicros: parsed.costUsdMicros,
         attempts,
         durationMs: now() - startedAt,
       };
     }
-    lastStatus = called.response.status;
-    if (!called.response.ok) {
-      const retryable = attempts === 1 && models.length > 1 &&
-        [400, 404, 408, 409, 429, 500, 502, 503, 504].includes(called.response.status) &&
-        deadline - now() >= 1_000;
-      if (retryable) continue;
-      recordFailure(scopedCircuitKey, now());
-      const failureReason =
-        called.response.status === 402
-          ? "quota_exhausted"
-          : called.response.status === 429
-            ? "rate_limited"
-            : "provider_rejected";
-      return {
-        ok: false,
-        reason: failureReason,
-        providerId: input.providerId,
-        status: called.response.status,
-        model,
-        attempts,
-        durationMs: now() - startedAt,
-      };
-    }
-    const parsed = await parseResponse(called.response, input);
-    if (!parsed.ok) {
-      recordFailure(scopedCircuitKey, now());
-      return {
-        ok: false,
-        reason: parsed.reason,
-        providerId: input.providerId,
-        status: called.response.status,
-        model,
-        attempts,
-        durationMs: now() - startedAt,
-      };
-    }
-    recordSuccess(scopedCircuitKey);
-    return {
-      ok: true,
-      text: parsed.text,
-      providerId: input.providerId,
-      model: parsed.model,
-      requestedModel: model,
-      sources: parsed.sources,
-      inputTokens: parsed.inputTokens,
-      outputTokens: parsed.outputTokens,
-      costUsdMicros: parsed.costUsdMicros,
-      attempts,
-      durationMs: now() - startedAt,
-    };
   }
 
   recordFailure(scopedCircuitKey, now());

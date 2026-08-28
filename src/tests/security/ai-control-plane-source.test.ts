@@ -56,9 +56,10 @@ describe("AI control-plane source authority", () => {
   });
 
   it("treats a parsed non-empty provider response as connectivity success", async () => {
-    const route = await source(
-      "src/app/api/command-center/ai-control-plane/route.ts",
-    );
+    const [route, panel] = await Promise.all([
+      source("src/app/api/command-center/ai-control-plane/route.ts"),
+      source("src/components/admin/AiControlPlanePanel.tsx"),
+    ]);
     assert.match(route, /passed = result\.ok;/);
     assert.match(route, /failureReason = result\.ok \? null : result\.reason;/);
     assert.doesNotMatch(route, /result\.text\.includes\("TECPEY_PROVIDER_OK"\)/);
@@ -66,6 +67,10 @@ describe("AI control-plane source authority", () => {
       route,
       /maxOutputTokens: providerId === "openrouter" \? 8_192 : 1_200/,
     );
+    assert.match(route, /attempts,\s*providerStatus,\s*testedModel,/);
+    assert.match(panel, /const text = providerTestMessage\(data\);/);
+    assert.match(panel, /rate_limited: "ظرفیت مدل انتخاب‌شده موقتاً محدود است/);
+    assert.match(panel, /سامانه پس از.*تلاش کنترل‌شده بازیابی شد/);
   });
 
   it("makes Mentor threads server-owned and user-bound", async () => {
