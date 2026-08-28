@@ -37,21 +37,13 @@ const persistencePolicy = new Map(
       expected: 2,
       classification: "disposable-ui-cache",
     },
-    "src/components/academy/AcademyMentorCoachCenter.tsx": {
-      expected: 5,
-      classification: "disposable-ui-cache",
-    },
     "src/components/academy/AcademySimulationWorld.tsx": {
       expected: 2,
       classification: "disposable-ui-cache",
     },
-    "src/components/academy/AiMentorExperience.tsx": {
-      expected: 6,
-      classification: "disposable-ui-cache",
-    },
     "src/components/academy/GlobalAiMentorWidget.tsx": {
-      expected: 8,
-      classification: "disposable-ui-cache",
+      expected: 9,
+      classification: "one-shot-legacy-migration",
     },
     "src/components/offline/OfflineSyncManager.tsx": {
       expected: 1,

@@ -94,6 +94,9 @@ export type SensitiveAuditOutcome = "success" | "no_op" | "rejected" | "failed";
 export type SensitiveMutationAuditAction =
   | "device_token.register"
   | "mentor_conversations.migrate"
+  | "mentor_thread.create"
+  | "mentor_thread.update"
+  | "mentor_thread.archive"
   | "mentor_profile.recompute"
   | "mentor.preferences.update"
   | "community.profile.consent.update"
@@ -157,6 +160,7 @@ export type SensitiveMutationAuditAction =
 export type SensitiveMutationAuditResource =
   | "device_token"
   | "mentor_conversations"
+  | "mentor_thread"
   | "mentor_profile"
   | "mentor_ai_preferences"
   | "community_profile"

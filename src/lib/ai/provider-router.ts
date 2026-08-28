@@ -1,0 +1,626 @@
+import {
+  aiToolsForAgent,
+  assertAiAgentProviderAllowed,
+  type AiAgentId,
+  type AiDataClass,
+  type AiModelProviderId,
+} from "./control-plane-catalog";
+
+export type AiSourceReference = {
+  url: string;
+  title: string | null;
+};
+
+export type AiProviderFailureReason =
+  | "provider_disabled"
+  | "circuit_open"
+  | "timeout"
+  | "network_error"
+  | "quota_exhausted"
+  | "rate_limited"
+  | "provider_rejected"
+  | "invalid_response"
+  | "response_too_large";
+
+export type AiProviderCallResult =
+  | {
+      ok: true;
+      text: string;
+      providerId: AiModelProviderId;
+      model: string;
+      requestedModel: string;
+      sources: AiSourceReference[];
+      inputTokens: number;
+      outputTokens: number;
+      costUsdMicros: number | null;
+      attempts: number;
+      durationMs: number;
+    }
+  | {
+      ok: false;
+      reason: AiProviderFailureReason;
+      providerId: AiModelProviderId;
+      model?: string;
+      status?: number;
+      attempts: number;
+      durationMs: number;
+    };
+
+export type AiProviderCallInput = {
+  providerId: AiModelProviderId;
+  agentId: AiAgentId;
+  apiKey: string;
+  model: string;
+  fallbackModel?: string | null;
+  instructions: string;
+  input: string;
+  requestSignal?: AbortSignal;
+  timeoutMs?: number;
+  maxOutputTokens?: number;
+  /** Trusted server scope used to keep availability failures tenant/workspace isolated. */
+  circuitScope?: string;
+  /** Internal connectivity checks may suppress tools; runtime agents cannot add tools beyond the catalog. */
+  toolsEnabled?: boolean;
+  /** Trusted classification. OpenRouter free routing is enforced outside this low-level adapter. */
+  dataClass?: AiDataClass;
+  /** OpenRouter requests default to the strictest provider privacy filters. */
+  requireZeroDataRetention?: boolean;
+};
+
+export type AiProviderRouterDependencies = {
+  fetchImpl?: typeof fetch;
+  now?: () => number;
+};
+
+type CircuitState = { failures: number; openUntil: number };
+const circuits = new Map<string, CircuitState>();
+const FAILURE_THRESHOLD = 3;
+const CIRCUIT_OPEN_MS = 60_000;
+const MAX_RESPONSE_CHARS = 256_000;
+
+function boundedInteger(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function circuitKey(input: Pick<AiProviderCallInput, "providerId" | "circuitScope">): string {
+  const scope = input.circuitScope?.trim().slice(0, 256) || "default";
+  return `${input.providerId}:${scope}`;
+}
+
+function circuit(key: string): CircuitState {
+  const current = circuits.get(key) ?? { failures: 0, openUntil: 0 };
+  circuits.set(key, current);
+  return current;
+}
+
+export function resetAiProviderCircuits(): void {
+  circuits.clear();
+}
+
+function recordFailure(key: string, now: number): void {
+  const current = circuit(key);
+  current.failures += 1;
+  if (current.failures >= FAILURE_THRESHOLD) current.openUntil = now + CIRCUIT_OPEN_MS;
+}
+
+function recordSuccess(key: string): void {
+  circuits.set(key, { failures: 0, openUntil: 0 });
+}
+
+const SENSITIVE_SOURCE_QUERY_KEY = /(?:api[_-]?key|access[_-]?token|token|secret|password|passphrase|authorization|auth|credential|signature|session|code)/i;
+
+export function safeAiSourceUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 4_096) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    url.username = "";
+    url.password = "";
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) {
+      if (SENSITIVE_SOURCE_QUERY_KEY.test(key)) url.searchParams.delete(key);
+    }
+    const normalized = url.toString();
+    return normalized.length <= 2_048 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+function collectSources(value: unknown): AiSourceReference[] {
+  const sources = new Map<string, AiSourceReference>();
+  const seen = new Set<unknown>();
+  const walk = (candidate: unknown, depth: number, citationContext = false): void => {
+    if (depth > 8 || sources.size >= 12 || candidate === null || candidate === undefined) return;
+    // Some providers return citations as arrays of URL strings. A URL in an
+    // arbitrary output/echo field is not citation evidence.
+    const directUrl = citationContext ? safeAiSourceUrl(candidate) : null;
+    if (directUrl) {
+      if (!sources.has(directUrl)) sources.set(directUrl, { url: directUrl, title: null });
+      return;
+    }
+    if (typeof candidate !== "object") return;
+    if (seen.has(candidate)) return;
+    seen.add(candidate);
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) walk(item, depth + 1, citationContext);
+      return;
+    }
+    const object = candidate as Record<string, unknown>;
+    const objectUrl = citationContext ? safeAiSourceUrl(object.url) : null;
+    if (objectUrl) {
+      const title = typeof object.title === "string" && object.title.trim()
+        ? object.title.trim().slice(0, 300)
+        : null;
+      sources.set(objectUrl, { url: objectUrl, title });
+    }
+    for (const [key, nested] of Object.entries(object)) {
+      const nestedCitationContext = citationContext ||
+        /^(?:citations?|sources?|references?|annotations?)$/i.test(key);
+      walk(nested, depth + 1, nestedCitationContext);
+    }
+  };
+  walk(value, 0);
+  return [...sources.values()];
+}
+
+function extractOpenResponsesText(value: unknown): string {
+  const root = value as {
+    output_text?: unknown;
+    output?: Array<{ content?: Array<{ text?: unknown; value?: unknown }> }>;
+  };
+  if (typeof root?.output_text === "string") return root.output_text.trim();
+  return root?.output
+    ?.flatMap((item) => item.content ?? [])
+    .map((content) => typeof content.text === "string"
+      ? content.text
+      : typeof content.value === "string" ? content.value : "")
+    .filter(Boolean)
+    .join("\n")
+    .trim() ?? "";
+}
+
+function extractAnthropicText(value: unknown): string {
+  const root = value as { content?: Array<{ type?: unknown; text?: unknown }> };
+  return root?.content
+    ?.filter((item) => item.type === "text" && typeof item.text === "string")
+    .map((item) => String(item.text))
+    .join("\n")
+    .trim() ?? "";
+}
+
+function extractOpenRouterText(value: unknown): string {
+  const root = value as {
+    choices?: Array<{ message?: { content?: unknown } }>;
+  };
+  const content = root?.choices?.[0]?.message?.content;
+  return typeof content === "string" ? content.trim() : "";
+}
+
+function usage(value: unknown, providerId: AiModelProviderId, text: string, input: string) {
+  const root = value as {
+    usage?: {
+      input_tokens?: unknown;
+      output_tokens?: unknown;
+      inputTokens?: unknown;
+      outputTokens?: unknown;
+      prompt_tokens?: unknown;
+      completion_tokens?: unknown;
+      cost?: unknown;
+    };
+  };
+  const inputTokens = Number(
+    root?.usage?.input_tokens ??
+      root?.usage?.inputTokens ??
+      root?.usage?.prompt_tokens,
+  );
+  const outputTokens = Number(
+    root?.usage?.output_tokens ??
+      root?.usage?.outputTokens ??
+      root?.usage?.completion_tokens,
+  );
+  const costUsd = Number(root?.usage?.cost);
+  return {
+    inputTokens: Number.isFinite(inputTokens) ? Math.max(0, Math.trunc(inputTokens)) : Math.ceil(input.length / 3.2),
+    outputTokens: Number.isFinite(outputTokens) ? Math.max(0, Math.trunc(outputTokens)) : Math.ceil(text.length / 3.2),
+    costUsdMicros:
+      Number.isFinite(costUsd) && costUsd >= 0
+        ? Math.max(0, Math.round(costUsd * 1_000_000))
+        : null,
+    providerId,
+  };
+}
+
+function responseTools(providerId: AiModelProviderId, agentId: AiAgentId): unknown[] {
+  const tools = aiToolsForAgent(agentId, providerId);
+  if (providerId === "anthropic") {
+    return tools.includes("web_search")
+      ? [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }]
+      : [];
+  }
+  if (providerId === "openrouter") {
+    return tools.includes("web_search")
+      ? [{ type: "openrouter:web_search" }]
+      : [];
+  }
+  return tools.map((tool) => ({ type: tool }));
+}
+
+function requestForProvider(input: AiProviderCallInput, model: string): {
+  url: string;
+  init: RequestInit;
+} {
+  const maxOutputTokens = boundedInteger(input.maxOutputTokens, 1_200, 64, 100_000);
+  const tools = input.toolsEnabled === false ? [] : responseTools(input.providerId, input.agentId);
+  if (input.providerId === "openrouter") {
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${input.apiKey}`,
+          "HTTP-Referer": "https://tecpey.ir",
+          "X-OpenRouter-Title": "TecPey AI Control Plane",
+          "X-OpenRouter-Metadata": "enabled",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: input.instructions },
+            { role: "user", content: input.input },
+          ],
+          max_tokens: maxOutputTokens,
+          provider: {
+            zdr: input.requireZeroDataRetention !== false,
+            data_collection: "deny",
+          },
+          ...(tools.length ? { tools } : {}),
+        }),
+      },
+    };
+  }
+  if (input.providerId === "anthropic") {
+    return {
+      url: "https://api.anthropic.com/v1/messages",
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+          "X-Api-Key": input.apiKey,
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxOutputTokens,
+          system: input.instructions,
+          messages: [{ role: "user", content: input.input }],
+          ...(tools.length ? { tools } : {}),
+        }),
+      },
+    };
+  }
+
+  const url = input.providerId === "openai"
+    ? "https://api.openai.com/v1/responses"
+    : input.providerId === "xai"
+      ? "https://api.x.ai/v1/responses"
+      : "https://api.perplexity.ai/v1/agent";
+  return {
+    url,
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        instructions: input.instructions,
+        input: input.input,
+        store: false,
+        max_output_tokens: maxOutputTokens,
+        ...(tools.length ? { tools } : {}),
+      }),
+    },
+  };
+}
+
+async function fetchWithDeadline(
+  fetchImpl: typeof fetch,
+  input: AiProviderCallInput,
+  model: string,
+  deadline: number,
+  now: () => number,
+): Promise<{ ok: true; response: Response } | { ok: false; reason: "timeout" | "network_error" }> {
+  const remaining = deadline - now();
+  if (remaining <= 0) return { ok: false, reason: "timeout" };
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException("AI provider timeout", "TimeoutError")),
+    remaining,
+  );
+  timeout.unref?.();
+  const forwardAbort = () => controller.abort(input.requestSignal?.reason);
+  if (input.requestSignal) {
+    if (input.requestSignal.aborted) forwardAbort();
+    else input.requestSignal.addEventListener("abort", forwardAbort, { once: true });
+  }
+  try {
+    const request = requestForProvider(input, model);
+    const response = await fetchImpl(request.url, { ...request.init, signal: controller.signal });
+    return { ok: true, response };
+  } catch (error) {
+    const aborted = controller.signal.aborted ||
+      (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name));
+    return { ok: false, reason: aborted ? "timeout" : "network_error" };
+  } finally {
+    clearTimeout(timeout);
+    input.requestSignal?.removeEventListener("abort", forwardAbort);
+  }
+}
+
+async function parseResponse(
+  response: Response,
+  input: AiProviderCallInput,
+): Promise<
+  | {
+      ok: true;
+      text: string;
+      model: string;
+      sources: AiSourceReference[];
+      inputTokens: number;
+      outputTokens: number;
+      costUsdMicros: number | null;
+    }
+  | { ok: false; reason: "invalid_response" | "response_too_large" }
+> {
+  const raw = await response.text();
+  if (raw.length > MAX_RESPONSE_CHARS) return { ok: false, reason: "response_too_large" };
+  try {
+    const data = JSON.parse(raw) as unknown;
+    const text =
+      input.providerId === "anthropic"
+        ? extractAnthropicText(data)
+        : input.providerId === "openrouter"
+          ? extractOpenRouterText(data)
+          : extractOpenResponsesText(data);
+    if (!text) return { ok: false, reason: "invalid_response" };
+    const tokenUsage = usage(data, input.providerId, text, input.input);
+    const responseModel = (data as { model?: unknown })?.model;
+    return {
+      ok: true,
+      text,
+      sources: collectSources(data),
+      inputTokens: tokenUsage.inputTokens,
+      outputTokens: tokenUsage.outputTokens,
+      costUsdMicros: tokenUsage.costUsdMicros,
+      model:
+        typeof responseModel === "string" && responseModel.trim()
+          ? responseModel.trim().slice(0, 160)
+          : input.model,
+    };
+  } catch {
+    return { ok: false, reason: "invalid_response" };
+  }
+}
+
+export async function callAiProvider(
+  input: AiProviderCallInput,
+  dependencies: AiProviderRouterDependencies = {},
+): Promise<AiProviderCallResult> {
+  assertAiAgentProviderAllowed(input.agentId, input.providerId);
+  const now = dependencies.now ?? Date.now;
+  const fetchImpl = dependencies.fetchImpl ?? fetch;
+  const startedAt = now();
+  const timeoutMs = boundedInteger(input.timeoutMs, 12_000, 2_000, 30_000);
+  const deadline = startedAt + timeoutMs;
+  const scopedCircuitKey = circuitKey(input);
+  if (!input.apiKey.trim()) {
+    return { ok: false, reason: "provider_disabled", providerId: input.providerId, attempts: 0, durationMs: 0 };
+  }
+  if (circuit(scopedCircuitKey).openUntil > startedAt) {
+    return { ok: false, reason: "circuit_open", providerId: input.providerId, attempts: 0, durationMs: 0 };
+  }
+
+  const fallback = input.fallbackModel?.trim();
+  const models = fallback && fallback !== input.model ? [input.model, fallback] : [input.model];
+  let attempts = 0;
+  let lastStatus: number | undefined;
+  let lastModel: string | undefined;
+  for (const model of models) {
+    lastModel = model;
+    attempts += 1;
+    const called = await fetchWithDeadline(fetchImpl, input, model, deadline, now);
+    if (!called.ok) {
+      recordFailure(scopedCircuitKey, now());
+      return {
+        ok: false,
+        reason: called.reason,
+        providerId: input.providerId,
+        model,
+        attempts,
+        durationMs: now() - startedAt,
+      };
+    }
+    lastStatus = called.response.status;
+    if (!called.response.ok) {
+      const retryable = attempts === 1 && models.length > 1 &&
+        [400, 404, 408, 409, 429, 500, 502, 503, 504].includes(called.response.status) &&
+        deadline - now() >= 1_000;
+      if (retryable) continue;
+      recordFailure(scopedCircuitKey, now());
+      const failureReason =
+        called.response.status === 402
+          ? "quota_exhausted"
+          : called.response.status === 429
+            ? "rate_limited"
+            : "provider_rejected";
+      return {
+        ok: false,
+        reason: failureReason,
+        providerId: input.providerId,
+        status: called.response.status,
+        model,
+        attempts,
+        durationMs: now() - startedAt,
+      };
+    }
+    const parsed = await parseResponse(called.response, input);
+    if (!parsed.ok) {
+      recordFailure(scopedCircuitKey, now());
+      return {
+        ok: false,
+        reason: parsed.reason,
+        providerId: input.providerId,
+        status: called.response.status,
+        model,
+        attempts,
+        durationMs: now() - startedAt,
+      };
+    }
+    recordSuccess(scopedCircuitKey);
+    return {
+      ok: true,
+      text: parsed.text,
+      providerId: input.providerId,
+      model: parsed.model,
+      requestedModel: model,
+      sources: parsed.sources,
+      inputTokens: parsed.inputTokens,
+      outputTokens: parsed.outputTokens,
+      costUsdMicros: parsed.costUsdMicros,
+      attempts,
+      durationMs: now() - startedAt,
+    };
+  }
+
+  recordFailure(scopedCircuitKey, now());
+  return {
+    ok: false,
+    reason: "provider_rejected",
+    providerId: input.providerId,
+    status: lastStatus,
+    model: lastModel,
+    attempts,
+    durationMs: now() - startedAt,
+  };
+}
+
+export type OpenRouterKeyStatus =
+  | {
+      ok: true;
+      limitUsdMicros: number | null;
+      limitRemainingUsdMicros: number | null;
+      usageMonthlyUsdMicros: number;
+      isFreeTier: boolean;
+      checkedAt: string;
+    }
+  | {
+      ok: false;
+      reason: "provider_disabled" | "timeout" | "network_error" | "provider_rejected" | "invalid_response";
+      status?: number;
+    };
+
+function usdMicros(value: unknown, nullable = false): number | null {
+  if (nullable && value === null) return null;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return nullable ? null : 0;
+  return Math.max(0, Math.min(1_000_000_000_000, Math.round(amount * 1_000_000)));
+}
+
+export async function inspectOpenRouterKey(
+  input: {
+    apiKey: string;
+    requestSignal?: AbortSignal;
+    timeoutMs?: number;
+  },
+  dependencies: AiProviderRouterDependencies = {},
+): Promise<OpenRouterKeyStatus> {
+  if (!input.apiKey.trim()) return { ok: false, reason: "provider_disabled" };
+  const fetchImpl = dependencies.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException("OpenRouter quota timeout", "TimeoutError")),
+    boundedInteger(input.timeoutMs, 5_000, 1_000, 10_000),
+  );
+  timeout.unref?.();
+  const forwardAbort = () => controller.abort(input.requestSignal?.reason);
+  if (input.requestSignal) {
+    if (input.requestSignal.aborted) forwardAbort();
+    else input.requestSignal.addEventListener("abort", forwardAbort, { once: true });
+  }
+  try {
+    const response = await fetchImpl("https://openrouter.ai/api/v1/key", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${input.apiKey}` },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        reason: "provider_rejected",
+        status: response.status,
+      };
+    }
+    const raw = await response.text();
+    if (raw.length > 32_768) return { ok: false, reason: "invalid_response" };
+    let payload: {
+      data?: {
+        limit?: unknown;
+        limit_remaining?: unknown;
+        usage_monthly?: unknown;
+        is_free_tier?: unknown;
+      };
+    };
+    try {
+      payload = JSON.parse(raw) as typeof payload;
+    } catch {
+      return { ok: false, reason: "invalid_response" };
+    }
+    if (!payload.data || typeof payload.data.is_free_tier !== "boolean") {
+      return { ok: false, reason: "invalid_response" };
+    }
+    return {
+      ok: true,
+      limitUsdMicros: usdMicros(payload.data.limit, true),
+      limitRemainingUsdMicros: usdMicros(payload.data.limit_remaining, true),
+      usageMonthlyUsdMicros: usdMicros(payload.data.usage_monthly) ?? 0,
+      isFreeTier: payload.data.is_free_tier,
+      checkedAt: new Date((dependencies.now ?? Date.now)()).toISOString(),
+    };
+  } catch (error) {
+    const aborted = controller.signal.aborted ||
+      (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name));
+    return { ok: false, reason: aborted ? "timeout" : "network_error" };
+  } finally {
+    clearTimeout(timeout);
+    input.requestSignal?.removeEventListener("abort", forwardAbort);
+  }
+}
+
+export async function testXApiConnector(
+  apiKey: string,
+  dependencies: Pick<AiProviderRouterDependencies, "fetchImpl"> = {},
+): Promise<boolean> {
+  if (!apiKey.trim()) return false;
+  const fetchImpl = dependencies.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  timeout.unref?.();
+  try {
+    const response = await fetchImpl("https://api.x.com/2/users/by/username/X?user.fields=id", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    });
+    if (!response.ok) return false;
+    const text = await response.text();
+    return text.length <= 32_768 && Boolean((JSON.parse(text) as { data?: { id?: unknown } })?.data?.id);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}

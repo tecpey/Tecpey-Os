@@ -9,6 +9,7 @@ import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/
 import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
+import { formatMarketPrice } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
 const features = [
@@ -18,9 +19,8 @@ const features = [
 ];
 
 function usd(value: unknown) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "Receiving live price";
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: n < 10 ? 4 : 2 }).format(n)}`;
+  const formatted = formatMarketPrice(value, "en-US");
+  return formatted ? `$${formatted}` : "Receiving live price";
 }
 
 function resolveUsdPrice(coin: MarketCurrency) {

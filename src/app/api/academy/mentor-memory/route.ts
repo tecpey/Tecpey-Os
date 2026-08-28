@@ -6,6 +6,9 @@ import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 
 type ArenaTrade = {
   risk?: number;
@@ -92,14 +95,32 @@ export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/academy/mentor-memory" }, async () => {
     const limit = await rateLimit(req, { namespace: "academy-mentor-memory", limit: 80, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) {
+      return apiError(
+        tenantContext.reason === "binding_storage_unavailable" ? "mentor_memory_unavailable" : "forbidden",
+        tenantContext.reason === "binding_storage_unavailable" ? 503 : 403,
+      );
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const dbResult = await withDb(async (client) => {
       const termRows = await client.query(
-        `SELECT term_number, score, percent, status FROM academy_term_progress WHERE student_id = $1::uuid ORDER BY term_number ASC`,
-        [studentId],
+        `SELECT term_number, score, percent, status
+           FROM academy_term_progress
+          WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
+          ORDER BY term_number ASC`,
+        [tenantContext.tenantId, tenantContext.workspaceId, studentId],
       );
       const tradeRows = await client.query(
         `SELECT risk_percent, risk_flag, discipline_score, emotion, entry_reason, risk_plan, created_at
@@ -122,6 +143,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (dbResult.enabled && dbResult.value) return apiOk({ memory: dbResult.value });
+
+    if (process.env.NODE_ENV === "production") {
+      return apiError("mentor_memory_unavailable", 503);
+    }
 
     const progressStore = await readJson<Record<string, TermRow[]>>(localProgressPath(), {});
     const arenaStore = await readJson<Record<string, ArenaTrade[]>>(localArenaPath(), {});

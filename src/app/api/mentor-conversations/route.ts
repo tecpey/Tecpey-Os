@@ -7,6 +7,8 @@ import { withObservability } from "@/lib/observe";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { isMentorThreadId } from "@/lib/mentor-threads";
+import type { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,12 @@ const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function noStore<T>(response: NextResponse<T>): NextResponse<T> {
+  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("Vary", "Cookie");
+  return response;
+}
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/mentor-conversations" }, async () => {
@@ -26,8 +34,8 @@ export async function GET(req: NextRequest) {
       // authorityDegraded:true and no studentId. Reporting that outage as the
       // same storage:"unavailable" this route already uses keeps it from telling
       // a still-valid user their academy profile is gone.
-      if (session.authorityDegraded) return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
-      return apiError("academy_profile_required", 401);
+      if (session.authorityDegraded) return noStore(apiOk({ conversations: [], nextCursor: null, storage: "unavailable" }));
+      return noStore(apiError("academy_profile_required", 401));
     }
     // mentor_conversations is student_global (classification registry): no tenant
     // column, so reading it by session.studentId alone served the student their
@@ -47,24 +55,42 @@ export async function GET(req: NextRequest) {
     // an outage, so it returns the honest graceful empty instead of a false alert.
     if (!tenantContext.available) {
       if (tenantContext.reason === "binding_storage_unavailable") {
-        return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
+        return noStore(apiOk({ conversations: [], nextCursor: null, storage: "unavailable" }));
       }
-      return apiOk({ conversations: [], nextCursor: null });
+      return noStore(apiOk({ conversations: [], nextCursor: null }));
     }
     const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
-    if (productGate) return productGate;
+    if (productGate) return noStore(productGate);
     const studentId = tenantContext.principalId;
 
     const url = new URL(req.url);
-    const rowLimit = Math.min(MAX_LIMIT, Math.max(1, Number(url.searchParams.get("limit") || DEFAULT_LIMIT)));
+    const requestedLimit = Number(url.searchParams.get("limit") || DEFAULT_LIMIT);
+    const rowLimit = Number.isFinite(requestedLimit)
+      ? Math.min(MAX_LIMIT, Math.max(1, Math.trunc(requestedLimit)))
+      : DEFAULT_LIMIT;
     const cursorRaw = url.searchParams.get("cursor") ?? null;
     const cursor = cursorRaw && UUID_RE.test(cursorRaw) ? cursorRaw : null;
+    const threadRaw = url.searchParams.get("threadId") ?? null;
+    if (threadRaw && !isMentorThreadId(threadRaw)) return noStore(apiError("invalid_mentor_thread", 400));
 
     const result = await withDb(async (client) => {
+      const selectedThread = await client.query<{ id: string }>(
+        `SELECT id
+           FROM mentor_threads
+          WHERE student_id = $1::uuid
+            AND status = 'active'
+            AND ($2::uuid IS NULL OR id = $2::uuid)
+          ORDER BY last_message_at DESC, id DESC
+          LIMIT 1`,
+        [studentId, threadRaw],
+      );
+      const threadId = selectedThread.rows[0]?.id ?? null;
+      if (!threadId) return { conversations: [], nextCursor: null, threadId: null };
       const rows = await client.query(
         `SELECT mc.id, mc.role, mc.content, mc.locale, mc.created_at
          FROM mentor_conversations mc
          WHERE mc.student_id = $1::uuid
+           AND mc.thread_id = $4::uuid
            AND mc.role IN ('user', 'assistant')
            AND (
              $2::uuid IS NULL
@@ -73,11 +99,12 @@ export async function GET(req: NextRequest) {
                FROM mentor_conversations
                WHERE id = $2::uuid
                  AND student_id = $1::uuid
+                 AND thread_id = $4::uuid
              )
            )
          ORDER BY mc.created_at DESC, mc.id DESC
          LIMIT $3`,
-        [studentId, cursor, rowLimit + 1],
+        [studentId, cursor, rowLimit + 1, threadId],
       );
 
       const hasMore = rows.rows.length > rowLimit;
@@ -92,13 +119,17 @@ export async function GET(req: NextRequest) {
         createdAt: new Date(r.created_at).toISOString(),
       }));
 
-      return { conversations, nextCursor };
+      return { conversations, nextCursor, threadId };
     });
 
     if (!result.enabled) {
-      return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
+      return noStore(apiOk({ conversations: [], nextCursor: null, storage: "unavailable" }));
     }
 
-    return apiOk({ conversations: result.value?.conversations ?? [], nextCursor: result.value?.nextCursor ?? null });
+    return noStore(apiOk({
+      conversations: result.value?.conversations ?? [],
+      nextCursor: result.value?.nextCursor ?? null,
+      threadId: result.value?.threadId ?? null,
+    }));
   });
 }

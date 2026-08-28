@@ -39,6 +39,7 @@ import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/
 import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
+import { formatMarketPrice } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
 const exchangeHref = "https://my.tecpey.ir";
@@ -72,10 +73,8 @@ function useRotator(items: string[]) {
 
 
 function formatUsdPrice(value: unknown) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "در حال دریافت";
-  const maximumFractionDigits = n < 1 ? 4 : n < 100 ? 2 : 0;
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(n)}`;
+  const formatted = formatMarketPrice(value, "en-US");
+  return formatted ? `$${formatted}` : "در حال دریافت";
 }
 
 function normalizeSymbol(row: MarketCurrency) {
@@ -124,7 +123,7 @@ function DeviceFrame() {
         <div className="rounded-[24px] border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-4 sm:p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
+              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" loading="eager" />
               <div>
                 <p className="text-sm font-extrabold text-[color:var(--tp-text)]">نمای آموزشی بازار تک‌پی</p>
                 <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">داده مرجع برای آموزش و تمرین مجازی · USD/USDT</p>

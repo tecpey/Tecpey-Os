@@ -62,6 +62,13 @@ const controlLinks = [
     status: "All controls",
   },
   {
+    href: "/command-center/ai-control-plane",
+    label: "لایهٔ هوشمند و ایجنت‌های تک‌پی",
+    detail: "Provider، API Key، مدل، بودجه، workflow، پژوهش منبع‌دار و حافظهٔ دانش با گیت انسانی.",
+    icon: Brain,
+    status: "Human governed",
+  },
+  {
     href: "/command-center/auth-providers",
     label: "Providerهای ورود و Social Login",
     detail: "Google، Apple، Telegram و Email OTP با Secret، callback، domain و audit gates.",

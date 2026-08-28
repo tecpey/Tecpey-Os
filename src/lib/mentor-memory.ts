@@ -1,7 +1,8 @@
 // Mentor Memory Engine — server-only DB helpers.
 // All writes are fire-and-forget where noted; failures never block the mentor response.
 
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
+import { ensureMentorThreadTx, touchMentorThreadTx } from "@/lib/mentor-threads";
 import { cleanText } from "@/lib/student-cartax";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -154,15 +155,29 @@ export async function saveMentorConversation(
   content: string,
   locale: string,
   termNumber?: number,
+  threadId?: string | null,
 ): Promise<void> {
   const safe = sanitize(content, 4000);
   if (!safe) return;
-  await withDb(async (client) => {
+  await withTx(async (client) => {
+    const ensured = await ensureMentorThreadTx(client, {
+      studentId,
+      threadId,
+      locale: safeLocale(locale) as "fa" | "en",
+      titleHint: role === "user" ? safe : null,
+    });
+    if (!ensured) return;
     await client.query(
-      `INSERT INTO mentor_conversations (student_id, role, content, locale, term_number)
-       VALUES ($1::uuid, $2, $3, $4, $5)`,
-      [studentId, role, safe, safeLocale(locale), termNumber ?? null],
+      `INSERT INTO mentor_conversations (student_id, thread_id, role, content, locale, term_number)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)`,
+      [studentId, ensured.thread.id, role, safe, safeLocale(locale), termNumber ?? null],
     );
+    await touchMentorThreadTx(client, {
+      studentId,
+      threadId: ensured.thread.id,
+      locale: safeLocale(locale) as "fa" | "en",
+      titleHint: role === "user" ? safe : null,
+    });
     // Keep the 200 most-recent turns per student; silently drop the rest.
     await client.query(
       `DELETE FROM mentor_conversations
@@ -192,7 +207,10 @@ export async function saveMentorConversation(
  *
  * Returns an empty context when the DB pool is not configured.
  */
-export async function getMentorContext(studentId: string): Promise<MentorContext> {
+export async function getMentorContext(
+  studentId: string,
+  threadId?: string | null,
+): Promise<MentorContext> {
   const empty: MentorContext = {
     profile: null,
     recentConversations: [],
@@ -213,9 +231,11 @@ export async function getMentorContext(studentId: string): Promise<MentorContext
     );
     const convRes = await client.query(
       `SELECT role, content, locale, term_number, created_at
-         FROM mentor_conversations WHERE student_id = $1::uuid
+         FROM mentor_conversations
+        WHERE student_id = $1::uuid
+          AND ($2::uuid IS NULL OR thread_id = $2::uuid)
          ORDER BY created_at DESC LIMIT 12`,
-      [studentId],
+      [studentId, threadId ?? null],
     );
     const memRes = await client.query(
       `SELECT id, category, content, importance, created_at

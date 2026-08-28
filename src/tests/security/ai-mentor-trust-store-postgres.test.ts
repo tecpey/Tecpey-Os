@@ -11,7 +11,14 @@ import {
   setMentorAiPreferences,
   type MentorPreferenceAuditContext,
 } from "../../lib/ai/mentor-trust-store";
+import {
+  admitAiAgentUsage,
+  aiEvidenceHash,
+  createAiKnowledgeCandidate,
+  loadVerifiedAiKnowledgeContext,
+} from "../../lib/ai/control-plane-store";
 import { AI_MENTOR_TRUST_POLICY_VERSION } from "../../lib/ai/mentor-trust-boundary";
+import { ensureMentorThread, listMentorThreads } from "../../lib/mentor-threads";
 import {
   hashSensitiveAuditRequest,
   writeSensitiveMutationAuditTx,
@@ -68,6 +75,25 @@ async function admitStudent(
   );
 }
 
+async function createTenantWorkspace(
+  client: PoolClient,
+  label: string,
+): Promise<{ tenantId: string; workspaceId: string }> {
+  const tenantId = `${label}-${randomUUID()}`;
+  const workspaceId = `${tenantId}-main`;
+  await client.query(
+    `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+     VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
+    [tenantId],
+  );
+  await client.query(
+    `INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products, settings)
+     VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
+    [workspaceId, tenantId],
+  );
+  return { tenantId, workspaceId };
+}
+
 async function cleanupStudent(client: PoolClient, studentId: string): Promise<void> {
   await client.query("DELETE FROM mentor_conversations WHERE student_id = $1::uuid", [studentId]);
   await client.query("DELETE FROM mentor_memories WHERE student_id = $1::uuid", [studentId]);
@@ -117,6 +143,54 @@ after(async () => {
 });
 
 describe("AI Mentor durable trust store", () => {
+  it("rejects per-call input and output token caps before provider admission", async () => {
+    const limits = {
+      dailyRequests: 10,
+      dailyTokens: 10_000,
+      maxInputTokens: 256,
+      maxOutputTokens: 64,
+      monthlyBudgetUsdMicros: 1_000_000,
+    };
+    assert.deepEqual(
+      await admitAiAgentUsage({
+        tenantId: "unused-tenant",
+        workspaceId: "unused-workspace",
+        agentId: "mentor_coach",
+        estimatedInputTokens: 257,
+        maxOutputTokens: 64,
+        limits,
+      }),
+      { ok: false, reason: "input_limit" },
+    );
+    assert.deepEqual(
+      await admitAiAgentUsage({
+        tenantId: "unused-tenant",
+        workspaceId: "unused-workspace",
+        agentId: "mentor_coach",
+        estimatedInputTokens: 100,
+        maxOutputTokens: 65,
+        limits,
+      }),
+      { ok: false, reason: "output_limit" },
+    );
+  });
+
+  it("rejects evidence-free research knowledge before touching storage", async () => {
+    const candidate = await createAiKnowledgeCandidate({
+      tenantId: "unused-tenant",
+      workspaceId: "unused-workspace",
+      knowledgeType: "research_claim",
+      subjectType: "coin",
+      subjectId: "bitcoin",
+      statement: "A material public research claim needs source evidence.",
+      evidenceRefs: [],
+      confidence: 80,
+      dataClass: "public",
+      derivedByAgent: "coin_tool_researcher",
+    });
+    assert.equal(candidate, null);
+  });
+
   it(
     "keeps behavioral personalization default-off and commits changed consent with secret-free evidence",
     { skip: !configured, timeout: 20_000 },
@@ -395,8 +469,9 @@ describe("AI Mentor durable trust store", () => {
             role: string;
             content_class: string;
             retention_class: string;
+            thread_id: string;
           }>(
-            `SELECT role, content_class, retention_class
+            `SELECT role, content_class, retention_class, thread_id::text AS thread_id
                FROM mentor_conversations
               WHERE student_id = $1::uuid AND request_id = $2::uuid
               ORDER BY created_at ASC, role DESC`,
@@ -405,10 +480,270 @@ describe("AI Mentor durable trust store", () => {
           assert.equal(rows.rows.length, 2);
           assert.deepEqual(new Set(rows.rows.map((row) => row.role)), new Set(["user", "assistant"]));
           assert.equal(rows.rows.every((row) => row.retention_class === "mentor_history_90d"), true);
+          assert.equal(new Set(rows.rows.map((row) => row.thread_id)).size, 1);
+          assert.match(rows.rows[0]?.thread_id ?? "", /^[0-9a-f-]{36}$/i);
           assert.equal(rows.rows.find((row) => row.role === "user")?.content_class, "financial_sensitive");
         });
       } finally {
         await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+
+  it(
+    "rejects a thread owned by another student at both lookup and persistence boundaries",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const [ownerId, otherId] = await withClient(async (client) => [
+        await createStudent(client, "mentor-thread-owner"),
+        await createStudent(client, "mentor-thread-other"),
+      ] as const);
+      try {
+        const owned = await ensureMentorThread({
+          studentId: ownerId,
+          locale: "fa",
+          titleHint: "تحقیق بیت‌کوین",
+        });
+        assert.ok(owned);
+
+        assert.equal(
+          await ensureMentorThread({
+            studentId: otherId,
+            threadId: owned.thread.id,
+            locale: "fa",
+          }),
+          null,
+        );
+        assert.equal(
+          await persistMentorConversationPair({
+            requestId: randomUUID(),
+            studentId: otherId,
+            threadId: owned.thread.id,
+            question: "نباید ثبت شود",
+            answer: "نباید ثبت شود",
+            locale: "fa",
+          }),
+          false,
+        );
+
+        const otherThreads = await listMentorThreads({ studentId: otherId });
+        assert.notEqual(otherThreads, "unavailable");
+        if (otherThreads !== "unavailable") {
+          assert.equal(otherThreads.some((thread) => thread.id === owned.thread.id), false);
+        }
+        await withClient(async (client) => {
+          const leaked = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM mentor_conversations
+              WHERE student_id = $1::uuid AND thread_id = $2::uuid`,
+            [otherId, owned.thread.id],
+          );
+          assert.equal(Number(leaked.rows[0]?.count ?? "0"), 0);
+        });
+      } finally {
+        await withClient(async (client) => {
+          await cleanupStudent(client, ownerId);
+          await cleanupStudent(client, otherId);
+        });
+      }
+    },
+  );
+
+  it(
+    "atomically caps concurrent AI usage per tenant and leaves other tenants independent",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const [scopeA, scopeB] = await withClient(async (client) => [
+        await createTenantWorkspace(client, "ai-quota-a"),
+        await createTenantWorkspace(client, "ai-quota-b"),
+      ] as const);
+      const limits = {
+        dailyRequests: 2,
+        dailyTokens: 148,
+        maxInputTokens: 1_000,
+        maxOutputTokens: 64,
+        monthlyBudgetUsdMicros: 1_000_000,
+      };
+      const admit = (scope: typeof scopeA) => admitAiAgentUsage({
+        ...scope,
+        agentId: "mentor_coach",
+        estimatedInputTokens: 10,
+        maxOutputTokens: 64,
+        limits,
+      });
+      try {
+        const attempts = await Promise.all([admit(scopeA), admit(scopeA), admit(scopeA), admit(scopeA)]);
+        assert.equal(attempts.filter((result) => result.ok).length, 2);
+        assert.equal(attempts.filter((result) => !result.ok && result.reason === "request_limit").length, 2);
+
+        const tenantB = await admit(scopeB);
+        assert.deepEqual(tenantB, { ok: true, requestCount: 1, reservedTokens: 74 });
+
+        await withClient(async (client) => {
+          const rows = await client.query<{
+            tenant_id: string;
+            request_count: number;
+            reserved_tokens: string | number;
+          }>(
+            `SELECT tenant_id, request_count, reserved_tokens
+               FROM ai_agent_usage_daily
+              WHERE tenant_id = ANY($1::text[])
+                AND workspace_id = ANY($2::text[])
+                AND agent_id = 'mentor_coach'
+                AND usage_date = CURRENT_DATE
+              ORDER BY tenant_id`,
+            [[scopeA.tenantId, scopeB.tenantId], [scopeA.workspaceId, scopeB.workspaceId]],
+          );
+          assert.deepEqual(rows.rows.map((row) => ({
+            tenantId: row.tenant_id,
+            requestCount: Number(row.request_count),
+            reservedTokens: Number(row.reserved_tokens),
+          })), [
+            { tenantId: scopeA.tenantId, requestCount: 2, reservedTokens: 148 },
+            { tenantId: scopeB.tenantId, requestCount: 1, reservedTokens: 74 },
+          ].sort((left, right) => left.tenantId.localeCompare(right.tenantId)));
+        });
+      } finally {
+        await withClient(async (client) => {
+          await client.query("DELETE FROM platform_tenants WHERE id = ANY($1::text[])", [
+            [scopeA.tenantId, scopeB.tenantId],
+          ]);
+        });
+      }
+    },
+  );
+
+  it(
+    "retrieves only current human-verified knowledge from the acting tenant and workspace",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const [scopeA, scopeB] = await withClient(async (client) => [
+        await createTenantWorkspace(client, "ai-knowledge-a"),
+        await createTenantWorkspace(client, "ai-knowledge-b"),
+      ] as const);
+      const verifiedStatement = "Bitcoin risk rises when leverage grows without an invalidation point.";
+      const verifiedHash = aiEvidenceHash(
+        "knowledge",
+        ["research_claim", "coin", "bitcoin", verifiedStatement].join("\0"),
+      );
+      try {
+        await withClient(async (client) => {
+          const reviewers = await Promise.all(
+            [scopeA, scopeB].map(async (scope, index) => {
+              const row = await client.query<{ id: string }>(
+                `INSERT INTO admin_users
+                   (email, display_name, status, tenant_id, workspace_id)
+                 VALUES ($1, $2, 'active', $3, $4)
+                 RETURNING id::text AS id`,
+                [
+                  `ai-knowledge-reviewer-${index}-${randomUUID()}@mentor.test`,
+                  `AI knowledge reviewer ${index}`,
+                  scope.tenantId,
+                  scope.workspaceId,
+                ],
+              );
+              return row.rows[0]!.id;
+            }),
+          );
+
+          await client.query(
+            `INSERT INTO ai_knowledge_items
+               (tenant_id, workspace_id, knowledge_type, subject_type, subject_id,
+                statement, content_hash, evidence_refs, confidence, data_class,
+                status, reviewed_by, reviewed_at, valid_from, valid_until)
+             VALUES
+               ($1, $2, 'research_claim', 'coin', 'bitcoin',
+                $12,
+                $5, '[]'::jsonb, 91, 'public', 'verified', $3::uuid, NOW(),
+                NOW() - INTERVAL '1 day', NULL),
+               ($1, $2, 'research_claim', 'coin', 'bitcoin',
+                'Candidate bitcoin claim must never reach Mentor.',
+                $6, '[]'::jsonb, 99, 'public', 'candidate', NULL, NULL,
+                NOW() - INTERVAL '1 day', NULL),
+               ($1, $2, 'research_claim', 'coin', 'bitcoin',
+                'Expired bitcoin claim must never reach Mentor.',
+                $7, '[]'::jsonb, 99, 'public', 'verified', $3::uuid, NOW(),
+                NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day'),
+               ($1, $2, 'operating_rule', 'mentor_policy', NULL,
+                'Always distinguish educational context from personalized financial advice.',
+                $8, '[]'::jsonb, 100, 'approved_platform_content', 'verified',
+                $3::uuid, NOW(), NOW() - INTERVAL '1 day', NULL),
+               ($9, $10, 'research_claim', 'coin', 'bitcoin',
+                'Other tenant bitcoin claim must never cross the boundary.',
+                $11, '[]'::jsonb, 99, 'public', 'verified', $4::uuid, NOW(),
+                NOW() - INTERVAL '1 day', NULL)`,
+            [
+              scopeA.tenantId,
+              scopeA.workspaceId,
+              reviewers[0],
+              reviewers[1],
+              verifiedHash,
+              "b".repeat(64),
+              "c".repeat(64),
+              "d".repeat(64),
+              scopeB.tenantId,
+              scopeB.workspaceId,
+              "e".repeat(64),
+              verifiedStatement,
+            ],
+          );
+        });
+
+        const knowledge = await loadVerifiedAiKnowledgeContext({
+          ...scopeA,
+          query: "bitcoin risk",
+          limit: 8,
+        });
+        assert.notEqual(knowledge, "unavailable");
+        if (knowledge === "unavailable") return;
+
+        assert.deepEqual(
+          new Set(knowledge.map((item) => item.contentHash)),
+          new Set([verifiedHash, "d".repeat(64)]),
+        );
+        assert.equal(knowledge.every((item) => !item.statement.includes("must never")), true);
+
+        const overwrite = await createAiKnowledgeCandidate({
+          ...scopeA,
+          knowledgeType: "research_claim",
+          subjectType: "coin",
+          subjectId: "bitcoin",
+          statement: verifiedStatement,
+          evidenceRefs: [{ url: "https://attacker.invalid/replacement", title: "Replacement" }],
+          confidence: 99,
+          dataClass: "public",
+          derivedByAgent: "coin_tool_researcher",
+        });
+        assert.equal(overwrite, null);
+        await withClient(async (client) => {
+          const preserved = await client.query<{
+            status: string;
+            confidence: number;
+            evidence_refs: unknown[];
+          }>(
+            `SELECT status, confidence, evidence_refs
+               FROM ai_knowledge_items
+              WHERE tenant_id = $1 AND workspace_id = $2 AND content_hash = $3`,
+            [scopeA.tenantId, scopeA.workspaceId, verifiedHash],
+          );
+          assert.equal(preserved.rows[0]?.status, "verified");
+          assert.equal(preserved.rows[0]?.confidence, 91);
+          assert.deepEqual(preserved.rows[0]?.evidence_refs, []);
+        });
+      } finally {
+        await withClient(async (client) => {
+          await client.query(
+            "DELETE FROM ai_knowledge_items WHERE tenant_id = ANY($1::text[])",
+            [[scopeA.tenantId, scopeB.tenantId]],
+          );
+          await client.query(
+            "DELETE FROM admin_users WHERE tenant_id = ANY($1::text[])",
+            [[scopeA.tenantId, scopeB.tenantId]],
+          );
+          await client.query("DELETE FROM platform_tenants WHERE id = ANY($1::text[])", [
+            [scopeA.tenantId, scopeB.tenantId],
+          ]);
+        });
       }
     },
   );

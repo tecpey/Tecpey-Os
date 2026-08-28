@@ -99,7 +99,7 @@ function detectRisk(route, classification) {
     ["financial", /\/(?:orders?|withdraw(?:al)?s?|deposits?|wallet|balances?|trading-arena|exchange|settlement|payments?)(?:\/|$)/i],
     ["credential", /\/(?:auth|sessions?|device-token)(?:\/|$)|academy-auth(?:\/|$)|2fa|webauthn|passkey|password|recovery/i],
     ["privacy", /profile|kyc|identity|device-token|lead|crm|consent|preferences?/i],
-    ["ai-memory", /ai-mentor|mentor-profile|mentor-memory|conversation|recompute/i],
+    ["ai-memory", /ai-mentor|mentor-profile|mentor-memory|mentor-threads|conversation|recompute/i],
     ["progress", /academy-(?:state|term-progress|lesson-assessment|lesson-progress|certificates)|\/academy\/.*(?:progress|assessment)|daily-challenge/i],
   ];
   for (const [name, pattern] of tests) {
