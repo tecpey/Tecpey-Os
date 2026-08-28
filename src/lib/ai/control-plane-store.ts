@@ -98,6 +98,16 @@ export type VerifiedAiKnowledgeContextItem = {
   evidenceRefs: AiSourceReference[];
 };
 
+export type AiOpenRouterQuotaSnapshot = {
+  status: "healthy" | "low" | "exhausted" | "rate_limited" | "unavailable";
+  limitUsdMicros: number | null;
+  remainingUsdMicros: number | null;
+  usageUsdMicros: number | null;
+  isFreeTier: boolean | null;
+  source: "provider_api" | "request_failure" | "worker_probe";
+  checkedAt: string;
+};
+
 export type AiControlPlaneSnapshot = {
   providers: AiProviderSnapshot[];
   agents: AiAgentBindingSnapshot[];
@@ -110,6 +120,7 @@ export type AiControlPlaneSnapshot = {
     AiAgentId,
     { requestCount: number; reservedTokens: number }
   >;
+  openRouterQuota: AiOpenRouterQuotaSnapshot | null;
 };
 
 type ProviderRow = {
@@ -451,6 +462,24 @@ export async function loadAiControlPlaneSnapshot(input: {
           WHERE tenant_id = $1 AND workspace_id = $2 AND usage_date = CURRENT_DATE`,
         [input.tenantId, input.workspaceId],
       );
+      const quotaRows = await client.query<{
+        status: AiOpenRouterQuotaSnapshot["status"];
+        limit_usd_micros: string | number | null;
+        remaining_usd_micros: string | number | null;
+        usage_usd_micros: string | number | null;
+        is_free_tier: boolean | null;
+        source: "provider_api" | "request_failure" | "worker_probe";
+        checked_at: string | Date;
+      }>(
+        `SELECT status, limit_usd_micros, remaining_usd_micros,
+                usage_usd_micros, is_free_tier, source, checked_at
+           FROM ai_provider_quota_snapshots
+          WHERE tenant_id = $1 AND workspace_id = $2
+            AND provider_id = 'openrouter'
+          ORDER BY checked_at DESC, id DESC
+          LIMIT 1`,
+        [input.tenantId, input.workspaceId],
+      );
       const providers = new Map(
         providerRows.rows.map((row) => [row.provider_id, row]),
       );
@@ -478,6 +507,30 @@ export async function loadAiControlPlaneSnapshot(input: {
           ];
         }),
       ) as AiControlPlaneSnapshot["usageToday"];
+      const quota = quotaRows.rows[0];
+      const openRouterQuota = quota
+        ? {
+            status: quota.status,
+            limitUsdMicros:
+              quota.limit_usd_micros === null
+                ? null
+                : Number(quota.limit_usd_micros),
+            remainingUsdMicros:
+              quota.remaining_usd_micros === null
+                ? null
+                : Number(quota.remaining_usd_micros),
+            usageUsdMicros:
+              quota.usage_usd_micros === null
+                ? null
+                : Number(quota.usage_usd_micros),
+            isFreeTier: quota.is_free_tier,
+            source: quota.source,
+            checkedAt:
+              quota.checked_at instanceof Date
+                ? quota.checked_at.toISOString()
+                : new Date(quota.checked_at).toISOString(),
+          }
+        : null;
       return {
         providers: AI_PROVIDER_IDS.map((providerId) =>
           providerSnapshot(
@@ -493,6 +546,7 @@ export async function loadAiControlPlaneSnapshot(input: {
         knowledge: knowledgeRows.rows.map(knowledgeSnapshot),
         knowledgeSummary,
         usageToday,
+        openRouterQuota,
       };
     });
     return result.enabled ? result.value : "unavailable";
