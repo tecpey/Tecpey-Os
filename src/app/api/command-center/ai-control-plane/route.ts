@@ -275,7 +275,10 @@ async function testProvider(
       instructions: "Return exactly TECPEY_PROVIDER_OK. Do not use tools and do not include any other text.",
       input: "Connectivity test with no user or platform data.",
       timeoutMs: 12_000,
-      maxOutputTokens: 64,
+      // Match the normal runtime budget. OpenRouter's free router can select a
+      // reasoning model, whose thinking tokens count against this ceiling; a
+      // 64-token probe can therefore return HTTP 200 with no final content.
+      maxOutputTokens: 1_200,
       circuitScope: `${authorization.principal.tenantId}:${authorization.principal.workspaceId}`,
       toolsEnabled: false,
       requestSignal: request.signal,
