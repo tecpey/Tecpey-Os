@@ -62,7 +62,10 @@ describe("AI control-plane source authority", () => {
     assert.match(route, /passed = result\.ok;/);
     assert.match(route, /failureReason = result\.ok \? null : result\.reason;/);
     assert.doesNotMatch(route, /result\.text\.includes\("TECPEY_PROVIDER_OK"\)/);
-    assert.match(route, /maxOutputTokens: 1_200/);
+    assert.match(
+      route,
+      /maxOutputTokens: providerId === "openrouter" \? 8_192 : 1_200/,
+    );
   });
 
   it("makes Mentor threads server-owned and user-bound", async () => {
