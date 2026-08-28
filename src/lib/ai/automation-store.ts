@@ -1396,7 +1396,9 @@ export async function recordOpenRouterQuotaSnapshot(input: {
   source: "provider_api" | "request_failure" | "worker_probe";
 }): Promise<boolean> {
   const state = !input.status.ok
-    ? "unavailable"
+    ? input.status.status === 429 ? "rate_limited" : "unavailable"
+    : input.status.limitRemainingUsdMicros === null
+      ? "unavailable"
     : input.status.limitRemainingUsdMicros !== null &&
         input.status.limitRemainingUsdMicros <= 0
       ? "exhausted"
