@@ -4,6 +4,7 @@ import { withObservability } from "@/lib/observe";
 import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
 import { buildNewsAutomationBatch, type RawNewsInput } from "@/lib/news-automation";
 import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
+import { readBoundedResponseText } from "@/lib/bounded-http-body";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -25,6 +26,7 @@ type NewsItem = {
 
 const MAX_LIVE_NEWS_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_FUTURE_CLOCK_SKEW_MS = 10 * 60 * 1000;
+const MAX_NEWS_FEED_BYTES = 2_000_000;
 
 const internationalSources = [
   { name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
@@ -119,10 +121,10 @@ async function readSource(source: { name: string; url: string }, locale: string)
     signal: AbortSignal.timeout(7_000),
   });
   if (!response.ok) throw new Error(`feed failed ${source.name}`);
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  if (contentLength > 2_000_000) throw new Error("feed too large");
-  const xml = await response.text();
-  if (xml.length > 2_000_000) throw new Error("feed too large");
+  const xml = await readBoundedResponseText(response, {
+    maxBytes: MAX_NEWS_FEED_BYTES,
+    errorCode: "feed too large",
+  });
   const itemBlocks = Array.from(xml.matchAll(/<item[\s\S]*?<\/item>/gi)).map((m) => m[0]).slice(0, 10);
   const entries = itemBlocks.length ? itemBlocks : Array.from(xml.matchAll(/<entry[\s\S]*?<\/entry>/gi)).map((m) => m[0]).slice(0, 10);
   return entries

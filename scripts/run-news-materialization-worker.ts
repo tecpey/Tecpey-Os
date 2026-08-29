@@ -13,6 +13,7 @@ import {
 } from "../src/lib/news-materialization-worker";
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
 import { persistOperationalJobRunTx } from "../src/lib/ops/operational-job-evidence";
+import { readBoundedResponseText } from "../src/lib/bounded-http-body";
 
 type ApprovedFeedSource = {
   locale: ContentLocale;
@@ -20,6 +21,9 @@ type ApprovedFeedSource = {
   feedUrl: string;
   fallbackUrl: string;
 };
+
+const NEWS_FEED_TIMEOUT_MS = 7_000;
+const MAX_NEWS_FEED_BYTES = 2_000_000;
 
 const INTERNATIONAL_FEED_SOURCES = [
   {
@@ -142,9 +146,13 @@ async function fetchSourceInputs(
 ): Promise<RawNewsInput[]> {
   const response = await fetch(source.feedUrl, {
     headers: { "user-agent": "TecPeyNewsBot/1.0 (+https://tecpey.ir)" },
+    signal: AbortSignal.timeout(NEWS_FEED_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`news_feed_failed:${source.name}:${response.status}`);
-  const xml = await response.text();
+  const xml = await readBoundedResponseText(response, {
+    maxBytes: MAX_NEWS_FEED_BYTES,
+    errorCode: `news_feed_too_large:${source.name}`,
+  });
   const itemBlocks = Array.from(xml.matchAll(/<item[\s\S]*?<\/item>/gi)).map((match) => match[0]);
   const entryBlocks = Array.from(xml.matchAll(/<entry[\s\S]*?<\/entry>/gi)).map((match) => match[0]);
   const blocks = (itemBlocks.length ? itemBlocks : entryBlocks).slice(0, limit);
