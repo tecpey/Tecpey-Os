@@ -269,8 +269,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "6ece2d5530fb5634f8864fe4d4e61529c896b01a",
-      "sha256": "9bc578852fcbe668d5a636667893b9e0949d9933510815d5fee57491abe0f422",
+      "gitObjectId": "3de7f87d44308f86164e66c32b1035348a7b6585",
+      "sha256": "1db0e0aa0b94dcfeeab02169c5fa2f6721087a6e355a50a37c3e704282c3cfde",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -293,7 +293,8 @@
         "2026-08-21: re-reviewed after Policy v18 explicitly classified src/lib/env-placeholders.ts as operations-runtime Batch 11, beside alerts.ts and error-tracking.ts. The module holds the repository's single list of environment placeholder tokens, which scripts/validate-env.mjs enforces at the deployment preflight and which alerts.ts and email.ts now read instead of keeping private copies; operations-runtime is the truthful domain because the other half of the contract is the preflight itself. The change is limited to one classification entry and the policy version constant. Source-path fail-closed behavior and existing rule ordering are unchanged, no runtime activation surface is added, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-24: re-reviewed after Policy v19 explicitly classified src/lib/fetch-error-classification.ts as authentication-admin-security Batch 3 beside api-error.ts and api-validation.ts. The pure classifier translates bounded browser and Node/undici transport failures into existing ApiError categories, adds no network call, credential access, persistence, mutation or activation surface, preserves source-path fail-closed behavior and rule ordering, and has a focused classification assertion in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v20 explicitly classified src/lib/production-next-runtime-config.ts as operations-runtime Batch 11. The helper reads only the exact build-serialized Next.js config, validates its immutable 40-character release identity and installs it before the custom production server creates the application; it adds no network, persistence or capability activation surface. Source-path fail-closed behavior and rule ordering remain unchanged, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
-        "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both."
+        "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both.",
+        "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow."
       ],
       "findings": []
     },
