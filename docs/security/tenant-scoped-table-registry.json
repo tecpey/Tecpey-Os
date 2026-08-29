@@ -501,6 +501,51 @@
       "isolationNote": "The append-only trigger is source-tested, but a PostgreSQL tenant A/B negative test has not yet proven that two tenant event streams remain independently attributable through the real store. Keep this entry pending until that proof exists."
     },
     {
+      "table": "ai_agent_route_candidate_events",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-route-candidates.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Every append-only route replacement event carries tenant_id and workspace_id, is foreign-key bound to the matching platform workspace and is indexed by that complete scope plus agent and revision. Database triggers reject UPDATE and DELETE, so one tenant cannot rewrite or collapse another tenant's routing history.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-route-candidates-postgres.integration.ts"
+    },
+    {
+      "table": "ai_agent_route_candidates",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-route-candidates.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "tenant_id + workspace_id + agent_id + priority form the route identity and bind every candidate to an agent configuration in the same tenant/workspace. Reads and replacements filter the full acting scope, while schema checks prevent private data classes or external effects from using an unsafe free route.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-route-candidates-postgres.integration.ts"
+    },
+    {
+      "table": "ai_agent_spend_monthly",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Monthly reserved and settled spend is keyed by tenant_id + workspace_id + agent_id + month. Admission takes a transaction-scoped advisory lock derived from that complete scope before updating counters, so concurrent usage in one tenant cannot consume or overwrite another tenant's budget.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-routing-budget-postgres.integration.ts"
+    },
+    {
+      "table": "ai_routing_decision_events",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Every routing decision event records tenant_id and workspace_id beside agent, provider, model, bounded cost and outcome evidence. The event identity and lookup indexes are tenant/workspace leading and UPDATE/DELETE are rejected, retaining independently attributable routing evidence per tenant.",
+      "adversarialProof": "pending",
+      "issue": "#84",
+      "isolationNote": "Schema and append-only store paths are tenant scoped; add a direct PostgreSQL tenant A/B routing-decision event proof before promoting this entry."
+    },
+    {
+      "table": "ai_spend_reservations",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Each spend reservation carries tenant_id + workspace_id + agent_id, uses a scope-leading idempotency boundary and can be settled or released only when all three acting-scope values match. A wrong-tenant settlement returns scope_mismatch without changing the reservation or monthly ledger.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-routing-budget-postgres.integration.ts"
+    },
+    {
       "table": "ai_provider_configs",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
