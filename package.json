@@ -181,7 +181,7 @@
     "qa:core": "npm run qa:academy-core && npm run qa:offline-core && npm run qa:phase5-core && npm run qa:phase6-core",
     "qa:phase5-core": "node scripts/qa-phase5-core.mjs",
     "qa:phase6-core": "node scripts/qa-phase6-core.mjs",
-    "test": "NODE_PATH=src/tests/stubs NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/**/*.test.ts'",
+    "test": "NODE_PATH=src/tests/stubs NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/**/*.test.ts' && NODE_PATH=src/tests/stubs NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/ai-route-candidates-postgres.integration.ts src/tests/security/ai-routing-budget-postgres.integration.ts",
     "bounded-body:check": "node scripts/check-bounded-request-body-authority.mjs",
     "release:coverage:check": "node scripts/check-release-gate-coverage.mjs",
     "test:bounded-body": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/bounded-request-body.test.ts",
