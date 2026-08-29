@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { Pool, type PoolClient } from "pg";
-import { DATABASE_MIGRATION_LOCK_KEYS } from "../../lib/db-migration-plan";
+import { Pool } from "pg";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
-let migrationGuard: PoolClient | null = null;
 
 before(async () => {
   if (!configured || !databaseUrl) return;
@@ -20,20 +18,9 @@ before(async () => {
     idleTimeoutMillis: 1_000,
     allowExitOnIdle: true,
   });
-  migrationGuard = await pool.connect();
-  await migrationGuard.query("SELECT pg_advisory_lock($1, $2)", [
-    ...DATABASE_MIGRATION_LOCK_KEYS,
-  ]);
 });
 
 after(async () => {
-  if (migrationGuard) {
-    await migrationGuard.query("SELECT pg_advisory_unlock($1, $2)", [
-      ...DATABASE_MIGRATION_LOCK_KEYS,
-    ]);
-    migrationGuard.release();
-    migrationGuard = null;
-  }
   await pool?.end();
   pool = null;
 });
