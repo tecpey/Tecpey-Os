@@ -553,6 +553,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 11,
     classificationRule: "operations-runtime",
   });
+  assert.deepEqual(classifyDomain("src/lib/bounded-http-body.ts"), {
+    domain: "operations-runtime",
+    riskTier: "P1",
+    reviewBatch: 11,
+    classificationRule: "operations-runtime",
+  });
   assert.deepEqual(classifyDomain("src/lib/production-next-runtime-config.ts"), {
     domain: "operations-runtime",
     riskTier: "P1",

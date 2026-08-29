@@ -112,6 +112,9 @@ for (const invariant of [
   "lastRunPath",
   "buildNewsMaterializationFreshnessReport",
   "writeNewsMaterializationLastRun",
+  "AbortSignal.timeout(NEWS_FEED_TIMEOUT_MS)",
+  "readBoundedResponseText",
+  "MAX_NEWS_FEED_BYTES",
 ]) {
   requireText("worker", invariant, `worker is missing ${invariant}`);
 }
