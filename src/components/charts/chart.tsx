@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
 import { getCurrencyInfo } from "@/services/swap.services";
 
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
@@ -21,15 +22,11 @@ interface ChartProps {
 
 export default function Chart({ symbol, change, height = 60 }: ChartProps) {
   const formattedSymbol = useMemo(() => {
-    if (!symbol) return "";
-
-    
-
-    return symbol.replace("USDT", "").replace("_", "").replace("-", "").trim();
+    return normalizeMarketSymbol(symbol);
   }, [symbol]);
 
   const isStaticCoin =
-  symbol === "USDT";
+  formattedSymbol === "USDT";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["chart", formattedSymbol],
