@@ -134,8 +134,8 @@ describe("AI monthly spend authority", () => {
         assert.equal(replacement.ok, true);
 
         const scopedEvidence = await withClient(async (client) => {
-          const monthly = await client.query<{ reserved_usd_micros: string }>(
-            `SELECT reserved_usd_micros::text
+          const monthly = await client.query<{ active_reserved_usd_micros: string }>(
+            `SELECT active_reserved_usd_micros::text
                FROM ai_agent_spend_monthly
               WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = 'mentor_coach'`,
             [tenantId, workspaceId],
