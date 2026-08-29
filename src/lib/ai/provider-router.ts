@@ -440,6 +440,9 @@ async function fetchWithDeadline(
     () => abort("timeout"),
     remaining,
   );
+  // This deadline is the only guaranteed settlement path when an upstream
+  // fetch never resolves. Keep it referenced until dispose() clears it; an
+  // unref'ed timer can let a short-lived worker exit with the request pending.
   const forwardAbort = () => abort("cancelled", input.requestSignal?.reason);
   if (input.requestSignal) {
     if (input.requestSignal.aborted) forwardAbort();
@@ -858,6 +861,7 @@ export async function inspectOpenRouterKey(
     () => controller.abort(new DOMException("OpenRouter quota timeout", "TimeoutError")),
     boundedInteger(input.timeoutMs, 5_000, 1_000, 10_000),
   );
+  // The awaited quota probe must remain live until it resolves or times out.
   const forwardAbort = () => controller.abort(input.requestSignal?.reason);
   if (input.requestSignal) {
     if (input.requestSignal.aborted) forwardAbort();
@@ -927,6 +931,7 @@ export async function testXApiConnector(
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
+  // The awaited connector probe must remain live until it resolves or times out.
   try {
     const response = await fetchImpl("https://api.x.com/2/users/by/username/X?user.fields=id", {
       method: "GET",

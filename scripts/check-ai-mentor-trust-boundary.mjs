@@ -139,6 +139,11 @@ for (const [label, pattern] of [
   if (!pattern.test(provider))
     failures.push(`provider boundary: missing ${label}`);
 }
+if (/\.unref(?:\?\.)?\s*\(/.test(provider)) {
+  failures.push(
+    "provider boundary: awaited network deadlines must remain referenced",
+  );
+}
 
 const store = await source("src/lib/ai/mentor-trust-store.ts");
 for (const [label, pattern] of [
