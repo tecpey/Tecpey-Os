@@ -440,7 +440,6 @@ async function fetchWithDeadline(
     () => abort("timeout"),
     remaining,
   );
-  timeout.unref?.();
   const forwardAbort = () => abort("cancelled", input.requestSignal?.reason);
   if (input.requestSignal) {
     if (input.requestSignal.aborted) forwardAbort();
@@ -859,7 +858,6 @@ export async function inspectOpenRouterKey(
     () => controller.abort(new DOMException("OpenRouter quota timeout", "TimeoutError")),
     boundedInteger(input.timeoutMs, 5_000, 1_000, 10_000),
   );
-  timeout.unref?.();
   const forwardAbort = () => controller.abort(input.requestSignal?.reason);
   if (input.requestSignal) {
     if (input.requestSignal.aborted) forwardAbort();
@@ -929,7 +927,6 @@ export async function testXApiConnector(
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
-  timeout.unref?.();
   try {
     const response = await fetchImpl("https://api.x.com/2/users/by/username/X?user.fields=id", {
       method: "GET",
