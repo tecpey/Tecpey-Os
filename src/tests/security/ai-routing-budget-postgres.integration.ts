@@ -133,21 +133,9 @@ describe("AI monthly spend authority", () => {
         });
         assert.equal(replacement.ok, true);
       } finally {
-        await withClient(async (client) => {
-          await client.query(
-            "DELETE FROM ai_spend_reservations WHERE tenant_id = $1 AND workspace_id = $2",
-            [tenantId, workspaceId],
-          );
-          await client.query(
-            "DELETE FROM ai_agent_spend_monthly WHERE tenant_id = $1 AND workspace_id = $2",
-            [tenantId, workspaceId],
-          );
-          await client.query(
-            "DELETE FROM platform_workspaces WHERE tenant_id = $1 AND id = $2",
-            [tenantId, workspaceId],
-          );
-          await client.query("DELETE FROM platform_tenants WHERE id = $1", [tenantId]);
-        });
+        // The CI database is job-scoped and every identity above is randomized.
+        // Avoid cascade cleanup here: concurrent FK/DDL authorities can hold
+        // table locks after the assertions are complete and make teardown hang.
       }
     },
   );

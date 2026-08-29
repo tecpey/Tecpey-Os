@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "6ba9016b9a8024f10235d29e7e42d5397ceec6f0",
-      "sha256": "305bc1e82ea71da6eac06057c3d18bb46d96752746743cba08817233c9ddaa18",
+      "gitObjectId": "6290118a50f310af1b07229d5e6d2b7844d5aff6",
+      "sha256": "d3245cfe025f24dea3829caafdf597836b8bd5d6b1965085cbc48c0f1d7a66aa",
       "lines": 249,
       "reviewedRanges": [
         {
@@ -57,6 +57,7 @@
         "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority.",
         "2026-08-29: re-reviewed after moving the two AI routing PostgreSQL checks to explicit integration-test filenames and executing them in a separate bounded Node test process after the main unit suite. Test coverage remains mandatory while preventing migration workers and integration DML from contending in the same process; no dependency, release-authority command, network path or production runtime changed.",
         "2026-08-29: re-reviewed after serializing the two mandatory AI routing PostgreSQL integration files into separate bounded Node processes. The change removes cross-file advisory-lock contention without skipping either proof or changing application/runtime authority.",
+        "2026-08-29: re-reviewed after correcting test:ai-mentor-trust to the renamed route-candidate integration path. This restores the intended mandatory trust-suite coverage and changes no dependency or runtime authority.",
         "Re-reviewed after adding release:coverage:check and security:markers:check. Both are read-only static guards over package.json and .github/workflows; neither runs application code, touches the network, or mutates developer npm configuration. release:check gains both and stays a composition of governed checks.",
         "Re-reviewed after adding exchange:reconcile, exchange:reconcile:check and test:exchange-reconciliation. The reconcile command is read-only and opens no transaction; the check is a static source guard; the test suite is PostgreSQL integration only. exchange:check and release:check gain the guard, and release:check gains the test, so both remain compositions of governed checks.",
         "Re-reviewed after adding tenant:isolation:check and test:tenant-isolation-coverage. The isolation check composes the existing principal-isolation guard with a read-only tenant-scoped table drift check; the test suite exercises only that guard. release:check gains the composite gate and remains a composition of governed checks.",

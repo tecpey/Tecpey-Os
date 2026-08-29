@@ -111,9 +111,6 @@ describe("AI route candidate PostgreSQL authority", () => {
           /append-only|mutation/i,
         );
       } finally {
-        for (const scope of scopes) {
-          await client.query("DELETE FROM platform_tenants WHERE id = $1", [scope.tenantId]);
-        }
         client.release();
       }
     },
