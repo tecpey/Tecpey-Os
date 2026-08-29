@@ -138,12 +138,12 @@
       "method": "PATCH",
       "issue": "#84",
       "owner": "ai-platform-security",
-      "reason": "Reviewed additive Mentor thread update operation: a strict canonical student session, verified tenant binding and Mentor entitlement precede owner-keyed archive or title mutation; the request is rate-limited, CSRF protected, bounded, transactionally audited and private no-store.",
+      "reason": "Reviewed additive Mentor thread update operation: a strict canonical student session, verified tenant binding and Mentor entitlement precede owner-keyed archive or title mutation; the request is rate-limited, CSRF protected, bounded, transactionally audited and private no-store. Re-reviewed after naming the verified binding tenantContext and adding the tenant/product inventory guard; runtime controls are unchanged.",
       "replacement": {
         "route": "/api/mentor-threads",
         "method": "PATCH",
         "sourcePath": "src/app/api/mentor-threads/route.ts",
-        "sourceHash": "64945de7ff59723b3dd6c2d6",
+        "sourceHash": "691ee79aa6e5ab358733b7d6",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -176,7 +176,8 @@
         },
         "domainOwner": "mentor-threads",
         "testReferences": [
-          "src/tests/security/ai-control-plane-source.test.ts"
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -203,12 +204,12 @@
       "method": "POST",
       "issue": "#84",
       "owner": "ai-platform-security",
-      "reason": "Reviewed additive Mentor thread creation operation: a strict canonical student session, verified tenant binding and Mentor entitlement precede owner-keyed creation; the request is rate-limited, CSRF protected, bounded, transactionally audited and private no-store.",
+      "reason": "Reviewed additive Mentor thread creation operation: a strict canonical student session, verified tenant binding and Mentor entitlement precede owner-keyed creation; the request is rate-limited, CSRF protected, bounded, transactionally audited and private no-store. Re-reviewed after naming the verified binding tenantContext and adding the tenant/product inventory guard; runtime controls are unchanged.",
       "replacement": {
         "route": "/api/mentor-threads",
         "method": "POST",
         "sourcePath": "src/app/api/mentor-threads/route.ts",
-        "sourceHash": "64945de7ff59723b3dd6c2d6",
+        "sourceHash": "691ee79aa6e5ab358733b7d6",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -241,7 +242,8 @@
         },
         "domainOwner": "mentor-threads",
         "testReferences": [
-          "src/tests/security/ai-control-plane-source.test.ts"
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
         ],
         "requirements": {
           "csrf": true,
