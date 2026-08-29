@@ -119,7 +119,10 @@ for (const [label, pattern] of [
   ],
   ["bounded retry", /models\.length > 1/],
   ["circuit breaker", /FAILURE_THRESHOLD/],
-  ["response size limit", /MAX_RESPONSE_CHARS/],
+  [
+    "byte-bounded response stream",
+    /MAX_RESPONSE_BYTES[\s\S]*readBoundedResponseText\(response,[\s\S]*maxBytes: MAX_RESPONSE_BYTES/,
+  ],
   ["Responses output token cap", /max_output_tokens: maxOutputTokens/],
   ["Messages output token cap", /max_tokens: maxOutputTokens/],
   [
