@@ -4,6 +4,7 @@ import { apiError, apiOk, apiRateLimited, Validate } from "@/lib/api-validation"
 import { authorizeAdminRequest } from "@/lib/admin-control-plane";
 import {
   isAiAgentId,
+  isAiDataClass,
   isAiModelProviderId,
   isAiProviderId,
   type AiAgentId,
@@ -17,6 +18,7 @@ import {
   recordAiProviderTest,
   recordAiRoutingDecision,
   recordAiWorkflowEvidence,
+  replaceAiAgentRouteCandidates,
   resolveAiProviderForTest,
   resolveRuntimeAiAgent,
   settleAiAgentSpend,
@@ -26,6 +28,7 @@ import {
   updateAiProvider,
   type AdminAiMutationContext,
   type AiAgentLimits,
+  type AiRouteCandidateInput,
 } from "@/lib/ai/control-plane-store";
 import { recordOpenRouterQuotaSnapshot } from "@/lib/ai/automation-store";
 import { callAiProvider, inspectOpenRouterKey, testXApiConnector } from "@/lib/ai/provider-router";
@@ -154,6 +157,47 @@ function modelName(value: unknown, required = true): string | null {
   return MODEL_PATTERN.test(normalized) ? normalized : null;
 }
 
+function routeCandidates(value: unknown): AiRouteCandidateInput[] | null {
+  if (!Array.isArray(value) || value.length > 5) return null;
+  const output: AiRouteCandidateInput[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const candidate = raw as Record<string, unknown>;
+    const model = modelName(candidate.model);
+    const priority = integer(candidate.priority, 1, 20);
+    const estimatedMaxCostUsdMicros = integer(
+      candidate.estimatedMaxCostUsdMicros,
+      0,
+      100_000_000_000,
+    );
+    const expectedLatencyMs = integer(candidate.expectedLatencyMs, 100, 30_000);
+    if (
+      !isAiModelProviderId(candidate.providerId) ||
+      !model ||
+      priority === null ||
+      typeof candidate.enabled !== "boolean" ||
+      estimatedMaxCostUsdMicros === null ||
+      expectedLatencyMs === null ||
+      candidate.zeroDataRetention !== true ||
+      typeof candidate.free !== "boolean" ||
+      !Array.isArray(candidate.supportedDataClasses) ||
+      candidate.supportedDataClasses.some((item) => !isAiDataClass(item))
+    ) return null;
+    output.push({
+      providerId: candidate.providerId,
+      model,
+      priority,
+      enabled: candidate.enabled,
+      estimatedMaxCostUsdMicros,
+      expectedLatencyMs,
+      zeroDataRetention: true,
+      free: candidate.free,
+      supportedDataClasses: candidate.supportedDataClasses,
+    });
+  }
+  return output;
+}
+
 function providerFailureStatus(reason: string): number {
   if (reason === "rate_limited") return 429;
   if (reason === "quota_exhausted") return 503;
@@ -255,6 +299,27 @@ export async function PUT(request: NextRequest) {
       if (result === "invalid_model" || result === "invalid_limits" || result === "invalid_routing") return apiError(`ai_agent_${result}`, 422);
       if (result === "unavailable") return apiError("ai_agent_write_failed", 503);
       return apiOk({ agent: result }, 200, { "Cache-Control": "private, no-store", Vary: "Cookie" });
+    }
+
+    if (body.action === "replace_agent_routes") {
+      const candidates = routeCandidates(body.candidates);
+      if (!isAiAgentId(body.agentId) || !candidates) {
+        return apiError("invalid_ai_agent_routes_request", 400);
+      }
+      const result = await replaceAiAgentRouteCandidates({
+        ...context,
+        agentId: body.agentId,
+        candidates,
+      });
+      if (result === "agent_not_configured") return apiError("ai_agent_not_configured", 422);
+      if (result === "invalid_candidates") return apiError("ai_agent_routes_invalid", 422);
+      if (result === "provider_forbidden") return apiError("ai_agent_provider_forbidden", 422);
+      if (result === "provider_not_ready") return apiError("ai_agent_provider_not_ready", 422);
+      if (result === "unavailable") return apiError("ai_agent_routes_write_failed", 503);
+      return apiOk({ candidates: result }, 200, {
+        "Cache-Control": "private, no-store",
+        Vary: "Cookie",
+      });
     }
 
     return apiError("invalid_ai_control_plane_action", 400);
@@ -449,6 +514,9 @@ async function researchPreview(
       fallbackModel: config.fallbackModel,
     },
     openRouter: config.openRouterFallback,
+    routeCandidates: config.routeCandidates,
+    approvalSatisfied: true,
+    authorizedSpendUsdMicros: usage.spend.reservedUsdMicros,
     dataClass: "public",
     criticality: "noncritical",
     externalEffect: false,
@@ -489,12 +557,13 @@ async function researchPreview(
     decisionCode: routedProvider.result.ok
       ? "provider_completed"
       : `provider_${routedProvider.result.reason}`,
-    candidateCount: config.openRouterFallback ? 2 : 1,
+    candidateCount: routedProvider.candidateCount,
     dataClass: "public",
     criticality: "noncritical",
     externalEffect: false,
     approvalMode: config.approvalMode,
     spendReservationId: usage.spend.reservationId,
+    decisionHash: routedProvider.decisionHash,
   });
   if (!routingRecorded) {
     return apiError("ai_routing_evidence_unavailable", 503);

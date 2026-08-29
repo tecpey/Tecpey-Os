@@ -12,11 +12,17 @@ import {
   type AiProviderRouterDependencies,
   type OpenRouterKeyStatus,
 } from "./provider-router";
+import {
+  planEnterpriseAiRoute,
+  type AiEnterpriseRouteCandidate,
+} from "./enterprise-routing-policy";
 
 export type AiProviderRouteMode =
   | "primary"
+  | "alternate"
   | "openrouter_paid"
-  | "openrouter_free";
+  | "openrouter_free"
+  | "blocked";
 
 export type AiRoutedProviderResult = {
   result: AiProviderCallResult;
@@ -24,6 +30,8 @@ export type AiRoutedProviderResult = {
   fallbackAttempted: boolean;
   primaryFailureReason: AiProviderFailureReason | null;
   openRouterKeyStatus: OpenRouterKeyStatus | null;
+  decisionHash: string | null;
+  candidateCount: number;
 };
 
 export type AiProviderFailoverInput = {
@@ -50,6 +58,12 @@ export type AiProviderFailoverInput = {
   maxOutputTokens?: number;
   circuitScope?: string;
   toolsEnabled?: boolean;
+  routeCandidates?: ReadonlyArray<
+    AiEnterpriseRouteCandidate & { apiKey: string | null }
+  >;
+  approvalSatisfied?: boolean;
+  requiredCapabilities?: readonly string[];
+  authorizedSpendUsdMicros?: number;
 };
 
 const FALLBACK_REASONS = new Set<AiProviderFailureReason>([
@@ -97,6 +111,9 @@ export async function callAiProviderWithFailover(
   input: AiProviderFailoverInput,
   dependencies: AiProviderRouterDependencies = {},
 ): Promise<AiRoutedProviderResult> {
+  if (input.routeCandidates?.length) {
+    return callPlannedProviderRoute(input, dependencies);
+  }
   const now = dependencies.now ?? Date.now;
   const totalTimeoutMs = Math.max(
     2_000,
@@ -139,6 +156,8 @@ export async function callAiProviderWithFailover(
       fallbackAttempted: false,
       primaryFailureReason: primary.ok ? null : primary.reason,
       openRouterKeyStatus: null,
+      decisionHash: null,
+      candidateCount: input.openRouter ? 2 : 1,
     };
   }
 
@@ -150,6 +169,8 @@ export async function callAiProviderWithFailover(
       fallbackAttempted: false,
       primaryFailureReason: primary.reason,
       openRouterKeyStatus: null,
+      decisionHash: null,
+      candidateCount: 1,
     };
   }
 
@@ -204,6 +225,8 @@ export async function callAiProviderWithFailover(
         fallbackAttempted: true,
         primaryFailureReason: primary.reason,
         openRouterKeyStatus: keyStatus,
+        decisionHash: null,
+        candidateCount: input.openRouter ? 2 : 1,
       };
     }
   }
@@ -233,6 +256,8 @@ export async function callAiProviderWithFailover(
       fallbackAttempted: true,
       primaryFailureReason: primary.reason,
       openRouterKeyStatus: keyStatus,
+      decisionHash: null,
+      candidateCount: input.openRouter ? 3 : 2,
     };
   }
 
@@ -242,5 +267,174 @@ export async function callAiProviderWithFailover(
     fallbackAttempted: Boolean(paidResult),
     primaryFailureReason: primary.reason,
     openRouterKeyStatus: keyStatus,
+    decisionHash: null,
+    candidateCount: input.openRouter ? 2 : 1,
+  };
+}
+
+async function callPlannedProviderRoute(
+  input: AiProviderFailoverInput,
+  dependencies: AiProviderRouterDependencies,
+): Promise<AiRoutedProviderResult> {
+  const now = dependencies.now ?? Date.now;
+  const totalTimeoutMs = Math.max(
+    2_000,
+    Math.min(30_000, Math.trunc(input.timeoutMs ?? 12_000)),
+  );
+  const deadline = now() + totalTimeoutMs;
+  const configuredCandidates = input.routeCandidates ?? [];
+  const paidOpenRouter = configuredCandidates.find(
+    (candidate) =>
+      candidate.providerId === "openrouter" && !candidate.free && candidate.apiKey,
+  );
+  const openRouterKeyStatus = paidOpenRouter?.apiKey
+    ? await inspectOpenRouterKey(
+        {
+          apiKey: paidOpenRouter.apiKey,
+          requestSignal: input.requestSignal,
+          timeoutMs: Math.max(
+            1_000,
+            Math.min(3_000, remainingTimeout(deadline, now) - 2_000),
+          ),
+        },
+        dependencies,
+      )
+    : null;
+  const candidates = configuredCandidates.map((candidate) => {
+    const paidOpenRouterAuthorized =
+      candidate.providerId !== "openrouter" ||
+      candidate.free ||
+      (openRouterKeyStatus?.ok === true &&
+        openRouterKeyStatus.limitRemainingUsdMicros !== null &&
+        openRouterKeyStatus.limitRemainingUsdMicros >=
+          candidate.estimatedMaxCostUsdMicros);
+    return {
+      ...candidate,
+      health:
+        candidate.apiKey && paidOpenRouterAuthorized
+          ? candidate.health
+          : "unavailable" as const,
+    };
+  });
+  const authorizedSpendUsdMicros = Math.max(
+    0,
+    Math.trunc(input.authorizedSpendUsdMicros ?? 0),
+  );
+  const decision = planEnterpriseAiRoute({
+    agentId: input.agentId,
+    dataClass: input.dataClass,
+    criticality: input.criticality,
+    externalEffect: input.externalEffect,
+    approvalSatisfied: input.approvalSatisfied ?? !input.externalEffect,
+    requiredCapabilities: input.requiredCapabilities,
+    maxRequestCostUsdMicros: authorizedSpendUsdMicros,
+    monthlyBudgetRemainingUsdMicros: authorizedSpendUsdMicros,
+    candidates,
+  });
+  if (decision.status === "blocked") {
+    return {
+      result: {
+        ok: false,
+        reason: "provider_disabled",
+        providerId: input.primary.providerId,
+        attempts: 0,
+        durationMs: 0,
+      },
+      routeMode: "blocked",
+      fallbackAttempted: false,
+      primaryFailureReason: null,
+      openRouterKeyStatus,
+      decisionHash: decision.decisionHash,
+      candidateCount: candidates.length,
+    };
+  }
+
+  let firstFailure: AiProviderFailureReason | null = null;
+  let lastResult: AiProviderCallResult | null = null;
+  let lastCandidate = decision.selected;
+  let totalAttempts = 0;
+  for (const [index, candidate] of decision.eligible.entries()) {
+    const runtime = candidates.find(
+      (item) => item.providerId === candidate.providerId && item.model === candidate.model,
+    );
+    if (!runtime?.apiKey || remainingTimeout(deadline, now) < 2_000) break;
+    const result = await callAiProvider(
+      {
+        providerId: candidate.providerId,
+        agentId: input.agentId,
+        apiKey: runtime.apiKey,
+        model: candidate.model,
+        instructions: input.instructions,
+        input: input.input,
+        requestSignal: input.requestSignal,
+        timeoutMs: remainingTimeout(deadline, now),
+        maxOutputTokens: input.maxOutputTokens,
+        circuitScope: `${input.circuitScope?.trim().slice(0, 180) || "default"}:route-${index + 1}`,
+        toolsEnabled: input.toolsEnabled,
+        dataClass: input.dataClass,
+        requireZeroDataRetention: true,
+      },
+      dependencies,
+    );
+    lastResult = result;
+    lastCandidate = candidate;
+    totalAttempts += result.attempts;
+    if (result.ok || !FALLBACK_REASONS.has(result.reason)) {
+      return plannedResult(
+        input,
+        { ...result, attempts: totalAttempts },
+        candidate,
+        index,
+        firstFailure,
+        decision,
+        openRouterKeyStatus,
+      );
+    }
+    firstFailure ??= result.reason;
+  }
+
+  const result = lastResult ?? {
+    ok: false as const,
+    reason: "provider_disabled" as const,
+    providerId: input.primary.providerId,
+    attempts: 0,
+    durationMs: 0,
+  };
+  return plannedResult(
+    input,
+    { ...result, attempts: totalAttempts },
+    lastCandidate,
+    Math.max(0, decision.eligible.indexOf(lastCandidate)),
+    firstFailure,
+    decision,
+    openRouterKeyStatus,
+  );
+}
+
+function plannedResult(
+  input: AiProviderFailoverInput,
+  result: AiProviderCallResult,
+  candidate: AiEnterpriseRouteCandidate,
+  index: number,
+  firstFailure: AiProviderFailureReason | null,
+  decision: Extract<ReturnType<typeof planEnterpriseAiRoute>, { status: "selected" }>,
+  openRouterKeyStatus: OpenRouterKeyStatus | null,
+): AiRoutedProviderResult {
+  const routeMode: AiProviderRouteMode = candidate.free
+    ? "openrouter_free"
+    : candidate.providerId === input.primary.providerId &&
+        candidate.model === input.primary.model && index === 0
+      ? "primary"
+      : candidate.providerId === "openrouter"
+        ? "openrouter_paid"
+        : "alternate";
+  return {
+    result,
+    routeMode,
+    fallbackAttempted: index > 0,
+    primaryFailureReason: firstFailure,
+    openRouterKeyStatus,
+    decisionHash: decision.decisionHash,
+    candidateCount: decision.eligible.length + decision.rejected.length,
   };
 }

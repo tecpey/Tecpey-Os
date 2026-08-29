@@ -13,6 +13,7 @@ import {
   aiAgentDefinition,
   assertAiAgentProviderAllowed,
   isAiAgentId,
+  isAiDataClass,
   isAiModelProviderId,
   type AiAgentId,
   type AiApprovalMode,
@@ -49,6 +50,22 @@ export type AiAgentLimits = {
   monthlyBudgetUsdMicros: number;
 };
 
+export type AiRouteCandidateSnapshot = {
+  providerId: AiModelProviderId;
+  model: string;
+  priority: number;
+  enabled: boolean;
+  estimatedMaxCostUsdMicros: number;
+  expectedLatencyMs: number;
+  zeroDataRetention: true;
+  free: boolean;
+  supportedDataClasses: AiDataClass[];
+  revision: number;
+  updatedAt: string;
+  providerReady: boolean;
+  health: "healthy" | "degraded" | "unknown" | "unavailable";
+};
+
 export type AiAgentBindingSnapshot = {
   agentId: AiAgentId;
   configured: boolean;
@@ -61,6 +78,7 @@ export type AiAgentBindingSnapshot = {
   revision: number;
   updatedAt: string | null;
   providerReady: boolean;
+  routeCandidates: AiRouteCandidateSnapshot[];
   routing: {
     openRouterFallbackEnabled: boolean;
     openRouterModel: string | null;
@@ -167,6 +185,21 @@ type AgentRow = {
   updated_at: string | Date;
 };
 
+type RouteCandidateRow = {
+  agent_id: AiAgentId;
+  provider_id: AiModelProviderId;
+  model: string;
+  priority: number;
+  enabled: boolean;
+  estimated_max_cost_usd_micros: string | number;
+  expected_latency_ms: number;
+  zero_data_retention: boolean;
+  free: boolean;
+  supported_data_classes: string[];
+  revision: string | number;
+  updated_at: string | Date;
+};
+
 type KnowledgeRow = {
   id: string;
   knowledge_type: AiKnowledgeSnapshot["knowledgeType"];
@@ -212,6 +245,11 @@ export type RuntimeAiAgent = {
     freeFallbackEnabled: boolean;
     creditFloorUsdMicros: number;
   } | null;
+  routeCandidates: RuntimeAiRouteCandidate[];
+};
+
+export type RuntimeAiRouteCandidate = AiRouteCandidateSnapshot & {
+  apiKey: string | null;
 };
 
 export type RuntimeAiAgentResolution =
@@ -295,6 +333,7 @@ function agentSnapshot(
   row: AgentRow | null,
   agentId: AiAgentId,
   providers: Map<AiProviderId, ProviderRow>,
+  routeCandidates: readonly RouteCandidateRow[] = [],
 ): AiAgentBindingSnapshot {
   const definition = aiAgentDefinition(agentId);
   const provider = row ? providers.get(row.provider_id) : null;
@@ -315,6 +354,13 @@ function agentSnapshot(
       provider.encrypted_api_key &&
       provider.last_test_status === "passed",
     ),
+    routeCandidates: routeCandidates
+      .map((candidate) => routeCandidateSnapshot(candidate, providers))
+      .sort((left, right) =>
+        left.priority - right.priority ||
+        left.providerId.localeCompare(right.providerId) ||
+        left.model.localeCompare(right.model),
+      ),
     routing: {
       openRouterFallbackEnabled:
         row?.openrouter_fallback_enabled ?? false,
@@ -329,6 +375,43 @@ function agentSnapshot(
           openRouterProvider.last_test_status === "passed",
       ),
     },
+  };
+}
+
+function providerHealth(
+  provider: ProviderRow | null | undefined,
+  nowMs = Date.now(),
+): AiRouteCandidateSnapshot["health"] {
+  if (!provider?.enabled || !provider.encrypted_api_key) return "unavailable";
+  if (provider.last_test_status === "failed") return "unavailable";
+  if (provider.last_test_status !== "passed") return "unknown";
+  const testedAt = iso(provider.last_tested_at);
+  if (!testedAt) return "unknown";
+  return nowMs - new Date(testedAt).getTime() <= 24 * 60 * 60 * 1_000
+    ? "healthy"
+    : "degraded";
+}
+
+function routeCandidateSnapshot(
+  row: RouteCandidateRow,
+  providers: Map<AiProviderId, ProviderRow>,
+): AiRouteCandidateSnapshot {
+  const provider = providers.get(row.provider_id);
+  const health = providerHealth(provider);
+  return {
+    providerId: row.provider_id,
+    model: row.model,
+    priority: Number(row.priority),
+    enabled: row.enabled,
+    estimatedMaxCostUsdMicros: Number(row.estimated_max_cost_usd_micros),
+    expectedLatencyMs: Number(row.expected_latency_ms),
+    zeroDataRetention: true,
+    free: row.free,
+    supportedDataClasses: row.supported_data_classes.filter(isAiDataClass),
+    revision: Number(row.revision),
+    updatedAt: iso(row.updated_at) ?? new Date(0).toISOString(),
+    providerReady: health === "healthy" || health === "degraded",
+    health,
   };
 }
 
@@ -414,6 +497,27 @@ async function selectAgent(
   return result.rows[0] ?? null;
 }
 
+async function selectRouteCandidates(
+  client: PoolClient,
+  tenantId: string,
+  workspaceId: string,
+  agentId: AiAgentId,
+  lock = false,
+): Promise<RouteCandidateRow[]> {
+  const result = await client.query<RouteCandidateRow>(
+    `SELECT agent_id, provider_id, model, priority, enabled,
+            estimated_max_cost_usd_micros, expected_latency_ms,
+            zero_data_retention, free, supported_data_classes,
+            revision, updated_at
+       FROM ai_agent_route_candidates
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+      ORDER BY priority, provider_id, model
+      ${lock ? "FOR UPDATE" : ""}`,
+    [tenantId, workspaceId, agentId],
+  );
+  return result.rows;
+}
+
 async function advisoryLock(client: PoolClient, scope: string): Promise<void> {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
     scope,
@@ -444,6 +548,16 @@ export async function loadAiControlPlaneSnapshot(input: {
                 revision, updated_at
            FROM ai_agent_bindings
           WHERE tenant_id = $1 AND workspace_id = $2`,
+        [input.tenantId, input.workspaceId],
+      );
+      const routeRows = await client.query<RouteCandidateRow>(
+        `SELECT agent_id, provider_id, model, priority, enabled,
+                estimated_max_cost_usd_micros, expected_latency_ms,
+                zero_data_retention, free, supported_data_classes,
+                revision, updated_at
+           FROM ai_agent_route_candidates
+          WHERE tenant_id = $1 AND workspace_id = $2
+          ORDER BY agent_id, priority, provider_id, model`,
         [input.tenantId, input.workspaceId],
       );
       const knowledgeRows = await client.query<KnowledgeRow>(
@@ -510,6 +624,12 @@ export async function loadAiControlPlaneSnapshot(input: {
         providerRows.rows.map((row) => [row.provider_id, row]),
       );
       const agents = new Map(agentRows.rows.map((row) => [row.agent_id, row]));
+      const routesByAgent = new Map<AiAgentId, RouteCandidateRow[]>();
+      for (const row of routeRows.rows) {
+        const routes = routesByAgent.get(row.agent_id) ?? [];
+        routes.push(row);
+        routesByAgent.set(row.agent_id, routes);
+      }
       const knowledgeSummary = {
         candidate: 0,
         verified: 0,
@@ -595,7 +715,12 @@ export async function loadAiControlPlaneSnapshot(input: {
           ),
         ),
         agents: AI_AGENT_IDS.map((agentId) =>
-          agentSnapshot(agents.get(agentId) ?? null, agentId, providers),
+          agentSnapshot(
+            agents.get(agentId) ?? null,
+            agentId,
+            providers,
+            routesByAgent.get(agentId) ?? [],
+          ),
         ),
         knowledge: knowledgeRows.rows.map(knowledgeSnapshot),
         knowledgeSummary,
@@ -1585,6 +1710,198 @@ export async function updateAiAgentBinding(
   }
 }
 
+export type AiRouteCandidateInput = {
+  providerId: AiModelProviderId;
+  model: string;
+  priority: number;
+  enabled: boolean;
+  estimatedMaxCostUsdMicros: number;
+  expectedLatencyMs: number;
+  zeroDataRetention: true;
+  free: boolean;
+  supportedDataClasses: AiDataClass[];
+};
+
+export async function replaceAiAgentRouteCandidates(
+  input: AdminAiMutationContext & {
+    agentId: AiAgentId;
+    candidates: AiRouteCandidateInput[];
+  },
+): Promise<
+  | AiRouteCandidateSnapshot[]
+  | "agent_not_configured"
+  | "invalid_candidates"
+  | "provider_forbidden"
+  | "provider_not_ready"
+  | "unavailable"
+> {
+  const definition = aiAgentDefinition(input.agentId);
+  const identities = new Set<string>();
+  const priorities = new Set<number>();
+  if (input.candidates.length > 5) return "invalid_candidates";
+  for (const candidate of input.candidates) {
+    const identity = `${candidate.providerId}\0${candidate.model.trim()}`;
+    if (
+      !isAiModelProviderId(candidate.providerId) ||
+      !MODEL_PATTERN.test(candidate.model.trim()) ||
+      !Number.isSafeInteger(candidate.priority) ||
+      candidate.priority < 1 ||
+      candidate.priority > 20 ||
+      typeof candidate.enabled !== "boolean" ||
+      !Number.isSafeInteger(candidate.estimatedMaxCostUsdMicros) ||
+      candidate.estimatedMaxCostUsdMicros < 0 ||
+      candidate.estimatedMaxCostUsdMicros > definition.defaultLimits.maxRequestCostUsdMicros ||
+      !Number.isSafeInteger(candidate.expectedLatencyMs) ||
+      candidate.expectedLatencyMs < 100 ||
+      candidate.expectedLatencyMs > 30_000 ||
+      candidate.zeroDataRetention !== true ||
+      typeof candidate.free !== "boolean" ||
+      candidate.supportedDataClasses.length < 1 ||
+      candidate.supportedDataClasses.length > 5 ||
+      candidate.supportedDataClasses.some((value) => !isAiDataClass(value)) ||
+      identities.has(identity) ||
+      priorities.has(candidate.priority) ||
+      (candidate.free &&
+        (candidate.providerId !== "openrouter" ||
+          !OPENROUTER_FREE_MODEL_PATTERN.test(candidate.model) ||
+          candidate.estimatedMaxCostUsdMicros !== 0 ||
+          candidate.supportedDataClasses.length !== 1 ||
+          candidate.supportedDataClasses[0] !== "public" ||
+          !definition.openRouterFallback.freeAllowed)) ||
+      (!candidate.free && OPENROUTER_FREE_MODEL_PATTERN.test(candidate.model))
+    ) {
+      return "invalid_candidates";
+    }
+    try {
+      assertAiAgentProviderAllowed(input.agentId, candidate.providerId);
+    } catch {
+      return "provider_forbidden";
+    }
+    identities.add(identity);
+    priorities.add(candidate.priority);
+  }
+
+  try {
+    const result = await withTx(async (client) => {
+      await advisoryLock(
+        client,
+        `ai-routes:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
+      );
+      const agent = await selectAgent(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.agentId,
+        true,
+      );
+      if (!agent) return "agent_not_configured" as const;
+      if (input.candidates.some(
+        (candidate) =>
+          candidate.estimatedMaxCostUsdMicros >
+          Number(agent.max_request_cost_usd_micros),
+      )) {
+        return "invalid_candidates" as const;
+      }
+      const before = await selectRouteCandidates(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.agentId,
+        true,
+      );
+      const providerRows = new Map<AiProviderId, ProviderRow>();
+      for (const providerId of new Set(input.candidates.map((route) => route.providerId))) {
+        const provider = await selectProvider(
+          client,
+          input.tenantId,
+          input.workspaceId,
+          providerId,
+          true,
+        );
+        if (
+          !provider?.enabled ||
+          !provider.encrypted_api_key ||
+          provider.last_test_status !== "passed"
+        ) {
+          return "provider_not_ready" as const;
+        }
+        providerRows.set(providerId, provider);
+      }
+      const revision = Math.max(0, ...before.map((row) => Number(row.revision))) + 1;
+      await client.query(
+        `DELETE FROM ai_agent_route_candidates
+          WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3`,
+        [input.tenantId, input.workspaceId, input.agentId],
+      );
+      for (const candidate of input.candidates) {
+        await client.query(
+          `INSERT INTO ai_agent_route_candidates
+             (tenant_id, workspace_id, agent_id, provider_id, model, priority,
+              enabled, estimated_max_cost_usd_micros, expected_latency_ms,
+              zero_data_retention, free, supported_data_classes, revision,
+              updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10,
+                   $11::text[], $12, $13::uuid)`,
+          [
+            input.tenantId,
+            input.workspaceId,
+            input.agentId,
+            candidate.providerId,
+            candidate.model.trim(),
+            candidate.priority,
+            candidate.enabled,
+            candidate.estimatedMaxCostUsdMicros,
+            candidate.expectedLatencyMs,
+            candidate.free,
+            [...new Set(candidate.supportedDataClasses)],
+            revision,
+            input.actorAdminId,
+          ],
+        );
+      }
+      const rows = await selectRouteCandidates(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.agentId,
+      );
+      const after = rows.map((row) => routeCandidateSnapshot(row, providerRows));
+      await client.query(
+        `INSERT INTO ai_agent_route_candidate_events
+           (tenant_id, workspace_id, agent_id, event_type, route_count,
+            revision, routes_snapshot, actor_admin_id)
+         VALUES ($1, $2, $3, 'replaced', $4, $5, $6::jsonb, $7::uuid)`,
+        [
+          input.tenantId,
+          input.workspaceId,
+          input.agentId,
+          after.length,
+          revision,
+          JSON.stringify(after),
+          input.actorAdminId,
+        ],
+      );
+      await writeAdminAuditEvent(client, {
+        actorAdminId: input.actorAdminId,
+        sessionId: input.sessionId,
+        effectiveRoles: input.effectiveRoles,
+        action: "ai_agent.routes_replaced",
+        resourceType: "ai_agent_routes",
+        resourceId: input.agentId,
+        requestId: input.requestId,
+        sourceIp: input.sourceIp,
+        userAgent: input.userAgent,
+        beforeState: before.map((row) => routeCandidateSnapshot(row, providerRows)),
+        afterState: after,
+      });
+      return after;
+    });
+    return result.enabled ? result.value : "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
 function environmentMentorResolution(): RuntimeAiAgentResolution {
   const apiKey = environmentKey("openai");
   if (!apiKey) return { status: "unconfigured", config: null };
@@ -1613,6 +1930,7 @@ function environmentMentorResolution(): RuntimeAiAgentResolution {
               creditFloorUsdMicros: 0,
             }
           : null,
+      routeCandidates: [],
     },
   };
 }
@@ -1691,6 +2009,41 @@ export async function resolveRuntimeAiAgent(
               ),
             }
           : null);
+      const routeRows = await selectRouteCandidates(
+        client,
+        tenantId,
+        workspaceId,
+        agentId,
+      );
+      const routeProviders = new Map<AiProviderId, ProviderRow>([
+        [provider.provider_id, provider],
+      ]);
+      for (const providerId of new Set(routeRows.map((route) => route.provider_id))) {
+        if (routeProviders.has(providerId)) continue;
+        const routeProvider = await selectProvider(
+          client,
+          tenantId,
+          workspaceId,
+          providerId,
+        );
+        if (routeProvider) routeProviders.set(providerId, routeProvider);
+      }
+      const routeCandidates = routeRows.map((row) => {
+        const snapshot = routeCandidateSnapshot(row, routeProviders);
+        const routeProvider = routeProviders.get(row.provider_id);
+        let apiKey: string | null = null;
+        if (routeProvider?.enabled && routeProvider.encrypted_api_key) {
+          try {
+            apiKey = decryptAiProviderSecret(
+              routeProvider.encrypted_api_key,
+              providerScope(tenantId, workspaceId, row.provider_id),
+            );
+          } catch {
+            apiKey = null;
+          }
+        }
+        return { ...snapshot, apiKey };
+      });
       return {
         status: "configured",
         config: {
@@ -1703,6 +2056,7 @@ export async function resolveRuntimeAiAgent(
           approvalMode: aiAgentDefinition(agentId).approvalMode,
           configurationSource: "managed",
           openRouterFallback,
+          routeCandidates,
         },
       } as const;
     });

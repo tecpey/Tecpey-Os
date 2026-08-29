@@ -891,6 +891,9 @@ export async function POST(request: NextRequest) {
           fallbackModel: researchConfig.fallbackModel,
         },
         openRouter: researchConfig.openRouterFallback,
+        routeCandidates: researchConfig.routeCandidates,
+        approvalSatisfied: true,
+        authorizedSpendUsdMicros: researchUsage.spend.reservedUsdMicros,
         dataClass: "public",
         criticality: "noncritical",
         externalEffect: false,
@@ -925,12 +928,13 @@ export async function POST(request: NextRequest) {
         decisionCode: researchProvider.ok
           ? "provider_completed"
           : `provider_${researchProvider.reason}`,
-        candidateCount: researchConfig.openRouterFallback ? 2 : 1,
+        candidateCount: researchRoute.candidateCount,
         dataClass: "public",
         criticality: "noncritical",
         externalEffect: false,
         approvalMode: researchConfig.approvalMode,
         spendReservationId: researchUsage.spend.reservationId,
+        decisionHash: researchRoute.decisionHash,
       });
       if (!researchRoutingRecorded) {
         throw new Error("ai_mentor_public_research_routing_evidence_failed");
@@ -1334,6 +1338,9 @@ export async function POST(request: NextRequest) {
         fallbackModel: providerConfig.fallbackModel,
       },
       openRouter: providerConfig.openRouterFallback,
+      routeCandidates: providerConfig.routeCandidates,
+      approvalSatisfied: true,
+      authorizedSpendUsdMicros: usage.spend.reservedUsdMicros,
       dataClass: "private_user",
       criticality: "standard",
       externalEffect: false,
@@ -1366,12 +1373,13 @@ export async function POST(request: NextRequest) {
       decisionCode: provider.ok
         ? "provider_completed"
         : `provider_${provider.reason}`,
-      candidateCount: providerConfig.openRouterFallback ? 2 : 1,
+      candidateCount: providerRoute.candidateCount,
       dataClass: "private_user",
       criticality: "standard",
       externalEffect: false,
       approvalMode: providerConfig.approvalMode,
       spendReservationId: usage.spend.reservationId,
+      decisionHash: providerRoute.decisionHash,
     });
     if (!routingRecorded) {
       throw new Error("ai_mentor_routing_evidence_failed");

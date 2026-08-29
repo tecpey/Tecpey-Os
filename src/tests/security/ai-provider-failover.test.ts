@@ -34,6 +34,150 @@ const base = {
 beforeEach(() => resetAiProviderCircuits());
 
 describe("AI provider budget failover", () => {
+  it("executes the deterministic candidate plan and fails over across providers", async () => {
+    const urls: string[] = [];
+    const result = await callAiProviderWithFailover({
+      agentId: "mentor_coach",
+      primary: {
+        providerId: "openai",
+        apiKey: "legacy-primary-key",
+        model: "legacy-model",
+      },
+      dataClass: "private_user",
+      criticality: "standard",
+      externalEffect: false,
+      approvalSatisfied: true,
+      authorizedSpendUsdMicros: 500_000,
+      instructions: "trusted",
+      input: "private mentor input",
+      timeoutMs: 20_000,
+      routeCandidates: [
+        {
+          providerId: "openai",
+          apiKey: "openai-key",
+          model: "gpt-route",
+          priority: 1,
+          enabled: true,
+          health: "healthy",
+          estimatedMaxCostUsdMicros: 200_000,
+          expectedLatencyMs: 500,
+          zeroDataRetention: true,
+          free: false,
+          supportedDataClasses: ["private_user"],
+        },
+        {
+          providerId: "anthropic",
+          apiKey: "anthropic-key",
+          model: "claude-route",
+          priority: 2,
+          enabled: true,
+          health: "healthy",
+          estimatedMaxCostUsdMicros: 250_000,
+          expectedLatencyMs: 600,
+          zeroDataRetention: true,
+          free: false,
+          supportedDataClasses: ["private_user"],
+        },
+      ],
+    }, {
+      fetchImpl: async (url) => {
+        urls.push(String(url));
+        if (String(url).includes("api.openai.com")) {
+          return new Response("{}", { status: 429 });
+        }
+        return new Response(JSON.stringify({
+          model: "claude-route",
+          content: [{ type: "text", text: "safe mentor response" }],
+          usage: { input_tokens: 3, output_tokens: 4 },
+        }), { status: 200 });
+      },
+    });
+    assert.equal(result.result.ok, true);
+    assert.equal(result.result.providerId, "anthropic");
+    assert.equal(result.routeMode, "alternate");
+    assert.equal(result.fallbackAttempted, true);
+    assert.equal(result.primaryFailureReason, "rate_limited");
+    assert.equal(result.candidateCount, 2);
+    assert.match(result.decisionHash ?? "", /^[0-9a-f]{64}$/);
+    assert.deepEqual(urls, [
+      "https://api.openai.com/v1/responses",
+      "https://api.anthropic.com/v1/messages",
+    ]);
+  });
+
+  it("blocks a planned private free route before provider egress", async () => {
+    let called = false;
+    const result = await callAiProviderWithFailover({
+      agentId: "mentor_coach",
+      primary: { providerId: "openai", apiKey: "legacy", model: "legacy" },
+      dataClass: "private_user",
+      criticality: "standard",
+      externalEffect: false,
+      approvalSatisfied: true,
+      authorizedSpendUsdMicros: 500_000,
+      instructions: "trusted",
+      input: "private mentor input",
+      routeCandidates: [{
+        providerId: "openrouter",
+        apiKey: "openrouter-key",
+        model: "openrouter/free",
+        priority: 1,
+        enabled: true,
+        health: "healthy",
+        estimatedMaxCostUsdMicros: 0,
+        expectedLatencyMs: 500,
+        zeroDataRetention: true,
+        free: true,
+        supportedDataClasses: ["private_user"],
+      }],
+    }, {
+      fetchImpl: async () => {
+        called = true;
+        throw new Error("blocked route reached provider");
+      },
+    });
+    assert.equal(result.result.ok, false);
+    assert.equal(result.result.attempts, 0);
+    assert.equal(result.routeMode, "blocked");
+    assert.equal(called, false);
+  });
+
+  it("blocks a planned paid OpenRouter route when credit authority is unknown", async () => {
+    const urls: string[] = [];
+    const result = await callAiProviderWithFailover({
+      ...base,
+      openRouter: null,
+      authorizedSpendUsdMicros: 500_000,
+      approvalSatisfied: true,
+      routeCandidates: [{
+        providerId: "openrouter",
+        apiKey: "openrouter-key",
+        model: "vendor/paid-model",
+        priority: 1,
+        enabled: true,
+        health: "healthy",
+        estimatedMaxCostUsdMicros: 200_000,
+        expectedLatencyMs: 500,
+        zeroDataRetention: true,
+        free: false,
+        supportedDataClasses: ["public"],
+      }],
+    }, {
+      fetchImpl: async (url) => {
+        urls.push(String(url));
+        if (String(url).endsWith("/api/v1/key")) {
+          return new Response("{}", { status: 503 });
+        }
+        throw new Error("unknown credit authority reached a paid model");
+      },
+    });
+    assert.equal(result.result.ok, false);
+    assert.equal(result.routeMode, "blocked");
+    assert.equal(result.result.attempts, 0);
+    assert.equal(result.openRouterKeyStatus?.ok, false);
+    assert.deepEqual(urls, ["https://openrouter.ai/api/v1/key"]);
+  });
+
   it("keeps a successful primary route and never probes OpenRouter", async () => {
     const urls: string[] = [];
     const result = await callAiProviderWithFailover(base, {

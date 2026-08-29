@@ -94,6 +94,7 @@ import { AI_CONTROL_PLANE_SQL } from "./db-migrate-ai-control-plane";
 import { AI_AUTOMATION_ORCHESTRATION_SQL } from "./db-migrate-ai-automation";
 import { AI_CONTROL_JSON_TRIGGER_REPAIR_SQL } from "./db-migrate-ai-control-json-trigger-repair";
 import { AI_ROUTING_BUDGET_SQL } from "./db-migrate-ai-routing-budget";
+import { AI_ROUTE_CANDIDATES_SQL } from "./db-migrate-ai-route-candidates";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -406,5 +407,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   aiRoutingBudget: one(
     "0094_ai_routing_budget.sql",
     AI_ROUTING_BUDGET_SQL,
+  ),
+  aiRouteCandidates: one(
+    "0095_ai_route_candidates.sql",
+    AI_ROUTE_CANDIDATES_SQL,
   ),
 });

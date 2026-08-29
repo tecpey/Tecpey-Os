@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ProviderId = "openai" | "anthropic" | "perplexity" | "xai" | "openrouter" | "x_api";
 type ModelProviderId = Exclude<ProviderId, "x_api">;
+type DataClass = "public" | "aggregate_deidentified" | "approved_platform_content" | "private_user" | "restricted_admin";
 type AgentId =
   | "mentor_coach"
   | "news_x_researcher"
@@ -103,6 +104,21 @@ type AgentSnapshot = {
   revision: number;
   updatedAt: string | null;
   providerReady: boolean;
+  routeCandidates: Array<{
+    providerId: ModelProviderId;
+    model: string;
+    priority: number;
+    enabled: boolean;
+    estimatedMaxCostUsdMicros: number;
+    expectedLatencyMs: number;
+    zeroDataRetention: true;
+    free: boolean;
+    supportedDataClasses: DataClass[];
+    revision: number;
+    updatedAt: string;
+    providerReady: boolean;
+    health: "healthy" | "degraded" | "unknown" | "unavailable";
+  }>;
   routing: {
     openRouterFallbackEnabled: boolean;
     openRouterModel: string | null;
@@ -183,6 +199,16 @@ type AgentForm = {
   freeFallbackEnabled: boolean;
   openRouterCreditFloorUsd: string;
 };
+type RouteForm = {
+  providerId: ModelProviderId;
+  model: string;
+  priority: string;
+  enabled: boolean;
+  estimatedMaxCostUsd: string;
+  expectedLatencyMs: string;
+  free: boolean;
+  dataClass: DataClass;
+};
 
 const providerOrder: ProviderId[] = ["openai", "anthropic", "perplexity", "xai", "openrouter", "x_api"];
 const inputClass = "min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-sm font-bold text-white outline-none transition-colors focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-300/15";
@@ -212,6 +238,19 @@ function agentForm(snapshot: AgentSnapshot | undefined, definition: AgentCatalog
       (snapshot?.routing.openRouterCreditFloorUsdMicros ?? 0) / 1_000_000,
     ),
   };
+}
+
+function routeForms(snapshot?: AgentSnapshot): RouteForm[] {
+  return (snapshot?.routeCandidates ?? []).map((candidate) => ({
+    providerId: candidate.providerId,
+    model: candidate.model,
+    priority: String(candidate.priority),
+    enabled: candidate.enabled,
+    estimatedMaxCostUsd: String(candidate.estimatedMaxCostUsdMicros / 1_000_000),
+    expectedLatencyMs: String(candidate.expectedLatencyMs),
+    free: candidate.free,
+    dataClass: candidate.supportedDataClasses[0] ?? "public",
+  }));
 }
 
 function dateLabel(value: string | null): string {
@@ -255,6 +294,9 @@ function errorMessage(code: unknown): string {
     ai_agent_invalid_model: "نام مدل معتبر نیست یا مدل رایگان برای داده‌های این ایجنت مجاز نیست.",
     ai_agent_input_limit: "حجم ورودی از سقف تنظیم‌شدهٔ این ایجنت بیشتر است.",
     ai_agent_output_limit: "سقف خروجی درخواستی از قرارداد این ایجنت بیشتر است.",
+    ai_agent_routes_invalid: "ترتیب مسیرها، مدل، هزینه، latency یا کلاس داده معتبر نیست.",
+    ai_agent_routes_write_failed: "ذخیره مسیرهای مدل کامل نشد؛ تنظیم قبلی حفظ شد.",
+    ai_agent_not_configured: "ابتدا Binding اصلی ایجنت را ذخیره کنید.",
     ai_research_query_blocked: "پرسش شامل داده خصوصی، Secret یا الگوی تزریق دستور است و ارسال نشد.",
     ai_research_sources_required: "Provider منبع قابل‌تأیید برنگرداند؛ پیش‌نویس پذیرفته نشد.",
     ai_research_output_rejected: "خروجی از مرز ایمنی مالی یا امنیتی عبور نکرد.",
@@ -297,6 +339,7 @@ export function AiControlPlanePanel() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [providerForms, setProviderForms] = useState<Partial<Record<ProviderId, ProviderForm>>>({});
   const [agentForms, setAgentForms] = useState<Partial<Record<AgentId, AgentForm>>>({});
+  const [agentRouteForms, setAgentRouteForms] = useState<Partial<Record<AgentId, RouteForm[]>>>({});
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -342,6 +385,9 @@ export function AiControlPlanePanel() {
           agentForm(nextSnapshot.agents.find((item) => item.agentId === definition.id), definition),
         ]),
       ));
+      setAgentRouteForms(Object.fromEntries(
+        nextSnapshot.agents.map((agent) => [agent.agentId, routeForms(agent)]),
+      ));
     } catch {
       setError("ارتباط امن با کنترل‌پلین AI برقرار نشد.");
     } finally {
@@ -371,6 +417,45 @@ export function AiControlPlanePanel() {
     setAgentForms((current) => ({
       ...current,
       [id]: { ...(current[id] ?? agentForm(undefined, definition)), ...patch },
+    }));
+  };
+
+  const updateRouteForm = (agentId: AgentId, index: number, patch: Partial<RouteForm>) => {
+    setAgentRouteForms((current) => ({
+      ...current,
+      [agentId]: (current[agentId] ?? []).map((route, routeIndex) =>
+        routeIndex === index ? { ...route, ...patch } : route,
+      ),
+    }));
+  };
+
+  const addRouteForm = (definition: AgentCatalog) => {
+    setAgentRouteForms((current) => {
+      const routes = current[definition.id] ?? [];
+      if (routes.length >= 5) return current;
+      return {
+        ...current,
+        [definition.id]: [
+          ...routes,
+          {
+            providerId: definition.allowedProviders[0],
+            model: "",
+            priority: String(routes.length + 1),
+            enabled: true,
+            estimatedMaxCostUsd: "0.1",
+            expectedLatencyMs: "5000",
+            free: false,
+            dataClass: definition.mayReceivePrivateUserData ? "private_user" : "public",
+          },
+        ],
+      };
+    });
+  };
+
+  const removeRouteForm = (agentId: AgentId, index: number) => {
+    setAgentRouteForms((current) => ({
+      ...current,
+      [agentId]: (current[agentId] ?? []).filter((_, routeIndex) => routeIndex !== index),
     }));
   };
 
@@ -443,7 +528,7 @@ export function AiControlPlanePanel() {
         ? ` سامانه پس از ${new Intl.NumberFormat("fa-IR").format(attempts)} تلاش کنترل‌شده بازیابی شد.`
         : "";
       const routed = testedModel ? ` مدل پاسخ‌دهنده: ${testedModel}.` : "";
-      const text = `اتصال Provider با دادهٔ تست غیرکاربری تأیید و evidence آن ثبت شد.${recovered}${routed}`;
+      const text = `اتصال Provider با درخواست آزمایشی غیرعملیاتی تأیید و evidence آن ثبت شد.${recovered}${routed}`;
       setNotice(text);
       setProviderMessages((current) => ({ ...current, [id]: { kind: "success", text } }));
       await load();
@@ -498,6 +583,48 @@ export function AiControlPlanePanel() {
       await load();
     } catch {
       setError("تنظیم ایجنت ذخیره نشد.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveAgentRoutes = async (definition: AgentCatalog) => {
+    const routes = agentRouteForms[definition.id] ?? [];
+    setBusy(`routes:${definition.id}`);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/command-center/ai-control-plane", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "replace_agent_routes",
+          agentId: definition.id,
+          candidates: routes.map((route) => ({
+            providerId: route.providerId,
+            model: route.model,
+            priority: Number(route.priority),
+            enabled: route.enabled,
+            estimatedMaxCostUsdMicros: Math.round(
+              Number(route.estimatedMaxCostUsd) * 1_000_000,
+            ),
+            expectedLatencyMs: Number(route.expectedLatencyMs),
+            zeroDataRetention: true,
+            free: route.free,
+            supportedDataClasses: [route.dataClass],
+          })),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        setError(errorMessage(data?.error));
+        return;
+      }
+      setNotice("ترتیب مسیرهای مدل با health، هزینه، ZDR و کلاس داده ثبت و audit شد.");
+      await load();
+    } catch {
+      setError("ذخیره مسیرهای مدل کامل نشد؛ تنظیم قبلی حفظ شد.");
     } finally {
       setBusy(null);
     }
@@ -664,6 +791,7 @@ export function AiControlPlanePanel() {
               {(catalog?.agents ?? []).map((definition) => {
                 const current = snapshot?.agents.find((item) => item.agentId === definition.id);
                 const form = agentForms[definition.id] ?? agentForm(current, definition);
+                const routes = agentRouteForms[definition.id] ?? routeForms(current);
                 const usage = snapshot?.usageToday?.[definition.id] ?? { requestCount: 0, reservedTokens: 0 };
                 const spend = snapshot?.spendThisMonth?.[definition.id] ?? {
                   activeReservedUsdMicros: 0,
@@ -714,6 +842,47 @@ export function AiControlPlanePanel() {
                       {(form.openRouterFallbackEnabled || form.providerId === "openrouter") && definition.openRouterFallback.freeAllowed && <label className="mt-3 flex min-h-11 items-center justify-between rounded-xl border border-amber-300/15 bg-amber-300/[0.04] px-3 text-xs font-black text-amber-100"><span>پس از اتمام اعتبار، مسیر <span dir="ltr">openrouter/free</span></span><input type="checkbox" checked={form.freeFallbackEnabled} onChange={(event) => updateAgentForm(definition.id, definition, { freeFallbackEnabled: event.target.checked, ...(event.target.checked ? {} : { openRouterCreditFloorUsd: form.openRouterFallbackEnabled ? form.openRouterCreditFloorUsd : "0" }) })} className="h-5 w-5 accent-amber-300" /></label>}
                       <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">داده‌های مجاز: {definition.openRouterFallback.allowedDataClasses.join("، ")}. fallback رایگان برای Mentor، داده خصوصی، تصمیم حساس و هر کار دارای اثر بیرونی در سرور رد می‌شود.</p>
                     </div>
+                    <details className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.035] p-4">
+                      <summary className="cursor-pointer text-xs font-black text-cyan-100">
+                        Enterprise Route Candidates · {routes.length.toLocaleString("fa-IR")} مسیر
+                      </summary>
+                      <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">
+                        planner فقط مسیرهای سالم، مجاز، ZDR و داخل سقف رزروشده را انتخاب می‌کند. ترتیب مساوی مجاز نیست و حداکثر ۵ مسیر ثبت می‌شود.
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        {routes.map((route, index) => {
+                          const persisted = current?.routeCandidates.find(
+                            (item) => item.providerId === route.providerId && item.model === route.model,
+                          );
+                          return (
+                            <div key={index} className="rounded-xl border border-white/10 bg-[#030914] p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <StatusPill ready={Boolean(persisted?.providerReady)}>
+                                  {persisted ? persisted.health : "ثبت‌نشده"}
+                                </StatusPill>
+                                <button type="button" onClick={() => removeRouteForm(definition.id, index)} disabled={busy !== null} className="rounded-lg border border-rose-300/20 px-2 py-1 text-[10px] font-black text-rose-100">حذف</button>
+                              </div>
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                <label className="text-[10px] font-black text-slate-400">Provider<select value={route.providerId} onChange={(event) => updateRouteForm(definition.id, index, { providerId: event.target.value as ModelProviderId })} className={`${inputClass} mt-1 text-xs`}>{definition.allowedProviders.map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
+                                <label className="text-[10px] font-black text-slate-400">Model<input dir="ltr" value={route.model} onChange={(event) => updateRouteForm(definition.id, index, { model: event.target.value })} className={`${inputClass} mt-1 text-left font-mono text-xs`} /></label>
+                                <label className="text-[10px] font-black text-slate-400">Priority<input dir="ltr" inputMode="numeric" value={route.priority} onChange={(event) => updateRouteForm(definition.id, index, { priority: event.target.value })} className={`${inputClass} mt-1 text-left font-mono text-xs`} /></label>
+                                <label className="text-[10px] font-black text-slate-400">حداکثر هزینه ($)<input dir="ltr" inputMode="decimal" value={route.estimatedMaxCostUsd} disabled={route.free} onChange={(event) => updateRouteForm(definition.id, index, { estimatedMaxCostUsd: event.target.value })} className={`${inputClass} mt-1 text-left font-mono text-xs`} /></label>
+                                <label className="text-[10px] font-black text-slate-400">Latency هدف (ms)<input dir="ltr" inputMode="numeric" value={route.expectedLatencyMs} onChange={(event) => updateRouteForm(definition.id, index, { expectedLatencyMs: event.target.value })} className={`${inputClass} mt-1 text-left font-mono text-xs`} /></label>
+                                <label className="text-[10px] font-black text-slate-400">کلاس داده<select value={route.dataClass} disabled={route.free} onChange={(event) => updateRouteForm(definition.id, index, { dataClass: event.target.value as DataClass })} className={`${inputClass} mt-1 text-xs`}><option value="public">public</option><option value="aggregate_deidentified">aggregate_deidentified</option><option value="approved_platform_content">approved_platform_content</option>{definition.mayReceivePrivateUserData && <option value="private_user">private_user</option>}<option value="restricted_admin">restricted_admin</option></select></label>
+                              </div>
+                              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                <label className="flex min-h-10 items-center justify-between rounded-lg border border-white/10 px-3 text-[10px] font-black"><span>فعال</span><input type="checkbox" checked={route.enabled} onChange={(event) => updateRouteForm(definition.id, index, { enabled: event.target.checked })} className="h-4 w-4 accent-cyan-300" /></label>
+                                <label className="flex min-h-10 items-center justify-between rounded-lg border border-amber-300/15 px-3 text-[10px] font-black text-amber-100"><span>مسیر رایگان عمومی</span><input type="checkbox" checked={route.free} disabled={!definition.openRouterFallback.freeAllowed} onChange={(event) => updateRouteForm(definition.id, index, event.target.checked ? { free: true, providerId: "openrouter", model: "openrouter/free", estimatedMaxCostUsd: "0", dataClass: "public" } : { free: false })} className="h-4 w-4 accent-amber-300" /></label>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <button type="button" onClick={() => addRouteForm(definition)} disabled={busy !== null || routes.length >= 5} className={`${buttonClass} border border-white/10 bg-white/[0.05] text-white`}>افزودن مسیر</button>
+                        <button type="button" onClick={() => void saveAgentRoutes(definition)} disabled={busy !== null || routes.some((route) => !route.model)} className={`${buttonClass} bg-cyan-300 text-[#03101a]`}>{busy === `routes:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />} ذخیره مسیرها</button>
+                      </div>
+                    </details>
                     <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">درخواست، توکن، حداکثر هزینه هر فراخوانی و بودجه ماهانه پیش از خروج داده به Provider به‌صورت تراکنشی رزرو می‌شوند؛ هزینه نهایی پس از پاسخ تسویه و evidence تصمیم نگهداری می‌شود.</p>
                     <button type="button" onClick={() => void saveAgent(definition)} disabled={busy !== null || !form.model} className={`${buttonClass} mt-4 w-full bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `agent:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} ذخیره Binding و سقف‌ها</button>
                   </article>

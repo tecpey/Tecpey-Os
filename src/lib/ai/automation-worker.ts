@@ -127,6 +127,11 @@ async function reviewWithAgent(input: {
       fallbackModel: config.fallbackModel,
     },
     openRouter: config.openRouterFallback,
+    routeCandidates: config.routeCandidates,
+    // This provider call only reviews material; the domain executor still
+    // enforces any required human approval before the external effect.
+    approvalSatisfied: true,
+    authorizedSpendUsdMicros: admitted.spend.reservedUsdMicros,
     dataClass: input.run.dataClass,
     criticality: input.run.criticality,
     externalEffect: input.run.externalEffect !== "none",
@@ -156,12 +161,13 @@ async function reviewWithAgent(input: {
     providerId: routed.result.providerId,
     routeMode: routed.routeMode,
     decisionCode: routed.result.ok ? "provider_completed" : `provider_${routed.result.reason}`,
-    candidateCount: config.openRouterFallback ? 2 : 1,
+    candidateCount: routed.candidateCount,
     dataClass: input.run.dataClass,
     criticality: input.run.criticality,
     externalEffect: input.run.externalEffect !== "none",
     approvalMode: config.approvalMode,
     spendReservationId: admitted.spend.reservationId,
+    decisionHash: routed.decisionHash,
   });
   if (!routingRecorded) {
     return { status: "deferred", reason: "routing_evidence_unavailable" };
