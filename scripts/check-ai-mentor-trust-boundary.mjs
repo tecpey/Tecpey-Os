@@ -35,7 +35,7 @@ for (const [label, pattern] of [
     "entitlement gates egress",
     /!runtimeConfigured \|\|\s*!mentorEntitled \|\|\s*!preferences\.externalProviderEnabled/,
   ],
-  ["daily quota authority", /admitAiAgentUsage\(\{/],
+  ["daily quota and spend admission authority", /admitAiAgentExecution\(\{/],
   ["verified knowledge retrieval", /loadVerifiedAiKnowledgeContext\(\{/],
 ]) {
   if (!pattern.test(route)) failures.push(`AI Mentor route: missing ${label}`);
