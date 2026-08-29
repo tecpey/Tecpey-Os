@@ -21,7 +21,6 @@ type SwapCoin = {
 
 export default function SwapPanel({ coins: initialCoins }: { coins: MarketCurrency[] }) {
   const t = useTranslations("MarketTabs");
-
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
 
   const [openSell, setOpenSell] = useState(false);
