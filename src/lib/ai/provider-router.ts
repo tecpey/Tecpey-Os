@@ -5,6 +5,7 @@ import {
   type AiDataClass,
   type AiModelProviderId,
 } from "./control-plane-catalog";
+import { readBoundedResponseText } from "../bounded-http-body";
 
 export type AiSourceReference = {
   url: string;
@@ -78,7 +79,9 @@ type CircuitState = { failures: number; openUntil: number };
 const circuits = new Map<string, CircuitState>();
 const FAILURE_THRESHOLD = 3;
 const CIRCUIT_OPEN_MS = 60_000;
-const MAX_RESPONSE_CHARS = 256_000;
+const MAX_RESPONSE_BYTES = 256_000;
+const MAX_CONNECTOR_RESPONSE_BYTES = 32_768;
+const AI_RESPONSE_TOO_LARGE = "ai_provider_response_too_large";
 const OPENROUTER_FREE_MAX_ATTEMPTS = 3;
 const OPENROUTER_FREE_RETRYABLE_STATUSES = new Set([408, 409, 429, 500, 502, 503, 504]);
 const RETRY_BACKOFF_BASE_MS = 250;
@@ -429,8 +432,20 @@ async function parseResponse(
     }
   | { ok: false; reason: "invalid_response" | "response_too_large" }
 > {
-  const raw = await response.text();
-  if (raw.length > MAX_RESPONSE_CHARS) return { ok: false, reason: "response_too_large" };
+  let raw: string;
+  try {
+    raw = await readBoundedResponseText(response, {
+      maxBytes: MAX_RESPONSE_BYTES,
+      errorCode: AI_RESPONSE_TOO_LARGE,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error && error.message === AI_RESPONSE_TOO_LARGE
+        ? "response_too_large"
+        : "invalid_response",
+    };
+  }
   try {
     const data = JSON.parse(raw) as unknown;
     const text =
@@ -695,8 +710,15 @@ export async function inspectOpenRouterKey(
         status: response.status,
       };
     }
-    const raw = await response.text();
-    if (raw.length > 32_768) return { ok: false, reason: "invalid_response" };
+    let raw: string;
+    try {
+      raw = await readBoundedResponseText(response, {
+        maxBytes: MAX_CONNECTOR_RESPONSE_BYTES,
+        errorCode: AI_RESPONSE_TOO_LARGE,
+      });
+    } catch {
+      return { ok: false, reason: "invalid_response" };
+    }
     let payload: {
       data?: {
         limit?: unknown;
@@ -747,8 +769,11 @@ export async function testXApiConnector(
       signal: controller.signal,
     });
     if (!response.ok) return false;
-    const text = await response.text();
-    return text.length <= 32_768 && Boolean((JSON.parse(text) as { data?: { id?: unknown } })?.data?.id);
+    const text = await readBoundedResponseText(response, {
+      maxBytes: MAX_CONNECTOR_RESPONSE_BYTES,
+      errorCode: AI_RESPONSE_TOO_LARGE,
+    });
+    return Boolean((JSON.parse(text) as { data?: { id?: unknown } })?.data?.id);
   } catch {
     return false;
   } finally {

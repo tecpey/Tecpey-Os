@@ -257,6 +257,48 @@ describe("multi-provider AI router", () => {
     assert.deepEqual(result, { ok: false, reason: "invalid_response" });
   });
 
+  it("stops oversized provider streams before buffering the full response", async () => {
+    const result = await callAiProvider({
+      providerId: "openai",
+      agentId: "coin_tool_researcher",
+      apiKey: "openai-test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "public query",
+    }, {
+      fetchImpl: async () => new Response(new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(200_000));
+          controller.enqueue(new Uint8Array(100_000));
+          controller.close();
+        },
+      }), { status: 200 }),
+    });
+
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.reason, "response_too_large");
+  });
+
+  it("fails closed when a provider body stream errors after headers", async () => {
+    const result = await callAiProvider({
+      providerId: "openai",
+      agentId: "coin_tool_researcher",
+      apiKey: "openai-test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "public query",
+    }, {
+      fetchImpl: async () => new Response(new ReadableStream({
+        start(controller) {
+          controller.error(new Error("upstream stream reset"));
+        },
+      }), { status: 200 }),
+    });
+
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.reason, "invalid_response");
+  });
+
   it("uses the OpenAI Responses endpoint with storage disabled and catalog tools", async () => {
     const captures: Captured[] = [];
     const result = await callAiProvider({
