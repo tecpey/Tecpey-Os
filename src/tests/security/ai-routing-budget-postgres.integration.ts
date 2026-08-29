@@ -132,6 +132,24 @@ describe("AI monthly spend authority", () => {
           limits,
         });
         assert.equal(replacement.ok, true);
+
+        const scopedEvidence = await withClient(async (client) => {
+          const monthly = await client.query<{ reserved_usd_micros: string }>(
+            `SELECT reserved_usd_micros::text
+               FROM ai_agent_spend_monthly
+              WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = 'mentor_coach'`,
+            [tenantId, workspaceId],
+          );
+          const reservations = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM ai_spend_reservations
+              WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = 'mentor_coach'`,
+            [tenantId, workspaceId],
+          );
+          return { monthly: monthly.rows, reservations: reservations.rows };
+        });
+        assert.equal(scopedEvidence.monthly.length, 1);
+        assert.equal(Number(scopedEvidence.reservations[0]?.count ?? 0) >= 3, true);
       } finally {
         // The CI database is job-scoped and every identity above is randomized.
         // Avoid cascade cleanup here: concurrent FK/DDL authorities can hold
