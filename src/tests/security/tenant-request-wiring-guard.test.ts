@@ -44,6 +44,7 @@ describe("Tenant request wiring", () => {
         const args = rest.slice(0, rest.indexOf("});"));
         const wired =
           /\brequest:\s*(req|request)\b/.test(args) ||
+          /\brequest\s*,/.test(args) ||
           /\bassertedTenantId:/.test(args);
         if (!wired) {
           offenders.push(path.relative(ROOT, file));

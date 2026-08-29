@@ -38,22 +38,22 @@ async function mentorActor(
   if (!session.studentId) {
     return { ok: false as const, response: noStore(apiError(session.authorityDegraded ? "mentor_threads_unavailable" : "academy_profile_required", session.authorityDegraded ? 503 : 401)) };
   }
-  const context = await resolveTenantPrincipalContext({
+  const tenantContext = await resolveTenantPrincipalContext({
     session,
     request: req,
     requiredPrincipalType: "student",
     scopes: [`academy:learning-events:${scope}`],
     requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
   });
-  if (!context.available) {
+  if (!tenantContext.available) {
     return { ok: false as const, response: noStore(apiError(
-      context.reason === "binding_storage_unavailable" ? "mentor_threads_unavailable" : "forbidden",
-      context.reason === "binding_storage_unavailable" ? 503 : 403,
+      tenantContext.reason === "binding_storage_unavailable" ? "mentor_threads_unavailable" : "forbidden",
+      tenantContext.reason === "binding_storage_unavailable" ? 503 : 403,
     )) };
   }
-  const productGate = await requireTenantProduct(context.tenantId, "mentor");
+  const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
   if (productGate) return { ok: false as const, response: noStore(productGate) };
-  return { ok: true as const, context };
+  return { ok: true as const, context: tenantContext };
 }
 
 export async function GET(req: NextRequest) {

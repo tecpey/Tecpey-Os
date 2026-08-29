@@ -342,24 +342,22 @@ export async function loadAiAutomationSnapshot(input: {
   workspaceId: string;
 }): Promise<AiAutomationSnapshot | null> {
   const loaded = await withDb(async (client) => {
-    const [policies, runs] = await Promise.all([
-      client.query<PolicyRow>(
+    const policies = await client.query<PolicyRow>(
         `SELECT workflow_id, enabled, interval_minutes, max_concurrency,
                 policy_version, revision, next_run_at, last_enqueued_at, updated_at
            FROM ai_automation_policies
           WHERE tenant_id = $1 AND workspace_id = $2
           ORDER BY workflow_id`,
         [input.tenantId, input.workspaceId],
-      ),
-      client.query<RunRow>(
+      );
+    const runs = await client.query<RunRow>(
         `SELECT *
            FROM ai_automation_runs
           WHERE tenant_id = $1 AND workspace_id = $2
           ORDER BY created_at DESC, id DESC
           LIMIT 100`,
         [input.tenantId, input.workspaceId],
-      ),
-    ]);
+      );
     const runIds = runs.rows.map((row) => row.id);
     const reviewResult = runIds.length
       ? await client.query<ReviewRow>(
