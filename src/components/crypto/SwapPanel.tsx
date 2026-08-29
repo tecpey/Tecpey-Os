@@ -10,6 +10,7 @@ import SwapSkeleton from "../skeletons/SwapSkeleton";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { MarketCurrency } from "@/types/market";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
 
 type SwapCoin = {
   symbol: string;
@@ -20,7 +21,6 @@ type SwapCoin = {
 
 export default function SwapPanel({ coins: initialCoins }: { coins: MarketCurrency[] }) {
   const t = useTranslations("MarketTabs");
-
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
 
   const [openSell, setOpenSell] = useState(false);
@@ -67,7 +67,7 @@ export default function SwapPanel({ coins: initialCoins }: { coins: MarketCurren
 
   const coins = useMemo(() => {
     const normalize = (coin: MarketCurrency): SwapCoin => ({
-          symbol: String(coin.symbol ?? "").replace("_USDT", ""),
+          symbol: normalizeMarketSymbol(coin.symbol),
           name: coin.name || String(coin.fullName ?? ""),
           icon: getCoinVisualAsset({
             symbol: coin.symbol,

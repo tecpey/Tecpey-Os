@@ -39,7 +39,7 @@ import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/
 import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
-import { formatMarketPrice } from "@/lib/public-market-data";
+import { formatMarketPrice, normalizeMarketSymbol } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
 const exchangeHref = "https://my.tecpey.ir";
@@ -78,7 +78,7 @@ function formatUsdPrice(value: unknown) {
 }
 
 function normalizeSymbol(row: MarketCurrency) {
-  return String(row?.symbol ?? row?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");
+  return normalizeMarketSymbol(row?.symbol ?? row?.priceData?.symbol);
 }
 
 function resolveUsdLast(row: MarketCurrency) {

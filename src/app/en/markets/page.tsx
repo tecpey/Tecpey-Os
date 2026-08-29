@@ -5,6 +5,7 @@ import { Search, TrendingUp, ShieldCheck, WalletCards } from "lucide-react";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { EnglishShell } from "../components/EnglishUI";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
 function formatUsdPrice(value: unknown) {
@@ -86,11 +87,9 @@ export default function EnglishMarketsPage() {
                     ? Array.from<MarketCurrency | undefined>({ length: 8 })
                     : visibleCurrencies.slice(0, 12)
                   ).map((coin, index) => {
-                    const symbol = coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "";
+                    const symbol = normalizeMarketSymbol(coin?.symbol ?? coin?.priceData?.symbol);
                     const name = coin?.name ?? symbol;
-                    const rawSymbol = coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "";
-                    const normalizedSymbol = String(rawSymbol).replace("USDT", "");
-                    const price = normalizedSymbol === "USDT" ? 1 : (coin?.priceData?.last ?? coin?.priceData?.price ?? coin?.priceData?.lastPrice ?? coin?.priceData?.close ?? coin?.last ?? coin?.lastPrice ?? coin?.price ?? 0);
+                    const price = symbol === "USDT" ? 1 : (coin?.priceData?.last ?? coin?.priceData?.price ?? coin?.priceData?.lastPrice ?? coin?.priceData?.close ?? coin?.last ?? coin?.lastPrice ?? coin?.price ?? 0);
                     const change = Number(coin?.priceData?.changePercent ?? coin?.changePercent ?? 0);
                     if (!coin?.symbol && isLoading) {
                       return (

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
-import { formatMarketPrice } from "@/lib/public-market-data";
+import { formatMarketPrice, normalizeMarketSymbol } from "@/lib/public-market-data";
 
 describe("public market visual integrity", () => {
   it("preserves Tether when normalizing direct symbols and trading pairs", () => {
@@ -14,6 +15,31 @@ describe("public market visual integrity", () => {
     assert.equal(pair.symbol, "USDT");
     assert.match(pair.src ?? "", /\/tether\.png$/);
     assert.equal(bitcoinPair.symbol, "BTC");
+
+    assert.equal(normalizeMarketSymbol("USDT"), "USDT");
+    assert.equal(normalizeMarketSymbol("USDTUSDT"), "USDT");
+    assert.equal(normalizeMarketSymbol("BTCUSDT"), "BTC");
+    assert.equal(normalizeMarketSymbol("btc_usdt"), "BTC");
+    assert.equal(normalizeMarketSymbol("BTC/USDT"), "BTC");
+    assert.equal(normalizeMarketSymbol(" BTC-USDT "), "BTC");
+  });
+
+  it("uses the shared symbol authority on every governed market surface", () => {
+    const surfaces = [
+      "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx",
+      "src/app/en/EnglishLandingClient.tsx",
+      "src/app/en/markets/page.tsx",
+      "src/components/charts/chart.tsx",
+      "src/components/crypto/SwapPanel.tsx",
+      "src/data/coinKnowledge.ts",
+      "src/services/swap.services.ts",
+    ];
+
+    for (const path of surfaces) {
+      const source = readFileSync(path, "utf8");
+      assert.match(source, /normalizeMarketSymbol/, `${path} must use the shared symbol authority`);
+      assert.doesNotMatch(source, /replace\([^\n]*USDT/, `${path} must not strip USDT locally`);
+    }
   });
 
   it("keeps meaningful precision for localized fractional market prices", () => {

@@ -1,4 +1,5 @@
 import { coinGrowthCandidates, type CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
 
 type CompactCoinVisual = {
   symbol: string;
@@ -251,14 +252,6 @@ function buildCoinAsset(coin: CompactCoinVisual, input?: { name?: string; faName
 
 const fallbackCoinVisual = buildCoinAsset(coinVisuals[0]);
 
-function normalizeSymbol(value: unknown) {
-  const symbol = String(value ?? "")
-    .trim()
-    .toUpperCase();
-
-  return symbol === "USDT" ? symbol : symbol.replace(/[_/-]?USDT$/i, "");
-}
-
 export function getCoinVisualAsset(input: {
   symbol?: unknown;
   slug?: string;
@@ -266,7 +259,7 @@ export function getCoinVisualAsset(input: {
   faName?: string;
   remoteIcon?: string;
 }) {
-  const symbol = normalizeSymbol(input.symbol);
+  const symbol = normalizeMarketSymbol(input.symbol);
   const coin =
     (input.slug ? coinVisuals.find((item) => item.slug === input.slug) : undefined) ??
     coinVisuals.find((item) => item.symbol === symbol);
