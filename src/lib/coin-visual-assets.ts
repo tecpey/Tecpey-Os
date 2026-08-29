@@ -252,10 +252,11 @@ function buildCoinAsset(coin: CompactCoinVisual, input?: { name?: string; faName
 const fallbackCoinVisual = buildCoinAsset(coinVisuals[0]);
 
 function normalizeSymbol(value: unknown) {
-  return String(value ?? "")
+  const symbol = String(value ?? "")
     .trim()
-    .replace(/[_/-]?USDT$/i, "")
     .toUpperCase();
+
+  return symbol === "USDT" ? symbol : symbol.replace(/[_/-]?USDT$/i, "");
 }
 
 export function getCoinVisualAsset(input: {
