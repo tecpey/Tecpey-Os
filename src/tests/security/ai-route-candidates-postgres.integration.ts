@@ -95,6 +95,21 @@ describe("AI route candidate PostgreSQL authority", () => {
           ),
         );
 
+        await assert.rejects(
+          client.query(
+            `INSERT INTO ai_agent_route_candidates
+               (tenant_id, workspace_id, agent_id, provider_id, model, priority,
+                estimated_max_cost_usd_micros, expected_latency_ms,
+                supported_data_classes)
+             VALUES ($1, $2, 'mentor_coach', 'openai', 'gpt-underpriced', 2,
+                     999, 500, ARRAY['private_user']::text[])`,
+            [scopes[0].tenantId, scopes[0].workspaceId],
+          ),
+          (error: unknown) =>
+            typeof error === "object" && error !== null &&
+            "code" in error && error.code === "23514",
+        );
+
         const event = await client.query<{ id: string }>(
           `INSERT INTO ai_agent_route_candidate_events
              (tenant_id, workspace_id, agent_id, event_type, route_count,

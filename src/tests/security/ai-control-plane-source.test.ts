@@ -65,7 +65,7 @@ describe("AI control-plane source authority", () => {
     assert.doesNotMatch(route, /result\.text\.includes\("TECPEY_PROVIDER_OK"\)/);
     assert.match(
       route,
-      /maxOutputTokens: providerId === "openrouter" \? 8_192 : 1_200/,
+      /maxOutputTokens: probeLimits\.maxOutputTokens/,
     );
     assert.match(route, /attempts,\s*providerStatus,\s*testedModel,/);
     assert.match(panel, /const text = providerTestMessage\(data\);/);
@@ -155,8 +155,9 @@ describe("AI control-plane source authority", () => {
   });
 
   it("enforces monthly spend before egress and records secret-free routing evidence", async () => {
-    const [migration, store, mentor, worker, panel, policy] = await Promise.all([
+    const [migration, routeMigration, store, mentor, worker, panel, policy] = await Promise.all([
       source("src/lib/db-migrate-ai-routing-budget.ts"),
+      source("src/lib/db-migrate-ai-route-candidates.ts"),
       source("src/lib/ai/control-plane-store.ts"),
       source("src/app/api/ai-mentor/route.ts"),
       source("src/lib/ai/automation-worker.ts"),
@@ -166,21 +167,66 @@ describe("AI control-plane source authority", () => {
     assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_agent_spend_monthly/);
     assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_spend_reservations/);
     assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_routing_decision_events/);
+    assert.match(migration, /egress_attempt_id UUID/);
+    assert.match(migration, /reconciliation_required BOOLEAN NOT NULL DEFAULT FALSE/);
+    assert.match(migration, /ai_spend_reservations_no_delete/);
+    assert.match(
+      migration,
+      /FOREIGN KEY \(spend_reservation_id, tenant_id, workspace_id, agent_id\)/,
+    );
+    assert.match(migration, /ai_routing_decision_events_reservation_once_idx/);
+    assert.match(
+      routeMigration,
+      /free = FALSE\s+AND estimated_max_cost_usd_micros BETWEEN 1000 AND 100000000000/,
+    );
     assert.match(
       store,
       /active_reserved_usd_micros \+ settled_usd_micros \+ \$5 <= \$6/,
     );
     assert.match(store, /pg_advisory_xact_lock/);
-    assert.match(store, /recordAiRoutingDecision/);
+    assert.match(store, /markAiAgentSpendEgress/);
+    assert.match(store, /settleAiAgentSpendAndRecordRoutingDecision/);
+    assert.match(store, /accountedAiProviderRouteCost/);
+    assert.match(store, /!candidate\.free && candidate\.estimatedMaxCostUsdMicros < 1_000/);
     assert.match(mentor, /admitAiAgentExecution\(\{/);
-    assert.match(mentor, /settleAiAgentSpend\(\{/);
-    assert.match(worker, /routing_evidence_unavailable/);
+    assert.match(
+      mentor,
+      /markAiAgentSpendEgress\(\{[\s\S]*?callAiProviderWithFailover\(\{/,
+    );
+    assert.match(
+      worker,
+      /markAiAgentSpendEgress\(\{[\s\S]*?callAiProviderWithFailover\(\{/,
+    );
+    assert.match(worker, /spend_or_routing_/);
     assert.match(panel, /حداکثر هزینه هر درخواست/);
     assert.match(panel, /بودجه باقی‌مانده ماه/);
     assert.match(policy, /zero_retention_required/);
     assert.match(policy, /approval_required/);
     assert.match(policy, /monthly_budget_exhausted/);
     assert.doesNotMatch(migration, /api[_-]?key|authorization|credential/i);
+  });
+
+  it("charges provider connectivity probes against a bounded spend reservation", async () => {
+    const route = await source("src/app/api/command-center/ai-control-plane/route.ts");
+    assert.match(route, /idempotencyKey: `provider-test:\$\{providerId\}:\$\{probeId\}`/);
+    assert.match(route, /maxOutputTokens: Math\.min\(definition\.defaultLimits\.maxOutputTokens, 128\)/);
+    assert.match(route, /maxRequestCostUsdMicros: Math\.min\(/);
+    assert.match(route, /const probe = await admitAiAgentExecution\(\{/);
+    assert.match(
+      route,
+      /const probeEgress = await markAiAgentSpendEgress\(\{[\s\S]*?const result = await callAiProvider\(\{/,
+    );
+    assert.match(route, /const settlement = await settleAiAgentSpend\(\{/);
+    assert.match(route, /accountedCostUsdMicros: result\.attempts === 0/);
+    assert.match(route, /egressAttemptId: probeAttemptId/);
+    assert.match(
+      route,
+      /const egress = await markAiAgentSpendEgress\(\{[\s\S]*?const routedProvider = await callAiProviderWithFailover\(\{/,
+    );
+    assert.match(route, /settleAiAgentSpendAndRecordRoutingDecision\(\{/);
+    assert.match(route, /accountedAiProviderRouteCost\(routedProvider\)/);
+    assert.match(route, /provider-test:\$\{agentId\}:\$\{model\}/);
+    assert.doesNotMatch(route, /providerId === "openrouter" \? 8_192/);
   });
 
   it("retrieves only human-verified, current and tenant-scoped knowledge for Mentor", async () => {

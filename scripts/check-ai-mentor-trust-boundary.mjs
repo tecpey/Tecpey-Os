@@ -121,7 +121,11 @@ for (const [label, pattern] of [
   ["circuit breaker", /FAILURE_THRESHOLD/],
   [
     "byte-bounded response stream",
-    /MAX_RESPONSE_BYTES[\s\S]*readBoundedResponseText\(response,[\s\S]*maxBytes: MAX_RESPONSE_BYTES/,
+    /async function readBoundedProviderResponseText\([\s\S]*contentLength > MAX_RESPONSE_BYTES[\s\S]*response\.body\.getReader\(\)[\s\S]*receivedBytes \+= chunk\.value\.byteLength[\s\S]*receivedBytes > MAX_RESPONSE_BYTES[\s\S]*reader\.cancel\(AI_RESPONSE_TOO_LARGE\)[\s\S]*readBoundedProviderResponseText\(response, signal\)/,
+  ],
+  [
+    "abortable response body stream",
+    /reader\.cancel\(signal\.reason\)[\s\S]*signal\.addEventListener\("abort", onAbort, \{ once: true \}\)[\s\S]*signal\.removeEventListener\("abort", onAbort\)/,
   ],
   ["Responses output token cap", /max_output_tokens: maxOutputTokens/],
   ["Messages output token cap", /max_tokens: maxOutputTokens/],

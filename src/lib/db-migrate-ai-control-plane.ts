@@ -219,6 +219,7 @@ CREATE TABLE IF NOT EXISTS ai_knowledge_items (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces(tenant_id, id) ON DELETE CASCADE,
+  UNIQUE (tenant_id, workspace_id, id),
   UNIQUE (tenant_id, workspace_id, content_hash),
   CHECK (jsonb_typeof(evidence_refs) = 'array'),
   CHECK (octet_length(evidence_refs::text) <= 32768),
@@ -234,7 +235,7 @@ CREATE TABLE IF NOT EXISTS ai_knowledge_item_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
-  knowledge_item_id UUID NOT NULL REFERENCES ai_knowledge_items(id) ON DELETE RESTRICT,
+  knowledge_item_id UUID NOT NULL,
   event_type TEXT NOT NULL CHECK (event_type IN ('candidate_created', 'verified', 'rejected', 'superseded')),
   content_hash TEXT NOT NULL CHECK (content_hash ~ '^[0-9a-f]{64}$'),
   actor_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
@@ -242,6 +243,8 @@ CREATE TABLE IF NOT EXISTS ai_knowledge_item_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces(tenant_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (tenant_id, workspace_id, knowledge_item_id)
+    REFERENCES ai_knowledge_items(tenant_id, workspace_id, id) ON DELETE RESTRICT,
   CHECK (jsonb_typeof(metadata) = 'object'),
   CHECK (octet_length(metadata::text) <= 8192),
   CHECK (NOT (metadata ?| ARRAY['apiKey', 'api_key', 'secret', 'token', 'password', 'credential', 'authorization', 'message', 'prompt']))
@@ -286,7 +289,7 @@ CREATE TABLE IF NOT EXISTS ai_workflow_run_evidence (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces(tenant_id, id) ON DELETE CASCADE,
-  UNIQUE (tenant_id, run_id, status),
+  UNIQUE (tenant_id, workspace_id, run_id, status),
   CHECK (jsonb_typeof(source_refs) = 'array'),
   CHECK (octet_length(source_refs::text) <= 32768)
 );

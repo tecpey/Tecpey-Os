@@ -49,9 +49,13 @@ CREATE TABLE IF NOT EXISTS ai_agent_route_candidates (
     ]::TEXT[]
   ),
   CHECK (
-    (free = FALSE)
+    (
+      free = FALSE
+      AND estimated_max_cost_usd_micros BETWEEN 1000 AND 100000000000
+    )
     OR (
-      provider_id = 'openrouter'
+      free = TRUE
+      AND provider_id = 'openrouter'
       AND (model = 'openrouter/free' OR model ~* ':free$')
       AND supported_data_classes = ARRAY['public']::TEXT[]
       AND estimated_max_cost_usd_micros = 0

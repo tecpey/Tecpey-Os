@@ -4,6 +4,7 @@ import {
   callAiProvider,
   inspectOpenRouterKey,
   resetAiProviderCircuits,
+  safeAiSourceUrl,
   testXApiConnector,
 } from "../../lib/ai/provider-router";
 
@@ -67,6 +68,29 @@ describe("multi-provider AI router", () => {
     }
   });
 
+  it("never attaches billable server tools to the OpenRouter free route", async () => {
+    let body: Record<string, unknown> = {};
+    const result = await callAiProvider({
+      providerId: "openrouter",
+      agentId: "coin_tool_researcher",
+      apiKey: "openrouter-test-key",
+      model: "openrouter/free",
+      instructions: "trusted",
+      input: "public query",
+      dataClass: "public",
+    }, {
+      fetchImpl: async (_url, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({
+          model: "free-vendor/model",
+          choices: [{ message: { content: "free result" } }],
+        }), { status: 200 });
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.equal("tools" in body, false);
+  });
+
   it("classifies provider quota and rate-limit responses for failover", async () => {
     for (const [status, reason] of [[402, "quota_exhausted"], [429, "rate_limited"]] as const) {
       const result = await callAiProvider({
@@ -81,6 +105,33 @@ describe("multi-provider AI router", () => {
       });
       assert.equal(result.ok, false);
       if (!result.ok) assert.equal(result.reason, reason);
+    }
+  });
+
+  it("attributes a model fallback to the model that actually handled the request", async () => {
+    let calls = 0;
+    const result = await callAiProvider({
+      providerId: "openai",
+      agentId: "mentor_coach",
+      apiKey: "test-key",
+      model: "primary-model",
+      fallbackModel: "fallback-model",
+      instructions: "trusted",
+      input: "educational question",
+    }, {
+      fetchImpl: async () => {
+        calls += 1;
+        return calls === 1
+          ? new Response("{}", { status: 400 })
+          : new Response(JSON.stringify({ output_text: "fallback result" }), { status: 200 });
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(calls, 2);
+    if (result.ok) {
+      assert.equal(result.model, "fallback-model");
+      assert.equal(result.requestedModel, "fallback-model");
+      assert.equal(result.attempts, 2);
     }
   });
 
@@ -258,6 +309,8 @@ describe("multi-provider AI router", () => {
   });
 
   it("stops oversized provider streams before buffering the full response", async () => {
+    let pulls = 0;
+    let cancelled = false;
     const result = await callAiProvider({
       providerId: "openai",
       agentId: "coin_tool_researcher",
@@ -267,16 +320,48 @@ describe("multi-provider AI router", () => {
       input: "public query",
     }, {
       fetchImpl: async () => new Response(new ReadableStream({
-        start(controller) {
-          controller.enqueue(new Uint8Array(200_000));
-          controller.enqueue(new Uint8Array(100_000));
-          controller.close();
+        pull(controller) {
+          pulls += 1;
+          if (pulls === 1) controller.enqueue(new Uint8Array(200_000));
+          else if (pulls === 2) controller.enqueue(new Uint8Array(100_000));
+          else {
+            controller.enqueue(new Uint8Array(1));
+            controller.close();
+          }
         },
-      }), { status: 200 }),
+        cancel() {
+          cancelled = true;
+        },
+      }, { highWaterMark: 0 }), { status: 200 }),
     });
 
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.reason, "response_too_large");
+    assert.equal(cancelled, true);
+    assert.equal(pulls, 2, "the reader must not request another chunk after crossing the byte cap");
+  });
+
+  it("accepts a valid provider response exactly at the byte boundary", async () => {
+    const prefix = '{"output_text":"';
+    const suffix = '"}';
+    const payload = `${prefix}${"x".repeat(256_000 - prefix.length - suffix.length)}${suffix}`;
+    assert.equal(Buffer.byteLength(payload), 256_000);
+
+    const result = await callAiProvider({
+      providerId: "openai",
+      agentId: "coin_tool_researcher",
+      apiKey: "openai-test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "public query",
+    }, {
+      fetchImpl: async () => new Response(payload, { status: 200 }),
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.text.length, 256_000 - prefix.length - suffix.length);
+    }
   });
 
   it("fails closed when a provider body stream errors after headers", async () => {
@@ -297,6 +382,81 @@ describe("multi-provider AI router", () => {
 
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.reason, "invalid_response");
+  });
+
+  it("keeps the deadline active through a stalled body and cancels its reader", async () => {
+    let clockReads = 0;
+    let readerCancelled = false;
+    const result = await callAiProvider({
+      providerId: "openai",
+      agentId: "coin_tool_researcher",
+      apiKey: "openai-test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "public query",
+      timeoutMs: 2_000,
+      circuitScope: "deadline-body-test",
+    }, {
+      now: () => clockReads++ === 0 ? 0 : 1_990,
+      fetchImpl: async () => new Response(new ReadableStream({
+        start() {
+          // Headers resolve, while the body deliberately never emits or closes.
+        },
+        cancel() {
+          readerCancelled = true;
+        },
+      }), { status: 200 }),
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.reason, "timeout");
+    assert.equal(readerCancelled, true);
+  });
+
+  it("cancels a stalled body after caller abort without poisoning the circuit", async () => {
+    const circuitScope = "caller-cancel-body-test";
+    const base = {
+      providerId: "openai" as const,
+      agentId: "mentor_coach" as const,
+      apiKey: "test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "safe educational question",
+      circuitScope,
+    };
+
+    for (let index = 0; index < 3; index += 1) {
+      const controller = new AbortController();
+      let readerCancelled = false;
+      const result = await callAiProvider({
+        ...base,
+        requestSignal: controller.signal,
+      }, {
+        fetchImpl: async () => {
+          setTimeout(() => controller.abort(new DOMException("caller left", "AbortError")), 1);
+          return new Response(new ReadableStream({
+            start() {
+              // Keep the body pending until the caller cancellation reaches the reader.
+            },
+            cancel() {
+              readerCancelled = true;
+            },
+          }), { status: 200 });
+        },
+      });
+      assert.equal(result.ok, false);
+      if (!result.ok) assert.equal(result.reason, "cancelled");
+      assert.equal(readerCancelled, true);
+    }
+
+    let healthyCalls = 0;
+    const healthy = await callAiProvider(base, {
+      fetchImpl: async () => {
+        healthyCalls += 1;
+        return new Response(JSON.stringify({ output_text: "healthy" }), { status: 200 });
+      },
+    });
+    assert.equal(healthy.ok, true);
+    assert.equal(healthyCalls, 1);
   });
 
   it("uses the OpenAI Responses endpoint with storage disabled and catalog tools", async () => {
@@ -352,6 +512,37 @@ describe("multi-provider AI router", () => {
         title: "Primary source",
       }]);
     }
+  });
+
+  it("removes Azure, AWS, Google and CloudFront signed-query credentials", () => {
+    assert.equal(
+      safeAiSourceUrl("https://example.com/report?sp=section&st=state&topic=btc"),
+      "https://example.com/report?sp=section&st=state&topic=btc",
+    );
+    assert.equal(
+      safeAiSourceUrl(
+        "https://blob.example/report?topic=btc&sp=r&se=2030-01-01&sv=2024-01-01&sig=AZURE_SECRET",
+      ),
+      "https://blob.example/report?topic=btc",
+    );
+    assert.equal(
+      safeAiSourceUrl(
+        "https://s3.example/report?topic=eth&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AWS_SECRET&X-Amz-Date=20260829T000000Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host&X-Amz-Signature=AWS_SIGNATURE",
+      ),
+      "https://s3.example/report?topic=eth",
+    );
+    assert.equal(
+      safeAiSourceUrl(
+        "https://storage.example/report?topic=sol&X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=GOOGLE_SECRET&X-Goog-Date=20260829T000000Z&X-Goog-Expires=300&X-Goog-SignedHeaders=host&X-Goog-Signature=GOOGLE_SIGNATURE",
+      ),
+      "https://storage.example/report?topic=sol",
+    );
+    assert.equal(
+      safeAiSourceUrl(
+        "https://cdn.example/report?topic=ada&Policy=POLICY_SECRET&Signature=CF_SIGNATURE&Key-Pair-Id=KEY_ID&Expires=1900000000",
+      ),
+      "https://cdn.example/report?topic=ada",
+    );
   });
 
   it("uses xAI Responses with only x_search and web_search", async () => {
@@ -507,6 +698,40 @@ describe("multi-provider AI router", () => {
         new Response(JSON.stringify(responseBody("responses")), { status: 200 }),
     });
     assert.equal(independent.ok, true);
+  });
+
+  it("does not open the circuit for permanent HTTP rejections or exhausted quota", async () => {
+    const base = {
+      providerId: "openai" as const,
+      agentId: "mentor_coach" as const,
+      apiKey: "test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "safe educational question",
+      circuitScope: "permanent-http-test",
+    };
+    for (const status of [400, 401, 403, 402, 404]) {
+      const rejected = await callAiProvider(base, {
+        fetchImpl: async () => new Response("{}", { status }),
+      });
+      assert.equal(rejected.ok, false);
+      if (!rejected.ok) {
+        assert.equal(
+          rejected.reason,
+          status === 402 ? "quota_exhausted" : "provider_rejected",
+        );
+      }
+    }
+
+    let healthyCalls = 0;
+    const healthy = await callAiProvider(base, {
+      fetchImpl: async () => {
+        healthyCalls += 1;
+        return new Response(JSON.stringify({ output_text: "healthy" }), { status: 200 });
+      },
+    });
+    assert.equal(healthy.ok, true);
+    assert.equal(healthyCalls, 1);
   });
 
   it("does not promote an unrelated echoed URL to citation evidence", async () => {

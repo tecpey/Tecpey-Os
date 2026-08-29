@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { completeNextApprovedNoEffectAiAutomationRun } from "../src/lib/ai/automation-store";
+import {
+  AI_AUTOMATION_EXECUTOR_BINDINGS,
+} from "../src/lib/ai/automation-executor-registry";
+import { managedAiLaunchStatus } from "../src/lib/ai/managed-ai-launch-policy";
 
 function boundedIntegerEnv(
   name: string,
@@ -20,6 +24,14 @@ function boundedIntegerEnv(
 
 if (process.env.AI_AUTOMATION_INTERNAL_EXECUTOR_ENABLED !== "true") {
   throw new Error("ai_automation_internal_executor_disabled");
+}
+if (!managedAiLaunchStatus().ready) {
+  throw new Error("ai_automation_tenant_isolation_unresolved");
+}
+if (!AI_AUTOMATION_EXECUTOR_BINDINGS.some(
+  (binding) => binding.externalEffect === "none" && binding.launchReady,
+)) {
+  throw new Error("ai_automation_internal_executor_not_launch_ready");
 }
 
 const executorId =

@@ -148,7 +148,15 @@ type KnowledgeSnapshot = {
   updatedAt: string;
 };
 
+type ManagedLaunchStatus = {
+  ready: boolean;
+  reason: "tenant_isolation_unresolved";
+  blocker: "shared_role_without_transaction_tenant_context";
+  overrideAllowed: false;
+};
+
 type Snapshot = {
+  managedLaunch: ManagedLaunchStatus;
   providers: ProviderSnapshot[];
   agents: AgentSnapshot[];
   knowledge: KnowledgeSnapshot[];
@@ -284,6 +292,7 @@ function errorMessage(code: unknown): string {
     permission_denied: "Permission لازم برای این عملیات به نقش فعلی داده نشده است.",
     step_up_required: "برای این تغییر حساس دوباره با رمز و Authenticator وارد شوید.",
     ai_control_plane_unavailable: "دیتابیس کنترل‌پلین AI در دسترس نیست.",
+    ai_tenant_isolation_unresolved: "فعال‌سازی و اجرای AI مدیریت‌شده تا جداسازی نقش دیتابیس و context تراکنشی tenant به‌صورت fail-closed مسدود است.",
     ai_provider_secret_required: "ابتدا کلید معتبر Provider را ثبت کنید.",
     ai_provider_test_failed: "تست Provider ناموفق بود؛ کلید، مدل و دسترسی حساب را بررسی کنید.",
     ai_provider_quota_evidence_unavailable: "تست انجام شد اما evidence سهمیه ثبت نشد؛ برای جلوگیری از تصمیم هزینه‌ای نامطمئن، نتیجه پذیرفته نشد.",
@@ -401,8 +410,12 @@ export function AiControlPlanePanel() {
   }, [load]);
 
   const readiness = useMemo(() => {
-    const providers = snapshot?.providers.filter((item) => item.enabled && item.secretConfigured && item.lastTestStatus === "passed").length ?? 0;
-    const agents = snapshot?.agents.filter((item) => item.enabled && item.providerReady).length ?? 0;
+    const providers = snapshot?.managedLaunch.ready
+      ? snapshot.providers.filter((item) => item.enabled && item.secretConfigured && item.lastTestStatus === "passed").length
+      : 0;
+    const agents = snapshot?.managedLaunch.ready
+      ? snapshot.agents.filter((item) => item.enabled && item.providerReady).length
+      : 0;
     return { providers, agents };
   }, [snapshot]);
 
@@ -441,7 +454,7 @@ export function AiControlPlanePanel() {
             providerId: definition.allowedProviders[0],
             model: "",
             priority: String(routes.length + 1),
-            enabled: true,
+            enabled: false,
             estimatedMaxCostUsd: "0.1",
             expectedLatencyMs: "5000",
             free: false,
@@ -484,7 +497,11 @@ export function AiControlPlanePanel() {
         setProviderMessages((current) => ({ ...current, [id]: { kind: "error", text } }));
         return;
       }
-      const text = "تنظیم Provider رمز‌شده ذخیره شد. پس از ثبت یا چرخش کلید، تست اتصال را دوباره اجرا کنید.";
+      const text = form.enabled
+        ? "تنظیم Provider رمز‌شده ذخیره شد. پس از ثبت یا چرخش کلید، تست اتصال را دوباره اجرا کنید."
+        : form.apiKey
+          ? "Secret رمز‌شده در پیکربندی غیرفعال ذخیره شد؛ هیچ تست، اتصال یا egress اجرا نشد."
+          : "Provider به‌صورت غیرفعال ذخیره شد؛ هیچ تست، اتصال یا egress اجرا نشد.";
       setNotice(text);
       setProviderMessages((current) => ({ ...current, [id]: { kind: "success", text } }));
       await load();
@@ -731,6 +748,15 @@ export function AiControlPlanePanel() {
         </div>
       </header>
 
+      {snapshot && !snapshot.managedLaunch.ready && (
+        <div role="status" className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-300/25 bg-amber-300/[0.08] p-4 text-sm font-bold leading-7 text-amber-100">
+          <TriangleAlert className="mt-1 h-5 w-5 shrink-0" />
+          <span>
+            Controlled launch: قابلیت‌های AI مدیریت‌شده اجرا یا فعال نمی‌شوند ({snapshot.managedLaunch.reason}:{snapshot.managedLaunch.blocker}). ذخیرهٔ تنظیمات غیرفعال، خاموش‌کردن و ردکردن همچنان مجاز است؛ این gate جایگزین RLS نیست.
+          </span>
+        </div>
+      )}
+
       {(error || notice) && (
         <div role={error ? "alert" : "status"} className={`mt-5 flex items-start gap-3 rounded-2xl border p-4 text-sm font-bold leading-7 ${error ? "border-rose-300/20 bg-rose-300/[0.08] text-rose-100" : "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100"}`}>
           {error ? <TriangleAlert className="mt-1 h-5 w-5 shrink-0" /> : <CheckCircle2 className="mt-1 h-5 w-5 shrink-0" />}
@@ -751,11 +777,24 @@ export function AiControlPlanePanel() {
               {(catalog?.providers ?? []).map((definition) => {
                 const current = snapshot?.providers.find((item) => item.providerId === definition.id);
                 const form = providerForms[definition.id] ?? providerForm(current);
-                const ready = Boolean(current?.enabled && current.secretConfigured && current.lastTestStatus === "passed");
+                const ready = Boolean(snapshot?.managedLaunch.ready && current?.enabled && current.secretConfigured && current.lastTestStatus === "passed");
                 const providerMessage = providerMessages[definition.id];
+                const providerStatus = ready
+                  ? "آماده"
+                  : !current
+                    ? "پیکربندی‌نشده"
+                    : !current.enabled
+                      ? "غیرفعال"
+                      : !snapshot?.managedLaunch.ready
+                        ? "ذخیره‌شده · مسدود"
+                        : current.lastTestStatus === "failed"
+                          ? "تست ناموفق"
+                          : !current.secretConfigured
+                            ? "Secret ثبت نشده"
+                            : "نیازمند تست";
                 return (
                   <article key={definition.id} className="rounded-[24px] border border-white/10 bg-[#07111e] p-5">
-                    <div className="flex items-start justify-between gap-3"><div><h3 className="font-black">{definition.label}</h3><p dir="ltr" className="mt-1 text-left text-[11px] font-bold text-slate-500">{definition.fixedEndpointHost}</p></div><StatusPill ready={ready}>{ready ? "آماده" : current?.lastTestStatus === "failed" ? "تست ناموفق" : "نیازمند تکمیل"}</StatusPill></div>
+                    <div className="flex items-start justify-between gap-3"><div><h3 className="font-black">{definition.label}</h3><p dir="ltr" className="mt-1 text-left text-[11px] font-bold text-slate-500">{definition.fixedEndpointHost}</p></div><StatusPill ready={ready}>{providerStatus}</StatusPill></div>
                     <p className="mt-4 text-sm font-bold leading-7 text-slate-400">{definition.purposeFa}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">{definition.capabilities.map((item) => <span key={item} className="rounded-lg border border-white/10 bg-white/[0.035] px-2 py-1 text-[10px] font-bold text-slate-400">{item}</span>)}</div>
                     <div className="mt-4 rounded-xl border border-white/10 bg-[#030914] p-3 text-xs font-bold text-slate-400">
@@ -772,10 +811,10 @@ export function AiControlPlanePanel() {
                     )}
                     <label className="mt-4 block text-xs font-black text-slate-300">{definition.secretLabel}<input type="password" dir="ltr" autoComplete="new-password" spellCheck={false} value={form.apiKey} onChange={(event) => updateProviderForm(definition.id, { apiKey: event.target.value })} placeholder={current?.secretConfigured ? "برای حفظ کلید فعلی خالی بگذارید" : "کلید جدید"} className={`${inputClass} mt-2 text-left font-mono`} /></label>
                     {definition.kind === "model" && <label className="mt-3 block text-xs font-black text-slate-300">مدل برای تست اتصال<input dir="ltr" value={form.testModel} onChange={(event) => updateProviderForm(definition.id, { testModel: event.target.value })} placeholder="نام دقیق مدل حساب شما" className={`${inputClass} mt-2 text-left font-mono`} /></label>}
-                    <label className="mt-4 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs font-black"><span>فعال‌سازی Provider</span><input type="checkbox" checked={form.enabled} onChange={(event) => updateProviderForm(definition.id, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300" /></label>
+                    <label className="mt-4 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs font-black"><span>فعال‌سازی Provider</span><input type="checkbox" checked={form.enabled} disabled={!snapshot?.managedLaunch.ready && !form.enabled} onChange={(event) => updateProviderForm(definition.id, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300 disabled:opacity-40" /></label>
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => void saveProvider(definition.id)} disabled={busy !== null} className={`${buttonClass} bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `provider:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} ذخیره</button>
-                      <button type="button" onClick={() => void testProvider(definition.id)} disabled={busy !== null || !current?.secretConfigured || (definition.kind === "model" && !form.testModel)} className={`${buttonClass} border border-white/10 bg-white/[0.06] text-white hover:bg-white/10`}>{busy === `test:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} تست</button>
+                      <button type="button" onClick={() => void saveProvider(definition.id)} disabled={busy !== null || (form.enabled && !snapshot?.managedLaunch.ready)} className={`${buttonClass} bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `provider:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} ذخیره</button>
+                      <button type="button" onClick={() => void testProvider(definition.id)} disabled={busy !== null || !snapshot?.managedLaunch.ready || !current?.secretConfigured || (definition.kind === "model" && !form.testModel)} className={`${buttonClass} border border-white/10 bg-white/[0.06] text-white hover:bg-white/10`}>{busy === `test:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} تست</button>
                     </div>
                     {providerMessage && <div role={providerMessage.kind === "error" ? "alert" : "status"} className={`mt-3 rounded-xl border px-3 py-2 text-xs font-bold leading-6 ${providerMessage.kind === "error" ? "border-rose-300/20 bg-rose-300/[0.08] text-rose-100" : "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100"}`}>{providerMessage.text}</div>}
                   </article>
@@ -805,7 +844,7 @@ export function AiControlPlanePanel() {
                 };
                 return (
                   <article key={definition.id} className="rounded-[26px] border border-white/10 bg-[#07111e] p-5 md:p-6">
-                    <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08]"><Bot className="h-5 w-5 text-cyan-100" /></span><div><h3 className="font-black">{definition.labelFa}</h3><p dir="ltr" className="mt-1 text-left text-[11px] font-bold text-slate-500">{definition.id}</p></div></div><StatusPill ready={Boolean(current?.enabled && current.providerReady)}>{current?.enabled && current.providerReady ? "فعال" : "غیرفعال"}</StatusPill></div>
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08]"><Bot className="h-5 w-5 text-cyan-100" /></span><div><h3 className="font-black">{definition.labelFa}</h3><p dir="ltr" className="mt-1 text-left text-[11px] font-bold text-slate-500">{definition.id}</p></div></div><StatusPill ready={Boolean(snapshot?.managedLaunch.ready && current?.enabled && current.providerReady)}>{snapshot?.managedLaunch.ready && current?.enabled && current.providerReady ? "فعال" : current?.enabled ? "ذخیره‌شده · مسدود" : "غیرفعال"}</StatusPill></div>
                     <p className="mt-4 text-sm font-bold leading-7 text-slate-300">{definition.responsibilityFa}</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <div className="rounded-xl border border-white/10 bg-[#030914] p-3"><p className="text-[10px] font-black text-slate-500">انتشار</p><p className="mt-2 text-xs font-black text-rose-200">هرگز مستقیم</p></div>
@@ -819,7 +858,7 @@ export function AiControlPlanePanel() {
                       <label className="text-xs font-black text-slate-300">Provider<select value={form.providerId} onChange={(event) => { const providerId = event.target.value as ModelProviderId; updateAgentForm(definition.id, definition, { providerId, openRouterFallbackEnabled: false, openRouterModel: "", freeFallbackEnabled: false, openRouterCreditFloorUsd: "0" }); }} className={`${inputClass} mt-2`}>{definition.allowedProviders.map((id) => <option key={id} value={id}>{catalog?.providers.find((item) => item.id === id)?.label ?? id}</option>)}</select></label>
                       <label className="text-xs font-black text-slate-300">مدل<input dir="ltr" value={form.model} onChange={(event) => updateAgentForm(definition.id, definition, { model: event.target.value })} className={`${inputClass} mt-2 text-left font-mono`} /></label>
                       <label className="text-xs font-black text-slate-300">مدل جایگزین<input dir="ltr" value={form.fallbackModel} onChange={(event) => updateAgentForm(definition.id, definition, { fallbackModel: event.target.value })} className={`${inputClass} mt-2 text-left font-mono`} /></label>
-                      <label className="flex min-h-[67px] items-center justify-between rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-black"><span>ایجنت فعال باشد</span><input type="checkbox" checked={form.enabled} onChange={(event) => updateAgentForm(definition.id, definition, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300" /></label>
+                      <label className="flex min-h-[67px] items-center justify-between rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-black"><span>ایجنت فعال باشد</span><input type="checkbox" checked={form.enabled} disabled={!snapshot?.managedLaunch.ready && !form.enabled} onChange={(event) => updateAgentForm(definition.id, definition, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300 disabled:opacity-40" /></label>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-6">
                       {[
@@ -834,7 +873,7 @@ export function AiControlPlanePanel() {
                     <div className="mt-4 rounded-2xl border border-violet-300/15 bg-violet-300/[0.035] p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div><p className="text-xs font-black text-violet-100">Fallback کنترل‌شده با OpenRouter</p><p className="mt-1 text-[10px] font-bold leading-5 text-slate-500">فقط پس از quota/rate-limit/timeout مسیر اصلی؛ ZDR اجباری و data collection مسدود است.</p></div>
-                        <StatusPill ready={Boolean(current?.routing.fallbackProviderReady)}>{current?.routing.fallbackProviderReady ? "آماده" : "نیازمند Provider"}</StatusPill>
+                        <StatusPill ready={Boolean(snapshot?.managedLaunch.ready && current?.routing.fallbackProviderReady)}>{!snapshot?.managedLaunch.ready && current?.routing.fallbackProviderReady ? "ذخیره‌شده · مسدود" : current?.routing.fallbackProviderReady ? "آماده" : "نیازمند Provider"}</StatusPill>
                       </div>
                       <label className="mt-3 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-black"><span>fallback پولی فعال باشد</span><input type="checkbox" checked={form.openRouterFallbackEnabled} disabled={form.providerId === "openrouter"} onChange={(event) => updateAgentForm(definition.id, definition, { openRouterFallbackEnabled: event.target.checked, ...(event.target.checked ? {} : { openRouterModel: "", freeFallbackEnabled: false, openRouterCreditFloorUsd: "0" }) })} className="h-5 w-5 accent-violet-300" /></label>
                       {form.openRouterFallbackEnabled && <div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-[10px] font-black text-slate-400">مدل پولی OpenRouter<input dir="ltr" value={form.openRouterModel} onChange={(event) => updateAgentForm(definition.id, definition, { openRouterModel: event.target.value })} placeholder="anthropic/claude-…" className={`${inputClass} mt-2 text-left font-mono text-xs`} /></label><label className="text-[10px] font-black text-slate-400">کف اعتبار باقی‌مانده ($)<input dir="ltr" inputMode="decimal" value={form.openRouterCreditFloorUsd} onChange={(event) => updateAgentForm(definition.id, definition, { openRouterCreditFloorUsd: event.target.value })} className={`${inputClass} mt-2 text-left font-mono text-xs`} /></label></div>}
@@ -857,8 +896,8 @@ export function AiControlPlanePanel() {
                           return (
                             <div key={index} className="rounded-xl border border-white/10 bg-[#030914] p-3">
                               <div className="flex items-center justify-between gap-2">
-                                <StatusPill ready={Boolean(persisted?.providerReady)}>
-                                  {persisted ? persisted.health : "ثبت‌نشده"}
+                                <StatusPill ready={Boolean(snapshot?.managedLaunch.ready && persisted?.providerReady)}>
+                                  {!snapshot?.managedLaunch.ready && persisted?.enabled ? "مسدود" : persisted ? persisted.health : "ثبت‌نشده"}
                                 </StatusPill>
                                 <button type="button" onClick={() => removeRouteForm(definition.id, index)} disabled={busy !== null} className="rounded-lg border border-rose-300/20 px-2 py-1 text-[10px] font-black text-rose-100">حذف</button>
                               </div>
@@ -871,7 +910,7 @@ export function AiControlPlanePanel() {
                                 <label className="text-[10px] font-black text-slate-400">کلاس داده<select value={route.dataClass} disabled={route.free} onChange={(event) => updateRouteForm(definition.id, index, { dataClass: event.target.value as DataClass })} className={`${inputClass} mt-1 text-xs`}><option value="public">public</option><option value="aggregate_deidentified">aggregate_deidentified</option><option value="approved_platform_content">approved_platform_content</option>{definition.mayReceivePrivateUserData && <option value="private_user">private_user</option>}<option value="restricted_admin">restricted_admin</option></select></label>
                               </div>
                               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                <label className="flex min-h-10 items-center justify-between rounded-lg border border-white/10 px-3 text-[10px] font-black"><span>فعال</span><input type="checkbox" checked={route.enabled} onChange={(event) => updateRouteForm(definition.id, index, { enabled: event.target.checked })} className="h-4 w-4 accent-cyan-300" /></label>
+                                <label className="flex min-h-10 items-center justify-between rounded-lg border border-white/10 px-3 text-[10px] font-black"><span>فعال</span><input type="checkbox" checked={route.enabled} disabled={!snapshot?.managedLaunch.ready && !route.enabled} onChange={(event) => updateRouteForm(definition.id, index, { enabled: event.target.checked })} className="h-4 w-4 accent-cyan-300 disabled:opacity-40" /></label>
                                 <label className="flex min-h-10 items-center justify-between rounded-lg border border-amber-300/15 px-3 text-[10px] font-black text-amber-100"><span>مسیر رایگان عمومی</span><input type="checkbox" checked={route.free} disabled={!definition.openRouterFallback.freeAllowed} onChange={(event) => updateRouteForm(definition.id, index, event.target.checked ? { free: true, providerId: "openrouter", model: "openrouter/free", estimatedMaxCostUsd: "0", dataClass: "public" } : { free: false })} className="h-4 w-4 accent-amber-300" /></label>
                               </div>
                             </div>
@@ -880,11 +919,11 @@ export function AiControlPlanePanel() {
                       </div>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         <button type="button" onClick={() => addRouteForm(definition)} disabled={busy !== null || routes.length >= 5} className={`${buttonClass} border border-white/10 bg-white/[0.05] text-white`}>افزودن مسیر</button>
-                        <button type="button" onClick={() => void saveAgentRoutes(definition)} disabled={busy !== null || routes.some((route) => !route.model)} className={`${buttonClass} bg-cyan-300 text-[#03101a]`}>{busy === `routes:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />} ذخیره مسیرها</button>
+                        <button type="button" onClick={() => void saveAgentRoutes(definition)} disabled={busy !== null || routes.some((route) => !route.model) || (!snapshot?.managedLaunch.ready && routes.some((route) => route.enabled))} className={`${buttonClass} bg-cyan-300 text-[#03101a]`}>{busy === `routes:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />} ذخیره مسیرها</button>
                       </div>
                     </details>
                     <p className="mt-3 text-[10px] font-bold leading-5 text-slate-500">درخواست، توکن، حداکثر هزینه هر فراخوانی و بودجه ماهانه پیش از خروج داده به Provider به‌صورت تراکنشی رزرو می‌شوند؛ هزینه نهایی پس از پاسخ تسویه و evidence تصمیم نگهداری می‌شود.</p>
-                    <button type="button" onClick={() => void saveAgent(definition)} disabled={busy !== null || !form.model} className={`${buttonClass} mt-4 w-full bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `agent:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} ذخیره Binding و سقف‌ها</button>
+                    <button type="button" onClick={() => void saveAgent(definition)} disabled={busy !== null || !form.model || (form.enabled && !snapshot?.managedLaunch.ready)} className={`${buttonClass} mt-4 w-full bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `agent:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} ذخیره Binding و سقف‌ها</button>
                   </article>
                 );
               })}
@@ -901,7 +940,7 @@ export function AiControlPlanePanel() {
               <div className="flex items-start gap-3"><FileSearch className="h-6 w-6 text-cyan-300" /><div><h2 className="text-xl font-black">پژوهش منبع‌دار آزمایشی</h2><p className="mt-1 text-xs font-bold leading-6 text-slate-500">دادهٔ خصوصی ممنوع؛ خروجی draft است و انتشار مستقیم ندارد.</p></div></div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="text-xs font-black text-slate-300">ایجنت<select value={research.agentId} onChange={(event) => setResearch((current) => ({ ...current, agentId: event.target.value as typeof current.agentId }))} className={`${inputClass} mt-2`}><option value="news_x_researcher">خبر و X — xAI/Grok</option><option value="coin_tool_researcher">کوین و ابزار — Perplexity/GPT</option></select></label><label className="flex min-h-[67px] items-center justify-between rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-black"><span>ثبت خروجی به‌عنوان candidate</span><input type="checkbox" checked={research.stageAsCandidate} onChange={(event) => setResearch((current) => ({ ...current, stageAsCandidate: event.target.checked }))} className="h-5 w-5 accent-cyan-300" /></label></div>
               <label className="mt-3 block text-xs font-black text-slate-300">موضوع عمومی پژوهش<textarea rows={5} value={research.query} onChange={(event) => setResearch((current) => ({ ...current, query: event.target.value }))} placeholder="مثلاً ادعاهای عمومی و منابع معتبر دربارهٔ به‌روزرسانی یک ابزار یا کوین را بررسی کن…" className={`${inputClass} mt-2 min-h-32 resize-y py-3 leading-7`} /></label>
-              <button type="button" onClick={() => void runResearch()} disabled={busy !== null || research.query.trim().length < 8} className={`${buttonClass} mt-4 w-full bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === "research" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} اجرای پژوهش کنترل‌شده</button>
+              <button type="button" onClick={() => void runResearch()} disabled={busy !== null || !snapshot?.managedLaunch.ready || research.query.trim().length < 8} className={`${buttonClass} mt-4 w-full bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === "research" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} اجرای پژوهش کنترل‌شده</button>
               {researchResult && <div className="mt-5 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.045] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-black text-emerald-200">پیش‌نویس — بدون authority انتشار</p><span dir="ltr" className="text-[10px] font-bold text-slate-400">{researchResult.providerId} · {researchResult.model}</span></div><p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-slate-200">{researchResult.draft}</p><div className="mt-4 border-t border-white/10 pt-4"><p className="text-xs font-black text-cyan-200">منابع قابل‌بررسی</p><div className="mt-2 space-y-2">{researchResult.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" dir="ltr" className="block break-all text-left text-xs font-bold text-cyan-300 underline-offset-4 hover:underline">{source.title || source.url}</a>)}</div></div></div>}
             </div>
           </section>
@@ -910,7 +949,7 @@ export function AiControlPlanePanel() {
             <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex items-start gap-3"><Sparkles className="h-6 w-6 text-cyan-300" /><div><h2 id="knowledge-review-title" className="text-xl font-black">حافظهٔ دانش کنترل‌شده</h2><p className="mt-1 text-xs font-bold leading-6 text-slate-500">هیچ الگوی کشف‌شده‌ای خودکار verified نمی‌شود.</p></div></div><div className="flex flex-wrap gap-2"><StatusPill ready={false}>{snapshot?.knowledgeSummary.candidate ?? 0} candidate</StatusPill><StatusPill ready>{snapshot?.knowledgeSummary.verified ?? 0} verified</StatusPill></div></div>
             <div className="mt-5 space-y-4">
               {(snapshot?.knowledge.filter((item) => item.status === "candidate") ?? []).length === 0 && <p className="rounded-2xl border border-dashed border-white/10 bg-[#030914] p-5 text-sm font-bold leading-7 text-slate-400">کاندید منتظر بازبینی وجود ندارد. پژوهش را با گزینهٔ candidate اجرا کنید یا workflow کشف الگو را به آن متصل کنید.</p>}
-              {(snapshot?.knowledge.filter((item) => item.status === "candidate") ?? []).map((item) => <article key={item.id} className="rounded-2xl border border-white/10 bg-[#030914] p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><BrainCircuit className="h-5 w-5 text-cyan-300" /><p className="text-xs font-black text-cyan-100">{item.knowledgeType} · اعتماد {item.confidence}%</p></div><span dir="ltr" className="text-[10px] font-bold text-slate-500">{item.contentHash.slice(0, 16)}…</span></div><p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-slate-200">{item.statement}</p><div className="mt-3 flex flex-wrap gap-2">{item.evidenceRefs.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] px-2 py-1 text-[10px] font-bold text-cyan-200 hover:bg-cyan-300/[0.1]">منبع</a>)}</div><label className="mt-4 block text-xs font-black text-slate-300">دلیل تصمیم انسانی<input value={reviewNotes[item.id] ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="حداقل ۸ نویسه؛ مبنای تأیید یا رد را ثبت کنید" className={`${inputClass} mt-2`} /></label><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => void reviewKnowledge(item.id, "verified")} disabled={busy !== null || (reviewNotes[item.id] ?? "").trim().length < 8} className={`${buttonClass} bg-emerald-300 text-[#032016] hover:bg-emerald-200`}>{busy === `knowledge:${item.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} تأیید</button><button type="button" onClick={() => void reviewKnowledge(item.id, "rejected")} disabled={busy !== null || (reviewNotes[item.id] ?? "").trim().length < 8} className={`${buttonClass} border border-rose-300/20 bg-rose-300/[0.08] text-rose-100 hover:bg-rose-300/[0.14]`}><XCircle className="h-4 w-4" /> رد</button></div></article>)}
+              {(snapshot?.knowledge.filter((item) => item.status === "candidate") ?? []).map((item) => <article key={item.id} className="rounded-2xl border border-white/10 bg-[#030914] p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><BrainCircuit className="h-5 w-5 text-cyan-300" /><p className="text-xs font-black text-cyan-100">{item.knowledgeType} · اعتماد {item.confidence}%</p></div><span dir="ltr" className="text-[10px] font-bold text-slate-500">{item.contentHash.slice(0, 16)}…</span></div><p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-slate-200">{item.statement}</p><div className="mt-3 flex flex-wrap gap-2">{item.evidenceRefs.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] px-2 py-1 text-[10px] font-bold text-cyan-200 hover:bg-cyan-300/[0.1]">منبع</a>)}</div><label className="mt-4 block text-xs font-black text-slate-300">دلیل تصمیم انسانی<input value={reviewNotes[item.id] ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="حداقل ۸ نویسه؛ مبنای تأیید یا رد را ثبت کنید" className={`${inputClass} mt-2`} /></label><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => void reviewKnowledge(item.id, "verified")} disabled={busy !== null || !snapshot?.managedLaunch.ready || (reviewNotes[item.id] ?? "").trim().length < 8} className={`${buttonClass} bg-emerald-300 text-[#032016] hover:bg-emerald-200`}>{busy === `knowledge:${item.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} تأیید</button><button type="button" onClick={() => void reviewKnowledge(item.id, "rejected")} disabled={busy !== null || (reviewNotes[item.id] ?? "").trim().length < 8} className={`${buttonClass} border border-rose-300/20 bg-rose-300/[0.08] text-rose-100 hover:bg-rose-300/[0.14]`}><XCircle className="h-4 w-4" /> رد</button></div></article>)}
             </div>
           </section>
 

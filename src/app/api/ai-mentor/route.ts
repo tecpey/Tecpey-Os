@@ -29,14 +29,18 @@ import {
 import { type AiSourceReference } from "@/lib/ai/provider-router";
 import { callAiProviderWithFailover } from "@/lib/ai/provider-failover";
 import { recordOpenRouterQuotaSnapshot } from "@/lib/ai/automation-store";
+import { managedAiLaunchStatus } from "@/lib/ai/managed-ai-launch-policy";
 import {
+  accountedAiProviderRouteCost,
   admitAiAgentExecution,
   aiEvidenceHash,
   loadVerifiedAiKnowledgeContext,
-  recordAiRoutingDecision,
+  markAiAgentSpendEgress,
+  releaseUnmarkedAiAgentSpend,
   recordAiWorkflowEvidence,
   resolveRuntimeAiAgent,
   settleAiAgentSpend,
+  settleAiAgentSpendAndRecordRoutingDecision,
 } from "@/lib/ai/control-plane-store";
 import {
   appendAiMentorEvidence,
@@ -63,6 +67,12 @@ type MentorRequest = {
 const MAX_QUESTION_LENGTH = 900;
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 12;
+
+function tenantIsolationError() {
+  return apiError("ai_tenant_isolation_unresolved", 503, {
+    blocker: managedAiLaunchStatus().blocker,
+  });
+}
 
 function clean(value: unknown, max = 900): string {
   return String(value ?? "")
@@ -550,8 +560,12 @@ export async function POST(request: NextRequest) {
             })
           : Promise.resolve([]),
       ]);
-    const verifiedKnowledge =
-      verifiedKnowledgeResult === "unavailable" ? [] : verifiedKnowledgeResult;
+    const verifiedKnowledgeStatus = Array.isArray(verifiedKnowledgeResult)
+      ? "loaded"
+      : verifiedKnowledgeResult;
+    const verifiedKnowledge = Array.isArray(verifiedKnowledgeResult)
+      ? verifiedKnowledgeResult
+      : [];
     const verifiedKnowledgeHashes = verifiedKnowledge.map(
       (item) => item.contentHash,
     );
@@ -654,6 +668,7 @@ export async function POST(request: NextRequest) {
           provider_status: providerStatus,
           verified_knowledge_count: verifiedKnowledge.length,
           verified_knowledge_hashes: verifiedKnowledgeHashes,
+          verified_knowledge_status: verifiedKnowledgeStatus,
           ...extraMetadata,
         },
       });
@@ -715,6 +730,9 @@ export async function POST(request: NextRequest) {
             })
           : null;
       const researchConfigured = researchRuntime?.status === "configured";
+      if (researchRuntime?.status === "tenant_isolation_unresolved") {
+        return tenantIsolationError();
+      }
       const unavailableStatus = !mentorEntitled
         ? egressGateReason
         : !preferences.externalProviderEnabled
@@ -762,6 +780,7 @@ export async function POST(request: NextRequest) {
         tenantId: activeTenantId,
         workspaceId: activeWorkspaceId,
         agentId: selectedResearchRoute.agentId,
+        configurationSource: researchConfig.configurationSource,
         idempotencyKey: `mentor-research:${requestId}`,
         estimatedInputTokens: publicResearchEgress.estimatedInputTokens,
         maxOutputTokens: researchMaxOutputTokens,
@@ -772,6 +791,9 @@ export async function POST(request: NextRequest) {
         publicResearchEgress.input,
       );
       if (!researchUsage.ok) {
+        if (researchUsage.reason === "tenant_isolation_unresolved") {
+          return tenantIsolationError();
+        }
         if (researchUsage.reason !== "unavailable") {
           await recordAiWorkflowEvidence({
             tenantId: activeTenantId,
@@ -852,8 +874,8 @@ export async function POST(request: NextRequest) {
           workspaceId: activeWorkspaceId,
           agentId: selectedResearchRoute.agentId,
           reservationId: researchUsage.spend.reservationId,
-          costUsdMicros: 0,
-          providerAttempted: false,
+          accountedCostUsdMicros: 0,
+          egressAttemptId: null,
         });
         const answer = publicResearchUnavailableAnswer(locale, fallback.answer);
         const local = await persistLocal(
@@ -882,6 +904,28 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const researchEgressMark = await markAiAgentSpendEgress({
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        agentId: selectedResearchRoute.agentId,
+        configurationSource: researchConfig.configurationSource,
+        reservationId: researchUsage.spend.reservationId,
+        attemptId: randomUUID(),
+      });
+      if (!researchEgressMark.ok) {
+        await releaseUnmarkedAiAgentSpend({
+          tenantId: activeTenantId,
+          workspaceId: activeWorkspaceId,
+          agentId: selectedResearchRoute.agentId,
+          reservationId: researchUsage.spend.reservationId,
+        });
+        if (researchEgressMark.reason === "tenant_isolation_unresolved") {
+          return tenantIsolationError();
+        }
+        throw new Error(
+          `ai_mentor_public_research_egress_mark_${researchEgressMark.reason}`,
+        );
+      }
       const researchRoute = await callAiProviderWithFailover({
         agentId: selectedResearchRoute.agentId,
         primary: {
@@ -905,39 +949,47 @@ export async function POST(request: NextRequest) {
         circuitScope: `${activeTenantId}:${activeWorkspaceId}`,
       });
       const researchProvider = researchRoute.result;
-      const researchSpendSettlement = await settleAiAgentSpend({
-        tenantId: activeTenantId,
-        workspaceId: activeWorkspaceId,
-        agentId: selectedResearchRoute.agentId,
-        reservationId: researchUsage.spend.reservationId,
-        costUsdMicros: researchProvider.ok
-          ? researchProvider.costUsdMicros
-          : null,
-        providerAttempted: researchProvider.attempts > 0,
-      });
-      if (!researchSpendSettlement.ok) {
-        throw new Error("ai_mentor_public_research_spend_settlement_failed");
-      }
-      const researchRoutingRecorded = await recordAiRoutingDecision({
-        tenantId: activeTenantId,
-        workspaceId: activeWorkspaceId,
-        runId: requestId,
-        agentId: selectedResearchRoute.agentId,
-        providerId: researchProvider.providerId,
-        routeMode: researchRoute.routeMode,
-        decisionCode: researchProvider.ok
-          ? "provider_completed"
-          : `provider_${researchProvider.reason}`,
-        candidateCount: researchRoute.candidateCount,
-        dataClass: "public",
-        criticality: "noncritical",
-        externalEffect: false,
-        approvalMode: researchConfig.approvalMode,
-        spendReservationId: researchUsage.spend.reservationId,
-        decisionHash: researchRoute.decisionHash,
-      });
-      if (!researchRoutingRecorded) {
-        throw new Error("ai_mentor_public_research_routing_evidence_failed");
+      const researchSpendAndRouting =
+        await settleAiAgentSpendAndRecordRoutingDecision({
+          settlement: {
+            tenantId: activeTenantId,
+            workspaceId: activeWorkspaceId,
+            agentId: selectedResearchRoute.agentId,
+            reservationId: researchUsage.spend.reservationId,
+            accountedCostUsdMicros:
+              accountedAiProviderRouteCost(researchRoute),
+            egressAttemptId: researchEgressMark.attemptId,
+          },
+          routing: {
+            tenantId: activeTenantId,
+            workspaceId: activeWorkspaceId,
+            runId: requestId,
+            agentId: selectedResearchRoute.agentId,
+            providerId: researchProvider.providerId,
+            routeMode: researchRoute.routeMode,
+            decisionCode: researchProvider.ok
+              ? "provider_completed"
+              : `provider_${researchProvider.reason}`,
+            candidateCount: researchRoute.candidateCount,
+            dataClass: "public",
+            criticality: "noncritical",
+            externalEffect: false,
+            approvalMode: researchConfig.approvalMode,
+            spendReservationId: researchUsage.spend.reservationId,
+            decisionHash: researchRoute.decisionHash,
+            requestedModel: researchProvider.ok
+              ? researchProvider.requestedModel
+              : (researchProvider.model ?? researchConfig.model),
+            actualModel: researchProvider.ok
+              ? researchProvider.model
+              : (researchProvider.model ?? null),
+            providerAttemptCount: researchProvider.attempts,
+          },
+        });
+      if (!researchSpendAndRouting.ok) {
+        throw new Error(
+          `ai_mentor_public_research_spend_routing_${researchSpendAndRouting.reason}`,
+        );
       }
       if (researchRoute.openRouterKeyStatus) {
         await recordOpenRouterQuotaSnapshot({
@@ -1177,19 +1229,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const runtimeAgent =
-      mentorEntitled && activeTenantId && activeWorkspaceId
+    const lowCostPattern =
+      /^(سلام|درود|hi|hello|thanks|thank you|ممنون|مرسی)[.!؟\s]*$/i;
+    const externalManagedPathRequested =
+      mentorEntitled &&
+      activeTenantId &&
+      activeWorkspaceId &&
+      preferences.externalProviderEnabled &&
+      !lowCostPattern.test(question);
+    const runtimeAgent = externalManagedPathRequested
         ? await resolveRuntimeAiAgent("mentor_coach", {
             tenantId: activeTenantId,
             workspaceId: activeWorkspaceId,
           })
         : null;
+    if (runtimeAgent?.status === "tenant_isolation_unresolved") {
+      return tenantIsolationError();
+    }
     const runtimeConfigured = runtimeAgent?.status === "configured";
     const localProviderStatus = !mentorEntitled
       ? egressGateReason
-      : (runtimeAgent?.status ?? "provider_not_configured");
-    const lowCostPattern =
-      /^(سلام|درود|hi|hello|thanks|thank you|ممنون|مرسی)[.!؟\s]*$/i;
+      : !preferences.externalProviderEnabled
+        ? "provider_disabled_by_user"
+        : lowCostPattern.test(question)
+          ? "local_low_cost_path"
+          : (runtimeAgent?.status ?? "provider_not_configured");
     if (
       !runtimeConfigured ||
       !mentorEntitled ||
@@ -1198,13 +1262,7 @@ export async function POST(request: NextRequest) {
     ) {
       const local = await persistLocal(
         fallback.answer,
-        !mentorEntitled
-          ? egressGateReason
-          : !runtimeConfigured
-            ? localProviderStatus
-            : preferences.externalProviderEnabled
-              ? "local_low_cost_path"
-              : "provider_disabled_by_user",
+        localProviderStatus,
       );
       return apiOk(
         responseEnvelope({
@@ -1214,13 +1272,7 @@ export async function POST(request: NextRequest) {
           source: "academy_knowledge",
           externalProviderUsed: false,
           providerAttempted: false,
-          providerStatus: !mentorEntitled
-            ? egressGateReason
-            : !runtimeConfigured
-              ? localProviderStatus
-              : preferences.externalProviderEnabled
-                ? "local_low_cost_path"
-                : "provider_disabled_by_user",
+          providerStatus: localProviderStatus,
           memoryPersisted: local.memoryPersisted,
           memoryMode: local.memoryPersisted ? "durable" : "ephemeral",
           evidencePersisted: local.evidencePersisted,
@@ -1246,12 +1298,16 @@ export async function POST(request: NextRequest) {
       tenantId: activeTenantId,
       workspaceId: activeWorkspaceId,
       agentId: "mentor_coach",
+      configurationSource: providerConfig.configurationSource,
       idempotencyKey: `mentor-response:${requestId}`,
       estimatedInputTokens: egress.estimatedInputTokens,
       maxOutputTokens,
       limits: providerConfig.limits,
     });
     if (!usage.ok) {
+      if (usage.reason === "tenant_isolation_unresolved") {
+        return tenantIsolationError();
+      }
       const local = await persistLocal(
         fallback.answer,
         `agent_${usage.reason}`,
@@ -1297,6 +1353,7 @@ export async function POST(request: NextRequest) {
         configuration_source: providerConfig.configurationSource,
         verified_knowledge_count: verifiedKnowledge.length,
         verified_knowledge_hashes: verifiedKnowledgeHashes,
+        verified_knowledge_status: verifiedKnowledgeStatus,
       },
     });
 
@@ -1306,8 +1363,8 @@ export async function POST(request: NextRequest) {
         workspaceId: activeWorkspaceId,
         agentId: "mentor_coach",
         reservationId: usage.spend.reservationId,
-        costUsdMicros: 0,
-        providerAttempted: false,
+        accountedCostUsdMicros: 0,
+        egressAttemptId: null,
       });
       const local = await persistLocal(fallback.answer, "evidence_unavailable");
       return apiOk(
@@ -1329,6 +1386,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const providerEgressMark = await markAiAgentSpendEgress({
+      tenantId: activeTenantId,
+      workspaceId: activeWorkspaceId,
+      agentId: "mentor_coach",
+      configurationSource: providerConfig.configurationSource,
+      reservationId: usage.spend.reservationId,
+      attemptId: randomUUID(),
+    });
+    if (!providerEgressMark.ok) {
+      await releaseUnmarkedAiAgentSpend({
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        agentId: "mentor_coach",
+        reservationId: usage.spend.reservationId,
+      });
+      if (providerEgressMark.reason === "tenant_isolation_unresolved") {
+        return tenantIsolationError();
+      }
+      throw new Error(`ai_mentor_egress_mark_${providerEgressMark.reason}`);
+    }
     const providerRoute = await callAiProviderWithFailover({
       agentId: "mentor_coach",
       primary: {
@@ -1352,37 +1429,41 @@ export async function POST(request: NextRequest) {
       circuitScope: `${activeTenantId}:${activeWorkspaceId}`,
     });
     const provider = providerRoute.result;
-    const spendSettlement = await settleAiAgentSpend({
-      tenantId: activeTenantId,
-      workspaceId: activeWorkspaceId,
-      agentId: "mentor_coach",
-      reservationId: usage.spend.reservationId,
-      costUsdMicros: provider.ok ? provider.costUsdMicros : null,
-      providerAttempted: provider.attempts > 0,
+    const spendAndRouting = await settleAiAgentSpendAndRecordRoutingDecision({
+      settlement: {
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        agentId: "mentor_coach",
+        reservationId: usage.spend.reservationId,
+        accountedCostUsdMicros: accountedAiProviderRouteCost(providerRoute),
+        egressAttemptId: providerEgressMark.attemptId,
+      },
+      routing: {
+        tenantId: activeTenantId,
+        workspaceId: activeWorkspaceId,
+        runId: requestId,
+        agentId: "mentor_coach",
+        providerId: provider.providerId,
+        routeMode: providerRoute.routeMode,
+        decisionCode: provider.ok
+          ? "provider_completed"
+          : `provider_${provider.reason}`,
+        candidateCount: providerRoute.candidateCount,
+        dataClass: "private_user",
+        criticality: "standard",
+        externalEffect: false,
+        approvalMode: providerConfig.approvalMode,
+        spendReservationId: usage.spend.reservationId,
+        decisionHash: providerRoute.decisionHash,
+        requestedModel: provider.ok
+          ? provider.requestedModel
+          : (provider.model ?? providerConfig.model),
+        actualModel: provider.ok ? provider.model : (provider.model ?? null),
+        providerAttemptCount: provider.attempts,
+      },
     });
-    if (!spendSettlement.ok) {
-      throw new Error("ai_mentor_spend_settlement_failed");
-    }
-    const routingRecorded = await recordAiRoutingDecision({
-      tenantId: activeTenantId,
-      workspaceId: activeWorkspaceId,
-      runId: requestId,
-      agentId: "mentor_coach",
-      providerId: provider.providerId,
-      routeMode: providerRoute.routeMode,
-      decisionCode: provider.ok
-        ? "provider_completed"
-        : `provider_${provider.reason}`,
-      candidateCount: providerRoute.candidateCount,
-      dataClass: "private_user",
-      criticality: "standard",
-      externalEffect: false,
-      approvalMode: providerConfig.approvalMode,
-      spendReservationId: usage.spend.reservationId,
-      decisionHash: providerRoute.decisionHash,
-    });
-    if (!routingRecorded) {
-      throw new Error("ai_mentor_routing_evidence_failed");
+    if (!spendAndRouting.ok) {
+      throw new Error(`ai_mentor_spend_routing_${spendAndRouting.reason}`);
     }
     if (providerRoute.openRouterKeyStatus) {
       await recordOpenRouterQuotaSnapshot({

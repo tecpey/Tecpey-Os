@@ -15,6 +15,7 @@ export type AiSourceReference = {
 export type AiProviderFailureReason =
   | "provider_disabled"
   | "circuit_open"
+  | "cancelled"
   | "timeout"
   | "network_error"
   | "quota_exhausted"
@@ -87,6 +88,8 @@ const OPENROUTER_FREE_RETRYABLE_STATUSES = new Set([408, 409, 429, 500, 502, 503
 const RETRY_BACKOFF_BASE_MS = 250;
 const RETRY_BACKOFF_MAX_MS = 4_000;
 const RETRY_COMPLETION_RESERVE_MS = 1_000;
+
+type AiProviderAbortReason = "cancelled" | "timeout";
 
 function boundedInteger(value: number | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;
@@ -165,6 +168,19 @@ async function sleepWithSignal(milliseconds: number, signal?: AbortSignal): Prom
 }
 
 const SENSITIVE_SOURCE_QUERY_KEY = /(?:api[_-]?key|access[_-]?token|token|secret|password|passphrase|authorization|auth|credential|signature|session|code)/i;
+const SIGNED_SOURCE_QUERY_KEY = /^(?:sig|awsaccesskeyid|googleaccessid|key-pair-id|policy)$/i;
+const AZURE_SAS_QUERY_KEY = /^(?:sig|sv|ss|srt|sp|se|st|spr|sip|sr|si|skoid|sktid|skt|ske|sks|skv|ses|rscc|rscd|rsce|rscl|rsct)$/i;
+
+function sensitiveSourceQueryKey(
+  value: string,
+  context: { azureSas: boolean; signedExpiry: boolean },
+): boolean {
+  return SENSITIVE_SOURCE_QUERY_KEY.test(value) ||
+    SIGNED_SOURCE_QUERY_KEY.test(value) ||
+    /^x-(?:amz|goog)-/i.test(value) ||
+    (context.azureSas && AZURE_SAS_QUERY_KEY.test(value)) ||
+    (context.signedExpiry && /^expires$/i.test(value));
+}
 
 export function safeAiSourceUrl(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 4_096) return null;
@@ -174,8 +190,13 @@ export function safeAiSourceUrl(value: unknown): string | null {
     url.username = "";
     url.password = "";
     url.hash = "";
-    for (const key of [...url.searchParams.keys()]) {
-      if (SENSITIVE_SOURCE_QUERY_KEY.test(key)) url.searchParams.delete(key);
+    const queryKeys = [...url.searchParams.keys()];
+    const queryContext = {
+      azureSas: queryKeys.some((key) => /^sig$/i.test(key)),
+      signedExpiry: queryKeys.some((key) => /^(?:signature|policy|key-pair-id)$/i.test(key)),
+    };
+    for (const key of queryKeys) {
+      if (sensitiveSourceQueryKey(key, queryContext)) url.searchParams.delete(key);
     }
     const normalized = url.toString();
     return normalized.length <= 2_048 ? normalized : null;
@@ -308,7 +329,9 @@ function requestForProvider(input: AiProviderCallInput, model: string): {
   init: RequestInit;
 } {
   const maxOutputTokens = boundedInteger(input.maxOutputTokens, 1_200, 64, 100_000);
-  const tools = input.toolsEnabled === false ? [] : responseTools(input.providerId, input.agentId);
+  const tools = input.toolsEnabled === false || isOpenRouterFreeRoute(input, model)
+    ? []
+    : responseTools(input.providerId, input.agentId);
   if (input.providerId === "openrouter") {
     return {
       url: "https://openrouter.ai/api/v1/chat/completions",
@@ -389,37 +412,139 @@ async function fetchWithDeadline(
   model: string,
   deadline: number,
   now: () => number,
-): Promise<{ ok: true; response: Response } | { ok: false; reason: "timeout" | "network_error" }> {
+): Promise<
+  | {
+      ok: true;
+      response: Response;
+      signal: AbortSignal;
+      abortReason: () => AiProviderAbortReason | null;
+      dispose: () => void;
+    }
+  | { ok: false; reason: AiProviderAbortReason | "network_error" }
+> {
   const remaining = deadline - now();
   if (remaining <= 0) return { ok: false, reason: "timeout" };
   const controller = new AbortController();
+  let terminalAbortReason: AiProviderAbortReason | null = null;
+  const abort = (reason: AiProviderAbortReason, cause?: unknown) => {
+    if (terminalAbortReason) return;
+    terminalAbortReason = reason;
+    controller.abort(
+      cause ?? new DOMException(
+        reason === "cancelled" ? "AI provider request cancelled" : "AI provider timeout",
+        reason === "cancelled" ? "AbortError" : "TimeoutError",
+      ),
+    );
+  };
   const timeout = setTimeout(
-    () => controller.abort(new DOMException("AI provider timeout", "TimeoutError")),
+    () => abort("timeout"),
     remaining,
   );
   timeout.unref?.();
-  const forwardAbort = () => controller.abort(input.requestSignal?.reason);
+  const forwardAbort = () => abort("cancelled", input.requestSignal?.reason);
   if (input.requestSignal) {
     if (input.requestSignal.aborted) forwardAbort();
     else input.requestSignal.addEventListener("abort", forwardAbort, { once: true });
   }
+  const dispose = () => {
+    clearTimeout(timeout);
+    input.requestSignal?.removeEventListener("abort", forwardAbort);
+  };
   try {
     const request = requestForProvider(input, model);
     const response = await fetchImpl(request.url, { ...request.init, signal: controller.signal });
-    return { ok: true, response };
-  } catch (error) {
-    const aborted = controller.signal.aborted ||
-      (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name));
-    return { ok: false, reason: aborted ? "timeout" : "network_error" };
-  } finally {
-    clearTimeout(timeout);
-    input.requestSignal?.removeEventListener("abort", forwardAbort);
+    return {
+      ok: true,
+      response,
+      signal: controller.signal,
+      abortReason: () => terminalAbortReason,
+      dispose,
+    };
+  } catch {
+    dispose();
+    return {
+      ok: false,
+      reason: terminalAbortReason ?? "network_error",
+    };
   }
+}
+
+class AiProviderBodyAbortError extends Error {
+  constructor() {
+    super("ai_provider_body_aborted");
+    this.name = "AiProviderBodyAbortError";
+  }
+}
+
+async function readBoundedProviderResponseText(
+  response: Response,
+  signal: AbortSignal,
+): Promise<string> {
+  const contentLength = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
+    throw new Error(AI_RESPONSE_TOO_LARGE);
+  }
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+  let abortObserved = signal.aborted;
+  let cancelRequested = false;
+  const cancelReader = () => {
+    abortObserved = true;
+    if (cancelRequested) return;
+    cancelRequested = true;
+    void reader.cancel(signal.reason).catch(() => undefined);
+  };
+  const onAbort = () => cancelReader();
+  if (signal.aborted) cancelReader();
+  else signal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    if (abortObserved) {
+      throw new AiProviderBodyAbortError();
+    }
+    while (true) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        if (signal.aborted || abortObserved) throw new AiProviderBodyAbortError();
+        throw error;
+      }
+      if (signal.aborted || abortObserved) throw new AiProviderBodyAbortError();
+      if (chunk.done) break;
+      receivedBytes += chunk.value.byteLength;
+      if (receivedBytes > MAX_RESPONSE_BYTES) {
+        void reader.cancel(AI_RESPONSE_TOO_LARGE).catch(() => undefined);
+        throw new Error(AI_RESPONSE_TOO_LARGE);
+      }
+      chunks.push(chunk.value);
+    }
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    if (signal.aborted || abortObserved) {
+      cancelReader();
+    }
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(receivedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
 }
 
 async function parseResponse(
   response: Response,
   input: AiProviderCallInput,
+  activeModel: string,
+  signal: AbortSignal,
+  abortReason: () => AiProviderAbortReason | null,
 ): Promise<
   | {
       ok: true;
@@ -430,22 +555,25 @@ async function parseResponse(
       outputTokens: number;
       costUsdMicros: number | null;
     }
-  | { ok: false; reason: "invalid_response" | "response_too_large" }
+  | {
+      ok: false;
+      reason: "cancelled" | "timeout" | "invalid_response" | "response_too_large";
+    }
 > {
   let raw: string;
   try {
-    raw = await readBoundedResponseText(response, {
-      maxBytes: MAX_RESPONSE_BYTES,
-      errorCode: AI_RESPONSE_TOO_LARGE,
-    });
+    raw = await readBoundedProviderResponseText(response, signal);
   } catch (error) {
     return {
       ok: false,
-      reason: error instanceof Error && error.message === AI_RESPONSE_TOO_LARGE
-        ? "response_too_large"
-        : "invalid_response",
+      reason: error instanceof AiProviderBodyAbortError || signal.aborted
+        ? abortReason() ?? "timeout"
+        : error instanceof Error && error.message === AI_RESPONSE_TOO_LARGE
+          ? "response_too_large"
+          : "invalid_response",
     };
   }
+  if (signal.aborted) return { ok: false, reason: abortReason() ?? "timeout" };
   try {
     const data = JSON.parse(raw) as unknown;
     const text =
@@ -467,10 +595,27 @@ async function parseResponse(
       model:
         typeof responseModel === "string" && responseModel.trim()
           ? responseModel.trim().slice(0, 160)
-          : input.model,
+          : activeModel,
     };
   } catch {
     return { ok: false, reason: "invalid_response" };
+  }
+}
+
+function statusAdvancesCircuit(status: number): boolean {
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
+function failureAdvancesCircuit(reason: AiProviderFailureReason): boolean {
+  return reason === "timeout" || reason === "network_error";
+}
+
+async function cancelUnconsumedResponse(response: Response): Promise<void> {
+  if (!response.body || response.bodyUsed) return;
+  try {
+    await response.body.cancel();
+  } catch {
+    // The response is already terminal; cancellation is best-effort cleanup.
   }
 }
 
@@ -489,6 +634,9 @@ export async function callAiProvider(
   const scopedCircuitKey = circuitKey(input);
   if (!input.apiKey.trim()) {
     return { ok: false, reason: "provider_disabled", providerId: input.providerId, attempts: 0, durationMs: 0 };
+  }
+  if (input.requestSignal?.aborted) {
+    return { ok: false, reason: "cancelled", providerId: input.providerId, attempts: 0, durationMs: 0 };
   }
   if (circuit(scopedCircuitKey).openUntil > startedAt) {
     return { ok: false, reason: "circuit_open", providerId: input.providerId, attempts: 0, durationMs: 0 };
@@ -518,9 +666,10 @@ export async function callAiProvider(
               await sleep(delay, input.requestSignal);
               continue;
             } catch {
+              const reason = input.requestSignal?.aborted ? "cancelled" : "timeout";
               return {
                 ok: false,
-                reason: "timeout",
+                reason,
                 providerId: input.providerId,
                 model,
                 attempts,
@@ -529,7 +678,7 @@ export async function callAiProvider(
             }
           }
         }
-        recordFailure(scopedCircuitKey, now());
+        if (failureAdvancesCircuit(called.reason)) recordFailure(scopedCircuitKey, now());
         return {
           ok: false,
           reason: called.reason,
@@ -541,6 +690,8 @@ export async function callAiProvider(
       }
       lastStatus = called.response.status;
       if (!called.response.ok) {
+        called.dispose();
+        await cancelUnconsumedResponse(called.response);
         const freeRouteRetry = isOpenRouterFreeRoute(input, model) &&
           OPENROUTER_FREE_RETRYABLE_STATUSES.has(called.response.status) &&
           retryIndex + 1 < maxModelAttempts;
@@ -556,9 +707,10 @@ export async function callAiProvider(
               await sleep(delay, input.requestSignal);
               continue;
             } catch {
+              const reason = input.requestSignal?.aborted ? "cancelled" : "timeout";
               return {
                 ok: false,
-                reason: "timeout",
+                reason,
                 providerId: input.providerId,
                 status: called.response.status,
                 model,
@@ -573,7 +725,9 @@ export async function callAiProvider(
           [400, 404, 408, 409, 429, 500, 502, 503, 504].includes(called.response.status) &&
           deadline - now() >= 1_000;
         if (fallbackRetry) break;
-        recordFailure(scopedCircuitKey, now());
+        if (statusAdvancesCircuit(called.response.status)) {
+          recordFailure(scopedCircuitKey, now());
+        }
         const failureReason =
           called.response.status === 402
             ? "quota_exhausted"
@@ -590,7 +744,18 @@ export async function callAiProvider(
           durationMs: now() - startedAt,
         };
       }
-      const parsed = await parseResponse(called.response, input);
+      let parsed: Awaited<ReturnType<typeof parseResponse>>;
+      try {
+        parsed = await parseResponse(
+          called.response,
+          input,
+          model,
+          called.signal,
+          called.abortReason,
+        );
+      } finally {
+        called.dispose();
+      }
       if (!parsed.ok) {
         const retryable = isOpenRouterFreeRoute(input, model) &&
           parsed.reason === "invalid_response" &&
@@ -602,9 +767,10 @@ export async function callAiProvider(
               await sleep(delay, input.requestSignal);
               continue;
             } catch {
+              const reason = input.requestSignal?.aborted ? "cancelled" : "timeout";
               return {
                 ok: false,
-                reason: "timeout",
+                reason,
                 providerId: input.providerId,
                 status: called.response.status,
                 model,
@@ -614,7 +780,7 @@ export async function callAiProvider(
             }
           }
         }
-        recordFailure(scopedCircuitKey, now());
+        if (failureAdvancesCircuit(parsed.reason)) recordFailure(scopedCircuitKey, now());
         return {
           ok: false,
           reason: parsed.reason,
@@ -642,7 +808,9 @@ export async function callAiProvider(
     }
   }
 
-  recordFailure(scopedCircuitKey, now());
+  if (lastStatus !== undefined && statusAdvancesCircuit(lastStatus)) {
+    recordFailure(scopedCircuitKey, now());
+  }
   return {
     ok: false,
     reason: "provider_rejected",

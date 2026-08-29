@@ -49,7 +49,9 @@ async function run(): Promise<void> {
         console.log("[ai-automation-worker] iteration", result);
       }
       if (runOnce) break;
-      if (result.status === "idle") await sleep(pollMs);
+      if (result.status === "idle" || result.status === "blocked") {
+        await sleep(pollMs);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error("[ai-automation-worker] iteration failed", { message });

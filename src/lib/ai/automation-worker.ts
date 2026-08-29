@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import {
   aiAgentDefinition,
   type AiAgentId,
 } from "./control-plane-catalog";
 import {
+  accountedAiProviderRouteCost,
   admitAiAgentExecution,
-  recordAiRoutingDecision,
+  markAiAgentSpendEgress,
+  releaseUnmarkedAiAgentSpend,
   resolveRuntimeAiAgent,
-  settleAiAgentSpend,
+  settleAiAgentSpendAndRecordRoutingDecision,
 } from "./control-plane-store";
 import {
   aiAutomationEvidenceHash,
@@ -19,9 +22,16 @@ import {
 } from "./automation-store";
 import { callAiProviderWithFailover } from "./provider-failover";
 import { inspectMentorOutput, normalizeMentorText } from "./mentor-trust-boundary";
+import { managedAiLaunchStatus } from "./managed-ai-launch-policy";
 
 export type AiAutomationIterationResult =
   | { status: "idle"; recovered: number; enqueued: number }
+  | {
+      status: "blocked";
+      reason: "tenant_isolation_unresolved";
+      recovered: number;
+      enqueued: 0;
+    }
   | {
       status: "processed";
       recovered: number;
@@ -109,13 +119,32 @@ async function reviewWithAgent(input: {
     tenantId: input.run.tenantId,
     workspaceId: input.run.workspaceId,
     agentId: input.agentId,
-    idempotencyKey: `automation:${input.run.id}:${input.agentId}`,
+    configurationSource: config.configurationSource,
+    idempotencyKey: `automation:${input.run.id}:${input.agentId}:${input.run.attemptCount}`,
     estimatedInputTokens: Math.ceil(prompt.length / 3.2),
     maxOutputTokens,
     limits: config.limits,
   });
   if (!admitted.ok) {
     return { status: "deferred", reason: `usage_${admitted.reason}` };
+  }
+
+  const egressMark = await markAiAgentSpendEgress({
+    tenantId: input.run.tenantId,
+    workspaceId: input.run.workspaceId,
+    agentId: input.agentId,
+    configurationSource: config.configurationSource,
+    reservationId: admitted.spend.reservationId,
+    attemptId: randomUUID(),
+  });
+  if (!egressMark.ok) {
+    await releaseUnmarkedAiAgentSpend({
+      tenantId: input.run.tenantId,
+      workspaceId: input.run.workspaceId,
+      agentId: input.agentId,
+      reservationId: admitted.spend.reservationId,
+    });
+    return { status: "deferred", reason: `spend_egress_${egressMark.reason}` };
   }
 
   const routed = await callAiProviderWithFailover({
@@ -142,35 +171,46 @@ async function reviewWithAgent(input: {
     circuitScope: `${input.run.tenantId}:${input.run.workspaceId}:automation`,
     toolsEnabled: ["news_x_researcher", "coin_tool_researcher"].includes(input.agentId),
   });
-  const spendSettlement = await settleAiAgentSpend({
-    tenantId: input.run.tenantId,
-    workspaceId: input.run.workspaceId,
-    agentId: input.agentId,
-    reservationId: admitted.spend.reservationId,
-    costUsdMicros: routed.result.ok ? routed.result.costUsdMicros : null,
-    providerAttempted: routed.result.attempts > 0,
+  const spendAndRouting = await settleAiAgentSpendAndRecordRoutingDecision({
+    settlement: {
+      tenantId: input.run.tenantId,
+      workspaceId: input.run.workspaceId,
+      agentId: input.agentId,
+      reservationId: admitted.spend.reservationId,
+      accountedCostUsdMicros: accountedAiProviderRouteCost(routed),
+      egressAttemptId: egressMark.attemptId,
+    },
+    routing: {
+      tenantId: input.run.tenantId,
+      workspaceId: input.run.workspaceId,
+      runId: input.run.id,
+      agentId: input.agentId,
+      providerId: routed.result.providerId,
+      routeMode: routed.routeMode,
+      decisionCode: routed.result.ok
+        ? "provider_completed"
+        : `provider_${routed.result.reason}`,
+      candidateCount: routed.candidateCount,
+      dataClass: input.run.dataClass,
+      criticality: input.run.criticality,
+      externalEffect: input.run.externalEffect !== "none",
+      approvalMode: config.approvalMode,
+      spendReservationId: admitted.spend.reservationId,
+      decisionHash: routed.decisionHash,
+      requestedModel: routed.result.ok
+        ? routed.result.requestedModel
+        : (routed.result.model ?? config.model),
+      actualModel: routed.result.ok
+        ? routed.result.model
+        : (routed.result.model ?? null),
+      providerAttemptCount: routed.result.attempts,
+    },
   });
-  if (!spendSettlement.ok) {
-    return { status: "deferred", reason: `spend_${spendSettlement.reason}` };
-  }
-  const routingRecorded = await recordAiRoutingDecision({
-    tenantId: input.run.tenantId,
-    workspaceId: input.run.workspaceId,
-    runId: input.run.id,
-    agentId: input.agentId,
-    providerId: routed.result.providerId,
-    routeMode: routed.routeMode,
-    decisionCode: routed.result.ok ? "provider_completed" : `provider_${routed.result.reason}`,
-    candidateCount: routed.candidateCount,
-    dataClass: input.run.dataClass,
-    criticality: input.run.criticality,
-    externalEffect: input.run.externalEffect !== "none",
-    approvalMode: config.approvalMode,
-    spendReservationId: admitted.spend.reservationId,
-    decisionHash: routed.decisionHash,
-  });
-  if (!routingRecorded) {
-    return { status: "deferred", reason: "routing_evidence_unavailable" };
+  if (!spendAndRouting.ok) {
+    return {
+      status: "deferred",
+      reason: `spend_or_routing_${spendAndRouting.reason}`,
+    };
   }
   if (routed.openRouterKeyStatus) {
     await recordOpenRouterQuotaSnapshot({
@@ -234,8 +274,17 @@ async function reviewWithAgent(input: {
 export async function processAiAutomationIteration(input: {
   workerId: string;
 }): Promise<AiAutomationIterationResult> {
-  const enqueued = await enqueueDueAiAutomationRuns();
   const recovered = await recoverExpiredAiAutomationRuns();
+  const launch = managedAiLaunchStatus();
+  if (!launch.ready) {
+    return {
+      status: "blocked",
+      reason: launch.reason,
+      recovered,
+      enqueued: 0,
+    };
+  }
+  const enqueued = await enqueueDueAiAutomationRuns();
   const run = await claimAiAutomationReviewRun({
     workerId: input.workerId,
     leaseSeconds: 120,

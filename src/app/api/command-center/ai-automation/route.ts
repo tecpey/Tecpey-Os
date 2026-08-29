@@ -15,6 +15,7 @@ import {
 } from "@/lib/ai/automation-store";
 import { isAiDataClass } from "@/lib/ai/control-plane-catalog";
 import type { AdminAiMutationContext } from "@/lib/ai/control-plane-store";
+import { managedAiLaunchStatus } from "@/lib/ai/managed-ai-launch-policy";
 import { normalizeMentorText } from "@/lib/ai/mentor-trust-boundary";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
@@ -45,6 +46,13 @@ function integer(value: unknown, minimum: number, maximum: number): number | nul
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum
     ? parsed
     : null;
+}
+
+function tenantIsolationError() {
+  const launch = managedAiLaunchStatus();
+  return apiError("ai_tenant_isolation_unresolved", 503, {
+    blocker: launch.blocker,
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -127,6 +135,9 @@ export async function PUT(request: NextRequest) {
         expectedRevision,
       });
       if (!result.ok) {
+        if (result.reason === "tenant_isolation_unresolved") {
+          return tenantIsolationError();
+        }
         if (result.reason === "revision_conflict") {
           return apiError("ai_automation_policy_revision_conflict", 409);
         }
@@ -138,6 +149,14 @@ export async function PUT(request: NextRequest) {
         if (result.reason === "human_reviewer_gap") {
           return apiError("ai_automation_human_reviewer_gap", 422, {
             missingGate: result.missingGate ?? null,
+          });
+        }
+        if (result.reason === "executor_not_ready") {
+          return apiError("ai_automation_executor_not_ready", 422, {
+            workflowId: result.executorBinding?.workflowId ?? body.workflowId,
+            connectorId: result.executorBinding?.connectorId ?? null,
+            blockingReason:
+              result.executorBinding?.blockingReason ?? "controlled_launch",
           });
         }
         return apiError("ai_automation_policy_unavailable", 503);
@@ -210,7 +229,12 @@ export async function POST(request: NextRequest) {
           context,
         });
         if (!result.ok) {
-          const status = result.reason === "policy_disabled" ? 409 :
+          if (result.reason === "tenant_isolation_unresolved") {
+            return tenantIsolationError();
+          }
+          const status = result.reason === "policy_disabled" ||
+            result.reason === "idempotency_conflict" ? 409 :
+            result.reason === "executor_not_ready" ? 422 :
             result.reason === "unavailable" ? 503 : 422;
           return apiError(`ai_automation_${result.reason}`, status);
         }
@@ -268,6 +292,9 @@ export async function POST(request: NextRequest) {
           context,
         });
         if (!result.ok) {
+          if (result.reason === "tenant_isolation_unresolved") {
+            return tenantIsolationError();
+          }
           const status = result.reason === "not_found" ? 404 :
             result.reason === "unavailable" ? 503 :
               result.reason === "reviewer_forbidden" ? 403 : 409;

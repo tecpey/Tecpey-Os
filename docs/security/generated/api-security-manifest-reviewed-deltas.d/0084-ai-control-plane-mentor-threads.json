@@ -13,7 +13,7 @@
         "route": "/api/command-center/ai-control-plane",
         "method": "POST",
         "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
-        "sourceHash": "79c9493a17a984d422ba056e",
+        "sourceHash": "db009522de6fd6c6752e19ee",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -46,7 +46,8 @@
         },
         "domainOwner": "command-center",
         "testReferences": [
-          "src/tests/security/ai-control-plane-source.test.ts"
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -78,7 +79,7 @@
         "route": "/api/command-center/ai-control-plane",
         "method": "PUT",
         "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
-        "sourceHash": "79c9493a17a984d422ba056e",
+        "sourceHash": "db009522de6fd6c6752e19ee",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -111,7 +112,8 @@
         },
         "domainOwner": "command-center",
         "testReferences": [
-          "src/tests/security/ai-control-plane-source.test.ts"
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
         ],
         "requirements": {
           "csrf": true,

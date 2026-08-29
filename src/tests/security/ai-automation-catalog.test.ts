@@ -5,8 +5,28 @@ import {
   evaluateAiAutomationGate,
   validateAiAutomationCatalog,
 } from "../../lib/ai/automation-catalog";
+import {
+  AI_AUTOMATION_EXECUTOR_BINDINGS,
+  validateAiAutomationExecutorRegistry,
+} from "../../lib/ai/automation-executor-registry";
 
 describe("AI automation governance catalog", () => {
+  it("keeps every workflow fail-closed until its exact executor binding is launch-ready", () => {
+    assert.doesNotThrow(() => validateAiAutomationExecutorRegistry());
+    assert.equal(
+      AI_AUTOMATION_EXECUTOR_BINDINGS.length,
+      AI_AUTOMATION_POLICIES.length,
+    );
+    for (const binding of AI_AUTOMATION_EXECUTOR_BINDINGS) {
+      const policy = AI_AUTOMATION_POLICIES.find(
+        (item) => item.id === binding.workflowId,
+      );
+      assert.ok(policy);
+      assert.equal(binding.externalEffect, policy.externalEffect);
+      assert.equal(binding.launchReady, false);
+    }
+  });
+
   it("requires independent human gates for every external effect", () => {
     assert.doesNotThrow(() => validateAiAutomationCatalog());
     for (const policy of AI_AUTOMATION_POLICIES) {

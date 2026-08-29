@@ -696,14 +696,7 @@ describe("AI Mentor durable trust store", () => {
           query: "bitcoin risk",
           limit: 8,
         });
-        assert.notEqual(knowledge, "unavailable");
-        if (knowledge === "unavailable") return;
-
-        assert.deepEqual(
-          new Set(knowledge.map((item) => item.contentHash)),
-          new Set([verifiedHash, "d".repeat(64)]),
-        );
-        assert.equal(knowledge.every((item) => !item.statement.includes("must never")), true);
+        assert.equal(knowledge, "tenant_isolation_unresolved");
 
         const overwrite = await createAiKnowledgeCandidate({
           ...scopeA,
@@ -716,7 +709,7 @@ describe("AI Mentor durable trust store", () => {
           dataClass: "public",
           derivedByAgent: "coin_tool_researcher",
         });
-        assert.equal(overwrite, null);
+        assert.equal(overwrite, "tenant_isolation_unresolved");
         await withClient(async (client) => {
           const preserved = await client.query<{
             status: string;

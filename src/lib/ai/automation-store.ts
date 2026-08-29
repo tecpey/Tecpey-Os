@@ -15,6 +15,13 @@ import {
   type AiAutomationWorkflowId,
 } from "./automation-catalog";
 import {
+  AI_AUTOMATION_EXECUTOR_BINDINGS,
+  aiAutomationExecutorBinding,
+  isReadyAiAutomationExecutorBinding,
+  readyAiAutomationWorkflowIds,
+  type AiAutomationExecutorBinding,
+} from "./automation-executor-registry";
+import {
   isAiAgentId,
   isAiDataClass,
   isAiModelProviderId,
@@ -23,6 +30,11 @@ import {
   type AiModelProviderId,
 } from "./control-plane-catalog";
 import { resolveRuntimeAiAgent, type AdminAiMutationContext } from "./control-plane-store";
+import {
+  AI_TENANT_ISOLATION_BLOCK_REASON,
+  managedAiLaunchStatus,
+  type ManagedAiLaunchStatus,
+} from "./managed-ai-launch-policy";
 import { inspectMentorUserText } from "./mentor-trust-boundary";
 import {
   safeAiSourceUrl,
@@ -70,6 +82,7 @@ export type AiAutomationRunSnapshot = {
   resourceId: string | null;
   inputText: string;
   inputHash: string;
+  commandHash: string;
   idempotencyKey: string;
   policyVersion: string;
   aiReviewerIds: AiAgentId[];
@@ -85,6 +98,7 @@ export type AiAutomationRunSnapshot = {
   requestedBy: string | null;
   approvedAt: string | null;
   executionStartedAt: string | null;
+  executionConnectorId: string | null;
   completedAt: string | null;
   expiresAt: string;
   failureCode: string | null;
@@ -94,8 +108,10 @@ export type AiAutomationRunSnapshot = {
 };
 
 export type AiAutomationSnapshot = {
+  managedLaunch: ManagedAiLaunchStatus;
   policyVersion: string;
   catalog: typeof AI_AUTOMATION_POLICIES;
+  executorBindings: readonly AiAutomationExecutorBinding[];
   policies: AiAutomationPolicySnapshot[];
   runs: AiAutomationRunSnapshot[];
   statusSummary: Partial<Record<AiAutomationRunStatus, number>>;
@@ -126,6 +142,7 @@ type RunRow = {
   resource_id: string | null;
   input_text: string;
   input_hash: string;
+  command_hash: string;
   idempotency_key: string;
   policy_version: string;
   ai_reviewer_ids: unknown;
@@ -143,6 +160,7 @@ type RunRow = {
   requested_by: string | null;
   approved_at: string | Date | null;
   execution_started_at: string | Date | null;
+  execution_connector_id: string | null;
   completed_at: string | Date | null;
   expires_at: string | Date;
   failure_code: string | null;
@@ -172,6 +190,117 @@ const SAFE_RESOURCE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/;
 const SAFE_IDEMPOTENCY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{7,199}$/;
 const SAFE_WORKER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{7,199}$/;
 const SAFE_FAILURE_PATTERN = /^[a-z0-9][a-z0-9_:-]{1,119}$/;
+const SAFE_CONNECTOR_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/;
+
+// Exported so the PostgreSQL contract suite executes the exact production
+// locking and claim statements instead of a test-only approximation.
+export const AI_AUTOMATION_EXECUTION_POLICY_LOCK_SQL =
+  "SELECT pg_advisory_xact_lock(hashtext($1))";
+
+export const AI_AUTOMATION_EXECUTION_CLAIM_SELECT_SQL = `SELECT run.*
+   FROM ai_automation_runs run
+   JOIN ai_automation_policies policy
+     ON policy.tenant_id = run.tenant_id
+    AND policy.workspace_id = run.workspace_id
+    AND policy.workflow_id = run.workflow_id
+  WHERE run.id = $1::uuid
+    AND run.tenant_id = $2
+    AND run.workspace_id = $3
+    AND run.workflow_id = $4
+    AND run.external_effect = $5
+    AND run.status = 'approved'
+    AND run.execution_connector_id IS NULL
+    AND run.expires_at > NOW()
+    AND policy.enabled
+    AND policy.policy_version = run.policy_version
+    AND (
+      SELECT COUNT(*)
+        FROM ai_automation_runs active
+       WHERE active.tenant_id = run.tenant_id
+         AND active.workspace_id = run.workspace_id
+         AND active.workflow_id = run.workflow_id
+         AND active.status = 'executing'
+    ) < policy.max_concurrency
+    AND NOT EXISTS (
+      SELECT 1
+        FROM ai_automation_runs debt
+       WHERE debt.tenant_id = run.tenant_id
+         AND debt.workspace_id = run.workspace_id
+         AND debt.workflow_id = run.workflow_id
+         AND debt.status = 'blocked'
+         AND debt.failure_code = 'execution_reconciliation_required'
+    )
+  FOR UPDATE OF run, policy`;
+
+export const AI_AUTOMATION_EXECUTION_CLAIM_UPDATE_SQL = `UPDATE ai_automation_runs
+    SET status = 'executing', lease_owner = $2,
+        lease_expires_at = NOW() + make_interval(secs => $3),
+        execution_connector_id = $4
+  WHERE id = $1::uuid
+    AND workflow_id = $5
+    AND external_effect = $6
+    AND status = 'approved'
+    AND execution_connector_id IS NULL
+  RETURNING *`;
+
+export const AI_AUTOMATION_ENQUEUE_INSERT_SQL = `INSERT INTO ai_automation_runs
+   (id, tenant_id, workspace_id, workflow_id, status, trigger_type,
+    data_class, criticality, resource_type, resource_id, input_text,
+    input_hash, command_hash, idempotency_key, policy_version, ai_reviewer_ids,
+    ai_quorum, manager_role_ids, manager_quorum, c_level_role_ids,
+    c_level_quorum, external_effect, free_fallback_allowed, max_attempts,
+    requested_by, expires_at)
+ VALUES
+   ($1::uuid, $2, $3, $4, 'queued', $5, $6, $7, $8, $9, $10,
+    $11, $12, $13, $14, $15::text[], $16, $17::text[], $18,
+    $19::text[], $20, $21, $22, $23, $24::uuid,
+    NOW() + make_interval(mins => $25))
+ ON CONFLICT (tenant_id, workspace_id, idempotency_key) DO NOTHING
+ RETURNING *`;
+
+export function automationCommandHash(input: {
+  tenantId: string;
+  workspaceId: string;
+  workflowId: AiAutomationWorkflowId;
+  triggerType: AiAutomationRunSnapshot["triggerType"];
+  dataClass: AiAutomationRunSnapshot["dataClass"];
+  resourceType: string;
+  resourceId: string | null;
+  inputHash: string;
+  idempotencyKey: string;
+  requestedBy: string | null;
+}): string {
+  const definition = aiAutomationPolicy(input.workflowId);
+  return createHash("sha256")
+    .update("tecpey-ai-automation-command:v1\0")
+    .update(
+      JSON.stringify({
+        tenantId: input.tenantId,
+        workspaceId: input.workspaceId,
+        workflowId: input.workflowId,
+        triggerType: input.triggerType,
+        dataClass: input.dataClass,
+        criticality: definition.criticality,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        inputHash: input.inputHash,
+        idempotencyKey: input.idempotencyKey,
+        policyVersion: AI_AUTOMATION_POLICY_VERSION,
+        aiReviewerIds: [...definition.aiReviewers],
+        aiQuorum: definition.aiQuorum,
+        managerRoleIds: [...definition.managerRoles],
+        managerQuorum: definition.managerQuorum,
+        cLevelRoleIds: [...definition.cLevelRoles],
+        cLevelQuorum: definition.cLevelQuorum,
+        externalEffect: definition.externalEffect,
+        freeFallbackAllowed: definition.freeFallbackAllowed,
+        maxAttempts: definition.maxAttempts,
+        approvalTtlMinutes: definition.approvalTtlMinutes,
+        requestedBy: input.requestedBy,
+      }),
+    )
+    .digest("hex");
+}
 
 function iso(value: string | Date | null): string | null {
   if (!value) return null;
@@ -239,6 +368,7 @@ function mapRun(
     resourceId: row.resource_id,
     inputText: row.input_text,
     inputHash: row.input_hash,
+    commandHash: row.command_hash,
     idempotencyKey: row.idempotency_key,
     policyVersion: row.policy_version,
     aiReviewerIds: strings(row.ai_reviewer_ids).filter(isAiAgentId),
@@ -254,6 +384,7 @@ function mapRun(
     requestedBy: row.requested_by,
     approvedAt: iso(row.approved_at),
     executionStartedAt: iso(row.execution_started_at),
+    executionConnectorId: row.execution_connector_id,
     completedAt: iso(row.completed_at),
     expiresAt: iso(row.expires_at) ?? new Date(0).toISOString(),
     failureCode: row.failure_code,
@@ -389,8 +520,10 @@ export async function loadAiAutomationSnapshot(input: {
   for (const run of runs) statusSummary[run.status] = (statusSummary[run.status] ?? 0) + 1;
 
   return {
+    managedLaunch: managedAiLaunchStatus(),
     policyVersion: AI_AUTOMATION_POLICY_VERSION,
     catalog: AI_AUTOMATION_POLICIES,
+    executorBindings: AI_AUTOMATION_EXECUTOR_BINDINGS,
     policies: AI_AUTOMATION_POLICIES.map((definition) => {
       const row = policyRows.get(definition.id);
       return row ? mapPolicy(row) : policyDefaults(definition.id);
@@ -408,9 +541,12 @@ export type AiAutomationPolicyUpdateResult =
         | "unavailable"
         | "revision_conflict"
         | "agents_not_ready"
-        | "human_reviewer_gap";
+        | "human_reviewer_gap"
+        | "tenant_isolation_unresolved"
+        | "executor_not_ready";
       missingAgents?: AiAgentId[];
       missingGate?: "manager" | "c_level" | "separation_of_duties";
+      executorBinding?: AiAutomationExecutorBinding;
     };
 
 export async function updateAiAutomationPolicy(input: {
@@ -422,6 +558,7 @@ export async function updateAiAutomationPolicy(input: {
   expectedRevision: number;
 }): Promise<AiAutomationPolicyUpdateResult> {
   const definition = aiAutomationPolicy(input.workflowId);
+  const executorBinding = aiAutomationExecutorBinding(input.workflowId);
   if (
     !Number.isSafeInteger(input.maxConcurrency) ||
     input.maxConcurrency < 1 ||
@@ -435,6 +572,18 @@ export async function updateAiAutomationPolicy(input: {
       input.intervalMinutes === null)
   ) {
     throw new Error("ai_automation_policy_input_invalid");
+  }
+
+  if (input.enabled && !managedAiLaunchStatus().ready) {
+    return { ok: false, reason: AI_TENANT_ISOLATION_BLOCK_REASON };
+  }
+
+  if (input.enabled && !executorBinding.launchReady) {
+    return {
+      ok: false,
+      reason: "executor_not_ready",
+      executorBinding,
+    };
   }
 
   if (input.enabled) {
@@ -660,6 +809,9 @@ export type EnqueueAiAutomationResult =
         | "unavailable"
         | "policy_disabled"
         | "policy_stale"
+        | "tenant_isolation_unresolved"
+        | "executor_not_ready"
+        | "idempotency_conflict"
         | "human_reviewer_gap"
         | "input_rejected"
         | "data_class_forbidden";
@@ -679,6 +831,12 @@ export async function enqueueAiAutomationRun(input: {
   context?: AdminAiMutationContext;
 }): Promise<EnqueueAiAutomationResult> {
   const definition = aiAutomationPolicy(input.workflowId);
+  if (!managedAiLaunchStatus().ready) {
+    return { ok: false, reason: AI_TENANT_ISOLATION_BLOCK_REASON };
+  }
+  if (!aiAutomationExecutorBinding(input.workflowId).launchReady) {
+    return { ok: false, reason: "executor_not_ready" };
+  }
   try {
     assertAiAutomationDataClass(input.workflowId, input.dataClass);
   } catch {
@@ -707,6 +865,18 @@ export async function enqueueAiAutomationRun(input: {
   ) {
     return { ok: false, reason: "input_rejected" };
   }
+  const commandHash = automationCommandHash({
+    tenantId: input.tenantId,
+    workspaceId: input.workspaceId,
+    workflowId: input.workflowId,
+    triggerType: input.triggerType,
+    dataClass: input.dataClass,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId ?? null,
+    inputHash: inspection.inputHash,
+    idempotencyKey: input.idempotencyKey,
+    requestedBy: input.requestedBy ?? null,
+  });
 
   const transaction = await withTx(async (client) => {
     const configured = await client.query<{
@@ -768,38 +938,9 @@ export async function enqueueAiAutomationRun(input: {
       }
     }
 
-    const existing = await client.query<RunRow>(
-      `SELECT *
-         FROM ai_automation_runs
-        WHERE tenant_id = $1 AND workspace_id = $2 AND idempotency_key = $3
-        LIMIT 1`,
-      [input.tenantId, input.workspaceId, input.idempotencyKey],
-    );
-    if (existing.rows[0]) {
-      if (
-        existing.rows[0].workflow_id !== input.workflowId ||
-        existing.rows[0].input_hash !== inspection.inputHash
-      ) {
-        throw new Error("ai_automation_idempotency_conflict");
-      }
-      return { kind: "existing" as const, run: existing.rows[0] };
-    }
-
     const runId = randomUUID();
     const inserted = await client.query<RunRow>(
-      `INSERT INTO ai_automation_runs
-         (id, tenant_id, workspace_id, workflow_id, status, trigger_type,
-          data_class, criticality, resource_type, resource_id, input_text,
-          input_hash, idempotency_key, policy_version, ai_reviewer_ids,
-          ai_quorum, manager_role_ids, manager_quorum, c_level_role_ids,
-          c_level_quorum, external_effect, free_fallback_allowed, max_attempts,
-          requested_by, expires_at)
-       VALUES
-         ($1::uuid, $2, $3, $4, 'queued', $5, $6, $7, $8, $9, $10,
-          $11, $12, $13, $14::text[], $15, $16::text[], $17,
-          $18::text[], $19, $20, $21, $22, $23::uuid,
-          NOW() + make_interval(mins => $24))
-       RETURNING *`,
+      AI_AUTOMATION_ENQUEUE_INSERT_SQL,
       [
         runId,
         input.tenantId,
@@ -812,6 +953,7 @@ export async function enqueueAiAutomationRun(input: {
         input.resourceId ?? null,
         inspection.normalized,
         inspection.inputHash,
+        commandHash,
         input.idempotencyKey,
         AI_AUTOMATION_POLICY_VERSION,
         [...definition.aiReviewers],
@@ -827,6 +969,21 @@ export async function enqueueAiAutomationRun(input: {
         definition.approvalTtlMinutes,
       ],
     );
+    if (!inserted.rows[0]) {
+      const existing = await client.query<RunRow>(
+        `SELECT *
+           FROM ai_automation_runs
+          WHERE tenant_id = $1 AND workspace_id = $2 AND idempotency_key = $3
+          LIMIT 1`,
+        [input.tenantId, input.workspaceId, input.idempotencyKey],
+      );
+      const replay = existing.rows[0];
+      if (!replay) throw new Error("ai_automation_idempotency_replay_missing");
+      if (replay.command_hash !== commandHash) {
+        return { kind: "idempotency_conflict" as const };
+      }
+      return { kind: "existing" as const, run: replay };
+    }
     await insertRunEvent(client, {
       tenantId: input.tenantId,
       workspaceId: input.workspaceId,
@@ -839,6 +996,7 @@ export async function enqueueAiAutomationRun(input: {
         workflow_id: input.workflowId,
         trigger_type: input.triggerType,
         data_class: input.dataClass,
+        command_hash: commandHash,
       },
     });
     if (input.context) {
@@ -856,6 +1014,7 @@ export async function enqueueAiAutomationRun(input: {
           workflowId: input.workflowId,
           dataClass: input.dataClass,
           inputHash: inspection.inputHash,
+          commandHash,
           idempotencyKey: input.idempotencyKey,
         },
         outcome: "success",
@@ -872,6 +1031,9 @@ export async function enqueueAiAutomationRun(input: {
   }
   if (transaction.value.kind === "reviewer_gap") {
     return { ok: false, reason: "human_reviewer_gap" };
+  }
+  if (transaction.value.kind === "idempotency_conflict") {
+    return { ok: false, reason: "idempotency_conflict" };
   }
   return {
     ok: true,
@@ -908,6 +1070,11 @@ const SCHEDULED_AUTOMATION_INPUTS: Partial<
 };
 
 export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
+  if (!managedAiLaunchStatus().ready) return 0;
+  const readyScheduledWorkflows = readyAiAutomationWorkflowIds().filter(
+    (workflowId) => SCHEDULED_AUTOMATION_INPUTS[workflowId],
+  );
+  if (readyScheduledWorkflows.length === 0) return 0;
   const bounded = Math.min(50, Math.max(1, Math.trunc(limit)));
   const transaction = await withTx(async (client) => {
     const due = await client.query<
@@ -925,7 +1092,7 @@ export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
         FOR UPDATE SKIP LOCKED
         LIMIT $3`,
       [
-        Object.keys(SCHEDULED_AUTOMATION_INPUTS),
+        readyScheduledWorkflows,
         AI_AUTOMATION_POLICY_VERSION,
         bounded,
       ],
@@ -942,17 +1109,29 @@ export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
         .slice(0, 32)}`;
       const runId = randomUUID();
       const inputHash = createHash("sha256").update(scheduled.inputText).digest("hex");
+      const commandHash = automationCommandHash({
+        tenantId: policyRow.tenant_id,
+        workspaceId: policyRow.workspace_id,
+        workflowId: policyRow.workflow_id,
+        triggerType: "scheduled",
+        dataClass: scheduled.dataClass,
+        resourceType: scheduled.resourceType,
+        resourceId: null,
+        inputHash,
+        idempotencyKey,
+        requestedBy: null,
+      });
       const inserted = await client.query<{ id: string }>(
           `INSERT INTO ai_automation_runs
              (id, tenant_id, workspace_id, workflow_id, status, trigger_type,
               data_class, criticality, resource_type, input_text, input_hash,
-              idempotency_key, policy_version, ai_reviewer_ids, ai_quorum,
+              command_hash, idempotency_key, policy_version, ai_reviewer_ids, ai_quorum,
               manager_role_ids, manager_quorum, c_level_role_ids, c_level_quorum,
               external_effect, free_fallback_allowed, max_attempts, expires_at)
            VALUES
              ($1::uuid, $2, $3, $4, 'queued', 'scheduled', $5, $6, $7, $8, $9,
-              $10, $11, $12::text[], $13, $14::text[], $15, $16::text[], $17,
-              $18, $19, $20, NOW() + make_interval(mins => $21))
+              $10, $11, $12, $13::text[], $14, $15::text[], $16, $17::text[], $18,
+              $19, $20, $21, NOW() + make_interval(mins => $22))
            ON CONFLICT (tenant_id, workspace_id, idempotency_key) DO NOTHING
            RETURNING id`,
           [
@@ -965,6 +1144,7 @@ export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
             scheduled.resourceType,
             scheduled.inputText,
             inputHash,
+            commandHash,
             idempotencyKey,
             AI_AUTOMATION_POLICY_VERSION,
             [...definition.aiReviewers],
@@ -1001,6 +1181,7 @@ export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
             workflow_id: policyRow.workflow_id,
             trigger_type: "scheduled",
             data_class: scheduled.dataClass,
+            command_hash: commandHash,
           },
         });
         enqueued += 1;
@@ -1018,6 +1199,9 @@ export async function claimAiAutomationReviewRun(input: {
   if (!SAFE_WORKER_PATTERN.test(input.workerId)) {
     throw new Error("ai_automation_worker_id_invalid");
   }
+  if (!managedAiLaunchStatus().ready) return null;
+  const readyWorkflowIds = readyAiAutomationWorkflowIds();
+  if (readyWorkflowIds.length === 0) return null;
   const leaseSeconds = Math.min(300, Math.max(30, Math.trunc(input.leaseSeconds ?? 120)));
   const claimed = await withTx(async (client) => {
     const selected = await client.query<RunRow>(
@@ -1029,6 +1213,7 @@ export async function claimAiAutomationReviewRun(input: {
           AND policy.workflow_id = run.workflow_id
         WHERE policy.enabled
           AND policy.policy_version = run.policy_version
+          AND run.workflow_id = ANY($1::text[])
           AND run.expires_at > NOW()
           AND run.attempt_count < run.max_attempts
           AND (
@@ -1047,6 +1232,7 @@ export async function claimAiAutomationReviewRun(input: {
         ORDER BY run.created_at ASC, run.id ASC
         FOR UPDATE OF run SKIP LOCKED
         LIMIT 1`,
+      [readyWorkflowIds],
     );
     const row = selected.rows[0];
     if (!row) return null;
@@ -1185,6 +1371,7 @@ export type RecordAiAutomationReviewResult =
         | "wrong_gate"
         | "lease_invalid"
         | "reviewer_forbidden"
+        | "tenant_isolation_unresolved"
         | "already_reviewed";
     };
 
@@ -1233,6 +1420,12 @@ export async function recordAiAutomationReview(input: {
     (!input.reviewerAdminId || !input.context || !(input.reviewerRoles?.length))
   ) {
     throw new Error("ai_automation_human_review_identity_invalid");
+  }
+  if (
+    input.decision === "approve" &&
+    !managedAiLaunchStatus().ready
+  ) {
+    return { ok: false, reason: AI_TENANT_ISOLATION_BLOCK_REASON };
   }
 
   try {
@@ -1445,13 +1638,20 @@ export async function recordOpenRouterQuotaSnapshot(input: {
   }
 }
 
-export async function recoverExpiredAiAutomationRuns(): Promise<number> {
+export async function recoverExpiredAiAutomationRuns(input?: {
+  tenantId: string;
+  workspaceId: string;
+}): Promise<number> {
+  const tenantId = input?.tenantId ?? null;
+  const workspaceId = input?.workspaceId ?? null;
   const recovered = await withTx(async (client) => {
     const expired = await client.query<RunRow>(
       `SELECT * FROM ai_automation_runs
         WHERE status IN ('queued', 'ai_review', 'manager_review', 'c_level_review', 'approved')
           AND expires_at <= NOW()
+          AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
         FOR UPDATE SKIP LOCKED`,
+      [tenantId, workspaceId],
     );
     let count = 0;
     for (const run of expired.rows) {
@@ -1479,7 +1679,9 @@ export async function recoverExpiredAiAutomationRuns(): Promise<number> {
         WHERE status = 'ai_review'
           AND attempt_count >= max_attempts
           AND lease_expires_at <= NOW()
+          AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
         FOR UPDATE SKIP LOCKED`,
+      [tenantId, workspaceId],
     );
     for (const run of exhausted.rows) {
       await client.query(
@@ -1505,13 +1707,15 @@ export async function recoverExpiredAiAutomationRuns(): Promise<number> {
       `SELECT * FROM ai_automation_runs
         WHERE status = 'executing'
           AND lease_expires_at <= NOW()
+          AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
         FOR UPDATE SKIP LOCKED`,
+      [tenantId, workspaceId],
     );
     for (const run of abandonedExecutions.rows) {
       await client.query(
         `UPDATE ai_automation_runs
-            SET status = 'failed', lease_owner = NULL, lease_expires_at = NULL,
-                failure_code = 'execution_lease_expired'
+            SET status = 'blocked', lease_owner = NULL, lease_expires_at = NULL,
+                failure_code = 'execution_reconciliation_required'
           WHERE id = $1::uuid`,
         [run.id],
       );
@@ -1519,11 +1723,15 @@ export async function recoverExpiredAiAutomationRuns(): Promise<number> {
         tenantId: run.tenant_id,
         workspaceId: run.workspace_id,
         runId: run.id,
-        eventType: "failed",
+        eventType: "blocked",
         fromStatus: "executing",
-        toStatus: "failed",
+        toStatus: "blocked",
         actorType: "system",
-        metadata: { reason: "execution_lease_expired", requires_reconciliation: true },
+        metadata: {
+          reason: "execution_lease_expired",
+          reconciliation_required: true,
+          connector_id: run.execution_connector_id,
+        },
       });
       count += 1;
     }
@@ -1537,39 +1745,53 @@ export async function claimApprovedAiAutomationExecution(input: {
   workspaceId: string;
   runId: string;
   executorId: string;
+  connectorId: string;
+  expectedWorkflowId: AiAutomationWorkflowId;
+  expectedExternalEffect: AiAutomationExecutorBinding["externalEffect"];
   leaseSeconds?: number;
 }): Promise<AiAutomationRunSnapshot | null> {
-  if (!SAFE_WORKER_PATTERN.test(input.executorId)) {
+  if (
+    !SAFE_WORKER_PATTERN.test(input.executorId) ||
+    !SAFE_CONNECTOR_PATTERN.test(input.connectorId)
+  ) {
     throw new Error("ai_automation_executor_id_invalid");
+  }
+  if (!managedAiLaunchStatus().ready) return null;
+  if (!isReadyAiAutomationExecutorBinding({
+    workflowId: input.expectedWorkflowId,
+    connectorId: input.connectorId,
+    externalEffect: input.expectedExternalEffect,
+  })) {
+    return null;
   }
   const leaseSeconds = Math.min(900, Math.max(30, Math.trunc(input.leaseSeconds ?? 300)));
   const claimed = await withTx(async (client) => {
+    await client.query(AI_AUTOMATION_EXECUTION_POLICY_LOCK_SQL, [
+      `ai-automation-execution:${input.tenantId}:${input.workspaceId}:${input.expectedWorkflowId}`,
+    ]);
     const run = await client.query<RunRow>(
-      `SELECT run.*
-         FROM ai_automation_runs run
-         JOIN ai_automation_policies policy
-           ON policy.tenant_id = run.tenant_id
-          AND policy.workspace_id = run.workspace_id
-          AND policy.workflow_id = run.workflow_id
-        WHERE run.id = $1::uuid
-          AND run.tenant_id = $2
-          AND run.workspace_id = $3
-          AND run.status = 'approved'
-          AND run.expires_at > NOW()
-          AND policy.enabled
-          AND policy.policy_version = run.policy_version
-        FOR UPDATE OF run, policy`,
-      [input.runId, input.tenantId, input.workspaceId],
+      AI_AUTOMATION_EXECUTION_CLAIM_SELECT_SQL,
+      [
+        input.runId,
+        input.tenantId,
+        input.workspaceId,
+        input.expectedWorkflowId,
+        input.expectedExternalEffect,
+      ],
     );
     if (!run.rows[0]) return null;
     const updated = await client.query<RunRow>(
-      `UPDATE ai_automation_runs
-          SET status = 'executing', lease_owner = $2,
-              lease_expires_at = NOW() + make_interval(secs => $3)
-        WHERE id = $1::uuid
-        RETURNING *`,
-      [input.runId, input.executorId, leaseSeconds],
+      AI_AUTOMATION_EXECUTION_CLAIM_UPDATE_SQL,
+      [
+        input.runId,
+        input.executorId,
+        leaseSeconds,
+        input.connectorId,
+        input.expectedWorkflowId,
+        input.expectedExternalEffect,
+      ],
     );
+    if (!updated.rows[0]) return null;
     await insertRunEvent(client, {
       tenantId: input.tenantId,
       workspaceId: input.workspaceId,
@@ -1579,6 +1801,11 @@ export async function claimApprovedAiAutomationExecution(input: {
       toStatus: "executing",
       actorType: "worker",
       actorId: input.executorId,
+      metadata: {
+        connector_id: input.connectorId,
+        workflow_id: input.expectedWorkflowId,
+        external_effect: input.expectedExternalEffect,
+      },
     });
     return updated.rows[0];
   });
@@ -1591,65 +1818,9 @@ export async function completeNextApprovedNoEffectAiAutomationRun(input: {
   if (!SAFE_WORKER_PATTERN.test(input.executorId)) {
     throw new Error("ai_automation_executor_id_invalid");
   }
-  const completed = await withTx(async (client) => {
-    const selected = await client.query<RunRow>(
-      `SELECT run.*
-         FROM ai_automation_runs run
-         JOIN ai_automation_policies policy
-           ON policy.tenant_id = run.tenant_id
-          AND policy.workspace_id = run.workspace_id
-          AND policy.workflow_id = run.workflow_id
-        WHERE run.status = 'approved'
-          AND run.external_effect = 'none'
-          AND run.expires_at > NOW()
-          AND policy.enabled
-          AND policy.policy_version = run.policy_version
-        ORDER BY run.approved_at ASC, run.created_at ASC, run.id ASC
-        FOR UPDATE OF run SKIP LOCKED
-        LIMIT 1`,
-    );
-    const run = selected.rows[0];
-    if (!run) return null;
-    await client.query(
-      `UPDATE ai_automation_runs
-          SET status = 'executing', lease_owner = $2,
-              lease_expires_at = NOW() + INTERVAL '60 seconds'
-        WHERE id = $1::uuid`,
-      [run.id, input.executorId],
-    );
-    await insertRunEvent(client, {
-      tenantId: run.tenant_id,
-      workspaceId: run.workspace_id,
-      runId: run.id,
-      eventType: "execution_claimed",
-      fromStatus: "approved",
-      toStatus: "executing",
-      actorType: "worker",
-      actorId: input.executorId,
-      metadata: { mode: "internal_no_effect" },
-    });
-    const updated = await client.query<RunRow>(
-      `UPDATE ai_automation_runs
-          SET status = 'completed', lease_owner = NULL, lease_expires_at = NULL,
-              failure_code = NULL
-        WHERE id = $1::uuid
-        RETURNING *`,
-      [run.id],
-    );
-    await insertRunEvent(client, {
-      tenantId: run.tenant_id,
-      workspaceId: run.workspace_id,
-      runId: run.id,
-      eventType: "completed",
-      fromStatus: "executing",
-      toStatus: "completed",
-      actorType: "worker",
-      actorId: input.executorId,
-      metadata: { mode: "internal_no_effect" },
-    });
-    return updated.rows[0];
-  });
-  return completed.enabled && completed.value ? mapRun(completed.value) : null;
+  // Controlled launch: a governance approval is not an execution artifact.
+  // This legacy status-only executor must never manufacture a completion.
+  return null;
 }
 
 export async function finalizeAiAutomationExecution(input: {
@@ -1657,22 +1828,46 @@ export async function finalizeAiAutomationExecution(input: {
   workspaceId: string;
   runId: string;
   executorId: string;
+  connectorId: string;
+  expectedWorkflowId: AiAutomationWorkflowId;
+  expectedExternalEffect: AiAutomationExecutorBinding["externalEffect"];
+  effectIdempotencyKey: string;
+  effectEvidenceHash: string;
   outcome: "completed" | "failed";
   failureCode?: string | null;
 }): Promise<boolean> {
   if (
     !SAFE_WORKER_PATTERN.test(input.executorId) ||
+    !SAFE_CONNECTOR_PATTERN.test(input.connectorId) ||
+    !SAFE_IDEMPOTENCY_PATTERN.test(input.effectIdempotencyKey) ||
+    !/^[0-9a-f]{64}$/.test(input.effectEvidenceHash) ||
     (input.outcome === "failed" &&
       (!input.failureCode || !SAFE_FAILURE_PATTERN.test(input.failureCode)))
   ) {
     throw new Error("ai_automation_execution_result_invalid");
   }
+  if (!isReadyAiAutomationExecutorBinding({
+    workflowId: input.expectedWorkflowId,
+    connectorId: input.connectorId,
+    externalEffect: input.expectedExternalEffect,
+  })) {
+    return false;
+  }
   const transaction = await withTx(async (client) => {
     const run = await client.query<RunRow>(
       `SELECT * FROM ai_automation_runs
         WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3
+          AND workflow_id = $4 AND external_effect = $5
+          AND execution_connector_id = $6
         FOR UPDATE`,
-      [input.runId, input.tenantId, input.workspaceId],
+      [
+        input.runId,
+        input.tenantId,
+        input.workspaceId,
+        input.expectedWorkflowId,
+        input.expectedExternalEffect,
+        input.connectorId,
+      ],
     );
     const row = run.rows[0];
     if (
@@ -1689,6 +1884,9 @@ export async function finalizeAiAutomationExecution(input: {
         WHERE id = $1::uuid
           AND status = 'executing'
           AND lease_owner = $4
+          AND workflow_id = $5
+          AND external_effect = $6
+          AND execution_connector_id = $7
           AND lease_expires_at > NOW()
         RETURNING id`,
       [
@@ -1696,6 +1894,9 @@ export async function finalizeAiAutomationExecution(input: {
         input.outcome,
         input.outcome === "failed" ? input.failureCode : null,
         input.executorId,
+        input.expectedWorkflowId,
+        input.expectedExternalEffect,
+        input.connectorId,
       ],
     );
     if (!updated.rows[0]) return false;
@@ -1708,7 +1909,14 @@ export async function finalizeAiAutomationExecution(input: {
       toStatus: input.outcome,
       actorType: "worker",
       actorId: input.executorId,
-      metadata: input.failureCode ? { failure_code: input.failureCode } : {},
+      metadata: {
+        connector_id: input.connectorId,
+        effect_idempotency_hash: aiAutomationEvidenceHash(
+          input.effectIdempotencyKey,
+        ),
+        effect_evidence_hash: input.effectEvidenceHash,
+        ...(input.failureCode ? { failure_code: input.failureCode } : {}),
+      },
     });
     return true;
   });

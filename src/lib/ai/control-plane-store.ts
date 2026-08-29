@@ -27,6 +27,12 @@ import {
   decryptAiProviderSecret,
   encryptAiProviderSecret,
 } from "@/lib/security/ai-provider-secret";
+import {
+  AI_TENANT_ISOLATION_BLOCK_REASON,
+  evaluateAiLaunchPolicy,
+  managedAiLaunchStatus,
+  type ManagedAiLaunchStatus,
+} from "./managed-ai-launch-policy";
 
 export type AiProviderSnapshot = {
   providerId: AiProviderId;
@@ -129,6 +135,7 @@ export type AiOpenRouterQuotaSnapshot = {
 };
 
 export type AiControlPlaneSnapshot = {
+  managedLaunch: ManagedAiLaunchStatus;
   providers: AiProviderSnapshot[];
   agents: AiAgentBindingSnapshot[];
   knowledge: AiKnowledgeSnapshot[];
@@ -256,7 +263,11 @@ export type RuntimeAiAgentResolution =
   | { status: "configured"; config: RuntimeAiAgent }
   | {
       status:
-        "disabled" | "unconfigured" | "provider_not_ready" | "unavailable";
+        | "disabled"
+        | "unconfigured"
+        | "provider_not_ready"
+        | "tenant_isolation_unresolved"
+        | "unavailable";
       config: null;
     };
 
@@ -524,6 +535,22 @@ async function advisoryLock(client: PoolClient, scope: string): Promise<void> {
   ]);
 }
 
+function aiAgentAdvisoryScope(input: {
+  tenantId: string;
+  workspaceId: string;
+  agentId: AiAgentId;
+}): string {
+  return `ai-agent:${input.tenantId}:${input.workspaceId}:${input.agentId}`;
+}
+
+function aiSpendAdvisoryScope(input: {
+  tenantId: string;
+  workspaceId: string;
+  agentId: AiAgentId;
+}): string {
+  return `ai-spend:${input.tenantId}:${input.workspaceId}:${input.agentId}`;
+}
+
 export async function loadAiControlPlaneSnapshot(input: {
   tenantId: string;
   workspaceId: string;
@@ -706,6 +733,7 @@ export async function loadAiControlPlaneSnapshot(input: {
           }
         : null;
       return {
+        managedLaunch: managedAiLaunchStatus(),
         providers: AI_PROVIDER_IDS.map((providerId) =>
           providerSnapshot(
             providers.get(providerId) ?? null,
@@ -770,30 +798,191 @@ export type AiSpendAdmission =
 export type AiSpendSettlement =
   | {
       ok: true;
+      reservedUsdMicros: number;
       chargedUsdMicros: number;
       overrunUsdMicros: number;
       status: "settled" | "released";
+      reconciliationRequired: boolean;
+      replayed: boolean;
     }
-  | { ok: false; reason: "not_found" | "scope_mismatch" | "unavailable" };
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "scope_mismatch"
+        | "attempt_mismatch"
+        | "invalid_request"
+        | "unavailable";
+    };
+
+export type AiSpendEgressMark =
+  | {
+      ok: true;
+      attemptId: string;
+      markedAt: string;
+      replayed: boolean;
+    }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "scope_mismatch"
+        | "expired"
+        | "already_marked"
+        | "not_active"
+        | "tenant_isolation_unresolved"
+        | "invalid_request"
+        | "unavailable";
+    };
+
+type AiSpendReservationRow = {
+  tenant_id: string;
+  workspace_id: string;
+  agent_id: AiAgentId;
+  budget_month: string | Date;
+  reserved_usd_micros: string | number;
+  settled_usd_micros: string | number | null;
+  overrun_usd_micros: string | number;
+  egress_attempt_id: string | null;
+  egress_started_at: string | Date | null;
+  reconciliation_required: boolean;
+  status: "active" | "settled" | "released";
+};
+
+export type AiSpendSettlementInput = {
+  tenantId: string;
+  workspaceId: string;
+  agentId: AiAgentId;
+  reservationId: string;
+  accountedCostUsdMicros?: number | null;
+  egressAttemptId?: string | null;
+  /** @deprecated Compatibility only. Attempted legacy calls fail closed. */
+  costUsdMicros?: number | null;
+  /** @deprecated Compatibility only. Call markAiAgentSpendEgress first. */
+  providerAttempted?: boolean;
+};
+
+type NormalizedAiSpendSettlementInput = Omit<
+  AiSpendSettlementInput,
+  "accountedCostUsdMicros" | "egressAttemptId" | "costUsdMicros" | "providerAttempted"
+> & {
+  accountedCostUsdMicros: number | null;
+  egressAttemptId: string | null;
+};
+
+type AiRoutedCostEvidence = {
+  result: { attempts: number };
+  accountedCostUsdMicros?: unknown;
+};
+
+/**
+ * Consumes the failover layer's cumulative cost when available. During a
+ * rolling deployment, an older failover module has no such field; any route
+ * that may have reached a provider then returns unknown so settlement charges
+ * the full reservation instead of undercounting spend.
+ */
+export function accountedAiProviderRouteCost(
+  routed: AiRoutedCostEvidence,
+): number | null {
+  if ("accountedCostUsdMicros" in routed) {
+    const value = routed.accountedCostUsdMicros;
+    if (value === null) return null;
+    if (Number.isSafeInteger(value) && Number(value) >= 0) return Number(value);
+    return null;
+  }
+  return routed.result.attempts === 0 ? 0 : null;
+}
 
 function validSpendIdempotencyKey(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._:/-]{7,199}$/.test(value);
 }
 
-/**
- * Reserves the per-call worst-case charge before provider egress. The monthly
- * row and reservation are committed in one transaction under a scope lock, so
- * concurrent workers cannot collectively authorize more than the configured
- * budget. Expired reservations are reclaimed inside the same lock.
- */
-export async function reserveAiAgentSpend(input: {
+function validUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function reconcileExpiredAiSpendReservations(
+  client: PoolClient,
+  input: Pick<NormalizedAiSpendSettlementInput, "tenantId" | "workspaceId" | "agentId">,
+): Promise<Set<string>> {
+  const expired = await client.query<{
+    id: string;
+    budget_month: string | Date;
+    reserved_usd_micros: string | number;
+    egress_attempt_id: string | null;
+  }>(
+    `UPDATE ai_spend_reservations
+        SET status = CASE
+              WHEN egress_attempt_id IS NULL THEN 'released'
+              ELSE 'settled'
+            END,
+            settled_usd_micros = CASE
+              WHEN egress_attempt_id IS NULL THEN 0
+              ELSE reserved_usd_micros
+            END,
+            overrun_usd_micros = 0,
+            reconciliation_required = (egress_attempt_id IS NOT NULL),
+            settled_at = NOW()
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+        AND status = 'active' AND expires_at <= NOW()
+    RETURNING id, budget_month, reserved_usd_micros, egress_attempt_id`,
+    [input.tenantId, input.workspaceId, input.agentId],
+  );
+  const byMonth = new Map<
+    string,
+    { releasedReserved: number; conservativelyCharged: number }
+  >();
+  for (const row of expired.rows) {
+    const budgetMonth = row.budget_month instanceof Date
+      ? row.budget_month.toISOString().slice(0, 10)
+      : String(row.budget_month).slice(0, 10);
+    const value = byMonth.get(budgetMonth) ?? {
+      releasedReserved: 0,
+      conservativelyCharged: 0,
+    };
+    const reserved = Number(row.reserved_usd_micros);
+    value.releasedReserved += reserved;
+    if (row.egress_attempt_id !== null) value.conservativelyCharged += reserved;
+    byMonth.set(budgetMonth, value);
+  }
+  for (const [budgetMonth, value] of [...byMonth.entries()].sort(([left], [right]) =>
+    left.localeCompare(right)
+  )) {
+    const monthly = await client.query(
+      `UPDATE ai_agent_spend_monthly
+          SET active_reserved_usd_micros = active_reserved_usd_micros - $5,
+              settled_usd_micros = settled_usd_micros + $6,
+              updated_at = NOW()
+        WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+          AND budget_month = $4::date
+          AND active_reserved_usd_micros >= $5`,
+      [
+        input.tenantId,
+        input.workspaceId,
+        input.agentId,
+        budgetMonth,
+        value.releasedReserved,
+        value.conservativelyCharged,
+      ],
+    );
+    if (monthly.rowCount !== 1) throw new Error("ai_spend_expiry_invariant");
+  }
+  return new Set(expired.rows.map((row) => row.id));
+}
+
+type AiSpendReservationInput = {
   tenantId: string;
   workspaceId: string;
   agentId: AiAgentId;
   idempotencyKey: string;
   limits: AiAgentLimits;
   ttlSeconds?: number;
-}): Promise<AiSpendAdmission> {
+};
+
+async function reserveAiAgentSpendWithClient(
+  client: PoolClient,
+  input: AiSpendReservationInput,
+): Promise<AiSpendAdmission> {
   const reservedUsdMicros = input.limits.maxRequestCostUsdMicros;
   const budgetUsdMicros = input.limits.monthlyBudgetUsdMicros;
   const ttlSeconds = Math.max(60, Math.min(3_600, Math.trunc(input.ttlSeconds ?? 900)));
@@ -807,152 +996,164 @@ export async function reserveAiAgentSpend(input: {
   ) {
     return { ok: false, reason: "invalid_request" };
   }
+  await advisoryLock(client, aiSpendAdvisoryScope(input));
+  const month = await client.query<{ budget_month: string | Date }>(
+    "SELECT date_trunc('month', CURRENT_DATE)::date AS budget_month",
+  );
+  const budgetMonth = month.rows[0]?.budget_month;
+  if (!budgetMonth) return { ok: false, reason: "unavailable" };
+
+  await client.query(
+    `INSERT INTO ai_agent_spend_monthly
+       (tenant_id, workspace_id, agent_id, budget_month)
+     VALUES ($1, $2, $3, $4::date)
+     ON CONFLICT DO NOTHING`,
+    [input.tenantId, input.workspaceId, input.agentId, budgetMonth],
+  );
+
+  await reconcileExpiredAiSpendReservations(client, input);
+
+  const existing = await client.query<{ id: string }>(
+    `SELECT reservation.id
+       FROM ai_spend_reservations reservation
+      WHERE reservation.tenant_id = $1 AND reservation.workspace_id = $2
+        AND reservation.agent_id = $3 AND reservation.idempotency_key = $4`,
+    [input.tenantId, input.workspaceId, input.agentId, input.idempotencyKey],
+  );
+  if (existing.rows[0]) return { ok: false, reason: "duplicate_request" };
+
+  const monthly = await client.query<{
+    active_reserved_usd_micros: string | number;
+    settled_usd_micros: string | number;
+  }>(
+    `UPDATE ai_agent_spend_monthly
+        SET active_reserved_usd_micros = active_reserved_usd_micros + $5,
+            updated_at = NOW()
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+        AND budget_month = $4::date
+        AND active_reserved_usd_micros + settled_usd_micros + $5 <= $6
+    RETURNING active_reserved_usd_micros, settled_usd_micros`,
+    [
+      input.tenantId,
+      input.workspaceId,
+      input.agentId,
+      budgetMonth,
+      reservedUsdMicros,
+      budgetUsdMicros,
+    ],
+  );
+  const totals = monthly.rows[0];
+  if (!totals) return { ok: false, reason: "budget_exhausted" };
+  const reservationId = randomUUID();
+  const inserted = await client.query<{ expires_at: string | Date }>(
+    `INSERT INTO ai_spend_reservations
+       (id, tenant_id, workspace_id, agent_id, budget_month,
+        idempotency_key, reserved_usd_micros, expires_at)
+     VALUES ($1::uuid, $2, $3, $4, $5::date, $6, $7,
+             NOW() + make_interval(secs => $8))
+     RETURNING expires_at`,
+    [
+      reservationId,
+      input.tenantId,
+      input.workspaceId,
+      input.agentId,
+      budgetMonth,
+      input.idempotencyKey,
+      reservedUsdMicros,
+      ttlSeconds,
+    ],
+  );
+  return {
+    ok: true,
+    reservation: {
+      reservationId,
+      reservedUsdMicros,
+      activeReservedUsdMicros: Number(totals.active_reserved_usd_micros),
+      settledUsdMicros: Number(totals.settled_usd_micros),
+      budgetUsdMicros,
+      expiresAt: iso(inserted.rows[0]?.expires_at ?? null) ?? new Date(0).toISOString(),
+    },
+  };
+}
+
+/**
+ * Reserves the per-call worst-case charge before provider egress. The monthly
+ * row and reservation are committed in one transaction under a scope lock, so
+ * concurrent workers cannot collectively authorize more than the configured
+ * budget. Expired reservations are reclaimed inside the same lock.
+ */
+export async function reserveAiAgentSpend(
+  input: AiSpendReservationInput,
+): Promise<AiSpendAdmission> {
   try {
-    const result = await withTx(async (client) => {
-      await advisoryLock(
-        client,
-        `ai-spend:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
-      );
-      const month = await client.query<{ budget_month: string | Date }>(
-        "SELECT date_trunc('month', CURRENT_DATE)::date AS budget_month",
-      );
-      const budgetMonth = month.rows[0]?.budget_month;
-      if (!budgetMonth) return { ok: false, reason: "unavailable" } as const;
-
-      await client.query(
-        `INSERT INTO ai_agent_spend_monthly
-           (tenant_id, workspace_id, agent_id, budget_month)
-         VALUES ($1, $2, $3, $4::date)
-         ON CONFLICT DO NOTHING`,
-        [input.tenantId, input.workspaceId, input.agentId, budgetMonth],
-      );
-
-      const expired = await client.query<{ reserved_usd_micros: string | number }>(
-        `UPDATE ai_spend_reservations
-            SET status = 'released', settled_usd_micros = 0,
-                overrun_usd_micros = 0, settled_at = NOW()
-          WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
-            AND budget_month = $4::date AND status = 'active'
-            AND expires_at <= NOW()
-        RETURNING reserved_usd_micros`,
-        [input.tenantId, input.workspaceId, input.agentId, budgetMonth],
-      );
-      const reclaimed = expired.rows.reduce(
-        (sum, row) => sum + Number(row.reserved_usd_micros),
-        0,
-      );
-      if (reclaimed > 0) {
-        const reclaimedMonthly = await client.query(
-          `UPDATE ai_agent_spend_monthly
-              SET active_reserved_usd_micros = active_reserved_usd_micros - $5,
-                  updated_at = NOW()
-            WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
-              AND budget_month = $4::date
-              AND active_reserved_usd_micros >= $5`,
-          [input.tenantId, input.workspaceId, input.agentId, budgetMonth, reclaimed],
-        );
-        if (reclaimedMonthly.rowCount !== 1) {
-          throw new Error("ai_spend_reclaim_invariant");
-        }
-      }
-
-      const existing = await client.query<{ id: string }>(
-        `SELECT reservation.id
-           FROM ai_spend_reservations reservation
-          WHERE reservation.tenant_id = $1 AND reservation.workspace_id = $2
-            AND reservation.agent_id = $3 AND reservation.idempotency_key = $4`,
-        [input.tenantId, input.workspaceId, input.agentId, input.idempotencyKey],
-      );
-      if (existing.rows[0])
-        return { ok: false, reason: "duplicate_request" } as const;
-
-      const monthly = await client.query<{
-        active_reserved_usd_micros: string | number;
-        settled_usd_micros: string | number;
-      }>(
-        `UPDATE ai_agent_spend_monthly
-            SET active_reserved_usd_micros = active_reserved_usd_micros + $5,
-                updated_at = NOW()
-          WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
-            AND budget_month = $4::date
-            AND active_reserved_usd_micros + settled_usd_micros + $5 <= $6
-        RETURNING active_reserved_usd_micros, settled_usd_micros`,
-        [
-          input.tenantId,
-          input.workspaceId,
-          input.agentId,
-          budgetMonth,
-          reservedUsdMicros,
-          budgetUsdMicros,
-        ],
-      );
-      const totals = monthly.rows[0];
-      if (!totals) return { ok: false, reason: "budget_exhausted" } as const;
-      const reservationId = randomUUID();
-      const inserted = await client.query<{ expires_at: string | Date }>(
-        `INSERT INTO ai_spend_reservations
-           (id, tenant_id, workspace_id, agent_id, budget_month,
-            idempotency_key, reserved_usd_micros, expires_at)
-         VALUES ($1::uuid, $2, $3, $4, $5::date, $6, $7,
-                 NOW() + make_interval(secs => $8))
-         RETURNING expires_at`,
-        [
-          reservationId,
-          input.tenantId,
-          input.workspaceId,
-          input.agentId,
-          budgetMonth,
-          input.idempotencyKey,
-          reservedUsdMicros,
-          ttlSeconds,
-        ],
-      );
-      return {
-        ok: true,
-        reservation: {
-          reservationId,
-          reservedUsdMicros,
-          activeReservedUsdMicros: Number(totals.active_reserved_usd_micros),
-          settledUsdMicros: Number(totals.settled_usd_micros),
-          budgetUsdMicros,
-          expiresAt: iso(inserted.rows[0]?.expires_at ?? null) ?? new Date(0).toISOString(),
-        },
-      } as const;
-    });
+    const result = await withTx((client) =>
+      reserveAiAgentSpendWithClient(client, input)
+    );
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
   } catch {
     return { ok: false, reason: "unavailable" };
   }
 }
 
-/** Settles a reservation with provider-reported cost, or releases it pre-egress. */
-export async function settleAiAgentSpend(input: {
+/**
+ * Caller must hold the matching ai-agent advisory lock. A disabled binding is
+ * still managed provenance and therefore closes the environment exception.
+ */
+async function hasNoManagedAiAgentBinding(
+  client: PoolClient,
+  input: { tenantId: string; workspaceId: string; agentId: AiAgentId },
+): Promise<boolean> {
+  const binding = await client.query<{ present: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+         FROM ai_agent_bindings
+        WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+     ) AS present`,
+    [input.tenantId, input.workspaceId, input.agentId],
+  );
+  return binding.rows[0]?.present === false;
+}
+
+/**
+ * Durably records the single provider-egress attempt before any network call.
+ * A reservation that expires after this commit is conservatively charged in
+ * full and left reconciliation-safe instead of being released as unused.
+ */
+export async function markAiAgentSpendEgress(input: {
   tenantId: string;
   workspaceId: string;
   agentId: AiAgentId;
+  configurationSource: RuntimeAiAgent["configurationSource"];
   reservationId: string;
-  costUsdMicros: number | null;
-  providerAttempted: boolean;
-}): Promise<AiSpendSettlement> {
+  attemptId: string;
+}): Promise<AiSpendEgressMark> {
+  if (
+    !isAiAgentId(input.agentId) ||
+    !validUuid(input.reservationId) ||
+    !validUuid(input.attemptId)
+  ) {
+    return { ok: false, reason: "invalid_request" };
+  }
+  const launch = evaluateAiLaunchPolicy(input);
+  if (!launch.allowed) {
+    return { ok: false, reason: launch.reason };
+  }
   try {
     const result = await withTx(async (client) => {
-      await advisoryLock(
-        client,
-        `ai-spend:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
-      );
-      const selected = await client.query<{
-        tenant_id: string;
-        workspace_id: string;
-        agent_id: AiAgentId;
-        budget_month: string | Date;
-        reserved_usd_micros: string | number;
-        settled_usd_micros: string | number | null;
-        overrun_usd_micros: string | number;
-        status: "active" | "settled" | "released";
-      }>(
+      await advisoryLock(client, aiAgentAdvisoryScope(input));
+      if (!(await hasNoManagedAiAgentBinding(client, input))) {
+        return {
+          ok: false,
+          reason: AI_TENANT_ISOLATION_BLOCK_REASON,
+        } as const;
+      }
+      await advisoryLock(client, aiSpendAdvisoryScope(input));
+      const expired = await reconcileExpiredAiSpendReservations(client, input);
+      const selected = await client.query<AiSpendReservationRow>(
         `SELECT tenant_id, workspace_id, agent_id, budget_month,
                 reserved_usd_micros, settled_usd_micros,
-                overrun_usd_micros, status
+                overrun_usd_micros, egress_attempt_id, egress_started_at,
+                reconciliation_required, status
            FROM ai_spend_reservations
           WHERE id = $1::uuid
           FOR UPDATE`,
@@ -965,61 +1166,282 @@ export async function settleAiAgentSpend(input: {
         reservation.workspace_id !== input.workspaceId ||
         reservation.agent_id !== input.agentId
       ) return { ok: false, reason: "scope_mismatch" } as const;
-      if (reservation.status !== "active") {
-        return {
-          ok: true,
-          chargedUsdMicros: Number(reservation.settled_usd_micros ?? 0),
-          overrunUsdMicros: Number(reservation.overrun_usd_micros),
-          status: reservation.status,
-        } as const;
+      if (expired.has(input.reservationId)) {
+        return { ok: false, reason: "expired" } as const;
       }
-      const reserved = Number(reservation.reserved_usd_micros);
-      const reportedCost =
-        input.costUsdMicros !== null &&
-        Number.isSafeInteger(input.costUsdMicros) &&
-        input.costUsdMicros >= 0
-          ? input.costUsdMicros
-          : null;
-      const charged = input.providerAttempted ? (reportedCost ?? reserved) : 0;
-      const overrun = Math.max(0, charged - reserved);
-      const status = input.providerAttempted ? "settled" : "released";
-      await client.query(
+      if (reservation.status !== "active") {
+        return { ok: false, reason: "not_active" } as const;
+      }
+      if (reservation.egress_attempt_id !== null) {
+        if (reservation.egress_attempt_id === input.attemptId) {
+          return {
+            ok: true,
+            attemptId: input.attemptId,
+            markedAt:
+              iso(reservation.egress_started_at) ?? new Date(0).toISOString(),
+            replayed: true,
+          } as const;
+        }
+        return { ok: false, reason: "already_marked" } as const;
+      }
+      const marked = await client.query<{ egress_started_at: string | Date }>(
         `UPDATE ai_spend_reservations
-            SET status = $2, settled_usd_micros = $3,
-                overrun_usd_micros = $4, settled_at = NOW()
-          WHERE id = $1::uuid`,
-        [input.reservationId, status, charged, overrun],
+            SET egress_attempt_id = $2::uuid, egress_started_at = NOW()
+          WHERE id = $1::uuid AND status = 'active'
+            AND egress_attempt_id IS NULL
+        RETURNING egress_started_at`,
+        [input.reservationId, input.attemptId],
       );
-      const monthly = await client.query(
-        `UPDATE ai_agent_spend_monthly
-            SET active_reserved_usd_micros = active_reserved_usd_micros - $5,
-                settled_usd_micros = settled_usd_micros + $6,
-                updated_at = NOW()
-          WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
-            AND budget_month = $4::date
-            AND active_reserved_usd_micros >= $5
-        RETURNING agent_id`,
-        [
-          input.tenantId,
-          input.workspaceId,
-          input.agentId,
-          reservation.budget_month,
-          reserved,
-          charged,
-        ],
-      );
-      if (monthly.rowCount !== 1) throw new Error("ai_spend_monthly_settlement_invariant");
+      if (marked.rowCount !== 1) {
+        throw new Error("ai_spend_egress_mark_invariant");
+      }
       return {
         ok: true,
-        chargedUsdMicros: charged,
-        overrunUsdMicros: overrun,
-        status,
+        attemptId: input.attemptId,
+        markedAt:
+          iso(marked.rows[0]?.egress_started_at ?? null) ??
+          new Date(0).toISOString(),
+        replayed: false,
       } as const;
     });
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
   } catch {
     return { ok: false, reason: "unavailable" };
   }
+}
+
+function normalizeAiSpendSettlementInput(
+  input: AiSpendSettlementInput,
+): NormalizedAiSpendSettlementInput | null {
+  const modern =
+    Object.prototype.hasOwnProperty.call(input, "accountedCostUsdMicros") &&
+    Object.prototype.hasOwnProperty.call(input, "egressAttemptId");
+  if (!modern) {
+    if (
+      input.providerAttempted !== false ||
+      (input.costUsdMicros !== undefined &&
+        input.costUsdMicros !== null &&
+        input.costUsdMicros !== 0)
+    ) return null;
+    return {
+      tenantId: input.tenantId,
+      workspaceId: input.workspaceId,
+      agentId: input.agentId,
+      reservationId: input.reservationId,
+      accountedCostUsdMicros: 0,
+      egressAttemptId: null,
+    };
+  }
+  const accountedCost = input.accountedCostUsdMicros;
+  const attemptId = input.egressAttemptId;
+  if (
+    accountedCost !== null &&
+    (!Number.isSafeInteger(accountedCost) || Number(accountedCost) < 0)
+  ) return null;
+  if (attemptId !== null && (typeof attemptId !== "string" || !validUuid(attemptId))) {
+    return null;
+  }
+  return {
+    tenantId: input.tenantId,
+    workspaceId: input.workspaceId,
+    agentId: input.agentId,
+    reservationId: input.reservationId,
+    accountedCostUsdMicros: accountedCost ?? null,
+    egressAttemptId: attemptId ?? null,
+  };
+}
+
+async function settleAiAgentSpendWithClient(
+  client: PoolClient,
+  input: NormalizedAiSpendSettlementInput,
+): Promise<AiSpendSettlement> {
+  await advisoryLock(
+    client,
+    `ai-spend:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
+  );
+  const selected = await client.query<AiSpendReservationRow>(
+    `SELECT tenant_id, workspace_id, agent_id, budget_month,
+            reserved_usd_micros, settled_usd_micros,
+            overrun_usd_micros, egress_attempt_id, egress_started_at,
+            reconciliation_required, status
+       FROM ai_spend_reservations
+      WHERE id = $1::uuid
+      FOR UPDATE`,
+    [input.reservationId],
+  );
+  const reservation = selected.rows[0];
+  if (!reservation) return { ok: false, reason: "not_found" };
+  if (
+    reservation.tenant_id !== input.tenantId ||
+    reservation.workspace_id !== input.workspaceId ||
+    reservation.agent_id !== input.agentId
+  ) return { ok: false, reason: "scope_mismatch" };
+  if (reservation.egress_attempt_id !== input.egressAttemptId) {
+    return { ok: false, reason: "attempt_mismatch" };
+  }
+
+  const reserved = Number(reservation.reserved_usd_micros);
+  const previousCharged = Number(reservation.settled_usd_micros ?? 0);
+  if (reservation.status === "released") {
+    if (input.accountedCostUsdMicros !== 0) {
+      return { ok: false, reason: "attempt_mismatch" };
+    }
+    return {
+      ok: true,
+      reservedUsdMicros: reserved,
+      chargedUsdMicros: 0,
+      overrunUsdMicros: 0,
+      status: "released",
+      reconciliationRequired: false,
+      replayed: true,
+    };
+  }
+
+  if (reservation.status === "settled") {
+    if (input.accountedCostUsdMicros === null) {
+      return {
+        ok: true,
+        reservedUsdMicros: reserved,
+        chargedUsdMicros: previousCharged,
+        overrunUsdMicros: Number(reservation.overrun_usd_micros),
+        status: "settled",
+        reconciliationRequired: reservation.reconciliation_required,
+        replayed: true,
+      };
+    }
+    const charged = Math.max(previousCharged, input.accountedCostUsdMicros);
+    const overrun = Math.max(0, charged - reserved);
+    const delta = charged - previousCharged;
+    if (delta > 0 || reservation.reconciliation_required) {
+      await client.query(
+        `UPDATE ai_spend_reservations
+            SET settled_usd_micros = $2, overrun_usd_micros = $3,
+                reconciliation_required = FALSE
+          WHERE id = $1::uuid`,
+        [input.reservationId, charged, overrun],
+      );
+      if (delta > 0) {
+        const monthly = await client.query(
+          `UPDATE ai_agent_spend_monthly
+              SET settled_usd_micros = settled_usd_micros + $5,
+                  updated_at = NOW()
+            WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+              AND budget_month = $4::date`,
+          [
+            input.tenantId,
+            input.workspaceId,
+            input.agentId,
+            reservation.budget_month,
+            delta,
+          ],
+        );
+        if (monthly.rowCount !== 1) {
+          throw new Error("ai_spend_late_settlement_invariant");
+        }
+      }
+    }
+    return {
+      ok: true,
+      reservedUsdMicros: reserved,
+      chargedUsdMicros: charged,
+      overrunUsdMicros: overrun,
+      status: "settled",
+      reconciliationRequired: false,
+      replayed: delta === 0 && !reservation.reconciliation_required,
+    };
+  }
+
+  const attempted = input.egressAttemptId !== null;
+  if (!attempted && input.accountedCostUsdMicros !== 0) {
+    return { ok: false, reason: "invalid_request" };
+  }
+  const charged = attempted
+    ? (input.accountedCostUsdMicros ?? reserved)
+    : 0;
+  const overrun = Math.max(0, charged - reserved);
+  const status = attempted ? "settled" : "released";
+  const reconciliationRequired = attempted && input.accountedCostUsdMicros === null;
+  await client.query(
+    `UPDATE ai_spend_reservations
+        SET status = $2, settled_usd_micros = $3,
+            overrun_usd_micros = $4, reconciliation_required = $5,
+            settled_at = NOW()
+      WHERE id = $1::uuid`,
+    [
+      input.reservationId,
+      status,
+      charged,
+      overrun,
+      reconciliationRequired,
+    ],
+  );
+  const monthly = await client.query(
+    `UPDATE ai_agent_spend_monthly
+        SET active_reserved_usd_micros = active_reserved_usd_micros - $5,
+            settled_usd_micros = settled_usd_micros + $6,
+            updated_at = NOW()
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+        AND budget_month = $4::date
+        AND active_reserved_usd_micros >= $5`,
+    [
+      input.tenantId,
+      input.workspaceId,
+      input.agentId,
+      reservation.budget_month,
+      reserved,
+      charged,
+    ],
+  );
+  if (monthly.rowCount !== 1) {
+    throw new Error("ai_spend_monthly_settlement_invariant");
+  }
+  return {
+    ok: true,
+    reservedUsdMicros: reserved,
+    chargedUsdMicros: charged,
+    overrunUsdMicros: overrun,
+    status,
+    reconciliationRequired,
+    replayed: false,
+  };
+}
+
+/** Settles the marked attempt, or releases a reservation that never reached egress. */
+export async function settleAiAgentSpend(
+  rawInput: AiSpendSettlementInput,
+): Promise<AiSpendSettlement> {
+  const input = normalizeAiSpendSettlementInput(rawInput);
+  if (
+    !input ||
+    !isAiAgentId(input.agentId) ||
+    !validUuid(input.reservationId)
+  ) return { ok: false, reason: "invalid_request" };
+  try {
+    const result = await withTx((client) =>
+      settleAiAgentSpendWithClient(client, input)
+    );
+    return result.enabled ? result.value : { ok: false, reason: "unavailable" };
+  } catch {
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+/**
+ * Best-effort cleanup after a pre-egress mark failure. If a mark actually
+ * committed, the null attempt cannot match and settlement safely refuses to
+ * release it; an unmarked reservation is released immediately.
+ */
+export async function releaseUnmarkedAiAgentSpend(input: {
+  tenantId: string;
+  workspaceId: string;
+  agentId: AiAgentId;
+  reservationId: string;
+}): Promise<AiSpendSettlement> {
+  return settleAiAgentSpend({
+    ...input,
+    accountedCostUsdMicros: 0,
+    egressAttemptId: null,
+  });
 }
 
 /**
@@ -1033,9 +1455,16 @@ export async function loadVerifiedAiKnowledgeContext(input: {
   workspaceId: string;
   query: string;
   limit?: number;
-}): Promise<VerifiedAiKnowledgeContextItem[] | "unavailable"> {
+}): Promise<
+  | VerifiedAiKnowledgeContextItem[]
+  | "tenant_isolation_unresolved"
+  | "unavailable"
+> {
   const query = input.query.trim().slice(0, 2_000);
   const limit = Math.max(1, Math.min(8, Math.trunc(input.limit ?? 6)));
+  if (!managedAiLaunchStatus().ready) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
   try {
     const result = await withDb(async (client) => {
       const rows = await client.query<KnowledgeRow>(
@@ -1192,6 +1621,7 @@ export type AiExecutionAdmission =
         | "token_limit"
         | "budget_exhausted"
         | "duplicate_request"
+        | "tenant_isolation_unresolved"
         | "invalid_request"
         | "unavailable";
     };
@@ -1204,12 +1634,35 @@ export async function admitAiAgentExecution(input: {
   tenantId: string;
   workspaceId: string;
   agentId: AiAgentId;
+  configurationSource: RuntimeAiAgent["configurationSource"];
   idempotencyKey: string;
   estimatedInputTokens: number;
   maxOutputTokens: number;
   limits: AiAgentLimits;
 }): Promise<AiExecutionAdmission> {
-  const spend = await reserveAiAgentSpend(input);
+  const launch = evaluateAiLaunchPolicy(input);
+  if (!launch.allowed) return { ok: false, reason: launch.reason };
+  let spend: AiSpendAdmission | {
+    ok: false;
+    reason: typeof AI_TENANT_ISOLATION_BLOCK_REASON;
+  };
+  try {
+    const result = await withTx(async (client) => {
+      await advisoryLock(client, aiAgentAdvisoryScope(input));
+      if (!(await hasNoManagedAiAgentBinding(client, input))) {
+        return {
+          ok: false,
+          reason: AI_TENANT_ISOLATION_BLOCK_REASON,
+        } as const;
+      }
+      return reserveAiAgentSpendWithClient(client, input);
+    });
+    spend = result.enabled
+      ? result.value
+      : { ok: false, reason: "unavailable" };
+  } catch {
+    spend = { ok: false, reason: "unavailable" };
+  }
   if (!spend.ok) return spend;
   const usage = await admitAiAgentUsage(input);
   if (!usage.ok) {
@@ -1218,8 +1671,8 @@ export async function admitAiAgentExecution(input: {
       workspaceId: input.workspaceId,
       agentId: input.agentId,
       reservationId: spend.reservation.reservationId,
-      costUsdMicros: 0,
-      providerAttempted: false,
+      accountedCostUsdMicros: 0,
+      egressAttemptId: null,
     });
     return usage;
   }
@@ -1232,7 +1685,15 @@ export async function updateAiProvider(
     enabled: boolean;
     apiKey?: string;
   },
-): Promise<AiProviderSnapshot | "secret_required" | "unavailable"> {
+): Promise<
+  | AiProviderSnapshot
+  | "secret_required"
+  | "tenant_isolation_unresolved"
+  | "unavailable"
+> {
+  if (input.enabled && !managedAiLaunchStatus().ready) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
   try {
     const result = await withTx(async (client) => {
       const lockScope = `ai-provider:${providerScope(input.tenantId, input.workspaceId, input.providerId)}`;
@@ -1346,7 +1807,12 @@ export async function resolveAiProviderForTest(input: {
   tenantId: string;
   workspaceId: string;
   providerId: AiProviderId;
-}): Promise<{ apiKey: string } | null> {
+}): Promise<
+  { apiKey: string } | "tenant_isolation_unresolved" | null
+> {
+  if (!managedAiLaunchStatus().ready) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
   try {
     const result = await withDb((client) =>
       selectProvider(
@@ -1486,6 +1952,7 @@ export async function updateAiAgentBinding(
   | "provider_not_configured"
   | "provider_not_ready"
   | "fallback_provider_not_ready"
+  | "tenant_isolation_unresolved"
   | "unavailable"
 > {
   const model = input.model.trim();
@@ -1535,11 +2002,14 @@ export async function updateAiAgentBinding(
   } catch {
     return "provider_forbidden";
   }
+  if (input.enabled && !managedAiLaunchStatus().ready) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
   try {
     const result = await withTx(async (client) => {
       await advisoryLock(
         client,
-        `ai-agent:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
+        aiAgentAdvisoryScope(input),
       );
       const before = await selectAgent(
         client,
@@ -1733,6 +2203,7 @@ export async function replaceAiAgentRouteCandidates(
   | "invalid_candidates"
   | "provider_forbidden"
   | "provider_not_ready"
+  | "tenant_isolation_unresolved"
   | "unavailable"
 > {
   const definition = aiAgentDefinition(input.agentId);
@@ -1751,6 +2222,7 @@ export async function replaceAiAgentRouteCandidates(
       !Number.isSafeInteger(candidate.estimatedMaxCostUsdMicros) ||
       candidate.estimatedMaxCostUsdMicros < 0 ||
       candidate.estimatedMaxCostUsdMicros > definition.defaultLimits.maxRequestCostUsdMicros ||
+      (!candidate.free && candidate.estimatedMaxCostUsdMicros < 1_000) ||
       !Number.isSafeInteger(candidate.expectedLatencyMs) ||
       candidate.expectedLatencyMs < 100 ||
       candidate.expectedLatencyMs > 30_000 ||
@@ -1779,6 +2251,12 @@ export async function replaceAiAgentRouteCandidates(
     }
     identities.add(identity);
     priorities.add(candidate.priority);
+  }
+  if (
+    input.candidates.some((candidate) => candidate.enabled) &&
+    !managedAiLaunchStatus().ready
+  ) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
   }
 
   try {
@@ -1818,14 +2296,18 @@ export async function replaceAiAgentRouteCandidates(
           providerId,
           true,
         );
+        const providerRequired = input.candidates.some(
+          (candidate) => candidate.providerId === providerId && candidate.enabled,
+        );
         if (
-          !provider?.enabled ||
-          !provider.encrypted_api_key ||
-          provider.last_test_status !== "passed"
+          providerRequired &&
+          (!provider?.enabled ||
+            !provider.encrypted_api_key ||
+            provider.last_test_status !== "passed")
         ) {
           return "provider_not_ready" as const;
         }
-        providerRows.set(providerId, provider);
+        if (provider) providerRows.set(providerId, provider);
       }
       const revision = Math.max(0, ...before.map((row) => Number(row.revision))) + 1;
       await client.query(
@@ -1902,7 +2384,19 @@ export async function replaceAiAgentRouteCandidates(
   }
 }
 
-function environmentMentorResolution(): RuntimeAiAgentResolution {
+function environmentMentorResolution(
+  tenantId: string,
+  workspaceId: string,
+): RuntimeAiAgentResolution {
+  const launch = evaluateAiLaunchPolicy({
+    tenantId,
+    workspaceId,
+    agentId: "mentor_coach",
+    configurationSource: "environment",
+  });
+  if (!launch.allowed) {
+    return { status: launch.reason, config: null };
+  }
   const apiKey = environmentKey("openai");
   if (!apiKey) return { status: "unconfigured", config: null };
   const definition = aiAgentDefinition("mentor_coach");
@@ -1949,10 +2443,19 @@ export async function resolveRuntimeAiAgent(
           tenantId === PLATFORM.DEFAULT_TENANT_ID &&
           workspaceId === PLATFORM.DEFAULT_WORKSPACE_ID;
         return agentId === "mentor_coach" && environmentFallbackAllowed
-          ? environmentMentorResolution()
+          ? environmentMentorResolution(tenantId, workspaceId)
           : ({ status: "unconfigured", config: null } as const);
       }
       if (!agent.enabled) return { status: "disabled", config: null } as const;
+      const launch = evaluateAiLaunchPolicy({
+        tenantId,
+        workspaceId,
+        agentId,
+        configurationSource: "managed",
+      });
+      if (!launch.allowed) {
+        return { status: launch.reason, config: null } as const;
+      }
       if (!isAiModelProviderId(agent.provider_id))
         return { status: "unconfigured", config: null } as const;
       assertAiAgentProviderAllowed(agentId, agent.provider_id);
@@ -2075,7 +2578,7 @@ export function aiEvidenceHash(namespace: string, value: string): string {
     .digest("hex");
 }
 
-export async function recordAiRoutingDecision(input: {
+export type AiRoutingDecisionInput = {
   tenantId: string;
   workspaceId: string;
   runId: string;
@@ -2090,17 +2593,92 @@ export async function recordAiRoutingDecision(input: {
   approvalMode: AiApprovalMode;
   spendReservationId?: string | null;
   decisionHash?: string | null;
-}): Promise<boolean> {
-  if (
+  requestedModel?: string | null;
+  actualModel?: string | null;
+  providerAttemptCount?: number;
+  reservedUsdMicros?: number | null;
+  accountedCostUsdMicros?: number | null;
+  overrunUsdMicros?: number | null;
+};
+
+function validAiRoutingDecisionInput(input: AiRoutingDecisionInput): boolean {
+  return !(
     !isAiAgentId(input.agentId) ||
     (input.providerId !== null && !isAiModelProviderId(input.providerId)) ||
+    !isAiDataClass(input.dataClass) ||
+    !validUuid(input.runId) ||
+    (input.spendReservationId != null && !validUuid(input.spendReservationId)) ||
+    (input.requestedModel != null && !MODEL_PATTERN.test(input.requestedModel)) ||
+    (input.actualModel != null && !MODEL_PATTERN.test(input.actualModel)) ||
     !/^[a-z][a-z0-9_]{2,79}$/.test(input.decisionCode) ||
     !Number.isSafeInteger(input.candidateCount) ||
     input.candidateCount < 0 ||
-    input.candidateCount > 20
+    input.candidateCount > 20 ||
+    !Number.isSafeInteger(input.providerAttemptCount ?? 0) ||
+    (input.providerAttemptCount ?? 0) < 0 ||
+    (input.providerAttemptCount ?? 0) > 20
+  );
+}
+
+async function insertAiRoutingDecision(
+  client: PoolClient,
+  input: AiRoutingDecisionInput,
+): Promise<boolean> {
+  if (!validAiRoutingDecisionInput(input)) return false;
+  let reservedUsdMicros: number | null = null;
+  let accountedCostUsdMicros: number | null = null;
+  let overrunUsdMicros: number | null = null;
+  if (input.spendReservationId) {
+    const spend = await client.query<{
+      reserved_usd_micros: string | number;
+      settled_usd_micros: string | number | null;
+      overrun_usd_micros: string | number;
+    }>(
+      `SELECT reserved_usd_micros, settled_usd_micros, overrun_usd_micros
+         FROM ai_spend_reservations
+        WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3
+          AND agent_id = $4`,
+      [
+        input.spendReservationId,
+        input.tenantId,
+        input.workspaceId,
+        input.agentId,
+      ],
+    );
+    const reservation = spend.rows[0];
+    if (!reservation || reservation.settled_usd_micros === null) return false;
+    reservedUsdMicros = Number(reservation.reserved_usd_micros);
+    accountedCostUsdMicros = Number(reservation.settled_usd_micros);
+    overrunUsdMicros = Number(reservation.overrun_usd_micros);
+    if (
+      (input.reservedUsdMicros != null &&
+        input.reservedUsdMicros !== reservedUsdMicros) ||
+      (input.accountedCostUsdMicros != null &&
+        input.accountedCostUsdMicros !== accountedCostUsdMicros) ||
+      (input.overrunUsdMicros != null &&
+        input.overrunUsdMicros !== overrunUsdMicros)
+    ) return false;
+  } else if (
+    input.reservedUsdMicros != null ||
+    input.accountedCostUsdMicros != null ||
+    input.overrunUsdMicros != null
+  ) {
+    return false;
+  }
+  if (
+    input.spendReservationId &&
+    (!Number.isSafeInteger(reservedUsdMicros) ||
+      Number(reservedUsdMicros) < 1_000 ||
+      !Number.isSafeInteger(accountedCostUsdMicros) ||
+      Number(accountedCostUsdMicros) < 0 ||
+      !Number.isSafeInteger(overrunUsdMicros) ||
+      Number(overrunUsdMicros) !== Math.max(
+        Number(accountedCostUsdMicros) - Number(reservedUsdMicros),
+        0,
+      ))
   ) return false;
   const hash = input.decisionHash?.trim() || aiEvidenceHash(
-    "routing-decision-v2",
+    "routing-decision-v3",
     JSON.stringify({
       runId: input.runId,
       agentId: input.agentId,
@@ -2113,41 +2691,156 @@ export async function recordAiRoutingDecision(input: {
       externalEffect: input.externalEffect,
       approvalMode: input.approvalMode,
       spendReservationId: input.spendReservationId ?? null,
+      requestedModel: input.requestedModel ?? null,
+      actualModel: input.actualModel ?? null,
+      providerAttemptCount: input.providerAttemptCount ?? 0,
+      reservedUsdMicros,
+      accountedCostUsdMicros,
+      overrunUsdMicros,
     }),
   );
   if (!/^[0-9a-f]{64}$/.test(hash)) return false;
+  const inserted = await client.query<{ id: string }>(
+    `INSERT INTO ai_routing_decision_events
+       (tenant_id, workspace_id, run_id, agent_id, provider_id,
+        route_mode, decision_code, candidate_count, data_class,
+        criticality, external_effect, approval_mode,
+        spend_reservation_id, requested_model, actual_model,
+        provider_attempt_count, reserved_usd_micros,
+        accounted_cost_usd_micros, overrun_usd_micros, decision_hash)
+     VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, $10,
+             $11, $12, $13::uuid, $14, $15, $16, $17, $18, $19, $20)
+     ON CONFLICT (tenant_id, workspace_id, agent_id, spend_reservation_id)
+       WHERE spend_reservation_id IS NOT NULL
+     DO NOTHING
+     RETURNING id`,
+    [
+      input.tenantId,
+      input.workspaceId,
+      input.runId,
+      input.agentId,
+      input.providerId,
+      input.routeMode,
+      input.decisionCode,
+      input.candidateCount,
+      input.dataClass,
+      input.criticality,
+      input.externalEffect,
+      input.approvalMode,
+      input.spendReservationId ?? null,
+      input.requestedModel ?? null,
+      input.actualModel ?? null,
+      input.providerAttemptCount ?? 0,
+      reservedUsdMicros,
+      accountedCostUsdMicros,
+      overrunUsdMicros,
+      hash,
+    ],
+  );
+  if (inserted.rowCount === 1) return true;
+  if (!input.spendReservationId) return false;
+  const replay = await client.query<{
+    run_id: string;
+    provider_id: AiModelProviderId | null;
+    route_mode: AiRoutingDecisionInput["routeMode"];
+    decision_code: string;
+    candidate_count: number;
+    data_class: AiDataClass;
+    criticality: AiRoutingDecisionInput["criticality"];
+    external_effect: boolean;
+    approval_mode: AiApprovalMode;
+    requested_model: string | null;
+    actual_model: string | null;
+    provider_attempt_count: number;
+    reserved_usd_micros: string | number;
+    accounted_cost_usd_micros: string | number;
+    overrun_usd_micros: string | number;
+    decision_hash: string;
+  }>(
+    `SELECT run_id, provider_id, route_mode, decision_code, candidate_count,
+            data_class, criticality, external_effect, approval_mode,
+            requested_model, actual_model, provider_attempt_count,
+            reserved_usd_micros, accounted_cost_usd_micros,
+            overrun_usd_micros, decision_hash
+       FROM ai_routing_decision_events
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+        AND spend_reservation_id = $4::uuid`,
+    [
+      input.tenantId,
+      input.workspaceId,
+      input.agentId,
+      input.spendReservationId,
+    ],
+  );
+  const existing = replay.rows[0];
+  return Boolean(
+    existing &&
+      existing.run_id === input.runId &&
+      existing.provider_id === input.providerId &&
+      existing.route_mode === input.routeMode &&
+      existing.decision_code === input.decisionCode &&
+      existing.candidate_count === input.candidateCount &&
+      existing.data_class === input.dataClass &&
+      existing.criticality === input.criticality &&
+      existing.external_effect === input.externalEffect &&
+      existing.approval_mode === input.approvalMode &&
+      existing.requested_model === (input.requestedModel ?? null) &&
+      existing.actual_model === (input.actualModel ?? null) &&
+      existing.provider_attempt_count === (input.providerAttemptCount ?? 0) &&
+      Number(existing.reserved_usd_micros) === reservedUsdMicros &&
+      Number(existing.accounted_cost_usd_micros) === accountedCostUsdMicros &&
+      Number(existing.overrun_usd_micros) === overrunUsdMicros &&
+      existing.decision_hash === hash
+  );
+}
+
+export async function recordAiRoutingDecision(
+  input: AiRoutingDecisionInput,
+): Promise<boolean> {
   try {
     const result = await withDb(async (client) => {
-      await client.query(
-        `INSERT INTO ai_routing_decision_events
-           (tenant_id, workspace_id, run_id, agent_id, provider_id,
-            route_mode, decision_code, candidate_count, data_class,
-            criticality, external_effect, approval_mode,
-            spend_reservation_id, decision_hash)
-         VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, $10,
-                 $11, $12, $13::uuid, $14)`,
-        [
-          input.tenantId,
-          input.workspaceId,
-          input.runId,
-          input.agentId,
-          input.providerId,
-          input.routeMode,
-          input.decisionCode,
-          input.candidateCount,
-          input.dataClass,
-          input.criticality,
-          input.externalEffect,
-          input.approvalMode,
-          input.spendReservationId ?? null,
-          hash,
-        ],
-      );
-      return true;
+      return insertAiRoutingDecision(client, input);
     });
     return result.enabled && result.value;
   } catch {
     return false;
+  }
+}
+
+export async function settleAiAgentSpendAndRecordRoutingDecision(input: {
+  settlement: AiSpendSettlementInput;
+  routing: AiRoutingDecisionInput;
+}): Promise<
+  | { ok: true; settlement: Extract<AiSpendSettlement, { ok: true }> }
+  | { ok: false; reason: Exclude<AiSpendSettlement, { ok: true }>["reason"] }
+> {
+  const settlementInput = normalizeAiSpendSettlementInput(input.settlement);
+  if (
+    !settlementInput ||
+    !isAiAgentId(settlementInput.agentId) ||
+    !validUuid(settlementInput.reservationId) ||
+    !validAiRoutingDecisionInput(input.routing) ||
+    input.routing.spendReservationId !== settlementInput.reservationId ||
+    input.routing.tenantId !== settlementInput.tenantId ||
+    input.routing.workspaceId !== settlementInput.workspaceId ||
+    input.routing.agentId !== settlementInput.agentId
+  ) return { ok: false, reason: "invalid_request" };
+  try {
+    const result = await withTx(async (client) => {
+      const settlement = await settleAiAgentSpendWithClient(client, settlementInput);
+      if (!settlement.ok) return settlement;
+      const recorded = await insertAiRoutingDecision(client, {
+        ...input.routing,
+        reservedUsdMicros: settlement.reservedUsdMicros,
+        accountedCostUsdMicros: settlement.chargedUsdMicros,
+        overrunUsdMicros: settlement.overrunUsdMicros,
+      });
+      if (!recorded) throw new Error("ai_routing_evidence_invariant");
+      return { ok: true, settlement } as const;
+    });
+    return result.enabled ? result.value : { ok: false, reason: "unavailable" };
+  } catch {
+    return { ok: false, reason: "unavailable" };
   }
 }
 
@@ -2232,7 +2925,7 @@ export async function createAiKnowledgeCandidate(input: {
   dataClass: AiKnowledgeSnapshot["dataClass"];
   derivedByAgent: AiAgentId;
   actorAdminId?: string | null;
-}): Promise<AiKnowledgeSnapshot | null> {
+}): Promise<AiKnowledgeSnapshot | "tenant_isolation_unresolved" | null> {
   const statement = input.statement.trim();
   const subjectType = input.subjectType.trim();
   const subjectId = input.subjectId?.trim() || null;
@@ -2258,6 +2951,9 @@ export async function createAiKnowledgeCandidate(input: {
     input.dataClass !== "approved_platform_content"
   )
     return null;
+  if (!managedAiLaunchStatus().ready) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
   const contentHash = aiEvidenceHash(
     "knowledge",
     [input.knowledgeType, subjectType, subjectId ?? "", statement].join("\0"),
@@ -2329,8 +3025,15 @@ export async function reviewAiKnowledgeItem(
     reviewNote: string;
   },
 ): Promise<
-  AiKnowledgeSnapshot | "not_found" | "invalid_state" | "unavailable"
+  | AiKnowledgeSnapshot
+  | "not_found"
+  | "invalid_state"
+  | "tenant_isolation_unresolved"
+  | "unavailable"
 > {
+  if (input.decision === "verified" && !managedAiLaunchStatus().ready) {
+    return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
   try {
     const result = await withTx(async (client) => {
       await advisoryLock(

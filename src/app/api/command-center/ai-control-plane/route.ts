@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { apiError, apiOk, apiRateLimited, Validate } from "@/lib/api-validation";
 import { authorizeAdminRequest } from "@/lib/admin-control-plane";
 import {
+  aiAgentDefinition,
   isAiAgentId,
   isAiDataClass,
   isAiModelProviderId,
@@ -11,17 +12,20 @@ import {
   type AiModelProviderId,
 } from "@/lib/ai/control-plane-catalog";
 import {
+  accountedAiProviderRouteCost,
   admitAiAgentExecution,
   aiEvidenceHash,
   createAiKnowledgeCandidate,
   loadAiControlPlaneSnapshot,
+  markAiAgentSpendEgress,
+  releaseUnmarkedAiAgentSpend,
   recordAiProviderTest,
-  recordAiRoutingDecision,
   recordAiWorkflowEvidence,
   replaceAiAgentRouteCandidates,
   resolveAiProviderForTest,
   resolveRuntimeAiAgent,
   settleAiAgentSpend,
+  settleAiAgentSpendAndRecordRoutingDecision,
   reviewAiKnowledgeItem,
   safeAiCatalogForAdmin,
   updateAiAgentBinding,
@@ -31,6 +35,7 @@ import {
   type AiRouteCandidateInput,
 } from "@/lib/ai/control-plane-store";
 import { recordOpenRouterQuotaSnapshot } from "@/lib/ai/automation-store";
+import { managedAiLaunchStatus } from "@/lib/ai/managed-ai-launch-policy";
 import { callAiProvider, inspectOpenRouterKey, testXApiConnector } from "@/lib/ai/provider-router";
 import { callAiProviderWithFailover } from "@/lib/ai/provider-failover";
 import {
@@ -206,6 +211,13 @@ function providerFailureStatus(reason: string): number {
   return 502;
 }
 
+function tenantIsolationError() {
+  const launch = managedAiLaunchStatus();
+  return apiError("ai_tenant_isolation_unresolved", 503, {
+    blocker: launch.blocker,
+  });
+}
+
 export async function GET(request: NextRequest) {
   return withObservability(request, { route: "/api/command-center/ai-control-plane GET" }, async () => {
     const limited = await rateLimit(request, {
@@ -263,6 +275,7 @@ export async function PUT(request: NextRequest) {
         enabled: body.enabled,
         apiKey,
       });
+      if (result === "tenant_isolation_unresolved") return tenantIsolationError();
       if (result === "secret_required") return apiError("ai_provider_secret_required", 422);
       if (result === "unavailable") return apiError("ai_provider_write_failed", 503);
       return apiOk({ provider: result }, 200, { "Cache-Control": "private, no-store", Vary: "Cookie" });
@@ -292,6 +305,7 @@ export async function PUT(request: NextRequest) {
         limits,
         routing,
       });
+      if (result === "tenant_isolation_unresolved") return tenantIsolationError();
       if (result === "provider_forbidden") return apiError("ai_agent_provider_forbidden", 422);
       if (result === "provider_not_configured") return apiError("ai_agent_provider_not_configured", 422);
       if (result === "provider_not_ready") return apiError("ai_agent_provider_not_ready", 422);
@@ -311,6 +325,7 @@ export async function PUT(request: NextRequest) {
         agentId: body.agentId,
         candidates,
       });
+      if (result === "tenant_isolation_unresolved") return tenantIsolationError();
       if (result === "agent_not_configured") return apiError("ai_agent_not_configured", 422);
       if (result === "invalid_candidates") return apiError("ai_agent_routes_invalid", 422);
       if (result === "provider_forbidden") return apiError("ai_agent_provider_forbidden", 422);
@@ -333,11 +348,13 @@ async function testProvider(
 ) {
   if (!isAiProviderId(body.providerId)) return apiError("invalid_ai_provider_test", 400);
   const providerId = body.providerId;
+  if (!managedAiLaunchStatus().ready) return tenantIsolationError();
   const secret = await resolveAiProviderForTest({
     tenantId: authorization.principal.tenantId,
     workspaceId: authorization.principal.workspaceId,
     providerId,
   });
+  if (secret === "tenant_isolation_unresolved") return tenantIsolationError();
   if (!secret) return apiError("ai_provider_secret_required", 422);
 
   let passed = false;
@@ -351,23 +368,90 @@ async function testProvider(
   } else {
     const model = modelName(body.model);
     if (!model) return apiError("invalid_ai_provider_test", 400);
+    const agentId = TEST_AGENT_BY_PROVIDER[providerId];
+    const definition = aiAgentDefinition(agentId);
+    const probeLimits: AiAgentLimits = {
+      ...definition.defaultLimits,
+      maxInputTokens: Math.min(definition.defaultLimits.maxInputTokens, 512),
+      maxOutputTokens: Math.min(definition.defaultLimits.maxOutputTokens, 128),
+      maxRequestCostUsdMicros: Math.min(
+        definition.defaultLimits.maxRequestCostUsdMicros,
+        100_000,
+      ),
+    };
+    const probeId = randomUUID();
+    const probeInput = "Connectivity test with no user or platform data.";
+    const probe = await admitAiAgentExecution({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      agentId,
+      configurationSource: "managed",
+      idempotencyKey: `provider-test:${providerId}:${probeId}`,
+      estimatedInputTokens: Math.ceil(probeInput.length / 3.2),
+      maxOutputTokens: probeLimits.maxOutputTokens,
+      limits: probeLimits,
+    });
+    if (!probe.ok) {
+      if (probe.reason === "tenant_isolation_unresolved") {
+        return tenantIsolationError();
+      }
+      return apiError(
+        `ai_provider_test_${probe.reason}`,
+        probe.reason === "unavailable" ? 503 : 429,
+      );
+    }
+    const probeAttemptId = randomUUID();
+    const probeEgress = await markAiAgentSpendEgress({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      agentId,
+      configurationSource: "managed",
+      reservationId: probe.spend.reservationId,
+      attemptId: probeAttemptId,
+    });
+    if (!probeEgress.ok) {
+      await releaseUnmarkedAiAgentSpend({
+        tenantId: authorization.principal.tenantId,
+        workspaceId: authorization.principal.workspaceId,
+        agentId,
+        reservationId: probe.spend.reservationId,
+      });
+      if (probeEgress.reason === "tenant_isolation_unresolved") {
+        return tenantIsolationError();
+      }
+      return apiError(
+        `ai_provider_test_spend_egress_${probeEgress.reason}`,
+        503,
+      );
+    }
     const result = await callAiProvider({
       providerId,
-      agentId: TEST_AGENT_BY_PROVIDER[providerId],
+      agentId,
       apiKey: secret.apiKey,
       model,
       instructions: "Return exactly TECPEY_PROVIDER_OK. Do not use tools and do not include any other text.",
-      input: "Connectivity test with no user or platform data.",
+      input: probeInput,
       timeoutMs: 12_000,
-      // OpenRouter's free router can select a reasoning model whose thinking
-      // tokens count against this ceiling. Give that non-user-data probe enough
-      // headroom for a final answer while keeping every other provider on the
-      // normal runtime budget.
-      maxOutputTokens: providerId === "openrouter" ? 8_192 : 1_200,
-      circuitScope: `${authorization.principal.tenantId}:${authorization.principal.workspaceId}`,
+      maxOutputTokens: probeLimits.maxOutputTokens,
+      circuitScope: `${authorization.principal.tenantId}:${authorization.principal.workspaceId}:provider-test:${agentId}:${model}`,
       toolsEnabled: false,
       requestSignal: request.signal,
     });
+    const settlement = await settleAiAgentSpend({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      agentId,
+      reservationId: probe.spend.reservationId,
+      accountedCostUsdMicros: result.attempts === 0
+        ? 0
+        : result.ok
+          ? result.costUsdMicros
+          : null,
+      egressAttemptId: probeAttemptId,
+    });
+    if (!settlement.ok) {
+      return apiError("ai_provider_test_spend_settlement_unavailable", 503);
+    }
     // Connectivity is proven by a successful provider response that passes the
     // shared response parser. Free routers may select instruction-following
     // models that paraphrase even an exact-output request, so treating a
@@ -439,6 +523,9 @@ async function researchPreview(
     tenantId: authorization.principal.tenantId,
     workspaceId: authorization.principal.workspaceId,
   });
+  if (runtimeAgent.status === "tenant_isolation_unresolved") {
+    return tenantIsolationError();
+  }
   if (runtimeAgent.status !== "configured" || !runtimeAgent.config) {
     return apiError(`ai_agent_${runtimeAgent.status}`, runtimeAgent.status === "unavailable" ? 503 : 422);
   }
@@ -456,12 +543,16 @@ async function researchPreview(
     tenantId: authorization.principal.tenantId,
     workspaceId: authorization.principal.workspaceId,
     agentId,
+    configurationSource: config.configurationSource,
     idempotencyKey: `admin-research:${runId}`,
     estimatedInputTokens: Math.ceil(input.length / 3.2),
     maxOutputTokens,
     limits: config.limits,
   });
   if (!usage.ok) {
+    if (usage.reason === "tenant_isolation_unresolved") {
+      return tenantIsolationError();
+    }
     if (usage.reason !== "unavailable") {
       await recordAiWorkflowEvidence({
         tenantId: authorization.principal.tenantId,
@@ -499,12 +590,33 @@ async function researchPreview(
       workspaceId: authorization.principal.workspaceId,
       agentId,
       reservationId: usage.spend.reservationId,
-      costUsdMicros: 0,
-      providerAttempted: false,
+      accountedCostUsdMicros: 0,
+      egressAttemptId: null,
     });
     return apiError("ai_workflow_evidence_unavailable", 503);
   }
 
+  const egressAttemptId = randomUUID();
+  const egress = await markAiAgentSpendEgress({
+    tenantId: authorization.principal.tenantId,
+    workspaceId: authorization.principal.workspaceId,
+    agentId,
+    configurationSource: config.configurationSource,
+    reservationId: usage.spend.reservationId,
+    attemptId: egressAttemptId,
+  });
+  if (!egress.ok) {
+    await releaseUnmarkedAiAgentSpend({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      agentId,
+      reservationId: usage.spend.reservationId,
+    });
+    if (egress.reason === "tenant_isolation_unresolved") {
+      return tenantIsolationError();
+    }
+    return apiError(`ai_spend_egress_${egress.reason}`, 503);
+  }
   const routedProvider = await callAiProviderWithFailover({
     agentId,
     primary: {
@@ -534,39 +646,46 @@ async function researchPreview(
     circuitScope: `${authorization.principal.tenantId}:${authorization.principal.workspaceId}`,
     requestSignal: request.signal,
   });
-  const spendSettlement = await settleAiAgentSpend({
-    tenantId: authorization.principal.tenantId,
-    workspaceId: authorization.principal.workspaceId,
-    agentId,
-    reservationId: usage.spend.reservationId,
-    costUsdMicros: routedProvider.result.ok
-      ? routedProvider.result.costUsdMicros
-      : null,
-    providerAttempted: routedProvider.result.attempts > 0,
+  const spendAndRouting = await settleAiAgentSpendAndRecordRoutingDecision({
+    settlement: {
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      agentId,
+      reservationId: usage.spend.reservationId,
+      accountedCostUsdMicros: accountedAiProviderRouteCost(routedProvider),
+      egressAttemptId,
+    },
+    routing: {
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+      runId,
+      agentId,
+      providerId: routedProvider.result.providerId,
+      routeMode: routedProvider.routeMode,
+      decisionCode: routedProvider.result.ok
+        ? "provider_completed"
+        : `provider_${routedProvider.result.reason}`,
+      candidateCount: routedProvider.candidateCount,
+      dataClass: "public",
+      criticality: "noncritical",
+      externalEffect: false,
+      approvalMode: config.approvalMode,
+      spendReservationId: usage.spend.reservationId,
+      decisionHash: routedProvider.decisionHash,
+      requestedModel: routedProvider.result.ok
+        ? routedProvider.result.requestedModel
+        : (routedProvider.result.model ?? config.model),
+      actualModel: routedProvider.result.ok
+        ? routedProvider.result.model
+        : (routedProvider.result.model ?? null),
+      providerAttemptCount: routedProvider.result.attempts,
+    },
   });
-  if (!spendSettlement.ok) {
-    return apiError("ai_spend_settlement_unavailable", 503);
-  }
-  const routingRecorded = await recordAiRoutingDecision({
-    tenantId: authorization.principal.tenantId,
-    workspaceId: authorization.principal.workspaceId,
-    runId,
-    agentId,
-    providerId: routedProvider.result.providerId,
-    routeMode: routedProvider.routeMode,
-    decisionCode: routedProvider.result.ok
-      ? "provider_completed"
-      : `provider_${routedProvider.result.reason}`,
-    candidateCount: routedProvider.candidateCount,
-    dataClass: "public",
-    criticality: "noncritical",
-    externalEffect: false,
-    approvalMode: config.approvalMode,
-    spendReservationId: usage.spend.reservationId,
-    decisionHash: routedProvider.decisionHash,
-  });
-  if (!routingRecorded) {
-    return apiError("ai_routing_evidence_unavailable", 503);
+  if (!spendAndRouting.ok) {
+    return apiError(
+      `ai_spend_or_routing_${spendAndRouting.reason}`,
+      503,
+    );
   }
   if (routedProvider.openRouterKeyStatus) {
     const quotaRecorded = await recordOpenRouterQuotaSnapshot({
@@ -664,6 +783,9 @@ async function researchPreview(
         actorAdminId: authorization.principal.adminId,
       })
     : null;
+  if (candidate === "tenant_isolation_unresolved") {
+    return tenantIsolationError();
+  }
   if (stageAsCandidate && !candidate) return apiError("ai_knowledge_candidate_unavailable", 503);
   return apiOk({
     runId,
@@ -724,6 +846,7 @@ export async function POST(request: NextRequest) {
         decision,
         reviewNote,
       });
+      if (result === "tenant_isolation_unresolved") return tenantIsolationError();
       if (result === "not_found") return apiError("ai_knowledge_not_found", 404);
       if (result === "invalid_state") return apiError("ai_knowledge_not_pending", 409);
       if (result === "unavailable") return apiError("ai_knowledge_review_unavailable", 503);

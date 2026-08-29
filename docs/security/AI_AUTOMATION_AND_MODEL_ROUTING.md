@@ -57,13 +57,27 @@
 
 ## اجرای worker
 
+> **Controlled launch:** در این release همهٔ bindingهای executor در
+> `automation-executor-registry.ts` عمداً `launchReady: false` هستند. تا زمانی
+> که output authority، connector idempotent و reconciliation evidence هر
+> workflow کامل نشده باشد، policy فعال نمی‌شود، run تازه enqueue/claim نمی‌شود
+> و executor داخلی نیز start نمی‌شود. رأی governance به‌تنهایی artifact اجرا
+> نیست و هرگز نباید به `completed` تبدیل شود.
+>
+> علاوه بر readiness مستقل executor، gate سراسری
+> `ai_tenant_isolation_unresolved:shared_role_without_transaction_tenant_context`
+> نیز hard-closed است. هیچ feature flag یا متغیر worker آن را باز نمی‌کند. worker
+> ابتدا recovery اجرا می‌کند و سپس بدون enqueue/claim در وضعیت `blocked` می‌خوابد؛
+> reject و finalize اجرای ازپیش leased برای پاک‌سازی/evidence همچنان بسته نمی‌شوند.
+
 پس از مایگریشن و تنظیم Provider/Agentها در Command Center، worker جداگانه اجرا می‌شود:
 
 ```bash
 AI_AUTOMATION_WORKER_ENABLED=true npm run ai:automation:worker
 ```
 
-executor داخلیِ جدا برای تکمیل runهای تأییدشده‌ای که هیچ اثر بیرونی ندارند:
+فرمان executor داخلی رزرو شده است، اما در controlled launch فعلی عمداً fail
+closed است و تا آماده‌شدن output authority شروع نمی‌شود:
 
 ```bash
 AI_AUTOMATION_INTERNAL_EXECUTOR_ENABLED=true npm run ai:automation:internal-executor
@@ -75,7 +89,7 @@ AI_AUTOMATION_INTERNAL_EXECUTOR_ENABLED=true npm run ai:automation:internal-exec
 AI_AUTOMATION_WORKER_ENABLED=true AI_AUTOMATION_RUN_ONCE=true npm run ai:automation:worker
 ```
 
-متغیر `AI_AUTOMATION_POLL_MS` بین ۵۰۰ و ۳۰٬۰۰۰ میلی‌ثانیه محدود است. هیچ process بدون feature flag صریح شروع نمی‌شود. worker بازبینی و executor داخلی، prompt یا output خام را log نمی‌کنند؛ executor داخلی نیز در SQL فقط `external_effect = 'none'` را claim می‌کند. هر دامنهٔ دارای اثر بیرونی باید executor مستقل خود را با `claimApprovedAiAutomationExecution`، idempotency و evidence نهایی متصل کند.
+متغیر `AI_AUTOMATION_POLL_MS` بین ۵۰۰ و ۳۰٬۰۰۰ میلی‌ثانیه محدود است. هیچ process بدون feature flag صریح شروع نمی‌شود. worker بازبینی prompt یا output خام را log نمی‌کند و executor داخلی فعلی هیچ run را claim یا تکمیل نمی‌کند. هر دامنه باید پیش از `launchReady` شدن، executor مستقل خود را با `claimApprovedAiAutomationExecution`، connector دقیق، idempotency اثر و evidence نهایی متصل کند.
 
 ## راه‌اندازی عملیاتی
 

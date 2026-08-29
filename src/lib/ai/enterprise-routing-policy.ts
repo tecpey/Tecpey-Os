@@ -34,6 +34,9 @@ export type AiRouteRejectionCode =
   | "citation_capability_missing"
   | "free_route_forbidden"
   | "approval_required"
+  | "duplicate_candidate"
+  | "invalid_candidate_attributes"
+  | "paid_cost_estimate_required"
   | "request_cost_cap_exceeded"
   | "monthly_budget_exhausted";
 
@@ -67,6 +70,7 @@ const HEALTH_SCORE: Readonly<Record<AiRouteCandidateHealth, number>> = {
   unknown: 100_000,
   unavailable: 1_000_000,
 };
+const OPENROUTER_FREE_MODEL_PATTERN = /(?:^openrouter\/free$|:free$)/i;
 
 function providerCapabilities(providerId: AiModelProviderId): readonly string[] {
   return AI_PROVIDER_CATALOG.find((provider) => provider.id === providerId)?.capabilities ?? [];
@@ -74,9 +78,35 @@ function providerCapabilities(providerId: AiModelProviderId): readonly string[] 
 
 function decisionHash(value: unknown): string {
   return createHash("sha256")
-    .update("tecpey-enterprise-ai-route:v2\0")
+    .update("tecpey-enterprise-ai-route:v3\0")
     .update(JSON.stringify(value))
     .digest("hex");
+}
+
+function canonicalNumber(value: number): number | string {
+  if (Number.isNaN(value)) return "NaN";
+  if (value === Number.POSITIVE_INFINITY) return "Infinity";
+  if (value === Number.NEGATIVE_INFINITY) return "-Infinity";
+  return Object.is(value, -0) ? 0 : value;
+}
+
+function canonicalCandidate(candidate: AiEnterpriseRouteCandidate) {
+  return {
+    providerId: candidate.providerId,
+    model: candidate.model,
+    priority: canonicalNumber(candidate.priority),
+    enabled: candidate.enabled,
+    health: candidate.health,
+    estimatedMaxCostUsdMicros: canonicalNumber(candidate.estimatedMaxCostUsdMicros),
+    expectedLatencyMs: canonicalNumber(candidate.expectedLatencyMs),
+    zeroDataRetention: candidate.zeroDataRetention,
+    free: candidate.free,
+    supportedDataClasses: [...new Set(candidate.supportedDataClasses)].sort(),
+  };
+}
+
+function canonicalCandidateKey(candidate: AiEnterpriseRouteCandidate): string {
+  return JSON.stringify(canonicalCandidate(candidate));
 }
 
 function score(candidate: AiEnterpriseRouteCandidate): number {
@@ -112,15 +142,40 @@ export function planEnterpriseAiRoute(input: {
   const requiredCapabilities = [...new Set(input.requiredCapabilities ?? [])].sort();
   const rejected: AiEnterpriseRouteDecision["rejected"] = [];
   const eligible: AiEnterpriseRouteCandidate[] = [];
+  const evaluated: Array<{
+    candidate: ReturnType<typeof canonicalCandidate>;
+    outcome: "eligible" | "rejected";
+    reasons: AiRouteRejectionCode[];
+  }> = [];
+  const identityCounts = new Map<string, number>();
+  for (const candidate of input.candidates) {
+    const identity = `${candidate.providerId}\0${candidate.model}`;
+    identityCounts.set(identity, (identityCounts.get(identity) ?? 0) + 1);
+  }
 
-  for (const candidate of input.candidates.slice(0, 20)) {
+  for (const candidate of input.candidates) {
     const reasons: AiRouteRejectionCode[] = [];
+    const modelDeclaresFree = candidate.providerId === "openrouter" &&
+      OPENROUTER_FREE_MODEL_PATTERN.test(candidate.model.trim());
     try {
       assertAiAgentProviderAllowed(input.agentId, candidate.providerId);
     } catch {
       reasons.push("provider_forbidden");
     }
     if (!candidate.enabled) reasons.push("candidate_disabled");
+    if ((identityCounts.get(`${candidate.providerId}\0${candidate.model}`) ?? 0) > 1) {
+      reasons.push("duplicate_candidate");
+    }
+    if (
+      !Number.isSafeInteger(candidate.priority) ||
+      candidate.priority < 0 ||
+      !Number.isSafeInteger(candidate.expectedLatencyMs) ||
+      candidate.expectedLatencyMs <= 0 ||
+      (candidate.free && candidate.estimatedMaxCostUsdMicros !== 0) ||
+      candidate.free !== modelDeclaresFree
+    ) {
+      reasons.push("invalid_candidate_attributes");
+    }
     if (candidate.health === "unavailable") reasons.push("provider_unavailable");
     if (candidate.health === "unknown" && input.criticality === "critical") {
       reasons.push("provider_health_unknown");
@@ -155,6 +210,13 @@ export function planEnterpriseAiRoute(input: {
     if (input.externalEffect && !input.approvalSatisfied) {
       reasons.push("approval_required");
     }
+    if (
+      !candidate.free &&
+      (!Number.isSafeInteger(candidate.estimatedMaxCostUsdMicros) ||
+        candidate.estimatedMaxCostUsdMicros <= 0)
+    ) {
+      reasons.push("paid_cost_estimate_required");
+    }
     if (candidate.estimatedMaxCostUsdMicros > input.maxRequestCostUsdMicros) {
       reasons.push("request_cost_cap_exceeded");
     }
@@ -168,23 +230,39 @@ export function planEnterpriseAiRoute(input: {
         model: candidate.model,
         reasons: uniqueReasons,
       });
+      evaluated.push({
+        candidate: canonicalCandidate(candidate),
+        outcome: "rejected",
+        reasons: uniqueReasons,
+      });
     } else {
       eligible.push(candidate);
+      evaluated.push({
+        candidate: canonicalCandidate(candidate),
+        outcome: "eligible",
+        reasons: [],
+      });
     }
   }
 
   eligible.sort((left, right) =>
     score(left) - score(right) ||
     left.providerId.localeCompare(right.providerId) ||
-    left.model.localeCompare(right.model),
+    left.model.localeCompare(right.model) ||
+    canonicalCandidateKey(left).localeCompare(canonicalCandidateKey(right)),
   );
   rejected.sort((left, right) =>
     left.providerId.localeCompare(right.providerId) ||
     left.model.localeCompare(right.model),
   );
+  evaluated.sort((left, right) =>
+    left.candidate.providerId.localeCompare(right.candidate.providerId) ||
+    left.candidate.model.localeCompare(right.candidate.model) ||
+    JSON.stringify(left).localeCompare(JSON.stringify(right)),
+  );
   const selected = eligible[0] ?? null;
   const evidence = {
-    policy: "tecpey-enterprise-ai-routing-v2",
+    policy: "tecpey-enterprise-ai-routing-v3",
     agentId: input.agentId,
     dataClass: input.dataClass,
     criticality: input.criticality,
@@ -194,9 +272,9 @@ export function planEnterpriseAiRoute(input: {
     maxRequestCostUsdMicros: input.maxRequestCostUsdMicros,
     monthlyBudgetRemainingUsdMicros: input.monthlyBudgetRemainingUsdMicros,
     selected: selected
-      ? { providerId: selected.providerId, model: selected.model }
+      ? canonicalCandidate(selected)
       : null,
-    rejected,
+    candidates: evaluated,
   };
   if (!selected) {
     return {

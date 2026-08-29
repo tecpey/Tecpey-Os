@@ -214,6 +214,7 @@ CREATE TABLE IF NOT EXISTS ai_automation_runs (
   resource_id TEXT CHECK (resource_id IS NULL OR length(resource_id) BETWEEN 1 AND 200),
   input_text TEXT NOT NULL CHECK (length(input_text) BETWEEN 8 AND 12000),
   input_hash TEXT NOT NULL CHECK (input_hash ~ '^[0-9a-f]{64}$'),
+  command_hash TEXT NOT NULL CHECK (command_hash ~ '^[0-9a-f]{64}$'),
   idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) BETWEEN 8 AND 200),
   policy_version TEXT NOT NULL CHECK (policy_version ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{2,79}$'),
   ai_reviewer_ids TEXT[] NOT NULL DEFAULT '{}',
@@ -233,6 +234,10 @@ CREATE TABLE IF NOT EXISTS ai_automation_runs (
   requested_by UUID REFERENCES admin_users(id) ON DELETE SET NULL,
   approved_at TIMESTAMPTZ,
   execution_started_at TIMESTAMPTZ,
+  execution_connector_id TEXT CHECK (
+    execution_connector_id IS NULL OR
+    execution_connector_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$'
+  ),
   completed_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL,
   failure_code TEXT CHECK (failure_code IS NULL OR failure_code ~ '^[a-z0-9_:-]{2,120}$'),
@@ -254,7 +259,10 @@ CREATE TABLE IF NOT EXISTS ai_automation_runs (
   CHECK (approved_at IS NULL OR status IN (
     'approved', 'executing', 'completed', 'failed', 'blocked', 'cancelled'
   )),
-  CHECK (execution_started_at IS NULL OR status IN ('executing', 'completed', 'failed')),
+  CHECK (execution_started_at IS NULL OR (
+    execution_connector_id IS NOT NULL AND
+    status IN ('executing', 'completed', 'failed', 'blocked')
+  )),
   CHECK (completed_at IS NULL OR status IN ('completed', 'failed'))
 );
 
@@ -466,6 +474,7 @@ BEGIN
      OR NEW.resource_id IS DISTINCT FROM OLD.resource_id
      OR NEW.input_text <> OLD.input_text
      OR NEW.input_hash <> OLD.input_hash
+     OR NEW.command_hash <> OLD.command_hash
      OR NEW.idempotency_key <> OLD.idempotency_key
      OR NEW.policy_version <> OLD.policy_version
      OR NEW.ai_reviewer_ids <> OLD.ai_reviewer_ids
@@ -484,13 +493,24 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
+  IF NEW.execution_connector_id IS DISTINCT FROM OLD.execution_connector_id
+     AND NOT (
+       OLD.status = 'approved'
+       AND NEW.status = 'executing'
+       AND OLD.execution_connector_id IS NULL
+       AND NEW.execution_connector_id IS NOT NULL
+     ) THEN
+    RAISE EXCEPTION 'AI automation execution connector binding cannot change'
+      USING ERRCODE = '55000';
+  END IF;
+
   transition_allowed := NEW.status = OLD.status OR CASE OLD.status
     WHEN 'queued' THEN NEW.status IN ('ai_review', 'manager_review', 'c_level_review', 'approved', 'blocked', 'failed', 'cancelled')
     WHEN 'ai_review' THEN NEW.status IN ('manager_review', 'c_level_review', 'approved', 'rejected', 'blocked', 'failed', 'cancelled')
     WHEN 'manager_review' THEN NEW.status IN ('c_level_review', 'approved', 'rejected', 'blocked', 'failed', 'cancelled')
     WHEN 'c_level_review' THEN NEW.status IN ('approved', 'rejected', 'blocked', 'failed', 'cancelled')
     WHEN 'approved' THEN NEW.status IN ('executing', 'blocked', 'cancelled')
-    WHEN 'executing' THEN NEW.status IN ('completed', 'failed')
+    WHEN 'executing' THEN NEW.status IN ('completed', 'failed', 'blocked')
     ELSE FALSE
   END;
   IF NOT transition_allowed THEN

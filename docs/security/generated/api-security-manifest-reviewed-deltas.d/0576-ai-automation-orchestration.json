@@ -13,7 +13,7 @@
         "route": "/api/command-center/ai-automation",
         "method": "POST",
         "sourcePath": "src/app/api/command-center/ai-automation/route.ts",
-        "sourceHash": "2ee0f5aa1e46ea732dae0433",
+        "sourceHash": "753a615e1901fdab4a2e0312",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -45,7 +45,10 @@
           "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
         },
         "domainOwner": "command-center",
-        "testReferences": ["src/tests/security/ai-automation-source.test.ts"],
+        "testReferences": [
+          "src/tests/security/ai-automation-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+        ],
         "requirements": {
           "csrf": true,
           "strictRevocation": true,
@@ -76,7 +79,7 @@
         "route": "/api/command-center/ai-automation",
         "method": "PUT",
         "sourcePath": "src/app/api/command-center/ai-automation/route.ts",
-        "sourceHash": "2ee0f5aa1e46ea732dae0433",
+        "sourceHash": "753a615e1901fdab4a2e0312",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -108,7 +111,10 @@
           "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
         },
         "domainOwner": "command-center",
-        "testReferences": ["src/tests/security/ai-automation-source.test.ts"],
+        "testReferences": [
+          "src/tests/security/ai-automation-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+        ],
         "requirements": {
           "csrf": true,
           "strictRevocation": true,
