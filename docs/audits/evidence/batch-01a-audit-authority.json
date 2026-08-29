@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "68912f599b4daa4204d082d534ea7e56fbbc6bb4",
-      "sha256": "16d93c94cbba9e1ac9a4b2149301782475b9b43fa55d7e695d2b90ea643cbdda",
+      "gitObjectId": "c9b959b88977d3b6370d4c865d4741f9ff82db29",
+      "sha256": "3260900c51e2277135e11fb6fbb7b6e0a35f1bd832d3b6ee84f6a6db168c5ead",
       "lines": 249,
       "reviewedRanges": [
         {
@@ -115,7 +115,8 @@
         "2026-08-24: re-reviewed after test:deployment additionally executes src/tests/runtime/optional-profile.test.ts. The focused unit suite proves that the optional navbar profile lookup degrades only known upstream ApiError failures to an anonymous profile while preserving unknown-error propagation; it adds no dependency, engine, override, real network/database access, runtime mutation path or activation surface, and the file remains 246 lines.",
         "2026-08-25: re-reviewed after adding test:home-locale-parity and composing it into check. The new command runs one local node:test suite that statically verifies shared FA/EN home discovery content, locale-specific market labels and the compact five-item mobile strip contract; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, leaves release:check composition unchanged beyond its existing call to check, and does not claim parity outside the reviewed home discovery surface. The file now has 247 lines.",
         "2026-08-27: re-reviewed after wiring src/tests/security/service-worker-cache-policy.test.ts into test:offline-sync. The added test reads only the checked-in service worker, registration client and Next.js configuration to enforce network-first Academy navigation, owned-cache rotation and no-store auth headers; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, and test:offline-sync remains a composition of governed tests. The file remains 247 lines.",
-        "2026-08-29: re-reviewed after adding the AI automation worker and internal executor to the server build, exposing their two operational entrypoints, and expanding test:ai-mentor-trust with the control-plane, provider secret/router/failover, routing-policy, route-candidate, automation and source-authority suites. The entrypoints preserve the existing isolated server runtime and governed database/provider boundaries; the test expansion is local or PostgreSQL-backed evidence, adds no dependency, engine or override, and does not authorize paid-provider spend, exchange execution, custody activation, merge, deploy or launch. The file now has 249 lines."
+        "2026-08-29: re-reviewed after adding the AI automation worker and internal executor to the server build, exposing their two operational entrypoints, and expanding test:ai-mentor-trust with the control-plane, provider secret/router/failover, routing-policy, route-candidate, automation and source-authority suites. The entrypoints preserve the existing isolated server runtime and governed database/provider boundaries; the test expansion is local or PostgreSQL-backed evidence, adds no dependency, engine or override, and does not authorize paid-provider spend, exchange execution, custody activation, merge, deploy or launch. The file now has 249 lines.",
+        "2026-08-29: re-reviewed after adding Node's test-force-exit flag to the repository-wide test command. The flag is limited to the test runner, preserves the existing test glob, stubs and test environment, does not suppress assertion failures or change the 12-minute workflow bound, and prevents completed suites from hanging on residual test-only handles. It adds no dependency, engine, override, network authority, runtime mutation path or activation surface. The file remains 249 lines."
       ],
       "findings": [
         {
