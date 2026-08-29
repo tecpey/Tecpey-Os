@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool } from "pg";
-import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -13,15 +12,12 @@ before(async () => {
   pool = new Pool({
     connectionString: databaseUrl,
     max: 2,
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 30_000,
+    statement_timeout: 30_000,
     idleTimeoutMillis: 1_000,
     allowExitOnIdle: true,
   });
-  const client = await pool.connect();
-  try {
-    await applyDatabaseMigrationsWithLock(client);
-  } finally {
-    client.release();
-  }
 });
 
 after(async () => {

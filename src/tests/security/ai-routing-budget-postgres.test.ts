@@ -7,7 +7,6 @@ import {
   settleAiAgentSpend,
   type AiAgentLimits,
 } from "../../lib/ai/control-plane-store";
-import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -24,8 +23,14 @@ async function withClient<T>(handler: (client: PoolClient) => Promise<T>): Promi
 
 before(async () => {
   if (!configured || !databaseUrl) return;
-  pool = new Pool({ connectionString: databaseUrl, max: 4, allowExitOnIdle: true });
-  await withClient((client) => applyDatabaseMigrationsWithLock(client));
+  pool = new Pool({
+    connectionString: databaseUrl,
+    max: 4,
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 30_000,
+    statement_timeout: 30_000,
+    allowExitOnIdle: true,
+  });
 });
 
 after(async () => {
