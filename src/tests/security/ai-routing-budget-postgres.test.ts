@@ -7,10 +7,12 @@ import {
   settleAiAgentSpend,
   type AiAgentLimits,
 } from "../../lib/ai/control-plane-store";
+import { DATABASE_MIGRATION_LOCK_KEYS } from "../../lib/db-migration-plan";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
+let migrationGuard: PoolClient | null = null;
 
 async function withClient<T>(handler: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool!.connect();
@@ -31,9 +33,20 @@ before(async () => {
     statement_timeout: 30_000,
     allowExitOnIdle: true,
   });
+  migrationGuard = await pool.connect();
+  await migrationGuard.query("SELECT pg_advisory_lock($1, $2)", [
+    ...DATABASE_MIGRATION_LOCK_KEYS,
+  ]);
 });
 
 after(async () => {
+  if (migrationGuard) {
+    await migrationGuard.query("SELECT pg_advisory_unlock($1, $2)", [
+      ...DATABASE_MIGRATION_LOCK_KEYS,
+    ]);
+    migrationGuard.release();
+    migrationGuard = null;
+  }
   await pool?.end();
   pool = null;
 });
