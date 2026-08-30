@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
@@ -9,6 +10,8 @@ const HISTORICAL_EVIDENCE_PATH =
   "docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json";
 const REQUEST_PATH = "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
 const HISTORICAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const CURRENT_REVIEW_REFERENCE_DATE = "2026-08-30";
+const CURRENT_MINIMUM_REVIEW_DATE = "2026-09-06";
 const OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
 const REQUIRED_APPROVAL_OWNERS = [
@@ -65,6 +68,25 @@ const goRequest = JSON.parse(source.goRequest);
 const packageJson = JSON.parse(source.packageJson);
 const currentCandidateSha = candidate.currentCandidate?.sha;
 const failures = [];
+const currentRegisterDigest = `sha256:${createHash("sha256")
+  .update(source.acceptedRisks, "utf8")
+  .digest("hex")}`;
+let historicalAcceptedRiskRegister = null;
+try {
+  historicalAcceptedRiskRegister = execFileSync(
+    "git",
+    ["show", `${HISTORICAL_CANDIDATE_SHA}:${files.acceptedRisks}`],
+    {
+      encoding: "utf8",
+      maxBuffer: 512 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+} catch {
+  failures.push(
+    `historical accepted-risk source is unavailable at ${HISTORICAL_CANDIDATE_SHA}:${files.acceptedRisks}`,
+  );
+}
 const originVerificationMode =
   process.argv.includes("--static-only")
   || process.env.TECPEY_ACCEPTED_RISK_ORIGIN_VERIFICATION === "static-only"
@@ -122,8 +144,21 @@ requireArrayExact(
   historicalEvidence.riskRegister?.coveredRisks,
   REQUIRED_RISKS,
 );
-const registerDigest = `sha256:${createHash("sha256").update(source.acceptedRisks, "utf8").digest("hex")}`;
-requireEqual("historical evidence risk register digest", historicalEvidence.riskRegister?.digest, registerDigest);
+const historicalRegisterDigest = historicalAcceptedRiskRegister
+  ? `sha256:${createHash("sha256").update(historicalAcceptedRiskRegister, "utf8").digest("hex")}`
+  : null;
+requireEqual(
+  "historical evidence risk register digest",
+  historicalEvidence.riskRegister?.digest,
+  historicalRegisterDigest,
+);
+if (historicalAcceptedRiskRegister) {
+  failures.push(
+    ...evaluateAcceptedRiskRegisterAuthority(historicalAcceptedRiskRegister, {
+      referenceDate: historicalEvidence.riskRegister?.referenceDate,
+    }).map((failure) => `historical register: ${failure}`),
+  );
+}
 failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: new Date() }));
 
 const approvalOwners = [...new Set(
@@ -152,6 +187,16 @@ requireEqual("request.decision", request.decision, "NO_GO_NOG_08_OWNER_APPROVAL_
 requireEqual("request.executionState", request.executionState, "prepared_owner_approval_required");
 requireEqual("request.status", request.status, "open");
 requireEqual("request.blocker", request.blocker, "NOG-08");
+requireEqual(
+  "request.reviewFreshness.referenceDate",
+  request.reviewFreshness?.referenceDate,
+  CURRENT_REVIEW_REFERENCE_DATE,
+);
+requireEqual(
+  "request.reviewFreshness.earliestReviewDate",
+  request.reviewFreshness?.earliestReviewDate,
+  CURRENT_MINIMUM_REVIEW_DATE,
+);
 requireEqual("request.selectedSha", request.selectedSha, currentCandidateSha);
 requireEqual("request.sourceBranch", request.sourceBranch, "main");
 requireEqual("request.sourcePullRequest", request.sourcePullRequest, 568);
@@ -174,7 +219,11 @@ requireEqual(
   request.requiredArtifact?.riskRegister?.candidateSha,
   currentCandidateSha,
 );
-requireEqual("request.requiredArtifact.riskRegister.digest", request.requiredArtifact?.riskRegister?.digest, registerDigest);
+requireEqual(
+  "request.requiredArtifact.riskRegister.digest",
+  request.requiredArtifact?.riskRegister?.digest,
+  currentRegisterDigest,
+);
 requireArrayExact(
   "request.requiredArtifact.riskRegister.coveredRisks",
   request.requiredArtifact?.riskRegister?.coveredRisks,
@@ -183,12 +232,12 @@ requireArrayExact(
 requireEqual(
   "request.requiredArtifact.riskRegister.referenceDate",
   request.requiredArtifact?.riskRegister?.referenceDate,
-  "2026-08-26",
+  CURRENT_REVIEW_REFERENCE_DATE,
 );
 requireEqual(
   "request.requiredArtifact.riskRegister.minimumReviewDate",
   request.requiredArtifact?.riskRegister?.minimumReviewDate,
-  "2026-08-29",
+  CURRENT_MINIMUM_REVIEW_DATE,
 );
 requireArrayExact(
   "request.requiredArtifact.riskOwnerSignoffs",

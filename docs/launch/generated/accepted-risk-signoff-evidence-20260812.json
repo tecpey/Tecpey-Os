@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "evidenceClass": "accepted-risk-signoff-evidence-request",
-  "generatedAt": "2026-08-26T20:55:00Z",
+  "generatedAt": "2026-08-30T16:55:49Z",
   "decision": "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
   "executionState": "prepared_owner_approval_required",
   "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
@@ -16,8 +16,8 @@
   "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 9c210885b48f36a478d6a12fc369f822db259559",
   "authorityGuard": "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "reviewFreshness": {
-    "referenceDate": "2026-08-26",
-    "earliestReviewDate": "2026-08-29",
+    "referenceDate": "2026-08-30",
+    "earliestReviewDate": "2026-09-06",
     "enforcedBy": "scripts/accepted-risk-register-authority-policy.mjs",
     "staleDecision": "launch:accepted-risk-evidence:check fails after a closure-row review date passes until the risk register is refreshed"
   },
@@ -89,10 +89,10 @@
     },
     "riskRegister": {
       "path": "docs/LAUNCH_ACCEPTED_RISKS.md",
-      "digest": "sha256:d5ef423425b50d8c241b9bb83182c2938ffc4cc5f0e15a0b07b2118cbf977c97",
+      "digest": "sha256:72bdfa104fcc4dd8ca8ab532bb0361f9345d3d327194d83c5e2fdff44ec2f431",
       "candidateSha": "9c210885b48f36a478d6a12fc369f822db259559",
-      "referenceDate": "2026-08-26",
-      "minimumReviewDate": "2026-08-29",
+      "referenceDate": "2026-08-30",
+      "minimumReviewDate": "2026-09-06",
       "coveredRisks": [
         "R-01",
         "R-02",

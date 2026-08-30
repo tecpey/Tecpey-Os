@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-29",
+  "reviewedAt": "2026-08-30",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "9b13c5ee48aa94ae34380921591e62c01ddf3936",
-      "sha256": "57f202c96a55815facf39957c3a0f8ce9eaa04075095c291d6c1b00fdbbeffc0",
+      "gitObjectId": "df40404c64b4d3b8ba42c8e266b945bcb925f300",
+      "sha256": "494157fd1b0c5f4375dfea1281e4b209864b8e6258271cb6de931342fcc6bf94",
       "lines": 249,
       "reviewedRanges": [
         {
@@ -120,7 +120,8 @@
         "2026-08-27: re-reviewed after wiring src/tests/security/service-worker-cache-policy.test.ts into test:offline-sync. The added test reads only the checked-in service worker, registration client and Next.js configuration to enforce network-first Academy navigation, owned-cache rotation and no-store auth headers; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, and test:offline-sync remains a composition of governed tests. The file remains 247 lines.",
         "2026-08-29: re-reviewed after adding the AI automation worker and internal executor to the server build, exposing their two operational entrypoints, and expanding test:ai-mentor-trust with the control-plane, provider secret/router/failover, routing-policy, route-candidate, automation and source-authority suites. The entrypoints preserve the existing isolated server runtime and governed database/provider boundaries; the test expansion is local or PostgreSQL-backed evidence, adds no dependency, engine or override, and does not authorize paid-provider spend, exchange execution, custody activation, merge, deploy or launch. The file now has 249 lines.",
         "2026-08-29: re-reviewed after adding Node's test-force-exit flag to the repository-wide test command. The flag is limited to the test runner, preserves the existing test glob, stubs and test environment, does not suppress assertion failures or change the 12-minute workflow bound, and prevents completed suites from hanging on residual test-only handles. It adds no dependency, engine, override, network authority, runtime mutation path or activation surface. The file remains 249 lines.",
-        "2026-08-29: re-reviewed the complete 249-line package after expanding test:ai-mentor-trust with the AI routing-budget unit/PostgreSQL, automation-orchestration PostgreSQL, tenant-database-integrity and managed-AI launch-containment policy/source/PostgreSQL suites. This is test-only wiring under NODE_ENV=test and test-force-exit; it adds no dependency, engine, override, provider/network/spend/launch authority or production mutation path, preserves release composition, and keeps managed AI fail-closed pending tenant-isolation evidence."
+        "2026-08-29: re-reviewed the complete 249-line package after expanding test:ai-mentor-trust with the AI routing-budget unit/PostgreSQL, automation-orchestration PostgreSQL, tenant-database-integrity and managed-AI launch-containment policy/source/PostgreSQL suites. This is test-only wiring under NODE_ENV=test and test-force-exit; it adds no dependency, engine, override, provider/network/spend/launch authority or production mutation path, preserves release composition, and keeps managed AI fail-closed pending tenant-isolation evidence.",
+        "2026-08-30: re-reviewed after wiring src/tests/security/ai-mentor-preference-egress-gate.test.ts into test:ai-mentor-trust. The added deterministic unit proof requires both an available database preference authority and an explicit external-provider opt-in, covers null, unavailable, disabled and enabled states, and adds no dependency, engine, override, network/provider/spend authority, runtime mutation path or activation surface. The package remains 249 lines and release composition remains unchanged."
       ],
       "findings": [
         {
