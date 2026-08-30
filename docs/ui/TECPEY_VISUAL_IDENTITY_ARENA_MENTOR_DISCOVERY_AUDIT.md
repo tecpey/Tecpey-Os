@@ -295,7 +295,7 @@ Tool ranking should combine:
 
 ### Update Cadence
 
-- News ingestion target: every 10 minutes.
+- News ingestion target: hourly.
 - Public pages should serve cached server results, not client-only recomputation.
 - The UI should show "updated at" and degraded/fallback states.
 - No hype labels should imply trading advice.

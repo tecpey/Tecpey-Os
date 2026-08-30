@@ -19,21 +19,6 @@
       "count": 1
     }
   },
-  "src/components/academy/AcademyMentorCoachCenter.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "src/components/academy/AiMentorExperience.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "src/components/academy/GlobalAiMentorWidget.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/academy/TradingArenaProClient.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
@@ -140,11 +125,6 @@
     }
   },
   "src/components/learning-os/NotificationCenter.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
-  "src/components/navbar/Navbar.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1
     }

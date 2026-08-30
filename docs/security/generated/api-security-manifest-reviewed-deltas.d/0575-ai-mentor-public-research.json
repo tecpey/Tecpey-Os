@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "previousSourceHash": "c0389c7ec1e53d47f6236ba6",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the canonical Mentor operation after adding an explicit user-facing public research mode and governed multi-provider candidate execution. Research remains restricted to the fixed coin/tool or news/X agent, excludes history, profile, progress, behavioral and private financial context by construction, blocks secret, identifier and injection-shaped queries, requires immutable workflow admission evidence and sanitized citations, and cannot publish, transact or promote knowledge. Candidate execution is constrained by tenant/workspace policy, provider health, model allowlists, bounded attempts and budget admission; existing strict session, tenant entitlement, CSRF, bounded-body, rate limit, quota, output safety, atomic history and private no-store controls remain intact.",
+      "replacement": {
+        "route": "/api/ai-mentor",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "sourceHash": "23d33756860219eef4bf6eee",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/ai-mentor-provider.test.ts",
+          "src/tests/security/ai-mentor-trust-boundary.test.ts",
+          "src/tests/security/ai-mentor-trust-store-postgres.test.ts",
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "previousSourceHash": "f5b3b1803e1c60699a8fcc18",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the compatibility Mentor operation after its canonical delegate added the isolated cited public-research path and governed multi-provider candidate execution. The alias remains pass-through only and inherits canonical strict session, tenant entitlement, provider-policy and budget admission, bounded fallback, public-only research egress, citation requirement, quota, redaction, audit, history and no-store controls.",
+      "replacement": {
+        "route": "/api/ai-mentor-v2",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
+        "sourceHash": "f5b3b1803e1c60699a8fcc18",
+        "delegatedTo": "src/app/api/ai-mentor/route.ts",
+        "delegatedSourceHash": "23d33756860219eef4bf6eee",
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "canonical /api/ai-mentor handler",
+        "tenantSource": "tenantContext",
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor-v2",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-alias",
+          "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+          "issue": "#108"
+        }
+      }
+    }
+  ],
+  "addedOperations": [],
+  "readOnlyRoutes": []
+}

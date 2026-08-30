@@ -93,7 +93,6 @@ export const DEFAULT_APPROVED_NEWS_SOURCES: ApprovedNewsSource[] = [
   { name: "Cointelegraph", domain: "cointelegraph.com", tier: "trusted_media", trustScore: 0.78 },
   { name: "Decrypt", domain: "decrypt.co", tier: "trusted_media", trustScore: 0.76 },
   { name: "The Block", domain: "theblock.co", tier: "trusted_media", trustScore: 0.82 },
-  { name: "Arzdigital", domain: "arzdigital.com", tier: "trusted_media", trustScore: 0.74 },
 ];
 
 const ENTITY_DICTIONARY: EntityDictionary = {

@@ -1,4 +1,6 @@
 
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
+
 export type CoinKnowledge = {
   symbol: string;
   faName: string;
@@ -408,7 +410,7 @@ export const coinKnowledge: Record<string, CoinKnowledge> = {
 };
 
 export function getCoinKnowledge(symbol: string, name?: string, faName?: string): CoinKnowledge {
-  const s = String(symbol || "").toUpperCase().replace("USDT", "");
+  const s = normalizeMarketSymbol(symbol);
   const item = coinKnowledge[s] ?? fallback(s);
   return { ...item, name: name || item.name, faName: faName || item.faName };
 }

@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "addedOperations": [
+    {
+      "route": "/api/command-center/ai-automation",
+      "method": "POST",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed additive AI orchestration mutation: admin RBAC and recent step-up protect tenant/workspace-scoped idempotent enqueue and independent Manager or C-Level review; requests are CSRF protected, rate-limited and bounded, while the store rejects private or injection-shaped payloads, records mandatory audit evidence and delegates AI review and all external effects to leased workers and quorum-gated domain executors.",
+      "replacement": {
+        "route": "/api/command-center/ai-automation",
+        "method": "POST",
+        "sourcePath": "src/app/api/command-center/ai-automation/route.ts",
+        "sourceHash": "753a615e1901fdab4a2e0312",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": ["admin"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-ai-automation-mutation",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/ai-automation-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/ai-automation/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/command-center/ai-automation",
+      "method": "PUT",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed additive AI orchestration policy mutation: admin RBAC plus recent step-up protect fail-closed workflow activation, schedule and concurrency changes; activation verifies required model agents and human reviewer coverage, applies optimistic revision control, scopes all state to the authenticated tenant/workspace and writes append-only policy plus administrator audit evidence.",
+      "replacement": {
+        "route": "/api/command-center/ai-automation",
+        "method": "PUT",
+        "sourcePath": "src/app/api/command-center/ai-automation/route.ts",
+        "sourceHash": "753a615e1901fdab4a2e0312",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": ["admin"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-ai-automation-policy",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/ai-automation-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/ai-automation/route.ts",
+          "method": "PUT",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": []
+}

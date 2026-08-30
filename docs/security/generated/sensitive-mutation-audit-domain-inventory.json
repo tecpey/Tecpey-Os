@@ -5,6 +5,9 @@
   "actions": [
     { "action": "device_token.register", "domainOwner": "notifications", "evidenceClass": "privacy", "sensitivity": "restricted" },
     { "action": "mentor_conversations.migrate", "domainOwner": "ai-platform", "evidenceClass": "privacy", "sensitivity": "restricted" },
+    { "action": "mentor_thread.create", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
+    { "action": "mentor_thread.update", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
+    { "action": "mentor_thread.archive", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
     { "action": "mentor_profile.recompute", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
     { "action": "mentor.preferences.update", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
     { "action": "community.profile.consent.update", "domainOwner": "community-platform", "evidenceClass": "privacy", "sensitivity": "restricted" },
@@ -68,6 +71,7 @@
   "resources": [
     { "resource": "device_token", "domainOwner": "notifications", "dataCategory": "device-identifier", "sensitivity": "restricted" },
     { "resource": "mentor_conversations", "domainOwner": "ai-platform", "dataCategory": "conversation", "sensitivity": "restricted" },
+    { "resource": "mentor_thread", "domainOwner": "ai-platform", "dataCategory": "conversation-metadata", "sensitivity": "restricted" },
     { "resource": "mentor_profile", "domainOwner": "ai-platform", "dataCategory": "behavioral-profile", "sensitivity": "restricted" },
     { "resource": "mentor_ai_preferences", "domainOwner": "ai-platform", "dataCategory": "preference", "sensitivity": "restricted" },
     { "resource": "community_profile", "domainOwner": "community-platform", "dataCategory": "consent-profile", "sensitivity": "restricted" },

@@ -226,7 +226,25 @@ function approvalFetch(overrides = {}) {
   };
 }
 
-function approvalOriginEnv(parent) {
+function writeHistoricalAuthorityClock(parent, referenceDate) {
+  const preload = path.join(parent, "historical-authority-clock.mjs");
+  writeFileSync(
+    preload,
+    `const NativeDate = Date;\n`
+      + `const referenceInstant = ${JSON.stringify(referenceDate)};\n`
+      + "class HistoricalAuthorityDate extends NativeDate {\n"
+      + "  constructor(...args) {\n"
+      + "    if (args.length === 0) super(referenceInstant);\n"
+      + "    else super(...args);\n"
+      + "  }\n"
+      + "  static now() { return NativeDate.parse(referenceInstant); }\n"
+      + "}\n"
+      + "globalThis.Date = HistoricalAuthorityDate;\n",
+  );
+  return pathToFileURL(preload).href;
+}
+
+function approvalOriginEnv(parent, historicalClockImport) {
   const preload = path.join(parent, "mock-go-approval-origin.mjs");
   const payloads = Object.fromEntries(
     Object.keys(approvalComments).map((login) => [approvalComments[login].id, approvalGithubPayload(login)]),
@@ -242,7 +260,11 @@ function approvalOriginEnv(parent) {
   );
   return {
     GITHUB_TOKEN: "test-token",
-    NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(preload).href}`.trim(),
+    NODE_OPTIONS: [
+      process.env.NODE_OPTIONS ?? "",
+      `--import=${historicalClockImport}`,
+      `--import=${pathToFileURL(preload).href}`,
+    ].filter(Boolean).join(" "),
   };
 }
 
@@ -390,7 +412,25 @@ function createCleanRepositoryClone() {
     commitAll(root, "snapshot current launch authority worktree");
   }
   gitIn(root, ["update-ref", "refs/remotes/origin/main", gitIn(process.cwd(), ["rev-parse", "origin/main"])]);
-  return { parent, root, approvalEnv: approvalOriginEnv(parent) };
+  const historicalReferenceDate = readJson(root, FINAL_MANIFEST_PATH).generatedAt;
+  assert.equal(
+    new Date(historicalReferenceDate).toISOString(),
+    historicalReferenceDate,
+    "historical authority manifest must provide a canonical replay instant",
+  );
+  const historicalClockImport = writeHistoricalAuthorityClock(parent, historicalReferenceDate);
+  return {
+    parent,
+    root,
+    historicalReferenceDate,
+    historicalClockEnv: {
+      NODE_OPTIONS: [
+        process.env.NODE_OPTIONS ?? "",
+        `--import=${historicalClockImport}`,
+      ].filter(Boolean).join(" "),
+    },
+    approvalEnv: approvalOriginEnv(parent, historicalClockImport),
+  };
 }
 
 function createHistoricalFinalAuthorityFixture() {
@@ -540,8 +580,8 @@ test("final launch packet fails closed without live accepted-risk origin verific
   const fixture = createHistoricalFinalAuthorityFixture();
   try {
     const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], {
+      ...fixture.historicalClockEnv,
       GITHUB_TOKEN: "",
-      NODE_OPTIONS: "",
     });
 
     assert.notEqual(result.status, 0);
@@ -578,7 +618,12 @@ test("final authority accepts attributable live accepted-risk and Go approval or
   try {
     const authority = await verifyControlledLaunchFinalAuthority(
       readJson(fixture.root, FINAL_MANIFEST_PATH),
-      { root: fixture.root, githubToken: "test-token", fetchImpl: approvalFetch() },
+      {
+        root: fixture.root,
+        githubToken: "test-token",
+        fetchImpl: approvalFetch(),
+        referenceDate: fixture.historicalReferenceDate,
+      },
     );
 
     assert.equal(authority.authority.status, "verified");
@@ -602,6 +647,7 @@ test("final authority rejects edited live accepted-risk comments", async () => {
               body: `${acceptedRiskComments[editedId].body}\nedited after acceptance`,
             },
           }),
+          referenceDate: fixture.historicalReferenceDate,
         },
       ),
       /accepted-risk origin verification failed:.*origin.bodyDigest/,
@@ -647,6 +693,7 @@ test("final authority rejects edited live Go approval comments", async () => {
               updated_at: "2026-08-24T10:00:00Z",
             },
           }),
+          referenceDate: fixture.historicalReferenceDate,
         },
       ),
       /Go approval origin verification failed:.*origin.updated_at.*origin.bodyDigest/,

@@ -1,4 +1,5 @@
 import { fetcher } from "@/utils/fetcher";
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
 import type {
   CurrencyListResponse,
   MarketCurrency,
@@ -116,9 +117,7 @@ export const getCurrencyInfo = async ({
       };
     }
 
-    // BTCUSDT -> BTC
-    const formattedSymbol =
-      symbol.replace("USDT", "");
+    const formattedSymbol = normalizeMarketSymbol(symbol);
 
     const response = await fetch(
       `${chartBaseUrl}/api/v1/currency/chart?symbol=${formattedSymbol}&type=line`

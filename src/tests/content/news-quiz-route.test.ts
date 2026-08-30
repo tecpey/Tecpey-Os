@@ -31,23 +31,13 @@ const liveFeedEn = `<?xml version="1.0" encoding="UTF-8"?>
     <pubDate>${LIVE_PUBLISHED_AT}</pubDate>
   </item></channel></rss>`;
 
-const liveFeedFa = `<?xml version="1.0" encoding="UTF-8"?>
-  <rss><channel><item>
-    <title>جریان صندوق‌های بیت‌کوین بر نقدشوندگی بازار اثر گذاشت</title>
-    <description>داده‌های روزانه صندوق‌ها برای ارزیابی اثر بازار منتشر شد.</description>
-    <link>https://example.com/fa/research/bitcoin-etf-flows</link>
-    <pubDate>${LIVE_PUBLISHED_AT}</pubDate>
-  </item></channel></rss>`;
-
 async function callRoute(
   url: string,
   mode: "live" | "offline" = "live",
 ): Promise<Record<string, unknown>> {
-  globalThis.fetch = (async (input) => {
+  globalThis.fetch = (async () => {
     if (mode === "offline") throw new Error("network disabled in test");
-    const requestUrl = input instanceof Request ? input.url : String(input);
-    const body = requestUrl.includes("arzdigital.com") ? liveFeedFa : liveFeedEn;
-    return new Response(body, {
+    return new Response(liveFeedEn, {
       status: 200,
       headers: { "content-type": "application/rss+xml; charset=utf-8" },
     });
@@ -79,8 +69,13 @@ describe("crypto-news route quiz mode", () => {
   it("builds a Persian quiz for locale=fa", async () => {
     const body = await callRoute("http://localhost/api/crypto-news?locale=fa&quiz=1");
     const quiz = body.newsQuiz as Array<{ question: string }>;
+    const items = body.items as Array<{ source: string; summary: string }>;
     assert.ok(Array.isArray(quiz) && quiz.length > 0);
     assert.match(quiz[0].question, /[؀-ۿ]/, "the Persian quiz prompt must contain Persian text");
+    assert.ok(items.length > 0);
+    assert.ok(items.every((item) => ["CoinDesk", "Cointelegraph", "Decrypt", "The Block"].includes(item.source)));
+    assert.ok(items.every((item) => /[؀-ۿ]/.test(item.summary)), "Persian cards must carry Persian summaries");
+    assert.ok(items.every((item) => !item.summary.includes("Daily creations and redemptions")));
   });
 
   it("does not turn editorial fallback cards into current-news questions", async () => {

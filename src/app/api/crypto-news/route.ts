@@ -4,6 +4,7 @@ import { withObservability } from "@/lib/observe";
 import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
 import { buildNewsAutomationBatch, type RawNewsInput } from "@/lib/news-automation";
 import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
+import { readBoundedResponseText } from "@/lib/bounded-http-body";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -25,16 +26,13 @@ type NewsItem = {
 
 const MAX_LIVE_NEWS_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_FUTURE_CLOCK_SKEW_MS = 10 * 60 * 1000;
+const MAX_NEWS_FEED_BYTES = 2_000_000;
 
-const sourcesEn = [
+const internationalSources = [
   { name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
   { name: "Cointelegraph", url: "https://cointelegraph.com/rss" },
   { name: "Decrypt", url: "https://decrypt.co/feed" },
   { name: "The Block", url: "https://www.theblock.co/rss.xml" },
-];
-
-const sourcesFa = [
-  { name: "ارزدیجیتال", url: "https://arzdigital.com/feed/" },
 ];
 
 function clean(value: string) {
@@ -54,10 +52,6 @@ function clean(value: string) {
 function pick(xml: string, tag: string) {
   const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
   return clean(match?.[1] ?? "");
-}
-
-function hasPersian(text: string) {
-  return /[\u0600-\u06FF]/.test(text);
 }
 
 function inferTone(text: string): NewsTone {
@@ -105,9 +99,13 @@ function relatedLesson(text: string, locale: string) {
   return locale === "fa" ? "آکادمی تک‌پی" : "TecPey Academy";
 }
 
-function faSummaryFor(title: string, sourceSummary: string) {
-  const base = hasPersian(sourceSummary) ? sourceSummary : title;
-  return `خلاصه تک‌پی: ${base.slice(0, 170)}${base.length > 170 ? "..." : ""} این خبر را کنار مدیریت ریسک، افق زمانی و پرهیز از تصمیم‌گیری هیجانی بررسی کنید.`;
+function faSummaryFor(title: string, sourceSummary: string, sourceName: string) {
+  const combined = `${title} ${sourceSummary}`;
+  const category = categoryOf(combined, "fa");
+  const tone = inferTone(combined);
+  const toneLabel = tone === "bullish" ? "مثبت" : tone === "bearish" ? "منفی" : "خنثی";
+  const impact = inferImpact(combined);
+  return `خلاصه فارسی تک‌پی از ${sourceName}: این گزارش بین‌المللی درباره ${category} است. لحن کلی خبر ${toneLabel} و اثر احتمالی آن بر بازار ${impact} از ۱۰ ارزیابی می‌شود. برای تصمیم‌گیری، متن منبع اصلی، داده‌های بازار و برنامه مدیریت ریسک را کنار هم بررسی کنید.`;
 }
 
 function enSummaryFor(title: string, sourceSummary: string) {
@@ -123,10 +121,10 @@ async function readSource(source: { name: string; url: string }, locale: string)
     signal: AbortSignal.timeout(7_000),
   });
   if (!response.ok) throw new Error(`feed failed ${source.name}`);
-  const contentLength = Number(response.headers.get("content-length") || 0);
-  if (contentLength > 2_000_000) throw new Error("feed too large");
-  const xml = await response.text();
-  if (xml.length > 2_000_000) throw new Error("feed too large");
+  const xml = await readBoundedResponseText(response, {
+    maxBytes: MAX_NEWS_FEED_BYTES,
+    errorCode: "feed too large",
+  });
   const itemBlocks = Array.from(xml.matchAll(/<item[\s\S]*?<\/item>/gi)).map((m) => m[0]).slice(0, 10);
   const entries = itemBlocks.length ? itemBlocks : Array.from(xml.matchAll(/<entry[\s\S]*?<\/entry>/gi)).map((m) => m[0]).slice(0, 10);
   return entries
@@ -141,13 +139,12 @@ async function readSource(source: { name: string; url: string }, locale: string)
       const publishedAt = Number.isNaN(parsedDate.getTime()) ? "" : parsedDate.toISOString();
       if (!title) return null;
       if (!isCurrentSourceTimestamp(publishedAt)) return null;
-      if (locale === "fa" && !hasPersian(title)) return null;
       const combined = `${title} ${rawSummary}`;
       const impact = inferImpact(combined);
       return {
         id: `${source.name}-${index}-${title}`.replace(/\W+/g, "-").slice(0, 90),
         title,
-        summary: locale === "fa" ? faSummaryFor(title, rawSummary) : enSummaryFor(title, rawSummary),
+        summary: locale === "fa" ? faSummaryFor(title, rawSummary, source.name) : enSummaryFor(title, rawSummary),
         source: source.name,
         url: link || source.url,
         publishedAt,
@@ -248,7 +245,7 @@ export async function GET(request: NextRequest) {
       includeQuiz ? { newsQuiz: buildNewsQuizBankFromFeed(items, { locale }) } : {};
     const automationPayloadFor = (items: NewsItem[], fetchedAt: string) =>
       includeAutomation ? { automation: automationFor(items, locale, fetchedAt) } : {};
-    const sourceList = locale === "fa" ? sourcesFa : sourcesEn;
+    const sourceList = internationalSources;
     try {
       const updatedAt = new Date().toISOString();
       const settled = await Promise.allSettled(sourceList.map((source) => readSource(source, locale)));

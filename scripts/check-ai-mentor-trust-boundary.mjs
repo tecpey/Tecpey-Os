@@ -5,14 +5,17 @@ const source = async (path) => readFile(path, "utf8");
 
 const route = await source("src/app/api/ai-mentor/route.ts");
 for (const [label, pattern] of [
-  ["strict session", /getCanonicalSession\(request, \{ strictRevocation: true \}\)/],
+  [
+    "strict session",
+    /getCanonicalSession\(\s*request,\s*\{\s*strictRevocation:\s*true\s*,?\s*\}\s*\)/,
+  ],
   ["bounded body", /readBoundedJsonRequest<MentorRequest>/],
   ["trust inspection", /inspectMentorUserText\(rawQuestion\)/],
   ["secret incident response", /secretIncidentResponse\(locale\)/],
   ["typed egress preparation", /prepareMentorEgress\(/],
   ["evidence admission", /phase: "admitted"/],
-  ["provider authority", /callMentorProvider\(/],
-  ["output safety", /inspectMentorOutput\(provider\.answer\)/],
+  ["provider authority", /callAiProviderWithFailover\(\{/],
+  ["output safety", /inspectMentorOutput\(provider\.text\)/],
   ["atomic conversation pair", /persistMentorConversationPair\(/],
   ["explicit memory mode", /memoryMode:/],
   ["client history ignored evidence", /client_history_ignored/],
@@ -21,37 +24,75 @@ for (const [label, pattern] of [
   // product is checked for that tenant, and a non-entitled (or unresolved)
   // tenant degrades to the local fallback rather than reaching the provider.
   ["tenant resolved for egress", /resolveTenantPrincipalContext\(/],
-  ["mentor entitlement gate", /(?:requireTenantProduct|tenantProductVerdict)\(tenantContext\.tenantId, "mentor"\)/],
+  [
+    "mentor entitlement gate",
+    /(?:requireTenantProduct|tenantProductVerdict)\(\s*tenantContext\.tenantId,\s*"mentor"\s*,?\s*\)/,
+  ],
   // Pin the entitlement into the egress-decision disjunction itself, not merely
   // somewhere in the file: !mentorEntitled must sit in the condition that routes
   // to the local fallback, or a non-entitled tenant reaches the provider.
-  ["entitlement gates egress", /!apiKey \|\|\s*!mentorEntitled \|\|\s*!preferences\.externalProviderEnabled/],
+  [
+    "entitlement gates egress",
+    /!runtimeConfigured \|\|\s*!mentorEntitled \|\|\s*!externalProviderAuthorized/,
+  ],
+  [
+    "preference authority gates egress",
+    /const externalProviderAuthorized =\s*mentorExternalProviderAuthorized\(preferenceLoad\)/,
+  ],
+  [
+    "preference outage is explicit",
+    /!preferenceAuthorityAvailable\s*\? "preference_authority_unavailable"/,
+  ],
+  ["daily quota and spend admission authority", /admitAiAgentExecution\(\{/],
+  ["verified knowledge retrieval", /loadVerifiedAiKnowledgeContext\(\{/],
 ]) {
   if (!pattern.test(route)) failures.push(`AI Mentor route: missing ${label}`);
 }
-if (/body\.(?:history|progress|behavioralContext)\s*\.(?:map|slice|filter|join)/.test(route)) {
-  failures.push("AI Mentor route: client-authored context is used as prompt authority");
+if (
+  /body\.(?:history|progress|behavioralContext)\s*\.(?:map|slice|filter|join)/.test(
+    route,
+  )
+) {
+  failures.push(
+    "AI Mentor route: client-authored context is used as prompt authority",
+  );
 }
-if (/buildContextPrompt|saveMentorConversation|getOrCreateMentorProfile/.test(route)) {
-  failures.push("AI Mentor route: legacy non-transactional prompt/memory authority remains");
+if (
+  /buildContextPrompt|saveMentorConversation|getOrCreateMentorProfile/.test(
+    route,
+  )
+) {
+  failures.push(
+    "AI Mentor route: legacy non-transactional prompt/memory authority remains",
+  );
 }
 if (/fetch\(\s*["']https:\/\/api\.openai\.com/.test(route)) {
-  failures.push("AI Mentor route: provider is called outside the provider boundary");
+  failures.push(
+    "AI Mentor route: provider is called outside the provider boundary",
+  );
 }
 if (/debug:\s*errorText|response\.text\(\)[\s\S]*apiOk/.test(route)) {
   failures.push("AI Mentor route: raw provider errors may reach the client");
 }
 const admissionIndex = route.indexOf('phase: "admitted"');
-const providerIndex = route.indexOf("callMentorProvider({");
+const providerIndex = route.indexOf("callAiProviderWithFailover({");
 if (admissionIndex < 0 || providerIndex < 0 || admissionIndex > providerIndex) {
-  failures.push("AI Mentor route: immutable egress admission must precede provider call");
+  failures.push(
+    "AI Mentor route: immutable egress admission must precede provider call",
+  );
 }
 
 // The Mentor entitlement must be decided before the external provider is called,
 // so a tenant not entitled to Mentor can never reach egress.
 const entitlementIndex = route.indexOf("mentorEntitled");
-if (entitlementIndex < 0 || providerIndex < 0 || entitlementIndex > providerIndex) {
-  failures.push("AI Mentor route: Mentor entitlement must gate egress before the provider call");
+if (
+  entitlementIndex < 0 ||
+  providerIndex < 0 ||
+  entitlementIndex > providerIndex
+) {
+  failures.push(
+    "AI Mentor route: Mentor entitlement must gate egress before the provider call",
+  );
 }
 
 const trust = await source("src/lib/ai/mentor-trust-boundary.ts");
@@ -66,32 +107,74 @@ for (const [label, pattern] of [
   ["PII minimization", /\[email-redacted\]/],
   ["prompt injection signals", /ignore_policy/],
   ["typed untrusted input", /userQuestionIsUntrustedData/],
+  ["typed verified reference data", /approvedKnowledgeIsQuotedReferenceData/],
+  [
+    "knowledge secret and injection guard",
+    /inspection\.blocked \|\| inspection\.injectionSignals\.length > 0/,
+  ],
   ["behavioral consent gate", /behavioralPersonalizationEnabled/],
   ["output signal rejection", /direct_signal/],
 ]) {
   if (!pattern.test(trust)) failures.push(`trust boundary: missing ${label}`);
 }
 
-const provider = await source("src/lib/ai/mentor-provider.ts");
+const provider = await source("src/lib/ai/provider-router.ts");
 for (const [label, pattern] of [
-  ["hard timeout", /AI mentor provider timeout/],
-  ["request abort forwarding", /requestSignal\.addEventListener\("abort"/],
+  ["hard timeout", /AI provider timeout/],
+  [
+    "request abort forwarding",
+    /input\.requestSignal\.addEventListener\("abort"/,
+  ],
   ["bounded retry", /models\.length > 1/],
   ["circuit breaker", /FAILURE_THRESHOLD/],
-  ["response size limit", /MAX_RESPONSE_CHARS/],
-  ["output token cap", /max_output_tokens/],
+  [
+    "byte-bounded response stream",
+    /async function readBoundedProviderResponseText\([\s\S]*contentLength > MAX_RESPONSE_BYTES[\s\S]*response\.body\.getReader\(\)[\s\S]*receivedBytes \+= chunk\.value\.byteLength[\s\S]*receivedBytes > MAX_RESPONSE_BYTES[\s\S]*reader\.cancel\(AI_RESPONSE_TOO_LARGE\)[\s\S]*readBoundedProviderResponseText\(response, signal\)/,
+  ],
+  [
+    "abortable response body stream",
+    /reader\.cancel\(signal\.reason\)[\s\S]*signal\.addEventListener\("abort", onAbort, \{ once: true \}\)[\s\S]*signal\.removeEventListener\("abort", onAbort\)/,
+  ],
+  ["Responses output token cap", /max_output_tokens: maxOutputTokens/],
+  ["Messages output token cap", /max_tokens: maxOutputTokens/],
+  [
+    "fixed provider endpoints",
+    /https:\/\/api\.openai\.com\/v1\/responses[\s\S]*https:\/\/api\.x\.ai\/v1\/responses[\s\S]*https:\/\/api\.perplexity\.ai\/v1\/agent/,
+  ],
+  ["provider storage disabled", /store: false/],
+  ["catalog tool authority", /aiToolsForAgent\(/],
 ]) {
-  if (!pattern.test(provider)) failures.push(`provider boundary: missing ${label}`);
+  if (!pattern.test(provider))
+    failures.push(`provider boundary: missing ${label}`);
+}
+if (/\.unref(?:\?\.)?\s*\(/.test(provider)) {
+  failures.push(
+    "provider boundary: awaited network deadlines must remain referenced",
+  );
 }
 
 const store = await source("src/lib/ai/mentor-trust-store.ts");
 for (const [label, pattern] of [
   ["default-off personalization", /behavioralPersonalizationEnabled: false/],
   ["real exchange deny", /realExchangeSignalsEnabled: false/],
-  ["transactional preference evidence", /action: "mentor\.preferences\.update"/],
+  [
+    "unavailable preferences carry no authority",
+    /\| \{ available: false; preferences: null \}/,
+  ],
+  [
+    "external provider requires available preference authority",
+    /preferenceLoad\?\.available === true &&\s*preferenceLoad\.preferences\.externalProviderEnabled/,
+  ],
+  [
+    "transactional preference evidence",
+    /action: "mentor\.preferences\.update"/,
+  ],
   ["preference no-op authority", /changed: false/],
   ["append evidence", /INSERT INTO ai_mentor_request_evidence/],
-  ["transactional conversation pair", /INSERT INTO mentor_conversations[\s\S]*'user'[\s\S]*'assistant'/],
+  [
+    "transactional conversation pair",
+    /INSERT INTO mentor_conversations[\s\S]*'user'[\s\S]*'assistant'/,
+  ],
   ["bounded history", /LIMIT 200/],
 ]) {
   if (!pattern.test(store)) failures.push(`trust store: missing ${label}`);
@@ -106,7 +189,8 @@ for (const [label, pattern] of [
   ["forbidden metadata keys", /tecpey_sensitive_audit_has_forbidden_key/],
   ["conversation request ID", /ADD COLUMN IF NOT EXISTS request_id UUID/],
 ]) {
-  if (!pattern.test(migration)) failures.push(`mentor trust migration: missing ${label}`);
+  if (!pattern.test(migration))
+    failures.push(`mentor trust migration: missing ${label}`);
 }
 
 const migrationPlan = await source("src/lib/db-migration-registry.ts");
@@ -123,17 +207,29 @@ for (const [label, pattern] of [
   ["typed audit request", /action: "mentor\.preferences\.update"/],
   ["no-store", /Cache-Control", "private, no-store/],
 ]) {
-  if (!pattern.test(preferences)) failures.push(`mentor preferences: missing ${label}`);
+  if (!pattern.test(preferences))
+    failures.push(`mentor preferences: missing ${label}`);
 }
-if (/writeAudit\(|mentor_ai_preferences_changed|getClientIp|user-agent/.test(preferences)) {
-  failures.push("mentor preferences: legacy detached audit or request telemetry remains");
+if (
+  /writeAudit\(|mentor_ai_preferences_changed|getClientIp|user-agent/.test(
+    preferences,
+  )
+) {
+  failures.push(
+    "mentor preferences: legacy detached audit or request telemetry remains",
+  );
 }
 if (/realExchangeSignalsEnabled:\s*true/.test(preferences)) {
-  failures.push("mentor preferences: real exchange signals may not be enabled in this containment phase");
+  failures.push(
+    "mentor preferences: real exchange signals may not be enabled in this containment phase",
+  );
 }
 
 const alias = await source("src/app/api/ai-mentor-v2/route.ts");
-if (!/POST as canonicalPost/.test(alias) || !/return canonicalPost\(req\)/.test(alias)) {
+if (
+  !/POST as canonicalPost/.test(alias) ||
+  !/return canonicalPost\(req\)/.test(alias)
+) {
   failures.push("AI Mentor V2 must delegate to the canonical trust boundary");
 }
 
@@ -150,18 +246,25 @@ try {
 
 const packageJson = JSON.parse(await source("package.json"));
 const scripts = packageJson.scripts ?? {};
-if (!scripts["ai:trust:check"]) failures.push("package: ai:trust:check is missing");
-if (!scripts["test:ai-mentor-trust"]) failures.push("package: test:ai-mentor-trust is missing");
-if (!scripts["ai:redteam:check"]) failures.push("package: ai:redteam:check is missing");
+if (!scripts["ai:trust:check"])
+  failures.push("package: ai:trust:check is missing");
+if (!scripts["test:ai-mentor-trust"])
+  failures.push("package: test:ai-mentor-trust is missing");
+if (!scripts["ai:redteam:check"])
+  failures.push("package: ai:redteam:check is missing");
 if (
   scripts["ai:redteam:check"] &&
   (!scripts["ai:redteam:check"].includes("npm run ai:trust:check") ||
     !scripts["ai:redteam:check"].includes("npm run test:ai-mentor-trust"))
 ) {
-  failures.push("package: ai:redteam:check must enforce both source guard and focused tests");
+  failures.push(
+    "package: ai:redteam:check must enforce both source guard and focused tests",
+  );
 }
 if (!scripts["release:check"]?.includes("npm run ai:redteam:check")) {
-  failures.push("package: release:check does not enforce the AI Mentor red-team gate");
+  failures.push(
+    "package: release:check does not enforce the AI Mentor red-team gate",
+  );
 }
 
 if (failures.length) {

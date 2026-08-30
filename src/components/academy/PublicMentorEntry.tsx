@@ -23,6 +23,8 @@ export function PublicMentorEntry() {
     pathname.startsWith("/academy/") ||
     pathname === "/en/academy" ||
     pathname.startsWith("/en/academy/");
+  const isAcademyAuthRoute =
+    /^\/(?:en\/)?academy\/(?:login|signup|onboarding)\/?$/.test(pathname);
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>("checking");
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -33,7 +35,7 @@ export function PublicMentorEntry() {
     let active = true;
 
     const checkProfile = async () => {
-      if (!isAcademyArea) {
+      if (!isAcademyArea || isAcademyAuthRoute) {
         setProfileStatus("absent");
         return;
       }
@@ -60,7 +62,7 @@ export function PublicMentorEntry() {
       window.removeEventListener("tecpey-academy-profile-ready", checkProfile);
       window.removeEventListener("focus", checkProfile);
     };
-  }, [isAcademyArea]);
+  }, [isAcademyArea, isAcademyAuthRoute]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,7 +105,7 @@ export function PublicMentorEntry() {
     };
   }, [open]);
 
-  if (profileStatus !== "absent") return null;
+  if (isAcademyAuthRoute || profileStatus !== "absent") return null;
 
   const academyHref = isEnglish ? "/en/academy" : "/academy";
   const signupHref = isEnglish ? "/en/academy/signup" : "/academy/signup";
@@ -115,7 +117,7 @@ export function PublicMentorEntry() {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.25rem)] left-3 z-[90] inline-flex max-w-[52vw] items-center justify-center gap-2 rounded-2xl border border-cyan-300/45 bg-slate-950/95 px-3 py-2.5 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-950/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:bottom-5 sm:left-5 sm:max-w-none sm:px-4 sm:py-3 sm:text-xs"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/45 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-950/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-none sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs"
         aria-label={
           isEnglish
             ? "Discover TecPey AI learning mentor"
@@ -125,7 +127,7 @@ export function PublicMentorEntry() {
         aria-expanded={open}
       >
         <BrainCircuit className="h-5 w-5 shrink-0 text-cyan-300" />
-        <span className="truncate">
+        <span className="sr-only sm:not-sr-only sm:truncate">
           {isEnglish ? "AI Learning Mentor" : "منتور هوشمند تک‌پی"}
         </span>
       </button>

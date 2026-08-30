@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
+import { ensureMentorThreadTx, touchMentorThreadTx } from "@/lib/mentor-threads";
 import {
   writeSensitiveMutationAuditTx,
   type SensitiveMutationAuditEvent,
@@ -17,10 +18,9 @@ export type MentorAiPreferences = {
   consentedAt: string | null;
 };
 
-export type MentorAiPreferenceLoad = {
-  available: boolean;
-  preferences: MentorAiPreferences;
-};
+export type MentorAiPreferenceLoad =
+  | { available: true; preferences: MentorAiPreferences }
+  | { available: false; preferences: null };
 
 export type MentorPreferenceAuditContext = Pick<
   SensitiveMutationAuditEvent,
@@ -36,7 +36,13 @@ export type MentorEvidenceInput = {
   requestId: string;
   studentId: string | null;
   phase: "blocked" | "local" | "admitted" | "completed";
-  provider: "none" | "openai";
+  provider:
+    | "none"
+    | "openai"
+    | "anthropic"
+    | "perplexity"
+    | "xai"
+    | "openrouter";
   model?: string | null;
   policyVersion: string;
   contextClasses: MentorDataClass[];
@@ -68,6 +74,7 @@ export type MentorConversationPairInput = {
   locale: "fa" | "en";
   termNumber?: number;
   contentClass?: "personal" | "financial_sensitive";
+  threadId?: string | null;
 };
 
 const MENTOR_CONSENT_VERSION = "2026-07-20.1";
@@ -99,6 +106,15 @@ function mapPreferences(row: PreferenceRow): MentorAiPreferences {
       ? new Date(row.consented_at).toISOString()
       : null,
   };
+}
+
+export function mentorExternalProviderAuthorized(
+  preferenceLoad: MentorAiPreferenceLoad | null,
+): boolean {
+  return (
+    preferenceLoad?.available === true &&
+    preferenceLoad.preferences.externalProviderEnabled
+  );
 }
 
 export function fingerprintMentorPreferenceStudent(studentId: string): string {
@@ -142,13 +158,13 @@ export async function loadMentorAiPreferences(
     });
     return result.enabled
       ? { available: true, preferences: result.value }
-      : { available: false, preferences: DEFAULT_PREFERENCES };
+      : { available: false, preferences: null };
   } catch (error) {
     logger.error("[mentor-trust-store] preference load failed", {
       studentFingerprint: fingerprintMentorPreferenceStudent(studentId),
       error: String(error),
     });
-    return { available: false, preferences: DEFAULT_PREFERENCES };
+    return { available: false, preferences: null };
   }
 }
 
@@ -328,15 +344,23 @@ export async function persistMentorConversationPair(
 ): Promise<boolean> {
   try {
     const transaction = await withTx(async (client) => {
+      const ensured = await ensureMentorThreadTx(client, {
+        studentId: input.studentId,
+        threadId: input.threadId,
+        locale: input.locale,
+        titleHint: input.question,
+      });
+      if (!ensured) throw new Error("mentor_thread_not_owned");
       await client.query(
         `INSERT INTO mentor_conversations
-          (student_id, request_id, role, content, locale, term_number,
+          (student_id, thread_id, request_id, role, content, locale, term_number,
            content_class, retention_class)
          VALUES
-          ($1::uuid, $2::uuid, 'user', $3, $4, $5, $6, 'mentor_history_90d'),
-          ($1::uuid, $2::uuid, 'assistant', $7, $4, $5, 'personal', 'mentor_history_90d')`,
+          ($1::uuid, $2::uuid, $3::uuid, 'user', $4, $5, $6, $7, 'mentor_history_90d'),
+          ($1::uuid, $2::uuid, $3::uuid, 'assistant', $8, $5, $6, 'personal', 'mentor_history_90d')`,
         [
           input.studentId,
+          ensured.thread.id,
           input.requestId,
           input.question,
           input.locale,
@@ -345,6 +369,12 @@ export async function persistMentorConversationPair(
           input.answer,
         ],
       );
+      await touchMentorThreadTx(client, {
+        studentId: input.studentId,
+        threadId: ensured.thread.id,
+        locale: input.locale,
+        titleHint: input.question,
+      });
       await client.query(
         `DELETE FROM mentor_conversations
           WHERE student_id = $1::uuid

@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "addedOperations": [
+    {
+      "route": "/api/command-center/ai-control-plane",
+      "method": "POST",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed additive AI control-plane operation, including governed provider connectivity probes under the multi-provider routing policy: admin RBAC and recent step-up protect provider tests and human-gated research or knowledge review; requests are rate-limited, CSRF protected, bounded, tenant/workspace scoped, private no-store, source-required, audited and fail closed. Connectivity probes inherit provider/model allowlists, bounded reasoning limits, timeout/circuit controls and spend authority; provider circuit state remains isolated to the acting tenant/workspace.",
+      "replacement": {
+        "route": "/api/command-center/ai-control-plane",
+        "method": "POST",
+        "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
+        "sourceHash": "db009522de6fd6c6752e19ee",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": ["admin"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-ai-control-plane-operation",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/command-center/ai-control-plane",
+      "method": "PUT",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed additive AI configuration operation after integrating governed multi-provider routing: admin RBAC plus recent step-up protects encrypted provider credential rotation, paid-provider spend authority, routing budgets and catalog-constrained agent bindings; requests are rate-limited, CSRF protected, bounded, tenant/workspace scoped, private no-store, audited and fail closed. Configuration cannot bypass provider/model allowlists, budget ceilings or circuit controls.",
+      "replacement": {
+        "route": "/api/command-center/ai-control-plane",
+        "method": "PUT",
+        "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
+        "sourceHash": "db009522de6fd6c6752e19ee",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": ["admin"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-ai-control-plane-configure",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
+          "method": "PUT",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-threads",
+      "method": "PATCH",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed additive Mentor thread update operation: a strict canonical student session, verified tenant binding and Mentor entitlement precede owner-keyed archive or title mutation; the request is rate-limited, CSRF protected, bounded, transactionally audited and private no-store. Re-reviewed after naming the verified binding tenantContext and adding the tenant/product inventory guard; runtime controls are unchanged.",
+      "replacement": {
+        "route": "/api/mentor-threads",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/mentor-threads/route.ts",
+        "sourceHash": "691ee79aa6e5ab358733b7d6",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-threads-update",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-threads",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-threads/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-threads",
+      "method": "POST",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed additive Mentor thread creation operation: a strict canonical student session, verified tenant binding and Mentor entitlement precede owner-keyed creation; the request is rate-limited, CSRF protected, bounded, transactionally audited and private no-store. Re-reviewed after naming the verified binding tenantContext and adding the tenant/product inventory guard; runtime controls are unchanged.",
+      "replacement": {
+        "route": "/api/mentor-threads",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-threads/route.ts",
+        "sourceHash": "691ee79aa6e5ab358733b7d6",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-threads-create",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-threads",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-threads/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": []
+}

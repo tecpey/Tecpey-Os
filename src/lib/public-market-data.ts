@@ -4,6 +4,28 @@ export const PUBLIC_MARKET_SOURCE = "CoinGecko";
 export const PUBLIC_MARKET_SOURCE_URL = "https://www.coingecko.com/";
 export const PUBLIC_MARKET_FRESHNESS_MS = 5 * 60_000;
 
+export type MarketPriceLocale = "fa-IR" | "en-US";
+
+export function normalizeMarketSymbol(value: unknown): string {
+  const symbol = String(value ?? "").trim().toUpperCase();
+  if (!symbol || symbol === "USDT") return symbol;
+
+  return symbol.replace(/[_/-]?USDT$/i, "");
+}
+
+export function formatMarketPrice(
+  value: unknown,
+  locale: MarketPriceLocale,
+): string | null {
+  const price = Number(value ?? 0);
+  if (!Number.isFinite(price) || price <= 0) return null;
+
+  return new Intl.NumberFormat(locale, {
+    maximumSignificantDigits: 8,
+    useGrouping: true,
+  }).format(price);
+}
+
 type CoinGeckoMarket = {
   id?: unknown;
   symbol?: unknown;

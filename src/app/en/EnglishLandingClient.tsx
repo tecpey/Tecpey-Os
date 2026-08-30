@@ -9,6 +9,7 @@ import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/
 import { HomeDiscoveryStrip } from "@/components/home/HomeDiscoveryStrip";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
+import { formatMarketPrice, normalizeMarketSymbol } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
 const features = [
@@ -18,9 +19,8 @@ const features = [
 ];
 
 function usd(value: unknown) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "Receiving live price";
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: n < 10 ? 4 : 2 }).format(n)}`;
+  const formatted = formatMarketPrice(value, "en-US");
+  return formatted ? `$${formatted}` : "Receiving live price";
 }
 
 function resolveUsdPrice(coin: MarketCurrency) {
@@ -564,7 +564,7 @@ export default function EnglishLandingClient({
             <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">Reference market data for learning and virtual practice · USD/USDT</p>
             <div className="mt-4 space-y-2">
               {rows.map((coin, index) => {
-                const symbol = String(coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");
+                const symbol = normalizeMarketSymbol(coin?.symbol ?? coin?.priceData?.symbol);
                 const name = coin?.name ?? symbol;
                 const price = resolveUsdPrice(coin);
                 return (

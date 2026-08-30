@@ -29,7 +29,8 @@ function buildCsp(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     buildCspConnectSrc(),
-    "media-src 'none'",
+    // Decorative motion is self-hosted; external media origins stay denied.
+    "media-src 'self'",
     "object-src 'none'",
     "frame-src 'self'",
     "frame-ancestors 'none'",

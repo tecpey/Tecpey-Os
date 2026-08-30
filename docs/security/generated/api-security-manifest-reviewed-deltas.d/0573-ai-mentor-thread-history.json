@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "previousSourceHash": "c37bfcb38ecfec07f8035585",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the canonical AI Mentor operation after moving model execution to the governed multi-provider runtime, adding tenant/workspace agent quota admission and immutable workflow evidence, and binding every persisted pair to an owner-scoped server thread. Existing strict session, CSRF, bounded-body, entitlement, redaction, output-safety, audit and private no-store controls remain enforced.",
+      "replacement": {
+        "route": "/api/ai-mentor",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "sourceHash": "182fd27c79168d411050d964",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/ai-mentor-provider.test.ts",
+          "src/tests/security/ai-mentor-trust-boundary.test.ts",
+          "src/tests/security/ai-mentor-trust-store-postgres.test.ts",
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "previousSourceHash": "f5b3b1803e1c60699a8fcc18",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the compatibility AI Mentor operation after its delegated canonical handler gained governed provider routing, quota admission, workflow evidence and server-thread ownership. The alias remains pass-through only and inherits the canonical strict session, CSRF, bounded-body, redaction, audit and no-store contract.",
+      "replacement": {
+        "route": "/api/ai-mentor-v2",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
+        "sourceHash": "f5b3b1803e1c60699a8fcc18",
+        "delegatedTo": "src/app/api/ai-mentor/route.ts",
+        "delegatedSourceHash": "182fd27c79168d411050d964",
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "canonical /api/ai-mentor handler",
+        "tenantSource": "tenantContext",
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor-v2",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-alias",
+          "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+          "issue": "#108"
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-conversations/migrate",
+      "method": "POST",
+      "previousSourceHash": "186aee856ac01085fc261d9c",
+      "issue": "#84",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed legacy Mentor history migration after binding it to the acting tenant/workspace and Mentor entitlement, rejecting secret-bearing or injection-shaped legacy turns, importing accepted messages into one server-owned thread, and auditing under the verified tenant. Strict session, CSRF, bounded-body, rate limiting, transactional audit and private no-store controls remain enforced.",
+      "replacement": {
+        "route": "/api/mentor-conversations/migrate",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
+        "sourceHash": "d14513848a0c2c08bda54e40",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": ["ai-memory"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-conversations-migrate",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-conversations",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "addedOperations": [],
+  "readOnlyRoutes": []
+}

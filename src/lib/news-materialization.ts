@@ -173,12 +173,6 @@ function buildTopCoins(
   return Array.from(selected.values());
 }
 
-function compactText(value: string, maximum: number): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= maximum) return normalized;
-  return normalized.slice(0, Math.max(0, maximum - 3)).trim() + "...";
-}
-
 function hasPersianText(value: string): boolean {
   return /[آ-ی]/.test(value);
 }
@@ -202,10 +196,14 @@ function decisionEntityLabel(decision: NewsAutomationDecision): string {
 
 function buildPersianEditorialSummary(decision: NewsAutomationDecision): string {
   const entityLabel = decisionEntityLabel(decision);
-  const originalSummary = compactText(decision.article.summary, 260);
+  const toneLabel = decision.article.tone === "bullish"
+    ? "مثبت"
+    : decision.article.tone === "bearish" || decision.article.tone === "risk"
+      ? "منفی یا پرریسک"
+      : "خنثی";
   return [
     "خلاصه فارسی تک‌پی: این خبر از " + decision.article.sourceName + " درباره " + entityLabel + " منتشر شده است.",
-    "برداشت عملیاتی از متن منبع: " + originalSummary + ".",
+    "لحن کلی خبر " + toneLabel + " و اثر آموزشی آن " + Math.round(decision.article.impactScore * 10) + " از ۱۰ ارزیابی شده است.",
     "این کارت برای دسته‌بندی خبر، پیوند به صفحه کوین/ابزار و زمینه آموزشی آکادمی استفاده می‌شود و توصیه معاملاتی یا وعده بازده محسوب نمی‌شود.",
   ].join(" ");
 }

@@ -56,7 +56,7 @@ export default async function LessonPage({ params }: Props) {
     : `/academy/${termSlug}`;
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8" dir="rtl">
+    <div className="tecpey-motion-content-surface--dark min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8" dir="rtl">
       <div className="mx-auto max-w-2xl">
         <LessonPlayerV2Client lesson={lesson} nextPath={nextPath} />
       </div>

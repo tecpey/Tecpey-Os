@@ -321,8 +321,8 @@ if (!markComponent.includes('variant = "icon"')) {
 }
 
 const footer = readText("src/components/footer/Footer.tsx");
-if (!footer.includes('variant="lockup"')) {
-  fail("src/components/footer/Footer.tsx: footer brand panel must use the governed lockup variant");
+if (footer.includes('variant="lockup"') || footer.includes("ContactPanel")) {
+  fail("src/components/footer/Footer.tsx: global contact/brand panels must remain removed");
 }
 
 const runtimeUiFiles = walkFiles("src", (relativePath) => /\.(ts|tsx)$/.test(relativePath));

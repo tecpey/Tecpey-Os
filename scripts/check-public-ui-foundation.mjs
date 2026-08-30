@@ -25,7 +25,7 @@ rejectText(theme, "useState(theme ===", "Theme control must not freeze pre-hydra
 requireText(layout, "<PublicMentorEntry />", "Root layout must expose the public/locked Mentor entry");
 requireText(layout, "<GlobalAiMentorWidget />", "Root layout must preserve the personalized Mentor widget");
 requireText(publicMentor, 'type ProfileStatus = "checking" | "absent" | "ready" | "unavailable"', "Public Mentor must distinguish absent profile from API failure");
-requireText(publicMentor, 'if (profileStatus !== "absent") return null', "Public Mentor must show only after an authoritative absent-profile result");
+requireText(publicMentor, 'if (isAcademyAuthRoute || profileStatus !== "absent") return null', "Public Mentor must stay hidden on Academy auth routes and show only after an authoritative absent-profile result");
 requireText(publicMentor, 'setProfileStatus("unavailable")', "Mentor profile-check failure must fail closed instead of creating a duplicate launcher");
 requireText(publicMentor, "منتور هوشمند تک‌پی", "Public Mentor CTA must be visible in Persian");
 requireText(publicMentor, "AI Learning Mentor", "Public Mentor CTA must be visible in English");
@@ -40,6 +40,7 @@ requireText(navbar, "role=\"menu\"", "Knowledge Center panel must use menu seman
 requireText(navbar, "role=\"menuitem\"", "Knowledge Center links must use menu-item semantics");
 requireText(navbar, "absolute end-0", "Knowledge Center must use locale-aware logical alignment");
 requireText(navbar, "event.key !== \"Escape\"", "Knowledge Center must support Escape dismissal");
+requireText(navbar, "loading=\"eager\"", "Above-the-fold TecPey mark must not lazy-load");
 requireText(navbar, "تریدینگ آرنا", "Knowledge navigation must expose Trading Arena");
 requireText(navbar, "منتور هوشمند", "Knowledge navigation must expose the AI Mentor");
 
@@ -49,7 +50,9 @@ rejectText(footer, "E-trust status", "Persian Footer must not contain mixed-lang
 rejectText(footer, "Digital media registration", "Persian Footer must not contain mixed-language registration labels");
 requireText(footer, "تریدینگ آرنا", "Footer must expose the Trading Arena product path");
 requireText(footer, "منتور هوشمند", "Footer must expose the AI Mentor product path");
-requireText(footer, "هنوز نهایی یا تأیید نشده‌اند", "Pending trust signals must be disclosed without implying approval");
+rejectText(footer, "trustSignals", "Footer must not render trust-badge panels");
+rejectText(footer, "ContactPanel", "Footer must not render a global contact panel");
+rejectText(footer, "info@tecpey.ir", "Footer must not expose contact details on every page");
 
 if (failures.length) {
   console.error("Public UI foundation check failed:");

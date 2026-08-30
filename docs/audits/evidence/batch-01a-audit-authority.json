@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-27",
+  "reviewedAt": "2026-08-30",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "ecad0a2ebafd48e8c813692079e0b97c9c38e7c9",
-      "sha256": "11b18b34338f3deb7144e0ee952707ba850273b9ce9c0b96e7f94f0ccf8262a3",
-      "lines": 247,
+      "gitObjectId": "df40404c64b4d3b8ba42c8e266b945bcb925f300",
+      "sha256": "494157fd1b0c5f4375dfea1281e4b209864b8e6258271cb6de931342fcc6bf94",
+      "lines": 249,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 247
+          "endLine": 249
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -55,6 +55,9 @@
         "All scripts, dependency pins, engine constraints and override declarations were reviewed; the audit commands remain exact and separated between generation, authority checking, verification and tests.",
         "The added ESLint, secret-scanning, operational-recovery and production supply-chain commands bind their permanent guards to focused tests; supply-chain:check now executes both its source authority and 44 host-policy tests, while env:check composes the existing environment validator with the production CSP connection validator.",
         "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority.",
+        "2026-08-29: re-reviewed after moving the two AI routing PostgreSQL checks to explicit integration-test filenames and executing them in a separate bounded Node test process after the main unit suite. Test coverage remains mandatory while preventing migration workers and integration DML from contending in the same process; no dependency, release-authority command, network path or production runtime changed.",
+        "2026-08-29: re-reviewed after serializing the two mandatory AI routing PostgreSQL integration files into separate bounded Node processes. The change removes cross-file advisory-lock contention without skipping either proof or changing application/runtime authority.",
+        "2026-08-29: re-reviewed after correcting test:ai-mentor-trust to the renamed route-candidate integration path. This restores the intended mandatory trust-suite coverage and changes no dependency or runtime authority.",
         "Re-reviewed after adding release:coverage:check and security:markers:check. Both are read-only static guards over package.json and .github/workflows; neither runs application code, touches the network, or mutates developer npm configuration. release:check gains both and stays a composition of governed checks.",
         "Re-reviewed after adding exchange:reconcile, exchange:reconcile:check and test:exchange-reconciliation. The reconcile command is read-only and opens no transaction; the check is a static source guard; the test suite is PostgreSQL integration only. exchange:check and release:check gain the guard, and release:check gains the test, so both remain compositions of governed checks.",
         "Re-reviewed after adding tenant:isolation:check and test:tenant-isolation-coverage. The isolation check composes the existing principal-isolation guard with a read-only tenant-scoped table drift check; the test suite exercises only that guard. release:check gains the composite gate and remains a composition of governed checks.",
@@ -114,16 +117,20 @@
         "2026-08-23: re-reviewed after replacing the incident-readiness request-only launch guard with the accepted exact-candidate execution-status guard. The command remains a local read-only validator over canonical status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, preserves the immutable runtime candidate, and keeps controlled launch fail-closed on NOG-08/NOG-09. The file remains 246 lines.",
         "2026-08-24: re-reviewed after test:deployment additionally executes src/tests/runtime/optional-profile.test.ts. The focused unit suite proves that the optional navbar profile lookup degrades only known upstream ApiError failures to an anonymous profile while preserving unknown-error propagation; it adds no dependency, engine, override, real network/database access, runtime mutation path or activation surface, and the file remains 246 lines.",
         "2026-08-25: re-reviewed after adding test:home-locale-parity and composing it into check. The new command runs one local node:test suite that statically verifies shared FA/EN home discovery content, locale-specific market labels and the compact five-item mobile strip contract; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, leaves release:check composition unchanged beyond its existing call to check, and does not claim parity outside the reviewed home discovery surface. The file now has 247 lines.",
-        "2026-08-27: re-reviewed after wiring src/tests/security/service-worker-cache-policy.test.ts into test:offline-sync. The added test reads only the checked-in service worker, registration client and Next.js configuration to enforce network-first Academy navigation, owned-cache rotation and no-store auth headers; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, and test:offline-sync remains a composition of governed tests. The file remains 247 lines."
+        "2026-08-27: re-reviewed after wiring src/tests/security/service-worker-cache-policy.test.ts into test:offline-sync. The added test reads only the checked-in service worker, registration client and Next.js configuration to enforce network-first Academy navigation, owned-cache rotation and no-store auth headers; it adds no dependency, engine, override, network/database access, runtime mutation path or activation surface, and test:offline-sync remains a composition of governed tests. The file remains 247 lines.",
+        "2026-08-29: re-reviewed after adding the AI automation worker and internal executor to the server build, exposing their two operational entrypoints, and expanding test:ai-mentor-trust with the control-plane, provider secret/router/failover, routing-policy, route-candidate, automation and source-authority suites. The entrypoints preserve the existing isolated server runtime and governed database/provider boundaries; the test expansion is local or PostgreSQL-backed evidence, adds no dependency, engine or override, and does not authorize paid-provider spend, exchange execution, custody activation, merge, deploy or launch. The file now has 249 lines.",
+        "2026-08-29: re-reviewed after adding Node's test-force-exit flag to the repository-wide test command. The flag is limited to the test runner, preserves the existing test glob, stubs and test environment, does not suppress assertion failures or change the 12-minute workflow bound, and prevents completed suites from hanging on residual test-only handles. It adds no dependency, engine, override, network authority, runtime mutation path or activation surface. The file remains 249 lines.",
+        "2026-08-29: re-reviewed the complete 249-line package after expanding test:ai-mentor-trust with the AI routing-budget unit/PostgreSQL, automation-orchestration PostgreSQL, tenant-database-integrity and managed-AI launch-containment policy/source/PostgreSQL suites. This is test-only wiring under NODE_ENV=test and test-force-exit; it adds no dependency, engine, override, provider/network/spend/launch authority or production mutation path, preserves release composition, and keeps managed AI fail-closed pending tenant-isolation evidence.",
+        "2026-08-30: re-reviewed after wiring src/tests/security/ai-mentor-preference-egress-gate.test.ts into test:ai-mentor-trust. The added deterministic unit proof requires both an available database preference authority and an explicit external-provider opt-in, covers null, unavailable, disabled and enabled states, and adds no dependency, engine, override, network/provider/spend authority, runtime mutation path or activation surface. The package remains 249 lines and release composition remains unchanged."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 164,
+          "line": 166,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 164 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 166 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
@@ -269,8 +276,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "6ece2d5530fb5634f8864fe4d4e61529c896b01a",
-      "sha256": "9bc578852fcbe668d5a636667893b9e0949d9933510815d5fee57491abe0f422",
+      "gitObjectId": "3de7f87d44308f86164e66c32b1035348a7b6585",
+      "sha256": "1db0e0aa0b94dcfeeab02169c5fa2f6721087a6e355a50a37c3e704282c3cfde",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -293,7 +300,8 @@
         "2026-08-21: re-reviewed after Policy v18 explicitly classified src/lib/env-placeholders.ts as operations-runtime Batch 11, beside alerts.ts and error-tracking.ts. The module holds the repository's single list of environment placeholder tokens, which scripts/validate-env.mjs enforces at the deployment preflight and which alerts.ts and email.ts now read instead of keeping private copies; operations-runtime is the truthful domain because the other half of the contract is the preflight itself. The change is limited to one classification entry and the policy version constant. Source-path fail-closed behavior and existing rule ordering are unchanged, no runtime activation surface is added, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-24: re-reviewed after Policy v19 explicitly classified src/lib/fetch-error-classification.ts as authentication-admin-security Batch 3 beside api-error.ts and api-validation.ts. The pure classifier translates bounded browser and Node/undici transport failures into existing ApiError categories, adds no network call, credential access, persistence, mutation or activation surface, preserves source-path fail-closed behavior and rule ordering, and has a focused classification assertion in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v20 explicitly classified src/lib/production-next-runtime-config.ts as operations-runtime Batch 11. The helper reads only the exact build-serialized Next.js config, validates its immutable 40-character release identity and installs it before the custom production server creates the application; it adds no network, persistence or capability activation surface. Source-path fail-closed behavior and rule ordering remain unchanged, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
-        "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both."
+        "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both.",
+        "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow."
       ],
       "findings": []
     },

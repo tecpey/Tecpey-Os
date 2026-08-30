@@ -112,6 +112,9 @@ for (const invariant of [
   "lastRunPath",
   "buildNewsMaterializationFreshnessReport",
   "writeNewsMaterializationLastRun",
+  "AbortSignal.timeout(NEWS_FEED_TIMEOUT_MS)",
+  "readBoundedResponseText",
+  "MAX_NEWS_FEED_BYTES",
 ]) {
   requireText("worker", invariant, `worker is missing ${invariant}`);
 }
@@ -148,7 +151,7 @@ for (const invariant of [
   requireText("service", invariant, `systemd service is missing ${invariant}`);
 }
 for (const invariant of [
-  "OnCalendar=*-*-* *:0/10:00 UTC",
+  "OnCalendar=hourly",
   "Persistent=true",
   "Unit=tecpey-news-materialization.service",
 ]) {

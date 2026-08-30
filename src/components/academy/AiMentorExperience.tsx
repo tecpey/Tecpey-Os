@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, BookOpenCheck, CheckCircle2, Loader2, Send, ShieldAlert, Sparkles, BrainCircuit, Target } from "lucide-react";
+import { Bot, BookOpenCheck, CheckCircle2, Loader2, Send, ShieldAlert, Sparkles, BrainCircuit, Target, Globe2 } from "lucide-react";
 import {
   MENTOR_QUICK_QUESTIONS,
   detectMentorMode,
@@ -10,71 +10,49 @@ import {
   type MentorMode,
   type MentorReply,
 } from "@/lib/academy-ai-mentor-core";
+import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
+import { useMentorInsights } from "@/hooks/useMentorInsights";
 
 type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?: MentorMode; confidence: number };
 
-// The mentor's deterministic brain now lives in academy-ai-mentor-core (shared
-// with the news-quiz board). This component keeps only the browser-side pieces:
-// disposable browser-cache practice hints and the live /api/ai-mentor call,
-// with the core's toLocalReply as the fail-closed fallback.
+// The deterministic safe fallback lives in academy-ai-mentor-core. Durable
+// progress, Mentor profile, thread selection and conversation memory come only
+// from authenticated server APIs; browser state is display-only.
 const quickQuestions = MENTOR_QUICK_QUESTIONS.fa;
-
-function readMentorProgress(): MentorProgress {
-  if (typeof window === "undefined") return { completedTerms: [], weakAreas: [], confidence: 0 };
-  const completedTerms: number[] = [];
-  for (let i = 1; i <= 7; i += 1) {
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem(`tecpey-lesson-progress-fa-term-${i}`) || "null");
-      const completedCount = parsed?.completed ? Object.keys(parsed.completed).filter((key) => parsed.completed[key]).length : 0;
-      const total = i === 7 ? 6 : 7;
-      if (completedCount >= total) completedTerms.push(i);
-    } catch {}
-  }
-  try {
-    const stored = JSON.parse(window.localStorage.getItem("tecpey-ai-mentor-memory") || "null");
-    return {
-      completedTerms,
-      weakAreas: Array.isArray(stored?.weakAreas) ? stored.weakAreas.slice(0, 5) : [],
-      lastMode: stored?.lastMode,
-      confidence: Math.min(100, Math.max(0, Number(stored?.confidence || completedTerms.length * 12))),
-    };
-  } catch {
-    return { completedTerms, weakAreas: [], confidence: completedTerms.length * 12 };
-  }
-}
-
-function updateMentorMemory(mode: MentorMode, question: string) {
-  if (typeof window === "undefined") return;
-  const labels: Record<MentorMode, string> = {
-    concept: "مبانی و مفهوم", security: "امنیت دارایی", risk: "مدیریت ریسک", trading: "تحلیل تکنیکال", project: "تحلیل پروژه", psychology: "روانشناسی بازار",
-  };
-  const current = readMentorProgress();
-  const weakAreas = [labels[mode], ...current.weakAreas.filter((item) => item !== labels[mode])].slice(0, 5);
-  const confidence = Math.min(100, current.confidence + (question.length > 20 ? 4 : 2));
-  const memoryPayload = { lastMode: mode, weakAreas, confidence, updatedAt: Date.now() };
-  window.localStorage.setItem("tecpey-ai-mentor-memory", JSON.stringify(memoryPayload));
-  const locale = document.documentElement.lang?.startsWith("en") || location.pathname.startsWith("/en") ? "en" : "fa";
-  const historyKey = `tecpey-ai-mentor-history-${locale}`;
-  try {
-    const previous = JSON.parse(window.localStorage.getItem(historyKey) || "[]");
-    const next = [...(Array.isArray(previous) ? previous : []), { question, mode, askedAt: Date.now() }].slice(-12);
-    window.localStorage.setItem(historyKey, JSON.stringify(next));
-  } catch {
-    window.localStorage.setItem(historyKey, JSON.stringify([{ question, mode, askedAt: Date.now() }]));
-  }
-}
 
 export function AiMentorExperience() {
   const [question, setQuestion] = useState(quickQuestions[0]);
-  const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [reply, setReply] = useState<MentorReply>(() => toLocalReply(quickQuestions[0]));
   const [loading, setLoading] = useState(false);
+  const [publicResearch, setPublicResearch] = useState(false);
   const [lastQuestion, setLastQuestion] = useState(quickQuestions[0]);
-  const [mentorProgress, setMentorProgress] = useState<MentorProgress>({ completedTerms: [], weakAreas: [], confidence: 0 });
+  const [threadId, setThreadId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const officialProgress = useAcademyPathProgress("fa");
+  const { data: mentorInsights } = useMentorInsights({ enabled: true });
+
+  const mentorProgress = useMemo<MentorProgress>(() => {
+    const completedTerms = Object.entries(officialProgress.termProgress)
+      .filter(([, item]) => item.completed)
+      .map(([slug]) => Number(slug.replace("term-", "")))
+      .filter((term) => Number.isInteger(term));
+    return {
+      completedTerms,
+      weakAreas: mentorInsights?.profile?.weakAreas?.slice(0, 5) ?? [],
+      confidence: mentorInsights?.profile?.confidenceScore ?? Math.min(100, completedTerms.length * 12),
+    };
+  }, [mentorInsights, officialProgress.termProgress]);
 
   useEffect(() => {
-    setMentorProgress(readMentorProgress());
+    let active = true;
+    fetch("/api/mentor-threads", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!active || !data?.ok || !Array.isArray(data.threads)) return;
+        setThreadId(data.threads[0]?.id ?? null);
+      })
+      .catch(() => null);
+    return () => { active = false; };
   }, []);
 
   const fillQuestion = (text: string) => {
@@ -89,24 +67,26 @@ export function AiMentorExperience() {
     setLastQuestion(clean);
     setLoading(true);
     const currentMode = detectMentorMode(clean);
-    updateMentorMemory(currentMode, clean);
-    const progressSnapshot = readMentorProgress();
-    setMentorProgress(progressSnapshot);
 
     const local = toLocalReply(clean);
     try {
       const response = await fetch("/api/ai-mentor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: clean, locale: "fa", history: history.slice(-6), progress: progressSnapshot, mentorMode: currentMode }),
+        body: JSON.stringify({
+          question: clean,
+          locale: "fa",
+          mentorMode: currentMode,
+          threadId,
+          researchMode: publicResearch ? "public" : undefined,
+        }),
       });
       const data = (await response.json()) as MentorReply;
       const nextReply = data?.ok ? data : local;
+      if (data?.threadId) setThreadId(data.threadId);
       setReply(nextReply);
-      setHistory((prev) => [...prev.slice(-6), { role: "user", content: clean }, { role: "assistant", content: nextReply.answer }]);
     } catch {
       setReply(local);
-      setHistory((prev) => [...prev.slice(-6), { role: "user", content: clean }, { role: "assistant", content: local.answer }]);
     } finally {
       setLoading(false);
     }
@@ -129,7 +109,7 @@ export function AiMentorExperience() {
           <div className="mt-4 rounded-2xl bg-white/10 p-4 text-sm font-bold leading-8 text-slate-200">
             <div className="mb-3 flex items-center gap-2 text-cyan-200">
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-              <strong>{loading ? "در حال آماده‌سازی پاسخ آموزشی..." : "پاسخ مربی آکادمی"}</strong>
+              <strong>{loading ? (publicResearch ? "در حال پژوهش عمومی منبع‌دار..." : "در حال آماده‌سازی پاسخ آموزشی...") : (reply.researchMode === "public" ? "پژوهش عمومی مربی" : "پاسخ مربی آکادمی")}</strong>
             </div>
             {paragraphs.map((p) => <p key={p} className="mt-2 whitespace-pre-line">{p}</p>)}
             {reply.checklist?.length ? (
@@ -150,19 +130,31 @@ export function AiMentorExperience() {
                 </div>
               </div>
             ) : null}
+            {reply.sources?.length ? (
+              <div className="mt-4 rounded-2xl border border-blue-300/20 bg-blue-400/10 p-3">
+                <p className="font-black text-blue-100">منابع عمومی پاسخ:</p>
+                <div className="mt-2 grid gap-2">
+                  {reply.sources.slice(0, 8).map((source, index) => (
+                    <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-blue-200/15 bg-slate-950/35 px-3 py-2 text-xs font-black text-blue-100 transition hover:bg-blue-400/15">
+                      {source.title || `منبع ${index + 1}`}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {reply.relatedTerm?.href ? (
               <Link href={reply.relatedTerm.href} className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-black text-white transition hover:bg-cyan-400"><BookOpenCheck className="h-4 w-4" />مرور ترم مرتبط</Link>
             ) : null}
             {reply.suggestedQuestions?.length ? (
-              <div className="mt-4 rounded-2xl border border-violet-300/20 bg-violet-400/10 p-3">
-                <p className="font-black text-violet-100">سؤال بعدی پیشنهادی:</p>
+              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3">
+                <p className="font-black text-cyan-100">سؤال بعدی پیشنهادی:</p>
                 <div className="mt-2 grid gap-2">
                   {reply.suggestedQuestions.slice(0, 3).map((item) => (
                     <button
                       key={item}
                       type="button"
                       onClick={() => fillQuestion(item)}
-                      className="rounded-xl border border-violet-200/20 bg-white/5 px-3 py-3 text-right text-xs font-black leading-6 text-slate-100 transition hover:bg-violet-400/15"
+                      className="rounded-xl border border-cyan-200/20 bg-white/5 px-3 py-3 text-right text-xs font-black leading-6 text-slate-100 transition hover:bg-cyan-400/15"
                     >
                       {item}
                     </button>
@@ -181,7 +173,7 @@ export function AiMentorExperience() {
           <div className="rounded-3xl border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm font-bold leading-7 text-cyan-50">
             <div className="mb-2 flex items-center gap-2 font-black"><BrainCircuit className="h-5 w-5" />حافظه مسیر یادگیری</div>
             <p className="mb-3 rounded-2xl border border-cyan-200/20 bg-slate-950/35 p-3 text-xs leading-6 text-cyan-100">
-              این snapshot فقط برای شخصی‌سازی آموزشی همین تجربه است و از cache مرورگر می‌آید؛ مدرک، قبولی ترم و وضعیت رسمی آکادمی فقط با داده سرور معتبر است.
+              این نمای آموزشی از پیشرفت رسمی، پروفایل Mentor و حافظهٔ سمت سرور ساخته می‌شود؛ مرورگر منبع حقیقت نیست.
             </p>
             <p>ترم‌های کامل‌شده: <span className="font-black text-white">{mentorProgress.completedTerms.length}/7</span></p>
             <p>اعتماد به مسیر: <span className="font-black text-white">{mentorProgress.confidence}%</span></p>
@@ -204,8 +196,18 @@ export function AiMentorExperience() {
             ))}
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-3">
+            <button
+              type="button"
+              aria-pressed={publicResearch}
+              onClick={() => setPublicResearch((value) => !value)}
+              className={`mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-right text-xs font-black transition ${publicResearch ? "border-blue-300/35 bg-blue-400/15 text-blue-50" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+            >
+              <span className="flex items-center gap-2"><Globe2 className="h-4 w-4" />پژوهش زندهٔ عمومی درباره کوین، ابزار، خبر و X</span>
+              <span className="rounded-full bg-slate-950/45 px-2 py-1 text-[10px]">{publicResearch ? "روشن" : "خاموش"}</span>
+            </button>
+            {publicResearch ? <p className="mb-3 text-xs font-bold leading-6 text-blue-100/85">فقط متن همین سؤال به ایجنت پژوهش می‌رود؛ تاریخچه، پروفایل، نقاط ضعف و اطلاعات مالی شخصی ارسال نمی‌شود. پاسخ بدون منبع معتبر پذیرفته نخواهد شد.</p> : null}
             <textarea ref={textareaRef} value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-sm font-bold leading-7 text-white outline-none focus:border-cyan-300" />
-            <button onClick={() => ask()} disabled={loading} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-500 px-4 py-3 text-sm font-black text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}پرسیدن سؤال آموزشی</button>
+            <button onClick={() => ask()} disabled={loading} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-[#03101a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{publicResearch ? "پژوهش منبع‌دار" : "پرسیدن سؤال آموزشی"}</button>
           </div>
         </div>
       </div>
