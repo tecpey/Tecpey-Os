@@ -5,6 +5,15 @@ import { describe, it } from "node:test";
 const source = (path: string) => readFile(path, "utf8");
 
 describe("AI automation source authority", () => {
+  it("separates signed tenant transactions from bounded cross-tenant worker claims", async () => {
+    const store = await source("src/lib/ai/automation-store.ts");
+    assert.match(store, /withAiTenantTransaction/);
+    assert.match(store, /withAiWorkerTransaction/);
+    assert.match(store, /writeAiAdminAuditEvent/);
+    assert.doesNotMatch(store, /from ["']@\/lib\/db["']/);
+    assert.doesNotMatch(store, /\bwith(?:Db|Tx)\b/);
+    assert.doesNotMatch(store, /\bwriteAdminAuditEvent\b/);
+  });
   it("enforces quorum, real admin roles, lease ownership and append-only evidence in PostgreSQL", async () => {
     const migration = await source("src/lib/db-migrate-ai-automation.ts");
     assert.match(migration, /tecpey_guard_ai_automation_run_transition/);

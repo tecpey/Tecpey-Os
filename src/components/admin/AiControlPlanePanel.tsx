@@ -151,7 +151,7 @@ type KnowledgeSnapshot = {
 type ManagedLaunchStatus = {
   ready: boolean;
   reason: "tenant_isolation_unresolved";
-  blocker: "shared_role_without_transaction_tenant_context";
+  blocker: "signed_rls_runtime_evidence_pending";
   overrideAllowed: false;
 };
 
@@ -292,7 +292,7 @@ function errorMessage(code: unknown): string {
     permission_denied: "Permission لازم برای این عملیات به نقش فعلی داده نشده است.",
     step_up_required: "برای این تغییر حساس دوباره با رمز و Authenticator وارد شوید.",
     ai_control_plane_unavailable: "دیتابیس کنترل‌پلین AI در دسترس نیست.",
-    ai_tenant_isolation_unresolved: "فعال‌سازی و اجرای AI مدیریت‌شده تا جداسازی نقش دیتابیس و context تراکنشی tenant به‌صورت fail-closed مسدود است.",
+    ai_tenant_isolation_unresolved: "فعال‌سازی AI مدیریت‌شده تا تکمیل شواهد محافظت‌شدهٔ نقش‌های محدود، RLS اجباری و context امضاشده در CI و staging به‌صورت fail-closed مسدود است.",
     ai_provider_secret_required: "ابتدا کلید معتبر Provider را ثبت کنید.",
     ai_provider_test_failed: "تست Provider ناموفق بود؛ کلید، مدل و دسترسی حساب را بررسی کنید.",
     ai_provider_quota_evidence_unavailable: "تست انجام شد اما evidence سهمیه ثبت نشد؛ برای جلوگیری از تصمیم هزینه‌ای نامطمئن، نتیجه پذیرفته نشد.",

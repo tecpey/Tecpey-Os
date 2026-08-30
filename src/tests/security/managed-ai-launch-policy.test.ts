@@ -33,7 +33,7 @@ describe("managed AI controlled-launch policy", () => {
         {
           allowed: false,
           reason: "tenant_isolation_unresolved",
-          blocker: "shared_role_without_transaction_tenant_context",
+          blocker: "signed_rls_runtime_evidence_pending",
         },
       );
     } finally {

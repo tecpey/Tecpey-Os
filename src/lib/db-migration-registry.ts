@@ -85,6 +85,7 @@ import { runAiAutomationOrchestrationMigrations } from "./db-migrate-ai-automati
 import { runAiControlJsonTriggerRepairMigrations } from "./db-migrate-ai-control-json-trigger-repair";
 import { runAiRoutingBudgetMigrations } from "./db-migrate-ai-routing-budget";
 import { runAiRouteCandidateMigrations } from "./db-migrate-ai-route-candidates";
+import { runAiTenantRlsMigrations } from "./db-migrate-ai-tenant-rls";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -207,6 +208,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(78, "migration-step-078", CANONICAL_MIGRATION_CONTENT.aiControlJsonTriggerRepair, "platform-security", "ai-control-plane", runAiControlJsonTriggerRepairMigrations),
   entry(79, "migration-step-079", CANONICAL_MIGRATION_CONTENT.aiRoutingBudget, "platform-security", "ai-routing", runAiRoutingBudgetMigrations),
   entry(80, "migration-step-080", CANONICAL_MIGRATION_CONTENT.aiRouteCandidates, "platform-security", "ai-routing", runAiRouteCandidateMigrations),
+  entry(81, "migration-step-081", CANONICAL_MIGRATION_CONTENT.aiTenantRowLevelSecurity, "platform-security", "ai-tenant-isolation", runAiTenantRlsMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

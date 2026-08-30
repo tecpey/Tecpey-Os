@@ -1,0 +1,177 @@
+name: AI Tenant RLS Runtime Evidence
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/ai-tenant-rls-runtime-evidence.yml
+      - .github/workflows/ci.yml
+      - docs/security/AI_AUTOMATION_AND_MODEL_ROUTING.md
+      - docs/security/AI_TENANT_DATABASE_INTEGRITY.md
+      - package.json
+      - scripts/ai-tenant-rls-runtime-evidence-policy.mjs
+      - scripts/ai-tenant-rls-runtime-evidence-policy.test.mjs
+      - scripts/check-ai-tenant-rls-runtime-evidence-authority.mjs
+      - scripts/collect-ai-tenant-rls-runtime-evidence.ts
+      - scripts/provision-ai-database-ci-roles.ts
+      - scripts/verify-ai-tenant-rls-runtime-evidence.mjs
+      - src/lib/ai/database-authority.ts
+      - src/lib/db-migrate-ai-tenant-rls.ts
+      - src/tests/security/ai-tenant-rls-postgres.test.ts
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: ai-tenant-rls-runtime-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  collect-verify-attest:
+    name: Protected PostgreSQL 16 RLS evidence
+    environment: ai-tenant-rls-evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_AI_TENANT_DATABASE_URL: postgresql://tecpey_ai_tenant_ci:ci-ai-tenant-runtime-credential@localhost:5432/ci_placeholder
+      TECPEY_AI_WORKER_DATABASE_URL: postgresql://tecpey_ai_worker_ci:ci-ai-worker-runtime-credential@localhost:5432/ci_placeholder
+      TECPEY_AI_CONTEXT_HMAC_KEY_B64: CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws=
+      TECPEY_AI_CONTEXT_HMAC_KEY_VERSION: '1'
+      TECPEY_AI_RLS_EVIDENCE_ENVIRONMENT: ai-tenant-rls-evidence
+
+    steps:
+      - name: Checkout exact pull request head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact source identity
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_BASE_REF: main
+          EXPECTED_HEAD_REF: codex/ai-tenant-rls-v1
+          EXPECTED_HEAD_REPOSITORY: tecpey/Tecpey-Os
+          ACTUAL_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          ACTUAL_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ACTUAL_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$ACTUAL_BASE_REF" = "$EXPECTED_BASE_REF"
+          test "$ACTUAL_HEAD_REF" = "$EXPECTED_HEAD_REF"
+          test "$ACTUAL_HEAD_REPOSITORY" = "$EXPECTED_HEAD_REPOSITORY"
+          tree_sha="$(git rev-parse 'HEAD^{tree}')"
+          [[ "$tree_sha" =~ ^[0-9a-f]{40}$ ]]
+          {
+            echo "TECPEY_AI_RLS_EVIDENCE_SHA=$EXPECTED_SHA"
+            echo "TECPEY_AI_RLS_EVIDENCE_TREE_SHA=$tree_sha"
+          } >> "$GITHUB_ENV"
+
+      - name: Setup governed Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify npm major version
+        shell: bash
+        run: test "$(npm --version | cut -d. -f1)" = "10"
+
+      - name: Install exact dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Apply exact governed migrations
+        run: npm run db:migrate
+
+      - name: Provision least-privilege AI database fixtures
+        run: npm run ai:database:ci-roles
+
+      - name: Execute zero-skip PostgreSQL adversarial suite
+        shell: bash
+        env:
+          TAP_FILE: ${{ runner.temp }}/ai-tenant-rls-postgres.tap
+        run: |
+          set -Eeuo pipefail
+          set -o pipefail
+          node --import tsx --test --test-force-exit --test-reporter=tap \
+            src/tests/security/ai-tenant-rls-postgres.test.ts \
+            2>&1 | tee "$TAP_FILE"
+
+      - name: Collect redacted runtime evidence
+        env:
+          TECPEY_AI_RLS_EVIDENCE_TAP_FILE: ${{ runner.temp }}/ai-tenant-rls-postgres.tap
+          TECPEY_AI_RLS_EVIDENCE_OUTPUT: artifacts/ai-tenant-rls-runtime-evidence/ai-tenant-rls-runtime-evidence.json
+        run: npm run ai:database:runtime-evidence:collect
+
+      - name: Verify detached digest and evidence policy
+        shell: bash
+        env:
+          EVIDENCE_FILE: artifacts/ai-tenant-rls-runtime-evidence/ai-tenant-rls-runtime-evidence.json
+          EVIDENCE_DIGEST: artifacts/ai-tenant-rls-runtime-evidence/ai-tenant-rls-runtime-evidence.json.sha256
+          VERIFICATION_FILE: artifacts/ai-tenant-rls-runtime-evidence/verification.json
+        run: |
+          set -Eeuo pipefail
+          node scripts/verify-ai-tenant-rls-runtime-evidence.mjs \
+            "$EVIDENCE_FILE" \
+            "$EVIDENCE_DIGEST" \
+            "$TECPEY_AI_RLS_EVIDENCE_SHA" \
+            "$TECPEY_AI_RLS_EVIDENCE_TREE_SHA" \
+            | tee "$VERIFICATION_FILE"
+
+      - name: Attest exact evidence subject
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: ${{ github.workspace }}/artifacts/ai-tenant-rls-runtime-evidence/ai-tenant-rls-runtime-evidence.json
+
+      - name: Publish bounded evidence summary
+        shell: bash
+        run: |
+          {
+            echo "## AI tenant FORCE RLS runtime evidence"
+            echo ""
+            echo "- Head: `$TECPEY_AI_RLS_EVIDENCE_SHA`"
+            echo "- Tree: `$TECPEY_AI_RLS_EVIDENCE_TREE_SHA`"
+            echo "- Protected environment: `ai-tenant-rls-evidence`"
+            echo "- PostgreSQL: `16`"
+            echo "- Governed tables: `19/19 ENABLE + FORCE RLS`"
+            echo "- Adversarial suite: `passed with zero skips`"
+            echo "- Evidence: detached SHA-256 + GitHub OIDC provenance attestation"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed runtime evidence artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ai-tenant-rls-runtime-evidence-${{ github.event.pull_request.head.sha }}
+          path: |
+            artifacts/ai-tenant-rls-runtime-evidence/ai-tenant-rls-runtime-evidence.json
+            artifacts/ai-tenant-rls-runtime-evidence/ai-tenant-rls-runtime-evidence.json.sha256
+            artifacts/ai-tenant-rls-runtime-evidence/verification.json
+          if-no-files-found: error
+          retention-days: 90

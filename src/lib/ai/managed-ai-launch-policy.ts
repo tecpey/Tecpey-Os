@@ -4,7 +4,7 @@ import type { AiAgentId } from "./control-plane-catalog";
 export const AI_TENANT_ISOLATION_BLOCK_REASON =
   "tenant_isolation_unresolved" as const;
 export const AI_TENANT_ISOLATION_BLOCKER =
-  "shared_role_without_transaction_tenant_context" as const;
+  "signed_rls_runtime_evidence_pending" as const;
 
 export type ManagedAiLaunchStatus = Readonly<{
   ready: false;
@@ -24,8 +24,8 @@ export type ManagedAiLaunchStatus = Readonly<{
  *
  * This value is intentionally code-owned and has no environment, request or
  * operator override. It may only be changed in a separately reviewed release
- * after runtime roles, transaction-local tenant context and FORCE RLS evidence
- * are complete.
+ * after protected exact-head runtime-role, signed-context and FORCE RLS
+ * evidence are complete in CI and staging.
  */
 export const MANAGED_AI_LAUNCH_STATUS: ManagedAiLaunchStatus = Object.freeze({
   ready: false,

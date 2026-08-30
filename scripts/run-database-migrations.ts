@@ -6,9 +6,12 @@ const interruption = new AbortController();
 let terminationSignal: "SIGINT" | "SIGTERM" | null = null;
 
 function requiredDatabaseUrl(): string {
-  const value = process.env.DATABASE_URL?.trim();
+  const migrationUrl = process.env.TECPEY_DATABASE_MIGRATION_URL?.trim();
+  const value = migrationUrl || process.env.DATABASE_URL?.trim();
   if (!value || value.includes("CHANGE_ME")) {
-    throw new Error("DATABASE_URL must be configured for database migrations");
+    throw new Error(
+      "DATABASE_URL or TECPEY_DATABASE_MIGRATION_URL must be configured for database migrations",
+    );
   }
   return value;
 }

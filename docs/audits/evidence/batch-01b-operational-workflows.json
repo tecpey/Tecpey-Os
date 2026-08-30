@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-25",
+  "reviewedAt": "2026-08-30",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -101,13 +101,13 @@
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "bf75913d70bd11ea63667f61553b7e413f2ba605",
-      "sha256": "e2327397b91b1741eb553140555fbc2ed61502e1a20976a59a5c359af93886d8",
-      "lines": 175,
+      "gitObjectId": "873c32e2a2ee5eb9f583b56e17d4142c1f65e6c7",
+      "sha256": "e45bd6ae97b5999884ab2c7c865ee8756bdb55ee0daea57368a55dd6b9e35532",
+      "lines": 184,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 175
+          "endLine": 184
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -117,7 +117,8 @@
         "2026-08-15: re-reviewed after adding the qa:academy-arena-mentor-a11y:check step before the production environment contract. The guard is a local read-only evidence harness check for the Academy/Arena/Mentor accessibility surfaces; workflow permissions, exact-head verification, browser execution, failure evidence upload and production activation boundaries are unchanged.",
         "2026-08-21: re-reviewed after adding explicit low-entropy synthetic EMAIL_PROVIDER=resend and RESEND_API_KEY fixtures to the production environment contract. The values are non-secret test fixtures used only to exercise the fail-closed email readiness validator; unconditional triggers, read-only permissions, exact-head checkout, pinned actions, browser execution and bounded evidence upload remain unchanged.",
         "2026-08-25: re-reviewed after adding synthetic GitHub Actions-only values for the administrator session, TOTP, bootstrap, phone identity, phone OTP encryption, communication-provider encryption and Limoo SMS environment contract. Job-scoped expressions and deterministic non-secret base64 fixtures satisfy production validation without granting provider or deployment authority; exact-head binding, build, database, browser scenarios and artifact handling are unchanged.",
-        "2026-08-26: re-reviewed after adding the non-secret numeric LIMOO_SMS_PATTERN_ID fixture required by the Pattern OTP environment contract. The value is job-scoped test configuration only; pull-request and main triggers, read-only permissions, exact-head checkout, production build, browser scenarios, failure evidence and deployment boundaries are unchanged."
+        "2026-08-26: re-reviewed after adding the non-secret numeric LIMOO_SMS_PATTERN_ID fixture required by the Pattern OTP environment contract. The value is job-scoped test configuration only; pull-request and main triggers, read-only permissions, exact-head checkout, production build, browser scenarios, failure evidence and deployment boundaries are unchanged.",
+        "2026-08-30: re-reviewed after adding deterministic non-production tenant-role and HMAC fixtures and provisioning the disposable least-privilege AI tenant login immediately after canonical migrations. The browser build and scenarios now exercise the same signed tenant database configuration contract without receiving a worker or migration credential. The values are bounded GitHub Actions fixtures, role provisioning is CI-only and collision-checked, and unconditional triggers, read-only permissions, exact-head checkout, pinned actions, unchanged-checkout verification, failure evidence and deployment boundaries remain unchanged."
       ],
       "findings": [
         {
