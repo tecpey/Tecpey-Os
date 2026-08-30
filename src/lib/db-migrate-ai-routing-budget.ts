@@ -301,13 +301,16 @@ export async function runAiRoutingBudgetMigrations(
     }
     return;
   }
+  await client.query("BEGIN");
   try {
     await client.query(AI_ROUTING_BUDGET_SQL);
     await client.query(
       "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
       [FILENAME, cs],
     );
+    await client.query("COMMIT");
   } catch (error) {
+    await client.query("ROLLBACK");
     logger.error("[db-migrate-ai-routing-budget] migration failed", {
       error: error instanceof Error ? error.message : String(error),
     });

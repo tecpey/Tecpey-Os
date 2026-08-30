@@ -264,6 +264,14 @@ describe("AI control-plane source authority", () => {
       mentor,
       /resolveRuntimeAiAgent\(selectedResearchRoute\.agentId/,
     );
+    assert.match(
+      mentor,
+      /const researchRuntime =[\s\S]*externalProviderAuthorized[\s\S]*resolveRuntimeAiAgent\(selectedResearchRoute\.agentId/,
+    );
+    assert.match(
+      mentor,
+      /preference_store_available: preferenceAuthorityAvailable/,
+    );
     assert.match(mentor, /const cited = researchProvider\.sources\.length > 0/);
     assert.match(mentor, /recordAiWorkflowEvidence\(\{/);
     assert.match(mentor, /sources: researchProvider\.sources/);

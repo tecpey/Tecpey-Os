@@ -77,6 +77,11 @@ for (const invariant of [
   'resourceType: "mentor_ai_preferences"',
   "tecpey-mentor-preference-student-v1\\0",
   "realExchangeSignalsEnabled: false",
+  "| { available: false; preferences: null }",
+  "preferenceLoad?.available === true",
+  "preferenceLoad.preferences.externalProviderEnabled",
+  ": { available: false, preferences: null }",
+  "return { available: false, preferences: null }",
 ]) {
   requireText("store", invariant, `transaction authority missing ${invariant}`);
 }

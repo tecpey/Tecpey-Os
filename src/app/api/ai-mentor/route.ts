@@ -45,6 +45,7 @@ import {
 import {
   appendAiMentorEvidence,
   loadMentorAiPreferences,
+  mentorExternalProviderAuthorized,
   persistMentorConversationPair,
 } from "@/lib/ai/mentor-trust-store";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
@@ -527,15 +528,15 @@ export async function POST(request: NextRequest) {
     const preferenceLoad = authorizedStudentId
       ? await loadMentorAiPreferences(authorizedStudentId)
       : null;
-    const preferences = preferenceLoad?.preferences ?? {
-      externalProviderEnabled: true,
-      behavioralPersonalizationEnabled: false,
-      realExchangeSignalsEnabled: false,
-      consentVersion: AI_MENTOR_TRUST_POLICY_VERSION,
-      consentedAt: null,
-    };
+    const preferenceAuthorityAvailable = preferenceLoad?.available === true;
+    const preferences = preferenceLoad?.available === true
+      ? preferenceLoad.preferences
+      : null;
+    const externalProviderAuthorized =
+      mentorExternalProviderAuthorized(preferenceLoad);
     const personalizationApplied = Boolean(
-      authorizedStudentId && preferences.behavioralPersonalizationEnabled,
+      authorizedStudentId &&
+      preferences?.behavioralPersonalizationEnabled === true,
     );
 
     const publicResearchRequested = body.researchMode === "public";
@@ -665,6 +666,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           client_history_ignored: egress.clientHistoryIgnored,
           personalization_applied: personalizationApplied,
+          preference_store_available: preferenceAuthorityAvailable,
           provider_status: providerStatus,
           verified_knowledge_count: verifiedKnowledge.length,
           verified_knowledge_hashes: verifiedKnowledgeHashes,
@@ -723,7 +725,7 @@ export async function POST(request: NextRequest) {
         mentorEntitled &&
         activeTenantId &&
         activeWorkspaceId &&
-        preferences.externalProviderEnabled
+        externalProviderAuthorized
           ? await resolveRuntimeAiAgent(selectedResearchRoute.agentId, {
               tenantId: activeTenantId,
               workspaceId: activeWorkspaceId,
@@ -735,9 +737,11 @@ export async function POST(request: NextRequest) {
       }
       const unavailableStatus = !mentorEntitled
         ? egressGateReason
-        : !preferences.externalProviderEnabled
-          ? "provider_disabled_by_user"
-          : (researchRuntime?.status ?? "provider_not_configured");
+        : !preferenceAuthorityAvailable
+          ? "preference_authority_unavailable"
+          : !externalProviderAuthorized
+            ? "provider_disabled_by_user"
+            : (researchRuntime?.status ?? "provider_not_configured");
       if (!researchConfigured || !activeTenantId || !activeWorkspaceId) {
         const answer = publicResearchUnavailableAnswer(locale, fallback.answer);
         const local = await persistLocal(
@@ -1235,7 +1239,7 @@ export async function POST(request: NextRequest) {
       mentorEntitled &&
       activeTenantId &&
       activeWorkspaceId &&
-      preferences.externalProviderEnabled &&
+      externalProviderAuthorized &&
       !lowCostPattern.test(question);
     const runtimeAgent = externalManagedPathRequested
         ? await resolveRuntimeAiAgent("mentor_coach", {
@@ -1249,15 +1253,17 @@ export async function POST(request: NextRequest) {
     const runtimeConfigured = runtimeAgent?.status === "configured";
     const localProviderStatus = !mentorEntitled
       ? egressGateReason
-      : !preferences.externalProviderEnabled
-        ? "provider_disabled_by_user"
-        : lowCostPattern.test(question)
-          ? "local_low_cost_path"
-          : (runtimeAgent?.status ?? "provider_not_configured");
+      : !preferenceAuthorityAvailable
+        ? "preference_authority_unavailable"
+        : !externalProviderAuthorized
+          ? "provider_disabled_by_user"
+          : lowCostPattern.test(question)
+            ? "local_low_cost_path"
+            : (runtimeAgent?.status ?? "provider_not_configured");
     if (
       !runtimeConfigured ||
       !mentorEntitled ||
-      !preferences.externalProviderEnabled ||
+      !externalProviderAuthorized ||
       lowCostPattern.test(question)
     ) {
       const local = await persistLocal(
@@ -1349,7 +1355,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         client_history_ignored: egress.clientHistoryIgnored,
         personalization_applied: personalizationApplied,
-        preference_store_available: preferenceLoad?.available ?? false,
+        preference_store_available: preferenceAuthorityAvailable,
         configuration_source: providerConfig.configurationSource,
         verified_knowledge_count: verifiedKnowledge.length,
         verified_knowledge_hashes: verifiedKnowledgeHashes,

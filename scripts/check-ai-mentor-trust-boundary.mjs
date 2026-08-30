@@ -33,7 +33,15 @@ for (const [label, pattern] of [
   // to the local fallback, or a non-entitled tenant reaches the provider.
   [
     "entitlement gates egress",
-    /!runtimeConfigured \|\|\s*!mentorEntitled \|\|\s*!preferences\.externalProviderEnabled/,
+    /!runtimeConfigured \|\|\s*!mentorEntitled \|\|\s*!externalProviderAuthorized/,
+  ],
+  [
+    "preference authority gates egress",
+    /const externalProviderAuthorized =\s*mentorExternalProviderAuthorized\(preferenceLoad\)/,
+  ],
+  [
+    "preference outage is explicit",
+    /!preferenceAuthorityAvailable\s*\? "preference_authority_unavailable"/,
   ],
   ["daily quota and spend admission authority", /admitAiAgentExecution\(\{/],
   ["verified knowledge retrieval", /loadVerifiedAiKnowledgeContext\(\{/],
@@ -149,6 +157,14 @@ const store = await source("src/lib/ai/mentor-trust-store.ts");
 for (const [label, pattern] of [
   ["default-off personalization", /behavioralPersonalizationEnabled: false/],
   ["real exchange deny", /realExchangeSignalsEnabled: false/],
+  [
+    "unavailable preferences carry no authority",
+    /\| \{ available: false; preferences: null \}/,
+  ],
+  [
+    "external provider requires available preference authority",
+    /preferenceLoad\?\.available === true &&\s*preferenceLoad\.preferences\.externalProviderEnabled/,
+  ],
   [
     "transactional preference evidence",
     /action: "mentor\.preferences\.update"/,

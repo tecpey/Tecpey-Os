@@ -60,7 +60,7 @@ describe("managed AI launch containment source authority", () => {
     assert.match(mentor, /configurationSource: researchConfig\.configurationSource/);
     assert.match(mentor, /configurationSource: providerConfig\.configurationSource/);
     assert.match(mentor, /verifiedKnowledgeStatus/);
-    assert.match(mentor, /const externalManagedPathRequested =[\s\S]*preferences\.externalProviderEnabled[\s\S]*!lowCostPattern\.test\(question\)[\s\S]*const runtimeAgent = externalManagedPathRequested/);
+    assert.match(mentor, /const externalManagedPathRequested =[\s\S]*externalProviderAuthorized[\s\S]*!lowCostPattern\.test\(question\)[\s\S]*const runtimeAgent = externalManagedPathRequested/);
     assert.match(mentor, /runtimeAgent\?\.status === "tenant_isolation_unresolved"[\s\S]*return tenantIsolationError\(\)/);
   });
 

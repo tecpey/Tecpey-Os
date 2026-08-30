@@ -55,13 +55,16 @@ export async function runAiControlJsonTriggerRepairMigrations(
     return;
   }
 
+  await client.query("BEGIN");
   try {
     await client.query(AI_CONTROL_JSON_TRIGGER_REPAIR_SQL);
     await client.query(
       "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
       [FILENAME, cs],
     );
+    await client.query("COMMIT");
   } catch (error) {
+    await client.query("ROLLBACK");
     logger.error("[db-migrate-ai-control-json-trigger-repair] migration failed", {
       error: error instanceof Error ? error.message : String(error),
     });

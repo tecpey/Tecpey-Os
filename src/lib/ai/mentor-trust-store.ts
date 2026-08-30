@@ -18,10 +18,9 @@ export type MentorAiPreferences = {
   consentedAt: string | null;
 };
 
-export type MentorAiPreferenceLoad = {
-  available: boolean;
-  preferences: MentorAiPreferences;
-};
+export type MentorAiPreferenceLoad =
+  | { available: true; preferences: MentorAiPreferences }
+  | { available: false; preferences: null };
 
 export type MentorPreferenceAuditContext = Pick<
   SensitiveMutationAuditEvent,
@@ -109,6 +108,15 @@ function mapPreferences(row: PreferenceRow): MentorAiPreferences {
   };
 }
 
+export function mentorExternalProviderAuthorized(
+  preferenceLoad: MentorAiPreferenceLoad | null,
+): boolean {
+  return (
+    preferenceLoad?.available === true &&
+    preferenceLoad.preferences.externalProviderEnabled
+  );
+}
+
 export function fingerprintMentorPreferenceStudent(studentId: string): string {
   return createHash("sha256")
     .update("tecpey-mentor-preference-student-v1\0")
@@ -150,13 +158,13 @@ export async function loadMentorAiPreferences(
     });
     return result.enabled
       ? { available: true, preferences: result.value }
-      : { available: false, preferences: DEFAULT_PREFERENCES };
+      : { available: false, preferences: null };
   } catch (error) {
     logger.error("[mentor-trust-store] preference load failed", {
       studentFingerprint: fingerprintMentorPreferenceStudent(studentId),
       error: String(error),
     });
-    return { available: false, preferences: DEFAULT_PREFERENCES };
+    return { available: false, preferences: null };
   }
 }
 
