@@ -1,0 +1,573 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tecpey:mentor:rive-rig-manifest:1",
+  "title": "TecPey Mentor Rive Rig Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "status",
+    "asset",
+    "requiredNodes",
+    "artboards",
+    "surfaceBindings",
+    "layers",
+    "bones",
+    "controls",
+    "meshes",
+    "speechAnchors",
+    "handPoses",
+    "globalPoses",
+    "identityLocks",
+    "bindings",
+    "hostOnlyPaths",
+    "motion",
+    "performance",
+    "runtimeTargets",
+    "regressionSets",
+    "gates"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "manifestVersion": { "const": "1.0.0" },
+    "status": { "enum": ["draft", "signoff_candidate", "approved", "deprecated"] },
+    "asset": { "$ref": "#/$defs/asset" },
+    "requiredNodes": {
+      "type": "array",
+      "minItems": 20,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nodeId" }
+    },
+    "artboards": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/artboard" }
+    },
+    "surfaceBindings": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/surfaceBinding" }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "bones": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/bone" }
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 12,
+      "items": { "$ref": "#/$defs/control" }
+    },
+    "meshes": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/mesh" }
+    },
+    "speechAnchors": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/snakeId" }
+    },
+    "handPoses": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/snakeId" }
+    },
+    "globalPoses": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/snakeId" }
+    },
+    "identityLocks": {
+      "type": "array",
+      "minItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/snakeId" }
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 15,
+      "items": { "$ref": "#/$defs/binding" }
+    },
+    "hostOnlyPaths": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z][A-Za-z0-9_.*-]*(?:\\.[A-Za-z0-9_.*-]+)*$"
+      }
+    },
+    "motion": { "$ref": "#/$defs/motion" },
+    "performance": { "$ref": "#/$defs/performance" },
+    "runtimeTargets": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/runtimeTarget" }
+    },
+    "regressionSets": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/regressionSet" }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 8,
+      "items": { "$ref": "#/$defs/gate" }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "snakeId": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 96,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "nodeId": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 96,
+      "pattern": "^(?:Mentor[A-Za-z0-9]+|(?:grp|geo|mesh|cmp|ctl|mask|b|ik|hit)_[A-Za-z0-9_]+)$"
+    },
+    "layerName": {
+      "enum": ["Ambient", "ConversationAct", "FaceAffect", "GazeBlink", "Speech", "SafetyBase"]
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assetId",
+        "assetVersion",
+        "sourceFile",
+        "rootComponent",
+        "rootViewModel",
+        "stateMachine",
+        "compatibleViewModel",
+        "compatibleSpeechRig"
+      ],
+      "properties": {
+        "assetId": { "const": "tecpey_mentor_global" },
+        "assetVersion": { "$ref": "#/$defs/semver" },
+        "sourceFile": {
+          "type": "string",
+          "pattern": "^tecpey-mentor-global\\.v[0-9]+\\.riv$"
+        },
+        "rootComponent": { "const": "MentorCore" },
+        "rootViewModel": { "const": "TecPeyMentorVM" },
+        "stateMachine": { "const": "MentorStateMachine" },
+        "compatibleViewModel": { "type": "string", "minLength": 3, "maxLength": 48 },
+        "compatibleSpeechRig": { "type": "string", "minLength": 3, "maxLength": 48 }
+      }
+    },
+    "size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 64, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 64, "maximum": 4096 }
+      }
+    },
+    "artboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "referenceSize", "instanceOf", "delivery", "defaultRuntimeMode"],
+      "properties": {
+        "id": { "$ref": "#/$defs/snakeId" },
+        "name": { "type": "string", "pattern": "^Mentor[A-Za-z0-9]+$" },
+        "role": { "enum": ["reusable_core", "launcher", "panel", "profile", "scene", "share"] },
+        "referenceSize": { "$ref": "#/$defs/size" },
+        "instanceOf": { "type": ["string", "null"], "pattern": "^Mentor[A-Za-z0-9]+$" },
+        "delivery": { "enum": ["animated", "static_export", "deferred"] },
+        "defaultRuntimeMode": { "enum": ["component_only", "static", "load_on_intent", "load_when_visible", "deferred"] }
+      }
+    },
+    "surfaceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "artboard", "loadPolicy", "maxAnimatedInstances", "fallback"],
+      "properties": {
+        "surface": {
+          "enum": ["launcher", "mentor_tab", "profile_summary", "academy", "arena", "credential_helper", "share_render"]
+        },
+        "artboard": { "type": "string", "pattern": "^Mentor[A-Za-z0-9]+$" },
+        "loadPolicy": { "enum": ["static_until_open", "on_intent", "when_visible", "deferred_phase_6"] },
+        "maxAnimatedInstances": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "fallback": { "enum": ["static_launcher_svg", "static_neutral_poster", "host_ui_only"] }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indexTopToBottom",
+        "name",
+        "priorityRank",
+        "defaultState",
+        "states",
+        "ownerDomains",
+        "intentionalOverrides",
+        "interruptible"
+      ],
+      "properties": {
+        "indexTopToBottom": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "name": { "$ref": "#/$defs/layerName" },
+        "priorityRank": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "defaultState": { "$ref": "#/$defs/snakeId" },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/snakeId" }
+        },
+        "ownerDomains": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/domain" }
+        },
+        "intentionalOverrides": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/domain" }
+        },
+        "interruptible": { "type": "boolean" }
+      }
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)+$"
+    },
+    "bone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parent", "role", "normalOwner", "deforming"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^b_[A-Za-z0-9_]+$" },
+        "parent": { "type": ["string", "null"], "pattern": "^b_[A-Za-z0-9_]+$" },
+        "role": {
+          "enum": [
+            "structural",
+            "body_pose",
+            "breath",
+            "head_act",
+            "head_aim",
+            "jaw",
+            "arm",
+            "hand",
+            "mouth_affect",
+            "mouth_speech",
+            "brow"
+          ]
+        },
+        "normalOwner": {
+          "anyOf": [
+            { "$ref": "#/$defs/layerName" },
+            { "type": "null" }
+          ]
+        },
+        "deforming": { "type": "boolean" }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "normalOwner", "source", "targetDomain"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ctl_[A-Za-z0-9_]+$" },
+        "type": { "enum": ["number", "boolean", "enum", "trigger", "joystick2d", "vector2"] },
+        "normalOwner": { "$ref": "#/$defs/layerName" },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?:internal|derived|[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)+)$"
+        },
+        "targetDomain": { "$ref": "#/$defs/domain" },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum", "maximum"],
+          "properties": {
+            "minimum": { "type": "number" },
+            "maximum": { "type": "number" }
+          }
+        }
+      }
+    },
+    "mesh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "allowedBones", "maxInfluencesPerVertex", "lockedRegions"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^mesh_[A-Za-z0-9_]+$" },
+        "role": { "enum": ["face_identity", "lower_face_speech", "beard", "torso", "sleeve", "forearm"] },
+        "allowedBones": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^b_[A-Za-z0-9_]+$" }
+        },
+        "maxInfluencesPerVertex": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "lockedRegions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/snakeId" }
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "target", "mode", "ownerLayer", "fallback", "ephemeral"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?:playAct|[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)+)$"
+        },
+        "target": { "type": "string", "minLength": 2, "maxLength": 128 },
+        "mode": { "enum": ["enum_state", "numeric_deformer", "numeric_gate", "boolean_gate", "trigger_edge", "wrapper_variant"] },
+        "ownerLayer": {
+          "anyOf": [
+            { "$ref": "#/$defs/layerName" },
+            { "type": "null" }
+          ]
+        },
+        "fallback": {
+          "type": ["string", "number", "boolean", "null"]
+        },
+        "ephemeral": { "type": "boolean" }
+      }
+    },
+    "curve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "value"],
+      "properties": {
+        "id": {
+          "allOf": [
+            { "$ref": "#/$defs/snakeId" },
+            { "not": { "const": "ease_in" } }
+          ]
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(?:linear|cubic-bezier\\(-?[0-9.]+,-?[0-9.]+,-?[0-9.]+,-?[0-9.]+\\))$"
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "minimumMs", "maximumMs", "curve", "interruptible"],
+      "properties": {
+        "id": { "$ref": "#/$defs/snakeId" },
+        "minimumMs": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "maximumMs": { "type": "integer", "minimum": 0, "maximum": 300 },
+        "curve": {
+          "allOf": [
+            { "$ref": "#/$defs/snakeId" },
+            { "not": { "const": "ease_in" } }
+          ]
+        },
+        "interruptible": { "type": "boolean" }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["curves", "transitions", "reducedMotion"],
+      "properties": {
+        "curves": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/curve" }
+        },
+        "transitions": {
+          "type": "array",
+          "minItems": 5,
+          "items": { "$ref": "#/$defs/transition" }
+        },
+        "reducedMotion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ambient",
+            "maxPoseTransitionMs",
+            "headFollow",
+            "secondaryMotion",
+            "speechWhileAudio",
+            "captionsRequired"
+          ],
+          "properties": {
+            "ambient": { "const": "off" },
+            "maxPoseTransitionMs": { "type": "integer", "minimum": 0, "maximum": 120 },
+            "headFollow": { "const": false },
+            "secondaryMotion": { "const": false },
+            "speechWhileAudio": { "const": true },
+            "captionsRequired": { "const": true }
+          }
+        }
+      }
+    },
+    "authoringCeilings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bones",
+        "constraints",
+        "deformingMeshes",
+        "influencesPerVertex",
+        "complexJoysticks",
+        "nestedArtboardDepth",
+        "coreRasterBytes"
+      ],
+      "properties": {
+        "bones": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "constraints": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "deformingMeshes": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "influencesPerVertex": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "complexJoysticks": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "nestedArtboardDepth": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "coreRasterBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "runtimeCeilings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rivTransferBytes",
+        "closedLauncherRuntimeBytes",
+        "visibleAnimatedInstances",
+        "cachedReadyP95Ms",
+        "uncachedReadyP95Ms",
+        "fallbackCommitP95Ms",
+        "baselineRegressionPercent"
+      ],
+      "properties": {
+        "rivTransferBytes": { "type": "integer", "minimum": 1 },
+        "closedLauncherRuntimeBytes": { "type": "integer", "minimum": 0 },
+        "visibleAnimatedInstances": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "cachedReadyP95Ms": { "type": "integer", "minimum": 1 },
+        "uncachedReadyP95Ms": { "type": "integer", "minimum": 1 },
+        "fallbackCommitP95Ms": { "type": "integer", "minimum": 1 },
+        "baselineRegressionPercent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "deviceTier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "p95FrameMs", "minimumFps", "failureAction"],
+      "properties": {
+        "id": { "$ref": "#/$defs/snakeId" },
+        "p95FrameMs": { "type": "number", "minimum": 1, "maximum": 100 },
+        "minimumFps": { "type": "integer", "minimum": 1, "maximum": 120 },
+        "failureAction": { "enum": ["block_release", "static_fallback"] }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authoringCeilings", "runtimeCeilings", "measurement", "deviceTiers"],
+      "properties": {
+        "authoringCeilings": { "$ref": "#/$defs/authoringCeilings" },
+        "runtimeCeilings": { "$ref": "#/$defs/runtimeCeilings" },
+        "measurement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["warmupSeconds", "sampleSeconds", "repeatCount", "productionBuild"],
+          "properties": {
+            "warmupSeconds": { "type": "integer", "minimum": 0, "maximum": 60 },
+            "sampleSeconds": { "type": "integer", "minimum": 5, "maximum": 600 },
+            "repeatCount": { "type": "integer", "minimum": 1, "maximum": 20 },
+            "productionBuild": { "const": true }
+          }
+        },
+        "deviceTiers": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/deviceTier" }
+        }
+      }
+    },
+    "runtimeTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "package", "renderer", "requiredBehaviors"],
+      "properties": {
+        "platform": { "enum": ["web", "react_native"] },
+        "package": { "type": "string", "minLength": 3, "maxLength": 96 },
+        "renderer": { "type": "string", "minLength": 3, "maxLength": 64 },
+        "requiredBehaviors": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/snakeId" }
+        }
+      }
+    },
+    "regressionSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dimensions", "approval"],
+      "properties": {
+        "id": { "$ref": "#/$defs/snakeId" },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/snakeId" }
+        },
+        "approval": { "enum": ["automated_and_human", "human_required", "automated"] }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "required", "evidence"],
+      "properties": {
+        "id": { "$ref": "#/$defs/snakeId" },
+        "owner": {
+          "enum": [
+            "product",
+            "character_brand",
+            "memorial_likeness",
+            "learning",
+            "financial_risk",
+            "globalization",
+            "accessibility",
+            "engineering",
+            "security_privacy",
+            "legal"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "evidence": { "type": "string", "minLength": 8, "maxLength": 240 }
+      }
+    }
+  }
+}

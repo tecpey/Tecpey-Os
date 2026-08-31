@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tecpey:mentor:rive-viewmodel:1",
+  "title": "TecPey Mentor Rive ViewModel Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "snapshotId",
+    "generatedAt",
+    "expiresAt",
+    "surface",
+    "locale",
+    "direction",
+    "dataState",
+    "viewModel",
+    "provenance"
+  ],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "snapshotId": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "surface": {
+      "enum": ["launcher", "mentor_tab", "profile_summary", "academy", "arena", "credential_helper", "share_render"]
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+    },
+    "direction": { "enum": ["rtl", "ltr"] },
+    "dataState": { "$ref": "#/$defs/dataState" },
+    "viewModel": { "$ref": "#/$defs/viewModel" },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "dataState": {
+      "enum": ["ready", "partial", "unavailable", "consent_required", "stale"]
+    },
+    "shortKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "boundedText": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "viewModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user", "learning", "practice", "market", "mentor", "speech", "copy", "world", "accessibility", "privacy", "entitlement"],
+      "properties": {
+        "user": { "$ref": "#/$defs/user" },
+        "learning": { "$ref": "#/$defs/learning" },
+        "practice": { "$ref": "#/$defs/practice" },
+        "market": { "$ref": "#/$defs/market" },
+        "mentor": { "$ref": "#/$defs/mentor" },
+        "speech": { "$ref": "#/$defs/speech" },
+        "copy": { "$ref": "#/$defs/copy" },
+        "world": { "$ref": "#/$defs/world" },
+        "accessibility": { "$ref": "#/$defs/accessibility" },
+        "privacy": { "$ref": "#/$defs/privacy" },
+        "entitlement": { "$ref": "#/$defs/entitlement" }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayName", "displayNameState", "selfReportedMood"],
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 48 },
+        "displayNameState": { "enum": ["user_provided", "hidden", "unavailable"] },
+        "selfReportedMood": { "enum": ["unknown", "ready", "curious", "frustrated", "anxious", "energized"] }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "learningBand", "completedTerms", "masteryPercent", "streakDays", "streakState", "focusKey", "focusLabel", "nextAction"],
+      "properties": {
+        "state": { "$ref": "#/$defs/dataState" },
+        "learningBand": { "enum": ["unknown", "foundation", "developing", "applied"] },
+        "completedTerms": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "masteryPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "streakDays": { "type": "integer", "minimum": 0, "maximum": 3650 },
+        "streakState": { "$ref": "#/$defs/dataState" },
+        "focusKey": { "type": "string", "maxLength": 96 },
+        "focusLabel": { "type": "string", "maxLength": 64 },
+        "nextAction": { "enum": ["none", "open_daily_review", "open_focus_lesson", "open_quiz_retry", "open_flashcards", "open_unranked_scenario", "open_progress"] }
+      }
+    },
+    "practice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "riskBand", "disciplineScore", "guardState", "guardReason", "arenaMode"],
+      "properties": {
+        "state": { "$ref": "#/$defs/dataState" },
+        "riskBand": { "enum": ["unknown", "low", "moderate", "high"] },
+        "disciplineScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "guardState": { "enum": ["unavailable", "learn_first", "review_required", "unranked_practice_ready", "cooldown"] },
+        "guardReason": { "enum": ["none", "insufficient_evidence", "risk_flags_recent", "discipline_review", "reflection_due", "consent_required", "source_stale"] },
+        "arenaMode": { "enum": ["none", "unranked", "ranked"] }
+      }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "regime", "freshness", "confidence", "sourceCount", "educationalUse"],
+      "properties": {
+        "state": { "$ref": "#/$defs/dataState" },
+        "regime": { "enum": ["unknown", "range", "volatile", "bullish", "bearish", "mixed"] },
+        "freshness": { "enum": ["current", "stale", "unavailable"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "sourceCount": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "educationalUse": { "enum": ["none", "observe", "unranked_scenario"] }
+      }
+    },
+    "mentor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["affect", "act", "intensity", "priority", "eventId", "reasonCode"],
+      "properties": {
+        "affect": { "enum": ["calm", "attentive", "curious", "warm", "concerned", "steady"] },
+        "act": { "enum": ["idle_attentive", "greet", "listen", "think", "explain", "invite_next_step", "celebrate_effort", "encourage_retry", "pause_reflect", "risk_caution", "privacy_notice", "data_unavailable", "error_recover"] },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "eventId": { "type": "string", "minLength": 8, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+        "reasonCode": { "enum": ["neutral", "session_start", "learning_next_step", "learning_repair", "effort_milestone", "risk_review", "reflection_due", "privacy_boundary", "consent_required", "source_unavailable", "source_stale", "runtime_error"] }
+      }
+    },
+    "speech": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "locale", "profileId", "profileVersion", "viseme", "blend", "jawOpen", "lipClose", "lipPress", "lipWide", "lipRound", "lipFunnel", "lowerLipBite", "tongueTipUp", "tongueForward", "utteranceId"],
+      "properties": {
+        "state": { "enum": ["idle", "queued", "speaking", "paused", "ended", "error"] },
+        "locale": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 35,
+          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+        },
+        "profileId": { "type": "string", "minLength": 3, "maxLength": 96, "pattern": "^[A-Za-z0-9_.-]+$" },
+        "profileVersion": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+        "viseme": { "enum": ["sil", "bilabial", "labiodental", "interdental", "alveolar", "velar", "postalveolar", "sibilant", "nasal_lateral", "rhotic", "vowel_open", "vowel_mid_front", "vowel_close_front", "vowel_mid_back_round", "vowel_close_back_round"] },
+        "blend": { "type": "number", "minimum": 0, "maximum": 1 },
+        "jawOpen": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lipClose": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lipPress": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lipWide": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lipRound": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lipFunnel": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lowerLipBite": { "type": "number", "minimum": 0, "maximum": 1 },
+        "tongueTipUp": { "type": "number", "minimum": 0, "maximum": 1 },
+        "tongueForward": { "type": "number", "minimum": 0, "maximum": 1 },
+        "utteranceId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" }
+      }
+    },
+    "copy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageKey", "headline", "body", "ctaLabel", "ctaAction"],
+      "properties": {
+        "messageKey": { "$ref": "#/$defs/shortKey" },
+        "headline": { "type": "string", "maxLength": 72 },
+        "body": { "$ref": "#/$defs/boundedText" },
+        "ctaLabel": { "type": "string", "maxLength": 40 },
+        "ctaAction": { "enum": ["none", "open_mentor", "open_learning_home", "open_daily_review", "open_focus_lesson", "open_quiz_retry", "open_flashcards", "open_unranked_scenario", "open_risk_review", "open_reflection", "open_progress", "open_privacy_settings", "retry_snapshot"] }
+      }
+    },
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roomLevel", "roomState", "theme", "celebrationTier"],
+      "properties": {
+        "roomLevel": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "roomState": { "$ref": "#/$defs/dataState" },
+        "theme": { "enum": ["neutral", "academy", "arena", "profile"] },
+        "celebrationTier": { "enum": ["none", "small", "milestone"] }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reducedMotion", "captionsEnabled", "audioEnabled", "highContrast"],
+      "properties": {
+        "reducedMotion": { "type": "boolean" },
+        "captionsEnabled": { "type": "boolean" },
+        "audioEnabled": { "type": "boolean" },
+        "highContrast": { "type": "boolean" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["behavioralPersonalization", "externalAi", "marketPersonalization", "allowsDisplayName"],
+      "properties": {
+        "behavioralPersonalization": { "enum": ["enabled", "disabled", "consent_required"] },
+        "externalAi": { "enum": ["enabled", "disabled", "consent_required"] },
+        "marketPersonalization": { "enum": ["enabled", "disabled", "consent_required"] },
+        "allowsDisplayName": { "type": "boolean" }
+      }
+    },
+    "entitlement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "adsMode", "voiceMode"],
+      "properties": {
+        "plan": { "enum": ["free", "premium", "institutional"] },
+        "adsMode": { "enum": ["sponsor_supported", "ad_free"] },
+        "voiceMode": { "enum": ["caption_only", "cached", "synthesized"] }
+      }
+    },
+    "provenanceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source", "asOf"],
+      "properties": {
+        "status": { "$ref": "#/$defs/dataState" },
+        "source": { "enum": ["academy_profile", "academy_authority", "arena_simulation", "materialized_public_market", "mentor_preferences", "entitlement_authority", "progression_ledger", "device_preference", "none"] },
+        "asOf": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "learning", "practice", "market", "privacy", "entitlement", "world"],
+      "properties": {
+        "identity": { "$ref": "#/$defs/provenanceItem" },
+        "learning": { "$ref": "#/$defs/provenanceItem" },
+        "practice": { "$ref": "#/$defs/provenanceItem" },
+        "market": { "$ref": "#/$defs/provenanceItem" },
+        "privacy": { "$ref": "#/$defs/provenanceItem" },
+        "entitlement": { "$ref": "#/$defs/provenanceItem" },
+        "world": { "$ref": "#/$defs/provenanceItem" }
+      }
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "checkpointVersion": "1.1.0",
+  "recordedAt": "2026-08-30T10:49:59Z",
+  "file": {
+    "editor": "Rive",
+    "fileId": "2542985",
+    "name": "tecpey-mentor-global.v1",
+    "workspace": "TecPey",
+    "project": "Shared Project",
+    "plan": "free"
+  },
+  "artboards": [
+    {
+      "name": "MentorCore",
+      "position": { "x": 3415, "y": 539 },
+      "size": { "width": 1024, "height": 1024 },
+      "role": "runtime_core",
+      "componentAllowed": true,
+      "isComponent": true,
+      "status": "component_semantic_group_skeleton_created",
+      "editorBinding": {
+        "model": "ViewModel1",
+        "instance": "Instance",
+        "acceptedAsContract": false,
+        "note": "Rive editor defaults only; the next gate must replace or bind them to TecPeyMentorVM."
+      },
+      "semanticHierarchy": {
+        "root": "MentorCore",
+        "topLevel": [
+          "grp_shadow",
+          "grp_character",
+          "grp_controls",
+          "grp_skeleton",
+          "grp_debug"
+        ],
+        "children": {
+          "grp_character": [
+            "grp_body_back",
+            "grp_torso",
+            "grp_head",
+            "grp_body_front"
+          ]
+        },
+        "liveDrawOrderTopToBottom": [
+          "grp_debug",
+          "grp_skeleton",
+          "grp_controls",
+          "grp_character",
+          "grp_shadow"
+        ]
+      },
+      "geometryStatus": "not_authored",
+      "meshAndWeightsStatus": "not_authored",
+      "motionStatus": "not_authored"
+    },
+    {
+      "name": "IdentityReference",
+      "position": { "x": 1779, "y": 539 },
+      "size": { "width": 1536, "height": 1024 },
+      "role": "authoring_reference_only",
+      "componentAllowed": false,
+      "isComponent": false,
+      "status": "four_locked_views_placed",
+      "placedAssets": [
+        { "name": "mentor-identity-front.trace", "x": 0, "y": 0, "locked": true },
+        { "name": "mentor-identity-three-quarter-near.trace", "x": 384, "y": 0, "locked": true },
+        { "name": "mentor-identity-three-quarter-far.trace", "x": 768, "y": 0, "locked": true },
+        { "name": "mentor-identity-profile.trace", "x": 1152, "y": 0, "locked": true }
+      ]
+    },
+    {
+      "name": "ExpressionReference",
+      "position": { "x": 1779, "y": 1800 },
+      "size": { "width": 1536, "height": 1024 },
+      "role": "authoring_reference_only",
+      "componentAllowed": false,
+      "isComponent": false,
+      "status": "expression_reference_placed_locked",
+      "placedAssets": [
+        { "name": "mentor-expression-angle-reference.trace", "x": 0, "y": 0, "locked": true }
+      ]
+    }
+  ],
+  "uploadedAssets": [
+    "mentor-identity-front.trace.svg",
+    "mentor-identity-three-quarter-near.trace.svg",
+    "mentor-identity-three-quarter-far.trace.svg",
+    "mentor-identity-profile.trace.svg",
+    "mentor-expression-angle-reference.trace.svg"
+  ],
+  "identityLocks": {
+    "characterBoundary": "inspired_by_mahdi_not_mahdi",
+    "nose": {
+      "bridge": "smooth_narrow",
+      "dorsum": "hump_free",
+      "slope": "gentle_slightly_concave",
+      "tip": "refined_slightly_upturned",
+      "speechWeight": 0,
+      "affectWeight": 0,
+      "jawWeight": 0,
+      "headAimDeformationWeight": 0
+    }
+  },
+  "completedSubgates": [
+    "mentor_core_component_verified",
+    "reference_artboards_non_component_verified",
+    "semantic_group_skeleton_created",
+    "reference_assets_remain_locked",
+    "no_identity_geometry_mesh_weights_or_motion_authored"
+  ],
+  "editorIntegrity": {
+    "identityReferencePositionVerified": { "x": 1779, "y": 539 },
+    "accidentalExperimentalNodesRemaining": false,
+    "productionRuntimeActivated": false
+  },
+  "nextGate": {
+    "id": "rive_contract_topology",
+    "requires": [
+      "keep the heavy expression trace locked and collapsed; replace it with a lightweight raster only if editor stability blocks authoring",
+      "replace or bind the provisional ViewModel1 editor default with the canonical TecPeyMentorVM contract",
+      "create MentorStateMachine as inspectable empty mechanical topology",
+      "verify all canonical properties, enums, defaults, locale and reduced-motion bindings before art authoring",
+      "do not author identity geometry, weights, mesh or motion with an automated agent"
+    ]
+  }
+}

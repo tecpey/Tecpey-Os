@@ -8,6 +8,7 @@ import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { LivingMobileNavigation } from "@/components/tecpey/LivingMobileNavigation";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
+import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
 
 type Locale = "fa" | "en";
@@ -224,6 +225,9 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const displayName = profile?.display_name || (isFa ? "دانشجوی تک‌پی" : "TecPey learner");
   const username = profile?.username ? `@${profile.username}` : "";
   const avatar = profile?.avatar || "🎓";
+  const streakDays = profile?.streak_days == null
+    ? null
+    : Math.max(0, numberOr(profile.streak_days));
   const smartHref = isFa ? "/academy/notifications" : "/en/academy/notifications";
   const termBase = isFa ? "/academy" : "/en/academy";
   const dashboardHref = isFa ? "/academy/profile" : "/en/academy/profile";
@@ -321,7 +325,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Metric icon={<GraduationCap />} label={t.currentTerm} value={`${currentTermNumber} / 7`} note={currentTerm?.title || "Term"} />
               <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedTerms} ${isFa ? "ترم تکمیل‌شده" : "terms completed"}`} />
-              <Metric icon={<Flame />} label={t.streak} value={`${numberOr(profile.streak_days, 1)}`} note={isFa ? "روز فعال" : "active days"} />
+              <Metric icon={<Flame />} label={t.streak} value={streakDays === null ? "—" : String(streakDays)} note={isFa ? "روز فعال" : "active days"} />
               <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length + credentials.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
 
@@ -345,7 +349,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <p className="mt-2 font-mono text-lg font-black text-cyan-200">{profile.public_student_id}</p>
               <p className="mt-3 text-xs font-bold leading-6 text-slate-400">{t.noIndex}</p>
             </div>
-            <Quick href={isFa ? "/academy/mentor-coach" : "/en/academy/mentor-coach"} icon={<BrainCircuit />} title={t.mentor} text={isFa ? "تحلیل مسیر یادگیری و پیشنهاد تمرین بعدی" : "Learning insight and next practice recommendation"} />
+            <Quick href={isFa ? "/academy/mentor-coach" : "/en/academy/mentor-coach"} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "تحلیل مسیر یادگیری و پیشنهاد تمرین بعدی" : "Learning insight and next practice recommendation"} />
             <Quick href={isFa ? "/academy/simulator" : "/en/academy/simulator"} icon={<TrendingUp />} title={t.arena} text={isFa ? "تمرین تصمیم‌گیری و ژورنال معامله آزمایشی" : "Demo decision practice and trading journal"} />
             <Quick href={isFa ? "/academy/certificates" : "/en/academy/certificates"} icon={<ShieldCheck />} title={t.certs} text={isFa ? "مشاهده مدارک قابل استعلام" : "View verifiable certificates"} />
           </aside>
@@ -444,7 +448,7 @@ function Metric({ icon, label, value, note }: { icon: React.ReactNode; label: st
   return <div className="rounded-[26px] border border-white/10 bg-slate-950/40 p-4"><div className="flex items-center gap-2 text-cyan-200 [&_svg]:h-5 [&_svg]:w-5">{icon}<span className="text-xs font-black text-slate-300">{label}</span></div><p className="mt-3 text-2xl font-black">{value}</p><p className="mt-1 text-xs font-bold text-slate-400">{note}</p></div>;
 }
 function Quick({ href, icon, title, text }: { href: string; icon: React.ReactNode; title: string; text: string }) {
-  return <Link href={href} className="block rounded-[30px] border border-white/10 bg-white/[0.055] p-5 transition hover:-translate-y-1 hover:border-cyan-300/30"><div className="flex items-center gap-3 text-cyan-200 [&_svg]:h-5 [&_svg]:w-5">{icon}<h3 className="font-black text-white">{title}</h3></div><p className="mt-3 text-sm font-bold leading-7 text-slate-300">{text}</p></Link>;
+  return <Link href={href} className="block rounded-[30px] border border-white/10 bg-white/[0.055] p-5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-300/30"><div className="flex items-center gap-3 text-cyan-200 [&_svg]:h-5 [&_svg]:w-5">{icon}<h3 className="font-black text-white">{title}</h3></div><p className="mt-3 text-sm font-bold leading-7 text-slate-300">{text}</p></Link>;
 }
 function Gate({ title, description, primary, secondary }: { title: string; description: string; primary: { href: string; label: string }; secondary?: { href: string; label: string } }) {
   return <main className="min-h-screen bg-slate-950 px-4 py-16 text-white"><section className="mx-auto max-w-3xl rounded-[38px] border border-cyan-300/20 bg-white/[0.06] p-8 text-center"><UserRoundCheck className="mx-auto h-12 w-12 text-cyan-200" /><h1 className="mt-4 text-3xl font-black">{title}</h1><p className="mt-4 text-sm font-bold leading-8 text-slate-300">{description}</p><div className="mt-6 grid gap-3 sm:grid-cols-2"><Link href={primary.href} className="rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-black text-white">{primary.label}</Link>{secondary ? <Link href={secondary.href} className="rounded-2xl border border-cyan-300/25 bg-white/5 px-6 py-4 text-sm font-black text-cyan-100">{secondary.label}</Link> : null}</div></section></main>;
