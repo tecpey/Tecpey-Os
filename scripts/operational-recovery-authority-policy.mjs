@@ -233,6 +233,19 @@ export function evaluateOperationalRecoveryAuthority(source) {
   if ((recovery.match(/committedAfterBackupAbsent/g) ?? []).length !== 2) {
     failures.push("recovery script must prove committedAfterBackupAbsent for PostgreSQL and Redis");
   }
+  const restoreAuthorityBootstrap = recovery.indexOf(
+    'run_migrations "$PREFIX-pg-restored" "$EVIDENCE_DIR/restore-authority-bootstrap.log"',
+  );
+  const postgresRestore = recovery.indexOf(
+    'docker exec "$PREFIX-pg-restored" pg_restore',
+  );
+  if (
+    restoreAuthorityBootstrap === -1
+    || postgresRestore === -1
+    || restoreAuthorityBootstrap > postgresRestore
+  ) {
+    failures.push("recovery script must bootstrap cluster-global authorities before PostgreSQL ACL restore");
+  }
   reject(failures, recovery, /\brm\s+-rf\b/, "recovery script must not recursively delete evidence paths");
   reject(failures, recovery, /CHANGE_ME|production-password|customer/i, "recovery drill may not embed production material");
 

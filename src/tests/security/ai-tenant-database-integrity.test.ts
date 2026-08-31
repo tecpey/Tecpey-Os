@@ -87,6 +87,14 @@ describe("AI tenant database integrity", () => {
     assert.match(AI_TENANT_RLS_SQL, /txid_current\(\)::text/);
     assert.match(AI_TENANT_RLS_SQL, /pg_backend_pid\(\)::text/);
     assert.match(AI_TENANT_RLS_SQL, /NOBYPASSRLS/);
+    assert.match(
+      AI_TENANT_RLS_SQL,
+      /DO \$role_posture\$[\s\S]*IF managed_role\.rolcanlogin[\s\S]*ALTER ROLE %I NOLOGIN NOSUPERUSER/,
+    );
+    assert.doesNotMatch(
+      AI_TENANT_RLS_SQL,
+      /^ALTER ROLE tecpey_ai_(?:tenant_runtime|worker)/m,
+    );
     assert.match(AI_TENANT_RLS_SQL, /tecpey-managed-role:ai-tenant-runtime:v1/);
     assert.match(AI_TENANT_RLS_SQL, /runtime roles must not own SQL objects/);
     assert.match(AI_TENANT_RLS_SQL, /public\.hmac\(bytea,bytea,text\) is not pgcrypto-owned/);

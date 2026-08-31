@@ -64,10 +64,37 @@ BEGIN
 END
 $roles$;
 
-ALTER ROLE tecpey_ai_tenant_runtime
-  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-ALTER ROLE tecpey_ai_worker
-  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+DO $role_posture$
+DECLARE
+  managed_role RECORD;
+BEGIN
+  FOR managed_role IN
+    SELECT role.rolname,
+           role.rolcanlogin,
+           role.rolsuper,
+           role.rolcreatedb,
+           role.rolcreaterole,
+           role.rolinherit,
+           role.rolreplication,
+           role.rolbypassrls
+      FROM pg_roles role
+     WHERE role.rolname IN ('tecpey_ai_tenant_runtime', 'tecpey_ai_worker')
+  LOOP
+    IF managed_role.rolcanlogin
+       OR managed_role.rolsuper
+       OR managed_role.rolcreatedb
+       OR managed_role.rolcreaterole
+       OR managed_role.rolinherit
+       OR managed_role.rolreplication
+       OR managed_role.rolbypassrls THEN
+      EXECUTE format(
+        'ALTER ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS',
+        managed_role.rolname
+      );
+    END IF;
+  END LOOP;
+END
+$role_posture$;
 
 DO $role_ownership$
 BEGIN

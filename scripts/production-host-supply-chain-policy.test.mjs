@@ -1026,6 +1026,10 @@ test("production template fails unchanged and passes after complete governed rep
     LIMOO_SMS_API_KEY: "limoo-test-api-key",
     LIMOO_SMS_PATTERN_ID: "42",
     DATABASE_URL: "postgresql://tecpey:test-password@postgres:5432/tecpey",
+    TECPEY_AI_TENANT_DATABASE_URL:
+      "postgresql://tecpey_ai_tenant_runtime_login:test-ai-tenant-password@postgres:5432/tecpey",
+    TECPEY_AI_CONTEXT_HMAC_KEY_B64: Buffer.alloc(32, 11).toString("base64"),
+    TECPEY_AI_CONTEXT_HMAC_KEY_VERSION: "1",
     REDIS_URL: "redis://:test-password@redis:6379",
     UPSTASH_REDIS_REST_URL: "https://rate-limit-redis.example.invalid",
     UPSTASH_REDIS_REST_TOKEN: "test-rate-limit-token",
