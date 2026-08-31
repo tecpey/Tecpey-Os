@@ -423,7 +423,7 @@ export function AiMentorExperience({
 
   const ask = useCallback(async () => {
     const clean = question.trim();
-    if (clean.length < 2 || loading) return;
+    if (clean.length < 2 || loading || historyLoading) return;
     const askedMode = detectMentorMode(clean);
     const requestConversationEpoch = conversationEpochRef.current;
     const userMessage: WorkspaceMessage = {
@@ -497,7 +497,15 @@ export function AiMentorExperience({
     } finally {
       setLoading(false);
     }
-  }, [activeThreadId, loadThreads, loading, mentorLocale, publicResearch, question]);
+  }, [
+    activeThreadId,
+    historyLoading,
+    loadThreads,
+    loading,
+    mentorLocale,
+    publicResearch,
+    question,
+  ]);
 
   const onComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -798,14 +806,14 @@ export function AiMentorExperience({
                     maxLength={900}
                     dir="auto"
                     placeholder={copy.inputPlaceholder}
-                    disabled={loading}
+                    disabled={loading || historyLoading}
                   />
                   <div className={styles.composerControls}>
                     <span>{question.length}/900</span>
                     <button
                       type="button"
                       onClick={() => void ask()}
-                      disabled={loading || question.trim().length < 2}
+                      disabled={loading || historyLoading || question.trim().length < 2}
                       aria-label={loading ? copy.sending : copy.send}
                     >
                       {loading ? <Loader2 className={styles.spinner} aria-hidden="true" /> : <Send aria-hidden="true" />}
