@@ -242,11 +242,14 @@ export function AiMentorExperience({
     setThreads(localized);
     if (!localized.length) setMessages([]);
     setHistoryUnavailable(false);
-    setActiveThreadId((current) =>
-      current && localized.some((thread) => thread.id === current)
-        ? current
-        : localized[0]?.id ?? null,
-    );
+    setActiveThreadId((current) => {
+      if (current && localized.some((thread) => thread.id === current)) {
+        return current;
+      }
+      return conversationEpochRef.current === 0
+        ? localized[0]?.id ?? null
+        : current;
+    });
   }, [mentorLocale]);
 
   const loadThreads = useCallback(async () => {
@@ -278,7 +281,10 @@ export function AiMentorExperience({
         if (!controller.signal.aborted) applyThreadsPayload(response.ok, data);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setHistoryUnavailable(true);
+        if (!controller.signal.aborted) {
+          setMessages([]);
+          setHistoryUnavailable(true);
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setThreadsLoading(false);
@@ -288,6 +294,7 @@ export function AiMentorExperience({
 
   useEffect(() => {
     if (!activeThreadId) {
+      setHistoryLoading(false);
       return;
     }
     const controller = new AbortController();
@@ -301,6 +308,7 @@ export function AiMentorExperience({
       .then(async (response) => ({ response, data: await response.json() }))
       .then(({ response, data }) => {
         if (!response.ok || !data?.ok || !Array.isArray(data.conversations)) {
+          setMessages([]);
           setHistoryUnavailable(true);
           return;
         }
@@ -383,6 +391,8 @@ export function AiMentorExperience({
     conversationEpochRef.current += 1;
     setLoading(false);
     setIsExplaining(false);
+    setHistoryLoading(false);
+    setHistoryUnavailable(false);
     setActiveThreadId(null);
     setMessages([]);
     setQuestion("");
@@ -392,13 +402,20 @@ export function AiMentorExperience({
 
   const selectThread = useCallback(
     (threadId: string) => {
+      if (threadId === activeThreadId) {
+        closeHistory();
+        return;
+      }
       conversationEpochRef.current += 1;
       setLoading(false);
       setIsExplaining(false);
+      setHistoryLoading(true);
+      setHistoryUnavailable(false);
+      setMessages([]);
       setActiveThreadId(threadId);
       closeHistory();
     },
-    [closeHistory],
+    [activeThreadId, closeHistory],
   );
 
   const fillQuestion = useCallback((value: string) => {
