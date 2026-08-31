@@ -113,11 +113,21 @@ requireText(
   "SUPPORT_PRIVACY_NOTICE_VERSION",
   "the client must submit the same governed notice version the server validates",
 );
+requireText(
+  "form",
+  "privacy_notice_invalid",
+  "a stale tab must receive an explicit notice-refresh recovery path",
+);
 requireText("input", "invalid_message", "an empty message must be refused, not stored blank");
 requireText(
   "input",
   "phoneDigits.length < 6",
   "phone contacts must contain digits, not only allowed punctuation",
+);
+requireText(
+  "input",
+  "phoneDigits.length > 15",
+  "phone contacts must not exceed the E.164 digit limit",
 );
 requirePattern(
   "input",

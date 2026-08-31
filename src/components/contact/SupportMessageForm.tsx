@@ -31,6 +31,8 @@ const ERROR_MESSAGES: Record<"fa" | "en", Record<string, string>> = {
     invalid_subject: "لطفاً موضوع پیام را وارد کنید.",
     invalid_message: "متن پیام باید کمی کامل‌تر باشد.",
     privacy_consent_required: "برای ارسال پیام، پذیرش حریم خصوصی لازم است.",
+    privacy_notice_invalid:
+      "اطلاعیه حریم خصوصی این صفحه قدیمی شده است. صفحه را تازه کنید، اطلاعیه جدید را بخوانید و دوباره ارسال کنید.",
     rate_limited: "پیام‌های زیادی ارسال شده است. کمی بعد دوباره تلاش کنید.",
     support_storage_unavailable:
       "پیام شما ذخیره نشد. لطفاً بعداً دوباره تلاش کنید یا به info@tecpey.ir ایمیل بزنید.",
@@ -52,6 +54,8 @@ const ERROR_MESSAGES: Record<"fa" | "en", Record<string, string>> = {
     invalid_subject: "Please enter a subject.",
     invalid_message: "Please provide a little more detail in your message.",
     privacy_consent_required: "Privacy consent is required before sending.",
+    privacy_notice_invalid:
+      "This page has an outdated privacy notice. Reload the page, review the current notice, and send again.",
     rate_limited: "Too many messages were sent. Please try again shortly.",
     support_storage_unavailable:
       "Your message was not stored. Please try again later or email info@tecpey.ir.",

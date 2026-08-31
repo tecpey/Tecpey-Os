@@ -102,7 +102,10 @@ export function parseSupportMessageCommand(input: {
   const phone = looksLikeEmail ? "" : normalizeLocalizedDigits(contact);
   const phoneDigits = phone.replace(/\D/g, "");
   if (email && !EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
-  if (phone && (!PHONE_PATTERN.test(phone) || phoneDigits.length < 6)) {
+  if (
+    phone &&
+    (!PHONE_PATTERN.test(phone) || phoneDigits.length < 6 || phoneDigits.length > 15)
+  ) {
     return { ok: false, error: "invalid_phone" };
   }
   if (!email && !phone) return { ok: false, error: "contact_required" };
