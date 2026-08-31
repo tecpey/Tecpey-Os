@@ -7,6 +7,8 @@
 // reject a perfectly good email-only message. The two also mean different things
 // by a repeat submission — see db-migrate-support-messages.ts.
 
+import { normalizeLeadPhone } from "./lead-pii";
+
 const MAX_NAME_LENGTH = 120;
 const MAX_CONTACT_LENGTH = 160;
 const MAX_SUBJECT_LENGTH = 160;
@@ -101,10 +103,14 @@ export function parseSupportMessageCommand(input: {
   // canonical ASCII phone representation accepted by the validator.
   const phone = looksLikeEmail ? "" : normalizeLocalizedDigits(contact);
   const phoneDigits = phone.replace(/\D/g, "");
+  const canonicalPhone = phone ? normalizeLeadPhone(phone) : "";
   if (email && !EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
   if (
     phone &&
-    (!PHONE_PATTERN.test(phone) || phoneDigits.length < 6 || phoneDigits.length > 15)
+    (!PHONE_PATTERN.test(phone) ||
+      phoneDigits.length < 6 ||
+      phoneDigits.length > 15 ||
+      !/^\+[1-9]\d{5,14}$/.test(canonicalPhone))
   ) {
     return { ok: false, error: "invalid_phone" };
   }

@@ -131,6 +131,11 @@ requireText(
 );
 requirePattern(
   "input",
+  /normalizeLeadPhone\(phone\)[\s\S]*\/\^\\\+\[1-9\]\\d\{5,14\}\$\//,
+  "phone contacts must be valid after canonical normalization, not only contain enough digits",
+);
+requirePattern(
+  "input",
   /normalizeLocalizedDigits\(contact\)/,
   "Persian and Arabic phone digits must normalize before validation and storage",
 );
