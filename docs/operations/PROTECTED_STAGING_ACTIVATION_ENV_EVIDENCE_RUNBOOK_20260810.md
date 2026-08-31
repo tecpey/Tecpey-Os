@@ -2,8 +2,8 @@
 
 - **Status:** execution request for NOG-01 and NOG-02, not accepted evidence
 - **Decision after this runbook:** NO-GO until the protected staging run is executed and accepted
-- **Protected staging evidence target SHA:** `9c210885b48f36a478d6a12fc369f822db259559`
-- **Runtime candidate baseline SHA:** `9c210885b48f36a478d6a12fc369f822db259559`
+- **Protected staging evidence target SHA:** `5e65ec55e003986187083a71a84272676dc09ccc`
+- **Runtime candidate baseline SHA:** `5e65ec55e003986187083a71a84272676dc09ccc`
 - **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`
 - **Related blocker IDs:** `NOG-01`, `NOG-02`
 - **Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
@@ -22,7 +22,7 @@ Do not silently move the staging target because documentation-only or
 launch-control PRs were merged after earlier draft packets. The selected staging
 evidence target is the current candidate in
 `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`:
-`9c210885b48f36a478d6a12fc369f822db259559`.
+`5e65ec55e003986187083a71a84272676dc09ccc`.
 
 The deployed application checkout, workflow checkout, bundle manifest and
 `/api/health` commit must all report the same selected SHA. If staging uses any
@@ -48,7 +48,7 @@ TecPey staging. It must not run on a generic shared runner.
 
 Historical machine-readable status for superseded candidate `79c48a16cb685a88315a44e103b3758cf7845d65`:
 `docs/launch/generated/protected-staging-execution-status-20260812.json`.
-It is retained as immutable prior-candidate evidence and is not active evidence for `9c210885b48f36a478d6a12fc369f822db259559`.
+It is retained as immutable prior-candidate evidence and is not active evidence for `5e65ec55e003986187083a71a84272676dc09ccc`.
 
 Current decision: `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
 
@@ -63,7 +63,7 @@ candidate `159c315cb26677edfa5b05c1708c93bed316ebe9`; it is not reusable for a l
 `host_evidence_health_contract_invalid`. PR #545 aligned the collector with the
 live `migrations.status=current` readiness contract while preserving evidence
 schema v1 normalization. Deploy exact candidate
-`9c210885b48f36a478d6a12fc369f822db259559`, align the governed current-release
+`5e65ec55e003986187083a71a84272676dc09ccc`, align the governed current-release
 pointer, and only then dispatch both workflows. A successful protection check
 or an artifact from another SHA does not close NOG-01 or NOG-02.
 
@@ -98,7 +98,7 @@ Run the protected staging evidence workflow for the selected SHA:
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: 9c210885b48f36a478d6a12fc369f822db259559
+release_sha: 5e65ec55e003986187083a71a84272676dc09ccc
 run_alert_probe: true
 ```
 
@@ -128,7 +128,7 @@ Run the protected env evidence workflow for the selected SHA:
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: 9c210885b48f36a478d6a12fc369f822db259559
+release_sha: 5e65ec55e003986187083a71a84272676dc09ccc
 environment_source: protected_host_env_file
 ```
 
@@ -244,7 +244,7 @@ fields are known:
   "nog01": {
     "status": "accepted_or_rejected",
     "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/<id>",
-    "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
+    "selectedSha": "5e65ec55e003986187083a71a84272676dc09ccc",
     "artifactName": "tecpey-staging-scheduler-evidence.json",
     "artifactSha256": "sha256:<64-hex>",
     "verifierDisposition": "passed_or_failed",
@@ -253,7 +253,7 @@ fields are known:
   },
   "nog02": {
     "status": "accepted_or_rejected",
-    "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
+    "selectedSha": "5e65ec55e003986187083a71a84272676dc09ccc",
     "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
     "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",

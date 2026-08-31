@@ -181,7 +181,7 @@ function gitSourceDigest(revision, file) {
 }
 
 const ACTIVE_NO_GO_DECISION = "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE";
-const ACTIVE_CANDIDATE_SHA = "9c210885b48f36a478d6a12fc369f822db259559";
+const ACTIVE_CANDIDATE_SHA = "5e65ec55e003986187083a71a84272676dc09ccc";
 const HISTORICAL_FINAL_CANDIDATE_SHA = "79c48a16cb685a88315a44e103b3758cf7845d65";
 const ACTIVE_OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const ACTIVE_ACCEPTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06", "NOG-10", "NOG-11", "NOG-12"];
@@ -212,7 +212,7 @@ if (activeCandidate?.decision === ACTIVE_NO_GO_DECISION) {
 
   requireEqualValue("active candidate SHA", activeCandidate.currentCandidate?.sha, ACTIVE_CANDIDATE_SHA);
   requireEqualValue("active candidate branch", activeCandidate.currentCandidate?.sourceBranch, "main");
-  requireEqualValue("active candidate source PR", activeCandidate.currentCandidate?.sourcePullRequest, 568);
+  requireEqualValue("active candidate source PR", activeCandidate.currentCandidate?.sourcePullRequest, 581);
   requireEqualValue("active promotion status", activePromotion?.status, "promoted_exact_candidate_evidence");
   requireEqualValue(
     "active promotion candidate",

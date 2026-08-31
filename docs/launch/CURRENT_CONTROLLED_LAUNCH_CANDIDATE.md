@@ -2,9 +2,9 @@
 
 - **Status:** active candidate identity ledger, not Go approval
 - **Decision:** NO-GO until accepted current-candidate operational evidence is attached
-- **Current candidate SHA:** `9c210885b48f36a478d6a12fc369f822db259559`
-- **Candidate source:** `main` after PR #568 implemented secure Limoo Pattern OTP
-- **Candidate selected at:** `2026-08-26T20:55:00Z`
+- **Current candidate SHA:** `5e65ec55e003986187083a71a84272676dc09ccc`
+- **Candidate source:** `main` after PR #581 activated governed Infinite Growth seasons
+- **Candidate selected at:** `2026-08-31T19:09:50Z`
 - **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 - **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260826.json`
 - **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260826.json`
@@ -20,13 +20,10 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #568 advanced main from the prior OpenSSL candidate to secure Limoo Pattern
-OTP with local digest verification and managed-provider hardening. Candidate
-Evidence Recollection Authority #183 attempt 1 then accepted genuine
-exact-main workflow, runtime image and rollback/volume-restore evidence for:
+PR #581 advanced main to the governed Infinite Growth runtime after the complete post-#568 integration line. Candidate Evidence Recollection Authority #265 attempt 1 accepted genuine exact-main workflow, runtime image and rollback/volume-restore evidence for:
 
 ```text
-9c210885b48f36a478d6a12fc369f822db259559
+5e65ec55e003986187083a71a84272676dc09ccc
 ```
 
 The prior controlled-scope Go packet for `79c48a16cb685a88315a44e103b3758cf7845d65` remains immutable historical
@@ -64,6 +61,8 @@ artifact collected next must bind the exact SHA above.
 | `79c48a16cb685a88315a44e103b3758cf7845d65` | Controlled soft launch candidate with a governed final Go packet | Historical final Go evidence only; superseded by PR #566 for all new current-candidate operational evidence. |
 | `4bc251725ce574d87258b52773e4a52ff3367252` | Current controlled-launch candidate after PR #566 pinned the OpenSSL runtime remediation | Superseded by PR #568 secure Limoo Pattern OTP for all new current-candidate operational evidence. |
 
+| `9c210885b48f36a478d6a12fc369f822db259559` | Controlled-launch evidence candidate selected after PR #568 secure Limoo Pattern OTP | Superseded by PR #581 for current-main exact-candidate evidence collection. |
+
 ## Candidate Identity Rules
 
 - Every new launch evidence artifact must record this exact 40-character SHA.
@@ -95,7 +94,7 @@ artifact collected next must bind the exact SHA above.
 ## Historical Final Evidence
 
 The governed final manifest and release packet dated 2026-08-24 remain archived
-for `79c48a16cb685a88315a44e103b3758cf7845d65`. They are not active inputs for `9c210885b48f36a478d6a12fc369f822db259559` and do not authorize
+for `79c48a16cb685a88315a44e103b3758cf7845d65`. They are not active inputs for `5e65ec55e003986187083a71a84272676dc09ccc` and do not authorize
 merge, staging deployment or launch of the current candidate.
 
 ## Decision

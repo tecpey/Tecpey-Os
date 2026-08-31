@@ -199,7 +199,7 @@ requireEqual(
 );
 requireEqual("request.selectedSha", request.selectedSha, currentCandidateSha);
 requireEqual("request.sourceBranch", request.sourceBranch, "main");
-requireEqual("request.sourcePullRequest", request.sourcePullRequest, 568);
+requireEqual("request.sourcePullRequest", request.sourcePullRequest, 581);
 requireArrayExact("request.acceptedForBlockers", request.acceptedForBlockers, []);
 requireArrayExact("request.notAcceptedForBlockers", request.notAcceptedForBlockers, OPEN_BLOCKERS);
 requireEqual("request.requiredArtifact.schemaVersion", request.requiredArtifact?.schemaVersion, 2);
