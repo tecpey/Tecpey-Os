@@ -99,3 +99,21 @@ test("missing semantic groups fail the checkpoint", () => {
   assert.match(result.errors.join("\n"), /top-level semantic groups/);
   assert.match(result.errors.join("\n"), /grp_character children/);
 });
+
+test("an additional component-capable artboard fails the checkpoint", () => {
+  const checkpoint = {
+    artboards: [
+      {
+        name: "UnexpectedRuntimeComponent",
+        componentAllowed: true,
+        isComponent: true,
+      },
+    ],
+  };
+  const result = evaluateEditorCheckpoint(checkpoint, { requiredNodes: [] });
+  assert.equal(result.ok, false);
+  assert.match(
+    result.errors.join("\n"),
+    /MentorCore must be the sole allowed runtime component; found: UnexpectedRuntimeComponent/,
+  );
+});
