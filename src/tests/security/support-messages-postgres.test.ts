@@ -292,12 +292,11 @@ postgresTest("listing the queue does not decrypt anyone's message by default", a
 
 postgresTest("retention-expired messages are unreadable before the sweep catches up", async () => {
   const tenantId = `tenant-expired-inbox-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const stored = await ingestSupportMessage(
-    command({
-      tenantId,
-      message: "This message must stop being readable as soon as retention expires.",
-    }),
-  );
+  const shared = command({
+    tenantId,
+    message: "This message must stop being readable as soon as retention expires.",
+  });
+  const stored = await ingestSupportMessage(shared);
   assert.equal(stored.status, "committed");
   if (stored.status !== "committed") return;
 
@@ -315,6 +314,13 @@ postgresTest("retention-expired messages are unreadable before the sweep catches
     inbox.messages.some((message) => message.id === stored.result.id),
     false,
     "expired personal data remained readable while awaiting the retention sweep",
+  );
+
+  const replay = await ingestSupportMessage(shared);
+  assert.equal(
+    replay.status,
+    "expired",
+    "an unreadable expired message was still acknowledged as delivered",
   );
 });
 

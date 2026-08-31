@@ -103,8 +103,9 @@ export async function ingestSupportMessage(
         id: string;
         request_hash: string;
         status: string;
+        retention_expired: boolean;
       }>(
-        `SELECT id, request_hash, status
+        `SELECT id, request_hash, status, retain_until <= NOW() AS retention_expired
            FROM support_messages
           WHERE tenant_id = $1 AND idempotency_key = $2
           FOR SHARE`,
@@ -113,7 +114,10 @@ export async function ingestSupportMessage(
       if (existing.rows[0]) {
         // Retention deliberately destroyed the message body. A replay must not
         // report that deleted content as newly delivered to support.
-        if (existing.rows[0].status !== "active") {
+        if (
+          existing.rows[0].status !== "active" ||
+          existing.rows[0].retention_expired
+        ) {
           return { status: "expired" as const };
         }
         // Same key, different message: the caller edited something and reused

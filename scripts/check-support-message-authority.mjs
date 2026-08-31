@@ -225,6 +225,11 @@ requireText(
   "support_message_expired",
   "the expired replay result must reach the caller rather than resolving as success",
 );
+requireText(
+  "authority",
+  "retention_expired",
+  "a replay past retain_until must expire before the sweep runs",
+);
 for (const marker of [
   "contact_hash = NULL",
   "email_hash = NULL",
