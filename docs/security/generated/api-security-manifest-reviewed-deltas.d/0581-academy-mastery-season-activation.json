@@ -48,7 +48,6 @@
         "domainOwner": "academy-mastery-seasons",
         "testReferences": [
           "src/tests/security/academy-mastery-season-activation-route.test.ts",
-          "src/tests/security/academy-mastery-season-activation-command-postgres.test.ts",
           "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
           "src/tests/security/tenant-scoped-route-guards.test.ts"
         ],
