@@ -214,7 +214,12 @@ export async function deleteExpiredSupportMessagePii(
                 updated_at = NOW(),
                 pii_ciphertext = '',
                 pii_iv = '',
-                pii_tag = ''
+                pii_tag = '',
+                contact_hash = NULL,
+                email_hash = NULL,
+                phone_hash = NULL,
+                network_fingerprint = NULL,
+                request_hash = ''
           WHERE id = $1::uuid`,
         [row.id],
       );

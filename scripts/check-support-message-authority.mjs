@@ -93,6 +93,11 @@ requireText("route", "rateLimit", "the intake must be rate limited");
 requireText("route", "readBoundedJsonRequest", "the request body must be bounded");
 requireText("input", "privacy_consent_required", "consent must be mandatory");
 requireText("input", "invalid_message", "an empty message must be refused, not stored blank");
+requireText(
+  "input",
+  "phoneDigits.length < 6",
+  "phone contacts must contain digits, not only allowed punctuation",
+);
 requirePattern(
   "input",
   /normalizeLocalizedDigits\(contact\)/,
@@ -209,6 +214,19 @@ requireText(
   "support_message_expired",
   "the expired replay result must reach the caller rather than resolving as success",
 );
+for (const marker of [
+  "contact_hash = NULL",
+  "email_hash = NULL",
+  "phone_hash = NULL",
+  "network_fingerprint = NULL",
+  "request_hash = ''",
+]) {
+  requireText(
+    "authority",
+    marker,
+    `retention must erase derived personal data: ${marker}`,
+  );
+}
 
 // 7. The retention promise in the consent text has a process behind it.
 requireText(

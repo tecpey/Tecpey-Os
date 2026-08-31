@@ -44,6 +44,7 @@ test("the single contact field accepts either an email or a phone", () => {
   for (const [contact, error] of [
     ["not-an-email@", "invalid_email"],
     ["12", "invalid_phone"],
+    ["------", "invalid_phone"],
     ["", "contact_required"],
   ] as const) {
     const parsed = parse({ contact });

@@ -98,8 +98,11 @@ export function parseSupportMessageCommand(input: {
   // Persian and Arabic keyboards produce localized digits; store the same
   // canonical ASCII phone representation accepted by the validator.
   const phone = looksLikeEmail ? "" : normalizeLocalizedDigits(contact);
+  const phoneDigits = phone.replace(/\D/g, "");
   if (email && !EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
-  if (phone && !PHONE_PATTERN.test(phone)) return { ok: false, error: "invalid_phone" };
+  if (phone && (!PHONE_PATTERN.test(phone) || phoneDigits.length < 6)) {
+    return { ok: false, error: "invalid_phone" };
+  }
   if (!email && !phone) return { ok: false, error: "contact_required" };
 
   if (subject.length > MAX_SUBJECT_LENGTH) {

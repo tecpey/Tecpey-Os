@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS support_messages (
   pii_iv TEXT NOT NULL,
   pii_tag TEXT NOT NULL,
   pii_key_version INTEGER NOT NULL DEFAULT 1 CHECK (pii_key_version > 0),
-  contact_hash TEXT NOT NULL,
+  contact_hash TEXT,
   email_hash TEXT,
   phone_hash TEXT,
   network_fingerprint TEXT,
@@ -46,7 +46,10 @@ CREATE TABLE IF NOT EXISTS support_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (length(btrim(tenant_id)) > 0),
-  CHECK (length(btrim(contact_hash)) > 0),
+  CHECK (
+    status = 'deleted'
+    OR (contact_hash IS NOT NULL AND length(btrim(contact_hash)) > 0)
+  ),
   CHECK ((status = 'deleted') = (deleted_at IS NOT NULL))
 );
 

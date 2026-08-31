@@ -135,12 +135,28 @@ postgresTest("a replay after retention deletion is not acknowledged as delivered
   const swept = await deleteExpiredSupportMessagePii(1_000);
   assert.equal(swept.status, "swept");
 
-  const state = await rows<{ status: string; pii_ciphertext: string }>(
-    "SELECT status, pii_ciphertext FROM support_messages WHERE id = $1::uuid",
+  const state = await rows<{
+    status: string;
+    pii_ciphertext: string;
+    contact_hash: string | null;
+    email_hash: string | null;
+    phone_hash: string | null;
+    network_fingerprint: string | null;
+    request_hash: string;
+  }>(
+    `SELECT status, pii_ciphertext, contact_hash, email_hash, phone_hash,
+            network_fingerprint, request_hash
+       FROM support_messages
+      WHERE id = $1::uuid`,
     [stored.result.id],
   );
   assert.equal(state[0]?.status, "deleted");
   assert.equal(state[0]?.pii_ciphertext, "");
+  assert.equal(state[0]?.contact_hash, null);
+  assert.equal(state[0]?.email_hash, null);
+  assert.equal(state[0]?.phone_hash, null);
+  assert.equal(state[0]?.network_fingerprint, null);
+  assert.equal(state[0]?.request_hash, "");
 
   const replay = await ingestSupportMessage(shared);
   assert.equal(
