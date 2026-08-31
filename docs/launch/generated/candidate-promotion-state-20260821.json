@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-26T20:55:00Z",
+  "generatedAt": "2026-08-31T19:09:50Z",
   "issue": 515,
   "status": "promoted_exact_candidate_evidence",
-  "currentAcceptedCandidateSha": "9c210885b48f36a478d6a12fc369f822db259559",
+  "currentAcceptedCandidateSha": "5e65ec55e003986187083a71a84272676dc09ccc",
   "proposedCandidate": {
-    "sha": "9c210885b48f36a478d6a12fc369f822db259559",
+    "sha": "5e65ec55e003986187083a71a84272676dc09ccc",
     "sourceBranch": "main",
-    "sourcePullRequest": 568,
-    "reason": "PR #568 advanced main to secure Limoo Pattern OTP at 9c210885b48f36a478d6a12fc369f822db259559. Candidate Evidence Recollection Authority #183 attempt 1 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open; the prior 4bc25172 candidate and 79c48a16 Go packet are historical only."
+    "sourcePullRequest": 581,
+    "reason": "PR #581 advanced main to the governed Infinite Growth runtime at 5e65ec55e003986187083a71a84272676dc09ccc. Candidate Evidence Recollection Authority #265 attempt 1 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open; the prior 9c210885 candidate and 79c48a16 Go packet are historical only."
   },
   "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,

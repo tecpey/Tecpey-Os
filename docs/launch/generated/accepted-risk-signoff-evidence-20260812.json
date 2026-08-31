@@ -1,19 +1,19 @@
 {
   "schemaVersion": 2,
   "evidenceClass": "accepted-risk-signoff-evidence-request",
-  "generatedAt": "2026-08-30T16:55:49Z",
+  "generatedAt": "2026-08-31T19:09:50Z",
   "decision": "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
   "executionState": "prepared_owner_approval_required",
-  "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
+  "selectedSha": "5e65ec55e003986187083a71a84272676dc09ccc",
   "sourceBranch": "main",
-  "sourcePullRequest": 568,
+  "sourcePullRequest": 581,
   "requestPath": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
   "blocker": "NOG-08",
   "status": "open",
   "requiredEnvironment": "release-control",
   "contract": "docs/LAUNCH_ACCEPTED_RISKS.md",
   "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
-  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 9c210885b48f36a478d6a12fc369f822db259559",
+  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc",
   "authorityGuard": "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "reviewFreshness": {
     "referenceDate": "2026-08-30",
@@ -42,7 +42,7 @@
       },
       {
         "name": "ops:accepted-risk:evidence:verify",
-        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 9c210885b48f36a478d6a12fc369f822db259559",
+        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc",
         "disposition": "required_for_final_artifact"
       },
       {
@@ -69,9 +69,9 @@
     "evidenceClass": "controlled-soft-launch-accepted-risk-owner-signoff",
     "decision": "ACCEPTED_RISKS_SIGNED_OFF_FOR_CONTROLLED_SCOPE",
     "environment": "release-control",
-    "sourceSha": "9c210885b48f36a478d6a12fc369f822db259559",
+    "sourceSha": "5e65ec55e003986187083a71a84272676dc09ccc",
     "releaseScope": {
-      "candidateSha": "9c210885b48f36a478d6a12fc369f822db259559",
+      "candidateSha": "5e65ec55e003986187083a71a84272676dc09ccc",
       "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
       "allowedSurfaces": [
         "public-fa-en",
@@ -90,7 +90,7 @@
     "riskRegister": {
       "path": "docs/LAUNCH_ACCEPTED_RISKS.md",
       "digest": "sha256:72bdfa104fcc4dd8ca8ab532bb0361f9345d3d327194d83c5e2fdff44ec2f431",
-      "candidateSha": "9c210885b48f36a478d6a12fc369f822db259559",
+      "candidateSha": "5e65ec55e003986187083a71a84272676dc09ccc",
       "referenceDate": "2026-08-30",
       "minimumReviewDate": "2026-09-06",
       "coveredRisks": [
@@ -151,7 +151,7 @@
     },
     {
       "name": "ops:accepted-risk:evidence:verify",
-      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 9c210885b48f36a478d6a12fc369f822db259559",
+      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc",
       "disposition": "required_for_final_artifact"
     },
     {

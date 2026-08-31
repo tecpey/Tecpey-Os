@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "disabled-capability-attestation-evidence",
-  "generatedAt": "2026-08-26T20:55:00Z",
+  "generatedAt": "2026-08-31T19:09:50Z",
   "decision": "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
-  "selectedSha": "9c210885b48f36a478d6a12fc369f822db259559",
+  "selectedSha": "5e65ec55e003986187083a71a84272676dc09ccc",
   "sourceBranch": "main",
-  "sourcePullRequest": 568,
+  "sourcePullRequest": 581,
   "executionState": "accepted_launch_disabled_attestation",
   "acceptedForBlockers": [
     "NOG-10",
