@@ -10,6 +10,7 @@ import { LivingMobileNavigation } from "@/components/tecpey/LivingMobileNavigati
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
+import { ACADEMY_CORE_TERM_COUNT } from "@/lib/academy-infinite-growth-policy";
 
 type Locale = "fa" | "en";
 type Profile = {
@@ -219,9 +220,11 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
 
   const passedTerms = useMemo(() => new Set(progressRows.filter((p) => p.status === "passed").map((p) => Number(p.term_number))), [progressRows]);
   const completedTerms = Math.max(numberOr(profile?.completed_terms), passedTerms.size);
-  const currentTermNumber = Math.min(7, completedTerms + 1);
-  const currentTerm = terms.find((term) => term.number === currentTermNumber) || terms[0];
-  const overall = Math.max(numberOr(profile?.overall_progress), Math.round((completedTerms / 7) * 100));
+  const completedCoreTerms = Math.min(ACADEMY_CORE_TERM_COUNT, completedTerms);
+  const coreComplete = completedCoreTerms === ACADEMY_CORE_TERM_COUNT;
+  const currentTermNumber = coreComplete ? 8 : Math.min(ACADEMY_CORE_TERM_COUNT, completedCoreTerms + 1);
+  const currentTerm = terms.find((term) => term.number === currentTermNumber) || null;
+  const overall = Math.min(100, Math.max(numberOr(profile?.overall_progress), Math.round((completedCoreTerms / ACADEMY_CORE_TERM_COUNT) * 100)));
   const displayName = profile?.display_name || (isFa ? "دانشجوی تک‌پی" : "TecPey learner");
   const username = profile?.username ? `@${profile.username}` : "";
   const avatar = profile?.avatar || "🎓";
@@ -251,6 +254,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         `${termBase}/term-5`,
         `${termBase}/term-6`,
         `${termBase}/term-7`,
+        `${termBase}/term-8`,
+        `${termBase}/mastery-seasons`,
         `${termBase}/learning`,
       ],
       Icon: GraduationCap,
@@ -323,8 +328,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             <p className="mt-5 max-w-3xl text-sm font-bold leading-8 text-slate-300">{t.welcome}</p>
 
             <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric icon={<GraduationCap />} label={t.currentTerm} value={`${currentTermNumber} / 7`} note={currentTerm?.title || "Term"} />
-              <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedTerms} ${isFa ? "ترم تکمیل‌شده" : "terms completed"}`} />
+              <Metric icon={<GraduationCap />} label={t.currentTerm} value={coreComplete ? "8 · ∞" : `${currentTermNumber} / 7`} note={coreComplete ? (isFa ? "ترم رشد بی‌نهایت" : "Infinite Growth") : (currentTerm?.title || "Term")} />
+              <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedCoreTerms} / 7 ${isFa ? "ترم هسته تکمیل‌شده" : "core terms completed"}`} />
               <Metric icon={<Flame />} label={t.streak} value={streakDays === null ? "—" : String(streakDays)} note={isFa ? "روز فعال" : "active days"} />
               <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length + credentials.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
@@ -333,11 +338,11 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-black text-cyan-100">{t.currentTerm}</p>
-                  <h2 className="mt-2 text-2xl font-black">{currentTerm?.title}</h2>
-                  <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-slate-300">{currentTerm?.subtitle}</p>
+                  <h2 className="mt-2 text-2xl font-black">{coreComplete ? (isFa ? "ترم ۸؛ ترم رشد بی‌نهایت" : "Term 8: Infinite Growth") : currentTerm?.title}</h2>
+                  <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-slate-300">{coreComplete ? (isFa ? "ارزیابی، برنامه‌ریزی، تمرین، بازتاب و اعتبارسنجی در چرخه‌ای شخصی‌سازی‌شده؛ بدون وعده مالی یا دسترسی ویژه خودکار." : "A personalized assess, plan, practice, reflect and verify cycle—with no automatic financial or privileged entitlement.") : currentTerm?.subtitle}</p>
                 </div>
-                <Link href={`${termBase}/term-${currentTermNumber}`} className="rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-black text-white">
-                  {completedTerms === 0 ? t.startTerm : t.continueTerm}
+                <Link href={`${termBase}/term-${currentTermNumber}`} className="min-h-11 rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+                  {completedCoreTerms === 0 ? t.startTerm : t.continueTerm}
                 </Link>
               </div>
             </div>
@@ -374,6 +379,26 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
                 </Link>
               );
             })}
+            <Link
+              href={coreComplete ? `${termBase}/term-8` : `${termBase}/term-7`}
+              aria-disabled={!coreComplete}
+              className={`rounded-[28px] border p-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1" : "border-white/10 bg-white/[0.035] opacity-70"}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">
+                  {isFa ? "ترم ۸ · ∞" : "Term 8 · ∞"}
+                </span>
+                {coreComplete ? <Sparkles className="h-5 w-5 text-violet-300" /> : <Lock className="h-5 w-5 text-slate-500" />}
+              </div>
+              <h3 className="mt-4 text-lg font-black leading-8">
+                {isFa ? "ترم رشد بی‌نهایت" : "Infinite Growth"}
+              </h3>
+              <p className="mt-2 text-xs font-bold leading-6 text-slate-300">
+                {coreComplete
+                  ? (isFa ? "چرخه شخصی تو آماده است" : "Your personal cycle is ready")
+                  : (isFa ? "پس از قبولی هر ۷ ترم هسته باز می‌شود" : "Unlocks after passing all 7 core terms")}
+              </p>
+            </Link>
           </div>
         </section>
       </section>
