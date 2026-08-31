@@ -93,6 +93,11 @@ requireText("route", "rateLimit", "the intake must be rate limited");
 requireText("route", "readBoundedJsonRequest", "the request body must be bounded");
 requireText("input", "privacy_consent_required", "consent must be mandatory");
 requireText("input", "invalid_message", "an empty message must be refused, not stored blank");
+requireText(
+  "input",
+  "message_too_long",
+  "an oversized message must be rejected rather than silently truncated",
+);
 
 // 4. What is stored is encrypted, scoped and finite.
 requireText("authority", "encryptLeadPii", "personal data must be encrypted at rest");
@@ -151,6 +156,16 @@ requirePattern(
   "inboxRunner",
   /process\.exit\(1\)/,
   "an unreadable queue must exit non-zero, not print an empty list and succeed",
+);
+requireText(
+  "inboxRunner",
+  "SUPPORT_INBOX_CURSOR",
+  "the operator must be able to request the next inbox page",
+);
+requireText(
+  "authority",
+  "nextCursor",
+  "the inbox must expose a cursor instead of permanently hiding older messages",
 );
 
 // 6. An idempotency key is a key to a specific message, not to any message.

@@ -16,12 +16,17 @@ import { readSupportMessageInbox } from "../src/lib/crm/support-message-authorit
 const tenantId = process.env.SUPPORT_INBOX_TENANT_ID ?? "tecpey";
 const limit = Math.max(1, Math.min(200, Number(process.env.SUPPORT_INBOX_LIMIT ?? 20)));
 const reveal = process.env.SUPPORT_INBOX_REVEAL === "1";
+const cursor = process.env.SUPPORT_INBOX_CURSOR?.trim() || undefined;
 
-const inbox = await readSupportMessageInbox({ tenantId, limit, reveal });
+const inbox = await readSupportMessageInbox({ tenantId, limit, reveal, cursor });
 
 // "No messages waiting" and "I could not look" are opposite answers, and an
 // empty list says the first while meaning the second. An operator checking the
 // queue would close the terminal believing nobody is waiting.
+if (inbox.status === "invalid_cursor") {
+  console.error(JSON.stringify({ ok: false, error: "support_inbox_cursor_invalid" }));
+  process.exit(1);
+}
 if (inbox.status === "unavailable") {
   console.error(JSON.stringify({ ok: false, error: "support_storage_unavailable" }));
   process.exit(1);
@@ -37,6 +42,7 @@ console.log(
       tenantId,
       count: inbox.messages.length,
       revealed: reveal,
+      nextCursor: inbox.nextCursor,
       messages: inbox.messages,
     },
     null,

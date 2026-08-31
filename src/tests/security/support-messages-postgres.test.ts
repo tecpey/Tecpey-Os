@@ -241,6 +241,41 @@ postgresTest("listing the queue does not decrypt anyone's message by default", a
   }
 });
 
+postgresTest("the support inbox can page through every active message", async () => {
+  const tenantId = `tenant-pagination-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const storedIds = new Set<string>();
+  for (let index = 0; index < 5; index += 1) {
+    const stored = await ingestSupportMessage(
+      command({
+        tenantId,
+        subject: `Page item ${index}`,
+        message: `Pagination evidence message ${index}, long enough to store.`,
+      }),
+    );
+    assert.equal(stored.status, "committed");
+    if (stored.status === "committed") storedIds.add(stored.result.id);
+  }
+
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await readSupportMessageInbox({
+      tenantId,
+      limit: 2,
+      cursor,
+    });
+    assert.equal(page.status, "ok");
+    if (page.status !== "ok") return;
+    for (const entry of page.messages) {
+      assert.equal(seen.has(entry.id), false, "a cursor page repeated a message");
+      seen.add(entry.id);
+    }
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+
+  assert.deepEqual(seen, storedIds, "pagination left active messages unreachable");
+});
+
 postgresTest("one tenant's inbox never returns another tenant's messages", async () => {
   const alpha = await ingestSupportMessage(command({ tenantId: "tenant-inbox-a" }));
   await ingestSupportMessage(command({ tenantId: "tenant-inbox-b" }));

@@ -244,16 +244,43 @@ export type SupportInboxMessage = {
  * merely unreachable, and the one thing this feature must never do is report a
  * message that is not there — in either direction.
  */
+const SUPPORT_INBOX_CURSOR_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function readSupportMessageInbox(options: {
   tenantId: string;
   limit?: number;
   reveal?: boolean;
+  cursor?: string;
 }): Promise<
-  { status: "ok"; messages: SupportInboxMessage[] } | { status: "unavailable" }
+  | {
+      status: "ok";
+      messages: SupportInboxMessage[];
+      nextCursor: string | null;
+    }
+  | { status: "invalid_cursor" }
+  | { status: "unavailable" }
 > {
   const limit = Math.max(1, Math.min(200, options.limit ?? 20));
-  const transaction = await withDb(async (client) =>
-    client.query<{
+  const cursor = options.cursor?.trim() || null;
+  if (cursor && !SUPPORT_INBOX_CURSOR_PATTERN.test(cursor)) {
+    return { status: "invalid_cursor" };
+  }
+
+  const transaction = await withDb(async (client) => {
+    let cursorPosition: { created_at: Date; id: string } | null = null;
+    if (cursor) {
+      const cursorResult = await client.query<{ created_at: Date; id: string }>(
+        `SELECT created_at, id
+           FROM support_messages
+          WHERE tenant_id = $1 AND id = $2::uuid`,
+        [options.tenantId, cursor],
+      );
+      cursorPosition = cursorResult.rows[0] ?? null;
+      if (!cursorPosition) return { status: "invalid_cursor" as const };
+    }
+
+    const result = await client.query<{
       id: string;
       created_at: Date;
       retain_until: Date;
@@ -267,15 +294,34 @@ export async function readSupportMessageInbox(options: {
       `SELECT id, created_at, retain_until, locale, source,
               pii_ciphertext, pii_iv, pii_tag, pii_key_version
          FROM support_messages
-        WHERE tenant_id = $1 AND status = 'active'
-        ORDER BY created_at DESC
-        LIMIT $2`,
-      [options.tenantId, limit],
-    ),
-  );
+        WHERE tenant_id = $1
+          AND status = 'active'
+          AND (
+            $2::timestamptz IS NULL
+            OR (created_at, id) < ($2::timestamptz, $3::uuid)
+          )
+        ORDER BY created_at DESC, id DESC
+        LIMIT $4`,
+      [
+        options.tenantId,
+        cursorPosition?.created_at ?? null,
+        cursorPosition?.id ?? null,
+        limit + 1,
+      ],
+    );
+    return { status: "ok" as const, rows: result.rows };
+  });
   if (!transaction.enabled) return { status: "unavailable" };
+  if (transaction.value.status === "invalid_cursor") {
+    return { status: "invalid_cursor" };
+  }
 
-  const messages = transaction.value.rows.map((row) => {
+  const hasMore = transaction.value.rows.length > limit;
+  const pageRows = transaction.value.rows.slice(0, limit);
+  const nextCursor =
+    hasMore && pageRows.length > 0 ? pageRows[pageRows.length - 1].id : null;
+
+  const messages = pageRows.map((row) => {
     const base = {
       id: row.id,
       createdAt: row.created_at.toISOString(),
@@ -284,7 +330,13 @@ export async function readSupportMessageInbox(options: {
       source: row.source,
     };
     if (!options.reveal) {
-      return { ...base, name: "[redacted]", contact: "[redacted]", subject: "[redacted]", message: "[redacted]" };
+      return {
+        ...base,
+        name: "[redacted]",
+        contact: "[redacted]",
+        subject: "[redacted]",
+        message: "[redacted]",
+      };
     }
     // Decryption is scoped to the row: the envelope's authenticated data binds
     // tenant and id, so a ciphertext copied from another tenant will not open.
@@ -306,5 +358,5 @@ export async function readSupportMessageInbox(options: {
       message: body.join("\n\n"),
     };
   });
-  return { status: "ok", messages };
+  return { status: "ok", messages, nextCursor };
 }

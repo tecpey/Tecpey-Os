@@ -44,15 +44,14 @@ function clean(value: unknown, max: number): string {
 }
 
 /** The message body keeps its line breaks; only control characters are stripped. */
-function cleanMultiline(value: unknown, max: number): string {
+function cleanMultiline(value: unknown): string {
   return String(value ?? "")
     .replace(/\r\n?/g, "\n")
     // Every control character except the newline, which is content here.
     .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
-    .trim()
-    .slice(0, max);
+    .trim();
 }
 
 export function parseSupportMessageCommand(input: {
@@ -70,7 +69,7 @@ export function parseSupportMessageCommand(input: {
   const name = clean(raw.name, MAX_NAME_LENGTH);
   const contact = clean(raw.contact ?? raw.email ?? raw.phone, MAX_CONTACT_LENGTH);
   const subject = clean(raw.subject, MAX_SUBJECT_LENGTH);
-  const message = cleanMultiline(raw.message ?? raw.note, MAX_MESSAGE_LENGTH);
+  const message = cleanMultiline(raw.message ?? raw.note);
   const locale = clean(raw.locale, 8) === "en" ? "en" : "fa";
   const source = clean(raw.source, MAX_SOURCE_LENGTH) || input.defaultSource;
   const idempotencyKey = clean(
@@ -95,6 +94,10 @@ export function parseSupportMessageCommand(input: {
   // The whole point of SB-013 is that a typed message must not be discarded, so
   // an empty one is refused here rather than stored as a blank row.
   if (message.length < 10) return { ok: false, error: "invalid_message" };
+  // Never report success after silently removing part of what the sender wrote.
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return { ok: false, error: "message_too_long" };
+  }
 
   if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
     return { ok: false, error: "idempotency_key_required" };

@@ -98,11 +98,16 @@ test("the message keeps its paragraphs but loses control characters", () => {
   assert.ok(!/[\u0000\u0007]/.test(parsed.command.message), "control characters survived");
 });
 
-test("oversized input is bounded rather than rejected outright", () => {
-  const parsed = parse({ message: "ب".repeat(9_000), subject: "س".repeat(500) });
+test("an oversized message is rejected rather than silently truncated", () => {
+  const parsed = parse({ message: "ب".repeat(4_001) });
+  assert.equal(parsed.ok, false);
+  if (!parsed.ok) assert.equal(parsed.error, "message_too_long");
+});
+
+test("other oversized scalar input remains safely bounded", () => {
+  const parsed = parse({ subject: "س".repeat(500) });
   assert.equal(parsed.ok, true);
   if (!parsed.ok) return;
-  assert.ok(parsed.command.message.length <= 4_000);
   assert.ok(parsed.command.subject.length <= 160);
 });
 
