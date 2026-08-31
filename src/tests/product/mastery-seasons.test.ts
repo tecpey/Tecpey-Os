@@ -133,6 +133,43 @@ describe("Academy Mastery Seasons authority", () => {
     );
   });
 
+  it("keeps the newest assignment as the visible lifecycle authority", () => {
+    const active = {
+      id: "00000000-0000-4000-8000-000000000011",
+      seasonId: "risk-repair-season",
+      status: "active" as const,
+      recommendationScore: 30,
+      sourceSignals: ["risk"],
+      assignedBy: "student",
+      assignedAt: "2026-08-30T00:00:00.000Z",
+      startedAt: "2026-08-30T00:00:00.000Z",
+      completedAt: null,
+      updatedAt: "2026-08-30T00:00:00.000Z",
+    };
+    const historical = {
+      ...active,
+      id: "00000000-0000-4000-8000-000000000010",
+      status: "completed" as const,
+      assignedAt: "2026-07-01T00:00:00.000Z",
+      startedAt: "2026-07-01T00:00:00.000Z",
+      completedAt: "2026-07-08T00:00:00.000Z",
+      updatedAt: "2026-07-08T00:00:00.000Z",
+    };
+
+    const state = buildAcademyMasterySeasonState({
+      locale: "fa",
+      completedTerms: 7,
+      profileTags: { weakConceptTags: ["risk"] },
+      assignments: [active, historical],
+    });
+
+    assert.equal(
+      state.recommendations.find((item) => item.season.id === active.seasonId)?.assignment?.id,
+      active.id,
+      "a historical row must not shadow the newest active run",
+    );
+  });
+
   it("governs the persistence contract for profiles, signals, assignments and events", () => {
     for (const table of [
       "academy_mastery_season_catalog",

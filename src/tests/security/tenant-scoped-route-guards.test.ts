@@ -308,6 +308,7 @@ const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/academy-certificates/route.ts": "academy",
   "src/app/api/academy-lesson-assessment/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/route.ts": "academy",
+  "src/app/api/academy-mastery-seasons/activate/route.ts": "academy",
   "src/app/api/academy-simulator-decision/route.ts": "academy",
   "src/app/api/academy-state/route.ts": "academy",
   "src/app/api/academy-student-profile/route.ts": "academy",

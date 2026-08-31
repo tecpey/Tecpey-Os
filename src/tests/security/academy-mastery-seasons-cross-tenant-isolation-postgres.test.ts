@@ -49,9 +49,10 @@ const WORKSPACE_B = `ws-b-${randomUUID()}`;
 const SCOPE_A: AcademyMasteryTenantScope = { tenantId: TENANT_A, workspaceId: WORKSPACE_A };
 const SCOPE_B: AcademyMasteryTenantScope = { tenantId: TENANT_B, workspaceId: WORKSPACE_B };
 
-// risk-repair-season unlocks at recommendedAfterTerm = 4.
+// Term 8 is a post-core programme even when a repair recommendation was
+// identified earlier. Activation therefore requires all seven core terms.
 const SEASON = "risk-repair-season";
-const SEASON_UNLOCK_TERM = 4;
+const SEASON_UNLOCK_TERM = 7;
 
 const cleanupStudents = new Set<string>();
 // Track drafts by id rather than by tenant: a tenant-wide delete would also
@@ -150,6 +151,22 @@ async function insertWeaknessSignal(
      VALUES ($1, $2, $3::uuid, 'fa', 'assessment', $4, $5, -60)`,
     [scope.tenantId, scope.workspaceId, studentId, `src-${randomUUID()}`, conceptTag],
   );
+}
+
+async function passAllCoreTerms(
+  client: PoolClient,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+): Promise<void> {
+  for (let term = 1; term <= SEASON_UNLOCK_TERM; term += 1) {
+    await client.query(
+      `INSERT INTO academy_term_progress
+         (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
+       VALUES ($1, $2, $3::uuid, $4, 'passed', 'fa', 100, 100)
+       ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
+      [scope.tenantId, scope.workspaceId, studentId, term],
+    );
+  }
 }
 
 
@@ -269,6 +286,8 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           completedTerms: SEASON_UNLOCK_TERM,
           weakConceptTags: ["risk"],
         });
+        await passAllCoreTerms(client, SCOPE_A, studentId);
+        await passAllCoreTerms(client, SCOPE_B, studentId);
 
         const activatedA = await activateAcademyMasterySeason({
           client,
@@ -279,6 +298,18 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           idempotencyKey: `mastery-a-${randomUUID()}`,
         });
         assert.equal(activatedA.assignment.status, "active");
+        assert.equal(activatedA.changed, true);
+
+        const replayedA = await activateAcademyMasterySeason({
+          client,
+          scope: SCOPE_A,
+          studentId,
+          locale: "fa",
+          seasonId: SEASON,
+          idempotencyKey: `mastery-a-retry-${randomUUID()}`,
+        });
+        assert.equal(replayedA.changed, false, "an active season must be a no-op even with a new command key");
+        assert.equal(replayedA.assignment.id, activatedA.assignment.id);
 
         // Tenant B sees none of tenant A's assignments before activating.
         const beforeB = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
@@ -487,15 +518,7 @@ describe("Mastery Seasons cross-tenant isolation", () => {
         );
 
         // Tenant A earns every term the season requires; tenant B earns none.
-        for (let term = 1; term <= SEASON_UNLOCK_TERM; term += 1) {
-          await client.query(
-            `INSERT INTO academy_term_progress
-               (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
-             VALUES ($1, $2, $3::uuid, $4, 'passed', 'fa', 100, 100)
-             ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
-            [TENANT_A, WORKSPACE_A, studentId, term],
-          );
-        }
+        await passAllCoreTerms(client, SCOPE_A, studentId);
 
         const afterTenantAProgress = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
 
@@ -511,6 +534,30 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           afterTenantAProgress.recommendations.find((item) => item.season.id === SEASON)?.eligible,
           false,
           "tenant B must not unlock a season it did not earn",
+        );
+
+        // A lone pass for term 7 is not proof that terms 1–6 passed.
+        await client.query(
+          `INSERT INTO academy_term_progress
+             (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
+           VALUES ($1, $2, $3::uuid, 7, 'passed', 'fa', 100, 100)
+           ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
+          [TENANT_B, WORKSPACE_B, studentId],
+        );
+        const termSevenOnly = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
+        assert.equal(termSevenOnly.completedTerms, 1, "term 7 alone must count as one passed core term");
+
+        await assert.rejects(
+          activateAcademyMasterySeason({
+            client,
+            scope: SCOPE_B,
+            studentId,
+            locale: "fa",
+            seasonId: SEASON,
+            idempotencyKey: `mastery-b-blocked-${randomUUID()}`,
+          }),
+          /mastery_core_terms_incomplete/,
+          "the write authority must enforce 7/7 independently of the page guard",
         );
 
         assert.deepEqual(afterTenantAProgress.assignments, []);

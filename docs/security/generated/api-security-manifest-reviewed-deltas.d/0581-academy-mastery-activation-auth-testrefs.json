@@ -6,9 +6,9 @@
       "route": "/api/academy/auth/login",
       "method": "POST",
       "previousSourceHash": "9a88eba6dfd5e324f79ad975",
-      "issue": "#580",
+      "issue": "#581",
       "owner": "academy-platform",
-      "reason": "Reviewed test-reference-only delta for the governed Infinite Growth policy; runtime API controls, source hashes, requirements and findings are unchanged.",
+      "reason": "Reviewed test-reference-only continuation for the governed Mastery Season activation command regression coverage; runtime API controls, source hashes, requirements and findings are unchanged.",
       "replacement": {
         "route": "/api/academy/auth/login",
         "method": "POST",
@@ -20,9 +20,7 @@
         "classification": "public",
         "principalSource": null,
         "tenantSource": null,
-        "risk": [
-          "credential"
-        ],
+        "risk": ["credential"],
         "controls": {
           "csrf": true,
           "strictRevocation": false,
@@ -60,14 +58,14 @@
           "src/tests/security/academy-auth-client-2fa-source.test.ts",
           "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
           "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-mastery-season-activation-command-postgres.test.ts",
           "src/tests/security/academy-mastery-season-activation-route.test.ts",
           "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
           "src/tests/security/academy-progress-authority-postgres.test.ts",
           "src/tests/security/academy-progress-client-authority.test.ts",
           "src/tests/security/academy-progress-idempotency-postgres.test.ts",
           "src/tests/security/academy-progress-projection-authority.test.ts",
-          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
-          "src/tests/security/auth-academy-account-authority-postgres.test.ts"
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -98,9 +96,9 @@
       "route": "/api/academy/auth/logout",
       "method": "POST",
       "previousSourceHash": "97b5fd6667043484d29f2a40",
-      "issue": "#580",
+      "issue": "#581",
       "owner": "academy-platform",
-      "reason": "Reviewed test-reference-only delta for the governed Infinite Growth policy; runtime API controls, source hashes, requirements and findings are unchanged.",
+      "reason": "Reviewed test-reference-only continuation for the governed Mastery Season activation command regression coverage; runtime API controls, source hashes, requirements and findings are unchanged.",
       "replacement": {
         "route": "/api/academy/auth/logout",
         "method": "POST",
@@ -112,9 +110,7 @@
         "classification": "authenticated",
         "principalSource": "getCanonicalSession",
         "tenantSource": null,
-        "risk": [
-          "credential"
-        ],
+        "risk": ["credential"],
         "controls": {
           "csrf": true,
           "strictRevocation": true,
@@ -152,14 +148,14 @@
           "src/tests/security/academy-auth-client-2fa-source.test.ts",
           "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
           "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-mastery-season-activation-command-postgres.test.ts",
           "src/tests/security/academy-mastery-season-activation-route.test.ts",
           "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
           "src/tests/security/academy-progress-authority-postgres.test.ts",
           "src/tests/security/academy-progress-client-authority.test.ts",
           "src/tests/security/academy-progress-idempotency-postgres.test.ts",
           "src/tests/security/academy-progress-projection-authority.test.ts",
-          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
-          "src/tests/security/auth-academy-account-authority-postgres.test.ts"
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -185,9 +181,9 @@
       "route": "/api/academy/auth/register",
       "method": "POST",
       "previousSourceHash": "5c6898a96d121b34d39d30f2",
-      "issue": "#580",
+      "issue": "#581",
       "owner": "academy-platform",
-      "reason": "Reviewed test-reference-only delta for the governed Infinite Growth policy; runtime API controls, source hashes, requirements and findings are unchanged.",
+      "reason": "Reviewed test-reference-only continuation for the governed Mastery Season activation command regression coverage; runtime API controls, source hashes, requirements and findings are unchanged.",
       "replacement": {
         "route": "/api/academy/auth/register",
         "method": "POST",
@@ -199,9 +195,7 @@
         "classification": "public",
         "principalSource": null,
         "tenantSource": null,
-        "risk": [
-          "credential"
-        ],
+        "risk": ["credential"],
         "controls": {
           "csrf": true,
           "strictRevocation": false,
@@ -239,14 +233,14 @@
           "src/tests/security/academy-auth-client-2fa-source.test.ts",
           "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
           "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-mastery-season-activation-command-postgres.test.ts",
           "src/tests/security/academy-mastery-season-activation-route.test.ts",
           "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
           "src/tests/security/academy-progress-authority-postgres.test.ts",
           "src/tests/security/academy-progress-client-authority.test.ts",
           "src/tests/security/academy-progress-idempotency-postgres.test.ts",
           "src/tests/security/academy-progress-projection-authority.test.ts",
-          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
-          "src/tests/security/auth-academy-account-authority-postgres.test.ts"
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -273,5 +267,7 @@
         }
       }
     }
-  ]
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
 }
