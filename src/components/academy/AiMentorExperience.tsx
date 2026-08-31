@@ -381,6 +381,8 @@ export function AiMentorExperience({
 
   const newConversation = useCallback(() => {
     conversationEpochRef.current += 1;
+    setLoading(false);
+    setIsExplaining(false);
     setActiveThreadId(null);
     setMessages([]);
     setQuestion("");
@@ -391,6 +393,8 @@ export function AiMentorExperience({
   const selectThread = useCallback(
     (threadId: string) => {
       conversationEpochRef.current += 1;
+      setLoading(false);
+      setIsExplaining(false);
       setActiveThreadId(threadId);
       closeHistory();
     },
@@ -495,7 +499,9 @@ export function AiMentorExperience({
         );
       }
     } finally {
-      setLoading(false);
+      if (conversationEpochRef.current === requestConversationEpoch) {
+        setLoading(false);
+      }
     }
   }, [
     activeThreadId,
