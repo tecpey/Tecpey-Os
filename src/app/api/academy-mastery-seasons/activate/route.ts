@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     const locale = body.locale as "fa" | "en";
     const seasonId = body.seasonId as string;
 
-    const idempotencyKey = req.headers.get("idempotency-key")?.trim() ?? "";
+    const idempotencyKey = req.headers.get("Idempotency-Key")?.trim() ?? "";
     if (!IDEMPOTENCY_KEY.test(idempotencyKey)) {
       return noStore(apiError("idempotency_key_required", 400));
     }
