@@ -294,7 +294,6 @@ export function AiMentorExperience({
 
   useEffect(() => {
     if (!activeThreadId) {
-      setHistoryLoading(false);
       return;
     }
     const controller = new AbortController();
