@@ -43,6 +43,11 @@ test("the single contact field accepts either an email or a phone", () => {
 
   for (const [contact, error] of [
     ["not-an-email@", "invalid_email"],
+    ["sender@example..com", "invalid_email"],
+    ["sender@example.com,", "invalid_email"],
+    [".sender@example.com", "invalid_email"],
+    ["sender..name@example.com", "invalid_email"],
+    ["sender@example-.com", "invalid_email"],
     ["12", "invalid_phone"],
     ["------", "invalid_phone"],
     ["000000", "invalid_phone"],

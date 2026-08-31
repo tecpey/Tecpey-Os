@@ -20,7 +20,9 @@ const MAX_PRIVACY_NOTICE_LENGTH = 80;
 export const SUPPORT_PRIVACY_NOTICE_VERSION = "2026-08-01";
 
 const PHONE_PATTERN = /^[+0-9\-\s()]{6,24}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_LOCAL_ATOM_PATTERN = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+$/;
+const EMAIL_DOMAIN_LABEL_PATTERN =
+  /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,160}$/;
 
 export type SupportMessageCommand = {
@@ -44,6 +46,24 @@ function clean(value: unknown): string {
     .replace(/[\u0000-\u001F\u007F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isValidEmail(value: string): boolean {
+  const separator = value.indexOf("@");
+  if (separator <= 0 || separator !== value.lastIndexOf("@")) return false;
+
+  const local = value.slice(0, separator);
+  const domain = value.slice(separator + 1);
+  const localAtoms = local.split(".");
+  const domainLabels = domain.split(".");
+
+  return (
+    local.length <= 64 &&
+    domain.length <= 253 &&
+    localAtoms.every((atom) => EMAIL_LOCAL_ATOM_PATTERN.test(atom)) &&
+    domainLabels.length >= 2 &&
+    domainLabels.every((label) => EMAIL_DOMAIN_LABEL_PATTERN.test(label))
+  );
 }
 
 function normalizeLocalizedDigits(value: string): string {
@@ -104,7 +124,7 @@ export function parseSupportMessageCommand(input: {
   const phone = looksLikeEmail ? "" : normalizeLocalizedDigits(contact);
   const phoneDigits = phone.replace(/\D/g, "");
   const canonicalPhone = phone ? normalizeLeadPhone(phone) : "";
-  if (email && !EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
+  if (email && !isValidEmail(email)) return { ok: false, error: "invalid_email" };
   if (
     phone &&
     (!PHONE_PATTERN.test(phone) ||
