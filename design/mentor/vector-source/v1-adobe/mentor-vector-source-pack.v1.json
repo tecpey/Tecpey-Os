@@ -1,0 +1,201 @@
+{
+  "contract": "tecpey-mentor-vector-source-pack.v1",
+  "status": "trace_reference_only",
+  "characterBoundary": "inspired_by_mahdi_not_mahdi",
+  "authoringDecision": {
+    "identityGeometryAuthority": "identity_primary_four_view",
+    "expressionAuthority": "expression_angle_reference",
+    "expressionMayOverrideIdentityGeometry": false,
+    "flatTraceMayShipToRuntime": false,
+    "canonicalRiveComponent": "MentorCore"
+  },
+  "identityLock": {
+    "group": "geo_nose_identity",
+    "nose": {
+      "bridge": "smooth_narrow",
+      "dorsum": "continuous_gentle_slightly_concave_slope",
+      "dorsalHump": false,
+      "upperBodySwelling": false,
+      "tip": "refined_slightly_upturned",
+      "nostrilWidth": "stable_across_angles",
+      "expressionDeformation": false,
+      "speechDeformation": false
+    },
+    "additionalLockedFeatures": [
+      "eye_spacing",
+      "skull_outline",
+      "hairline",
+      "upper_beard_boundary"
+    ]
+  },
+  "sources": [
+    {
+      "id": "identity_primary_four_view",
+      "role": "identity_geometry_primary",
+      "path": "design/mentor/vector-source/v1-adobe/mentor-identity-primary-four-view.trace.svg",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 3582515,
+      "pathCount": 4992,
+      "sha256": "a1c84ee247de0cf2a229c267593205dbfe8ccef2da0598893903657d96f22b7c",
+      "containsRaster": false,
+      "productionImport": false
+    },
+    {
+      "id": "identity_front",
+      "role": "identity_angle",
+      "angle": "front",
+      "subjectYawDegrees": 0,
+      "path": "design/mentor/vector-source/v1-adobe/mentor-identity-front.trace.svg",
+      "width": 384,
+      "height": 1024,
+      "bytes": 704029,
+      "pathCount": 1005,
+      "sha256": "3107cba3f232c516ea6cf6f14f3bb81970d70995cc4a1405b7e60b3339ed73a0",
+      "containsRaster": false,
+      "productionImport": false
+    },
+    {
+      "id": "identity_three_quarter_near",
+      "role": "identity_angle",
+      "angle": "three_quarter_R_near",
+      "subjectYawDegrees": 22,
+      "path": "design/mentor/vector-source/v1-adobe/mentor-identity-three-quarter-near.trace.svg",
+      "width": 384,
+      "height": 1024,
+      "bytes": 715056,
+      "pathCount": 1030,
+      "sha256": "64651602660792da95a47ac4e14eb14309f7e636f00219ca22faed2c76d80c3c",
+      "containsRaster": false,
+      "productionImport": false
+    },
+    {
+      "id": "identity_three_quarter_far",
+      "role": "identity_angle",
+      "angle": "three_quarter_R_far",
+      "subjectYawDegrees": 45,
+      "path": "design/mentor/vector-source/v1-adobe/mentor-identity-three-quarter-far.trace.svg",
+      "width": 384,
+      "height": 1024,
+      "bytes": 704975,
+      "pathCount": 1013,
+      "sha256": "533a91861113241879634ed1f4daab58c3c250481577634f6c821a64a4c2bb17",
+      "containsRaster": false,
+      "productionImport": false
+    },
+    {
+      "id": "identity_profile",
+      "role": "identity_angle",
+      "angle": "profile_R",
+      "subjectYawDegrees": 90,
+      "path": "design/mentor/vector-source/v1-adobe/mentor-identity-profile.trace.svg",
+      "width": 384,
+      "height": 1024,
+      "bytes": 948458,
+      "pathCount": 1283,
+      "sha256": "56ee929a08f018a58215a311bbbf7fb13939052eff53d243c6fb4673a5d5d175",
+      "containsRaster": false,
+      "productionImport": false
+    },
+    {
+      "id": "expression_angle_reference",
+      "role": "expression_only",
+      "path": "design/mentor/vector-source/v1-adobe/mentor-expression-angle-reference.trace.svg",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2954393,
+      "pathCount": 4675,
+      "sha256": "41da1aafd63ede5d230abb074fa5cb00b5f1dc45fd769d53d16b347bdc2a443f",
+      "containsRaster": false,
+      "productionImport": false
+    }
+  ],
+  "coverage": {
+    "approvedIdentityAnglesPresent": [
+      "front",
+      "three_quarter_R_near",
+      "three_quarter_R_far",
+      "profile_R"
+    ],
+    "acceptanceAnglesStillRequired": [
+      "three_quarter_L",
+      "profile_L"
+    ],
+    "mirroringDoesNotCloseCoverage": true
+  },
+  "semanticTarget": {
+    "requiredGroups": [
+      "grp_head",
+      "mesh_face_base",
+      "geo_nose_identity",
+      "grp_eye_L",
+      "grp_eye_R",
+      "grp_brow_L",
+      "grp_brow_R",
+      "grp_mouth",
+      "mesh_lower_face_speech",
+      "mesh_beard_lower",
+      "geo_hair_back",
+      "geo_hair_front"
+    ],
+    "noseZeroWeightDomains": [
+      "speech",
+      "affect",
+      "jaw",
+      "head_aim"
+    ],
+    "forbiddenOperations": [
+      "ship_flat_trace_as_runtime_asset",
+      "mirror_reference_to_claim_missing_identity_angle",
+      "regenerate_nose_per_expression",
+      "bind_user_text_inside_character_canvas"
+    ]
+  },
+  "initialActs": [
+    {
+      "id": "idle_attentive",
+      "purpose": "state_indication",
+      "entryMs": 0,
+      "exitMs": 0,
+      "easing": "none",
+      "interruptible": true,
+      "reducedMotion": "static_attentive_with_bounded_blink"
+    },
+    {
+      "id": "greet",
+      "purpose": "feedback",
+      "entryMs": 240,
+      "exitMs": 220,
+      "easing": "ease_out",
+      "interruptible": true,
+      "reducedMotion": "warm_affect_only"
+    },
+    {
+      "id": "explain",
+      "purpose": "state_indication",
+      "entryMs": 280,
+      "exitMs": 240,
+      "easing": "ease_in_out",
+      "interruptible": true,
+      "reducedMotion": "gaze_and_affect_only"
+    },
+    {
+      "id": "celebrate_effort",
+      "purpose": "delight",
+      "entryMs": 280,
+      "exitMs": 240,
+      "easing": "ease_out",
+      "interruptible": true,
+      "reducedMotion": "warm_affect_and_color_only"
+    },
+    {
+      "id": "risk_caution",
+      "purpose": "state_indication",
+      "entryMs": 200,
+      "exitMs": 180,
+      "easing": "ease_out",
+      "interruptible": true,
+      "reducedMotion": "steady_affect_only"
+    }
+  ]
+}

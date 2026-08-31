@@ -1,0 +1,521 @@
+.panel {
+  --arena-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --arena-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  position: relative;
+  z-index: 20;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgb(103 232 249 / 0.2);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 90% 0%, rgb(8 145 178 / 0.17), transparent 28%),
+    linear-gradient(160deg, rgb(7 20 35 / 0.99), rgb(3 10 19 / 0.99));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 28px 80px rgb(2 8 23 / 0.36);
+  color: #e2e8f0;
+}
+
+.header {
+  display: flex;
+  min-height: 76px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgb(148 163 184 / 0.12);
+  padding: 12px 13px;
+}
+
+.dragCue {
+  display: none;
+  color: #475569;
+}
+
+.dragCue svg {
+  width: 24px;
+  height: 24px;
+}
+
+.identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.identity > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(103 232 249 / 0.2);
+  border-radius: 13px;
+  background: rgb(8 145 178 / 0.15);
+  color: #67e8f9;
+}
+
+.identity > span svg {
+  width: 18px;
+  height: 18px;
+}
+
+.identity h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 950;
+  color: #f8fafc;
+}
+
+.identity p {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  font-size: 8px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.identity p svg {
+  width: 10px;
+  height: 10px;
+  color: #34d399;
+}
+
+.controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.controls button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgb(148 163 184 / 0.14);
+  border-radius: 13px;
+  background: rgb(15 23 42 / 0.66);
+  color: #cbd5e1;
+  transition:
+    border-color 160ms var(--arena-ease-out),
+    background-color 160ms var(--arena-ease-out),
+    color 160ms var(--arena-ease-out),
+    transform 120ms var(--arena-ease-out);
+  touch-action: manipulation;
+}
+
+.controls button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.controls button:active {
+  transform: scale(0.97);
+}
+
+.controls button:focus-visible,
+.primaryAction:focus-visible,
+.minimized button:focus-visible,
+.localeGate a:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+
+.challenge {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 20px 18px;
+}
+
+.challengeBadge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgb(52 211 153 / 0.2);
+  border-radius: 999px;
+  background: rgb(16 185 129 / 0.1);
+  padding: 7px 10px;
+  font-size: 8px;
+  font-weight: 950;
+  color: #a7f3d0;
+}
+
+.challengeBadge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.challenge h3 {
+  margin: 18px 0 0;
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  font-weight: 950;
+  line-height: 1.45;
+  color: #f8fafc;
+}
+
+.challenge > p {
+  margin: 10px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.9;
+  color: #94a3b8;
+}
+
+.challenge ol {
+  display: grid;
+  gap: 9px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.challenge li {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgb(148 163 184 / 0.12);
+  border-radius: 14px;
+  background: rgb(15 23 42 / 0.5);
+  padding: 9px 10px;
+  font-size: 9px;
+  font-weight: 850;
+  color: #cbd5e1;
+}
+
+.challenge li > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: rgb(8 145 178 / 0.18);
+  font-size: 8px;
+  color: #a5f3fc;
+}
+
+.safetyNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 18px;
+  border: 1px solid rgb(251 191 36 / 0.16);
+  border-radius: 14px;
+  background: rgb(120 53 15 / 0.12);
+  padding: 10px;
+  color: #fde68a;
+}
+
+.safetyNote svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.safetyNote p {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 750;
+  line-height: 1.7;
+}
+
+.primaryAction {
+  display: inline-flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #0891b2, #0369a1);
+  padding: 11px 14px;
+  font-size: 10px;
+  font-weight: 950;
+  color: #fff;
+  box-shadow: 0 10px 28px rgb(8 145 178 / 0.2);
+  transition:
+    filter 160ms var(--arena-ease-out),
+    transform 120ms var(--arena-ease-out);
+  touch-action: manipulation;
+}
+
+.primaryAction svg {
+  width: 17px;
+  height: 17px;
+}
+
+.primaryAction:active {
+  transform: scale(0.98);
+}
+
+.execution {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  scrollbar-color: rgb(103 232 249 / 0.24) transparent;
+}
+
+.executionLoading,
+.localeGate {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+}
+
+.executionLoading > span {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgb(103 232 249 / 0.18);
+  border-top-color: #67e8f9;
+  border-radius: 999px;
+  animation: arena-spin 0.8s linear infinite;
+}
+
+.executionLoading p {
+  margin: 12px 0 0;
+  font-size: 10px;
+  font-weight: 900;
+  color: #94a3b8;
+}
+
+.localeGate {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.localeGate > svg {
+  width: 42px;
+  height: 42px;
+  color: #67e8f9;
+}
+
+.localeGate h3 {
+  margin: 16px 0 0;
+  font-size: 1.25rem;
+  font-weight: 950;
+  color: #f8fafc;
+}
+
+.localeGate p {
+  margin: 9px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.9;
+  color: #94a3b8;
+}
+
+.localeGate a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-top: 18px;
+  border: 1px solid rgb(103 232 249 / 0.2);
+  border-radius: 14px;
+  background: rgb(8 145 178 / 0.14);
+  padding: 10px 14px;
+  font-size: 9px;
+  font-weight: 950;
+  color: #cffafe;
+}
+
+.minimized {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 850;
+}
+
+.minimized button {
+  display: flex;
+  min-width: min(290px, calc(100vw - 28px));
+  min-height: 58px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgb(103 232 249 / 0.28);
+  border-radius: 18px;
+  background: rgb(5 18 32 / 0.95);
+  padding: 9px 11px;
+  text-align: start;
+  color: #e2e8f0;
+  box-shadow: 0 20px 55px rgb(2 8 23 / 0.5);
+  backdrop-filter: blur(18px);
+  transition:
+    border-color 160ms var(--arena-ease-out),
+    transform 120ms var(--arena-ease-out);
+}
+
+.minimized button > svg:first-child {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: #67e8f9;
+}
+
+.minimized button > svg:last-child {
+  width: 17px;
+  height: 17px;
+  margin-inline-start: auto;
+  color: #94a3b8;
+}
+
+.minimized button span {
+  min-width: 0;
+}
+
+.minimized button strong,
+.minimized button small {
+  display: block;
+}
+
+.minimized button strong {
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.minimized button small {
+  margin-top: 3px;
+  font-size: 8px;
+  font-weight: 750;
+  color: #94a3b8;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 810;
+  width: 100%;
+  height: 100%;
+  background: rgb(2 8 23 / 0.74);
+  backdrop-filter: blur(5px);
+  animation: arena-backdrop-in 180ms var(--arena-ease-out) both;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .controls button:hover {
+    border-color: rgb(103 232 249 / 0.3);
+    background: rgb(8 145 178 / 0.14);
+    color: #cffafe;
+  }
+
+  .primaryAction:hover {
+    filter: brightness(1.1);
+  }
+
+  .minimized button:hover {
+    border-color: rgb(103 232 249 / 0.46);
+  }
+}
+
+@media (max-width: 1439px) {
+  .panel {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    z-index: 820;
+    width: min(680px, calc(100vw - 24px));
+    height: auto;
+    animation: arena-sheet-in 280ms var(--arena-ease-drawer) both;
+  }
+
+  .panel[data-panel="focus"] {
+    left: max(12px, env(safe-area-inset-left));
+    width: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .panel {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    border-radius: 0;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    flex-wrap: wrap;
+    padding-top: max(9px, env(safe-area-inset-top));
+    background: rgb(5 18 32 / 0.96);
+    backdrop-filter: blur(18px);
+  }
+
+  .dragCue {
+    display: grid;
+    width: 100%;
+    height: 12px;
+    place-items: center;
+  }
+
+  .identity h2 {
+    font-size: 12px;
+  }
+
+  .identity p {
+    display: none;
+  }
+
+  .controls button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .challenge {
+    padding: 18px 15px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .execution {
+    padding: 14px 10px max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .backdrop,
+  .executionLoading > span {
+    animation: none;
+  }
+
+  .controls button,
+  .primaryAction,
+  .minimized button {
+    transition-duration: 0.01ms;
+  }
+}
+
+@keyframes arena-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes arena-sheet-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes arena-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

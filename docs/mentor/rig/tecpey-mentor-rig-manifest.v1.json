@@ -1,0 +1,955 @@
+{
+  "$schema": "./tecpey-mentor-rig-manifest.v1.schema.json",
+  "manifestVersion": "1.0.0",
+  "status": "signoff_candidate",
+  "asset": {
+    "assetId": "tecpey_mentor_global",
+    "assetVersion": "0.1.0",
+    "sourceFile": "tecpey-mentor-global.v1.riv",
+    "rootComponent": "MentorCore",
+    "rootViewModel": "TecPeyMentorVM",
+    "stateMachine": "MentorStateMachine",
+    "compatibleViewModel": ">=1.0.0 <2.0.0",
+    "compatibleSpeechRig": ">=1.0.0 <2.0.0"
+  },
+  "requiredNodes": [
+    "MentorCore",
+    "MentorLauncher",
+    "MentorPanel",
+    "MentorProfile",
+    "MentorScene",
+    "MentorShare",
+    "grp_shadow",
+    "grp_character",
+    "grp_body_back",
+    "geo_arm_R_back",
+    "geo_torso_back",
+    "grp_torso",
+    "mesh_torso",
+    "geo_neck",
+    "geo_shirt_trim",
+    "grp_head",
+    "geo_ear_L",
+    "geo_ear_R",
+    "mesh_face_base",
+    "geo_nose_identity",
+    "grp_eye_L",
+    "grp_eye_R",
+    "grp_brow_L",
+    "grp_brow_R",
+    "grp_mouth",
+    "mask_mouth_cavity",
+    "geo_mouth_cavity",
+    "geo_teeth_upper",
+    "geo_teeth_lower",
+    "geo_tongue",
+    "geo_lip_upper",
+    "geo_lip_lower",
+    "mesh_lower_face_speech",
+    "mesh_beard_lower",
+    "geo_hair_back",
+    "geo_hair_front",
+    "grp_body_front",
+    "geo_arm_L_front",
+    "cmp_hand_L",
+    "cmp_hand_R",
+    "grp_controls",
+    "grp_skeleton",
+    "grp_debug"
+  ],
+  "artboards": [
+    {
+      "id": "mentor_core",
+      "name": "MentorCore",
+      "role": "reusable_core",
+      "referenceSize": { "width": 1024, "height": 1024 },
+      "instanceOf": null,
+      "delivery": "animated",
+      "defaultRuntimeMode": "component_only"
+    },
+    {
+      "id": "mentor_launcher",
+      "name": "MentorLauncher",
+      "role": "launcher",
+      "referenceSize": { "width": 256, "height": 256 },
+      "instanceOf": "MentorCore",
+      "delivery": "static_export",
+      "defaultRuntimeMode": "static"
+    },
+    {
+      "id": "mentor_panel",
+      "name": "MentorPanel",
+      "role": "panel",
+      "referenceSize": { "width": 720, "height": 960 },
+      "instanceOf": "MentorCore",
+      "delivery": "animated",
+      "defaultRuntimeMode": "load_on_intent"
+    },
+    {
+      "id": "mentor_profile",
+      "name": "MentorProfile",
+      "role": "profile",
+      "referenceSize": { "width": 960, "height": 960 },
+      "instanceOf": "MentorCore",
+      "delivery": "animated",
+      "defaultRuntimeMode": "load_when_visible"
+    },
+    {
+      "id": "mentor_scene",
+      "name": "MentorScene",
+      "role": "scene",
+      "referenceSize": { "width": 1440, "height": 900 },
+      "instanceOf": "MentorCore",
+      "delivery": "animated",
+      "defaultRuntimeMode": "load_when_visible"
+    },
+    {
+      "id": "mentor_share",
+      "name": "MentorShare",
+      "role": "share",
+      "referenceSize": { "width": 1080, "height": 1920 },
+      "instanceOf": "MentorCore",
+      "delivery": "deferred",
+      "defaultRuntimeMode": "deferred"
+    }
+  ],
+  "surfaceBindings": [
+    {
+      "surface": "launcher",
+      "artboard": "MentorLauncher",
+      "loadPolicy": "static_until_open",
+      "maxAnimatedInstances": 0,
+      "fallback": "static_launcher_svg"
+    },
+    {
+      "surface": "mentor_tab",
+      "artboard": "MentorPanel",
+      "loadPolicy": "on_intent",
+      "maxAnimatedInstances": 1,
+      "fallback": "static_neutral_poster"
+    },
+    {
+      "surface": "profile_summary",
+      "artboard": "MentorProfile",
+      "loadPolicy": "when_visible",
+      "maxAnimatedInstances": 1,
+      "fallback": "static_neutral_poster"
+    },
+    {
+      "surface": "academy",
+      "artboard": "MentorScene",
+      "loadPolicy": "when_visible",
+      "maxAnimatedInstances": 1,
+      "fallback": "static_neutral_poster"
+    },
+    {
+      "surface": "arena",
+      "artboard": "MentorScene",
+      "loadPolicy": "when_visible",
+      "maxAnimatedInstances": 1,
+      "fallback": "static_neutral_poster"
+    },
+    {
+      "surface": "credential_helper",
+      "artboard": "MentorPanel",
+      "loadPolicy": "on_intent",
+      "maxAnimatedInstances": 1,
+      "fallback": "host_ui_only"
+    },
+    {
+      "surface": "share_render",
+      "artboard": "MentorShare",
+      "loadPolicy": "deferred_phase_6",
+      "maxAnimatedInstances": 1,
+      "fallback": "host_ui_only"
+    }
+  ],
+  "layers": [
+    {
+      "indexTopToBottom": 0,
+      "name": "Ambient",
+      "priorityRank": 10,
+      "defaultState": "still",
+      "states": ["off", "still", "breathe"],
+      "ownerDomains": ["body.breath", "clothing.secondary"],
+      "intentionalOverrides": [],
+      "interruptible": true
+    },
+    {
+      "indexTopToBottom": 1,
+      "name": "ConversationAct",
+      "priorityRank": 30,
+      "defaultState": "idle_attentive",
+      "states": [
+        "idle_attentive",
+        "greet",
+        "listen",
+        "think",
+        "explain",
+        "invite_next_step",
+        "celebrate_effort",
+        "encourage_retry"
+      ],
+      "ownerDomains": ["body.pose", "arms.pose", "hands.pose", "head.act"],
+      "intentionalOverrides": [],
+      "interruptible": true
+    },
+    {
+      "indexTopToBottom": 2,
+      "name": "FaceAffect",
+      "priorityRank": 40,
+      "defaultState": "calm",
+      "states": ["calm", "attentive", "curious", "warm", "concerned", "steady"],
+      "ownerDomains": ["brows.expression", "cheeks.upper", "mouth.expression"],
+      "intentionalOverrides": [],
+      "interruptible": true
+    },
+    {
+      "indexTopToBottom": 3,
+      "name": "GazeBlink",
+      "priorityRank": 50,
+      "defaultState": "still",
+      "states": ["still", "auto", "focus"],
+      "ownerDomains": ["eyes.gaze", "eyes.lids", "head.aim"],
+      "intentionalOverrides": [],
+      "interruptible": true
+    },
+    {
+      "indexTopToBottom": 4,
+      "name": "Speech",
+      "priorityRank": 60,
+      "defaultState": "sil",
+      "states": [
+        "sil",
+        "bilabial",
+        "labiodental",
+        "interdental",
+        "alveolar",
+        "velar",
+        "postalveolar",
+        "sibilant",
+        "nasal_lateral",
+        "rhotic",
+        "vowel_open",
+        "vowel_mid_front",
+        "vowel_close_front",
+        "vowel_mid_back_round",
+        "vowel_close_back_round",
+        "recover"
+      ],
+      "ownerDomains": [
+        "jaw.articulation",
+        "mouth.articulation",
+        "teeth.visibility",
+        "tongue.articulation",
+        "cheeks.lower"
+      ],
+      "intentionalOverrides": [],
+      "interruptible": true
+    },
+    {
+      "indexTopToBottom": 5,
+      "name": "SafetyBase",
+      "priorityRank": 100,
+      "defaultState": "clear",
+      "states": [
+        "clear",
+        "pause_reflect",
+        "risk_caution",
+        "privacy_notice",
+        "data_unavailable",
+        "error_recover"
+      ],
+      "ownerDomains": [],
+      "intentionalOverrides": ["body.pose", "arms.pose", "hands.pose", "head.act"],
+      "interruptible": true
+    }
+  ],
+  "bones": [
+    { "id": "b_root", "parent": null, "role": "structural", "normalOwner": null, "deforming": false },
+    { "id": "b_torso_root", "parent": "b_root", "role": "structural", "normalOwner": null, "deforming": true },
+    { "id": "b_spine_act", "parent": "b_torso_root", "role": "body_pose", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_breath", "parent": "b_spine_act", "role": "breath", "normalOwner": "Ambient", "deforming": true },
+    { "id": "b_chest", "parent": "b_spine_act", "role": "body_pose", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_neck", "parent": "b_chest", "role": "body_pose", "normalOwner": "ConversationAct", "deforming": false },
+    { "id": "b_head_act", "parent": "b_neck", "role": "head_act", "normalOwner": "ConversationAct", "deforming": false },
+    { "id": "b_head_aim", "parent": "b_head_act", "role": "head_aim", "normalOwner": "GazeBlink", "deforming": false },
+    { "id": "b_head", "parent": "b_head_aim", "role": "structural", "normalOwner": null, "deforming": true },
+    { "id": "b_jaw", "parent": "b_head", "role": "jaw", "normalOwner": "Speech", "deforming": true },
+    { "id": "b_clavicle_L", "parent": "b_chest", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_clavicle_R", "parent": "b_chest", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_upperarm_L", "parent": "b_clavicle_L", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_upperarm_R", "parent": "b_clavicle_R", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_forearm_L", "parent": "b_upperarm_L", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_forearm_R", "parent": "b_upperarm_R", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_wrist_L", "parent": "b_forearm_L", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_wrist_R", "parent": "b_forearm_R", "role": "arm", "normalOwner": "ConversationAct", "deforming": true },
+    { "id": "b_hand_L", "parent": "b_wrist_L", "role": "hand", "normalOwner": "ConversationAct", "deforming": false },
+    { "id": "b_hand_R", "parent": "b_wrist_R", "role": "hand", "normalOwner": "ConversationAct", "deforming": false },
+    { "id": "b_mouth_corner_L", "parent": "b_head", "role": "mouth_affect", "normalOwner": "FaceAffect", "deforming": true },
+    { "id": "b_mouth_corner_R", "parent": "b_head", "role": "mouth_affect", "normalOwner": "FaceAffect", "deforming": true },
+    { "id": "b_lip_upper_mid", "parent": "b_head", "role": "mouth_speech", "normalOwner": "Speech", "deforming": true },
+    { "id": "b_lip_lower_mid", "parent": "b_jaw", "role": "mouth_speech", "normalOwner": "Speech", "deforming": true },
+    { "id": "b_brow_inner_L", "parent": "b_head", "role": "brow", "normalOwner": "FaceAffect", "deforming": true },
+    { "id": "b_brow_inner_R", "parent": "b_head", "role": "brow", "normalOwner": "FaceAffect", "deforming": true },
+    { "id": "b_brow_outer_L", "parent": "b_head", "role": "brow", "normalOwner": "FaceAffect", "deforming": true },
+    { "id": "b_brow_outer_R", "parent": "b_head", "role": "brow", "normalOwner": "FaceAffect", "deforming": true }
+  ],
+  "controls": [
+    {
+      "id": "ctl_head_aim",
+      "type": "joystick2d",
+      "normalOwner": "GazeBlink",
+      "source": "internal",
+      "targetDomain": "head.aim"
+    },
+    {
+      "id": "ctl_gaze_target",
+      "type": "vector2",
+      "normalOwner": "GazeBlink",
+      "source": "internal",
+      "targetDomain": "eyes.gaze"
+    },
+    {
+      "id": "ctl_blink_L",
+      "type": "number",
+      "normalOwner": "GazeBlink",
+      "source": "internal",
+      "targetDomain": "eyes.lids",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_blink_R",
+      "type": "number",
+      "normalOwner": "GazeBlink",
+      "source": "internal",
+      "targetDomain": "eyes.lids",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_motion_intensity",
+      "type": "number",
+      "normalOwner": "ConversationAct",
+      "source": "mentor.intensity",
+      "targetDomain": "body.intensity",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_viseme_blend",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.blend",
+      "targetDomain": "mouth.anchor_blend",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_jaw_open",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.jawOpen",
+      "targetDomain": "jaw.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_lip_close",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.lipClose",
+      "targetDomain": "mouth.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_lip_press",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.lipPress",
+      "targetDomain": "mouth.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_lip_wide",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.lipWide",
+      "targetDomain": "mouth.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_lip_round",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.lipRound",
+      "targetDomain": "mouth.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_lip_funnel",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.lipFunnel",
+      "targetDomain": "mouth.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_lower_lip_bite",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.lowerLipBite",
+      "targetDomain": "mouth.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_tongue_tip_up",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.tongueTipUp",
+      "targetDomain": "tongue.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    },
+    {
+      "id": "ctl_tongue_forward",
+      "type": "number",
+      "normalOwner": "Speech",
+      "source": "speech.tongueForward",
+      "targetDomain": "tongue.articulation",
+      "range": { "minimum": 0, "maximum": 1 }
+    }
+  ],
+  "meshes": [
+    {
+      "id": "mesh_face_base",
+      "role": "face_identity",
+      "allowedBones": ["b_head"],
+      "maxInfluencesPerVertex": 2,
+      "lockedRegions": ["nose_bridge", "nose_dorsum", "nose_tip", "nostrils", "eye_spacing", "skull_outline"]
+    },
+    {
+      "id": "mesh_lower_face_speech",
+      "role": "lower_face_speech",
+      "allowedBones": [
+        "b_head",
+        "b_jaw",
+        "b_mouth_corner_L",
+        "b_mouth_corner_R",
+        "b_lip_upper_mid",
+        "b_lip_lower_mid"
+      ],
+      "maxInfluencesPerVertex": 4,
+      "lockedRegions": ["nose_base", "identity_silhouette"]
+    },
+    {
+      "id": "mesh_beard_lower",
+      "role": "beard",
+      "allowedBones": ["b_head", "b_jaw"],
+      "maxInfluencesPerVertex": 2,
+      "lockedRegions": ["upper_beard_boundary", "sideburn_silhouette"]
+    },
+    {
+      "id": "mesh_torso",
+      "role": "torso",
+      "allowedBones": ["b_torso_root", "b_spine_act", "b_breath", "b_chest"],
+      "maxInfluencesPerVertex": 4,
+      "lockedRegions": ["collar_placement", "brand_trim"]
+    },
+    {
+      "id": "mesh_sleeve_L",
+      "role": "sleeve",
+      "allowedBones": ["b_upperarm_L", "b_forearm_L"],
+      "maxInfluencesPerVertex": 2,
+      "lockedRegions": ["cuff_neutral_l"]
+    },
+    {
+      "id": "mesh_sleeve_R",
+      "role": "sleeve",
+      "allowedBones": ["b_upperarm_R", "b_forearm_R"],
+      "maxInfluencesPerVertex": 2,
+      "lockedRegions": ["cuff_neutral_r"]
+    },
+    {
+      "id": "mesh_forearm_L",
+      "role": "forearm",
+      "allowedBones": ["b_forearm_L", "b_wrist_L"],
+      "maxInfluencesPerVertex": 2,
+      "lockedRegions": ["wrist_seam_l"]
+    },
+    {
+      "id": "mesh_forearm_R",
+      "role": "forearm",
+      "allowedBones": ["b_forearm_R", "b_wrist_R"],
+      "maxInfluencesPerVertex": 2,
+      "lockedRegions": ["wrist_seam_r"]
+    }
+  ],
+  "speechAnchors": [
+    "sil",
+    "bilabial",
+    "labiodental",
+    "interdental",
+    "alveolar",
+    "velar",
+    "postalveolar",
+    "sibilant",
+    "nasal_lateral",
+    "rhotic",
+    "vowel_open",
+    "vowel_mid_front",
+    "vowel_close_front",
+    "vowel_mid_back_round",
+    "vowel_close_back_round"
+  ],
+  "handPoses": [
+    "neutral_relaxed",
+    "open_diagonal",
+    "open_explain",
+    "open_present",
+    "chin_support",
+    "caution_flat",
+    "celebrate_open"
+  ],
+  "globalPoses": [
+    "idle_attentive",
+    "greet",
+    "listen",
+    "think",
+    "explain",
+    "invite_next_step",
+    "celebrate_effort",
+    "risk_caution"
+  ],
+  "identityLocks": [
+    "nose_bridge",
+    "nose_dorsum",
+    "nose_tip",
+    "nostril_width",
+    "eye_spacing",
+    "skull_outline",
+    "beard_boundary",
+    "hairline"
+  ],
+  "bindings": [
+    {
+      "path": "mentor.act",
+      "target": "MentorStateMachine.act_router",
+      "mode": "enum_state",
+      "ownerLayer": null,
+      "fallback": "idle_attentive",
+      "ephemeral": false
+    },
+    {
+      "path": "mentor.affect",
+      "target": "FaceAffect.affect",
+      "mode": "enum_state",
+      "ownerLayer": "FaceAffect",
+      "fallback": "calm",
+      "ephemeral": false
+    },
+    {
+      "path": "mentor.intensity",
+      "target": "ctl_motion_intensity",
+      "mode": "numeric_deformer",
+      "ownerLayer": "ConversationAct",
+      "fallback": 0,
+      "ephemeral": false
+    },
+    {
+      "path": "mentor.priority",
+      "target": "MentorStateMachine.event_priority",
+      "mode": "numeric_gate",
+      "ownerLayer": null,
+      "fallback": 0,
+      "ephemeral": false
+    },
+    {
+      "path": "playAct",
+      "target": "MentorStateMachine.play_act",
+      "mode": "trigger_edge",
+      "ownerLayer": null,
+      "fallback": null,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.state",
+      "target": "Speech.playback_state",
+      "mode": "enum_state",
+      "ownerLayer": "Speech",
+      "fallback": "idle",
+      "ephemeral": true
+    },
+    {
+      "path": "speech.viseme",
+      "target": "Speech.anchor_selector",
+      "mode": "enum_state",
+      "ownerLayer": "Speech",
+      "fallback": "sil",
+      "ephemeral": true
+    },
+    {
+      "path": "speech.blend",
+      "target": "ctl_viseme_blend",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.jawOpen",
+      "target": "ctl_jaw_open",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.lipClose",
+      "target": "ctl_lip_close",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.lipPress",
+      "target": "ctl_lip_press",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.lipWide",
+      "target": "ctl_lip_wide",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.lipRound",
+      "target": "ctl_lip_round",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.lipFunnel",
+      "target": "ctl_lip_funnel",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.lowerLipBite",
+      "target": "ctl_lower_lip_bite",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.tongueTipUp",
+      "target": "ctl_tongue_tip_up",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "speech.tongueForward",
+      "target": "ctl_tongue_forward",
+      "mode": "numeric_deformer",
+      "ownerLayer": "Speech",
+      "fallback": 0,
+      "ephemeral": true
+    },
+    {
+      "path": "world.roomState",
+      "target": "SurfaceWrapper.room_state",
+      "mode": "wrapper_variant",
+      "ownerLayer": null,
+      "fallback": "unavailable",
+      "ephemeral": false
+    },
+    {
+      "path": "world.roomLevel",
+      "target": "SurfaceWrapper.room_level",
+      "mode": "numeric_deformer",
+      "ownerLayer": null,
+      "fallback": 0,
+      "ephemeral": false
+    },
+    {
+      "path": "world.theme",
+      "target": "SurfaceWrapper.theme",
+      "mode": "wrapper_variant",
+      "ownerLayer": null,
+      "fallback": "neutral",
+      "ephemeral": false
+    },
+    {
+      "path": "world.celebrationTier",
+      "target": "SurfaceWrapper.celebration_tier",
+      "mode": "wrapper_variant",
+      "ownerLayer": null,
+      "fallback": "none",
+      "ephemeral": false
+    },
+    {
+      "path": "accessibility.reducedMotion",
+      "target": "MentorStateMachine.reduced_motion",
+      "mode": "boolean_gate",
+      "ownerLayer": null,
+      "fallback": true,
+      "ephemeral": false
+    },
+    {
+      "path": "accessibility.highContrast",
+      "target": "SurfaceWrapper.high_contrast",
+      "mode": "boolean_gate",
+      "ownerLayer": null,
+      "fallback": false,
+      "ephemeral": false
+    }
+  ],
+  "hostOnlyPaths": [
+    "user.*",
+    "learning.*",
+    "practice.*",
+    "market.*",
+    "copy.*",
+    "privacy.*",
+    "entitlement.*",
+    "provenance.*",
+    "mentor.eventId",
+    "mentor.reasonCode",
+    "speech.locale",
+    "speech.profileId",
+    "speech.profileVersion",
+    "speech.utteranceId",
+    "accessibility.captionsEnabled",
+    "accessibility.audioEnabled"
+  ],
+  "motion": {
+    "curves": [
+      { "id": "ease_out", "value": "cubic-bezier(0.23,1,0.32,1)" },
+      { "id": "ease_in_out", "value": "cubic-bezier(0.77,0,0.175,1)" },
+      { "id": "linear", "value": "linear" }
+    ],
+    "transitions": [
+      {
+        "id": "safety_interrupt",
+        "minimumMs": 120,
+        "maximumMs": 180,
+        "curve": "ease_out",
+        "interruptible": true
+      },
+      {
+        "id": "act_enter",
+        "minimumMs": 180,
+        "maximumMs": 240,
+        "curve": "ease_out",
+        "interruptible": true
+      },
+      {
+        "id": "pose_change",
+        "minimumMs": 220,
+        "maximumMs": 300,
+        "curve": "ease_in_out",
+        "interruptible": true
+      },
+      {
+        "id": "act_exit",
+        "minimumMs": 180,
+        "maximumMs": 240,
+        "curve": "ease_out",
+        "interruptible": true
+      },
+      {
+        "id": "speech_to_sil",
+        "minimumMs": 0,
+        "maximumMs": 120,
+        "curve": "ease_out",
+        "interruptible": true
+      },
+      {
+        "id": "hand_swap",
+        "minimumMs": 100,
+        "maximumMs": 180,
+        "curve": "ease_in_out",
+        "interruptible": true
+      }
+    ],
+    "reducedMotion": {
+      "ambient": "off",
+      "maxPoseTransitionMs": 120,
+      "headFollow": false,
+      "secondaryMotion": false,
+      "speechWhileAudio": true,
+      "captionsRequired": true
+    }
+  },
+  "performance": {
+    "authoringCeilings": {
+      "bones": 32,
+      "constraints": 20,
+      "deformingMeshes": 12,
+      "influencesPerVertex": 4,
+      "complexJoysticks": 1,
+      "nestedArtboardDepth": 2,
+      "coreRasterBytes": 0
+    },
+    "runtimeCeilings": {
+      "rivTransferBytes": 1200000,
+      "closedLauncherRuntimeBytes": 0,
+      "visibleAnimatedInstances": 1,
+      "cachedReadyP95Ms": 350,
+      "uncachedReadyP95Ms": 1500,
+      "fallbackCommitP95Ms": 100,
+      "baselineRegressionPercent": 10
+    },
+    "measurement": {
+      "warmupSeconds": 5,
+      "sampleSeconds": 30,
+      "repeatCount": 3,
+      "productionBuild": true
+    },
+    "deviceTiers": [
+      {
+        "id": "reference_web",
+        "p95FrameMs": 16.7,
+        "minimumFps": 55,
+        "failureAction": "block_release"
+      },
+      {
+        "id": "reference_mobile",
+        "p95FrameMs": 16.7,
+        "minimumFps": 50,
+        "failureAction": "block_release"
+      },
+      {
+        "id": "low_tier_fallback",
+        "p95FrameMs": 33.3,
+        "minimumFps": 28,
+        "failureAction": "static_fallback"
+      }
+    ]
+  },
+  "runtimeTargets": [
+    {
+      "platform": "web",
+      "package": "@rive-app/react-webgl2",
+      "renderer": "rive_renderer_webgl2",
+      "requiredBehaviors": [
+        "lazy_runtime",
+        "bind_before_personalized_frame",
+        "offscreen_pause",
+        "deterministic_cleanup",
+        "static_failure_fallback",
+        "semantic_host_text"
+      ]
+    },
+    {
+      "platform": "react_native",
+      "package": "@rive-app/react-native",
+      "renderer": "rive_renderer_nitro",
+      "requiredBehaviors": [
+        "same_riv_asset",
+        "same_manifest",
+        "background_pause",
+        "stale_event_rejection",
+        "static_failure_fallback",
+        "native_accessible_text"
+      ]
+    }
+  ],
+  "regressionSets": [
+    {
+      "id": "identity_angle_expression",
+      "dimensions": ["approved_head_angles", "expression_references"],
+      "approval": "automated_and_human"
+    },
+    {
+      "id": "identity_angle_speech",
+      "dimensions": ["approved_head_angles", "speech_anchors"],
+      "approval": "automated_and_human"
+    },
+    {
+      "id": "global_pose_sizes",
+      "dimensions": ["global_poses", "target_sizes"],
+      "approval": "automated_and_human"
+    },
+    {
+      "id": "safety_theme_accessibility",
+      "dimensions": ["safety_states", "themes", "accessibility_variants"],
+      "approval": "automated_and_human"
+    },
+    {
+      "id": "speech_stress",
+      "dimensions": ["stress_affects", "stress_anchors", "approved_head_angles"],
+      "approval": "human_required"
+    }
+  ],
+  "gates": [
+    {
+      "id": "surface_behavior",
+      "owner": "product",
+      "required": true,
+      "evidence": "Approved surface map, load policy, act semantics, and phase scope."
+    },
+    {
+      "id": "character_identity",
+      "owner": "character_brand",
+      "required": true,
+      "evidence": "Approved model sheet, silhouette tests, palette, and regression renders."
+    },
+    {
+      "id": "memorial_boundary",
+      "owner": "memorial_likeness",
+      "required": true,
+      "evidence": "Documented respectful-inspiration boundary and identity-geometry approval."
+    },
+    {
+      "id": "learning_behavior",
+      "owner": "learning",
+      "required": true,
+      "evidence": "Approved educational acts, feedback rules, and non-coercive progression."
+    },
+    {
+      "id": "financial_safety",
+      "owner": "financial_risk",
+      "required": true,
+      "evidence": "Arena safety-state, no-advice, no-profit-hype, and interruption tests."
+    },
+    {
+      "id": "global_readiness",
+      "owner": "globalization",
+      "required": true,
+      "evidence": "Locale ownership, script independence, code-switch, and cultural gesture review."
+    },
+    {
+      "id": "accessible_motion",
+      "owner": "accessibility",
+      "required": true,
+      "evidence": "Reduced motion, captions, native text, contrast, focus, and fallback tests."
+    },
+    {
+      "id": "runtime_quality",
+      "owner": "engineering",
+      "required": true,
+      "evidence": "Schema, lifecycle, parity, profiler, cleanup, and failure-recovery evidence."
+    },
+    {
+      "id": "data_minimization",
+      "owner": "security_privacy",
+      "required": true,
+      "evidence": "Binding allowlist, no-store handling, redacted telemetry, and renderer-memory review."
+    },
+    {
+      "id": "rights_clearance",
+      "owner": "legal",
+      "required": true,
+      "evidence": "Likeness, voice, asset, font, model, and dataset commercial-use records."
+    }
+  ]
+}

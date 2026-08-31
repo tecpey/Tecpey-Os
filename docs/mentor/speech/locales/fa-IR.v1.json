@@ -1,0 +1,27 @@
+{
+  "profileVersion": "1.0.0",
+  "profileId": "tecpey.fa-IR.core",
+  "rigContractVersion": "1.0.0",
+  "locale": "fa-IR",
+  "fallbackLocale": null,
+  "phonemeAlphabet": "ipa",
+  "status": "draft",
+  "silenceTarget": "sil",
+  "mappings": [
+    { "phonemes": ["p", "b", "m"], "target": "bilabial", "controls": { "lipClose": 1, "lipPress": 0.55 } },
+    { "phonemes": ["f", "v"], "target": "labiodental", "controls": { "jawOpen": 0.16, "lowerLipBite": 0.8 } },
+    { "phonemes": ["t", "d", "n", "l"], "target": "alveolar", "controls": { "jawOpen": 0.18, "tongueTipUp": 0.72 } },
+    { "phonemes": ["s", "z"], "target": "sibilant", "controls": { "jawOpen": 0.12, "lipWide": 0.35 } },
+    { "phonemes": ["ʃ", "ʒ", "tʃ", "dʒ"], "target": "postalveolar", "controls": { "jawOpen": 0.24, "lipRound": 0.38, "lipFunnel": 0.22 } },
+    { "phonemes": ["k", "g", "x", "ɣ", "q", "ʔ"], "target": "velar", "controls": { "jawOpen": 0.28 } },
+    { "phonemes": ["r"], "target": "rhotic", "controls": { "jawOpen": 0.18, "tongueTipUp": 0.82, "tongueForward": 0 } },
+    { "phonemes": ["j"], "target": "vowel_close_front", "controls": { "jawOpen": 0.12, "lipWide": 0.48 } },
+    { "phonemes": ["h"], "target": "vowel_open", "controls": { "jawOpen": 0.3 } },
+    { "phonemes": ["æ"], "target": "vowel_open", "controls": { "jawOpen": 0.55, "lipWide": 0.24 } },
+    { "phonemes": ["e"], "target": "vowel_mid_front", "controls": { "jawOpen": 0.34, "lipWide": 0.42 } },
+    { "phonemes": ["o"], "target": "vowel_mid_back_round", "controls": { "jawOpen": 0.3, "lipRound": 0.7, "lipFunnel": 0.42 } },
+    { "phonemes": ["ɒː"], "target": "vowel_open", "controls": { "jawOpen": 0.82, "lipWide": 0.08 } },
+    { "phonemes": ["iː"], "target": "vowel_close_front", "controls": { "jawOpen": 0.16, "lipWide": 0.76 } },
+    { "phonemes": ["uː"], "target": "vowel_close_back_round", "controls": { "jawOpen": 0.16, "lipRound": 0.92, "lipFunnel": 0.78 } }
+  ]
+}

@@ -119,7 +119,7 @@ const DOMAIN_RULES = [
     riskTier: "P2",
     reviewBatch: 8,
     patterns: [
-      /(?:^|\/)(?:mentor|ai|model-provider|prompt)(?:[./_-]|$)/i,
+      /(?:^|\/)(?:living-mentor|mentor|ai|model-provider|prompt)(?:[./_-]|$)/i,
       /^src\/lib\/(?:coaching-engine|knowledge-graph|smart-review)\.ts$/,
     ],
   },

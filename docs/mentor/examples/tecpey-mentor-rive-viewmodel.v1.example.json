@@ -1,0 +1,137 @@
+{
+  "contractVersion": "1.0.0",
+  "snapshotId": "vm_20260830_demo_001",
+  "generatedAt": "2026-08-30T09:30:00Z",
+  "expiresAt": "2026-08-30T09:35:00Z",
+  "surface": "mentor_tab",
+  "locale": "fa-IR",
+  "direction": "rtl",
+  "dataState": "partial",
+  "viewModel": {
+    "user": {
+      "displayName": "مانا",
+      "displayNameState": "user_provided",
+      "selfReportedMood": "unknown"
+    },
+    "learning": {
+      "state": "ready",
+      "learningBand": "developing",
+      "completedTerms": 2,
+      "masteryPercent": 64,
+      "streakDays": 0,
+      "streakState": "unavailable",
+      "focusKey": "risk.position_sizing",
+      "focusLabel": "اندازه موقعیت",
+      "nextAction": "open_focus_lesson"
+    },
+    "practice": {
+      "state": "ready",
+      "riskBand": "high",
+      "disciplineScore": 58,
+      "guardState": "review_required",
+      "guardReason": "risk_flags_recent",
+      "arenaMode": "unranked"
+    },
+    "market": {
+      "state": "ready",
+      "regime": "volatile",
+      "freshness": "current",
+      "confidence": 0.78,
+      "sourceCount": 3,
+      "educationalUse": "unranked_scenario"
+    },
+    "mentor": {
+      "affect": "steady",
+      "act": "risk_caution",
+      "intensity": 0.55,
+      "priority": 90,
+      "eventId": "evt_risk_review_0001",
+      "reasonCode": "risk_review"
+    },
+    "speech": {
+      "state": "idle",
+      "locale": "fa-IR",
+      "profileId": "tecpey.fa-IR.core",
+      "profileVersion": "1.0.0",
+      "viseme": "sil",
+      "blend": 0,
+      "jawOpen": 0,
+      "lipClose": 0,
+      "lipPress": 0,
+      "lipWide": 0,
+      "lipRound": 0,
+      "lipFunnel": 0,
+      "lowerLipBite": 0,
+      "tongueTipUp": 0,
+      "tongueForward": 0,
+      "utteranceId": "none"
+    },
+    "copy": {
+      "messageKey": "mentor.daily.risk_review.v1",
+      "headline": "اول یک مرور کوتاه، بعد تمرین",
+      "body": "در تمرین‌های اخیر، اندازه موقعیت نیاز به مرور دارد. یک درس ۱۲ دقیقه‌ای را تمام کن و بعد همان مفهوم را بدون رتبه‌بندی تمرین کن.",
+      "ctaLabel": "مرور اندازه موقعیت",
+      "ctaAction": "open_risk_review"
+    },
+    "world": {
+      "roomLevel": 0,
+      "roomState": "unavailable",
+      "theme": "academy",
+      "celebrationTier": "none"
+    },
+    "accessibility": {
+      "reducedMotion": false,
+      "captionsEnabled": true,
+      "audioEnabled": false,
+      "highContrast": false
+    },
+    "privacy": {
+      "behavioralPersonalization": "enabled",
+      "externalAi": "disabled",
+      "marketPersonalization": "enabled",
+      "allowsDisplayName": true
+    },
+    "entitlement": {
+      "plan": "free",
+      "adsMode": "sponsor_supported",
+      "voiceMode": "caption_only"
+    }
+  },
+  "provenance": {
+    "identity": {
+      "status": "ready",
+      "source": "academy_profile",
+      "asOf": "2026-08-30T09:29:55Z"
+    },
+    "learning": {
+      "status": "ready",
+      "source": "academy_authority",
+      "asOf": "2026-08-30T09:29:50Z"
+    },
+    "practice": {
+      "status": "ready",
+      "source": "arena_simulation",
+      "asOf": "2026-08-30T09:29:45Z"
+    },
+    "market": {
+      "status": "ready",
+      "source": "materialized_public_market",
+      "asOf": "2026-08-30T09:28:00Z"
+    },
+    "privacy": {
+      "status": "ready",
+      "source": "mentor_preferences",
+      "asOf": "2026-08-30T09:29:55Z"
+    },
+    "entitlement": {
+      "status": "ready",
+      "source": "entitlement_authority",
+      "asOf": "2026-08-30T09:29:55Z"
+    },
+    "world": {
+      "status": "unavailable",
+      "source": "none",
+      "asOf": null
+    }
+  }
+}

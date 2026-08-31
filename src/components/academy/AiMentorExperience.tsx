@@ -1,216 +1,896 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, BookOpenCheck, CheckCircle2, Loader2, Send, ShieldAlert, Sparkles, BrainCircuit, Target, Globe2 } from "lucide-react";
+import {
+  BookOpenCheck,
+  BrainCircuit,
+  ChartNoAxesCombined,
+  CheckCircle2,
+  Crown,
+  ExternalLink,
+  History,
+  Loader2,
+  MessageCircle,
+  MessageSquarePlus,
+  Newspaper,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  WifiOff,
+  X,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { MentorOfficeScene } from "@/components/mentor/MentorOfficeScene";
+import { MentorArenaDock } from "@/components/mentor/MentorArenaDock";
+import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
+import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
+import { useMentorInsights } from "@/hooks/useMentorInsights";
 import {
   MENTOR_QUICK_QUESTIONS,
   detectMentorMode,
   toLocalReply,
-  type MentorMode,
+  type MentorLocale,
   type MentorReply,
 } from "@/lib/academy-ai-mentor-core";
-import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
-import { useMentorInsights } from "@/hooks/useMentorInsights";
+import {
+  directMentorStage,
+  mentorStageEventForWorkspaceActivity,
+  type MentorArenaPanelState,
+} from "@/lib/mentor-stage-director";
+import {
+  mentorResearchModeForSurface,
+  mentorWorkspaceDirection,
+  type MentorWorkspacePlan,
+  type MentorWorkspaceSurface,
+} from "@/lib/mentor-workspace";
+import styles from "./AiMentorExperience.module.css";
 
-type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?: MentorMode; confidence: number };
+type MentorThread = {
+  id: string;
+  title: string;
+  locale: MentorLocale;
+  status: "active" | "archived";
+  lastMessageAt: string;
+};
 
-// The deterministic safe fallback lives in academy-ai-mentor-core. Durable
-// progress, Mentor profile, thread selection and conversation memory come only
-// from authenticated server APIs; browser state is display-only.
-const quickQuestions = MENTOR_QUICK_QUESTIONS.fa;
+type WorkspaceMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+  reply?: MentorReply;
+};
 
-export function AiMentorExperience() {
-  const [question, setQuestion] = useState(quickQuestions[0]);
-  const [reply, setReply] = useState<MentorReply>(() => toLocalReply(quickQuestions[0]));
+type AiMentorExperienceProps = {
+  locale?: string;
+  plan?: MentorWorkspacePlan;
+};
+
+const COPY = {
+  fa: {
+    eyebrow: "فضای کاری شخصی شما",
+    title: "منتور هوشمند تک‌پی",
+    subtitle: "گفت‌وگو، حافظه آموزشی و پژوهش منبع‌دار در یک محیط واحد.",
+    freePlan: "نسخه پایه",
+    premiumPlan: "نسخه پرمیوم",
+    safety: "آموزشی و ریسک‌محور",
+    history: "گفت‌وگوهای قبلی",
+    historyDescription: "تاریخچه از رکورد امن سمت سرور خوانده می‌شود.",
+    historyUnavailable: "تاریخچه فعلاً در دسترس نیست؛ گفت‌وگوی جاری بدون ادعای ذخیره ادامه می‌یابد.",
+    historyEmpty: "هنوز گفت‌وگویی ثبت نشده است.",
+    newConversation: "گفت‌وگوی جدید",
+    closeHistory: "بستن تاریخچه",
+    conversation: "گفت‌وگو با منتور",
+    emptyTitle: "من اینجا هستم؛ از همان جایی که هستی شروع می‌کنیم.",
+    emptyText: "یک سؤال آموزشی، امنیتی یا مدیریت ریسک بپرس. برای پژوهش وب و سوشال، نمایشگر پرمیوم مربوط را انتخاب کن.",
+    starterQuestions: "چند شروع پیشنهادی",
+    user: "شما",
+    mentor: "منتور تک‌پی",
+    thinking: "در حال بررسی سؤال و مسیر یادگیری…",
+    researching: "در حال پژوهش عمومی و کنترل منابع…",
+    sourceLessons: "درس‌های مرتبط",
+    publicSources: "منابع عمومی",
+    checklist: "چک‌لیست پیشنهادی",
+    suggested: "ادامه پیشنهادی",
+    inputLabel: "پیام شما به منتور",
+    inputPlaceholder: "سؤال خود را بنویسید…",
+    send: "ارسال سؤال",
+    sending: "در حال ارسال",
+    standardMode: "حالت آموزشی؛ پاسخ از داده‌های مجاز مسیر یادگیری استفاده می‌کند.",
+    researchMode: "پژوهش عمومی؛ فقط متن همین سؤال خارج می‌شود و تاریخچه، پروفایل، ضعف‌ها و اطلاعات مالی ارسال نمی‌شوند.",
+    privacy: "رمز، Seed Phrase، کد 2FA، کلید خصوصی یا اطلاعات هویتی را در چت وارد نکنید.",
+    profileUnavailable: "داده شخصی‌سازی در دسترس نیست؛ منتور چیزی را حدس نمی‌زند.",
+    completedTerms: "ترم تکمیل‌شده",
+    confidence: "اعتماد آموزشی",
+    currentSurface: "نمایشگر فعال",
+    academy: "آکادمی",
+    web_research: "پژوهش وب",
+    social_research: "پژوهش سوشال/X",
+    retryHistory: "تلاش دوباره",
+    arena: "چالش Arena",
+    arenaLabel: "بازکردن چالش تمرینی Arena",
+    newsBrief: "مرور خبر",
+    newsLabel: "آماده‌سازی مرور منبع‌دار خبر",
+    newsPremium: "مرور خبر منبع‌دار در نسخه پرمیوم فعال است",
+    newsPrompt: "مهم‌ترین اخبار امروز بازار رمزارز را فقط با منابع عمومی معتبر، زمان انتشار، سطح اطمینان و اثر احتمالی بر ریسک تمرین خلاصه کن؛ اگر داده تازه در دسترس نیست، صریح بگو.",
+  },
+  en: {
+    eyebrow: "Your personal workspace",
+    title: "TecPey AI Mentor",
+    subtitle: "Conversation, learning memory and source-backed research in one calm workspace.",
+    freePlan: "Core plan",
+    premiumPlan: "Premium plan",
+    safety: "Education and risk first",
+    history: "Conversation history",
+    historyDescription: "History is read from authenticated server records.",
+    historyUnavailable: "History is temporarily unavailable. The current chat can continue without claiming it was saved.",
+    historyEmpty: "No saved conversations yet.",
+    newConversation: "New conversation",
+    closeHistory: "Close history",
+    conversation: "Mentor conversation",
+    emptyTitle: "I’m here. We’ll start from where you are.",
+    emptyText: "Ask a learning, security or risk-management question. Select a Premium monitor for web or social research.",
+    starterQuestions: "Suggested starting points",
+    user: "You",
+    mentor: "TecPey Mentor",
+    thinking: "Reviewing your question and learning context…",
+    researching: "Researching public sources and checking evidence…",
+    sourceLessons: "Related lessons",
+    publicSources: "Public sources",
+    checklist: "Suggested checklist",
+    suggested: "Suggested follow-up",
+    inputLabel: "Your message to the mentor",
+    inputPlaceholder: "Write your question…",
+    send: "Send question",
+    sending: "Sending",
+    standardMode: "Learning mode uses only permitted learning-path context.",
+    researchMode: "Public research sends only this query—not history, profile, weak areas, financial data or identity documents.",
+    privacy: "Never enter passwords, seed phrases, 2FA codes, private keys or identity documents in chat.",
+    profileUnavailable: "Personalization evidence is unavailable, so the mentor will not guess.",
+    completedTerms: "completed terms",
+    confidence: "Learning confidence",
+    currentSurface: "Active monitor",
+    academy: "Academy",
+    web_research: "Web research",
+    social_research: "Social/X research",
+    retryHistory: "Try again",
+    arena: "Arena challenge",
+    arenaLabel: "Open a Trading Arena practice challenge",
+    newsBrief: "News brief",
+    newsLabel: "Prepare a source-backed news brief",
+    newsPremium: "Source-backed news brief is available on Premium",
+    newsPrompt: "Summarize today's most important crypto-market news using only credible public sources. Include publication time, confidence and possible implications for practice risk; say clearly when fresh data is unavailable.",
+  },
+} as const;
+
+function safeMessageId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function AiMentorExperience({
+  locale = "fa-IR",
+  plan = "free",
+}: AiMentorExperienceProps) {
+  const mentorLocale: MentorLocale = locale.toLowerCase().startsWith("fa")
+    ? "fa"
+    : "en";
+  const copy = mentorLocale === "fa" ? COPY.fa : COPY.en;
+  const direction = mentorWorkspaceDirection(locale);
+  const quickQuestions = MENTOR_QUICK_QUESTIONS[mentorLocale];
+  const officialProgress = useAcademyPathProgress(mentorLocale);
+  const { data: mentorInsights, loading: insightsLoading } = useMentorInsights({ enabled: true });
+
+  const [activeSurface, setActiveSurface] =
+    useState<MentorWorkspaceSurface>("academy");
+  const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
+  const [threads, setThreads] = useState<MentorThread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [threadsLoading, setThreadsLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [publicResearch, setPublicResearch] = useState(false);
-  const [lastQuestion, setLastQuestion] = useState(quickQuestions[0]);
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const officialProgress = useAcademyPathProgress("fa");
-  const { data: mentorInsights } = useMentorInsights({ enabled: true });
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [arenaPanel, setArenaPanel] = useState<MentorArenaPanelState>("closed");
+  const [scenarioCue, setScenarioCue] = useState<"news" | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [lastAskedMode, setLastAskedMode] = useState<ReturnType<typeof detectMentorMode>>("concept");
 
-  const mentorProgress = useMemo<MentorProgress>(() => {
-    const completedTerms = Object.entries(officialProgress.termProgress)
-      .filter(([, item]) => item.completed)
-      .map(([slug]) => Number(slug.replace("term-", "")))
-      .filter((term) => Number.isInteger(term));
-    return {
-      completedTerms,
-      weakAreas: mentorInsights?.profile?.weakAreas?.slice(0, 5) ?? [],
-      confidence: mentorInsights?.profile?.confidenceScore ?? Math.min(100, completedTerms.length * 12),
-    };
-  }, [mentorInsights, officialProgress.termProgress]);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const historyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const arenaTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const historySheetRef = useRef<HTMLDivElement | null>(null);
+  const explainTimerRef = useRef<number | null>(null);
+  const conversationEpochRef = useRef(0);
+
+  const completedTerms = useMemo(
+    () =>
+      Object.values(officialProgress.termProgress).filter((item) => item.completed)
+        .length,
+    [officialProgress.termProgress],
+  );
+  const confidence = mentorInsights?.profile?.confidenceScore ?? null;
+  const publicResearch =
+    mentorResearchModeForSurface(plan, activeSurface) === "public";
+
+  const dateFormatter = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+    } catch {
+      return new Intl.DateTimeFormat(mentorLocale, { day: "numeric", month: "short" });
+    }
+  }, [locale, mentorLocale]);
+
+  const applyThreadsPayload = useCallback((responseOk: boolean, data: unknown) => {
+    const payload = data as { ok?: boolean; threads?: MentorThread[] } | null;
+    if (!responseOk || !payload?.ok || !Array.isArray(payload.threads)) {
+      setHistoryUnavailable(true);
+      return;
+    }
+    const localized = payload.threads.filter(
+      (thread) => thread.status === "active" && thread.locale === mentorLocale,
+    );
+    setThreads(localized);
+    if (!localized.length) setMessages([]);
+    setHistoryUnavailable(false);
+    setActiveThreadId((current) => {
+      if (current && localized.some((thread) => thread.id === current)) {
+        return current;
+      }
+      return conversationEpochRef.current === 0
+        ? localized[0]?.id ?? null
+        : current;
+    });
+  }, [mentorLocale]);
+
+  const loadThreads = useCallback(async () => {
+    setThreadsLoading(true);
+    try {
+      const response = await fetch("/api/mentor-threads", { cache: "no-store" });
+      const data = await response.json();
+      applyThreadsPayload(response.ok, data);
+    } catch {
+      setHistoryUnavailable(true);
+    } finally {
+      setThreadsLoading(false);
+    }
+  }, [applyThreadsPayload]);
 
   useEffect(() => {
-    let active = true;
-    fetch("/api/mentor-threads", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!active || !data?.ok || !Array.isArray(data.threads)) return;
-        setThreadId(data.threads[0]?.id ?? null);
-      })
-      .catch(() => null);
-    return () => { active = false; };
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setPrefersReducedMotion(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
   }, []);
 
-  const fillQuestion = (text: string) => {
-    setQuestion(text);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/mentor-threads", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => ({ response, data: await response.json() }))
+      .then(({ response, data }) => {
+        if (!controller.signal.aborted) applyThreadsPayload(response.ok, data);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setMessages([]);
+          setHistoryUnavailable(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setThreadsLoading(false);
+      });
+    return () => controller.abort();
+  }, [applyThreadsPayload]);
+
+  useEffect(() => {
+    if (!activeThreadId) {
+      return;
+    }
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setHistoryLoading(true);
+    });
+    fetch(`/api/mentor-conversations?limit=50&threadId=${encodeURIComponent(activeThreadId)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => ({ response, data: await response.json() }))
+      .then(({ response, data }) => {
+        if (!response.ok || !data?.ok || !Array.isArray(data.conversations)) {
+          setMessages([]);
+          setHistoryUnavailable(true);
+          return;
+        }
+        const history = data.conversations
+          .map((item: { id?: unknown; role?: unknown; content?: unknown; createdAt?: unknown }) => ({
+            id: String(item.id ?? safeMessageId("history")),
+            role: item.role === "assistant" ? "assistant" as const : "user" as const,
+            content: String(item.content ?? ""),
+            createdAt: String(item.createdAt ?? new Date().toISOString()),
+          }))
+          .filter((item: WorkspaceMessage) => item.content.trim().length > 0)
+          .reverse();
+        setMessages(history);
+        setHistoryUnavailable(data.storage === "unavailable");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setHistoryUnavailable(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      });
+    return () => controller.abort();
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    messageEndRef.current?.scrollIntoView({ block: "end" });
+  }, [historyLoading, loading, messages]);
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+    window.requestAnimationFrame(() => historyTriggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const sheet = historySheetRef.current;
+    const focusable = () =>
+      Array.from(
+        sheet?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    focusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeHistory();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeHistory, historyOpen]);
+
+  useEffect(
+    () => () => {
+      if (explainTimerRef.current) window.clearTimeout(explainTimerRef.current);
+    },
+    [],
+  );
+
+  const newConversation = useCallback(() => {
+    conversationEpochRef.current += 1;
+    setLoading(false);
+    setIsExplaining(false);
+    setHistoryLoading(false);
+    setHistoryUnavailable(false);
+    setActiveThreadId(null);
+    setMessages([]);
+    setQuestion("");
+    closeHistory();
     window.setTimeout(() => textareaRef.current?.focus(), 0);
-  };
+  }, [closeHistory]);
 
-  const ask = async (text = question) => {
-    const clean = text.trim();
-    if (!clean || loading) return;
-    setQuestion(clean);
-    setLastQuestion(clean);
+  const selectThread = useCallback(
+    (threadId: string) => {
+      if (threadId === activeThreadId) {
+        closeHistory();
+        return;
+      }
+      conversationEpochRef.current += 1;
+      setLoading(false);
+      setIsExplaining(false);
+      setHistoryLoading(true);
+      setHistoryUnavailable(false);
+      setMessages([]);
+      setActiveThreadId(threadId);
+      closeHistory();
+    },
+    [activeThreadId, closeHistory],
+  );
+
+  const fillQuestion = useCallback((value: string) => {
+    setQuestion(value);
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }, []);
+
+  const openArena = useCallback(() => {
+    setScenarioCue(null);
+    setArenaPanel("docked");
+  }, []);
+
+  const closeArena = useCallback(() => {
+    setArenaPanel("closed");
+    window.requestAnimationFrame(() => arenaTriggerRef.current?.focus());
+  }, []);
+
+  const prepareNewsBrief = useCallback(() => {
+    if (plan !== "premium") return;
+    setArenaPanel("closed");
+    setActiveSurface("web_research");
+    setScenarioCue("news");
+    setQuestion(copy.newsPrompt);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [copy.newsPrompt, plan]);
+
+  const ask = useCallback(async () => {
+    const clean = question.trim();
+    if (clean.length < 2 || loading || historyLoading) return;
+    const askedMode = detectMentorMode(clean);
+    const requestConversationEpoch = conversationEpochRef.current;
+    const userMessage: WorkspaceMessage = {
+      id: safeMessageId("user"),
+      role: "user",
+      content: clean,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((current) => [...current, userMessage]);
+    setQuestion("");
+    setScenarioCue(null);
+    setLastAskedMode(askedMode);
     setLoading(true);
-    const currentMode = detectMentorMode(clean);
+    setIsExplaining(false);
 
-    const local = toLocalReply(clean);
+    const local = toLocalReply(clean, mentorLocale);
     try {
       const response = await fetch("/api/ai-mentor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: clean,
-          locale: "fa",
-          mentorMode: currentMode,
-          threadId,
+          locale: mentorLocale,
+          mentorMode: askedMode,
+          threadId: activeThreadId,
           researchMode: publicResearch ? "public" : undefined,
         }),
       });
-      const data = (await response.json()) as MentorReply;
-      const nextReply = data?.ok ? data : local;
-      if (data?.threadId) setThreadId(data.threadId);
-      setReply(nextReply);
+      const data = (await response.json()) as Partial<MentorReply>;
+      const nextReply: MentorReply =
+        response.ok && typeof data.answer === "string"
+          ? { ...local, ...data, answer: data.answer }
+          : local;
+      if (conversationEpochRef.current !== requestConversationEpoch) {
+        void loadThreads();
+        return;
+      }
+      setMessages((current) => [
+        ...current,
+        {
+          id: safeMessageId("mentor"),
+          role: "assistant",
+          content: nextReply.answer,
+          createdAt: new Date().toISOString(),
+          reply: nextReply,
+        },
+      ]);
+      if (nextReply.threadId) setActiveThreadId(nextReply.threadId);
+      setIsExplaining(true);
+      if (explainTimerRef.current) window.clearTimeout(explainTimerRef.current);
+      explainTimerRef.current = window.setTimeout(() => setIsExplaining(false), 1_200);
+      void loadThreads();
     } catch {
-      setReply(local);
+      if (conversationEpochRef.current === requestConversationEpoch) {
+        setMessages((current) => [
+          ...current,
+          {
+            id: safeMessageId("mentor-fallback"),
+            role: "assistant",
+            content: local.answer,
+            createdAt: new Date().toISOString(),
+            reply: local,
+          },
+        ]);
+        setIsExplaining(true);
+        explainTimerRef.current = window.setTimeout(
+          () => setIsExplaining(false),
+          1_200,
+        );
+      }
     } finally {
-      setLoading(false);
+      if (conversationEpochRef.current === requestConversationEpoch) {
+        setLoading(false);
+      }
     }
+  }, [
+    activeThreadId,
+    historyLoading,
+    loadThreads,
+    loading,
+    mentorLocale,
+    publicResearch,
+    question,
+  ]);
+
+  const onComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    void ask();
   };
 
-  const paragraphs = reply.answer.split("\n").filter(Boolean);
-  return (
-    <div className="rounded-[34px] border border-cyan-300/20 bg-slate-950 p-5 shadow-[0_30px_100px_rgba(34,211,238,.12)]">
-      <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-400/15 text-cyan-200"><Bot className="h-6 w-6" /></div>
-        <div>
-          <h2 className="text-xl font-black text-white">مربی هوشمند آکادمی تک‌پی</h2>
-          <p className="text-xs font-bold text-slate-400">اینجا می‌توانی سؤال آموزشی، امنیتی و مدیریت ریسک بپرسی. مربی هوشمند پاسخ را به درس‌های آکادمی، چک‌لیست عملی و قدم بعدی یادگیری وصل می‌کند.</p>
-        </div>
-      </div>
+  const stageEvent = mentorStageEventForWorkspaceActivity({
+    arenaPanel,
+    composing: question.trim().length > 0,
+    engaged: messages.length > 0,
+    newsBriefRequested: scenarioCue === "news",
+    researching: publicResearch,
+    riskReviewRequested: lastAskedMode === "risk",
+    speaking: isExplaining,
+    thinking: loading,
+  });
+  const stageDirection = directMentorStage({
+    event: stageEvent,
+    currentArenaPanel: arenaPanel,
+    reducedMotion: prefersReducedMotion,
+  });
+  const mentorAct = stageDirection.act;
+  const officeStatus = loading
+    ? publicResearch
+      ? "researching" as const
+      : "thinking" as const
+    : isExplaining
+      ? "explaining" as const
+      : question.trim()
+        ? "listening" as const
+        : "idle" as const;
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-3xl bg-white/[0.055] p-4">
-          <div className="rounded-2xl bg-cyan-500/15 p-4 text-sm font-bold leading-8 text-cyan-50">کاربر: {lastQuestion}</div>
-          <div className="mt-4 rounded-2xl bg-white/10 p-4 text-sm font-bold leading-8 text-slate-200">
-            <div className="mb-3 flex items-center gap-2 text-cyan-200">
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-              <strong>{loading ? (publicResearch ? "در حال پژوهش عمومی منبع‌دار..." : "در حال آماده‌سازی پاسخ آموزشی...") : (reply.researchMode === "public" ? "پژوهش عمومی مربی" : "پاسخ مربی آکادمی")}</strong>
-            </div>
-            {paragraphs.map((p) => <p key={p} className="mt-2 whitespace-pre-line">{p}</p>)}
-            {reply.checklist?.length ? (
-              <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-3">
-                <p className="font-black text-emerald-100">چک‌لیست پیشنهادی:</p>
-                <ul className="mt-2 space-y-2">
-                  {reply.checklist.map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" />{item}</li>)}
-                </ul>
-              </div>
-            ) : null}
-            {reply.sourceLessons?.length ? (
-              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3">
-                <p className="font-black text-cyan-100">منابع مرتبط از آکادمی:</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {reply.sourceLessons.slice(0, 3).map((source) => (
-                    <Link key={source.href} href={source.href} className="rounded-xl bg-cyan-500/15 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-cyan-500/25">{source.title}</Link>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {reply.sources?.length ? (
-              <div className="mt-4 rounded-2xl border border-blue-300/20 bg-blue-400/10 p-3">
-                <p className="font-black text-blue-100">منابع عمومی پاسخ:</p>
-                <div className="mt-2 grid gap-2">
-                  {reply.sources.slice(0, 8).map((source, index) => (
-                    <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-blue-200/15 bg-slate-950/35 px-3 py-2 text-xs font-black text-blue-100 transition hover:bg-blue-400/15">
-                      {source.title || `منبع ${index + 1}`}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {reply.relatedTerm?.href ? (
-              <Link href={reply.relatedTerm.href} className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-black text-white transition hover:bg-cyan-400"><BookOpenCheck className="h-4 w-4" />مرور ترم مرتبط</Link>
-            ) : null}
-            {reply.suggestedQuestions?.length ? (
-              <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3">
-                <p className="font-black text-cyan-100">سؤال بعدی پیشنهادی:</p>
-                <div className="mt-2 grid gap-2">
-                  {reply.suggestedQuestions.slice(0, 3).map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => fillQuestion(item)}
-                      className="rounded-xl border border-cyan-200/20 bg-white/5 px-3 py-3 text-right text-xs font-black leading-6 text-slate-100 transition hover:bg-cyan-400/15"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
+  const renderThreadList = () => (
+    <div className={styles.threadList}>
+      <button type="button" className={styles.newThreadButton} onClick={newConversation}>
+        <MessageSquarePlus aria-hidden="true" />
+        <span>{copy.newConversation}</span>
+      </button>
+      {threadsLoading ? (
+        <div className={styles.threadState}>
+          <Loader2 className={styles.spinner} aria-hidden="true" />
         </div>
-
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm font-bold leading-7 text-amber-50">
-            <div className="mb-2 flex items-center gap-2 font-black"><ShieldAlert className="h-5 w-5" />مرزهای ایمنی مربی</div>
-            این مربی برای آموزش، امنیت و مدیریت ریسک است؛ قیمت آینده، سیگنال خرید/فروش، سود تضمینی یا درخواست اطلاعات محرمانه ارائه نمی‌کند.
-          </div>
-          <div className="rounded-3xl border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm font-bold leading-7 text-cyan-50">
-            <div className="mb-2 flex items-center gap-2 font-black"><BrainCircuit className="h-5 w-5" />حافظه مسیر یادگیری</div>
-            <p className="mb-3 rounded-2xl border border-cyan-200/20 bg-slate-950/35 p-3 text-xs leading-6 text-cyan-100">
-              این نمای آموزشی از پیشرفت رسمی، پروفایل Mentor و حافظهٔ سمت سرور ساخته می‌شود؛ مرورگر منبع حقیقت نیست.
-            </p>
-            <p>ترم‌های کامل‌شده: <span className="font-black text-white">{mentorProgress.completedTerms.length}/7</span></p>
-            <p>اعتماد به مسیر: <span className="font-black text-white">{mentorProgress.confidence}%</span></p>
-            {mentorProgress.weakAreas.length ? <p>حوزه‌های نیازمند مرور: <span className="font-black text-white">{mentorProgress.weakAreas.join("، ")}</span></p> : <p>با پرسیدن سؤال، مربی نقاط نیازمند مرور را تشخیص می‌دهد.</p>}
-          </div>
-          <div className="rounded-3xl border border-emerald-300/20 bg-emerald-400/10 p-4 text-sm font-bold leading-7 text-emerald-50">
-            <div className="mb-2 flex items-center gap-2 font-black"><Target className="h-5 w-5" />پاسخ‌های متصل به مسیر شما</div>
-            پاسخ‌ها با توجه به مرحله یادگیری شما، درس مرتبط، خطاهای رایج، چک‌لیست عملی و سؤال بعدی پیشنهادی ارائه می‌شوند.
-          </div>
-          <div className="grid gap-2">
-            {quickQuestions.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => fillQuestion(item)}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.055] p-3 text-right text-xs font-black leading-6 text-slate-200 transition hover:border-cyan-300/30 hover:bg-cyan-300/10"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-3">
-            <button
-              type="button"
-              aria-pressed={publicResearch}
-              onClick={() => setPublicResearch((value) => !value)}
-              className={`mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-right text-xs font-black transition ${publicResearch ? "border-blue-300/35 bg-blue-400/15 text-blue-50" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
-            >
-              <span className="flex items-center gap-2"><Globe2 className="h-4 w-4" />پژوهش زندهٔ عمومی درباره کوین، ابزار، خبر و X</span>
-              <span className="rounded-full bg-slate-950/45 px-2 py-1 text-[10px]">{publicResearch ? "روشن" : "خاموش"}</span>
-            </button>
-            {publicResearch ? <p className="mb-3 text-xs font-bold leading-6 text-blue-100/85">فقط متن همین سؤال به ایجنت پژوهش می‌رود؛ تاریخچه، پروفایل، نقاط ضعف و اطلاعات مالی شخصی ارسال نمی‌شود. پاسخ بدون منبع معتبر پذیرفته نخواهد شد.</p> : null}
-            <textarea ref={textareaRef} value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-sm font-bold leading-7 text-white outline-none focus:border-cyan-300" />
-            <button onClick={() => ask()} disabled={loading} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-black text-[#03101a] transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{publicResearch ? "پژوهش منبع‌دار" : "پرسیدن سؤال آموزشی"}</button>
-          </div>
+      ) : threads.length ? (
+        threads.map((thread) => (
+          <button
+            key={thread.id}
+            type="button"
+            className={styles.threadButton}
+            data-active={thread.id === activeThreadId}
+            aria-pressed={thread.id === activeThreadId}
+            onClick={() => selectThread(thread.id)}
+          >
+            <MessageCircle aria-hidden="true" />
+            <span>
+              <strong>{thread.title}</strong>
+              <small>{dateFormatter.format(new Date(thread.lastMessageAt))}</small>
+            </span>
+          </button>
+        ))
+      ) : (
+        <p className={styles.threadEmpty}>{copy.historyEmpty}</p>
+      )}
+      {historyUnavailable ? (
+        <div className={styles.historyWarning} role="status">
+          <WifiOff aria-hidden="true" />
+          <p>{copy.historyUnavailable}</p>
+          <button type="button" onClick={() => void loadThreads()}>
+            {copy.retryHistory}
+          </button>
         </div>
-      </div>
+      ) : null}
     </div>
+  );
+
+  return (
+    <section
+      className={styles.workspace}
+      dir={direction}
+      data-plan={plan}
+      data-arena-panel={arenaPanel}
+      aria-labelledby="mentor-workspace-title"
+    >
+      <header className={styles.workspaceHeader}>
+        <div className={styles.workspaceIdentity}>
+          <LivingMentorAvatar act={mentorAct} locale={locale} size="header" />
+          <div>
+            <p className={styles.eyebrow}>{copy.eyebrow}</p>
+            <h1 id="mentor-workspace-title">{copy.title}</h1>
+            <p>{copy.subtitle}</p>
+          </div>
+        </div>
+        <div className={styles.workspaceMeta}>
+          <span data-plan={plan}>
+            {plan === "premium" ? <Crown aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
+            {plan === "premium" ? copy.premiumPlan : copy.freePlan}
+          </span>
+          <span><ShieldCheck aria-hidden="true" />{copy.safety}</span>
+        </div>
+      </header>
+
+      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel}>
+        <div className={styles.officeCell} dir={direction}>
+          <MentorOfficeScene
+            activeSurface={activeSurface}
+            completedTerms={completedTerms}
+            confidence={confidence}
+            locale={locale}
+            mentorAct={mentorAct}
+            framing={stageDirection.framing}
+            gaze={stageDirection.gaze}
+            intensity={stageDirection.intensity}
+            mode={stageDirection.mode}
+            motion={stageDirection.motion}
+            onSelectSurface={setActiveSurface}
+            plan={plan}
+            pose={stageDirection.pose}
+            status={officeStatus}
+          />
+        </div>
+
+        <section className={styles.chatPanel} dir={direction} aria-label={copy.conversation}>
+          <header className={styles.chatHeader}>
+            <div>
+              <p>{copy.conversation}</p>
+              <div className={styles.chatEvidence}>
+                <span><BookOpenCheck aria-hidden="true" />{completedTerms}/7 {copy.completedTerms}</span>
+                <span><BrainCircuit aria-hidden="true" />{copy.confidence}: {confidence === null ? "—" : `${Math.round(confidence)}%`}</span>
+              </div>
+            </div>
+            <div className={styles.chatHeaderActions}>
+              <button
+                type="button"
+                className={styles.scenarioAction}
+                onClick={prepareNewsBrief}
+                disabled={plan !== "premium"}
+                aria-label={plan === "premium" ? copy.newsLabel : copy.newsPremium}
+                title={plan === "premium" ? copy.newsLabel : copy.newsPremium}
+              >
+                <Newspaper aria-hidden="true" />
+                <span>{copy.newsBrief}</span>
+                {plan !== "premium" ? <Crown aria-hidden="true" /> : null}
+              </button>
+              <button
+                ref={arenaTriggerRef}
+                type="button"
+                className={styles.scenarioAction}
+                onClick={openArena}
+                aria-label={copy.arenaLabel}
+                aria-expanded={arenaPanel !== "closed"}
+              >
+                <ChartNoAxesCombined aria-hidden="true" />
+                <span>{copy.arena}</span>
+              </button>
+              <button
+                ref={historyTriggerRef}
+                type="button"
+                className={styles.historyTrigger}
+                onClick={() => setHistoryOpen(true)}
+                aria-haspopup="dialog"
+              >
+                <History aria-hidden="true" />
+                <span>{copy.history}</span>
+              </button>
+              <button type="button" className={styles.compactNewThread} onClick={newConversation} aria-label={copy.newConversation}>
+                <MessageSquarePlus aria-hidden="true" />
+              </button>
+            </div>
+          </header>
+
+          <div className={styles.chatBody}>
+            <aside className={styles.historyRail} dir={direction} aria-label={copy.history}>
+              <div className={styles.historyRailHeader}>
+                <History aria-hidden="true" />
+                <div>
+                  <strong>{copy.history}</strong>
+                  <p>{copy.historyDescription}</p>
+                </div>
+              </div>
+              {renderThreadList()}
+            </aside>
+
+            <div className={styles.conversation} dir={direction}>
+              <div
+                className={styles.messages}
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions"
+              >
+                {historyLoading ? (
+                  <div className={styles.conversationLoading}>
+                    <Loader2 className={styles.spinner} aria-hidden="true" />
+                  </div>
+                ) : messages.length ? (
+                  messages.map((message) => (
+                    <article
+                      key={message.id}
+                      className={styles.message}
+                      data-role={message.role}
+                    >
+                      <div className={styles.messageAuthor}>
+                        {message.role === "assistant" ? (
+                          <LivingMentorAvatar act="explain" decorative locale={locale} size="launcher" />
+                        ) : (
+                          <span className={styles.userMark} aria-hidden="true">TP</span>
+                        )}
+                        <strong>{message.role === "assistant" ? copy.mentor : copy.user}</strong>
+                      </div>
+                      <p className={styles.messageText}>{message.content}</p>
+
+                      {message.reply?.checklist?.length ? (
+                        <div className={styles.replyBlock}>
+                          <strong><CheckCircle2 aria-hidden="true" />{copy.checklist}</strong>
+                          <ul>
+                            {message.reply.checklist.slice(0, 5).map((item) => <li key={item}>{item}</li>)}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {message.reply?.sourceLessons?.length ? (
+                        <div className={styles.replyLinks}>
+                          <strong>{copy.sourceLessons}</strong>
+                          <div>
+                            {message.reply.sourceLessons.slice(0, 4).map((source) => (
+                              <Link key={source.href} href={source.href}>
+                                <BookOpenCheck aria-hidden="true" />{source.title}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {message.reply?.sources?.length ? (
+                        <div className={styles.replyLinks}>
+                          <strong>{copy.publicSources}</strong>
+                          <div>
+                            {message.reply.sources.slice(0, 6).map((source, index) => (
+                              <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink aria-hidden="true" />
+                                {source.title || `${copy.publicSources} ${index + 1}`}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {message.reply?.suggestedQuestions?.length ? (
+                        <div className={styles.suggestedReplies}>
+                          <strong>{copy.suggested}</strong>
+                          {message.reply.suggestedQuestions.slice(0, 3).map((item) => (
+                            <button key={item} type="button" onClick={() => fillQuestion(item)}>{item}</button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <div className={styles.emptyConversation}>
+                    <LivingMentorAvatar act="greet" locale={locale} size="stage" />
+                    <h2>{copy.emptyTitle}</h2>
+                    <p>{copy.emptyText}</p>
+                    <strong>{copy.starterQuestions}</strong>
+                    <div className={styles.quickQuestions}>
+                      {quickQuestions.slice(0, 4).map((item) => (
+                        <button key={item} type="button" onClick={() => fillQuestion(item)}>{item}</button>
+                      ))}
+                    </div>
+                    {!mentorInsights?.profile && !insightsLoading ? (
+                      <p className={styles.profileUnavailable}>{copy.profileUnavailable}</p>
+                    ) : null}
+                  </div>
+                )}
+
+                {loading ? (
+                  <div className={styles.mentorLoading} role="status">
+                    <LivingMentorAvatar act="think" decorative locale={locale} size="launcher" />
+                    <Loader2 className={styles.spinner} aria-hidden="true" />
+                    <span>{publicResearch ? copy.researching : copy.thinking}</span>
+                  </div>
+                ) : null}
+                <div ref={messageEndRef} />
+              </div>
+
+              <div className={styles.composer}>
+                <div className={styles.composerMode} data-research={publicResearch}>
+                  <Sparkles aria-hidden="true" />
+                  <span><strong>{copy.currentSurface}: {copy[activeSurface]}</strong>{publicResearch ? copy.researchMode : copy.standardMode}</span>
+                </div>
+                <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
+                <div className={styles.composerInput}>
+                  <textarea
+                    id="mentor-workspace-question"
+                    ref={textareaRef}
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value.slice(0, 900))}
+                    onKeyDown={onComposerKeyDown}
+                    rows={3}
+                    maxLength={900}
+                    dir="auto"
+                    placeholder={copy.inputPlaceholder}
+                    disabled={loading || historyLoading}
+                  />
+                  <div className={styles.composerControls}>
+                    <span>{question.length}/900</span>
+                    <button
+                      type="button"
+                      onClick={() => void ask()}
+                      disabled={loading || historyLoading || question.trim().length < 2}
+                      aria-label={loading ? copy.sending : copy.send}
+                    >
+                      {loading ? <Loader2 className={styles.spinner} aria-hidden="true" /> : <Send aria-hidden="true" />}
+                      <span>{loading ? copy.sending : copy.send}</span>
+                    </button>
+                  </div>
+                </div>
+                <p className={styles.privacyNote}><ShieldCheck aria-hidden="true" />{copy.privacy}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {arenaPanel !== "closed" ? (
+          <div className={styles.arenaCell}>
+            <MentorArenaDock
+              locale={locale}
+              onClose={closeArena}
+              onDock={() => setArenaPanel("docked")}
+              onFocus={() => setArenaPanel("focus")}
+              onMinimize={() => setArenaPanel("minimized")}
+              panel={arenaPanel}
+              plan={plan}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {historyOpen ? (
+        <div className={styles.historyOverlay} data-direction={direction}>
+          <button type="button" className={styles.historyBackdrop} onClick={closeHistory} aria-label={copy.closeHistory} />
+          <div
+            ref={historySheetRef}
+            className={styles.historySheet}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mentor-history-title"
+            dir={direction}
+          >
+            <header>
+              <div>
+                <History aria-hidden="true" />
+                <span>
+                  <strong id="mentor-history-title">{copy.history}</strong>
+                  <small>{copy.historyDescription}</small>
+                </span>
+              </div>
+              <button type="button" onClick={closeHistory} aria-label={copy.closeHistory}>
+                <X aria-hidden="true" />
+              </button>
+            </header>
+            {renderThreadList()}
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }

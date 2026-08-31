@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tecpey:mentor:rive-acceptance:1",
+  "title": "TecPey Mentor Rive acceptance evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "stage",
+    "rigManifestVersion",
+    "asset",
+    "contracts",
+    "identityProfile",
+    "coverage",
+    "runtimeTargets",
+    "performance",
+    "signoffs",
+    "decision"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "contract": { "const": "tecpey-mentor-rive-acceptance.v1" },
+    "stage": { "enum": ["spike", "production"] },
+    "rigManifestVersion": { "type": "string" },
+    "asset": { "$ref": "#/$defs/asset" },
+    "contracts": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/contractArtifact" }
+    },
+    "identityProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["characterBoundary", "nose"],
+      "properties": {
+        "characterBoundary": { "const": "inspired_by_mahdi_not_mahdi" },
+        "nose": { "$ref": "#/$defs/nose" }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artboards",
+        "acts",
+        "affects",
+        "articulationControls",
+        "expressionReferences",
+        "globalPoses",
+        "identityAngles",
+        "identityLocks",
+        "speechAnchors",
+        "globalization",
+        "accessibility",
+        "securityPrivacy"
+      ],
+      "properties": {
+        "artboards": { "$ref": "#/$defs/evidenceEntries" },
+        "acts": { "$ref": "#/$defs/evidenceEntries" },
+        "affects": { "$ref": "#/$defs/evidenceEntries" },
+        "articulationControls": { "$ref": "#/$defs/evidenceEntries" },
+        "expressionReferences": { "$ref": "#/$defs/evidenceEntries" },
+        "globalPoses": { "$ref": "#/$defs/evidenceEntries" },
+        "identityAngles": { "$ref": "#/$defs/evidenceEntries" },
+        "identityLocks": { "$ref": "#/$defs/evidenceEntries" },
+        "speechAnchors": { "$ref": "#/$defs/evidenceEntries" },
+        "globalization": { "$ref": "#/$defs/evidenceEntries" },
+        "accessibility": { "$ref": "#/$defs/evidenceEntries" },
+        "securityPrivacy": { "$ref": "#/$defs/evidenceEntries" }
+      }
+    },
+    "runtimeTargets": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/runtimeTarget" }
+    },
+    "performance": { "$ref": "#/$defs/performance" },
+    "signoffs": {
+      "type": "array",
+      "minItems": 10,
+      "items": { "$ref": "#/$defs/signoff" }
+    },
+    "decision": { "$ref": "#/$defs/decision" }
+  },
+  "$defs": {
+    "nullableDigest": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nullableTimestamp": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes", "signedBy", "signedAt"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^public/.+\\.riv$" },
+        "sha256": { "$ref": "#/$defs/nullableDigest" },
+        "bytes": { "type": ["integer", "null"], "minimum": 1 },
+        "signedBy": { "type": ["string", "null"] },
+        "signedAt": { "$ref": "#/$defs/nullableTimestamp" }
+      }
+    },
+    "contractArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": { "$ref": "#/$defs/nullableDigest" }
+      }
+    },
+    "evidenceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "evidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "evidenceEntries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceEntry" }
+    },
+    "nose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bridge",
+        "dorsum",
+        "dorsalHump",
+        "upperBodySwelling",
+        "tip",
+        "nostrilWidth",
+        "expressionDeformation",
+        "speechDeformation",
+        "status",
+        "evidence"
+      ],
+      "properties": {
+        "bridge": { "const": "smooth_narrow" },
+        "dorsum": { "const": "continuous_gentle_slightly_concave_slope" },
+        "dorsalHump": { "const": false },
+        "upperBodySwelling": { "const": false },
+        "tip": { "const": "refined_slightly_upturned" },
+        "nostrilWidth": { "const": "stable_across_angles" },
+        "expressionDeformation": { "const": false },
+        "speechDeformation": { "const": false },
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "runtimeTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "package",
+        "version",
+        "renderer",
+        "status",
+        "evidence",
+        "behaviors"
+      ],
+      "properties": {
+        "platform": { "enum": ["web", "react_native"] },
+        "package": { "type": "string" },
+        "version": { "type": ["string", "null"] },
+        "renderer": { "type": "string" },
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "behaviors": { "$ref": "#/$defs/evidenceEntries" }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "productionBuild",
+        "warmupSeconds",
+        "sampleSeconds",
+        "repeatCount",
+        "readiness",
+        "deviceTiers"
+      ],
+      "properties": {
+        "productionBuild": { "type": "boolean" },
+        "warmupSeconds": { "type": "integer", "minimum": 0 },
+        "sampleSeconds": { "type": "integer", "minimum": 0 },
+        "repeatCount": { "type": "integer", "minimum": 0 },
+        "readiness": { "$ref": "#/$defs/readiness" },
+        "deviceTiers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/deviceTier" }
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cachedReadyP95Ms",
+        "uncachedReadyP95Ms",
+        "fallbackCommitP95Ms",
+        "baselineRegressionPercent",
+        "status",
+        "evidence"
+      ],
+      "properties": {
+        "cachedReadyP95Ms": { "type": ["number", "null"], "minimum": 0 },
+        "uncachedReadyP95Ms": { "type": ["number", "null"], "minimum": 0 },
+        "fallbackCommitP95Ms": { "type": ["number", "null"], "minimum": 0 },
+        "baselineRegressionPercent": { "type": ["number", "null"], "minimum": 0 },
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "deviceTier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mode", "p95FrameMs", "minimumFps", "status", "evidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "mode": { "enum": ["animated", "static_fallback"] },
+        "p95FrameMs": { "type": ["number", "null"], "minimum": 0 },
+        "minimumFps": { "type": ["number", "null"], "minimum": 0 },
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "signoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gateId", "owner", "status", "reviewer", "reviewedAt", "evidence"],
+      "properties": {
+        "gateId": { "type": "string" },
+        "owner": { "type": "string" },
+        "status": { "enum": ["pending", "accepted", "rejected"] },
+        "reviewer": { "type": ["string", "null"] },
+        "reviewedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "stage", "decidedAt", "reason"],
+      "properties": {
+        "status": { "enum": ["blocked", "accepted", "revoked"] },
+        "stage": { "enum": ["spike", "production"] },
+        "decidedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
-  Bot,
   Brain,
   Loader2,
   Send,
@@ -18,7 +17,8 @@ import {
   Globe2,
 } from "lucide-react";
 import { useMentorInsights } from "@/hooks/useMentorInsights";
-import { TecpeyMentorMark } from "@/components/brand/TecpeyMentorMark";
+import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
+import { selectLivingMentorAct } from "@/lib/living-mentor-presentation";
 
 type ChatMessage = { role: "user" | "assistant"; content: string; at: number };
 type Locale = "fa" | "en";
@@ -33,12 +33,11 @@ type MentorThread = {
 };
 
 type MentorProfile = {
-  level: "beginner" | "intermediate" | "advanced";
-  risk: "low" | "medium" | "high";
-  weakArea: string;
-  goal: string;
-  lastScore: number;
-  completedTerms: number[];
+  source: "server" | "unavailable";
+  level: "unknown" | "beginner" | "intermediate" | "advanced";
+  risk: "unknown" | "low" | "medium" | "high";
+  weakArea: string | null;
+  goal: string | null;
 };
 
 type MentorReply = {
@@ -160,26 +159,27 @@ function formatLearningStyle(style: string, locale: Locale): string {
   return pair ? (locale === "en" ? pair[1] : pair[0]) : style;
 }
 
-function defaultMentorProfile(locale: Locale): MentorProfile {
+function defaultMentorProfile(): MentorProfile {
   return {
-    level: "beginner",
-    risk: "medium",
-    weakArea: locale === "en" ? "risk management" : "مدیریت ریسک",
-    goal: locale === "en" ? "safe spot trading" : "ورود امن به معامله اسپات",
-    lastScore: 72,
-    completedTerms: [1],
+    source: "unavailable",
+    level: "unknown",
+    risk: "unknown",
+    weakArea: null,
+    goal: null,
   };
 }
 
 function mentorProfileLabel(profile: MentorProfile, locale: Locale) {
   const isEn = locale === "en";
   const levelLabel = {
+    unknown: isEn ? "Not available yet" : "هنوز در دسترس نیست",
     beginner: isEn ? "Beginner" : "مبتدی",
     intermediate: isEn ? "Intermediate" : "متوسط",
     advanced: isEn ? "Advanced" : "پیشرفته",
   }[profile.level];
 
   const riskLabel = {
+    unknown: isEn ? "Not available yet" : "هنوز در دسترس نیست",
     low: isEn ? "Low" : "کم",
     medium: isEn ? "Medium" : "متوسط",
     high: isEn ? "High" : "زیاد",
@@ -188,53 +188,52 @@ function mentorProfileLabel(profile: MentorProfile, locale: Locale) {
   return { levelLabel, riskLabel };
 }
 
-function mentorLearningReadiness(profile: MentorProfile, locale: Locale) {
+function mentorPracticeGuidance(profile: MentorProfile, locale: Locale) {
   const isEn = locale === "en";
-  const base = Math.max(0, Math.min(100, Number(profile.lastScore || 0)));
-  const riskPenalty = profile.risk === "high" ? 12 : profile.risk === "medium" ? 6 : 0;
-  const levelBonus = profile.level === "advanced" ? 8 : profile.level === "intermediate" ? 4 : 0;
-  const score = Math.max(0, Math.min(100, base - riskPenalty + levelBonus));
-
-  if (score >= 82) {
+  if (profile.source === "unavailable" || profile.risk === "unknown") {
     return {
-      score,
-      tone: "ready",
-      label: isEn ? "Ready for guided practice" : "آماده تمرین هدایت‌شده",
-      note: isEn ? "Use a small educational scenario and define invalidation first." : "با سناریوی آموزشی کوچک شروع کن و اول نقطه ابطال را مشخص کن.",
+      tone: "unknown" as const,
+      label: isEn ? "Waiting for verified evidence" : "در انتظار دادهٔ معتبر",
+      note: isEn
+        ? "The mentor will not invent a level, risk style or readiness score."
+        : "منتور سطح، سبک ریسک یا نمرهٔ آمادگی را حدس نمی‌زند.",
     };
   }
 
-  if (score >= 65) {
+  if (profile.risk === "high") {
     return {
-      score,
-      tone: "caution",
-      label: isEn ? "Practice only" : "فقط تمرین",
-      note: isEn ? "Review risk management before any real decision." : "قبل از هر تصمیم واقعی، مدیریت ریسک را مرور کن.",
+      tone: "caution" as const,
+      label: isEn ? "Risk review before practice" : "مرور ریسک پیش از تمرین",
+      note: isEn
+        ? "Use simulation only and review the evidence behind the risk flag."
+        : "فقط از شبیه‌ساز استفاده کن و شواهد پشت هشدار ریسک را مرور کن.",
     };
   }
 
   return {
-    score,
-    tone: "pause",
-    label: isEn ? "Pause real trading" : "توقف معامله واقعی",
-    note: isEn ? "Focus on psychology, capital protection and academy review today." : "امروز روی روانشناسی، حفظ سرمایه و مرور آکادمی تمرکز کن.",
+    tone: "guided" as const,
+    label: isEn ? "Guided educational practice" : "تمرین آموزشی هدایت‌شده",
+    note: isEn
+      ? "Use a simulated scenario, define invalidation first and record the result."
+      : "با سناریوی شبیه‌سازی‌شده تمرین کن، نقطهٔ ابطال را اول بنویس و نتیجه را ثبت کن.",
   };
 }
 
 function mentorQuickActions(locale: Locale, section: string, profile: MentorProfile) {
   const isEn = locale === "en";
-  const weakLabel = formatMentorTag(profile.weakArea, locale);
+  const weakLabel = profile.weakArea ? formatMentorTag(profile.weakArea, locale) : null;
+  const levelLabel = mentorProfileLabel(profile, locale).levelLabel;
   return isEn
     ? [
-        `Am I ready to trade today? My score is ${profile.lastScore}/100 and my weak area is ${weakLabel}.`,
+        `What is the safest educational exercise for me today? Use only verified learning evidence${weakLabel ? ` and consider my focus area: ${weakLabel}` : ""}.`,
         `Give me my next learning step for ${section}.`,
-        `Explain the most common mistake for my level: ${profile.level}.`,
+        `Explain the most common learning mistake for my current level: ${levelLabel}.`,
         `Connect this page to related Crypto Wiki lessons.`,
       ]
     : [
-        `امروز اجازه معامله دارم؟ نمره من ${profile.lastScore} از ۱۰۰ است و ضعف اصلی من ${weakLabel} است.`,
+        `امروز امن‌ترین تمرین آموزشی مناسب من چیست؟ فقط از داده‌های معتبر یادگیری استفاده کن${weakLabel ? ` و حوزهٔ تمرکز ${weakLabel} را در نظر بگیر` : ""}.`,
         `قدم بعدی یادگیری من در بخش ${section} چیست؟`,
-        `اشتباه رایج سطح ${profile.level === "beginner" ? "مبتدی" : profile.level === "intermediate" ? "متوسط" : "پیشرفته"} من چیست؟`,
+        `رایج‌ترین اشتباه یادگیری در سطح فعلی من، یعنی ${levelLabel}، چیست؟`,
         `این صفحه را به درس‌ها و واژه‌های مرتبط Crypto Wiki وصل کن.`,
       ];
 }
@@ -291,10 +290,24 @@ export function GlobalAiMentorWidget() {
   // Server-driven mentor profile and insights (Phase 7).
   const shouldLoadMentorSession =
     !isAcademyAuthRoute && (open || isAcademyArea);
-  const { data: mentorData, error: insightsError } = useMentorInsights({
+  const {
+    data: mentorData,
+    loading: insightsLoading,
+    error: insightsError,
+  } = useMentorInsights({
     enabled: shouldLoadMentorSession,
   });
   const serverProfile = mentorData?.profile ?? null;
+  const profile = useMemo<MentorProfile>(() => {
+    if (!serverProfile) return defaultMentorProfile();
+    return {
+      source: "server",
+      level: serverProfile.level,
+      risk: serverProfile.riskProfile,
+      weakArea: serverProfile.weakAreas[0] ?? null,
+      goal: serverProfile.primaryGoal || null,
+    };
+  }, [serverProfile]);
 
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState<ChatMessage[]>([]);
@@ -307,7 +320,6 @@ export function GlobalAiMentorWidget() {
   const [loading, setLoading] = useState(false);
   const [publicResearch, setPublicResearch] = useState(false);
   const [streaming, setStreaming] = useState(false);
-  const [profile, setProfile] = useState<MentorProfile>(() => defaultMentorProfile(locale));
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [academyProfileReady, setAcademyProfileReady] = useState(false);
   const [academyChecked, setAcademyChecked] = useState(false);
@@ -318,20 +330,22 @@ export function GlobalAiMentorWidget() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localMessageIdRef = useRef(0);
-  // Prevent repeated server-to-state syncs after the user has manually changed level/risk.
-  const serverSyncedRef = useRef(false);
+
+  const closeMentor = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setOpen(false);
-      requestAnimationFrame(() => triggerRef.current?.focus());
+      closeMentor();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [closeMentor, open]);
 
 
   useEffect(() => {
@@ -550,21 +564,6 @@ export function GlobalAiMentorWidget() {
     };
   }, [open, academyProfileReady, activeThreadId]);
 
-  // One-time sync from server mentor_profiles into local profile state.
-  // Runs on first successful fetch; subsequent button-clicks (level, risk) override ephemerally.
-  useEffect(() => {
-    if (!serverProfile || serverSyncedRef.current) return;
-    serverSyncedRef.current = true;
-    setProfile((prev) => ({
-      ...prev,
-      level: serverProfile.level,
-      risk: serverProfile.riskProfile,
-      weakArea: serverProfile.weakAreas[0] ?? prev.weakArea,
-      goal: serverProfile.primaryGoal ?? prev.goal,
-      lastScore: serverProfile.confidenceScore,
-    }));
-  }, [serverProfile]);
-
   useEffect(() => {
     const handler = (event: Event) => {
       const custom = event as CustomEvent<{ question?: string }>;
@@ -693,8 +692,14 @@ export function GlobalAiMentorWidget() {
   }
 
   const profileLabel = mentorProfileLabel(profile, locale);
-  const readiness = mentorLearningReadiness(profile, locale);
+  const practiceGuidance = mentorPracticeGuidance(profile, locale);
   const coachActions = mentorQuickActions(locale, pageContext.section, profile);
+  const mentorAct = selectLivingMentorAct({
+    riskCaution: practiceGuidance.tone === "caution",
+    isSpeaking: streaming,
+    isThinking: loading || insightsLoading || historyLoading,
+    isComposing: Boolean(question.trim()),
+  });
 
   if (
     !academyChecked ||
@@ -714,29 +719,30 @@ export function GlobalAiMentorWidget() {
           setHistoryLoading(true);
           setOpen(true);
         }}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-cyan-950/95 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs"
-        aria-label={isEn ? "Ask TecPey Learning Coach" : "از مربی هوشمند تک‌پی بپرس"}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-cyan-950/95"
+        aria-label={isEn ? "Open TecPey Mentor" : "باز کردن منتور تک‌پی"}
+        aria-controls="tecpey-living-mentor-dialog"
+        aria-expanded={open}
       >
-        <TecpeyMentorMark className="h-7 w-7 shrink-0" />
-        <span className="sr-only sm:not-sr-only sm:truncate">{isEn ? "Learning Coach" : "مربی هوشمند تک‌پی"}</span>
+        <LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="launcher" />
+        <span className="sr-only sm:not-sr-only sm:truncate">{isEn ? "TecPey Mentor" : "منتور تک‌پی"}</span>
       </button>
 
       {open ? (
         <div
+          id="tecpey-living-mentor-dialog"
           className="fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+8.75rem)] z-[95] mx-auto max-w-[440px] sm:bottom-5 sm:left-5 sm:right-auto sm:mx-0 sm:w-[420px]"
           dir={isEn ? "ltr" : "rtl"}
           role="dialog"
-          aria-modal="true"
-          aria-label={isEn ? "TecPey Learning Coach" : "مربی هوشمند تک‌پی"}
+          aria-modal="false"
+          aria-label={isEn ? "TecPey Mentor" : "منتور تک‌پی"}
         >
           <div className="flex max-h-[min(72dvh,560px)] flex-col overflow-hidden rounded-[24px] border border-cyan-300/25 bg-slate-950/98 text-white shadow-[0_28px_100px_rgba(0,0,0,.60)] backdrop-blur-2xl sm:max-h-[min(82vh,680px)] sm:rounded-[28px]">
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-cyan-400/10 p-3 sm:p-4">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-cyan-400/15 text-cyan-200 sm:h-10 sm:w-10">
-                  <Bot className="h-5 w-5" />
-                </div>
+                <LivingMentorAvatar act={mentorAct} locale={locale} size="header" />
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-black sm:text-sm">{isEn ? "TecPey Learning Coach" : "مربی هوشمند تک‌پی"}</p>
+                  <p className="truncate text-xs font-black sm:text-sm">{isEn ? "TecPey Mentor" : "منتور تک‌پی"}</p>
                   <p className="truncate text-[10px] font-bold text-cyan-100/80 sm:text-[11px]">{isEn ? `With you on: ${pageContext.section}` : `همراه تو در: ${pageContext.section}`}</p>
                 </div>
               </div>
@@ -747,7 +753,7 @@ export function GlobalAiMentorWidget() {
                 <button type="button" onClick={() => setThreadListOpen((value) => !value)} className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-cyan-100 transition hover:bg-white/10" aria-label={isEn ? "Conversation history" : "تاریخچه گفت‌وگوها"} title={isEn ? "Conversation history" : "تاریخچه گفت‌وگوها"} aria-expanded={threadListOpen}>
                   <MessagesSquare className="h-4 w-4" />
                 </button>
-                <button ref={closeRef} type="button" onClick={() => setOpen(false)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:bg-white/10" aria-label={isEn ? "Close chat" : "بستن چت"} title={isEn ? "Close" : "بستن"}>
+                <button ref={closeRef} type="button" onClick={closeMentor} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:bg-white/10" aria-label={isEn ? "Close chat" : "بستن چت"} title={isEn ? "Close" : "بستن"}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -821,9 +827,19 @@ export function GlobalAiMentorWidget() {
                 </div>
               ) : history.length === 0 ? (
                 <div className="rounded-3xl border border-cyan-300/20 bg-white/[0.055] p-3 text-xs font-bold leading-6 text-slate-100 sm:p-4 sm:text-sm sm:leading-7">
-                  <div className="mb-2 flex items-center gap-2 text-cyan-200">
-                    <Sparkles className="h-4 w-4" />
-                    {isEn ? "Ask without leaving the page" : "بدون ترک صفحه سؤال بپرس"}
+                  <div className="mb-3 flex items-center gap-3">
+                    <LivingMentorAvatar act={mentorAct} decorative locale={locale} size="stage" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-cyan-200">
+                        <Sparkles className="h-4 w-4" />
+                        {isEn ? "Ask without leaving the page" : "بدون ترک صفحه سؤال بپرس"}
+                      </div>
+                      <p className="mt-1 text-[10px] leading-5 text-slate-400 sm:text-[11px]">
+                        {isEn
+                          ? "A fictional TecPey guide, shaped by verified learning evidence."
+                          : "راهنمای داستانی تک‌پی؛ متکی بر داده‌های معتبر یادگیری."}
+                      </p>
+                    </div>
                   </div>
                   <p>
                     {isEn
@@ -837,35 +853,32 @@ export function GlobalAiMentorWidget() {
                   <div className="mt-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/10 p-2.5 text-[11px] leading-5 text-cyan-50">
                     <div className="mb-1 flex items-center justify-between gap-2 font-black">
                       <span>{isEn ? "Learning profile" : "پرونده یادگیری"}</span>
-                      <span className="rounded-full bg-slate-950/45 px-2 py-0.5 text-[10px] text-cyan-100">{readiness.score}/100</span>
+                      <span className="rounded-full bg-slate-950/45 px-2 py-0.5 text-[10px] text-cyan-100">
+                        {profile.source === "server"
+                          ? isEn
+                            ? "Verified evidence"
+                            : "دادهٔ معتبر"
+                          : isEn
+                            ? "Evidence pending"
+                            : "در انتظار داده"}
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-1 text-slate-100/90">
                       <span>{isEn ? "Level" : "سطح"}: {profileLabel.levelLabel}</span>
                       <span>{isEn ? "Risk style" : "سبک ریسک"}: {profileLabel.riskLabel}</span>
-                      <span className="col-span-2">{isEn ? "Focus" : "تمرکز"}: {formatMentorTag(profile.weakArea, locale)}</span>
-                      <span className="col-span-2">{isEn ? "Goal" : "هدف"}: {formatMentorTag(profile.goal, locale)}</span>
+                      <span className="col-span-2">
+                        {isEn ? "Focus" : "تمرکز"}: {profile.weakArea ? formatMentorTag(profile.weakArea, locale) : isEn ? "Not available yet" : "هنوز در دسترس نیست"}
+                      </span>
+                      <span className="col-span-2">
+                        {isEn ? "Goal" : "هدف"}: {profile.goal ? formatMentorTag(profile.goal, locale) : isEn ? "Not available yet" : "هنوز در دسترس نیست"}
+                      </span>
                     </div>
                     <div className="mt-2 rounded-2xl border border-white/10 bg-slate-950/35 p-2">
                       <div className="flex items-center justify-between gap-2 text-[10px] font-black">
-                        <span>{readiness.label}</span>
-                        <span>{isEn ? "Learning readiness" : "آمادگی یادگیری"}</span>
+                        <span>{practiceGuidance.label}</span>
+                        <span>{isEn ? "Practice guidance" : "راهنمای تمرین"}</span>
                       </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-                        <div className="h-full rounded-full bg-cyan-300" style={{ width: `${readiness.score}%` }} />
-                      </div>
-                      <p className="mt-1 text-[10px] leading-4 text-slate-200/90">{readiness.note}</p>
-                    </div>
-                    <div className="mt-2 grid grid-cols-3 gap-1">
-                      {(["beginner", "intermediate", "advanced"] as const).map((level) => (
-                        <button
-                          key={level}
-                          type="button"
-                          onClick={() => setProfile((item) => ({ ...item, level }))}
-                          className="rounded-xl border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black text-cyan-50 transition hover:bg-white/10"
-                        >
-                          {level === "beginner" ? (isEn ? "Beginner" : "مبتدی") : level === "intermediate" ? (isEn ? "Mid" : "متوسط") : (isEn ? "Advanced" : "حرفه‌ای")}
-                        </button>
-                      ))}
+                      <p className="mt-1 text-[10px] leading-4 text-slate-200/90">{practiceGuidance.note}</p>
                     </div>
                   </div>
 
@@ -999,22 +1012,6 @@ export function GlobalAiMentorWidget() {
                     ))}
                   </div>
                 ) : null}
-              </div>
-
-              <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-2 py-1.5 text-[10px] font-black text-slate-300">
-                <span>{isEn ? "Risk profile" : "سبک ریسک‌پذیری"}</span>
-                <div className="flex gap-1">
-                  {(["low", "medium", "high"] as const).map((risk) => (
-                    <button
-                      key={risk}
-                      type="button"
-                      onClick={() => setProfile((item) => ({ ...item, risk }))}
-                      className="rounded-xl border border-cyan-300/10 bg-cyan-300/10 px-2 py-1 text-[9px] text-cyan-50 transition hover:bg-cyan-300/20"
-                    >
-                      {risk === "low" ? (isEn ? "Low" : "کم") : risk === "medium" ? (isEn ? "Med" : "متوسط") : (isEn ? "High" : "زیاد")}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <button

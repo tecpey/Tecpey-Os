@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-30",
+  "reviewedAt": "2026-08-31",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "2b140539916dccb9332c1877708e21768ccf2195",
-      "sha256": "08cf3e4779c05bd9638a4fb58e7fafe609a827e5e0adecd8941e626320b316be",
-      "lines": 257,
+      "gitObjectId": "69fef0b07ebf2e3ace7c7378903ef4188e4e7bb9",
+      "sha256": "e077e8a3c11aa1c85a9dfd14eab33f4d1a8cbc4946e25a1b01d5e81462f03fb3",
+      "lines": 266,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 257
+          "endLine": 266
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -124,9 +124,10 @@
         "2026-08-30: re-reviewed after wiring src/tests/security/ai-mentor-preference-egress-gate.test.ts into test:ai-mentor-trust. The added deterministic unit proof requires both an available database preference authority and an explicit external-provider opt-in, covers null, unavailable, disabled and enabled states, and adds no dependency, engine, override, network/provider/spend authority, runtime mutation path or activation surface. The package remains 249 lines and release composition remains unchanged.",
         "2026-08-30: re-reviewed the complete 254-line package after exposing disposable least-privilege AI role provisioning, protected runtime-evidence collect/verify/check commands and their policy tests, enforcing the static authority through ai:trust:check, and adding both the PostgreSQL adversarial suite and evidence-policy suite to test:ai-mentor-trust. Collection is CI- and protected-environment-only, binds the exact commit/tree and PostgreSQL 16 catalogs, and emits only redacted aggregate evidence; verification is offline and fail-closed. The wiring adds no dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface.",
         "2026-08-30: re-reviewed after test:crm-leads additionally globs src/tests/security/support-message*.test.ts (SB-013). Test-wiring only — the command gains the support-message parser unit tests and the support_messages Postgres integration proof alongside the existing crm-lead suite; no dependency pin, engine constraint, override declaration, release-authority command, network access or runtime mutation path changed, and the file stays 247 lines.",
-        "2026-08-30: re-reviewed after adding support:check and support:retention, and composing support:check into release:check beside crm:check (SB-013). support:check is a read-only static guard over the contact form, its intake route, the parsed-input and storage authorities, the migration, the tenant-scoped table registry and the package wiring; support:retention runs the bounded PII erasure sweep the contact form\u0027s consent text promises, mirroring crm:retention. Neither adds a dependency, engine constraint, override, network access, product activation surface or secret-printing path, and the file now has 249 lines.",
+        "2026-08-30: re-reviewed after adding support:check and support:retention, and composing support:check into release:check beside crm:check (SB-013). support:check is a read-only static guard over the contact form, its intake route, the parsed-input and storage authorities, the migration, the tenant-scoped table registry and the package wiring; support:retention runs the bounded PII erasure sweep the contact form's consent text promises, mirroring crm:retention. Neither adds a dependency, engine constraint, override, network access, product activation surface or secret-printing path, and the file now has 249 lines.",
         "2026-08-30: re-reviewed after adding support:inbox (SB-013 review). The command runs a read-only operator query over support_messages for one tenant and returns redacted rows unless SUPPORT_INBOX_REVEAL is set explicitly; it opens no network connection, mutates nothing, and exists because a stored message no one can read leaves the contact form promising a reply that cannot happen. No dependency, engine, override, release-authority command or activation surface changed, and the file now has 250 lines.",
-        "2026-08-31: re-reviewed the complete 257-line package after restacking SB-013 on the governed AI/RLS mainline. The final composition preserves every AI trust/evidence command, adds the support-message static guard beside CRM authority, runs the support parser and PostgreSQL proof serially with the CRM suite, and exposes only explicit operator inbox/retention commands. No dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface was added."
+        "2026-08-31: re-reviewed the complete 257-line package after restacking SB-013 on the governed AI/RLS mainline. The final composition preserves every AI trust/evidence command, adds the support-message static guard beside CRM authority, runs the support parser and PostgreSQL proof serially with the CRM suite, and exposes only explicit operator inbox/retention commands. No dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface was added.",
+        "2026-08-31: re-reviewed the complete package after restacking the Living Mentor workspace onto current main. The merge preserves every governed AI runtime-evidence, support-message and release command from main, extends ai:trust:check only with the read-only Mentor vector-source and Rive activation guards, and adds focused local Mentor vector/Rive/workspace test commands. It adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch authority."
       ],
       "findings": [
         {
@@ -281,8 +282,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "3de7f87d44308f86164e66c32b1035348a7b6585",
-      "sha256": "1db0e0aa0b94dcfeeab02169c5fa2f6721087a6e355a50a37c3e704282c3cfde",
+      "gitObjectId": "811dcfa5267e0f8bfd01549b061faea2e3421054",
+      "sha256": "83e9fe32f45cf817f678618ce769832e2d985fa5fa1f92124b2492b9f0c4125f",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -306,7 +307,8 @@
         "2026-08-24: re-reviewed after Policy v19 explicitly classified src/lib/fetch-error-classification.ts as authentication-admin-security Batch 3 beside api-error.ts and api-validation.ts. The pure classifier translates bounded browser and Node/undici transport failures into existing ApiError categories, adds no network call, credential access, persistence, mutation or activation surface, preserves source-path fail-closed behavior and rule ordering, and has a focused classification assertion in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v20 explicitly classified src/lib/production-next-runtime-config.ts as operations-runtime Batch 11. The helper reads only the exact build-serialized Next.js config, validates its immutable 40-character release identity and installs it before the custom production server creates the application; it adds no network, persistence or capability activation surface. Source-path fail-closed behavior and rule ordering remain unchanged, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both.",
-        "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow."
+        "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow.",
+        "2026-08-31: re-reviewed after extending the existing mentor-ai classifier with the explicit living-mentor prefix. The change classifies the new Living Mentor presentation and Rive adapter source under the existing P2 Mentor AI batch; it does not broaden unrelated src/lib coverage, weaken fail-closed classification, change provenance, or alter audit workflow authority."
       ],
       "findings": []
     },

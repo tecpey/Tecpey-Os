@@ -1,0 +1,256 @@
+{
+  "$schema": "./tecpey-mentor-rive-acceptance.v1.schema.json",
+  "contract": "tecpey-mentor-rive-acceptance.v1",
+  "stage": "spike",
+  "rigManifestVersion": "1.0.0",
+  "asset": {
+    "path": "public/rive/mentor/tecpey-mentor-global.v1.riv",
+    "sha256": null,
+    "bytes": null,
+    "signedBy": null,
+    "signedAt": null
+  },
+  "contracts": [
+    {
+      "id": "rig_manifest",
+      "path": "docs/mentor/rig/tecpey-mentor-rig-manifest.v1.json",
+      "sha256": null
+    },
+    {
+      "id": "viewmodel_schema",
+      "path": "docs/mentor/schemas/tecpey-mentor-rive-viewmodel.v1.schema.json",
+      "sha256": null
+    },
+    {
+      "id": "character_bible",
+      "path": "docs/mentor/TECPEY_LIVING_MENTOR_CHARACTER_BIBLE_V1.md",
+      "sha256": null
+    },
+    {
+      "id": "rig_blueprint",
+      "path": "docs/mentor/RIVE_RIG_BLUEPRINT_V1.md",
+      "sha256": null
+    },
+    {
+      "id": "speech_contract",
+      "path": "docs/mentor/MULTILINGUAL_SPEECH_RIG_CONTRACT_V1.md",
+      "sha256": null
+    }
+  ],
+  "identityProfile": {
+    "characterBoundary": "inspired_by_mahdi_not_mahdi",
+    "nose": {
+      "bridge": "smooth_narrow",
+      "dorsum": "continuous_gentle_slightly_concave_slope",
+      "dorsalHump": false,
+      "upperBodySwelling": false,
+      "tip": "refined_slightly_upturned",
+      "nostrilWidth": "stable_across_angles",
+      "expressionDeformation": false,
+      "speechDeformation": false,
+      "status": "pending",
+      "evidence": []
+    }
+  },
+  "coverage": {
+    "artboards": [
+      { "id": "mentor_core", "status": "pending", "evidence": [] },
+      { "id": "mentor_launcher", "status": "pending", "evidence": [] },
+      { "id": "mentor_panel", "status": "pending", "evidence": [] },
+      { "id": "mentor_profile", "status": "pending", "evidence": [] },
+      { "id": "mentor_scene", "status": "pending", "evidence": [] }
+    ],
+    "acts": [
+      { "id": "idle_attentive", "status": "pending", "evidence": [] },
+      { "id": "greet", "status": "pending", "evidence": [] },
+      { "id": "explain", "status": "pending", "evidence": [] },
+      { "id": "celebrate_effort", "status": "pending", "evidence": [] },
+      { "id": "risk_caution", "status": "pending", "evidence": [] }
+    ],
+    "affects": [
+      { "id": "calm", "status": "pending", "evidence": [] },
+      { "id": "attentive", "status": "pending", "evidence": [] },
+      { "id": "curious", "status": "pending", "evidence": [] },
+      { "id": "warm", "status": "pending", "evidence": [] },
+      { "id": "concerned", "status": "pending", "evidence": [] },
+      { "id": "steady", "status": "pending", "evidence": [] }
+    ],
+    "articulationControls": [
+      { "id": "ctl_jaw_open", "status": "pending", "evidence": [] },
+      { "id": "ctl_lip_close", "status": "pending", "evidence": [] },
+      { "id": "ctl_lip_press", "status": "pending", "evidence": [] },
+      { "id": "ctl_lip_wide", "status": "pending", "evidence": [] },
+      { "id": "ctl_lip_round", "status": "pending", "evidence": [] },
+      { "id": "ctl_lip_funnel", "status": "pending", "evidence": [] },
+      { "id": "ctl_lower_lip_bite", "status": "pending", "evidence": [] },
+      { "id": "ctl_tongue_tip_up", "status": "pending", "evidence": [] },
+      { "id": "ctl_tongue_forward", "status": "pending", "evidence": [] }
+    ],
+    "expressionReferences": [
+      { "id": "neutral", "status": "pending", "evidence": [] },
+      { "id": "mild_smile", "status": "pending", "evidence": [] },
+      { "id": "warm_smile", "status": "pending", "evidence": [] },
+      { "id": "attentive", "status": "pending", "evidence": [] },
+      { "id": "curious", "status": "pending", "evidence": [] },
+      { "id": "concerned", "status": "pending", "evidence": [] },
+      { "id": "steady", "status": "pending", "evidence": [] },
+      { "id": "listening_soft", "status": "pending", "evidence": [] },
+      { "id": "explaining_focus", "status": "pending", "evidence": [] },
+      { "id": "effort_pride_restrained", "status": "pending", "evidence": [] },
+      { "id": "reflective", "status": "pending", "evidence": [] },
+      { "id": "risk_serious", "status": "pending", "evidence": [] }
+    ],
+    "globalPoses": [
+      { "id": "idle_attentive", "status": "pending", "evidence": [] },
+      { "id": "greet", "status": "pending", "evidence": [] },
+      { "id": "explain", "status": "pending", "evidence": [] },
+      { "id": "celebrate_effort", "status": "pending", "evidence": [] },
+      { "id": "risk_caution", "status": "pending", "evidence": [] }
+    ],
+    "identityAngles": [
+      { "id": "front", "status": "pending", "evidence": [] },
+      { "id": "three_quarter_L", "status": "pending", "evidence": [] },
+      { "id": "three_quarter_R", "status": "pending", "evidence": [] },
+      { "id": "profile_L", "status": "pending", "evidence": [] },
+      { "id": "profile_R", "status": "pending", "evidence": [] }
+    ],
+    "identityLocks": [
+      { "id": "nose_bridge", "status": "pending", "evidence": [] },
+      { "id": "nose_dorsum", "status": "pending", "evidence": [] },
+      { "id": "nose_tip", "status": "pending", "evidence": [] },
+      { "id": "nostril_width", "status": "pending", "evidence": [] },
+      { "id": "eye_spacing", "status": "pending", "evidence": [] },
+      { "id": "skull_outline", "status": "pending", "evidence": [] },
+      { "id": "beard_boundary", "status": "pending", "evidence": [] },
+      { "id": "hairline", "status": "pending", "evidence": [] }
+    ],
+    "speechAnchors": [
+      { "id": "sil", "status": "pending", "evidence": [] },
+      { "id": "bilabial", "status": "pending", "evidence": [] },
+      { "id": "labiodental", "status": "pending", "evidence": [] },
+      { "id": "interdental", "status": "pending", "evidence": [] },
+      { "id": "vowel_open", "status": "pending", "evidence": [] },
+      { "id": "vowel_close_back_round", "status": "pending", "evidence": [] }
+    ],
+    "globalization": [
+      { "id": "ltr_latin", "status": "pending", "evidence": [] },
+      { "id": "rtl_connected_script", "status": "pending", "evidence": [] },
+      { "id": "mixed_direction_financial", "status": "pending", "evidence": [] },
+      { "id": "cjk_no_spacing", "status": "pending", "evidence": [] },
+      { "id": "indic_complex_script", "status": "pending", "evidence": [] },
+      { "id": "code_switch_segment_boundary", "status": "pending", "evidence": [] },
+      { "id": "missing_locale_fail_closed", "status": "pending", "evidence": [] },
+      { "id": "native_text_outside_canvas", "status": "pending", "evidence": [] }
+    ],
+    "accessibility": [
+      { "id": "reduced_motion", "status": "pending", "evidence": [] },
+      { "id": "captions", "status": "pending", "evidence": [] },
+      { "id": "semantic_host_equivalent", "status": "pending", "evidence": [] },
+      { "id": "screen_reader_label", "status": "pending", "evidence": [] },
+      { "id": "high_contrast", "status": "pending", "evidence": [] },
+      { "id": "keyboard_focus", "status": "pending", "evidence": [] },
+      { "id": "no_audio_autoplay", "status": "pending", "evidence": [] },
+      { "id": "static_failure_fallback", "status": "pending", "evidence": [] }
+    ],
+    "securityPrivacy": [
+      { "id": "binding_allowlist", "status": "pending", "evidence": [] },
+      { "id": "no_raw_profile_data_in_riv", "status": "pending", "evidence": [] },
+      { "id": "no_audio_or_timeline_persistence", "status": "pending", "evidence": [] },
+      { "id": "redacted_telemetry", "status": "pending", "evidence": [] },
+      { "id": "renderer_memory_cleanup", "status": "pending", "evidence": [] },
+      { "id": "stale_utterance_rejection", "status": "pending", "evidence": [] }
+    ]
+  },
+  "runtimeTargets": [
+    {
+      "platform": "web",
+      "package": "@rive-app/react-webgl2",
+      "version": null,
+      "renderer": "rive_renderer_webgl2",
+      "status": "pending",
+      "evidence": [],
+      "behaviors": [
+        { "id": "lazy_runtime", "status": "pending", "evidence": [] },
+        { "id": "bind_before_personalized_frame", "status": "pending", "evidence": [] },
+        { "id": "offscreen_pause", "status": "pending", "evidence": [] },
+        { "id": "deterministic_cleanup", "status": "pending", "evidence": [] },
+        { "id": "static_failure_fallback", "status": "pending", "evidence": [] },
+        { "id": "semantic_host_text", "status": "pending", "evidence": [] }
+      ]
+    },
+    {
+      "platform": "react_native",
+      "package": "@rive-app/react-native",
+      "version": null,
+      "renderer": "rive_renderer_nitro",
+      "status": "pending",
+      "evidence": [],
+      "behaviors": [
+        { "id": "same_riv_asset", "status": "pending", "evidence": [] },
+        { "id": "same_manifest", "status": "pending", "evidence": [] },
+        { "id": "background_pause", "status": "pending", "evidence": [] },
+        { "id": "stale_event_rejection", "status": "pending", "evidence": [] },
+        { "id": "static_failure_fallback", "status": "pending", "evidence": [] },
+        { "id": "native_accessible_text", "status": "pending", "evidence": [] }
+      ]
+    }
+  ],
+  "performance": {
+    "productionBuild": false,
+    "warmupSeconds": 5,
+    "sampleSeconds": 30,
+    "repeatCount": 3,
+    "readiness": {
+      "cachedReadyP95Ms": null,
+      "uncachedReadyP95Ms": null,
+      "fallbackCommitP95Ms": null,
+      "baselineRegressionPercent": null,
+      "status": "pending",
+      "evidence": []
+    },
+    "deviceTiers": [
+      {
+        "id": "reference_web",
+        "mode": "animated",
+        "p95FrameMs": null,
+        "minimumFps": null,
+        "status": "pending",
+        "evidence": []
+      },
+      {
+        "id": "reference_mobile",
+        "mode": "animated",
+        "p95FrameMs": null,
+        "minimumFps": null,
+        "status": "pending",
+        "evidence": []
+      },
+      {
+        "id": "low_tier_fallback",
+        "mode": "static_fallback",
+        "p95FrameMs": null,
+        "minimumFps": null,
+        "status": "pending",
+        "evidence": []
+      }
+    ]
+  },
+  "signoffs": [
+    { "gateId": "surface_behavior", "owner": "product", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "character_identity", "owner": "character_brand", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "memorial_boundary", "owner": "memorial_likeness", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "learning_behavior", "owner": "learning", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "financial_safety", "owner": "financial_risk", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "global_readiness", "owner": "globalization", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "accessible_motion", "owner": "accessibility", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "runtime_quality", "owner": "engineering", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "data_minimization", "owner": "security_privacy", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] },
+    { "gateId": "rights_clearance", "owner": "legal", "status": "pending", "reviewer": null, "reviewedAt": null, "evidence": [] }
+  ],
+  "decision": {
+    "status": "blocked",
+    "stage": "spike",
+    "decidedAt": null,
+    "reason": "awaiting_signed_asset_and_acceptance_evidence"
+  }
+}
