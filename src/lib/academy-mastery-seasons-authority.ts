@@ -121,7 +121,14 @@ export function buildAcademyMasterySeasonState(input: {
     marketInterestTags: normalizeTags(input.profileTags?.marketInterestTags),
   };
   const assignments = input.assignments ?? [];
-  const assignmentsBySeason = new Map(assignments.map((assignment) => [assignment.seasonId, assignment]));
+  const assignmentsBySeason = new Map<string, AcademyMasteryAssignment>();
+  for (const assignment of assignments) {
+    // readAssignments is newest-first. Keep the first row for a season so a
+    // historical completed/expired assignment cannot shadow its current run.
+    if (!assignmentsBySeason.has(assignment.seasonId)) {
+      assignmentsBySeason.set(assignment.seasonId, assignment);
+    }
+  }
   const recommendations = scoreAcademyMasterySeasonRecommendations(signals)
     .slice(0, Math.max(1, input.limit ?? academyMasterySeasons.length))
     .map((recommendation: AcademyMasterySeasonRecommendation) => ({
@@ -291,15 +298,29 @@ export async function activateAcademyMasterySeason(input: {
   locale: AcademyMasteryLocale;
   seasonId: string;
   idempotencyKey?: string | null;
-}): Promise<{ assignment: AcademyMasteryAssignment; state: AcademyMasterySeasonState }> {
+}): Promise<{
+  assignment: AcademyMasteryAssignment;
+  state: AcademyMasterySeasonState;
+  changed: boolean;
+}> {
   const seasonId = normalizeTag(input.seasonId);
   if (!seasonId || !academyMasterySeasons.some((season) => season.id === seasonId)) {
     throw new Error("mastery_season_unknown");
   }
   const state = await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale);
+  if (state.completedTerms < 7) {
+    throw new Error("mastery_core_terms_incomplete");
+  }
   const recommendation = state.recommendations.find((item) => item.season.id === seasonId);
   if (!recommendation || !recommendation.eligible) {
     throw new Error("mastery_season_not_eligible");
+  }
+  if (recommendation.assignment?.status === "active") {
+    return {
+      assignment: recommendation.assignment,
+      state,
+      changed: false,
+    };
   }
   const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const open = await input.client.query<Record<string, unknown>>(
@@ -370,5 +391,6 @@ export async function activateAcademyMasterySeason(input: {
   return {
     assignment: assignmentFromRow(assignmentRow),
     state: await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale),
+    changed: true,
   };
 }
