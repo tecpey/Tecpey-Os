@@ -20,7 +20,7 @@
         "mutationMode": "active",
         "classification": "authenticated",
         "principalSource": "getCanonicalSession",
-        "tenantSource": "tenantContext.available",
+        "tenantSource": "tenantContext",
         "risk": [],
         "controls": {
           "csrf": true,
