@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [],
+  "addedOperations": [
+    {
+      "route": "/api/academy-mastery-seasons/activate",
+      "method": "POST",
+      "issue": "#581",
+      "owner": "academy-platform",
+      "reason": "Adds the dedicated post-core Mastery Season activation command with strict session revocation, verified tenant/student authority, Academy entitlement, exact bounded input, durable idempotency, transaction serialization and private no-store responses while preserving the separately governed read-only route.",
+      "replacement": {
+        "route": "/api/academy-mastery-seasons/activate",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-mastery-seasons/activate/route.ts",
+        "sourceHash": "088d8dda6b3e58ac8e67d270",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-mastery-seasons-activate",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-mastery-seasons",
+        "testReferences": [
+          "src/tests/security/academy-mastery-season-activation-route.test.ts",
+          "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-mastery-seasons/activate/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
