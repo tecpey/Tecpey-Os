@@ -210,6 +210,7 @@ export function AiMentorExperience({
   const arenaTriggerRef = useRef<HTMLButtonElement | null>(null);
   const historySheetRef = useRef<HTMLDivElement | null>(null);
   const explainTimerRef = useRef<number | null>(null);
+  const conversationEpochRef = useRef(0);
 
   const completedTerms = useMemo(
     () =>
@@ -379,6 +380,7 @@ export function AiMentorExperience({
   );
 
   const newConversation = useCallback(() => {
+    conversationEpochRef.current += 1;
     setActiveThreadId(null);
     setMessages([]);
     setQuestion("");
@@ -388,6 +390,7 @@ export function AiMentorExperience({
 
   const selectThread = useCallback(
     (threadId: string) => {
+      conversationEpochRef.current += 1;
       setActiveThreadId(threadId);
       closeHistory();
     },
@@ -422,6 +425,7 @@ export function AiMentorExperience({
     const clean = question.trim();
     if (clean.length < 2 || loading) return;
     const askedMode = detectMentorMode(clean);
+    const requestConversationEpoch = conversationEpochRef.current;
     const userMessage: WorkspaceMessage = {
       id: safeMessageId("user"),
       role: "user",
@@ -453,6 +457,10 @@ export function AiMentorExperience({
         response.ok && typeof data.answer === "string"
           ? { ...local, ...data, answer: data.answer }
           : local;
+      if (conversationEpochRef.current !== requestConversationEpoch) {
+        void loadThreads();
+        return;
+      }
       setMessages((current) => [
         ...current,
         {
@@ -469,18 +477,23 @@ export function AiMentorExperience({
       explainTimerRef.current = window.setTimeout(() => setIsExplaining(false), 1_200);
       void loadThreads();
     } catch {
-      setMessages((current) => [
-        ...current,
-        {
-          id: safeMessageId("mentor-fallback"),
-          role: "assistant",
-          content: local.answer,
-          createdAt: new Date().toISOString(),
-          reply: local,
-        },
-      ]);
-      setIsExplaining(true);
-      explainTimerRef.current = window.setTimeout(() => setIsExplaining(false), 1_200);
+      if (conversationEpochRef.current === requestConversationEpoch) {
+        setMessages((current) => [
+          ...current,
+          {
+            id: safeMessageId("mentor-fallback"),
+            role: "assistant",
+            content: local.answer,
+            createdAt: new Date().toISOString(),
+            reply: local,
+          },
+        ]);
+        setIsExplaining(true);
+        explainTimerRef.current = window.setTimeout(
+          () => setIsExplaining(false),
+          1_200,
+        );
+      }
     } finally {
       setLoading(false);
     }
