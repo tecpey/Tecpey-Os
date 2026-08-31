@@ -100,6 +100,20 @@ export async function evaluateActivationState(
       if (evidence.asset?.path !== activatedAsset) {
         errors.push("Accepted evidence does not name the activated .riv asset.");
       }
+      const webRuntimeTarget = (evidence.runtimeTargets ?? []).find(
+        (target) =>
+          target.platform === "web" &&
+          target.package === "@rive-app/react-webgl2",
+      );
+      const installedRiveVersion = dependencies["@rive-app/react-webgl2"];
+      if (
+        installedRiveVersion &&
+        webRuntimeTarget?.version !== installedRiveVersion
+      ) {
+        errors.push(
+          "Accepted evidence does not match the installed @rive-app/react-webgl2 version.",
+        );
+      }
     }
   } catch (error) {
     errors.push(
