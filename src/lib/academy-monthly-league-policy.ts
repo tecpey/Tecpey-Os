@@ -1,5 +1,7 @@
 export const ACADEMY_MONTHLY_LEAGUE_POLICY_VERSION =
-  "academy-monthly-league-shadow-v2" as const;
+  "academy-monthly-league-recognition-v3" as const;
+
+export const ACADEMY_MONTHLY_LEAGUE_AUTOMATIC_ENTITLEMENTS_ENABLED = false as const;
 
 export const ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT = 25;
 
@@ -44,9 +46,9 @@ export type AcademyMonthlyLeagueBand =
 
 export type AcademyMonthlyLeagueRewardProposal = {
   rank: number;
-  arenaProDays: 0 | 30 | 60 | 90;
-  cashPoolShareBps: number;
-  cashDisposition: "not_eligible" | "c_level_compliance_approval_required";
+  arenaProDays: 0;
+  cashPoolShareBps: 0;
+  cashDisposition: "not_permitted_in_learning_league";
 };
 
 const SCORE_KEYS = Object.keys(
@@ -146,34 +148,10 @@ export function academyMonthlyLeagueRewardProposal(
   if (!Number.isSafeInteger(tiedLearners) || tiedLearners < 1) {
     throw new Error("academy_monthly_league_tie_count_invalid");
   }
-  if (rank === 1) {
-    return {
-      rank,
-      arenaProDays: 90,
-      cashPoolShareBps: Math.floor(5_000 / tiedLearners),
-      cashDisposition: "c_level_compliance_approval_required",
-    };
-  }
-  if (rank <= 3) {
-    return {
-      rank,
-      arenaProDays: 60,
-      cashPoolShareBps: Math.floor((rank === 2 ? 3_000 : 2_000) / tiedLearners),
-      cashDisposition: "c_level_compliance_approval_required",
-    };
-  }
-  if (rank <= 10) {
-    return {
-      rank,
-      arenaProDays: 30,
-      cashPoolShareBps: 0,
-      cashDisposition: "not_eligible",
-    };
-  }
   return {
     rank,
     arenaProDays: 0,
     cashPoolShareBps: 0,
-    cashDisposition: "not_eligible",
+    cashDisposition: "not_permitted_in_learning_league",
   };
 }
