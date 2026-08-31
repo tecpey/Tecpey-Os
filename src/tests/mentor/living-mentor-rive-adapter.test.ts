@@ -183,8 +183,50 @@ describe("Living Mentor Rive runtime adapter", () => {
     assert.equal(nextSpeaking.bindings["speech.viseme"], "bilabial");
   });
 
+  it("never reactivates a retired utterance from delayed queued or speaking frames", async () => {
+    const snapshot = await validSnapshot();
+    snapshot.viewModel.speech.state = "queued";
+    snapshot.viewModel.speech.utteranceId = "utterance_done";
+    const queued = projectLivingMentorRiveFrame(snapshot, undefined, {
+      nowMs: beforeExampleExpiry,
+    });
+
+    snapshot.viewModel.speech.state = "speaking";
+    snapshot.viewModel.speech.viseme = "vowel_open";
+    const speaking = projectLivingMentorRiveFrame(snapshot, queued.nextState, {
+      nowMs: beforeExampleExpiry,
+    });
+
+    snapshot.viewModel.speech.state = "ended";
+    const ended = projectLivingMentorRiveFrame(snapshot, speaking.nextState, {
+      nowMs: beforeExampleExpiry,
+    });
+    assert.deepEqual(ended.nextState.retiredUtteranceIds, ["utterance_done"]);
+    assert.equal(ended.bindings["speech.viseme"], "sil");
+
+    for (const delayedState of ["speaking", "queued"] as const) {
+      snapshot.viewModel.speech.state = delayedState;
+      snapshot.viewModel.speech.viseme = "bilabial";
+      const delayed = projectLivingMentorRiveFrame(snapshot, ended.nextState, {
+        nowMs: beforeExampleExpiry,
+      });
+      assert.equal(delayed.droppedStaleSpeechFrame, true);
+      assert.equal(delayed.bindings["speech.viseme"], "sil");
+      assert.equal(delayed.nextState.activeUtteranceId, null);
+    }
+
+    snapshot.viewModel.speech.state = "queued";
+    snapshot.viewModel.speech.utteranceId = "utterance_next";
+    const next = projectLivingMentorRiveFrame(snapshot, ended.nextState, {
+      nowMs: beforeExampleExpiry,
+    });
+    assert.equal(next.droppedStaleSpeechFrame, false);
+    assert.equal(next.nextState.activeUtteranceId, "utterance_next");
+  });
+
   it("keeps the exported initial reducer state immutable and safe", () => {
     assert.equal(INITIAL_LIVING_MENTOR_RIVE_ADAPTER_STATE.lastEventId, null);
+    assert.deepEqual(INITIAL_LIVING_MENTOR_RIVE_ADAPTER_STATE.retiredUtteranceIds, []);
     assert.equal(
       INITIAL_LIVING_MENTOR_RIVE_ADAPTER_STATE.acceptedSpeech["speech.viseme"],
       "sil",

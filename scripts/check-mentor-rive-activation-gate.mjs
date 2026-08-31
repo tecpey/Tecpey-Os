@@ -25,7 +25,10 @@ async function findRiveAssets(directory) {
   return found;
 }
 
-export async function evaluateActivationState(rootDir = ROOT) {
+export async function evaluateActivationState(
+  rootDir = ROOT,
+  { acceptanceCheck = runMentorRiveAcceptanceCheck } = {},
+) {
   const packageJson = JSON.parse(
     await readFile(path.join(rootDir, "package.json"), "utf8"),
   );
@@ -76,13 +79,17 @@ export async function evaluateActivationState(rootDir = ROOT) {
   }
 
   try {
-    const acceptance = await runMentorRiveAcceptanceCheck({
+    const acceptance = await acceptanceCheck({
       evidencePath: ACCEPTED_EVIDENCE,
       rootDir,
     });
     if (!acceptance.ok) errors.push(...acceptance.errors);
+    if (acceptance.ok && acceptance.stage !== "production") {
+      errors.push("Global Rive activation requires production-stage acceptance evidence.");
+    }
     if (
       riveAssets.length === 1 &&
+      acceptance.stage === "production" &&
       acceptance.evidencePath &&
       !acceptance.errors.length
     ) {

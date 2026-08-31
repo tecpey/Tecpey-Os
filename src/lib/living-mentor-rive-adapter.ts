@@ -139,6 +139,7 @@ export type LivingMentorRiveAdapterState = Readonly<{
   activeUtteranceId: string | null;
   acceptedSpeech: SpeechBindings;
   lastEventId: string | null;
+  retiredUtteranceIds: readonly string[];
 }>;
 
 export type LivingMentorRiveFallbackReason =
@@ -181,6 +182,7 @@ export const INITIAL_LIVING_MENTOR_RIVE_ADAPTER_STATE: LivingMentorRiveAdapterSt
     activeUtteranceId: null,
     acceptedSpeech: SAFE_SPEECH,
     lastEventId: null,
+    retiredUtteranceIds: Object.freeze([] as string[]),
   });
 
 const SAFE_BINDINGS: LivingMentorRiveBindings = Object.freeze({
@@ -247,6 +249,16 @@ function speakingBindings(speech: UnknownRecord): SpeechBindings {
   };
 }
 
+function retireUtterance(
+  retiredUtteranceIds: readonly string[],
+  utteranceId: string | null,
+): readonly string[] {
+  if (!utteranceId || retiredUtteranceIds.includes(utteranceId)) {
+    return retiredUtteranceIds;
+  }
+  return Object.freeze([...retiredUtteranceIds.slice(-31), utteranceId]);
+}
+
 function projectSpeech(
   speech: UnknownRecord,
   previous: LivingMentorRiveAdapterState,
@@ -254,6 +266,7 @@ function projectSpeech(
   activeUtteranceId: string | null;
   bindings: SpeechBindings;
   droppedStaleSpeechFrame: boolean;
+  retiredUtteranceIds: readonly string[];
 }> {
   const state = enumValue(speech.state, SPEECH_STATES, "idle");
   const utteranceId =
@@ -262,38 +275,45 @@ function projectSpeech(
       ? speech.utteranceId
       : null;
 
+  const rejectStaleFrame = () => ({
+    activeUtteranceId: previous.activeUtteranceId,
+    bindings: previous.acceptedSpeech,
+    droppedStaleSpeechFrame: true,
+    retiredUtteranceIds: previous.retiredUtteranceIds,
+  });
+
   if (state === "queued") {
+    if (
+      !utteranceId ||
+      previous.retiredUtteranceIds.includes(utteranceId) ||
+      (previous.activeUtteranceId &&
+        previous.activeUtteranceId !== utteranceId)
+    ) {
+      return rejectStaleFrame();
+    }
     return {
       activeUtteranceId: utteranceId,
       bindings: safeSpeech("queued"),
       droppedStaleSpeechFrame: false,
+      retiredUtteranceIds: previous.retiredUtteranceIds,
     };
   }
 
   if (state === "speaking") {
-    if (!utteranceId) {
-      return {
-        activeUtteranceId: previous.activeUtteranceId,
-        bindings: previous.acceptedSpeech,
-        droppedStaleSpeechFrame: true,
-      };
-    }
-
     if (
-      previous.activeUtteranceId &&
-      previous.activeUtteranceId !== utteranceId
+      !utteranceId ||
+      previous.retiredUtteranceIds.includes(utteranceId) ||
+      (previous.activeUtteranceId &&
+        previous.activeUtteranceId !== utteranceId)
     ) {
-      return {
-        activeUtteranceId: previous.activeUtteranceId,
-        bindings: previous.acceptedSpeech,
-        droppedStaleSpeechFrame: true,
-      };
+      return rejectStaleFrame();
     }
 
     return {
       activeUtteranceId: utteranceId,
       bindings: speakingBindings(speech),
       droppedStaleSpeechFrame: false,
+      retiredUtteranceIds: previous.retiredUtteranceIds,
     };
   }
 
@@ -302,19 +322,20 @@ function projectSpeech(
     !utteranceId ||
     previous.activeUtteranceId === utteranceId;
 
-  if (!matchesActive) {
-    return {
-      activeUtteranceId: previous.activeUtteranceId,
-      bindings: previous.acceptedSpeech,
-      droppedStaleSpeechFrame: true,
-    };
-  }
+  if (!matchesActive) return rejectStaleFrame();
 
+  const completesUtterance = state !== "paused";
   return {
     activeUtteranceId:
       state === "paused" ? previous.activeUtteranceId : null,
     bindings: safeSpeech(state),
     droppedStaleSpeechFrame: false,
+    retiredUtteranceIds: completesUtterance
+      ? retireUtterance(
+          previous.retiredUtteranceIds,
+          previous.activeUtteranceId ?? utteranceId,
+        )
+      : previous.retiredUtteranceIds,
   };
 }
 
@@ -345,6 +366,10 @@ function fallbackFrame(
       activeUtteranceId: null,
       acceptedSpeech: SAFE_SPEECH,
       lastEventId: previous.lastEventId,
+      retiredUtteranceIds: retireUtterance(
+        previous.retiredUtteranceIds,
+        previous.activeUtteranceId,
+      ),
     },
     triggerPlayAct: false,
   };
@@ -422,6 +447,7 @@ export function projectLivingMentorRiveFrame(
       activeUtteranceId: speechProjection.activeUtteranceId,
       acceptedSpeech: speechProjection.bindings,
       lastEventId: eventId ?? previous.lastEventId,
+      retiredUtteranceIds: speechProjection.retiredUtteranceIds,
     },
     triggerPlayAct,
   };
