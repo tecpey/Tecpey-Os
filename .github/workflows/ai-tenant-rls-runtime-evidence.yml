@@ -154,15 +154,15 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## AI tenant FORCE RLS runtime evidence"
-            echo ""
-            echo "- Head: `$TECPEY_AI_RLS_EVIDENCE_SHA`"
-            echo "- Tree: `$TECPEY_AI_RLS_EVIDENCE_TREE_SHA`"
-            echo "- Protected environment: `ai-tenant-rls-evidence`"
-            echo "- PostgreSQL: `16`"
-            echo "- Governed tables: `19/19 ENABLE + FORCE RLS`"
-            echo "- Adversarial suite: `passed with zero skips`"
-            echo "- Evidence: detached SHA-256 + GitHub OIDC provenance attestation"
+            printf '%s\n' '## AI tenant FORCE RLS runtime evidence' ''
+            printf -- '- Head: `%s`\n' "$TECPEY_AI_RLS_EVIDENCE_SHA"
+            printf -- '- Tree: `%s`\n' "$TECPEY_AI_RLS_EVIDENCE_TREE_SHA"
+            printf '%s\n' \
+              '- Protected environment: `ai-tenant-rls-evidence`' \
+              '- PostgreSQL: `16`' \
+              '- Governed tables: `19/19 ENABLE + FORCE RLS`' \
+              '- Adversarial suite: `passed with zero skips`' \
+              '- Evidence: detached SHA-256 + GitHub OIDC provenance attestation'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed runtime evidence artifact

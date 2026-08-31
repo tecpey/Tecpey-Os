@@ -280,6 +280,8 @@ jobs:
           retention-days: 7
 
       - name: AI Mentor red-team gate
+        env:
+          TECPEY_AI_WORKER_DATABASE_URL: postgresql://tecpey_ai_worker_ci:ci-ai-worker-runtime-credential@localhost:5432/ci_placeholder
         run: |
           set -o pipefail
           npm run ai:redteam:check 2>&1 | tee /tmp/tecpey-ai-mentor-redteam-tests.log
