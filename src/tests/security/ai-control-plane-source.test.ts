@@ -5,6 +5,14 @@ import { describe, it } from "node:test";
 const source = (path: string) => readFile(path, "utf8");
 
 describe("AI control-plane source authority", () => {
+  it("routes every managed AI query through the signed tenant transaction authority", async () => {
+    const store = await readFile("src/lib/ai/control-plane-store.ts", "utf8");
+    assert.match(store, /withAiTenantTransaction/);
+    assert.match(store, /writeAiAdminAuditEvent/);
+    assert.doesNotMatch(store, /from ["']@\/lib\/db["']/);
+    assert.doesNotMatch(store, /\bwith(?:Db|Tx)\b/);
+    assert.doesNotMatch(store, /\bwriteAdminAuditEvent\b/);
+  });
   it("keeps provider URLs fixed and secrets out of admin snapshots", async () => {
     const [route, router, store] = await Promise.all([
       source("src/app/api/command-center/ai-control-plane/route.ts"),

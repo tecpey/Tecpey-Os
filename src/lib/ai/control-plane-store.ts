@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import { writeAdminAuditEvent } from "@/lib/admin-control-plane";
-import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
 import {
@@ -33,6 +31,8 @@ import {
   managedAiLaunchStatus,
   type ManagedAiLaunchStatus,
 } from "./managed-ai-launch-policy";
+import { writeAiAdminAuditEvent } from "./admin-audit";
+import { withAiTenantTransaction } from "./database-authority";
 
 export type AiProviderSnapshot = {
   providerId: AiProviderId;
@@ -556,7 +556,7 @@ export async function loadAiControlPlaneSnapshot(input: {
   workspaceId: string;
 }): Promise<AiControlPlaneSnapshot | "unavailable"> {
   try {
-    const result = await withDb(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       const providerRows = await client.query<ProviderRow>(
         `SELECT provider_id, enabled, encrypted_api_key, api_key_fingerprint,
                 revision, rotated_at, last_test_status, last_tested_at, updated_at
@@ -1086,7 +1086,7 @@ export async function reserveAiAgentSpend(
   input: AiSpendReservationInput,
 ): Promise<AiSpendAdmission> {
   try {
-    const result = await withTx((client) =>
+    const result = await withAiTenantTransaction(input, (client) =>
       reserveAiAgentSpendWithClient(client, input)
     );
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
@@ -1139,7 +1139,7 @@ export async function markAiAgentSpendEgress(input: {
     return { ok: false, reason: launch.reason };
   }
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await advisoryLock(client, aiAgentAdvisoryScope(input));
       if (!(await hasNoManagedAiAgentBinding(client, input))) {
         return {
@@ -1417,7 +1417,7 @@ export async function settleAiAgentSpend(
     !validUuid(input.reservationId)
   ) return { ok: false, reason: "invalid_request" };
   try {
-    const result = await withTx((client) =>
+    const result = await withAiTenantTransaction(input, (client) =>
       settleAiAgentSpendWithClient(client, input)
     );
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
@@ -1466,7 +1466,7 @@ export async function loadVerifiedAiKnowledgeContext(input: {
     return AI_TENANT_ISOLATION_BLOCK_REASON;
   }
   try {
-    const result = await withDb(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       const rows = await client.query<KnowledgeRow>(
         `WITH eligible AS (
            SELECT id, knowledge_type, subject_type, subject_id, statement,
@@ -1549,7 +1549,7 @@ export async function admitAiAgentUsage(input: {
   if (reservation > input.limits.dailyTokens)
     return { ok: false, reason: "token_limit" };
   try {
-    const result = await withDb(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       const admitted = await client.query<{
         request_count: string | number;
         reserved_tokens: string | number;
@@ -1647,7 +1647,7 @@ export async function admitAiAgentExecution(input: {
     reason: typeof AI_TENANT_ISOLATION_BLOCK_REASON;
   };
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await advisoryLock(client, aiAgentAdvisoryScope(input));
       if (!(await hasNoManagedAiAgentBinding(client, input))) {
         return {
@@ -1695,7 +1695,7 @@ export async function updateAiProvider(
     return AI_TENANT_ISOLATION_BLOCK_REASON;
   }
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       const lockScope = `ai-provider:${providerScope(input.tenantId, input.workspaceId, input.providerId)}`;
       await advisoryLock(client, lockScope);
       const before = await selectProvider(
@@ -1776,7 +1776,7 @@ export async function updateAiProvider(
         ],
       );
       const after = providerSnapshot(row, input.providerId);
-      await writeAdminAuditEvent(client, {
+      await writeAiAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
         effectiveRoles: input.effectiveRoles,
@@ -1814,7 +1814,7 @@ export async function resolveAiProviderForTest(input: {
     return AI_TENANT_ISOLATION_BLOCK_REASON;
   }
   try {
-    const result = await withDb((client) =>
+    const result = await withAiTenantTransaction(input, (client) =>
       selectProvider(
         client,
         input.tenantId,
@@ -1841,7 +1841,7 @@ export async function recordAiProviderTest(
   },
 ): Promise<boolean> {
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await advisoryLock(
         client,
         `ai-provider:${providerScope(input.tenantId, input.workspaceId, input.providerId)}`,
@@ -1876,7 +1876,7 @@ export async function recordAiProviderTest(
           input.actorAdminId,
         ],
       );
-      await writeAdminAuditEvent(client, {
+      await writeAiAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
         effectiveRoles: input.effectiveRoles,
@@ -2006,7 +2006,7 @@ export async function updateAiAgentBinding(
     return AI_TENANT_ISOLATION_BLOCK_REASON;
   }
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await advisoryLock(
         client,
         aiAgentAdvisoryScope(input),
@@ -2157,7 +2157,7 @@ export async function updateAiAgentBinding(
       if (openRouterProvider)
         providers.set(openRouterProvider.provider_id, openRouterProvider);
       const after = agentSnapshot(row, input.agentId, providers);
-      await writeAdminAuditEvent(client, {
+      await writeAiAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
         effectiveRoles: input.effectiveRoles,
@@ -2260,7 +2260,7 @@ export async function replaceAiAgentRouteCandidates(
   }
 
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await advisoryLock(
         client,
         `ai-routes:${input.tenantId}:${input.workspaceId}:${input.agentId}`,
@@ -2363,7 +2363,7 @@ export async function replaceAiAgentRouteCandidates(
           input.actorAdminId,
         ],
       );
-      await writeAdminAuditEvent(client, {
+      await writeAiAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
         effectiveRoles: input.effectiveRoles,
@@ -2436,7 +2436,7 @@ export async function resolveRuntimeAiAgent(
   const tenantId = input.tenantId ?? PLATFORM.DEFAULT_TENANT_ID;
   const workspaceId = input.workspaceId ?? PLATFORM.DEFAULT_WORKSPACE_ID;
   try {
-    const result = await withDb(async (client) => {
+    const result = await withAiTenantTransaction({ tenantId, workspaceId }, async (client) => {
       const agent = await selectAgent(client, tenantId, workspaceId, agentId);
       if (!agent) {
         const environmentFallbackAllowed =
@@ -2798,7 +2798,7 @@ export async function recordAiRoutingDecision(
   input: AiRoutingDecisionInput,
 ): Promise<boolean> {
   try {
-    const result = await withDb(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       return insertAiRoutingDecision(client, input);
     });
     return result.enabled && result.value;
@@ -2826,7 +2826,7 @@ export async function settleAiAgentSpendAndRecordRoutingDecision(input: {
     input.routing.agentId !== settlementInput.agentId
   ) return { ok: false, reason: "invalid_request" };
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(settlementInput, async (client) => {
       const settlement = await settleAiAgentSpendWithClient(client, settlementInput);
       if (!settlement.ok) return settlement;
       const recorded = await insertAiRoutingDecision(client, {
@@ -2877,7 +2877,7 @@ export async function recordAiWorkflowEvidence(input: {
   if (!isAiAgentId(input.agentId) || !isAiModelProviderId(input.providerId))
     return false;
   try {
-    const result = await withDb(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await client.query(
         `INSERT INTO ai_workflow_run_evidence
            (tenant_id, workspace_id, run_id, workflow_id, agent_id,
@@ -2959,7 +2959,7 @@ export async function createAiKnowledgeCandidate(input: {
     [input.knowledgeType, subjectType, subjectId ?? "", statement].join("\0"),
   );
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       const inserted = await client.query<KnowledgeRow>(
         `INSERT INTO ai_knowledge_items
            (tenant_id, workspace_id, knowledge_type, subject_type, subject_id,
@@ -3035,7 +3035,7 @@ export async function reviewAiKnowledgeItem(
     return AI_TENANT_ISOLATION_BLOCK_REASON;
   }
   try {
-    const result = await withTx(async (client) => {
+    const result = await withAiTenantTransaction(input, async (client) => {
       await advisoryLock(
         client,
         `ai-knowledge:${input.tenantId}:${input.workspaceId}:${input.knowledgeItemId}`,
@@ -3090,7 +3090,7 @@ export async function reviewAiKnowledgeItem(
           }),
         ],
       );
-      await writeAdminAuditEvent(client, {
+      await writeAiAdminAuditEvent(client, {
         actorAdminId: input.actorAdminId,
         sessionId: input.sessionId,
         effectiveRoles: input.effectiveRoles,

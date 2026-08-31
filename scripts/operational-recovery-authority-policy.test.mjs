@@ -203,6 +203,20 @@ test("rejects weakening isolated restore, source/restore comparison or privacy c
   );
 });
 
+test("rejects PostgreSQL ACL restore before cluster-global authority bootstrap", () => {
+  const recovery = valid.recovery.replace(
+    'run_migrations "$PREFIX-pg-restored" "$EVIDENCE_DIR/restore-authority-bootstrap.log"',
+    ': authority-bootstrap-removed',
+  );
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, recovery });
+  assert.equal(
+    failures.includes(
+      "recovery script must bootstrap cluster-global authorities before PostgreSQL ACL restore",
+    ),
+    true,
+  );
+});
+
 test("rejects removing tenant drift and financial conservation from collector policy", () => {
   const protectedCollectorPolicy = valid.protectedCollectorPolicy
     .replaceAll("tenant_registry_runtime_drift", "tenant_registry_drift_ignored")

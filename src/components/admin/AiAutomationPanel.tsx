@@ -125,7 +125,7 @@ type AutomationSnapshot = {
   managedLaunch: {
     ready: boolean;
     reason: "tenant_isolation_unresolved";
-    blocker: "shared_role_without_transaction_tenant_context";
+    blocker: "signed_rls_runtime_evidence_pending";
     overrideAllowed: false;
   };
   policyVersion: string;
@@ -183,7 +183,7 @@ function automationError(code: unknown, details?: Record<string, unknown>): stri
     permission_denied: "نقش فعلی مجوز مدیریت یا بازبینی اتوماسیون را ندارد.",
     step_up_required: "برای این تصمیم حساس دوباره احراز هویت کنید.",
     ai_automation_unavailable: "ذخیره‌ساز اتوماسیون در دسترس نیست.",
-    ai_tenant_isolation_unresolved: "اتوماسیون AI تا جداسازی نقش دیتابیس و context تراکنشی tenant به‌صورت fail-closed مسدود است.",
+    ai_tenant_isolation_unresolved: "اتوماسیون AI تا تکمیل شواهد محافظت‌شدهٔ نقش‌های محدود، RLS اجباری و context امضاشده در CI و staging به‌صورت fail-closed مسدود است.",
     ai_automation_policy_revision_conflict: "سیاست هم‌زمان تغییر کرده است؛ صفحه را تازه کنید.",
     ai_automation_agents_not_ready: `ایجنت‌های لازم آماده نیستند: ${Array.isArray(details?.missingAgents) ? details.missingAgents.join("، ") : "تنظیمات ایجنت را بررسی کنید"}`,
     ai_automation_human_reviewer_gap: `پوشش انسانی گیت ${String(details?.missingGate ?? "مدیریتی")} کافی نیست.`,

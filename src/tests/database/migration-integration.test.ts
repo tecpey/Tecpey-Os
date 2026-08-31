@@ -297,6 +297,34 @@ describe("PostgreSQL migration authority", () => {
         // Reproduce the governed pre-contract database: application schema and
         // historical ledger exist, but runtime plan evidence does not.
         await applyDatabaseMigrations(upgradedClient);
+        const legacyBootstrap = await upgradedClient.query<{
+          state_table: string | null;
+          ledger_table: string | null;
+          state_rows: number;
+          tenant_can_read_state: boolean;
+          worker_can_read_state: boolean;
+        }>(
+          `SELECT to_regclass('public._migration_runtime_state')::text AS state_table,
+                  to_regclass('public._migration_runtime_ledger')::text AS ledger_table,
+                  (SELECT COUNT(*)::integer FROM _migration_runtime_state) AS state_rows,
+                  has_table_privilege(
+                    'tecpey_ai_tenant_runtime',
+                    'public._migration_runtime_state',
+                    'SELECT'
+                  ) AS tenant_can_read_state,
+                  has_table_privilege(
+                    'tecpey_ai_worker',
+                    'public._migration_runtime_state',
+                    'SELECT'
+                  ) AS worker_can_read_state`,
+        );
+        assert.deepEqual(legacyBootstrap.rows, [{
+          state_table: "_migration_runtime_state",
+          ledger_table: "_migration_runtime_ledger",
+          state_rows: 0,
+          tenant_can_read_state: true,
+          worker_can_read_state: true,
+        }]);
         for (const expectation of DATABASE_MIGRATION_EXPECTATIONS) {
           const historicalChecksum = expectation.identity === "0046_tenant_principal_isolation_foundation.sql"
             ? expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 64)

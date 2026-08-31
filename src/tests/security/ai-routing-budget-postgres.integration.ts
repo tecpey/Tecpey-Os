@@ -410,7 +410,7 @@ describe("AI monthly spend authority", () => {
           ),
         );
 
-        const wrongScope = await settleAiAgentSpend({
+        const foreignScope = await settleAiAgentSpend({
           tenantId: `${tenantId}-other`,
           workspaceId,
           agentId: "mentor_coach",
@@ -418,7 +418,22 @@ describe("AI monthly spend authority", () => {
           accountedCostUsdMicros: 40_000,
           egressAttemptId: firstAttemptId,
         });
-        assert.deepEqual(wrongScope, { ok: false, reason: "scope_mismatch" });
+        // FORCE RLS makes another tenant's row indistinguishable from a
+        // nonexistent reservation. Returning scope_mismatch here would leak
+        // cross-tenant row existence through the settlement API.
+        assert.deepEqual(foreignScope, { ok: false, reason: "not_found" });
+        const unchangedAfterForeignScope = await withClient((client) =>
+          client.query<{ status: string; settled_usd_micros: string | null }>(
+            `SELECT status, settled_usd_micros
+               FROM ai_spend_reservations
+              WHERE id = $1::uuid`,
+            [first.reservation.reservationId],
+          ),
+        );
+        assert.deepEqual(unchangedAfterForeignScope.rows, [{
+          status: "active",
+          settled_usd_micros: null,
+        }]);
 
         const settled = await settleAiAgentSpend({
           tenantId,

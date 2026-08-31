@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "df40404c64b4d3b8ba42c8e266b945bcb925f300",
-      "sha256": "494157fd1b0c5f4375dfea1281e4b209864b8e6258271cb6de931342fcc6bf94",
-      "lines": 249,
+      "gitObjectId": "13a238c7b773c2cee76ccc904719934220ee69f3",
+      "sha256": "755df25dad5070e3e850e2937e21e471d2b3ea7cd6417b6f21d9a3bf5105b6ad",
+      "lines": 254,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 249
+          "endLine": 254
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -121,7 +121,8 @@
         "2026-08-29: re-reviewed after adding the AI automation worker and internal executor to the server build, exposing their two operational entrypoints, and expanding test:ai-mentor-trust with the control-plane, provider secret/router/failover, routing-policy, route-candidate, automation and source-authority suites. The entrypoints preserve the existing isolated server runtime and governed database/provider boundaries; the test expansion is local or PostgreSQL-backed evidence, adds no dependency, engine or override, and does not authorize paid-provider spend, exchange execution, custody activation, merge, deploy or launch. The file now has 249 lines.",
         "2026-08-29: re-reviewed after adding Node's test-force-exit flag to the repository-wide test command. The flag is limited to the test runner, preserves the existing test glob, stubs and test environment, does not suppress assertion failures or change the 12-minute workflow bound, and prevents completed suites from hanging on residual test-only handles. It adds no dependency, engine, override, network authority, runtime mutation path or activation surface. The file remains 249 lines.",
         "2026-08-29: re-reviewed the complete 249-line package after expanding test:ai-mentor-trust with the AI routing-budget unit/PostgreSQL, automation-orchestration PostgreSQL, tenant-database-integrity and managed-AI launch-containment policy/source/PostgreSQL suites. This is test-only wiring under NODE_ENV=test and test-force-exit; it adds no dependency, engine, override, provider/network/spend/launch authority or production mutation path, preserves release composition, and keeps managed AI fail-closed pending tenant-isolation evidence.",
-        "2026-08-30: re-reviewed after wiring src/tests/security/ai-mentor-preference-egress-gate.test.ts into test:ai-mentor-trust. The added deterministic unit proof requires both an available database preference authority and an explicit external-provider opt-in, covers null, unavailable, disabled and enabled states, and adds no dependency, engine, override, network/provider/spend authority, runtime mutation path or activation surface. The package remains 249 lines and release composition remains unchanged."
+        "2026-08-30: re-reviewed after wiring src/tests/security/ai-mentor-preference-egress-gate.test.ts into test:ai-mentor-trust. The added deterministic unit proof requires both an available database preference authority and an explicit external-provider opt-in, covers null, unavailable, disabled and enabled states, and adds no dependency, engine, override, network/provider/spend authority, runtime mutation path or activation surface. The package remains 249 lines and release composition remains unchanged.",
+        "2026-08-30: re-reviewed the complete 254-line package after exposing disposable least-privilege AI role provisioning, protected runtime-evidence collect/verify/check commands and their policy tests, enforcing the static authority through ai:trust:check, and adding both the PostgreSQL adversarial suite and evidence-policy suite to test:ai-mentor-trust. Collection is CI- and protected-environment-only, binds the exact commit/tree and PostgreSQL 16 catalogs, and emits only redacted aggregate evidence; verification is offline and fail-closed. The wiring adds no dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface."
       ],
       "findings": [
         {

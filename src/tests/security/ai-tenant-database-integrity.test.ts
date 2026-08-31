@@ -4,6 +4,10 @@ import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { AI_CONTROL_PLANE_SQL } from "../../lib/db-migrate-ai-control-plane";
 import { AI_ROUTING_BUDGET_SQL } from "../../lib/db-migrate-ai-routing-budget";
+import {
+  AI_TENANT_RLS_SQL,
+  AI_TENANT_RLS_TABLES,
+} from "../../lib/db-migrate-ai-tenant-rls";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -52,7 +56,7 @@ after(async () => {
 });
 
 describe("AI tenant database integrity", () => {
-  it("declares scope-complete composite keys and no pseudo-RLS", () => {
+  it("keeps composite integrity independent from the later RLS authority", () => {
     assert.match(
       AI_CONTROL_PLANE_SQL,
       /UNIQUE \(tenant_id, workspace_id, id\)[\s\S]*FOREIGN KEY \(tenant_id, workspace_id, knowledge_item_id\)[\s\S]*REFERENCES ai_knowledge_items\(tenant_id, workspace_id, id\)/,
@@ -69,6 +73,50 @@ describe("AI tenant database integrity", () => {
     assert.doesNotMatch(
       `${AI_CONTROL_PLANE_SQL}\n${AI_ROUTING_BUDGET_SQL}`,
       /(?:ENABLE|FORCE) ROW LEVEL SECURITY|CREATE POLICY/,
+    );
+  });
+
+  it("declares signed FORCE RLS and least-privilege runtime roles", () => {
+    assert.equal(AI_TENANT_RLS_TABLES.length, 19);
+    for (const table of AI_TENANT_RLS_TABLES) {
+      assert.match(AI_TENANT_RLS_SQL, new RegExp(`'${table}'`));
+    }
+    assert.match(AI_TENANT_RLS_SQL, /FORCE ROW LEVEL SECURITY/);
+    assert.match(AI_TENANT_RLS_SQL, /tecpey_ai_authorized_context/);
+    assert.match(AI_TENANT_RLS_SQL, /tecpey_ai_context_authority_keys/);
+    assert.match(AI_TENANT_RLS_SQL, /txid_current\(\)::text/);
+    assert.match(AI_TENANT_RLS_SQL, /pg_backend_pid\(\)::text/);
+    assert.match(AI_TENANT_RLS_SQL, /NOBYPASSRLS/);
+    assert.match(
+      AI_TENANT_RLS_SQL,
+      /DO \$role_posture\$[\s\S]*IF managed_role\.rolcanlogin[\s\S]*ALTER ROLE %I NOLOGIN NOSUPERUSER/,
+    );
+    assert.doesNotMatch(
+      AI_TENANT_RLS_SQL,
+      /^ALTER ROLE tecpey_ai_(?:tenant_runtime|worker)/m,
+    );
+    assert.match(AI_TENANT_RLS_SQL, /tecpey-managed-role:ai-tenant-runtime:v1/);
+    assert.match(AI_TENANT_RLS_SQL, /runtime roles must not own SQL objects/);
+    assert.match(AI_TENANT_RLS_SQL, /public\.hmac\(bytea,bytea,text\) is not pgcrypto-owned/);
+    assert.match(AI_TENANT_RLS_SQL, /REVOKE CREATE ON SCHEMA public FROM PUBLIC/);
+    assert.match(AI_TENANT_RLS_SQL, /key material is immutable/);
+    assert.match(AI_TENANT_RLS_SQL, /key revocation is irreversible/);
+    assert.match(AI_TENANT_RLS_SQL, /key expiry cannot be extended/);
+    assert.match(
+      AI_TENANT_RLS_SQL,
+      /GRANT UPDATE \(last_enqueued_at, next_run_at\)[\s\S]*TO tecpey_ai_worker/,
+    );
+    assert.match(
+      AI_TENANT_RLS_SQL,
+      /GRANT SELECT \(run_id, review_kind, decision\)[\s\S]*ON TABLE ai_automation_reviews TO tecpey_ai_worker/,
+    );
+    assert.doesNotMatch(
+      AI_TENANT_RLS_SQL,
+      /GRANT SELECT, INSERT, UPDATE ON TABLE ai_automation_runs TO tecpey_ai_worker/,
+    );
+    assert.doesNotMatch(
+      AI_TENANT_RLS_SQL,
+      /GRANT SELECT ON TABLE ai_automation_reviews TO tecpey_ai_worker/,
     );
   });
 

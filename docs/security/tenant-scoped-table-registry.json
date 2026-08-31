@@ -532,9 +532,9 @@
       "domain": "ai-routing",
       "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Every routing decision event records tenant_id and workspace_id beside agent, provider, model, bounded cost and outcome evidence. The event identity and lookup indexes are tenant/workspace leading and UPDATE/DELETE are rejected, retaining independently attributable routing evidence per tenant.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#84",
-      "isolationNote": "Schema and append-only store paths are tenant scoped; add a direct PostgreSQL tenant A/B routing-decision event proof before promoting this entry."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_spend_reservations",
@@ -550,126 +550,126 @@
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "tenant_id + workspace_id + provider_id form the primary key and are foreign-key bound to platform_workspaces. Every read, advisory lock, update and runtime secret resolution uses that complete scope; encrypted credentials use the same scope as authenticated encryption AAD, so ciphertext cannot be moved between tenants, workspaces or providers.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Application and schema boundaries are implemented in the AI control-plane slice; promote to proven after the PostgreSQL tenant A/B store test lands."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_provider_config_events",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Every provider event copies the authorized tenant/workspace/provider scope inside the same transaction as the configuration change. The event stream is indexed by that full scope and rejects UPDATE and DELETE at the database layer.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Append-only and scope contracts are source-tested; a real PostgreSQL cross-tenant proof remains required."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_agent_bindings",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "tenant_id + workspace_id + agent_id form the primary key. The selected provider is a composite foreign key to a provider configuration in the same tenant/workspace, preventing an agent from binding to another tenant's credential; all runtime resolution filters on the complete scope.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Schema and runtime selection are scoped; a PostgreSQL tenant A/B negative test remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_agent_usage_daily",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Daily request and token reservations use tenant_id + workspace_id + agent_id + usage_date as the primary key and every atomic admission filters or conflicts on that complete scope. Concurrent workers can reserve only inside the authorized tenant/workspace counter, so activity in one white-label tenant cannot consume another tenant's agent allowance.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Atomic scoped admission is implemented; promote to proven with the AI control-plane PostgreSQL tenant A/B quota test."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_agent_binding_events",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Agent binding events copy tenant_id + workspace_id from the authorized mutation, are indexed by that scope and agent_id, and are append-only under database UPDATE/DELETE rejection triggers.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Source evidence covers scope and immutability; PostgreSQL cross-tenant evidence remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_knowledge_items",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Every governed knowledge item is tenant/workspace owned and foreign-key bound to platform_workspaces. Retrieval and review filter by both values; content-hash uniqueness is also scoped by tenant/workspace so one tenant cannot verify, reject or supersede another tenant's candidate.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Human-review and scope contracts are implemented; a PostgreSQL tenant A/B review test remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_knowledge_item_events",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Knowledge lifecycle evidence carries tenant_id + workspace_id and a knowledge_item_id selected under that same scope. UPDATE and DELETE are rejected, preserving independently attributable human promotion decisions per tenant.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Append-only lifecycle evidence is in place; database tenant A/B proof remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_workflow_run_evidence",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
       "isolationModel": "Each workflow evidence row carries the admitted tenant/workspace scope and only hashes, bounded source references and operational counters. The uniqueness boundary includes tenant_id + run_id + status and database triggers reject UPDATE/DELETE, so equal run identifiers cannot collapse evidence across tenants.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "The evidence schema is tenant safe by construction; a real cross-tenant workflow execution test remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_provider_quota_snapshots",
       "domain": "ai-automation",
       "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
       "isolationModel": "Every append-only provider quota observation carries tenant_id + workspace_id, is foreign-key bound to platform_workspaces and is queried as a scoped routing signal. Only hashes and bounded numeric quota fields are retained; UPDATE and DELETE are rejected by database triggers.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Schema and write paths are scoped; add a real PostgreSQL tenant A/B quota-history proof before promoting this entry."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_automation_policies",
       "domain": "ai-automation",
       "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
       "isolationModel": "tenant_id + workspace_id + workflow_id form the primary key and bind each activation, schedule and concurrency limit to one platform workspace. Admin reads and mutations use the authenticated tenant/workspace pair, while due-work selection joins runs and policy on the same full scope.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "The scoped key and store queries are implemented; database cross-tenant policy mutation evidence remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_automation_policy_events",
       "domain": "ai-automation",
       "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
       "isolationModel": "Policy events use a composite foreign key to the exact tenant/workspace/workflow policy, copy the authorized scope in the same transaction and reject UPDATE and DELETE, preserving independently attributable policy changes.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Append-only scope enforcement is present; add PostgreSQL tenant A/B evidence."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_automation_runs",
       "domain": "ai-automation",
       "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
       "isolationModel": "Every durable workflow run is foreign-key bound to platform_workspaces, idempotency is unique inside tenant + workspace, all admin operations filter by both scope values and worker selection joins the policy on the identical tenant/workspace/workflow tuple. Immutable policy snapshots and a database transition trigger prevent cross-scope or post-admission authority changes.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Scope, idempotency and transition guards are implemented; a real tenant A/B enqueue/review/execution test remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_automation_reviews",
       "domain": "ai-automation",
       "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
       "isolationModel": "Each review carries tenant_id + workspace_id and the validation trigger locks and resolves the referenced run under the same pair before admitting the reviewer. Human and AI identities are mutually exclusive, one reviewer can count once per run, and evidence is append-only.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Database scope validation and immutability are implemented; add adversarial PostgreSQL review tests."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
       "table": "ai_automation_run_events",
       "domain": "ai-automation",
       "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
       "isolationModel": "Run lifecycle evidence carries the run's tenant/workspace scope, is indexed by that scope and run id, accepts only secret-free bounded metadata, and rejects UPDATE and DELETE at the database layer.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Append-only lifecycle evidence is in place; a real cross-tenant event-stream proof remains pending."
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     }
   ]
 }

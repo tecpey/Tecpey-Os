@@ -308,6 +308,12 @@ async function recordFailure(client: PoolClient, runnerId: string, error: unknow
 
 export async function applyDatabaseMigrations(client: PoolClient): Promise<void> {
   validateMigrationRegistry();
+  // Registry migrations are also used by the legacy/unlocked upgrade path.
+  // The AI tenant RLS migration grants bounded read access to the runtime
+  // state table, so both runners must establish the control-table bootstrap
+  // before the registry starts. This creates no "current" evidence row; only
+  // applyDatabaseMigrationsWithLock records authoritative runtime evidence.
+  await ensureMigrationControlTable(client);
   const compatibleClient = runnerCompatibilityClient(client);
   for (const migration of DATABASE_MIGRATION_REGISTRY) await migration.run(compatibleClient);
 }

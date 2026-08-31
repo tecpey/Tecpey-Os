@@ -1,7 +1,7 @@
 # اتوماسیون و مسیریابی مدل در TecPey
 
-**نسخهٔ سیاست:** `2026-08-28.1`
-**مایگریشن:** `0092_ai_automation_orchestration.sql`
+**نسخهٔ سیاست:** `2026-08-30.2`
+**مایگریشن‌ها:** `0092_ai_automation_orchestration.sql` و `0096_ai_tenant_row_level_security.sql`
 
 ## مرز اختیار
 
@@ -65,16 +65,27 @@
 > نیست و هرگز نباید به `completed` تبدیل شود.
 >
 > علاوه بر readiness مستقل executor، gate سراسری
-> `ai_tenant_isolation_unresolved:shared_role_without_transaction_tenant_context`
+> `ai_tenant_isolation_unresolved:signed_rls_runtime_evidence_pending`
 > نیز hard-closed است. هیچ feature flag یا متغیر worker آن را باز نمی‌کند. worker
 > ابتدا recovery اجرا می‌کند و سپس بدون enqueue/claim در وضعیت `blocked` می‌خوابد؛
 > reject و finalize اجرای ازپیش leased برای پاک‌سازی/evidence همچنان بسته نمی‌شوند.
+> مسیر جمع‌آوری شاهد redacted و attested در محیط محافظت‌شدهٔ PostgreSQL 16 در
+> [AI tenant database integrity](./AI_TENANT_DATABASE_INTEGRITY.md#protected-postgresql-16-runtime-evidence)
+> تعریف شده است. موفقیت آن workflow شرط لازم است، اما به‌تنهایی این NO-GO را
+> حذف نمی‌کند؛ admission شواهد و provision محیط‌های staging/production باید در
+> یک commit مستقل و قابل ممیزی انجام شود.
 
 پس از مایگریشن و تنظیم Provider/Agentها در Command Center، worker جداگانه اجرا می‌شود:
 
 ```bash
+TECPEY_DATABASE_PROCESS_ROLE=ai_worker \
 AI_AUTOMATION_WORKER_ENABLED=true npm run ai:automation:worker
 ```
+
+process وب فقط `TECPEY_AI_TENANT_DATABASE_URL` و secret امضای context را دریافت
+می‌کند. process worker علاوه بر آن‌ها `TECPEY_AI_WORKER_DATABASE_URL` جداگانه
+دارد تا claim سراسری صف با نقش محدود انجام و ادامهٔ کار روی scope انتخاب‌شده با
+نقش tenant اجرا شود. هیچ‌کدام نباید credential مایگریشن را دریافت کنند.
 
 فرمان executor داخلی رزرو شده است، اما در controlled launch فعلی عمداً fail
 closed است و تا آماده‌شدن output authority شروع نمی‌شود:
@@ -86,21 +97,24 @@ AI_AUTOMATION_INTERNAL_EXECUTOR_ENABLED=true npm run ai:automation:internal-exec
 برای probe یک‌مرحله‌ای:
 
 ```bash
-AI_AUTOMATION_WORKER_ENABLED=true AI_AUTOMATION_RUN_ONCE=true npm run ai:automation:worker
+TECPEY_DATABASE_PROCESS_ROLE=ai_worker \
+AI_AUTOMATION_WORKER_ENABLED=true \
+AI_AUTOMATION_RUN_ONCE=true npm run ai:automation:worker
 ```
 
 متغیر `AI_AUTOMATION_POLL_MS` بین ۵۰۰ و ۳۰٬۰۰۰ میلی‌ثانیه محدود است. هیچ process بدون feature flag صریح شروع نمی‌شود. worker بازبینی prompt یا output خام را log نمی‌کند و executor داخلی فعلی هیچ run را claim یا تکمیل نمی‌کند. هر دامنه باید پیش از `launchReady` شدن، executor مستقل خود را با `claimApprovedAiAutomationExecution`، connector دقیق، idempotency اثر و evidence نهایی متصل کند.
 
 ## راه‌اندازی عملیاتی
 
-1. `npm run db:migrate` و تأیید schema readiness؛
-2. ثبت و تست کلید OpenRouter در `Command Center → AI Control Plane`؛
-3. ثبت مدل پولی، کف اعتبار و اجازهٔ free فقط روی ایجنت‌های public؛
-4. انتساب حداقل دو انسان مستقل برای workflowهای دارای Manager و C‑Level؛
-5. فعال‌کردن policyها از پنل با step-up؛
-6. اجرای worker و internal executor در process/containerهای جدا با restart policy و health monitoring؛
-7. اتصال executor هر اثر بیرونی پس از تست idempotency، rollback و audit؛
-8. پایش `ai_provider_quota_snapshots`، runهای `blocked/failed` و زمان انتظار گیت‌های انسانی.
+1. اجرای `npm run db:migrate` با principal مستقل مایگریشن و تأیید schema readiness؛
+2. provision نقش‌های login محدود، context key/version و اجرای تست واقعی tenant A/B بدون skip؛
+3. ثبت و تست کلید OpenRouter در `Command Center → AI Control Plane`؛
+4. ثبت مدل پولی، کف اعتبار و اجازهٔ free فقط روی ایجنت‌های public؛
+5. انتساب حداقل دو انسان مستقل برای workflowهای دارای Manager و C‑Level؛
+6. فعال‌کردن policyها از پنل با step-up؛
+7. اجرای worker و internal executor در process/containerهای جدا با restart policy و health monitoring؛
+8. اتصال executor هر اثر بیرونی پس از تست idempotency، rollback و audit؛
+9. پایش `ai_provider_quota_snapshots`، runهای `blocked/failed` و زمان انتظار گیت‌های انسانی.
 
 ## شواهد و نگه‌داری
 
@@ -117,4 +131,4 @@ npm run api:security:check
 npm run build
 ```
 
-تست‌های PostgreSQL فقط با `DATABASE_URL` آزمایشی اجرا می‌شوند و برای release واقعی نباید skip باقی بمانند.
+تست‌های PostgreSQL با دیتابیس آزمایشی و هر دو URL محدود AI اجرا می‌شوند و برای release واقعی نباید skip باقی بمانند.

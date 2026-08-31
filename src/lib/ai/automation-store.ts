@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import { writeAdminAuditEvent } from "@/lib/admin-control-plane";
-import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import {
   AI_AUTOMATION_POLICIES,
@@ -41,6 +39,11 @@ import {
   type AiSourceReference,
   type OpenRouterKeyStatus,
 } from "./provider-router";
+import { writeAiAdminAuditEvent } from "./admin-audit";
+import {
+  withAiTenantTransaction,
+  withAiWorkerTransaction,
+} from "./database-authority";
 
 export type AiAutomationPolicySnapshot = {
   workflowId: AiAutomationWorkflowId;
@@ -472,7 +475,7 @@ export async function loadAiAutomationSnapshot(input: {
   tenantId: string;
   workspaceId: string;
 }): Promise<AiAutomationSnapshot | null> {
-  const loaded = await withDb(async (client) => {
+  const loaded = await withAiTenantTransaction(input, async (client) => {
     const policies = await client.query<PolicyRow>(
         `SELECT workflow_id, enabled, interval_minutes, max_concurrency,
                 policy_version, revision, next_run_at, last_enqueued_at, updated_at
@@ -604,7 +607,7 @@ export async function updateAiAutomationPolicy(input: {
     }
   }
 
-  const transaction = await withTx(async (client) => {
+  const transaction = await withAiTenantTransaction(input.context, async (client) => {
     const existing = await client.query<PolicyRow>(
       `SELECT workflow_id, enabled, interval_minutes, max_concurrency,
               policy_version, revision, next_run_at, last_enqueued_at, updated_at
@@ -625,24 +628,18 @@ export async function updateAiAutomationPolicy(input: {
         total_human_count: string | number;
       }>(
         `SELECT
-           COUNT(DISTINCT user_role.admin_id) FILTER (
-             WHERE user_role.role_id = ANY($3::text[])
+           COUNT(DISTINCT scoped_role.admin_id) FILTER (
+             WHERE scoped_role.role_id = ANY($1::text[])
            ) AS manager_count,
-           COUNT(DISTINCT user_role.admin_id) FILTER (
-             WHERE user_role.role_id = ANY($4::text[])
+           COUNT(DISTINCT scoped_role.admin_id) FILTER (
+             WHERE scoped_role.role_id = ANY($2::text[])
            ) AS c_level_count,
-           COUNT(DISTINCT user_role.admin_id) FILTER (
-             WHERE user_role.role_id = ANY($3::text[] || $4::text[])
+           COUNT(DISTINCT scoped_role.admin_id) FILTER (
+             WHERE scoped_role.role_id = ANY($1::text[] || $2::text[])
            ) AS total_human_count
-         FROM admin_user_roles user_role
-         JOIN admin_users admin_user ON admin_user.id = user_role.admin_id
-         WHERE admin_user.tenant_id = $1
-           AND admin_user.workspace_id = $2
-           AND admin_user.status = 'active'
-           AND user_role.revoked_at IS NULL`,
+         FROM tecpey_ai_active_admin_roles scoped_role
+         WHERE scoped_role.role_id = ANY($1::text[] || $2::text[])`,
         [
-          input.context.tenantId,
-          input.context.workspaceId,
           [...definition.managerRoles],
           [...definition.cLevelRoles],
         ],
@@ -767,7 +764,7 @@ export async function updateAiAutomationPolicy(input: {
         input.context.actorAdminId,
       ],
     );
-    await writeAdminAuditEvent(client, {
+    await writeAiAdminAuditEvent(client, {
       actorAdminId: input.context.actorAdminId,
       sessionId: input.context.sessionId,
       effectiveRoles: input.context.effectiveRoles,
@@ -878,7 +875,7 @@ export async function enqueueAiAutomationRun(input: {
     requestedBy: input.requestedBy ?? null,
   });
 
-  const transaction = await withTx(async (client) => {
+  const transaction = await withAiTenantTransaction(input, async (client) => {
     const configured = await client.query<{
       enabled: boolean;
       policy_version: string;
@@ -904,25 +901,19 @@ export async function enqueueAiAutomationRun(input: {
         total_human_count: string | number;
       }>(
         `SELECT
-           COUNT(DISTINCT user_role.admin_id) FILTER (
-             WHERE user_role.role_id = ANY($3::text[])
+           COUNT(DISTINCT scoped_role.admin_id) FILTER (
+             WHERE scoped_role.role_id = ANY($1::text[])
            ) AS manager_count,
-           COUNT(DISTINCT user_role.admin_id) FILTER (
-             WHERE user_role.role_id = ANY($4::text[])
+           COUNT(DISTINCT scoped_role.admin_id) FILTER (
+             WHERE scoped_role.role_id = ANY($2::text[])
            ) AS c_level_count,
-           COUNT(DISTINCT user_role.admin_id) FILTER (
-             WHERE user_role.role_id = ANY($3::text[] || $4::text[])
+           COUNT(DISTINCT scoped_role.admin_id) FILTER (
+             WHERE scoped_role.role_id = ANY($1::text[] || $2::text[])
            ) AS total_human_count
-         FROM admin_user_roles user_role
-         JOIN admin_users admin_user ON admin_user.id = user_role.admin_id
-         WHERE admin_user.tenant_id = $1
-           AND admin_user.workspace_id = $2
-           AND admin_user.status = 'active'
-           AND admin_user.id <> $5::uuid
-           AND user_role.revoked_at IS NULL`,
+         FROM tecpey_ai_active_admin_roles scoped_role
+         WHERE scoped_role.admin_id <> $3::uuid
+           AND scoped_role.role_id = ANY($1::text[] || $2::text[])`,
         [
-          input.tenantId,
-          input.workspaceId,
           [...definition.managerRoles],
           [...definition.cLevelRoles],
           input.requestedBy,
@@ -1000,7 +991,7 @@ export async function enqueueAiAutomationRun(input: {
       },
     });
     if (input.context) {
-      await writeAdminAuditEvent(client, {
+      await writeAiAdminAuditEvent(client, {
         actorAdminId: input.context.actorAdminId,
         sessionId: input.context.sessionId,
         effectiveRoles: input.context.effectiveRoles,
@@ -1076,7 +1067,7 @@ export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
   );
   if (readyScheduledWorkflows.length === 0) return 0;
   const bounded = Math.min(50, Math.max(1, Math.trunc(limit)));
-  const transaction = await withTx(async (client) => {
+  const transaction = await withAiWorkerTransaction(async (client) => {
     const due = await client.query<
       PolicyRow & { tenant_id: string; workspace_id: string }
     >(
@@ -1122,45 +1113,45 @@ export async function enqueueDueAiAutomationRuns(limit = 10): Promise<number> {
         requestedBy: null,
       });
       const inserted = await client.query<{ id: string }>(
-          `INSERT INTO ai_automation_runs
-             (id, tenant_id, workspace_id, workflow_id, status, trigger_type,
+        `INSERT INTO ai_automation_runs
+             (id, tenant_id, workspace_id, workflow_id, trigger_type,
               data_class, criticality, resource_type, input_text, input_hash,
               command_hash, idempotency_key, policy_version, ai_reviewer_ids, ai_quorum,
               manager_role_ids, manager_quorum, c_level_role_ids, c_level_quorum,
               external_effect, free_fallback_allowed, max_attempts, expires_at)
            VALUES
-             ($1::uuid, $2, $3, $4, 'queued', 'scheduled', $5, $6, $7, $8, $9,
+             ($1::uuid, $2, $3, $4, 'scheduled', $5, $6, $7, $8, $9,
               $10, $11, $12, $13::text[], $14, $15::text[], $16, $17::text[], $18,
               $19, $20, $21, NOW() + make_interval(mins => $22))
            ON CONFLICT (tenant_id, workspace_id, idempotency_key) DO NOTHING
            RETURNING id`,
-          [
-            runId,
-            policyRow.tenant_id,
-            policyRow.workspace_id,
-            policyRow.workflow_id,
-            scheduled.dataClass,
-            definition.criticality,
-            scheduled.resourceType,
-            scheduled.inputText,
-            inputHash,
-            commandHash,
-            idempotencyKey,
-            AI_AUTOMATION_POLICY_VERSION,
-            [...definition.aiReviewers],
-            definition.aiQuorum,
-            [...definition.managerRoles],
-            definition.managerQuorum,
-            [...definition.cLevelRoles],
-            definition.cLevelQuorum,
-            definition.externalEffect,
-            definition.freeFallbackAllowed,
-            definition.maxAttempts,
-            definition.approvalTtlMinutes,
-          ],
+        [
+          runId,
+          policyRow.tenant_id,
+          policyRow.workspace_id,
+          policyRow.workflow_id,
+          scheduled.dataClass,
+          definition.criticality,
+          scheduled.resourceType,
+          scheduled.inputText,
+          inputHash,
+          commandHash,
+          idempotencyKey,
+          AI_AUTOMATION_POLICY_VERSION,
+          [...definition.aiReviewers],
+          definition.aiQuorum,
+          [...definition.managerRoles],
+          definition.managerQuorum,
+          [...definition.cLevelRoles],
+          definition.cLevelQuorum,
+          definition.externalEffect,
+          definition.freeFallbackAllowed,
+          definition.maxAttempts,
+          definition.approvalTtlMinutes,
+        ],
       );
       await client.query(
-          `UPDATE ai_automation_policies
+        `UPDATE ai_automation_policies
               SET last_enqueued_at = NOW(),
                   next_run_at = GREATEST(
                     next_run_at + make_interval(mins => interval_minutes),
@@ -1203,7 +1194,7 @@ export async function claimAiAutomationReviewRun(input: {
   const readyWorkflowIds = readyAiAutomationWorkflowIds();
   if (readyWorkflowIds.length === 0) return null;
   const leaseSeconds = Math.min(300, Math.max(30, Math.trunc(input.leaseSeconds ?? 120)));
-  const claimed = await withTx(async (client) => {
+  const claimed = await withAiWorkerTransaction(async (client) => {
     const selected = await client.query<RunRow>(
       `SELECT run.*
          FROM ai_automation_runs run
@@ -1301,13 +1292,14 @@ export async function claimAiAutomationReviewRun(input: {
   });
   if (!claimed.enabled || !claimed.value) return null;
 
-  const reviews = await withDb(async (client) =>
-    client.query<ReviewRow>(
+  const row = claimed.value;
+  const reviews = await withAiTenantTransaction(
+    { tenantId: row.tenant_id, workspaceId: row.workspace_id },
+    async (client) => client.query<ReviewRow>(
       `SELECT * FROM ai_automation_reviews WHERE run_id = $1::uuid ORDER BY created_at, id`,
-      [claimed.value?.id],
+      [row.id],
     ),
   );
-  const row = claimed.value;
   return {
     ...mapRun(row, reviews.enabled ? reviews.value.rows.map(mapReview) : []),
     tenantId: row.tenant_id,
@@ -1429,7 +1421,7 @@ export async function recordAiAutomationReview(input: {
   }
 
   try {
-    const transaction = await withTx(async (client) => {
+    const transaction = await withAiTenantTransaction(input, async (client) => {
       const selected = await client.query<RunRow>(
         `SELECT * FROM ai_automation_runs
           WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3
@@ -1529,7 +1521,7 @@ export async function recordAiAutomationReview(input: {
         },
       });
       if (input.context) {
-        await writeAdminAuditEvent(client, {
+        await writeAiAdminAuditEvent(client, {
           actorAdminId: input.context.actorAdminId,
           sessionId: input.context.sessionId,
           effectiveRoles: input.context.effectiveRoles,
@@ -1609,7 +1601,7 @@ export async function recordOpenRouterQuotaSnapshot(input: {
     .update(JSON.stringify(payload))
     .digest("hex");
   try {
-    const stored = await withDb(async (client) => {
+    const stored = await withAiTenantTransaction(input, async (client) => {
       await client.query(
         `INSERT INTO ai_provider_quota_snapshots
            (tenant_id, workspace_id, provider_id, status, limit_usd_micros,
@@ -1642,102 +1634,113 @@ export async function recoverExpiredAiAutomationRuns(input?: {
   tenantId: string;
   workspaceId: string;
 }): Promise<number> {
+  const recovered = input
+    ? await withAiTenantTransaction(input, async (client) => {
+        return recoverAiAutomationRunsWithClient(client, input);
+      })
+    : await withAiWorkerTransaction(async (client) => {
+        return recoverAiAutomationRunsWithClient(client);
+      });
+  return recovered.enabled ? recovered.value : 0;
+}
+
+async function recoverAiAutomationRunsWithClient(
+  client: PoolClient,
+  input?: { tenantId: string; workspaceId: string },
+): Promise<number> {
   const tenantId = input?.tenantId ?? null;
   const workspaceId = input?.workspaceId ?? null;
-  const recovered = await withTx(async (client) => {
-    const expired = await client.query<RunRow>(
-      `SELECT * FROM ai_automation_runs
+  const expired = await client.query<RunRow>(
+    `SELECT * FROM ai_automation_runs
         WHERE status IN ('queued', 'ai_review', 'manager_review', 'c_level_review', 'approved')
           AND expires_at <= NOW()
           AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
         FOR UPDATE SKIP LOCKED`,
-      [tenantId, workspaceId],
+    [tenantId, workspaceId],
+  );
+  let count = 0;
+  for (const run of expired.rows) {
+    await client.query(
+      `UPDATE ai_automation_runs
+          SET status = 'blocked', lease_owner = NULL, lease_expires_at = NULL,
+              failure_code = 'approval_expired'
+        WHERE id = $1::uuid`,
+      [run.id],
     );
-    let count = 0;
-    for (const run of expired.rows) {
-      await client.query(
-        `UPDATE ai_automation_runs
-            SET status = 'blocked', lease_owner = NULL, lease_expires_at = NULL,
-                failure_code = 'approval_expired'
-          WHERE id = $1::uuid`,
-        [run.id],
-      );
-      await insertRunEvent(client, {
-        tenantId: run.tenant_id,
-        workspaceId: run.workspace_id,
-        runId: run.id,
-        eventType: "blocked",
-        fromStatus: run.status,
-        toStatus: "blocked",
-        actorType: "system",
-        metadata: { reason: "approval_expired" },
-      });
-      count += 1;
-    }
-    const exhausted = await client.query<RunRow>(
-      `SELECT * FROM ai_automation_runs
-        WHERE status = 'ai_review'
-          AND attempt_count >= max_attempts
-          AND lease_expires_at <= NOW()
-          AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
-        FOR UPDATE SKIP LOCKED`,
-      [tenantId, workspaceId],
+    await insertRunEvent(client, {
+      tenantId: run.tenant_id,
+      workspaceId: run.workspace_id,
+      runId: run.id,
+      eventType: "blocked",
+      fromStatus: run.status,
+      toStatus: "blocked",
+      actorType: "system",
+      metadata: { reason: "approval_expired" },
+    });
+    count += 1;
+  }
+  const exhausted = await client.query<RunRow>(
+    `SELECT * FROM ai_automation_runs
+      WHERE status = 'ai_review'
+        AND attempt_count >= max_attempts
+        AND lease_expires_at <= NOW()
+        AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
+      FOR UPDATE SKIP LOCKED`,
+    [tenantId, workspaceId],
+  );
+  for (const run of exhausted.rows) {
+    await client.query(
+      `UPDATE ai_automation_runs
+          SET status = 'failed', lease_owner = NULL, lease_expires_at = NULL,
+              failure_code = 'review_attempts_exhausted'
+        WHERE id = $1::uuid`,
+      [run.id],
     );
-    for (const run of exhausted.rows) {
-      await client.query(
-        `UPDATE ai_automation_runs
-            SET status = 'failed', lease_owner = NULL, lease_expires_at = NULL,
-                failure_code = 'review_attempts_exhausted'
+    await insertRunEvent(client, {
+      tenantId: run.tenant_id,
+      workspaceId: run.workspace_id,
+      runId: run.id,
+      eventType: "failed",
+      fromStatus: run.status,
+      toStatus: "failed",
+      actorType: "system",
+      metadata: { reason: "review_attempts_exhausted" },
+    });
+    count += 1;
+  }
+  const abandonedExecutions = await client.query<RunRow>(
+    `SELECT * FROM ai_automation_runs
+      WHERE status = 'executing'
+        AND lease_expires_at <= NOW()
+        AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
+      FOR UPDATE SKIP LOCKED`,
+    [tenantId, workspaceId],
+  );
+  for (const run of abandonedExecutions.rows) {
+    await client.query(
+      `UPDATE ai_automation_runs
+          SET status = 'blocked', lease_owner = NULL, lease_expires_at = NULL,
+              failure_code = 'execution_reconciliation_required'
           WHERE id = $1::uuid`,
-        [run.id],
-      );
-      await insertRunEvent(client, {
-        tenantId: run.tenant_id,
-        workspaceId: run.workspace_id,
-        runId: run.id,
-        eventType: "failed",
-        fromStatus: run.status,
-        toStatus: "failed",
-        actorType: "system",
-        metadata: { reason: "review_attempts_exhausted" },
-      });
-      count += 1;
-    }
-    const abandonedExecutions = await client.query<RunRow>(
-      `SELECT * FROM ai_automation_runs
-        WHERE status = 'executing'
-          AND lease_expires_at <= NOW()
-          AND ($1::text IS NULL OR (tenant_id = $1 AND workspace_id = $2))
-        FOR UPDATE SKIP LOCKED`,
-      [tenantId, workspaceId],
+      [run.id],
     );
-    for (const run of abandonedExecutions.rows) {
-      await client.query(
-        `UPDATE ai_automation_runs
-            SET status = 'blocked', lease_owner = NULL, lease_expires_at = NULL,
-                failure_code = 'execution_reconciliation_required'
-          WHERE id = $1::uuid`,
-        [run.id],
-      );
-      await insertRunEvent(client, {
-        tenantId: run.tenant_id,
-        workspaceId: run.workspace_id,
-        runId: run.id,
-        eventType: "blocked",
-        fromStatus: "executing",
-        toStatus: "blocked",
-        actorType: "system",
-        metadata: {
-          reason: "execution_lease_expired",
-          reconciliation_required: true,
-          connector_id: run.execution_connector_id,
-        },
-      });
-      count += 1;
-    }
-    return count;
-  });
-  return recovered.enabled ? recovered.value : 0;
+    await insertRunEvent(client, {
+      tenantId: run.tenant_id,
+      workspaceId: run.workspace_id,
+      runId: run.id,
+      eventType: "blocked",
+      fromStatus: "executing",
+      toStatus: "blocked",
+      actorType: "system",
+      metadata: {
+        reason: "execution_lease_expired",
+        reconciliation_required: true,
+        connector_id: run.execution_connector_id,
+      },
+    });
+    count += 1;
+  }
+  return count;
 }
 
 export async function claimApprovedAiAutomationExecution(input: {
@@ -1765,7 +1768,7 @@ export async function claimApprovedAiAutomationExecution(input: {
     return null;
   }
   const leaseSeconds = Math.min(900, Math.max(30, Math.trunc(input.leaseSeconds ?? 300)));
-  const claimed = await withTx(async (client) => {
+  const claimed = await withAiTenantTransaction(input, async (client) => {
     await client.query(AI_AUTOMATION_EXECUTION_POLICY_LOCK_SQL, [
       `ai-automation-execution:${input.tenantId}:${input.workspaceId}:${input.expectedWorkflowId}`,
     ]);
@@ -1853,7 +1856,7 @@ export async function finalizeAiAutomationExecution(input: {
   })) {
     return false;
   }
-  const transaction = await withTx(async (client) => {
+  const transaction = await withAiTenantTransaction(input, async (client) => {
     const run = await client.query<RunRow>(
       `SELECT * FROM ai_automation_runs
         WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3

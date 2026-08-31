@@ -94,6 +94,7 @@ case "$EVIDENCE_DIR" in
 esac
 rm -f \
   "$EVIDENCE_DIR/source-migration.log" \
+  "$EVIDENCE_DIR/restore-authority-bootstrap.log" \
   "$EVIDENCE_DIR/restored-migration.log" \
   "$EVIDENCE_DIR/postgres.dump" \
   "$EVIDENCE_DIR/redis.rdb" \
@@ -159,6 +160,11 @@ docker run -d \
   --volume "$PG_RESTORE:/var/lib/postgresql/data" \
   "$POSTGRES_IMAGE" >/dev/null
 wait_for postgres_restore docker exec "$PREFIX-pg-restored" psql -h 127.0.0.1 -U tecpey -d tecpey -Atc 'SELECT 1'
+# Database dumps contain ACLs but PostgreSQL roles are cluster-global and are
+# intentionally absent from pg_dump output. Bootstrap the governed migration
+# authorities in the fresh cluster before replaying those ACLs; the subsequent
+# clean restore replaces the bootstrap schema while preserving the roles.
+run_migrations "$PREFIX-pg-restored" "$EVIDENCE_DIR/restore-authority-bootstrap.log"
 docker cp "$EVIDENCE_DIR/postgres.dump" "$PREFIX-pg-restored:/tmp/tecpey.dump"
 docker exec "$PREFIX-pg-restored" pg_restore \
   -h 127.0.0.1 -U tecpey -d tecpey --clean --if-exists /tmp/tecpey.dump

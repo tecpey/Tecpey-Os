@@ -70,6 +70,9 @@ jobs:
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
       TECPEY_TRUSTED_PROXY_HOPS: "1"
       DATABASE_URL: postgresql://e2e:e2e@127.0.0.1:5432/e2e
+      TECPEY_AI_TENANT_DATABASE_URL: postgresql://tecpey_ai_tenant_ci:e2e-ai-tenant-runtime-credential@127.0.0.1:5432/e2e
+      TECPEY_AI_CONTEXT_HMAC_KEY_B64: CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws=
+      TECPEY_AI_CONTEXT_HMAC_KEY_VERSION: "1"
       REDIS_URL: redis://127.0.0.1:6379
       UPSTASH_REDIS_REST_URL: http://127.0.0.1:3199
       UPSTASH_REDIS_REST_TOKEN: deterministic-browser-qa-redis-rest-token
@@ -130,6 +133,12 @@ jobs:
 
       - name: Apply canonical migrations
         run: npm run db:migrate
+
+      - name: Provision least-privilege AI tenant fixture
+        env:
+          CI: "true"
+          NODE_ENV: test
+        run: npm run ai:database:ci-roles
 
       - name: Build exact production application
         env:

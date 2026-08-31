@@ -1,6 +1,5 @@
 import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
-import { processAiAutomationIteration } from "../src/lib/ai/automation-worker";
 
 function boundedIntegerEnv(
   name: string,
@@ -20,6 +19,15 @@ function boundedIntegerEnv(
 
 if (process.env.AI_AUTOMATION_WORKER_ENABLED !== "true") {
   throw new Error("ai_automation_worker_disabled");
+}
+if (
+  process.env.TECPEY_DATABASE_PROCESS_ROLE &&
+  process.env.TECPEY_DATABASE_PROCESS_ROLE !== "ai_worker"
+) {
+  throw new Error("ai_automation_worker_process_role_conflict");
+}
+if (!Reflect.set(process.env, "TECPEY_DATABASE_PROCESS_ROLE", "ai_worker")) {
+  throw new Error("ai_automation_worker_process_role_unavailable");
 }
 
 const workerId = `ai-automation:${hostname()}:${process.pid}:${randomUUID()}`;
@@ -41,6 +49,9 @@ process.once("SIGINT", () => stop("SIGINT"));
 process.once("SIGTERM", () => stop("SIGTERM"));
 
 async function run(): Promise<void> {
+  const { processAiAutomationIteration } = await import(
+    "../src/lib/ai/automation-worker"
+  );
   console.log("[ai-automation-worker] started", { workerId, pollMs, runOnce });
   do {
     try {

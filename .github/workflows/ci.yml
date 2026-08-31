@@ -101,6 +101,9 @@ jobs:
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
       TECPEY_TRUSTED_PROXY_HOPS: '1'
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_AI_TENANT_DATABASE_URL: postgresql://tecpey_ai_tenant_ci:ci-ai-tenant-runtime-credential@localhost:5432/ci_placeholder
+      TECPEY_AI_CONTEXT_HMAC_KEY_B64: CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws=
+      TECPEY_AI_CONTEXT_HMAC_KEY_VERSION: '1'
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
       REDIS_URL: redis://localhost:6379
@@ -149,8 +152,24 @@ jobs:
       - name: Clean database migrations
         run: npm run db:migrate
 
+      - name: Provision least-privilege AI database fixtures
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          TECPEY_AI_WORKER_DATABASE_URL: postgresql://tecpey_ai_worker_ci:ci-ai-worker-runtime-credential@localhost:5432/ci_placeholder
+        run: npm run ai:database:ci-roles
+
       - name: Database migration idempotency
         run: npm run db:migrate
+
+      - name: AI tenant FORCE RLS authority
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          TECPEY_AI_WORKER_DATABASE_URL: postgresql://tecpey_ai_worker_ci:ci-ai-worker-runtime-credential@localhost:5432/ci_placeholder
+        run: >-
+          node --import tsx --test --test-force-exit
+          src/tests/security/ai-tenant-rls-postgres.test.ts
 
       - name: TypeScript
         run: |
@@ -261,6 +280,8 @@ jobs:
           retention-days: 7
 
       - name: AI Mentor red-team gate
+        env:
+          TECPEY_AI_WORKER_DATABASE_URL: postgresql://tecpey_ai_worker_ci:ci-ai-worker-runtime-credential@localhost:5432/ci_placeholder
         run: |
           set -o pipefail
           npm run ai:redteam:check 2>&1 | tee /tmp/tecpey-ai-mentor-redteam-tests.log
@@ -544,6 +565,8 @@ jobs:
         run: npm run security:markers:check
 
       - name: Tests
+        env:
+          TECPEY_AI_WORKER_DATABASE_URL: postgresql://tecpey_ai_worker_ci:ci-ai-worker-runtime-credential@localhost:5432/ci_placeholder
         run: |
           set -o pipefail
           npm test 2>&1 | tee /tmp/tecpey-test-diagnostics.log
