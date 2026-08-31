@@ -117,6 +117,39 @@ postgresTest("the same submission twice is one row, not two", async () => {
   assert.equal(twice.result.created, false, "the replay was recorded as a new message");
 });
 
+postgresTest("a replay after retention deletion is not acknowledged as delivered", async () => {
+  const shared = command({
+    tenantId: `tenant-expired-replay-${Date.now()}`,
+    message: "This message will be privacy-deleted before its delayed replay.",
+  });
+  const stored = await ingestSupportMessage(shared);
+  assert.equal(stored.status, "committed");
+  if (stored.status !== "committed") return;
+
+  await rows(
+    `UPDATE support_messages
+        SET retain_until = NOW() - INTERVAL '1 second'
+      WHERE id = $1::uuid`,
+    [stored.result.id],
+  );
+  const swept = await deleteExpiredSupportMessagePii(1_000);
+  assert.equal(swept.status, "swept");
+
+  const state = await rows<{ status: string; pii_ciphertext: string }>(
+    "SELECT status, pii_ciphertext FROM support_messages WHERE id = $1::uuid",
+    [stored.result.id],
+  );
+  assert.equal(state[0]?.status, "deleted");
+  assert.equal(state[0]?.pii_ciphertext, "");
+
+  const replay = await ingestSupportMessage(shared);
+  assert.equal(
+    replay.status,
+    "expired",
+    "retention-deleted content was falsely acknowledged as delivered",
+  );
+});
+
 postgresTest("email-only senders do not collide with each other", async () => {
   // crm_leads derives its contact hash from the phone, so every email-only
   // sender would share one. Here the hash follows whichever detail was given.

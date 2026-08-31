@@ -93,11 +93,21 @@ requireText("route", "rateLimit", "the intake must be rate limited");
 requireText("route", "readBoundedJsonRequest", "the request body must be bounded");
 requireText("input", "privacy_consent_required", "consent must be mandatory");
 requireText("input", "invalid_message", "an empty message must be refused, not stored blank");
-requireText(
-  "input",
+for (const marker of [
+  "name_too_long",
+  "contact_too_long",
+  "subject_too_long",
   "message_too_long",
-  "an oversized message must be rejected rather than silently truncated",
-);
+  "source_too_long",
+  "idempotency_key_invalid",
+  "privacy_notice_invalid",
+]) {
+  requireText(
+    "input",
+    marker,
+    `oversized scalar input must be rejected explicitly: ${marker}`,
+  );
+}
 
 // 4. What is stored is encrypted, scoped and finite.
 requireText("authority", "encryptLeadPii", "personal data must be encrypted at rest");
@@ -183,6 +193,16 @@ requireText(
   "route",
   "idempotency_conflict",
   "the conflict must reach the caller rather than resolving as success",
+);
+requirePattern(
+  "authority",
+  /status !== "active"/,
+  "a replay after retention deletion must not be acknowledged as delivered",
+);
+requireText(
+  "route",
+  "support_message_expired",
+  "the expired replay result must reach the caller rather than resolving as success",
 );
 
 // 7. The retention promise in the consent text has a process behind it.

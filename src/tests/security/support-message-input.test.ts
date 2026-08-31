@@ -104,11 +104,30 @@ test("an oversized message is rejected rather than silently truncated", () => {
   if (!parsed.ok) assert.equal(parsed.error, "message_too_long");
 });
 
-test("other oversized scalar input remains safely bounded", () => {
-  const parsed = parse({ subject: "س".repeat(500) });
-  assert.equal(parsed.ok, true);
-  if (!parsed.ok) return;
-  assert.ok(parsed.command.subject.length <= 160);
+test("oversized scalar fields are rejected rather than silently truncated", () => {
+  for (const [overrides, error] of [
+    [{ name: "ن".repeat(121) }, "name_too_long"],
+    [{ contact: "a".repeat(161) }, "contact_too_long"],
+    [{ subject: "س".repeat(161) }, "subject_too_long"],
+    [{ source: "s".repeat(121) }, "source_too_long"],
+    [{ privacyNoticeVersion: "v".repeat(81) }, "privacy_notice_invalid"],
+  ] as const) {
+    const parsed = parse(overrides);
+    assert.equal(parsed.ok, false);
+    if (!parsed.ok) assert.equal(parsed.error, error);
+  }
+
+  const idempotency = parseSupportMessageCommand({
+    body: BASE,
+    tenantId: "tenant-a",
+    defaultSource: "contact-us",
+    idempotencyHeader: "x".repeat(161),
+    networkFingerprint: null,
+  });
+  assert.equal(idempotency.ok, false);
+  if (!idempotency.ok) {
+    assert.equal(idempotency.error, "idempotency_key_invalid");
+  }
 });
 
 test("the locale is constrained to the two the platform serves", () => {

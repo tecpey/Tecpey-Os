@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       // Storage being unavailable must never read to the sender as "sent" —
       // that is the SB-013 failure in a different place.
       if (result.status === "unavailable") return apiError("support_storage_unavailable", 503);
+      // A retention-deleted message no longer exists in the support queue.
+      // A delayed replay must not be acknowledged as if support received it.
+      if (result.status === "expired") return apiError("support_message_expired", 410);
       // The same idempotency key carrying a different message. Answering 200
       // would report the edited message as sent while storing the older one.
       if (result.status === "conflict") return apiError("idempotency_conflict", 409);

@@ -27,6 +27,10 @@ type Status =
 /** Server error codes turned into something a person can act on. */
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_name: "لطفاً نام خود را کامل وارد کنید.",
+  name_too_long: "نام واردشده بیش از حد طولانی است.",
+  contact_too_long: "ایمیل یا شماره تماس بیش از حد طولانی است.",
+  subject_too_long: "موضوع پیام بیش از حد طولانی است.",
+  message_too_long: "متن پیام بیش از حد طولانی است.",
   invalid_email: "ایمیل واردشده معتبر نیست.",
   invalid_phone: "شماره تماس واردشده معتبر نیست.",
   contact_required: "برای پاسخ دادن به شما، ایمیل یا شماره تماس لازم است.",
@@ -39,6 +43,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   payload_too_large: "متن پیام بیش از حد طولانی است.",
   idempotency_conflict:
     "پیام قبلی با همین شناسه ثبت شده بود. صفحه را تازه کنید و پیام جدید را دوباره بفرستید.",
+  support_message_expired:
+    "نسخه قدیمی این پیام دیگر نگهداری نمی‌شود. پیام را دوباره ارسال کنید.",
 };
 
 export function SupportMessageForm() {
@@ -83,6 +89,8 @@ export function SupportMessageForm() {
 
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       const code = response.status === 429 ? "rate_limited" : body.error ?? "";
+      // A tab left open beyond retention needs a fresh key before retrying.
+      if (code === "support_message_expired") setSubmissionId(crypto.randomUUID());
       setStatus({
         kind: "error",
         message:

@@ -35,12 +35,11 @@ export type SupportMessageCommand = {
   networkFingerprint: string | null;
 };
 
-function clean(value: unknown, max: number): string {
+function clean(value: unknown): string {
   return String(value ?? "")
     .replace(/[\u0000-\u001F\u007F]/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, max);
+    .trim();
 }
 
 /** The message body keeps its line breaks; only control characters are stripped. */
@@ -66,20 +65,25 @@ export function parseSupportMessageCommand(input: {
       ? (input.body as Record<string, unknown>)
       : {};
 
-  const name = clean(raw.name, MAX_NAME_LENGTH);
-  const contact = clean(raw.contact ?? raw.email ?? raw.phone, MAX_CONTACT_LENGTH);
-  const subject = clean(raw.subject, MAX_SUBJECT_LENGTH);
+  const name = clean(raw.name);
+  const contact = clean(raw.contact ?? raw.email ?? raw.phone);
+  const subject = clean(raw.subject);
   const message = cleanMultiline(raw.message ?? raw.note);
-  const locale = clean(raw.locale, 8) === "en" ? "en" : "fa";
-  const source = clean(raw.source, MAX_SOURCE_LENGTH) || input.defaultSource;
+  const locale = clean(raw.locale) === "en" ? "en" : "fa";
+  const source = clean(raw.source) || clean(input.defaultSource);
   const idempotencyKey = clean(
     input.idempotencyHeader || raw.submissionId || raw.idempotencyKey,
-    MAX_IDEMPOTENCY_LENGTH,
   );
-  const privacyNoticeVersion = clean(raw.privacyNoticeVersion, MAX_PRIVACY_NOTICE_LENGTH);
+  const privacyNoticeVersion = clean(raw.privacyNoticeVersion);
   const consent = raw.consent === true;
 
+  // Normalization removes unsafe controls and redundant whitespace, but never
+  // removes meaningful content to make an invalid request appear valid.
+  if (name.length > MAX_NAME_LENGTH) return { ok: false, error: "name_too_long" };
   if (name.length < 2) return { ok: false, error: "invalid_name" };
+  if (contact.length > MAX_CONTACT_LENGTH) {
+    return { ok: false, error: "contact_too_long" };
+  }
 
   // One field, two possible kinds of value. Whichever it is has to be valid —
   // storing an unusable contact detail would leave a message nobody can answer.
@@ -90,6 +94,9 @@ export function parseSupportMessageCommand(input: {
   if (phone && !PHONE_PATTERN.test(phone)) return { ok: false, error: "invalid_phone" };
   if (!email && !phone) return { ok: false, error: "contact_required" };
 
+  if (subject.length > MAX_SUBJECT_LENGTH) {
+    return { ok: false, error: "subject_too_long" };
+  }
   if (subject.length < 2) return { ok: false, error: "invalid_subject" };
   // The whole point of SB-013 is that a typed message must not be discarded, so
   // an empty one is refused here rather than stored as a blank row.
@@ -99,8 +106,17 @@ export function parseSupportMessageCommand(input: {
     return { ok: false, error: "message_too_long" };
   }
 
+  if (source.length > MAX_SOURCE_LENGTH) {
+    return { ok: false, error: "source_too_long" };
+  }
+  if (idempotencyKey.length > MAX_IDEMPOTENCY_LENGTH) {
+    return { ok: false, error: "idempotency_key_invalid" };
+  }
   if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
     return { ok: false, error: "idempotency_key_required" };
+  }
+  if (privacyNoticeVersion.length > MAX_PRIVACY_NOTICE_LENGTH) {
+    return { ok: false, error: "privacy_notice_invalid" };
   }
   if (!consent || !privacyNoticeVersion) {
     return { ok: false, error: "privacy_consent_required" };

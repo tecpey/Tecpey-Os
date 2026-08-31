@@ -79,6 +79,7 @@ export async function ingestSupportMessage(
 ): Promise<
   | { status: "committed"; result: SupportMessageResult }
   | { status: "conflict" }
+  | { status: "expired" }
   | { status: "unavailable" }
 > {
   const requestHash = hashSupportMessageCommand(command);
@@ -98,14 +99,23 @@ export async function ingestSupportMessage(
         `support-message:${command.tenantId}:${command.idempotencyKey}`,
       ]);
 
-      const existing = await client.query<{ id: string; request_hash: string }>(
-        `SELECT id, request_hash
+      const existing = await client.query<{
+        id: string;
+        request_hash: string;
+        status: string;
+      }>(
+        `SELECT id, request_hash, status
            FROM support_messages
           WHERE tenant_id = $1 AND idempotency_key = $2
           FOR SHARE`,
         [command.tenantId, command.idempotencyKey],
       );
       if (existing.rows[0]) {
+        // Retention deliberately destroyed the message body. A replay must not
+        // report that deleted content as newly delivered to support.
+        if (existing.rows[0].status !== "active") {
+          return { status: "expired" as const };
+        }
         // Same key, different message: the caller edited something and reused
         // the key. Returning the stored row would report the edit as sent.
         if (existing.rows[0].request_hash !== requestHash) {
