@@ -168,8 +168,17 @@ describe("Living Mentor Rive runtime adapter", () => {
     assert.equal(stale.bindings["speech.viseme"], "vowel_open");
     assert.equal(stale.bindings["speech.jawOpen"], 0.7);
 
+    snapshot.viewModel.speech.state = "ended";
+    snapshot.viewModel.speech.utteranceId = "utterance_001";
+    const ended = projectLivingMentorRiveFrame(snapshot, stale.nextState, {
+      nowMs: beforeExampleExpiry,
+    });
+    assert.equal(ended.droppedStaleSpeechFrame, false);
+    assert.equal(ended.nextState.activeUtteranceId, null);
+
     snapshot.viewModel.speech.state = "queued";
-    const nextQueued = projectLivingMentorRiveFrame(snapshot, stale.nextState, {
+    snapshot.viewModel.speech.utteranceId = "utterance_late";
+    const nextQueued = projectLivingMentorRiveFrame(snapshot, ended.nextState, {
       nowMs: beforeExampleExpiry,
     });
     snapshot.viewModel.speech.state = "speaking";
