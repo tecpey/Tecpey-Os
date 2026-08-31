@@ -282,8 +282,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "3de7f87d44308f86164e66c32b1035348a7b6585",
-      "sha256": "1db0e0aa0b94dcfeeab02169c5fa2f6721087a6e355a50a37c3e704282c3cfde",
+      "gitObjectId": "811dcfa5267e0f8bfd01549b061faea2e3421054",
+      "sha256": "83e9fe32f45cf817f678618ce769832e2d985fa5fa1f92124b2492b9f0c4125f",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -307,7 +307,8 @@
         "2026-08-24: re-reviewed after Policy v19 explicitly classified src/lib/fetch-error-classification.ts as authentication-admin-security Batch 3 beside api-error.ts and api-validation.ts. The pure classifier translates bounded browser and Node/undici transport failures into existing ApiError categories, adds no network call, credential access, persistence, mutation or activation surface, preserves source-path fail-closed behavior and rule ordering, and has a focused classification assertion in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v20 explicitly classified src/lib/production-next-runtime-config.ts as operations-runtime Batch 11. The helper reads only the exact build-serialized Next.js config, validates its immutable 40-character release identity and installs it before the custom production server creates the application; it adds no network, persistence or capability activation surface. Source-path fail-closed behavior and rule ordering remain unchanged, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both.",
-        "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow."
+        "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow.",
+        "2026-08-31: re-reviewed after extending the existing mentor-ai classifier with the explicit living-mentor prefix. The change classifies the new Living Mentor presentation and Rive adapter source under the existing P2 Mentor AI batch; it does not broaden unrelated src/lib coverage, weaken fail-closed classification, change provenance, or alter audit workflow authority."
       ],
       "findings": []
     },
