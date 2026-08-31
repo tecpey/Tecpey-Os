@@ -23,14 +23,22 @@ describe("Academy Mastery Season activation boundary", () => {
     assert.match(route, /maxBytes: 2_048/);
     assert.match(route, /req\.headers\.get\("Idempotency-Key"\)/);
     assert.match(route, /withTx\(async \(client\) =>/);
-    assert.match(route, /pg_advisory_xact_lock/);
+    assert.match(route, /academy_mastery_activation_command/);
+    assert.match(route, /academy_mastery_season_activation/);
     assert.match(route, /activateAcademyMasterySeason\(\{/);
     assert.match(route, /tenantContext\.principalId/);
     assert.match(route, /mastery_core_terms_incomplete/);
+    assert.match(route, /mastery_ranking_consent_required/);
+    assert.match(route, /mastery_idempotency_key_conflict/);
     assert.match(route, /noStore\(apiOk\(/);
     assert.match(authority, /COUNT\(DISTINCT term_number\)/);
     assert.match(authority, /term_number BETWEEN 1 AND 7/);
     assert.match(authority, /passedCoreTerms !== 7/);
+    assert.match(authority, /recommendation\.season\.kind === "cohort-league" && !state\.rankingConsent/);
+    assert.match(authority, /e\.idempotency_key = \$5/);
+    assert.match(authority, /assignmentFromSnapshot\(row\.replay_assignment\)/);
+    assert.match(authority, /mastery_idempotency_key_conflict/);
+    assert.match(authority, /result: \{\s*assignment,/s);
   });
 
   it("keeps activation identity ephemeral and server-backed in the client", async () => {
@@ -41,6 +49,8 @@ describe("Academy Mastery Season activation boundary", () => {
     assert.match(client, /method: "POST"/);
     assert.match(client, /setLoadState\(\{ status: "ready", state: payload\.state \}\)/);
     assert.doesNotMatch(client, /localStorage|sessionStorage|indexedDB/);
+    assert.match(client, /recommendation\.season\.kind !== "cohort-league" \|\| loadState\.state\.rankingConsent/);
+    assert.match(client, /mastery_ranking_consent_required/);
     assert.match(client, /aria-live="polite"/);
     assert.match(client, /focus-visible:ring-2/);
     assert.match(client, /motion-reduce:animate-none/);

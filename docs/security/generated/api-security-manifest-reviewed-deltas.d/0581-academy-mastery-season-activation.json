@@ -9,12 +9,12 @@
       "method": "POST",
       "issue": "#581",
       "owner": "academy-platform",
-      "reason": "Adds the dedicated post-core Mastery Season activation command with strict session revocation, verified tenant/student authority, Academy entitlement, exact bounded input, durable idempotency, transaction serialization and private no-store responses while preserving the separately governed read-only route.",
+      "reason": "Adds the dedicated post-core Mastery Season activation command with strict session revocation, verified tenant/student authority, Academy entitlement, exact bounded input, principal-scoped idempotency replay, transaction serialization, server-side ranking-consent enforcement and private no-store responses while preserving the separately governed read-only route.",
       "replacement": {
         "route": "/api/academy-mastery-seasons/activate",
         "method": "POST",
         "sourcePath": "src/app/api/academy-mastery-seasons/activate/route.ts",
-        "sourceHash": "088d8dda6b3e58ac8e67d270",
+        "sourceHash": "d43be816b013730eea31918a",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -48,6 +48,7 @@
         "domainOwner": "academy-mastery-seasons",
         "testReferences": [
           "src/tests/security/academy-mastery-season-activation-route.test.ts",
+          "src/tests/security/academy-mastery-season-activation-command-postgres.test.ts",
           "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
           "src/tests/security/tenant-scoped-route-guards.test.ts"
         ],

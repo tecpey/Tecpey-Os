@@ -74,6 +74,10 @@ export function AcademyMasterySeasonsClientStatus({ locale = "fa" }: { locale?: 
           setActionMessage(isFa
             ? "فعال‌سازی ترم رشد بی‌نهایت فقط پس از ثبت قبولی هر ۷ ترم اصلی ممکن است."
             : "Infinite Growth activates only after all 7 core terms are recorded as passed.");
+        } else if (payload.error === "mastery_ranking_consent_required") {
+          setActionMessage(isFa
+            ? "برای ورود به لیگ یادگیری، ابتدا رضایت نمایش رتبه را در پروفایل فعال کنید."
+            : "Enable ranking visibility consent in your profile before joining the learning league.");
         } else {
           setActionMessage(isFa
             ? "فعال‌سازی انجام نشد. وضعیت حساب و اتصال را بررسی و دوباره تلاش کنید."
@@ -131,10 +135,11 @@ export function AcademyMasterySeasonsClientStatus({ locale = "fa" }: { locale?: 
             {loadState.state.recommendations.slice(0, 3).map((recommendation) => {
               const status = recommendation.assignment?.status ?? null;
               const coreReady = loadState.state.completedTerms === 7;
+              const consentReady = recommendation.season.kind !== "cohort-league" || loadState.state.rankingConsent;
               const active = status === "active";
               const completed = status === "completed";
               const busy = activatingSeason === recommendation.season.id;
-              const disabled = !coreReady || !recommendation.eligible || active || completed || Boolean(activatingSeason);
+              const disabled = !coreReady || !consentReady || !recommendation.eligible || active || completed || Boolean(activatingSeason);
               return (
                 <section
                   key={recommendation.season.id}
@@ -165,7 +170,9 @@ export function AcademyMasterySeasonsClientStatus({ locale = "fa" }: { locale?: 
                             ? (isFa ? "فعال" : "Active")
                             : !coreReady
                               ? (isFa ? "پس از تکمیل ۷ ترم" : "After all 7 terms")
-                              : (isFa ? "شروع Season" : "Start season")}
+                              : !consentReady
+                                ? (isFa ? "ابتدا رضایت نمایش رتبه" : "Enable ranking consent")
+                                : (isFa ? "شروع Season" : "Start season")}
                     </button>
                   </div>
                 </section>

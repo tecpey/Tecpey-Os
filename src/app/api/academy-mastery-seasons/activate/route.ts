@@ -83,12 +83,20 @@ export async function POST(req: NextRequest) {
 
     try {
       const result = await withTx(async (client) => {
+        const principalScope = `${tenantContext.tenantId}:${tenantContext.workspaceId}:${tenantContext.principalId}:${locale}`;
+        await client.query(
+          `SELECT pg_advisory_xact_lock(
+             hashtext('academy_mastery_activation_command'),
+             hashtext($1)
+           )`,
+          [`${principalScope}:${idempotencyKey}`],
+        );
         await client.query(
           `SELECT pg_advisory_xact_lock(
              hashtext('academy_mastery_season_activation'),
              hashtext($1)
            )`,
-          [`${tenantContext.tenantId}:${tenantContext.workspaceId}:${tenantContext.principalId}:${locale}:${seasonId}`],
+          [`${principalScope}:${seasonId}`],
         );
         return activateAcademyMasterySeason({
           client,
@@ -111,7 +119,15 @@ export async function POST(req: NextRequest) {
       if (code === "mastery_season_unknown") {
         return noStore(apiError("mastery_season_not_found", 404));
       }
-      if (code === "mastery_core_terms_incomplete" || code === "mastery_season_not_eligible") {
+      if (code === "mastery_idempotency_key_required") {
+        return noStore(apiError("idempotency_key_required", 400));
+      }
+      if (
+        code === "mastery_core_terms_incomplete" ||
+        code === "mastery_season_not_eligible" ||
+        code === "mastery_ranking_consent_required" ||
+        code === "mastery_idempotency_key_conflict"
+      ) {
         return noStore(apiError(code, 409));
       }
       return noStore(apiError("mastery_seasons_unavailable", 503));

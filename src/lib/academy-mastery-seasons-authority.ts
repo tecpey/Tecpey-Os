@@ -43,6 +43,13 @@ export type AcademyMasterySeasonState = {
 type Queryable = Pick<PoolClient, "query">;
 
 const MAX_TAGS = 80;
+const ASSIGNMENT_STATUSES = new Set<AcademyMasteryAssignment["status"]>([
+  "recommended",
+  "active",
+  "completed",
+  "dismissed",
+  "expired",
+]);
 
 export type AcademyMasteryTenantScope = {
   tenantId: string;
@@ -81,6 +88,31 @@ function assignmentFromRow(row: Record<string, unknown>): AcademyMasteryAssignme
     startedAt: row.started_at ? new Date(String(row.started_at)).toISOString() : null,
     completedAt: row.completed_at ? new Date(String(row.completed_at)).toISOString() : null,
     updatedAt: new Date(String(row.updated_at)).toISOString(),
+  };
+}
+
+function assignmentFromSnapshot(value: unknown): AcademyMasteryAssignment | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const seasonId = normalizeTag(row.seasonId);
+  const status = String(row.status ?? "") as AcademyMasteryAssignment["status"];
+  const id = String(row.id ?? "").trim();
+  const assignedAt = String(row.assignedAt ?? "").trim();
+  const updatedAt = String(row.updatedAt ?? "").trim();
+  if (!id || !seasonId || !ASSIGNMENT_STATUSES.has(status) || !assignedAt || !updatedAt) {
+    return null;
+  }
+  return {
+    id,
+    seasonId,
+    status,
+    recommendationScore: Number(row.recommendationScore) || 0,
+    sourceSignals: normalizeTags(row.sourceSignals),
+    assignedBy: String(row.assignedBy || "server_mastery_v1"),
+    assignedAt,
+    startedAt: row.startedAt ? String(row.startedAt) : null,
+    completedAt: row.completedAt ? String(row.completedAt) : null,
+    updatedAt,
   };
 }
 
@@ -250,6 +282,39 @@ async function readAssignments(
   return result.rows.map(assignmentFromRow);
 }
 
+async function readActivationReplay(
+  client: Queryable,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+  locale: AcademyMasteryLocale,
+  idempotencyKey: string,
+): Promise<AcademyMasteryAssignment | null> {
+  const result = await client.query<Record<string, unknown>>(
+    `SELECT e.payload->'result'->'assignment' AS replay_assignment,
+            a.id::text, a.season_id, a.status, a.recommendation_score, a.source_signals,
+            a.assigned_by, a.assigned_at, a.started_at, a.completed_at, a.updated_at
+       FROM academy_mastery_season_progress_events e
+       JOIN academy_mastery_season_assignments a
+         ON a.id = e.assignment_id
+        AND a.tenant_id = e.tenant_id
+        AND a.workspace_id = e.workspace_id
+        AND a.student_id = e.student_id
+        AND a.locale = e.locale
+      WHERE e.tenant_id = $1
+        AND e.workspace_id = $2
+        AND e.student_id = $3::uuid
+        AND e.locale = $4
+        AND e.event_type = 'started'
+        AND e.idempotency_key = $5
+      ORDER BY e.id ASC
+      LIMIT 1`,
+    [scope.tenantId, scope.workspaceId, studentId, locale, idempotencyKey],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return assignmentFromSnapshot(row.replay_assignment) ?? assignmentFromRow(row);
+}
+
 export async function readAcademyMasterySeasonState(
   client: PoolClient,
   scope: AcademyMasteryTenantScope,
@@ -308,6 +373,34 @@ export async function activateAcademyMasterySeason(input: {
   if (!seasonId || !academyMasterySeasons.some((season) => season.id === seasonId)) {
     throw new Error("mastery_season_unknown");
   }
+
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  if (!idempotencyKey) {
+    throw new Error("mastery_idempotency_key_required");
+  }
+  const replayAssignment = await readActivationReplay(
+    input.client,
+    input.scope,
+    input.studentId,
+    input.locale,
+    idempotencyKey,
+  );
+  if (replayAssignment) {
+    if (replayAssignment.seasonId !== seasonId) {
+      throw new Error("mastery_idempotency_key_conflict");
+    }
+    return {
+      assignment: replayAssignment,
+      state: await readAcademyMasterySeasonState(
+        input.client,
+        input.scope,
+        input.studentId,
+        input.locale,
+      ),
+      changed: false,
+    };
+  }
+
   const passedCoreTerms = await readCompletedTerms(
     input.client,
     input.scope,
@@ -329,7 +422,10 @@ export async function activateAcademyMasterySeason(input: {
       changed: false,
     };
   }
-  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
+  if (recommendation.season.kind === "cohort-league" && !state.rankingConsent) {
+    throw new Error("mastery_ranking_consent_required");
+  }
+
   const open = await input.client.query<Record<string, unknown>>(
     `UPDATE academy_mastery_season_assignments
         SET status = 'active',
@@ -373,6 +469,7 @@ export async function activateAcademyMasterySeason(input: {
       JSON.stringify(recommendation.matchingSignals),
     ],
   )).rows[0];
+  const assignment = assignmentFromRow(assignmentRow);
 
   await input.client.query(
     `INSERT INTO academy_mastery_season_progress_events
@@ -391,12 +488,19 @@ export async function activateAcademyMasterySeason(input: {
       JSON.stringify({
         idempotencyKey,
         authority: "server_mastery_v1",
+        command: {
+          locale: input.locale,
+          seasonId,
+        },
+        result: {
+          assignment,
+        },
       }),
     ],
   );
 
   return {
-    assignment: assignmentFromRow(assignmentRow),
+    assignment,
     state: await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale),
     changed: true,
   };
