@@ -49,9 +49,10 @@ const WORKSPACE_B = `ws-b-${randomUUID()}`;
 const SCOPE_A: AcademyMasteryTenantScope = { tenantId: TENANT_A, workspaceId: WORKSPACE_A };
 const SCOPE_B: AcademyMasteryTenantScope = { tenantId: TENANT_B, workspaceId: WORKSPACE_B };
 
-// risk-repair-season unlocks at recommendedAfterTerm = 4.
+// Term 8 is a post-core programme even when a repair recommendation was
+// identified earlier. Activation therefore requires all seven core terms.
 const SEASON = "risk-repair-season";
-const SEASON_UNLOCK_TERM = 4;
+const SEASON_UNLOCK_TERM = 7;
 
 const cleanupStudents = new Set<string>();
 // Track drafts by id rather than by tenant: a tenant-wide delete would also
@@ -279,6 +280,18 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           idempotencyKey: `mastery-a-${randomUUID()}`,
         });
         assert.equal(activatedA.assignment.status, "active");
+        assert.equal(activatedA.changed, true);
+
+        const replayedA = await activateAcademyMasterySeason({
+          client,
+          scope: SCOPE_A,
+          studentId,
+          locale: "fa",
+          seasonId: SEASON,
+          idempotencyKey: `mastery-a-retry-${randomUUID()}`,
+        });
+        assert.equal(replayedA.changed, false, "an active season must be a no-op even with a new command key");
+        assert.equal(replayedA.assignment.id, activatedA.assignment.id);
 
         // Tenant B sees none of tenant A's assignments before activating.
         const beforeB = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
@@ -511,6 +524,19 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           afterTenantAProgress.recommendations.find((item) => item.season.id === SEASON)?.eligible,
           false,
           "tenant B must not unlock a season it did not earn",
+        );
+
+        await assert.rejects(
+          activateAcademyMasterySeason({
+            client,
+            scope: SCOPE_B,
+            studentId,
+            locale: "fa",
+            seasonId: SEASON,
+            idempotencyKey: `mastery-b-blocked-${randomUUID()}`,
+          }),
+          /mastery_core_terms_incomplete/,
+          "the write authority must enforce 7/7 independently of the page guard",
         );
 
         assert.deepEqual(afterTenantAProgress.assignments, []);
