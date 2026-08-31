@@ -52,6 +52,16 @@ test("the single contact field accepts either an email or a phone", () => {
   }
 });
 
+test("Persian and Arabic phone digits normalize before validation", () => {
+  for (const localizedPhone of ["۰۹۱۲۱۲۳۴۵۶۷", "٠٩١٢١٢٣٤٥٦٧"]) {
+    const parsed = parse({ contact: localizedPhone });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) continue;
+    assert.equal(parsed.command.phone, "09121234567");
+    assert.equal(parsed.command.email, undefined);
+  }
+});
+
 test("an empty message is refused rather than stored blank", () => {
   // SB-013 is a message that disappears. Accepting an empty one and filing it
   // would be the same outcome with a row to show for it.

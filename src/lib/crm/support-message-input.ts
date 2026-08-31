@@ -42,6 +42,12 @@ function clean(value: unknown): string {
     .trim();
 }
 
+function normalizeLocalizedDigits(value: string): string {
+  return value
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660));
+}
+
 /** The message body keeps its line breaks; only control characters are stripped. */
 function cleanMultiline(value: unknown): string {
   return String(value ?? "")
@@ -89,7 +95,9 @@ export function parseSupportMessageCommand(input: {
   // storing an unusable contact detail would leave a message nobody can answer.
   const looksLikeEmail = contact.includes("@");
   const email = looksLikeEmail ? contact : "";
-  const phone = looksLikeEmail ? "" : contact;
+  // Persian and Arabic keyboards produce localized digits; store the same
+  // canonical ASCII phone representation accepted by the validator.
+  const phone = looksLikeEmail ? "" : normalizeLocalizedDigits(contact);
   if (email && !EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
   if (phone && !PHONE_PATTERN.test(phone)) return { ok: false, error: "invalid_phone" };
   if (!email && !phone) return { ok: false, error: "contact_required" };

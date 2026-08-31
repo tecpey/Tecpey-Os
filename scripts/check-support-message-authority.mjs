@@ -93,6 +93,11 @@ requireText("route", "rateLimit", "the intake must be rate limited");
 requireText("route", "readBoundedJsonRequest", "the request body must be bounded");
 requireText("input", "privacy_consent_required", "consent must be mandatory");
 requireText("input", "invalid_message", "an empty message must be refused, not stored blank");
+requirePattern(
+  "input",
+  /normalizeLocalizedDigits\(contact\)/,
+  "Persian and Arabic phone digits must normalize before validation and storage",
+);
 for (const marker of [
   "name_too_long",
   "contact_too_long",
