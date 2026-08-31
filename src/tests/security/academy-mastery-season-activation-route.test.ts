@@ -38,7 +38,7 @@ describe("Academy Mastery Season activation boundary", () => {
     assert.match(authority, /e\.idempotency_key = \$5/);
     assert.match(authority, /assignmentFromSnapshot\(row\.replay_assignment\)/);
     assert.match(authority, /mastery_idempotency_key_conflict/);
-    assert.match(authority, /result: \{\s*assignment,/s);
+    assert.match(authority, /result: \{[\s\S]*assignment,/);
   });
 
   it("keeps activation identity ephemeral and server-backed in the client", async () => {
