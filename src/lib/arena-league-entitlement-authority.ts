@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import {
   academyMonthlyLeagueRewardProposal,
+  ACADEMY_MONTHLY_LEAGUE_AUTOMATIC_ENTITLEMENTS_ENABLED,
   ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT,
   ACADEMY_MONTHLY_LEAGUE_POLICY_VERSION,
 } from "@/lib/academy-monthly-league-policy";
@@ -11,7 +12,7 @@ import { withTx } from "@/lib/db";
 import { enqueueNotificationDomainEvent } from "@/lib/notifications/domain-outbox";
 
 export const ARENA_LEAGUE_ENTITLEMENT_POLICY_VERSION =
-  "arena-league-entitlement-v1";
+  "arena-league-entitlement-v2";
 export const ARENA_LEAGUE_ENTITLEMENT_APPEAL_WINDOW_DAYS = 7;
 export const ARENA_LEAGUE_ENTITLEMENT_MAX_RANK = 10;
 
@@ -173,6 +174,17 @@ export async function grantArenaProEntitlementsForSnapshotTx(
       grantedCount: 0,
       replayedCount: 0,
       skippedReason: "appeal_window_open",
+      grants: [],
+    };
+  }
+  if (!ACADEMY_MONTHLY_LEAGUE_AUTOMATIC_ENTITLEMENTS_ENABLED) {
+    return {
+      snapshotId: snapshot.id,
+      windowType: snapshot.window_type,
+      windowKey: snapshot.window_key,
+      grantedCount: 0,
+      replayedCount: 0,
+      skippedReason: "no_eligible_rankings",
       grants: [],
     };
   }
@@ -343,6 +355,14 @@ export async function grantDueArenaProEntitlementsTx(
   }
   const clock = input.clock ?? new Date();
   if (!Number.isFinite(clock.getTime())) throw new Error("arena_entitlement_clock_invalid");
+  if (!ACADEMY_MONTHLY_LEAGUE_AUTOMATIC_ENTITLEMENTS_ENABLED) {
+    return {
+      selectedSnapshots: 0,
+      grantedCount: 0,
+      replayedCount: 0,
+      skippedSnapshots: 0,
+    };
+  }
   const snapshots = await client.query<{
     id: string;
     tenant_id: string;

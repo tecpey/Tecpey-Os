@@ -1,10 +1,9 @@
-# TecPey Academy Monthly Mastery League — Shadow Policy v1
+# TecPey Academy Monthly Mastery League — Recognition Policy v2
 
-This policy defines the deterministic scoring and reward-proposal contract for
-the post-Term-7 infinite growth path. It does not activate cash payment or any
-public financial reward. Arena Pro subscription awards may be granted only by
-the reviewed server entitlement authority after finalized snapshots, consent,
-cohort privacy, appeal-window, anti-gaming and rollout evidence are present.
+This policy defines the deterministic scoring and recognition contract for
+the post-Term-7 infinite growth path. League rank is educational recognition
+only. It cannot create cash, capital, a funded-account implication, Arena Pro,
+employment access or any other privileged entitlement.
 
 ## Monthly score
 
@@ -48,21 +47,15 @@ Ranking is dense: equal scores share the same rank. A future public snapshot mus
 use a secret-backed stable display key for ordering inside ties; enrollment time,
 name, wealth, speed and randomness are forbidden tie-breakers.
 
-## Reward proposals
+## Recognition and opportunity boundary
 
-- Rank 1: 90 days Arena Pro; proposal for 50% of an approved monthly cash pool.
-- Rank 2: 60 days Arena Pro; proposal for 30% of an approved monthly cash pool.
-- Rank 3: 60 days Arena Pro; proposal for 20% of an approved monthly cash pool.
-- Ranks 4–10: 30 days Arena Pro.
-
-When a rank is tied, that rank's cash share is divided equally across the tied
-learners. Integer rounding always rounds down and leaves any residual basis
-points in the approved pool; a tie can therefore never over-allocate cash.
-
-Subscription awards require the idempotent `arena-league-entitlement-v1`
-authority and appeal window. Cash remains a proposal only and requires Finance,
-Compliance and the governed C-level approval matrix; no application worker may
-initiate payment.
+- Rank is recognition only for every place, including the top 10.
+- `arenaProDays` and `cashPoolShareBps` remain zero for every league result.
+- The automatic entitlement drain is disabled and must not query or write grants.
+- Existing grants remain readable until a separately approved migration changes them.
+- A formal opportunity requires separate enrollment, specialist evaluation,
+  recorded approval and an auditable authority. League position is never sufficient.
+- Ties use dense rank; they do not divide or create anything of financial value.
 
 ## Infinite Term 8
 

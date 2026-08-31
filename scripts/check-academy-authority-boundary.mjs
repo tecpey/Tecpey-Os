@@ -72,8 +72,23 @@ for (const forbidden of [
 }
 requireText(
   "monthlyLeaguePolicy",
+  "ACADEMY_MONTHLY_LEAGUE_AUTOMATIC_ENTITLEMENTS_ENABLED = false",
+  "monthly league automatic entitlements must fail closed",
+);
+requireText(
+  "monthlyLeaguePolicy",
+  "not_permitted_in_learning_league",
+  "monthly league must remain recognition-only",
+);
+rejectText(
+  "monthlyLeaguePolicy",
   "c_level_compliance_approval_required",
-  "cash rewards must remain approval-gated",
+  "learning league may not propose approval-gated cash rewards",
+);
+rejectText(
+  "monthlyLeaguePolicy",
+  "Math.floor(5_000 / tiedLearners)",
+  "learning league may not allocate a cash pool",
 );
 requireText(
   "monthlyLeagueTests",
@@ -81,14 +96,14 @@ requireText(
   "monthly league dense-rank proof is missing",
 );
 requireText(
-  "monthlyLeaguePolicy",
-  "appeal_review_pending",
-  "monthly league appeal hold must fail closed",
+  "monthlyLeagueTests",
+  "keeps every league rank recognition-only",
+  "monthly league recognition-only proof is missing",
 );
 requireText(
   "monthlyLeaguePolicy",
-  "Math.floor(5_000 / tiedLearners)",
-  "monthly league cash proposal must be tie-aware",
+  "appeal_review_pending",
+  "monthly league appeal hold must fail closed",
 );
 
 for (const mutation of ["award_xp", "pass_term", "award_badge", "lesson_complete", "module_score"]) {
