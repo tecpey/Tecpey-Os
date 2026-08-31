@@ -15,6 +15,8 @@ const MAX_SOURCE_LENGTH = 120;
 const MAX_IDEMPOTENCY_LENGTH = 160;
 const MAX_PRIVACY_NOTICE_LENGTH = 80;
 
+export const SUPPORT_PRIVACY_NOTICE_VERSION = "2026-08-01";
+
 const PHONE_PATTERN = /^[+0-9\-\s()]{6,24}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,160}$/;
@@ -131,6 +133,9 @@ export function parseSupportMessageCommand(input: {
   }
   if (!consent || !privacyNoticeVersion) {
     return { ok: false, error: "privacy_consent_required" };
+  }
+  if (privacyNoticeVersion !== SUPPORT_PRIVACY_NOTICE_VERSION) {
+    return { ok: false, error: "privacy_notice_invalid" };
   }
 
   return {

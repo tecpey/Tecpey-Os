@@ -79,6 +79,11 @@ refusePattern(
 );
 requireText("form", '"/api/support-message"', "the form must post to the intake route");
 requireText("form", "Idempotency-Key", "a resubmission must be distinguishable from a new message");
+requirePattern(
+  "form",
+  /code === "idempotency_conflict"[\s\S]*setSubmissionId\(crypto\.randomUUID\(\)\)/,
+  "a payload conflict must rotate the key without discarding the edited form",
+);
 
 // 2. The sender is never told something happened that did not.
 requireText("form", "aria-live", "the outcome must be announced, not only shown");
@@ -98,6 +103,16 @@ requireText("route", "verifyCsrfOrigin", "the intake must verify the request ori
 requireText("route", "rateLimit", "the intake must be rate limited");
 requireText("route", "readBoundedJsonRequest", "the request body must be bounded");
 requireText("input", "privacy_consent_required", "consent must be mandatory");
+requirePattern(
+  "input",
+  /privacyNoticeVersion !== SUPPORT_PRIVACY_NOTICE_VERSION/,
+  "consent evidence must use the server-owned privacy notice version",
+);
+requireText(
+  "form",
+  "SUPPORT_PRIVACY_NOTICE_VERSION",
+  "the client must submit the same governed notice version the server validates",
+);
 requireText("input", "invalid_message", "an empty message must be refused, not stored blank");
 requireText(
   "input",

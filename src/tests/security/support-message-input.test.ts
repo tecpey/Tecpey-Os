@@ -85,6 +85,12 @@ test("consent and a privacy notice version are both required", () => {
   }
 });
 
+test("consent evidence accepts only the server-owned privacy notice version", () => {
+  const parsed = parse({ privacyNoticeVersion: "invented-or-obsolete-version" });
+  assert.equal(parsed.ok, false);
+  if (!parsed.ok) assert.equal(parsed.error, "privacy_notice_invalid");
+});
+
 test("a submission without a usable idempotency key is refused", () => {
   // Without one there is no way to tell a double click from a second message,
   // and the wrong answer either way loses or duplicates what someone wrote.

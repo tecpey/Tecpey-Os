@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { SUPPORT_PRIVACY_NOTICE_VERSION } from "@/lib/crm/support-message-input";
 
 // SB-013 — the form that actually sends.
 //
@@ -9,14 +10,6 @@ import { useId, useState } from "react";
 // everything typed. The rule this component is built around is that the sender
 // is never told something happened that did not: every outcome below reports
 // what the server actually answered.
-
-/**
- * The privacy notice this consent is given against.
- *
- * Sent with the submission and stored beside it, so a later change to the
- * notice cannot retroactively reinterpret what someone agreed to.
- */
-const PRIVACY_NOTICE_VERSION = "2026-08-01";
 
 type Status =
   | { kind: "idle" }
@@ -43,7 +36,7 @@ const ERROR_MESSAGES: Record<"fa" | "en", Record<string, string>> = {
       "پیام شما ذخیره نشد. لطفاً بعداً دوباره تلاش کنید یا به info@tecpey.ir ایمیل بزنید.",
     payload_too_large: "متن پیام بیش از حد طولانی است.",
     idempotency_conflict:
-      "پیام قبلی با همین شناسه ثبت شده بود. صفحه را تازه کنید و پیام جدید را دوباره بفرستید.",
+      "پیام ویرایش‌شده با ارسال قبلی تداخل داشت. دوباره «ارسال» را بزنید تا همین متن با شناسه تازه ثبت شود.",
     support_message_expired:
       "نسخه قدیمی این پیام دیگر نگهداری نمی‌شود. پیام را دوباره ارسال کنید.",
   },
@@ -64,7 +57,7 @@ const ERROR_MESSAGES: Record<"fa" | "en", Record<string, string>> = {
       "Your message was not stored. Please try again later or email info@tecpey.ir.",
     payload_too_large: "The message is too long.",
     idempotency_conflict:
-      "A different message used this submission ID. Refresh the page and send again.",
+      "The edited message conflicted with the prior submission. Select Send again to submit this text with a fresh ID.",
     support_message_expired:
       "The retained copy of this message has expired. Please send the message again.",
   },
@@ -129,7 +122,7 @@ export function SupportMessageForm({ locale = "fa" }: { locale?: "fa" | "en" }) 
           subject: form.get("subject"),
           message: form.get("message"),
           consent: form.get("consent") === "on",
-          privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
+          privacyNoticeVersion: SUPPORT_PRIVACY_NOTICE_VERSION,
           locale,
         }),
       });
@@ -146,7 +139,12 @@ export function SupportMessageForm({ locale = "fa" }: { locale?: "fa" | "en" }) 
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       const code = response.status === 429 ? "rate_limited" : body.error ?? "";
       // A tab left open beyond retention needs a fresh key before retrying.
-      if (code === "support_message_expired") setSubmissionId(crypto.randomUUID());
+      if (
+        code === "support_message_expired" ||
+        code === "idempotency_conflict"
+      ) {
+        setSubmissionId(crypto.randomUUID());
+      }
       setStatus({
         kind: "error",
         message:
