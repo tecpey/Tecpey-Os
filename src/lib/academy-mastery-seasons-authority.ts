@@ -159,13 +159,14 @@ async function readCompletedTerms(
   locale: AcademyMasteryLocale,
 ): Promise<number> {
   const result = await client.query<{ completed_terms: number }>(
-    `SELECT COALESCE(MAX(term_number), 0)::int AS completed_terms
+    `SELECT COUNT(DISTINCT term_number)::int AS completed_terms
        FROM academy_term_progress
       WHERE tenant_id = $1
         AND workspace_id = $2
         AND student_id = $3::uuid
         AND locale = $4
-        AND status = 'passed'`,
+        AND status = 'passed'
+        AND term_number BETWEEN 1 AND 7`,
     [scope.tenantId, scope.workspaceId, studentId, locale],
   );
   return Number(result.rows[0]?.completed_terms || 0);
@@ -307,10 +308,16 @@ export async function activateAcademyMasterySeason(input: {
   if (!seasonId || !academyMasterySeasons.some((season) => season.id === seasonId)) {
     throw new Error("mastery_season_unknown");
   }
-  const state = await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale);
-  if (state.completedTerms < 7) {
+  const passedCoreTerms = await readCompletedTerms(
+    input.client,
+    input.scope,
+    input.studentId,
+    input.locale,
+  );
+  if (passedCoreTerms !== 7) {
     throw new Error("mastery_core_terms_incomplete");
   }
+  const state = await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale);
   const recommendation = state.recommendations.find((item) => item.season.id === seasonId);
   if (!recommendation || !recommendation.eligible) {
     throw new Error("mastery_season_not_eligible");
