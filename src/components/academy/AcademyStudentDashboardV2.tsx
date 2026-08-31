@@ -369,7 +369,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               const passed = passedTerms.has(term.number);
               const unlocked = term.number === 1 || passedTerms.has(term.number - 1);
               return (
-                <Link key={term.slug} href={unlocked ? `${termBase}/term-${term.number}` : `${termBase}/term-${Math.max(1, term.number - 1)}`} className={`rounded-[28px] border p-5 transition ${passed ? "border-emerald-300/30 bg-emerald-400/10" : unlocked ? "border-cyan-300/25 bg-cyan-400/10 hover:-translate-y-1" : "border-white/10 bg-white/[0.035] opacity-70"}`}>
+                <Link key={term.slug} href={unlocked ? `${termBase}/term-${term.number}` : `${termBase}/term-${Math.max(1, term.number - 1)}`} className={`rounded-[28px] border p-5 transition ${passed ? "border-emerald-300/30 bg-emerald-400/10" : unlocked ? "border-cyan-300/25 bg-cyan-400/10 hover:-translate-y-1 motion-reduce:transform-none" : "border-white/10 bg-white/[0.035] opacity-70"}`}>
                   <div className="flex items-center justify-between gap-3">
                     <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">Term {term.number}</span>
                     {passed ? <CheckCircle2 className="h-5 w-5 text-emerald-300" /> : unlocked ? <Sparkles className="h-5 w-5 text-cyan-300" /> : <Lock className="h-5 w-5 text-slate-500" />}
@@ -381,7 +381,6 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             })}
             <Link
               href={coreComplete ? `${termBase}/term-8` : `${termBase}/term-7`}
-              aria-disabled={!coreComplete}
               className={`rounded-[28px] border p-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1" : "border-white/10 bg-white/[0.035] opacity-70"}`}
             >
               <div className="flex items-center justify-between gap-3">
