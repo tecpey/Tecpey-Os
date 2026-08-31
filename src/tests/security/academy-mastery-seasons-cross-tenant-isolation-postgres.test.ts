@@ -153,6 +153,22 @@ async function insertWeaknessSignal(
   );
 }
 
+async function passAllCoreTerms(
+  client: PoolClient,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+): Promise<void> {
+  for (let term = 1; term <= SEASON_UNLOCK_TERM; term += 1) {
+    await client.query(
+      `INSERT INTO academy_term_progress
+         (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
+       VALUES ($1, $2, $3::uuid, $4, 'passed', 'fa', 100, 100)
+       ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
+      [scope.tenantId, scope.workspaceId, studentId, term],
+    );
+  }
+}
+
 
 before(async () => {
   if (!configured || !databaseUrl) return;
@@ -270,6 +286,8 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           completedTerms: SEASON_UNLOCK_TERM,
           weakConceptTags: ["risk"],
         });
+        await passAllCoreTerms(client, SCOPE_A, studentId);
+        await passAllCoreTerms(client, SCOPE_B, studentId);
 
         const activatedA = await activateAcademyMasterySeason({
           client,
@@ -500,15 +518,7 @@ describe("Mastery Seasons cross-tenant isolation", () => {
         );
 
         // Tenant A earns every term the season requires; tenant B earns none.
-        for (let term = 1; term <= SEASON_UNLOCK_TERM; term += 1) {
-          await client.query(
-            `INSERT INTO academy_term_progress
-               (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
-             VALUES ($1, $2, $3::uuid, $4, 'passed', 'fa', 100, 100)
-             ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
-            [TENANT_A, WORKSPACE_A, studentId, term],
-          );
-        }
+        await passAllCoreTerms(client, SCOPE_A, studentId);
 
         const afterTenantAProgress = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
 
@@ -525,6 +535,17 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           false,
           "tenant B must not unlock a season it did not earn",
         );
+
+        // A lone pass for term 7 is not proof that terms 1–6 passed.
+        await client.query(
+          `INSERT INTO academy_term_progress
+             (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
+           VALUES ($1, $2, $3::uuid, 7, 'passed', 'fa', 100, 100)
+           ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
+          [TENANT_B, WORKSPACE_B, studentId],
+        );
+        const termSevenOnly = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
+        assert.equal(termSevenOnly.completedTerms, 1, "term 7 alone must count as one passed core term");
 
         await assert.rejects(
           activateAcademyMasterySeason({
