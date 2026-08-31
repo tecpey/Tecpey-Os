@@ -180,7 +180,7 @@ PostgreSQL/Redis volume-restore mechanics only.
 | Recovery artifact digest | `sha256:f3da670288c7e1d982bd46474ca46a5d86345374dc0903b4d7720591e113631d` |
 | Rollback result | candidate image served, previous-release image served after rollback |
 | Volume-restore verifier | `scripts/verify-operational-recovery-evidence.mjs` passed for the candidate SHA |
-| RTO sample | synthetic CI recovery completed in `5123ms` under the `300s` maximum |
+| RTO sample | synthetic CI recovery completed in `9691ms` under the `300s` maximum |
 
 This closes only the rollback/volume-restore mechanics blocker. The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release. Protected
 staging activation and redacted env evidence remain under NOG-01/NOG-02, and
