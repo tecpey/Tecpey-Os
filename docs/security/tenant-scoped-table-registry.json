@@ -670,6 +670,15 @@
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "support_messages",
+      "domain": "engagement-platform",
+      "sourceFile": "src/lib/db-migrate-support-messages.ts; src/lib/crm/support-message-authority.ts",
+      "isolationModel": "Every row carries tenant_id, and the only uniqueness constraint is (tenant_id, idempotency_key) so one tenant's replay key cannot resolve to another tenant's message. Both read indexes lead with tenant_id, the advisory lock taken before insert is namespaced by tenant, and the PII envelope's authenticated data binds tenant_id together with the row id — so a stored message cannot be decrypted under another tenant's scope even if the ciphertext were copied across.",
+      "adversarialProof": "proven",
+      "issue": "#577",
+      "testReference": "src/tests/security/support-messages-postgres.test.ts"
     }
   ]
 }

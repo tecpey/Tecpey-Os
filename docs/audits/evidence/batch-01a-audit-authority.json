@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "13a238c7b773c2cee76ccc904719934220ee69f3",
-      "sha256": "755df25dad5070e3e850e2937e21e471d2b3ea7cd6417b6f21d9a3bf5105b6ad",
-      "lines": 254,
+      "gitObjectId": "2b140539916dccb9332c1877708e21768ccf2195",
+      "sha256": "08cf3e4779c05bd9638a4fb58e7fafe609a827e5e0adecd8941e626320b316be",
+      "lines": 257,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 254
+          "endLine": 257
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -122,7 +122,11 @@
         "2026-08-29: re-reviewed after adding Node's test-force-exit flag to the repository-wide test command. The flag is limited to the test runner, preserves the existing test glob, stubs and test environment, does not suppress assertion failures or change the 12-minute workflow bound, and prevents completed suites from hanging on residual test-only handles. It adds no dependency, engine, override, network authority, runtime mutation path or activation surface. The file remains 249 lines.",
         "2026-08-29: re-reviewed the complete 249-line package after expanding test:ai-mentor-trust with the AI routing-budget unit/PostgreSQL, automation-orchestration PostgreSQL, tenant-database-integrity and managed-AI launch-containment policy/source/PostgreSQL suites. This is test-only wiring under NODE_ENV=test and test-force-exit; it adds no dependency, engine, override, provider/network/spend/launch authority or production mutation path, preserves release composition, and keeps managed AI fail-closed pending tenant-isolation evidence.",
         "2026-08-30: re-reviewed after wiring src/tests/security/ai-mentor-preference-egress-gate.test.ts into test:ai-mentor-trust. The added deterministic unit proof requires both an available database preference authority and an explicit external-provider opt-in, covers null, unavailable, disabled and enabled states, and adds no dependency, engine, override, network/provider/spend authority, runtime mutation path or activation surface. The package remains 249 lines and release composition remains unchanged.",
-        "2026-08-30: re-reviewed the complete 254-line package after exposing disposable least-privilege AI role provisioning, protected runtime-evidence collect/verify/check commands and their policy tests, enforcing the static authority through ai:trust:check, and adding both the PostgreSQL adversarial suite and evidence-policy suite to test:ai-mentor-trust. Collection is CI- and protected-environment-only, binds the exact commit/tree and PostgreSQL 16 catalogs, and emits only redacted aggregate evidence; verification is offline and fail-closed. The wiring adds no dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface."
+        "2026-08-30: re-reviewed the complete 254-line package after exposing disposable least-privilege AI role provisioning, protected runtime-evidence collect/verify/check commands and their policy tests, enforcing the static authority through ai:trust:check, and adding both the PostgreSQL adversarial suite and evidence-policy suite to test:ai-mentor-trust. Collection is CI- and protected-environment-only, binds the exact commit/tree and PostgreSQL 16 catalogs, and emits only redacted aggregate evidence; verification is offline and fail-closed. The wiring adds no dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface.",
+        "2026-08-30: re-reviewed after test:crm-leads additionally globs src/tests/security/support-message*.test.ts (SB-013). Test-wiring only — the command gains the support-message parser unit tests and the support_messages Postgres integration proof alongside the existing crm-lead suite; no dependency pin, engine constraint, override declaration, release-authority command, network access or runtime mutation path changed, and the file stays 247 lines.",
+        "2026-08-30: re-reviewed after adding support:check and support:retention, and composing support:check into release:check beside crm:check (SB-013). support:check is a read-only static guard over the contact form, its intake route, the parsed-input and storage authorities, the migration, the tenant-scoped table registry and the package wiring; support:retention runs the bounded PII erasure sweep the contact form\u0027s consent text promises, mirroring crm:retention. Neither adds a dependency, engine constraint, override, network access, product activation surface or secret-printing path, and the file now has 249 lines.",
+        "2026-08-30: re-reviewed after adding support:inbox (SB-013 review). The command runs a read-only operator query over support_messages for one tenant and returns redacted rows unless SUPPORT_INBOX_REVEAL is set explicitly; it opens no network connection, mutates nothing, and exists because a stored message no one can read leaves the contact form promising a reply that cannot happen. No dependency, engine, override, release-authority command or activation surface changed, and the file now has 250 lines.",
+        "2026-08-31: re-reviewed the complete 257-line package after restacking SB-013 on the governed AI/RLS mainline. The final composition preserves every AI trust/evidence command, adds the support-message static guard beside CRM authority, runs the support parser and PostgreSQL proof serially with the CRM suite, and exposes only explicit operator inbox/retention commands. No dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface was added."
       ],
       "findings": [
         {

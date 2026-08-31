@@ -89,6 +89,7 @@ import { NOTIFICATION_SUPPRESS_DECISION_SQL } from "./db-migrate-notification-su
 import { PHONE_IDENTITY_OTP_SQL } from "./db-migrate-phone-identity-otp";
 import { COMMUNICATION_PROVIDER_CONFIG_SQL } from "./db-migrate-communication-provider-config";
 import { ADMIN_PASSWORD_TOTP_SQL } from "./db-migrate-admin-password-totp";
+import { SUPPORT_MESSAGES_SQL } from "./db-migrate-support-messages";
 import { PHONE_OTP_LOCAL_VERIFIER_SQL } from "./db-migrate-phone-otp-local-verifier";
 import { AI_CONTROL_PLANE_SQL } from "./db-migrate-ai-control-plane";
 import { AI_AUTOMATION_ORCHESTRATION_SQL } from "./db-migrate-ai-automation";
@@ -416,5 +417,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   aiTenantRowLevelSecurity: one(
     "0096_ai_tenant_row_level_security.sql",
     AI_TENANT_RLS_SQL,
+  ),
+  supportMessages: one(
+    "0097_support_messages.sql",
+    SUPPORT_MESSAGES_SQL,
   ),
 });

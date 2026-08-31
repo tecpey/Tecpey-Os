@@ -62,6 +62,7 @@ const directRoutes = Object.freeze([
   ["src/app/api/notifications/read/route.ts", "req"],
   ["src/app/api/offline-sync/route.ts", "req"],
   ["src/app/api/orders/route.ts", "req"],
+  ["src/app/api/support-message/route.ts", "request"],
   ["src/app/api/trading-arena/execution/route.ts", "request"],
   ["src/app/api/trading-arena/reflections/route.ts", "request"],
   ["src/app/api/trading-arena/route.ts", "request"],

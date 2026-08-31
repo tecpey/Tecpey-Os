@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishShell } from "../components/EnglishUI";
-import { Mail, MapPin, Phone, Smartphone, Clock3, MessageSquare, Send } from "lucide-react";
+import { Mail, MapPin, Phone, Smartphone, Clock3, MessageSquare } from "lucide-react";
+import { SupportMessageForm } from "@/components/contact/SupportMessageForm";
 
 export const metadata: Metadata = {
   title: "Contact TecPey | Support and office information",
@@ -86,31 +87,7 @@ export default function Page() {
               </a>{" "}
               or use official Telegram.
             </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <input
-                className="rounded-2xl border border-cyan-300/20 bg-white/50 px-4 py-3 text-sm font-bold outline-none placeholder:text-slate-400 transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-300/30 dark:bg-white/[0.05] dark:text-white"
-                placeholder="Full name"
-              />
-              <input
-                className="rounded-2xl border border-cyan-300/20 bg-white/50 px-4 py-3 text-sm font-bold outline-none placeholder:text-slate-400 transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-300/30 dark:bg-white/[0.05] dark:text-white"
-                placeholder="Email or phone"
-              />
-              <input
-                className="rounded-2xl border border-cyan-300/20 bg-white/50 px-4 py-3 text-sm font-bold outline-none placeholder:text-slate-400 transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-300/30 dark:bg-white/[0.05] dark:text-white md:col-span-2"
-                placeholder="Subject"
-              />
-              <textarea
-                className="min-h-32 rounded-2xl border border-cyan-300/20 bg-white/50 px-4 py-3 text-sm font-bold outline-none placeholder:text-slate-400 transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-300/30 dark:bg-white/[0.05] dark:text-white md:col-span-2"
-                placeholder="Your message"
-              />
-            </div>
-            <Link
-              href="mailto:info@tecpey.ir"
-              className="group mt-6 inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400"
-            >
-              <Send className="h-4 w-4 transition group-hover:translate-x-1" />
-              Send message to support
-            </Link>
+            <SupportMessageForm locale="en" />
           </div>
 
           {/* Socials */}

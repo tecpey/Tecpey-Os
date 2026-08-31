@@ -15,7 +15,11 @@ test("enterprise global product readiness registry preserves the 2026-08-20 base
   assert.equal(summary.blockedExternalControls, 7);
   assert.equal(summary.routeScopedJsonLdDebt, 85);
   assert.equal(summary.waveAExternalEvidenceControls, 7);
-  assert.equal(summary.screenshotSlotsRequired, 700);
+  // 176 routes x 4 viewports. This moved from 700 when /command-center/
+  // communications was added: the count is derived from src/app by
+  // scripts/screenshot-matrix-routes.mjs, and its test is what caught the
+  // registry still claiming 175 routes after the route landed.
+  assert.equal(summary.screenshotSlotsRequired, 704);
   assert.equal(summary.decision, "NO_GO_PUBLIC_FINANCIAL_ENTERPRISE");
 });
 
