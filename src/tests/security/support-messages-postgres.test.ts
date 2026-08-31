@@ -290,6 +290,34 @@ postgresTest("listing the queue does not decrypt anyone's message by default", a
   }
 });
 
+postgresTest("retention-expired messages are unreadable before the sweep catches up", async () => {
+  const tenantId = `tenant-expired-inbox-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const stored = await ingestSupportMessage(
+    command({
+      tenantId,
+      message: "This message must stop being readable as soon as retention expires.",
+    }),
+  );
+  assert.equal(stored.status, "committed");
+  if (stored.status !== "committed") return;
+
+  await rows(
+    `UPDATE support_messages
+        SET retain_until = NOW() - INTERVAL '1 second'
+      WHERE id = $1::uuid`,
+    [stored.result.id],
+  );
+
+  const inbox = await readSupportMessageInbox({ tenantId, reveal: true });
+  assert.equal(inbox.status, "ok");
+  if (inbox.status !== "ok") return;
+  assert.equal(
+    inbox.messages.some((message) => message.id === stored.result.id),
+    false,
+    "expired personal data remained readable while awaiting the retention sweep",
+  );
+});
+
 postgresTest("the support inbox can page through every active message", async () => {
   const tenantId = `tenant-pagination-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const storedIds = new Set<string>();

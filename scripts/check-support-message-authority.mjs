@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 
 const files = {
   page: "src/app/contact-us/page.tsx",
+  enPage: "src/app/en/contact-us/page.tsx",
   form: "src/components/contact/SupportMessageForm.tsx",
   route: "src/app/api/support-message/route.ts",
   input: "src/lib/crm/support-message-input.ts",
@@ -62,6 +63,11 @@ requirePattern(
   "page",
   /<SupportMessageForm\s*\/?>/,
   "the contact page must render the real form, not merely import it",
+);
+requirePattern(
+  "enPage",
+  /<SupportMessageForm\s+locale="en"\s*\/?>/,
+  "the English contact page must render the governed sender too",
 );
 // A mailto used as a link target, not the word appearing in a comment that
 // explains what this replaced — the first check here matched its own
@@ -186,6 +192,11 @@ requireText(
   "authority",
   "nextCursor",
   "the inbox must expose a cursor instead of permanently hiding older messages",
+);
+requireText(
+  "authority",
+  "AND retain_until > NOW()",
+  "expired messages must be unreadable even before the sweep catches up",
 );
 
 // 6. An idempotency key is a key to a specific message, not to any message.

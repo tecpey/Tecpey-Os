@@ -311,6 +311,7 @@ export async function readSupportMessageInbox(options: {
          FROM support_messages
         WHERE tenant_id = $1
           AND status = 'active'
+          AND retain_until > NOW()
           AND (
             $2::timestamptz IS NULL
             OR (created_at, id) < ($2::timestamptz, $3::uuid)
