@@ -344,6 +344,9 @@ jobs:
       - name: CRM lead authority guard
         run: npm run crm:check
 
+      - name: Support message authority guard
+        run: npm run support:check
+
       - name: CRM lead PostgreSQL integration tests
         timeout-minutes: 5
         run: |

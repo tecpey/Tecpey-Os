@@ -17,7 +17,7 @@ This authority converts the strict product/engineering audit into an executable 
 | Control/evidence readiness | 82.9% |
 | P0 readiness floor | 70% |
 | Route-scoped JSON-LD debt | 85 routes |
-| Screenshot evidence matrix | 175 routes × 4 viewports = 700 slots |
+| Screenshot evidence matrix | every route the application serves × 4 viewports (176 × 4 = 704 as of #577; derived from `src/app` by `scripts/screenshot-matrix-routes.mjs`, not restated by hand) |
 | Global `.com` readiness floor | 42% |
 
 The registry lives in `config/enterprise-global-product-readiness.json`. The executable gate is:
@@ -35,7 +35,7 @@ npm run product:global-readiness:check
 | `OPS-012` | Incident red-team and critical probe evidence | A |
 | `OPS-013` | Accepted-risk owner signoff evidence | A |
 | `OPS-014` | Go approval matrix for current exact head | A |
-| `QA-050` | 700-slot desktop/mobile RTL/LTR screenshot matrix captured | A |
+| `QA-050` | Full-route desktop/mobile RTL/LTR screenshot matrix captured | A |
 | `QA-051` | Runtime axe, keyboard, focus, contrast and reduced-motion evidence | A |
 
 ## Wave A Evidence Contract
@@ -59,7 +59,7 @@ The seven external blockers are not allowed to stay as informal launch notes. Th
 | `QA-050` | `browser-runtime` | `ui-ux-screenshot-matrix-v1` | `future browser verifier: qa:screenshot-matrix:verify` |
 | `QA-051` | `browser-runtime` | `accessibility-runtime-evidence-v1` | `future browser verifier: qa:a11y-runtime:verify` |
 
-`QA-050` must preserve the full 175-route by four-viewport matrix. `QA-051` must preserve runtime axe, keyboard, focus, contrast and reduced-motion coverage with zero unresolved critical or serious violations.
+`QA-050` must preserve the full-route by four-viewport matrix, whatever the current route count is. `QA-051` must preserve runtime axe, keyboard, focus, contrast and reduced-motion coverage with zero unresolved critical or serious violations.
 
 ## Benchmark Contract
 
@@ -91,7 +91,7 @@ The gate fails when a PR:
 - lowers the `34/41` evidence-ready baseline;
 - hides or reduces the seven P0 external blockers;
 - claims public financial, custody, enterprise, or global exchange GO;
-- drops the 700-slot UI screenshot evidence matrix;
+- drops the full-route UI screenshot evidence matrix;
 - drops the 85-route JSON-LD burn-down queue;
 - removes the Binance/Coinbase/TradingView/Google/IndexNow/Binance API benchmark checklist;
 - removes the wave A evidence tracker, freshness policy, digests, verifier mapping, visual QA matrix or a11y runtime scope;

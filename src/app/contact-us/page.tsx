@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FaInstagram, FaDiscord } from "react-icons/fa6";
 import { FaTelegramPlane } from "react-icons/fa";
 import { Mail, MapPin, Phone, Smartphone, Clock3 } from "lucide-react";
+import { SupportMessageForm } from "@/components/contact/SupportMessageForm";
 
 const contactCards = [
   {
@@ -42,13 +43,7 @@ export default function Contact() {
           <div className="rounded-[32px] border border-primary/20 bg-white/5 p-8">
             <h2 className="text-2xl font-black">پیام خود را برای تک‌پی ارسال کنید</h2>
             <p className="mt-3 text-sm leading-8 text-muted">فرم زیر برای دریافت اولیه پیام‌هاست. برای پشتیبانی سریع‌تر، ایمیل info@tecpey.ir یا تلگرام رسمی تک‌پی را هم می‌توانید استفاده کنید.</p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <input className="rounded-2xl border border-primary/20 bg-bg px-4 py-3 outline-none focus:border-primary" placeholder="نام و نام خانوادگی" />
-              <input className="rounded-2xl border border-primary/20 bg-bg px-4 py-3 outline-none focus:border-primary" placeholder="ایمیل یا شماره تماس" />
-              <input className="rounded-2xl border border-primary/20 bg-bg px-4 py-3 outline-none focus:border-primary md:col-span-2" placeholder="موضوع پیام" />
-              <textarea className="min-h-36 rounded-2xl border border-primary/20 bg-bg px-4 py-3 outline-none focus:border-primary md:col-span-2" placeholder="متن پیام" />
-            </div>
-            <Link href="mailto:info@tecpey.ir" className="mt-6 inline-flex rounded-2xl bg-primary px-6 py-3 font-black text-white">ارسال پیام به پشتیبانی</Link>
+            <SupportMessageForm />
           </div>
 
           <div className="rounded-[32px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top,rgba(34,211,238,.18),transparent_35%),linear-gradient(145deg,#06111f,#0f172a)] p-8 text-white">

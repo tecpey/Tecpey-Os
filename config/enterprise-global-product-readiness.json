@@ -16,7 +16,7 @@
     "minimumControlCount": 41,
     "requiredEvidenceReadyControls": 34,
     "requiredBlockedExternalControls": 7,
-    "requiredScreenshotSlots": 700,
+    "requiredScreenshotSlots": 704,
     "routeScopedJsonLdDebt": 85,
     "globalReadinessPercent": 42
   },
@@ -47,7 +47,7 @@
     { "id": "OPS-012", "severity": "P0", "status": "BLOCKED_EXTERNAL", "domain": "operations", "title": "Incident red-team and critical probe evidence", "nextWave": "A" },
     { "id": "OPS-013", "severity": "P0", "status": "BLOCKED_EXTERNAL", "domain": "operations", "title": "Accepted-risk owner signoff evidence", "nextWave": "A" },
     { "id": "OPS-014", "severity": "P0", "status": "BLOCKED_EXTERNAL", "domain": "operations", "title": "Go approval matrix for current exact head", "nextWave": "A" },
-    { "id": "QA-050", "severity": "P0", "status": "BLOCKED_EXTERNAL", "domain": "ui-ux", "title": "700-slot desktop/mobile RTL/LTR screenshot matrix captured", "nextWave": "A" },
+    { "id": "QA-050", "severity": "P0", "status": "BLOCKED_EXTERNAL", "domain": "ui-ux", "title": "Full-route desktop/mobile RTL/LTR screenshot matrix captured", "nextWave": "A" },
     { "id": "QA-051", "severity": "P0", "status": "BLOCKED_EXTERNAL", "domain": "accessibility", "title": "Runtime axe, keyboard, focus, contrast and reduced-motion evidence", "nextWave": "A" },
     { "id": "SEC-001", "severity": "P0", "status": "EVIDENCE_READY", "domain": "security", "title": "Auth session and revocation authority guard" },
     { "id": "SEC-002", "severity": "P0", "status": "EVIDENCE_READY", "domain": "security", "title": "Admin provider approval decision authority" },
@@ -98,9 +98,9 @@
     { "id": "JSONLD-EN-LONGTAIL", "routeFamily": "English long-tail routes", "remainingRoutes": 7, "schemaTargets": ["Article", "FAQPage"] }
   ],
   "screenshotEvidenceMatrix": {
-    "routeCount": 175,
+    "routeCount": 176,
     "viewports": ["desktop-fa", "mobile-fa", "desktop-en", "mobile-en"],
-    "requiredSlots": 700,
+    "requiredSlots": 704,
     "status": "BLOCKED_EXTERNAL_UNTIL_BROWSER_CAPTURE"
   },
   "waveAExternalEvidenceTracker": {
@@ -222,11 +222,11 @@
           "mobile-en-screenshots.zip",
           "visual-defect-triage.json"
         ],
-        "routeCount": 175,
+        "routeCount": 176,
         "viewports": ["desktop-fa", "mobile-fa", "desktop-en", "mobile-en"],
-        "requiredSlots": 700,
+        "requiredSlots": 704,
         "closureCriteria": [
-          "all 175 routes are captured in desktop-fa, mobile-fa, desktop-en and mobile-en",
+          "every route the application serves is captured in desktop-fa, mobile-fa, desktop-en and mobile-en; routeCount and requiredSlots above are the machine-checked count, derived from src/app rather than restated here",
           "auth, Academy, Arena, Mentor, coin, tool, news and public flows are represented",
           "RTL/LTR overflow, clipping, overlap and layout-shift defects are triaged",
           "release owner accepts zero unresolved P0/P1 visual defects"
