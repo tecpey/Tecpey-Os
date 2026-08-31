@@ -40,6 +40,18 @@ export function evaluateEditorCheckpoint(checkpoint, rigManifest) {
     artboards.get("IdentityReference"),
     artboards.get("ExpressionReference"),
   ];
+  const unauthorizedComponents = (checkpoint.artboards ?? []).filter(
+    (artboard) =>
+      artboard.name !== "MentorCore" &&
+      (artboard.isComponent === true || artboard.componentAllowed === true),
+  );
+  if (unauthorizedComponents.length > 0) {
+    errors.push(
+      `MentorCore must be the sole allowed runtime component; found: ${unauthorizedComponents
+        .map((artboard) => artboard.name)
+        .join(", ")}.`,
+    );
+  }
 
   if (!core) {
     errors.push("MentorCore is missing from the editor checkpoint.");
