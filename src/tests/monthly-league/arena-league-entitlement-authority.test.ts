@@ -27,6 +27,7 @@ describe("Arena league entitlement authority", () => {
     const client = {
       query: async (sql: string) => {
         calls.push(sql);
+        if (sql.includes("pg_advisory_xact_lock")) return result([]);
         if (sql.includes("FROM academy_arena_league_snapshots")) return result([snapshot]);
         throw new Error("unexpected query after recognition-only gate");
       },
