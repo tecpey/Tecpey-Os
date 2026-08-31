@@ -1,0 +1,43 @@
+name: Promote Current Candidate Once
+
+on:
+  push:
+    branches:
+      - agent/promote-main-5e65-evidence
+    paths:
+      - scripts/.promotion-chunks/**
+      - .github/workflows/promote-current-candidate-once.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-current-candidate-once
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact bootstrap branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: agent/promote-main-5e65-evidence
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct one-time promotion authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat scripts/.promotion-chunks/*.b64 | base64 --decode > scripts/promote-current-candidate-once.mjs
+          rm -rf scripts/.promotion-chunks
+          node --check scripts/promote-current-candidate-once.mjs
+
+      - name: Generate, validate and publish exact candidate promotion
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/promote-current-candidate-once.mjs
