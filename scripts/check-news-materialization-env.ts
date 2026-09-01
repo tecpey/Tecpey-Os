@@ -3,7 +3,7 @@ import {
   DEFAULT_NEWS_FEED_MAX_ATTEMPTS,
   DEFAULT_NEWS_FEED_MIN_SUCCESSFUL_SOURCES,
   DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
-} from "../src/lib/news-materialization-runtime-policy";
+} from "../src/lib/ops/news-materialization-runtime-policy";
 
 function required(name: string): string {
   const value = process.env[name]?.trim() ?? "";
