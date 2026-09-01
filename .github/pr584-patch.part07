@@ -1,0 +1,236 @@
++    liquidity: "نقدشوندگی",
++    exchange: "صرافی",
++    institutional: "نهادی",
++    social: "کامیونیتی",
++    ai: "هوش مصنوعی",
++    rwa: "دارایی واقعی / RWA",
++  };
++  return locale === "fa" ? fa[cleaned] ?? cleaned.toUpperCase() : cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
++}
++
++export function CryptoNewsArchiveCenter({ locale }: { locale: Locale }) {
++  const isFa = locale === "fa";
++  const [selectedDate, setSelectedDate] = useState("");
++  const [data, setData] = useState<ArchiveResponse | null>(null);
++  const [query, setQuery] = useState("");
++  const [activeTags, setActiveTags] = useState<string[]>([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState(false);
++
++  useEffect(() => {
++    const controller = new AbortController();
++    setLoading(true);
++    setError(false);
++    const params = new URLSearchParams({ locale, all: "1" });
++    if (selectedDate) params.set("date", selectedDate);
++    fetch(`/api/crypto-news?${params}`, { signal: controller.signal })
++      .then((response) => response.ok ? response.json() : Promise.reject(new Error("archive read failed")))
++      .then((payload: ArchiveResponse) => {
++        setData(payload);
++        if (!selectedDate && payload.date) setSelectedDate(payload.date);
++      })
++      .catch((reason) => {
++        if (reason?.name !== "AbortError") setError(true);
++      })
++      .finally(() => setLoading(false));
++    return () => controller.abort();
++  }, [locale, selectedDate]);
++
++  const tags = useMemo(() => {
++    const counts = new Map<string, number>();
++    for (const item of data?.items ?? []) {
++      for (const tag of item.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
++    }
++    return Array.from(counts.entries())
++      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
++      .slice(0, 28);
++  }, [data]);
++
++  const filteredItems = useMemo(() => {
++    const q = query.trim().toLowerCase();
++    return (data?.items ?? []).filter((item) => {
++      const tagMatch = activeTags.length === 0 || activeTags.every((tag) => item.tags.includes(tag));
++      if (!tagMatch) return false;
++      if (!q) return true;
++      return [item.title, item.summary, item.originalTitle, item.source, ...item.tags, ...item.relatedCoins, ...item.relatedTools]
++        .filter(Boolean)
++        .some((value) => String(value).toLowerCase().includes(q));
++    });
++  }, [activeTags, data, query]);
++
++  const toggleTag = (tag: string) => {
++    setActiveTags((current) => current.includes(tag) ? current.filter((value) => value !== tag) : [...current, tag]);
++  };
++
++  return (
++    <section className="px-4 pb-16 sm:px-6 lg:px-8" dir={isFa ? "rtl" : "ltr"}>
++      <div className="mx-auto max-w-[1480px] rounded-[36px] border border-cyan-300/20 bg-white/72 p-4 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl dark:bg-slate-950/52 sm:p-6 lg:p-8">
++        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
++          <div>
++            <p className="text-xs font-black text-cyan-700 dark:text-cyan-200">{isFa ? "آرشیو روزانهٔ خبر تک‌پی" : "TecPey daily news archive"}</p>
++            <h2 className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
++              {data?.date ? localeDate(data.date, locale) : (isFa ? "اخبار امروز" : "Today's news")}
++            </h2>
++            <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">
++              {isFa
++                ? "تمام خبرهای تأییدشدهٔ همان روز؛ بدون جایگزین‌کردن خبر دیروز با خبر امروز."
++                : "All verified records for the selected day; yesterday's stories never masquerade as today's feed."}
++            </p>
++          </div>
++          <label className="flex min-w-[240px] items-center gap-3 rounded-2xl border border-cyan-300/25 bg-white/70 px-4 py-3 dark:bg-white/5">
++            <CalendarDays className="h-5 w-5 text-cyan-500" aria-hidden="true" />
++            <span className="sr-only">{isFa ? "انتخاب تاریخ" : "Choose date"}</span>
++            <input
++              type="date"
++              value={selectedDate}
++              max={data?.availableDates?.[0] || undefined}
++              onChange={(event) => {
++                setSelectedDate(event.target.value);
++                setActiveTags([]);
++              }}
++              className="w-full bg-transparent text-sm font-black text-slate-800 outline-none dark:text-white"
++            />
++          </label>
++        </div>
++
++        <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
++          <label className="relative block">
++            <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-500" aria-hidden="true" />
++            <input
++              value={query}
++              onChange={(event) => setQuery(event.target.value)}
++              placeholder={isFa ? "جست‌وجو در تیتر، متن، کوین، ابزار یا تگ..." : "Search headline, text, coin, tool or tag..."}
++              className="h-12 w-full rounded-2xl border border-cyan-300/20 bg-white/70 ps-11 pe-4 text-sm font-bold text-slate-900 outline-none focus:border-cyan-400 dark:bg-white/5 dark:text-white"
++            />
++          </label>
++          <div className="rounded-2xl border border-cyan-300/15 bg-cyan-500/5 px-4 py-3 text-sm font-black text-cyan-800 dark:text-cyan-100">
++            {isFa ? `${filteredItems.length} خبر از ${data?.total ?? 0}` : `${filteredItems.length} of ${data?.total ?? 0} stories`}
++          </div>
++        </div>
++
++        {tags.length > 0 && (
++          <div className="mt-4 flex gap-2 overflow-x-auto pb-2" aria-label={isFa ? "فیلتر تگ خبر" : "News tag filters"}>
++            {tags.map(([tag, count]) => {
++              const active = activeTags.includes(tag);
++              return (
++                <button
++                  key={tag}
++                  type="button"
++                  onClick={() => toggleTag(tag)}
++                  aria-pressed={active}
++                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-black transition ${active ? "border-cyan-500 bg-cyan-600 text-white" : "border-cyan-300/20 bg-cyan-500/5 text-cyan-800 hover:bg-cyan-500/10 dark:text-cyan-100"}`}
++                >
++                  <Tag className="h-3.5 w-3.5" aria-hidden="true" />
++                  {tagLabel(tag, locale)} · {count}
++                </button>
++              );
++            })}
++          </div>
++        )}
++
++        {loading ? (
++          <div className="mt-8 grid gap-4 md:grid-cols-2"><div className="h-72 animate-pulse rounded-3xl bg-cyan-500/5" /><div className="h-72 animate-pulse rounded-3xl bg-cyan-500/5" /></div>
++        ) : error ? (
++          <p className="mt-8 rounded-3xl border border-rose-300/20 bg-rose-500/10 p-5 text-sm font-black text-rose-700 dark:text-rose-200">{isFa ? "خواندن آرشیو خبر ناموفق بود؛ دوباره تلاش کنید." : "The news archive could not be read. Please retry."}</p>
++        ) : filteredItems.length === 0 ? (
++          <p className="mt-8 rounded-3xl border border-amber-300/20 bg-amber-500/10 p-5 text-sm font-black text-amber-800 dark:text-amber-100">{isFa ? "برای این تاریخ و فیلتر، خبر تأییدشده‌ای ثبت نشده است." : "No verified story matches this date and filter."}</p>
++        ) : (
++          <div className="mt-8 grid gap-4 lg:grid-cols-2">
++            {filteredItems.map((item) => (
++              <article key={item.id} className="rounded-[30px] border border-cyan-300/15 bg-white/74 p-5 shadow-lg shadow-cyan-500/5 dark:bg-slate-950/52">
++                <div className="flex flex-wrap items-center justify-between gap-3">
++                  <div className="flex flex-wrap gap-2">
++                    <span className="rounded-full border border-cyan-300/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black text-cyan-800 dark:text-cyan-100">{item.category}</span>
++                    <span className="rounded-full border border-white/10 bg-slate-500/10 px-3 py-1 text-[11px] font-black text-slate-600 dark:text-slate-300">{isFa ? `اثر ${item.impact}/10` : `Impact ${item.impact}/10`}</span>
++                  </div>
++                  <time dateTime={item.publishedAt} className="text-xs font-bold text-slate-500 dark:text-slate-400">
++                    {new Intl.DateTimeFormat(isFa ? "fa-IR" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tehran" }).format(new Date(item.publishedAt))}
++                  </time>
++                </div>
++                <h3 className="mt-4 text-xl font-black leading-8 text-slate-950 dark:text-white">{item.title}</h3>
++                <p className="mt-3 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">{item.summary}</p>
++
++                {isFa && item.translationStatus !== "translated" && (
++                  <p className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-500/10 p-3 text-xs font-black text-amber-800 dark:text-amber-100">
++                    {item.translationStatus === "failed" ? "ترجمهٔ کنترل‌شدهٔ فارسی این خبر ناموفق بوده؛ متن اصلی منبع نمایش داده می‌شود." : "ترجمهٔ فارسی این خبر هنوز تأیید نشده؛ متن اصلی منبع نمایش داده می‌شود."}
++                  </p>
++                )}
++
++                <details className="group mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4">
++                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-cyan-800 dark:text-cyan-100">
++                    {isFa ? "نمایش متن بیشتر و متن اصلی" : "Show more and original source text"}
++                    <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden="true" />
++                  </summary>
++                  <div className="mt-4 space-y-4 text-sm font-bold leading-7 text-slate-700 dark:text-slate-200">
++                    <p className="whitespace-pre-wrap">{item.body}</p>
++                    {item.originalTitle && item.originalTitle !== item.title && (
++                      <div className="rounded-2xl border border-white/10 bg-slate-500/5 p-4" dir="ltr">
++                        <p className="text-xs font-black text-slate-500">Original headline</p>
++                        <p className="mt-2 font-black">{item.originalTitle}</p>
++                        {item.originalSummary && <p className="mt-2">{item.originalSummary}</p>}
++                      </div>
++                    )}
++                  </div>
++                </details>
++
++                <div className="mt-4 flex flex-wrap gap-2">
++                  {item.tags.slice(0, 12).map((tag) => <span key={tag} className="rounded-full border border-cyan-300/15 px-2.5 py-1 text-[10px] font-black text-slate-500 dark:text-slate-300">#{tagLabel(tag, locale)}</span>)}
++                </div>
++                <a href={item.url} target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 text-sm font-black text-cyan-700 underline decoration-cyan-300 underline-offset-4 dark:text-cyan-200">
++                  {isFa ? `منبع اصلی: ${item.source}` : `Original source: ${item.source}`}
++                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
++                </a>
++              </article>
++            ))}
++          </div>
++        )}
++      </div>
++    </section>
++  );
++}
+diff --git a/src/components/content/GrowthTrendWidget.tsx b/src/components/content/GrowthTrendWidget.tsx
+new file mode 100644
+index 00000000..c90e48a0
+--- /dev/null
++++ b/src/components/content/GrowthTrendWidget.tsx
+@@ -0,0 +1,76 @@
++"use client";
++
++import Link from "next/link";
++import { useState } from "react";
++import { ArrowUpRight, Flame, RadioTower } from "lucide-react";
++import type { ContentLocale } from "@/lib/content-growth";
++import type { GrowthTrendModel, GrowthTrendWindow } from "@/lib/growth-trend-intelligence";
++
++const windows: GrowthTrendWindow[] = ["24h", "7d", "30d"];
++
++export function GrowthTrendWidget({ locale, model }: { locale: ContentLocale; model: GrowthTrendModel }) {
++  const isFa = locale === "fa";
++  const [window, setWindow] = useState<GrowthTrendWindow>("24h");
++  const items = model[window];
++
++  return (
++    <section className="px-4 pb-8 sm:px-6 lg:px-8" dir={isFa ? "rtl" : "ltr"} aria-labelledby={`${locale}-growth-trends-heading`}>
++      <div className="mx-auto max-w-[1480px] rounded-[34px] border border-cyan-300/20 bg-slate-950/88 p-5 text-white shadow-2xl shadow-cyan-500/10 backdrop-blur-xl sm:p-6">
++        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
++          <div>
++            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-100">
++              <RadioTower className="h-4 w-4" aria-hidden="true" />
++              {isFa ? "TecPey Trend Intelligence" : "TecPey Trend Intelligence"}
++            </div>
++            <h2 id={`${locale}-growth-trends-heading`} className="mt-3 text-2xl font-black sm:text-3xl">
++              {isFa ? "ترندها و مهم‌ترین‌های بازار" : "Market trends and high-signal entities"}
++            </h2>
++            <p className="mt-2 max-w-3xl text-sm font-bold leading-7 text-slate-300">
++              {isFa
++                ? "رتبه‌بندی بر اساس تازگی، شدت خبر، تنوع منبع و سیگنال اجتماعیِ تأییدشده؛ حجم خام mention به‌تنهایی ترند نمی‌سازد."
++                : "Ranked by freshness, news impact, source diversity and verified social signals; raw mention volume alone never creates a trend."}
++            </p>
++          </div>
++          <div className="flex rounded-2xl border border-white/10 bg-white/5 p-1" role="tablist" aria-label={isFa ? "بازه ترند" : "Trend window"}>
++            {windows.map((value) => (
++              <button
++                key={value}
++                type="button"
++                role="tab"
++                aria-selected={window === value}
