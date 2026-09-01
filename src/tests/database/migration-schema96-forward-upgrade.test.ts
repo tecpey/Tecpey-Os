@@ -55,6 +55,7 @@ describe("schema-96 forward upgrade authority", () => {
     for (const required of [
       "ADD COLUMN IF NOT EXISTS command_hash TEXT",
       "ADD COLUMN IF NOT EXISTS execution_connector_id TEXT",
+      "schema96_legacy_execution_check",
       "ai_automation_runs_command_hash_check",
       "ai_automation_runs_started_connector_check",
       "ai_knowledge_items_tenant_workspace_id_key",
@@ -66,6 +67,10 @@ describe("schema-96 forward upgrade authority", () => {
     }
     assert.match(AI_SCHEMA96_FORWARD_RECONCILIATION_SQL, /tecpey-legacy-command-v1/);
     assert.match(AI_SCHEMA96_FORWARD_RECONCILIATION_SQL, /legacy-unbound:/);
+    assert.match(
+      AI_SCHEMA96_FORWARD_RECONCILIATION_SQL,
+      /NOT LIKE '%execution_connector_id%'/,
+    );
   });
 
   it("fails before partial migrations when CREATEROLE is absent", async () => {
