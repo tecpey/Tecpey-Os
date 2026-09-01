@@ -31,6 +31,25 @@ UPDATE ai_automation_runs
 ALTER TABLE ai_automation_runs
   ALTER COLUMN command_hash SET NOT NULL;
 
+DO $schema96_legacy_execution_check$
+DECLARE
+  legacy_constraint TEXT;
+BEGIN
+  FOR legacy_constraint IN
+    SELECT conname FROM pg_constraint
+     WHERE conrelid = 'ai_automation_runs'::regclass
+       AND contype = 'c'
+       AND pg_get_constraintdef(oid) LIKE '%execution_started_at%'
+       AND pg_get_constraintdef(oid) NOT LIKE '%execution_connector_id%'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE ai_automation_runs DROP CONSTRAINT %I',
+      legacy_constraint
+    );
+  END LOOP;
+END
+$schema96_legacy_execution_check$;
+
 DO $schema96_legacy_knowledge_fk$
 DECLARE
   legacy_constraint TEXT;
