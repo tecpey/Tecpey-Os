@@ -26,6 +26,59 @@ export const AI_TENANT_RLS_TABLES = Object.freeze([
   "ai_agent_route_candidate_events",
 ] as const);
 
+type AiTenantRlsMigrationAuthority = Readonly<{
+  superuser: boolean;
+  create_role: boolean;
+  create_schema: boolean;
+  create_database: boolean;
+  pgcrypto_installed: boolean;
+  unauthorized_table_count: number;
+}>;
+
+export async function assertAiTenantRlsMigrationAuthority(
+  client: PoolClient,
+): Promise<void> {
+  try {
+    const applied = await client.query(
+      "SELECT 1 FROM _migrations WHERE filename = $1 LIMIT 1",
+      [FILENAME],
+    );
+    if (applied.rows[0]) return;
+  } catch (error) {
+    if ((error as { code?: string }).code !== "42P01") throw error;
+  }
+
+  const evidence = await client.query<AiTenantRlsMigrationAuthority>(
+    `SELECT role.rolsuper AS superuser,
+            role.rolcreaterole AS create_role,
+            has_schema_privilege(current_user, 'public', 'CREATE') AS create_schema,
+            has_database_privilege(current_user, current_database(), 'CREATE') AS create_database,
+            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto')
+              AS pgcrypto_installed,
+            (
+              SELECT COUNT(*)::integer
+                FROM pg_class relation
+               WHERE relation.relname = ANY($1::text[])
+                 AND relation.relnamespace = 'public'::regnamespace
+                 AND NOT pg_has_role(current_user, relation.relowner, 'USAGE')
+            ) AS unauthorized_table_count
+       FROM pg_roles role
+      WHERE role.rolname = current_user`,
+    [AI_TENANT_RLS_TABLES],
+  );
+  const authority = evidence.rows[0];
+  if (!authority) throw new Error("ai_tenant_rls_migration_authority_missing");
+  if (!authority.superuser && !authority.create_role) {
+    throw new Error("ai_tenant_rls_migration_authority_required:create_role");
+  }
+  if (!authority.create_schema || authority.unauthorized_table_count !== 0) {
+    throw new Error("ai_tenant_rls_migration_authority_required:schema_owner");
+  }
+  if (!authority.pgcrypto_installed && !authority.create_database) {
+    throw new Error("ai_tenant_rls_migration_authority_required:create_extension");
+  }
+}
+
 export const AI_TENANT_RLS_SQL = `
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
@@ -784,6 +837,8 @@ export async function runAiTenantRlsMigrations(
     }
     return;
   }
+
+  await assertAiTenantRlsMigrationAuthority(client);
 
   logger.info("[db-migrate-ai-tenant-rls] applying migration", {
     filename: FILENAME,
