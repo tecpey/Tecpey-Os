@@ -15,7 +15,10 @@ describe("AI automation source authority", () => {
     assert.doesNotMatch(store, /\bwriteAdminAuditEvent\b/);
   });
   it("enforces quorum, real admin roles, lease ownership and append-only evidence in PostgreSQL", async () => {
-    const migration = await source("src/lib/db-migrate-ai-automation.ts");
+    const [migration, reconciliation] = await Promise.all([
+      source("src/lib/db-migrate-ai-automation.ts"),
+      source("src/lib/db-migrate-ai-routing-budget.ts"),
+    ]);
     assert.match(migration, /tecpey_guard_ai_automation_run_transition/);
     assert.match(migration, /AI automation C-level quorum is not satisfied/);
     assert.match(migration, /admin_user_roles user_role/);
@@ -28,8 +31,10 @@ describe("AI automation source authority", () => {
     assert.match(migration, /policy is disabled or superseded/);
     assert.match(migration, /Expired AI automation approval cannot execute/);
     assert.match(migration, /tecpey_reject_ai_control_event_mutation/);
-    assert.match(migration, /command_hash TEXT NOT NULL/);
-    assert.match(migration, /execution_connector_id TEXT CHECK/);
+    assert.match(reconciliation, /ADD COLUMN IF NOT EXISTS command_hash TEXT/);
+    assert.match(reconciliation, /ADD COLUMN IF NOT EXISTS execution_connector_id TEXT/);
+    assert.match(reconciliation, /ai_automation_runs_execution_connector_check/);
+    assert.match(reconciliation, /ai_automation_runs_started_connector_check/);
     assert.match(migration, /execution connector binding cannot change/);
     assert.match(migration, /WHEN 'executing' THEN NEW\.status IN \('completed', 'failed', 'blocked'\)/);
   });

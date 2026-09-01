@@ -214,7 +214,6 @@ CREATE TABLE IF NOT EXISTS ai_automation_runs (
   resource_id TEXT CHECK (resource_id IS NULL OR length(resource_id) BETWEEN 1 AND 200),
   input_text TEXT NOT NULL CHECK (length(input_text) BETWEEN 8 AND 12000),
   input_hash TEXT NOT NULL CHECK (input_hash ~ '^[0-9a-f]{64}$'),
-  command_hash TEXT NOT NULL CHECK (command_hash ~ '^[0-9a-f]{64}$'),
   idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) BETWEEN 8 AND 200),
   policy_version TEXT NOT NULL CHECK (policy_version ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{2,79}$'),
   ai_reviewer_ids TEXT[] NOT NULL DEFAULT '{}',
@@ -234,10 +233,6 @@ CREATE TABLE IF NOT EXISTS ai_automation_runs (
   requested_by UUID REFERENCES admin_users(id) ON DELETE SET NULL,
   approved_at TIMESTAMPTZ,
   execution_started_at TIMESTAMPTZ,
-  execution_connector_id TEXT CHECK (
-    execution_connector_id IS NULL OR
-    execution_connector_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$'
-  ),
   completed_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL,
   failure_code TEXT CHECK (failure_code IS NULL OR failure_code ~ '^[a-z0-9_:-]{2,120}$'),
@@ -259,10 +254,7 @@ CREATE TABLE IF NOT EXISTS ai_automation_runs (
   CHECK (approved_at IS NULL OR status IN (
     'approved', 'executing', 'completed', 'failed', 'blocked', 'cancelled'
   )),
-  CHECK (execution_started_at IS NULL OR (
-    execution_connector_id IS NOT NULL AND
-    status IN ('executing', 'completed', 'failed', 'blocked')
-  )),
+  CHECK (execution_started_at IS NULL OR status IN ('executing', 'completed', 'failed')),
   CHECK (completed_at IS NULL OR status IN ('completed', 'failed'))
 );
 
@@ -640,6 +632,21 @@ SELECT workspace.tenant_id,
  ) AS seed(workflow_id, interval_minutes)
 ON CONFLICT (tenant_id, workspace_id, workflow_id) DO NOTHING;
 `;
+
+function requiredSqlSection(source: string, start: string, end: string): string {
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end, startIndex);
+  if (startIndex < 0 || endIndex < 0) {
+    throw new Error("ai_automation_migration_sql_section_missing");
+  }
+  return source.slice(startIndex, endIndex).trim();
+}
+
+export const AI_AUTOMATION_RUN_TRANSITION_FUNCTION_SQL = requiredSqlSection(
+  AI_AUTOMATION_ORCHESTRATION_SQL,
+  "CREATE OR REPLACE FUNCTION tecpey_guard_ai_automation_run_transition()",
+  "DROP TRIGGER IF EXISTS ai_automation_reviews_validate",
+);
 
 function checksum(sql: string): string {
   return createHash("sha256")

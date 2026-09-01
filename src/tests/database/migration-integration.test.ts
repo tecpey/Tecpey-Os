@@ -125,6 +125,8 @@ const REQUIRED_COLUMNS = [
   ["offline_sync_commands", "command_hash"],
   ["offline_sync_commands", "domain_event_id"],
   ["offline_sync_commands", "retain_until"],
+  ["ai_automation_runs", "command_hash"],
+  ["ai_automation_runs", "execution_connector_id"],
   ["notification_domain_outbox", "payload_hash"],
   ["notification_domain_outbox", "lease_expires_at"],
   ["notification_domain_outbox", "notification_intent_id"],
@@ -266,6 +268,12 @@ const REQUIRED_TRIGGERS = [
 
 const REQUIRED_CONSTRAINTS = [
   "crm_leads_legal_basis_consent_check",
+  "ai_automation_runs_command_hash_check",
+  "ai_automation_runs_execution_connector_check",
+  "ai_automation_runs_started_connector_check",
+  "ai_knowledge_items_tenant_workspace_id_key",
+  "ai_knowledge_item_events_scope_fk",
+  "ai_workflow_run_evidence_scope_status_key",
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
@@ -294,9 +302,85 @@ describe("PostgreSQL migration authority", () => {
       const upgradedClient = await upgradedPool.connect();
       let upgradedFingerprint: string;
       try {
-        // Reproduce the governed pre-contract database: application schema and
-        // historical ledger exist, but runtime plan evidence does not.
+        // Start from the clean schema, then reproduce the exact governed
+        // schema-96 drift observed on staging: 0091/0092 have their original
+        // full checksums, 0094+ are absent, and the later canonical columns,
+        // scope constraints and transition function are not installed.
         await applyDatabaseMigrations(upgradedClient);
+        await upgradedClient.query(`
+          ALTER TABLE ai_automation_runs
+            DROP COLUMN IF EXISTS command_hash CASCADE,
+            DROP COLUMN IF EXISTS execution_connector_id CASCADE;
+
+          DO $drop_schema96_constraints$
+          DECLARE
+            candidate RECORD;
+          BEGIN
+            FOR candidate IN
+              SELECT conrelid::regclass::text AS relation_name, conname
+                FROM pg_constraint
+               WHERE (
+                 conrelid = 'ai_knowledge_items'::regclass
+                 AND contype = 'u'
+                 AND pg_get_constraintdef(oid) =
+                   'UNIQUE (tenant_id, workspace_id, id)'
+               ) OR (
+                 conrelid = 'ai_knowledge_item_events'::regclass
+                 AND contype = 'f'
+                 AND pg_get_constraintdef(oid) LIKE
+                   'FOREIGN KEY (tenant_id, workspace_id, knowledge_item_id)%'
+               ) OR (
+                 conrelid = 'ai_workflow_run_evidence'::regclass
+                 AND contype = 'u'
+                 AND pg_get_constraintdef(oid) =
+                   'UNIQUE (tenant_id, workspace_id, run_id, status)'
+               )
+               ORDER BY CASE contype WHEN 'f' THEN 0 ELSE 1 END
+            LOOP
+              EXECUTE format(
+                'ALTER TABLE %s DROP CONSTRAINT %I CASCADE',
+                candidate.relation_name,
+                candidate.conname
+              );
+            END LOOP;
+          END
+          $drop_schema96_constraints$;
+
+          ALTER TABLE ai_knowledge_item_events
+            ADD CONSTRAINT ai_knowledge_item_events_legacy_item_fk
+            FOREIGN KEY (knowledge_item_id)
+            REFERENCES ai_knowledge_items(id) ON DELETE RESTRICT;
+          ALTER TABLE ai_workflow_run_evidence
+            ADD CONSTRAINT ai_workflow_run_evidence_legacy_status_key
+            UNIQUE (tenant_id, run_id, status);
+
+          DROP TABLE IF EXISTS platform_news_archive_translations CASCADE;
+          DROP TABLE IF EXISTS platform_growth_trend_signals CASCADE;
+          DROP TABLE IF EXISTS platform_news_archive_items CASCADE;
+          DROP TABLE IF EXISTS support_messages CASCADE;
+          DROP TABLE IF EXISTS ai_agent_route_candidate_events CASCADE;
+          DROP TABLE IF EXISTS ai_agent_route_candidates CASCADE;
+          DROP TABLE IF EXISTS ai_routing_decision_events CASCADE;
+          DROP TABLE IF EXISTS ai_spend_reservations CASCADE;
+          DROP TABLE IF EXISTS ai_agent_spend_monthly CASCADE;
+          ALTER TABLE ai_agent_bindings
+            DROP COLUMN IF EXISTS max_request_cost_usd_micros CASCADE;
+
+          DELETE FROM _migrations
+           WHERE filename = ANY(ARRAY[
+             '0094_ai_routing_budget.sql',
+             '0095_ai_route_candidates.sql',
+             '0096_ai_tenant_row_level_security.sql',
+             '0097_support_messages.sql',
+             '0098_news_archive_and_growth_intelligence.sql'
+           ]::text[]);
+          UPDATE _migrations
+             SET checksum = '3bb54ffbdae67711ac7508a27e8d0b4846dba2d8dd0e319ed2edbe842584c7a8'
+           WHERE filename = '0091_ai_control_plane.sql';
+          UPDATE _migrations
+             SET checksum = '6c490226a77fd372f0f2cd5229e2caa458eb467447b69fbf6b106b87fb92e853'
+           WHERE filename = '0092_ai_automation_orchestration.sql';
+        `);
         const legacyBootstrap = await upgradedClient.query<{
           state_table: string | null;
           ledger_table: string | null;
@@ -326,6 +410,12 @@ describe("PostgreSQL migration authority", () => {
           worker_can_read_state: true,
         }]);
         for (const expectation of DATABASE_MIGRATION_EXPECTATIONS) {
+          if (
+            expectation.identity === "0091_ai_control_plane.sql" ||
+            expectation.identity === "0092_ai_automation_orchestration.sql"
+          ) {
+            continue;
+          }
           const historicalChecksum = expectation.identity === "0046_tenant_principal_isolation_foundation.sql"
             ? expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 64)
             : expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 16);
@@ -501,7 +591,7 @@ describe("PostgreSQL migration authority", () => {
       assert.deepEqual(
         new Set(constraintResult.rows.map((row) => row.conname)),
         new Set(REQUIRED_CONSTRAINTS),
-        "critical CRM privacy constraints must exist",
+        "critical governed constraints must exist",
       );
     } finally {
       client.release();
