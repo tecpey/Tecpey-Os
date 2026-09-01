@@ -5,7 +5,7 @@ import {
   evaluateNewsMaterializationRuntimeHealth,
   newsFeedRetryDelayMs,
   shouldRetryNewsFeedFailure,
-} from "../../lib/news-materialization-runtime-policy";
+} from "../../lib/ops/news-materialization-runtime-policy";
 import type { NewsMaterializationWorkerResult } from "../../lib/news-materialization-worker";
 import type { OperationalJobRunEvidence } from "../../lib/ops/operational-job-evidence";
 
