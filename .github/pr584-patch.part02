@@ -1,0 +1,229 @@
++  const newsFa = read("src/app/crypto-news/page.tsx");
++  const newsEn = read("src/app/en/crypto-news/page.tsx");
++  const newsDetailFa = read("src/app/crypto-news/[slug]/page.tsx");
++  const newsDetailEn = read("src/app/en/crypto-news/[slug]/page.tsx");
++  const aiAutomationStore = read("src/lib/ai/automation-store.ts");
++  const stagingNewsAuthority = read("scripts/check-news-materialization-staging-evidence-authority.mjs");
++  const coinsFa = read("src/app/coins/page.tsx");
++  const coinsEn = read("src/app/en/coins/page.tsx");
++  const toolsFa = read("src/app/trading-tools/page.tsx");
++  const toolsEn = read("src/app/en/trading-tools/page.tsx");
++
++  fail(errors, "market board must request 30 rows per page", /const LIMIT = 30;/.test(market));
++  fail(errors, "market search must render before MarketsHero", market.indexOf("<MarketsSearchBar") < market.indexOf("<MarketsHero"));
++  fail(errors, "market board must expose a 1480px enterprise width", market.includes("max-w-[1480px]") && table.includes("max-w-[1480px]"));
++  fail(errors, "market table must keep a bounded horizontal mobile fallback", table.includes("overflow-x-auto") && table.includes("min-w-[860px]"));
++
++  for (const route of ["/markets", "/en/markets", "/crypto-news", "/en/crypto-news", "/coins", "/en/coins", "/trading-tools", "/en/trading-tools"]) {
++    fail(errors, `scroll motion allowlist missing ${route}`, motion.includes(`"${route}"`));
++  }
++  fail(errors, "unknown coin fallback must not silently become Bitcoin", coinVisuals.includes('sourceLabel: "TecPey generated vector fallback"') && !/return fallbackCoinVisual;\s*\n}/.test(coinVisuals));
++
++  fail(errors, "footer must be one horizontally scrollable/snap container on mobile", footer.includes("snap-x snap-mandatory") && footer.includes("overflow-x-auto"));
++  fail(errors, "footer must keep four Persian and four English groups", (footer.match(/title: "/g) ?? []).length >= 8);
++  fail(errors, "footer must expose current-page semantics", footer.includes('aria-current={active ? "page" : undefined}'));
++
++  fail(errors, "news API must read the archive authority", newsApi.includes("getNewsArchiveDayFromAuthority"));
++  fail(errors, "news API must not perform external feed ingestion on page reads", !newsApi.includes("coindesk.com") && !newsApi.includes("cointelegraph.com/rss") && !newsApi.includes("readBoundedResponseText"));
++  fail(errors, "news API must support all records for a selected day", newsApi.includes('searchParams.get("all") === "1"'));
++  fail(errors, "news archive UI must support date, search and tag filters", archive.includes('type="date"') && archive.includes("activeTags") && archive.includes("Search"));
++
++  fail(errors, "news worker must use governed AI translation", worker.includes("callAiProvider") && worker.includes("translateToPersian"));
++  fail(errors, "news worker must translate only fresh, not-yet-materialized stories", worker.includes("filterAlreadyMaterializedInputs") && worker.includes("localizeFreshInputs"));
++  fail(errors, "news worker must preserve numeric claims", worker.includes("numbersIn") && worker.includes("numericMismatch"));
++  fail(errors, "news translation must use bounded concurrency and per-run budget", worker.includes("NEWS_TRANSLATION_CONCURRENCY") && worker.includes("NEWS_TRANSLATION_MAX_PER_RUN") && worker.includes("Promise.all"));
++  fail(errors, "scheduler must start after boot", timer.includes("OnBootSec=2min"));
++  fail(errors, "scheduler must run continuously every 10 minutes", timer.includes("OnUnitActiveSec=10min") && timer.includes("Persistent=true"));
++  fail(errors, "staging authority must verify the same ten-minute scheduler contract", stagingNewsAuthority.includes("OnUnitActiveSec=10min"));
++
++  fail(errors, "news growth authority must explicitly model SEO", growth.includes("seo: Readonly") && growth.includes("hreflang") && growth.includes("schemaTypes"));
++  fail(errors, "news growth authority must explicitly model AEO", growth.includes("aeo: Readonly") && growth.includes("directAnswer") && growth.includes("questions"));
++  fail(errors, "news growth authority must explicitly model GEO", growth.includes("geo: Readonly") && growth.includes("llmSummary") && growth.includes("citationFacts"));
++  for (const tag of ["topic:regulation", "topic:macro", "topic:security", "topic:defi", "topic:layer2", "topic:onchain", "topic:derivatives", "topic:rwa", "topic:institutional", "topic:social"]) {
++    fail(errors, `growth taxonomy missing ${tag}`, growth.includes(`"${tag}"`));
++  }
++  fail(errors, "materialized news decisions must preserve growth authority", materialization.includes("growthAuthority: decision.growthAuthority"));
++  fail(errors, "AEO answers must be visible on both news detail surfaces", newsDetailFa.includes("growth.aeo.questions.map") && newsDetailEn.includes("growth.aeo.questions.map"));
++  fail(errors, "scheduled public intelligence must research SEO/GEO/AEO opportunities without auto-publish authority", aiAutomationStore.includes("SEO/GEO/AEO") && aiAutomationStore.includes("هیچ انتشار خودکار"));
++
++  fail(errors, "trend intelligence must expose 24h/7d/30d windows", trends.includes('"24h"') && trends.includes('"7d"') && trends.includes('"30d"'));
++  fail(errors, "trend ranking must include source diversity", trends.includes("sourceCount") && trends.includes("sources.size"));
++  fail(errors, "trend ranking must model verified social-source signals without raw-mention inflation", trends.includes("socialSignalCount") && trends.includes("sourceIsSocial"));
++  fail(errors, "trend widget must explain ranking transparency", trendWidget.includes("raw mention") && trendWidget.includes("source diversity"));
++  for (const page of [newsFa, newsEn, coinsFa, coinsEn, toolsFa, toolsEn]) {
++    fail(errors, "News/Coins/Tools surface missing shared trend widget", page.includes("GrowthTrendWidget"));
++  }
++
++  fail(errors, "C-level review must include a Growth Hacker AI role", intelligence.includes('"chief_growth_hacker_ai"'));
++  fail(errors, "Growth Hacker AI must remain recommendation-only", intelligence.includes("organic-growth:recommendation-only"));
++
++  fail(errors, "news growth archive migration missing immutable structured fields", migration.includes("growth_authority JSONB") && migration.includes("topic_tags TEXT[]") && migration.includes("translation_status"));
++  fail(errors, "news growth archive migration must be registered after the current registry tail", registry.includes('entry(83, "migration-step-083"'));
++
++  return errors;
++}
++
++if (import.meta.url === `file://${process.argv[1]}`) {
++  const errors = evaluateMarketNewsGrowthEnterprise();
++  if (errors.length) {
++    console.error("Market/News/Growth enterprise authority failed:");
++    for (const error of errors) console.error(`- ${error}`);
++    process.exit(1);
++  }
++  console.log("Market/News/Growth enterprise authority passed.");
++}
+diff --git a/scripts/check-news-materialization-env.ts b/scripts/check-news-materialization-env.ts
+index 86b1acc4..45ee02e0 100644
+--- a/scripts/check-news-materialization-env.ts
++++ b/scripts/check-news-materialization-env.ts
+@@ -66,7 +66,7 @@ try {
+   required("DATABASE_URL");
+   const selectedLocales = locales();
+   const selectedSourceMode = sourceMode();
+-  const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 10, 1, 30);
++  const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 100, 1, 200);
+   const stateDirectory = optionalAbsoluteDirectory("TECPEY_OPS_STATE_DIR");
+   console.log(JSON.stringify({
+     ok: true,
+diff --git a/scripts/check-news-materialization-staging-evidence-authority.mjs b/scripts/check-news-materialization-staging-evidence-authority.mjs
+index 21dd5bf6..e379b9fb 100644
+--- a/scripts/check-news-materialization-staging-evidence-authority.mjs
++++ b/scripts/check-news-materialization-staging-evidence-authority.mjs
+@@ -151,7 +151,8 @@ for (const invariant of [
+   requireText("service", invariant, `systemd service is missing ${invariant}`);
+ }
+ for (const invariant of [
+-  "OnCalendar=hourly",
++  "OnBootSec=2min",
++  "OnUnitActiveSec=10min",
+   "Persistent=true",
+   "Unit=tecpey-news-materialization.service",
+ ]) {
+diff --git a/scripts/market-news-growth-enterprise.test.mjs b/scripts/market-news-growth-enterprise.test.mjs
+new file mode 100644
+index 00000000..4231ea29
+--- /dev/null
++++ b/scripts/market-news-growth-enterprise.test.mjs
+@@ -0,0 +1,7 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { evaluateMarketNewsGrowthEnterprise } from "./check-market-news-growth-enterprise.mjs";
++
++test("market, news, trends, SEO/GEO/AEO and footer remain governed as one enterprise surface", () => {
++  assert.deepEqual(evaluateMarketNewsGrowthEnterprise(), []);
++});
+diff --git a/scripts/repository-audit-manifest.test.mjs b/scripts/repository-audit-manifest.test.mjs
+index fc99124a..cba5db65 100644
+--- a/scripts/repository-audit-manifest.test.mjs
++++ b/scripts/repository-audit-manifest.test.mjs
+@@ -508,6 +508,18 @@ test("policy assigns explicit provenance, domains, batches and pending status",
+     reviewBatch: 10,
+     classificationRule: "product-ui",
+   });
++  assert.deepEqual(classifyDomain("src/lib/news-growth-authority.ts"), {
++    domain: "product-ui",
++    riskTier: "P2",
++    reviewBatch: 10,
++    classificationRule: "product-ui",
++  });
++  assert.deepEqual(classifyDomain("src/lib/growth-trend-intelligence.ts"), {
++    domain: "product-ui",
++    riskTier: "P2",
++    reviewBatch: 10,
++    classificationRule: "product-ui",
++  });
+   assert.deepEqual(classifyDomain("src/lib/organic-growth-automation.ts"), {
+     domain: "product-ui",
+     riskTier: "P2",
+diff --git a/scripts/repository-audit-policy.mjs b/scripts/repository-audit-policy.mjs
+index 811dcfa5..f4deda9e 100644
+--- a/scripts/repository-audit-policy.mjs
++++ b/scripts/repository-audit-policy.mjs
+@@ -139,7 +139,7 @@ const DOMAIN_RULES = [
+     riskTier: "P2",
+     reviewBatch: 10,
+     patterns: [
+-      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
++      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|news-growth-authority|growth-trend-intelligence|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
+     ],
+   },
+   {
+@@ -262,7 +262,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
+ }
+ 
+ export const repositoryAuditPolicy = Object.freeze({
+-  version: 22,
++  version: 23,
+   generatedPaths: [...GENERATED_PATHS].sort(),
+   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
+   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
+diff --git a/scripts/run-news-materialization-worker.ts b/scripts/run-news-materialization-worker.ts
+index 509ff5f8..6afc14e4 100644
+--- a/scripts/run-news-materialization-worker.ts
++++ b/scripts/run-news-materialization-worker.ts
+@@ -1,6 +1,6 @@
+ import { randomUUID } from "node:crypto";
+ import { hostname } from "node:os";
+-import { withTx } from "../src/lib/db";
++import { withDb, withTx } from "../src/lib/db";
+ import type { ContentLocale } from "../src/lib/content-growth";
+ import type { RawNewsInput } from "../src/lib/news-automation";
+ import {
+@@ -14,6 +14,7 @@ import {
+ import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
+ import { persistOperationalJobRunTx } from "../src/lib/ops/operational-job-evidence";
+ import { readBoundedResponseText } from "../src/lib/bounded-http-body";
++import { callAiProvider } from "../src/lib/ai/provider-router";
+ 
+ type ApprovedFeedSource = {
+   locale: ContentLocale;
+@@ -108,25 +109,100 @@ function pick(xml: string, tag: string): string {
+   return clean(match?.[1] ?? "");
+ }
+ 
+-function persianSummaryFor(title: string, summary: string, sourceName: string): string {
+-  const text = `${title} ${summary}`.toLowerCase();
+-  const category = /bitcoin|\bbtc\b/i.test(text)
+-    ? "بیت‌کوین"
+-    : /ethereum|\beth\b/i.test(text)
+-      ? "اتریوم"
+-      : /etf|blackrock|fidelity|institution/i.test(text)
+-        ? "صندوق‌های بورسی و نهادهای مالی"
+-        : /sec|regulation|law|court|ban/i.test(text)
+-          ? "قوانین و مقررات"
+-          : /hack|scam|phishing|security/i.test(text)
+-            ? "امنیت بازار رمزارز"
+-            : "بازار رمزارز";
+-  const tone = /surge|rally|gain|approval|inflow|bull|record|rise|\bup\b/i.test(text)
+-    ? "مثبت"
+-    : /fall|drop|hack|lawsuit|outflow|bear|crash|fraud|ban|\bdown\b/i.test(text)
+-      ? "منفی"
+-      : "خنثی";
+-  return `خلاصه فارسی تک‌پی از ${sourceName}: این گزارش بین‌المللی درباره ${category} است و لحن کلی آن ${tone} ارزیابی می‌شود. جزئیات منبع اصلی را همراه با داده‌های بازار و اصول مدیریت ریسک بررسی کنید؛ این خلاصه توصیه معاملاتی نیست.`;
++type PersianTranslation = {
++  title: string;
++  lead: string;
++  body: string;
++  status: "translated" | "pending" | "failed";
++};
++
++function numbersIn(value: string): string[] {
++  return value.match(/\d+(?:[.,]\d+)?%?/g) ?? [];
++}
++
++function hasPersian(value: string): boolean {
++  return /[آ-ی]/.test(value);
++}
++
++function extractJsonObject(value: string): Record<string, unknown> | null {
++  const trimmed = value.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
++  try {
++    const parsed = JSON.parse(trimmed) as unknown;
++    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
++  } catch {
++    const match = trimmed.match(/\{[\s\S]*\}/);
++    if (!match) return null;
++    try {
++      const parsed = JSON.parse(match[0]) as unknown;
++      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
++    } catch {
