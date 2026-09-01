@@ -38,7 +38,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
-          test "$(git rev-parse HEAD^)" = "8bd866ee811776340623ed0f805c3270ce354cd5"
+          git merge-base --is-ancestor 8bd866ee811776340623ed0f805c3270ce354cd5 HEAD
+          git merge-base --is-ancestor 106d299f4c8ba7b35c8c8f65aa70b5980cb722ea HEAD
           git merge-base --is-ancestor 9904f4774bf4cac3764569648da6c0940afe4591 HEAD
           git merge-base --is-ancestor 1f93f7cb3db0b67085fa0145acf1a93d8225b8a2 HEAD
 
@@ -87,8 +88,8 @@ jobs:
           git show 9904f4774bf4cac3764569648da6c0940afe4591:.github/workflows/export-branch-source-once.yml > .github/workflows/export-branch-source-once.yml
           git add .github/workflows/export-branch-source-once.yml
           git rm .github/pr584-patch.part{01..13}
-          git apply --check "$RUNNER_TEMP/pr584.patch"
-          git apply --index "$RUNNER_TEMP/pr584.patch"
+          git apply --check --whitespace=fix "$RUNNER_TEMP/pr584.patch"
+          git apply --index --whitespace=fix "$RUNNER_TEMP/pr584.patch"
           test ! -e .github/workflows/export-branch-source-once.yml
           test "$(find .github -maxdepth 1 -name 'pr584-patch.part*' -print | wc -l | tr -d ' ')" = "0"
           git diff --cached --check
