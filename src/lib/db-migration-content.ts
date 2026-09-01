@@ -423,6 +423,7 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
     [
       "888f0c294de5d0fc2b7fbd6c430e723220799fb88ae401cbee0d4d2934fe6c1a",
       "ac3da0b7d01eb1f5",
+      "b7c003c5623f8ea6736a40cfe5c8d7305bb40e2c16d608c556710624e8da93d3",
     ],
   ),
   aiRouteCandidates: one(
