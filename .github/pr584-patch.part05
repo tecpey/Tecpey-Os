@@ -1,0 +1,247 @@
+-      const updatedAt = new Date().toISOString();
+-      const settled = await Promise.allSettled(sourceList.map((source) => readSource(source, locale)));
+-      const items = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+-      const unique = Array.from(new Map(items.map((item) => [item.title.toLowerCase(), item])).values())
+-        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+-        .slice(0, limit);
+-      const responseItems = unique;
+-      return apiOk({
+-        locale,
+-        updatedAt,
+-        mode: unique.length ? "live" : "fallback" as const,
+-        marketIntelligence: marketIntelligence(locale, responseItems),
+-        items: responseItems,
+-        ...quizFor(unique),
+-        ...automationPayloadFor(unique, updatedAt),
+-      });
++      selectedDate = validateNewsArchiveDate(selectedDate);
+     } catch {
+-      const updatedAt = new Date().toISOString();
+-      return apiOk({
+-        locale,
+-        updatedAt,
+-        mode: "fallback" as const,
+-        marketIntelligence: marketIntelligence(locale, []),
+-        items: [],
+-        ...quizFor([]),
+-        ...automationPayloadFor([], updatedAt),
+-      });
++      return apiError("news_archive_date_invalid", 400);
+     }
++    if (selectedDate > today) return apiError("news_archive_date_future", 400);
++
++    const archive = await getNewsArchiveDayFromAuthority(locale, selectedDate);
++    const allItems = archive.items.map((item) => toNewsItem(item, locale));
++    const showAll = request.nextUrl.searchParams.get("all") === "1";
++    const items = showAll ? allItems : allItems.slice(0, boundedLimit(request.nextUrl.searchParams.get("limit")));
++    const updatedAt = allItems[0]?.publishedAt ?? new Date().toISOString();
++    const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
++    const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
++    const automationInputs = allItems.map((item) => toAutomationInput(item, locale, updatedAt));
++    const decisions = includeQuiz || includeAutomation ? buildNewsAutomationBatch(automationInputs) : [];
++    const automation = includeAutomation
++      ? materializeNewsAutomationDecisions(decisions, { locale, generatedAt: updatedAt, historyLimit: Math.max(24, allItems.length), topCoinLimit: 8 })
++      : undefined;
++
++    return apiOk({
++      locale,
++      date: archive.date,
++      availableDates: archive.dates,
++      sourceAuthority: archive.sourceAuthority,
++      updatedAt,
++      mode: allItems.length ? "live" : "fallback",
++      marketIntelligence: marketIntelligence(locale, allItems),
++      items,
++      total: allItems.length,
++      ...(includeQuiz ? { newsQuiz: buildNewsQuizBankFromFeed(allItems, { locale }) } : {}),
++      ...(automation ? { automation } : {}),
++    });
+   });
+ }
+diff --git a/src/app/coins/page.tsx b/src/app/coins/page.tsx
+index 05e98fb3..d636e091 100644
+--- a/src/app/coins/page.tsx
++++ b/src/app/coins/page.tsx
+@@ -7,6 +7,8 @@ import { ContentHero, ContentShell, TrustStrip } from "@/components/content/Cont
+ import { CoinVisual } from "@/components/tecpey/CoinVisual";
+ import { ArrowLeft } from "lucide-react";
+ import { safeJsonLd } from "@/lib/json-ld";
++import { GrowthTrendWidget } from "@/components/content/GrowthTrendWidget";
++import { getGrowthTrendModel } from "@/lib/growth-trend-intelligence";
+ 
+ export const metadata: Metadata = {
+   title: "خرید و راهنمای رمزارزها | تک‌پی",
+@@ -46,7 +48,8 @@ const schema = {
+   about: ["Crypto Prices", "Bitcoin", "USDT", "Ethereum", "Altcoins"],
+ };
+ 
+-export default function CoinsPage() {
++export default async function CoinsPage() {
++  const trends = await getGrowthTrendModel("fa");
+   return (
+     <ContentShell>
+       <ArticleSchema headline="راهنمای رمزارزهای تک‌پی" description="صفحات آموزشی رمزارزها برای بررسی کاربرد، ریسک، شبکه انتقال و نکات مهم قبل از خرید." url="https://tecpey.ir/coins" language="fa-IR" />
+@@ -59,6 +62,7 @@ export default function CoinsPage() {
+         ctaLabel="مشاهده قیمت لحظه‌ای"
+       />
+       <TrustStrip />
++      <GrowthTrendWidget locale="fa" model={trends} />
+       <section className="px-4 py-12 sm:px-6 lg:px-8">
+         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
+           {coinPages.map((coin) => (
+diff --git a/src/app/crypto-news/[slug]/page.tsx b/src/app/crypto-news/[slug]/page.tsx
+index 9cd50b93..4e7b4ccd 100644
+--- a/src/app/crypto-news/[slug]/page.tsx
++++ b/src/app/crypto-news/[slug]/page.tsx
+@@ -34,6 +34,10 @@ export default async function CryptoNewsDetailPage({ params }: Props) {
+   const { item, relatedCoins, relatedTools } = model;
+   const meta = getNewsDetailDisplayMeta(item, "fa");
+   const editorialBoundaryCards = getNewsEditorialBoundaryCards(model, "fa");
++  const growth = item.growthAuthority;
++  const articleBody = item.translationStatus === "translated"
++    ? (item.translatedBody ?? item.translatedLead ?? item.summary)
++    : (item.originalBody ?? item.originalSummary ?? item.summary);
+ 
+   return (
+     <ContentShell>
+@@ -91,6 +95,41 @@ export default async function CryptoNewsDetailPage({ params }: Props) {
+                 <p className="mt-4 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{item.reasonFa}</p>
+               </section>
+ 
++              <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
++                <h2 className="text-2xl font-black text-[color:var(--tp-text)]">متن خبر و ترجمهٔ منبع</h2>
++                {item.translationStatus !== "translated" && (
++                  <p className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-xs font-black text-amber-800 dark:text-amber-100">
++                    ترجمهٔ فارسی این خبر هنوز از گیت کنترل کیفیت عبور نکرده است؛ برای جلوگیری از ترجمهٔ ساختگی، متن اصلی منبع نمایش داده می‌شود.
++                  </p>
++                )}
++                <p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{articleBody}</p>
++                {item.originalTitle && item.originalTitle !== item.title && (
++                  <details className="mt-5 rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4">
++                    <summary className="cursor-pointer text-sm font-black text-cyan-700 dark:text-cyan-100">تیتر و متن اصلی ناشر</summary>
++                    <div dir="ltr" className="mt-4 space-y-3 text-left text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
++                      <p className="font-black text-[color:var(--tp-text)]">{item.originalTitle}</p>
++                      {item.originalSummary && <p>{item.originalSummary}</p>}
++                      {item.originalBody && <p className="whitespace-pre-wrap">{item.originalBody}</p>}
++                    </div>
++                  </details>
++                )}
++              </section>
++
++              {growth?.aeo.questions.length ? (
++                <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
++                  <h2 className="text-2xl font-black text-[color:var(--tp-text)]">پاسخ سریع به سؤال‌های مهم این خبر</h2>
++                  <p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{growth.aeo.directAnswer}</p>
++                  <div className="mt-5 space-y-3">
++                    {growth.aeo.questions.map((entry) => (
++                      <div key={entry.question} className="rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4">
++                        <h3 className="text-sm font-black text-[color:var(--tp-text)]">{entry.question}</h3>
++                        <p className="mt-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{entry.answer}</p>
++                      </div>
++                    ))}
++                  </div>
++                </section>
++              ) : null}
++
+               <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
+                 <h2 className="text-2xl font-black text-[color:var(--tp-text)]">مرز خبر، تحلیل و خلاصه AI</h2>
+                 <div className="mt-5 grid gap-4 md:grid-cols-2">
+diff --git a/src/app/crypto-news/page.tsx b/src/app/crypto-news/page.tsx
+index bb5f24c4..11633627 100644
+--- a/src/app/crypto-news/page.tsx
++++ b/src/app/crypto-news/page.tsx
+@@ -1,7 +1,9 @@
+ import type { Metadata } from "next";
+ import { CanonicalNewsImpactHub } from "@/components/content/CanonicalNewsImpactHub";
+-import { CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
++import { CryptoNewsArchiveCenter } from "@/components/content/CryptoNewsArchiveCenter";
++import { GrowthTrendWidget } from "@/components/content/GrowthTrendWidget";
+ import { StructuredData } from "@/components/seo/StructuredData";
++import { getGrowthTrendModel } from "@/lib/growth-trend-intelligence";
+ import { buildNewsHubSchemas, getNewsHubMetadata, getNewsHubPageModelFromAuthority } from "@/lib/news-detail-pages";
+ 
+ export async function generateMetadata(): Promise<Metadata> {
+@@ -9,12 +11,16 @@ export async function generateMetadata(): Promise<Metadata> {
+ }
+ 
+ export default async function CryptoNewsPage() {
+-  const newsHub = await getNewsHubPageModelFromAuthority("fa");
++  const [newsHub, trends] = await Promise.all([
++    getNewsHubPageModelFromAuthority("fa"),
++    getGrowthTrendModel("fa"),
++  ]);
+   return (
+-    <main className="min-h-screen bg-[color:var(--tp-bg)] pt-28">
++    <main className="min-h-screen bg-transparent pt-28">
+       <StructuredData data={buildNewsHubSchemas(newsHub)} />
++      <GrowthTrendWidget locale="fa" model={trends} />
+       <CanonicalNewsImpactHub model={newsHub} />
+-      <CryptoNewsCenter locale="fa" />
++      <CryptoNewsArchiveCenter locale="fa" />
+     </main>
+   );
+ }
+diff --git a/src/app/en/coins/page.tsx b/src/app/en/coins/page.tsx
+index 4cf35478..57db10db 100644
+--- a/src/app/en/coins/page.tsx
++++ b/src/app/en/coins/page.tsx
+@@ -6,6 +6,8 @@ import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredDat
+ import { coinPages } from "@/data/coins";
+ import { CoinVisual } from "@/components/tecpey/CoinVisual";
+ import { ArrowRight } from "lucide-react";
++import { GrowthTrendWidget } from "@/components/content/GrowthTrendWidget";
++import { getGrowthTrendModel } from "@/lib/growth-trend-intelligence";
+ 
+ export const metadata: Metadata = {
+   title: "Crypto coin guides | TecPey",
+@@ -28,12 +30,14 @@ const introCards = [
+   { title: "Market connection", text: "Review live market information before making a trading or transfer decision.", href: "/en/markets" },
+ ];
+ 
+-export default function CoinsPage() {
++export default async function CoinsPage() {
++  const trends = await getGrowthTrendModel("en");
+   return (
+     <EnglishShell>
+       <ArticleSchema headline="TecPey Coin Guides" description="Readable crypto guides covering coin use cases, risks, networks and market checks." url="https://tecpey.ir/en/coins" language="en" />
+       <StructuredData data={[schema, breadcrumbSchema([{ name: "Home", url: "https://tecpey.ir/en" }, { name: "Coins", url: "https://tecpey.ir/en/coins" }])]} />
+       <EnglishHero eyebrow="Coin guides" title="Explore Bitcoin, Tether and major crypto assets" description="Read simple guides about use cases, risks, networks and important considerations before buying or transferring crypto." ctaHref="/en/markets" ctaLabel="View markets" secondaryHref="/en/start-guide" secondaryLabel="Start guide" />
++      <GrowthTrendWidget locale="en" model={trends} />
+       <section className="px-4 pb-8 sm:px-6 lg:px-8">
+         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
+           {introCards.map((item) => <EnglishCard key={item.title} title={item.title} text={item.text} href={item.href} />)}
+diff --git a/src/app/en/crypto-news/[slug]/page.tsx b/src/app/en/crypto-news/[slug]/page.tsx
+index 1772e3a2..c93333e0 100644
+--- a/src/app/en/crypto-news/[slug]/page.tsx
++++ b/src/app/en/crypto-news/[slug]/page.tsx
+@@ -34,6 +34,8 @@ export default async function EnglishCryptoNewsDetailPage({ params }: Props) {
+   const { item, relatedCoins, relatedTools } = model;
+   const meta = getNewsDetailDisplayMeta(item, "en");
+   const editorialBoundaryCards = getNewsEditorialBoundaryCards(model, "en");
++  const growth = item.growthAuthority;
++  const articleBody = item.originalBody ?? item.originalSummary ?? item.summary;
+ 
+   return (
+     <EnglishShell>
+@@ -91,6 +93,26 @@ export default async function EnglishCryptoNewsDetailPage({ params }: Props) {
+                 <p className="mt-4 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{item.reasonEn}</p>
+               </section>
+ 
++              <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
++                <h2 className="text-2xl font-black text-[color:var(--tp-text)]">Publisher text available in the feed</h2>
++                <p className="mt-4 whitespace-pre-wrap text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{articleBody}</p>
++              </section>
++
++              {growth?.aeo.questions.length ? (
++                <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
++                  <h2 className="text-2xl font-black text-[color:var(--tp-text)]">Quick answers about this story</h2>
++                  <p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{growth.aeo.directAnswer}</p>
++                  <div className="mt-5 space-y-3">
++                    {growth.aeo.questions.map((entry) => (
++                      <div key={entry.question} className="rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4">
++                        <h3 className="text-sm font-black text-[color:var(--tp-text)]">{entry.question}</h3>
++                        <p className="mt-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{entry.answer}</p>
++                      </div>
++                    ))}
++                  </div>
++                </section>
