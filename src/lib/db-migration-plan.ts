@@ -7,6 +7,7 @@ import {
   DATABASE_MIGRATION_REGISTRY,
   validateMigrationRegistry,
 } from "./db-migration-registry";
+import { assertAiTenantRlsMigrationAuthority } from "./db-migrate-ai-tenant-rls";
 import { logger } from "./logger";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations_v2";
@@ -314,6 +315,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   // before the registry starts. This creates no "current" evidence row; only
   // applyDatabaseMigrationsWithLock records authoritative runtime evidence.
   await ensureMigrationControlTable(client);
+  await assertAiTenantRlsMigrationAuthority(client);
   const compatibleClient = runnerCompatibilityClient(client);
   for (const migration of DATABASE_MIGRATION_REGISTRY) await migration.run(compatibleClient);
 }
@@ -367,6 +369,7 @@ export async function applyDatabaseMigrationsWithLock(
     await ensureMigrationControlTable(client);
     alreadyCurrent = await hasCurrentMigrationEvidence(client);
     assertNotAborted(options.signal);
+    if (!alreadyCurrent) await assertAiTenantRlsMigrationAuthority(client);
     if (!alreadyCurrent) {
       await recordRunning(client, runnerId);
       runningRecorded = true;
