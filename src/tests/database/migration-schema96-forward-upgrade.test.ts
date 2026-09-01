@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PoolClient } from "pg";
+import { databaseSchemaFingerprint } from "../../lib/database-schema-contract";
 import { AI_SCHEMA96_FORWARD_RECONCILIATION_SQL } from "../../lib/db-migrate-ai-routing-budget";
 import { assertAiTenantRlsMigrationAuthority } from "../../lib/db-migrate-ai-tenant-rls";
 
@@ -37,6 +38,19 @@ function authorityClient(input: {
 }
 
 describe("schema-96 forward upgrade authority", () => {
+  it("fingerprints columns by semantic identity, not physical position", async () => {
+    let fingerprintQuery = "";
+    await databaseSchemaFingerprint({
+      query: async (sql: string) => {
+        fingerprintQuery = sql;
+        return { rows: [] };
+      },
+    });
+
+    assert.ok(fingerprintQuery.includes("table_name || '.' || column_name AS identity"));
+    assert.doesNotMatch(fingerprintQuery, /ordinal_position/);
+  });
+
   it("repairs every evolved 0091/0092 contract before 0096", () => {
     for (const required of [
       "ADD COLUMN IF NOT EXISTS command_hash TEXT",
