@@ -20,7 +20,7 @@ import {
   evaluateNewsMaterializationRuntimeHealth,
   newsFeedRetryDelayMs,
   shouldRetryNewsFeedFailure,
-} from "../src/lib/news-materialization-runtime-policy";
+} from "../src/lib/ops/news-materialization-runtime-policy";
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
 import { persistOperationalJobRunTx } from "../src/lib/ops/operational-job-evidence";
 import { readBoundedResponseText } from "../src/lib/bounded-http-body";
