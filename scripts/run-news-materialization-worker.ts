@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { withTx } from "../src/lib/db";
 import type { ContentLocale } from "../src/lib/content-growth";
 import type { RawNewsInput, NewsAutomationDecision } from "../src/lib/news-automation";
@@ -12,6 +13,14 @@ import {
   type NewsMaterializationWorkerResult,
   type NewsMaterializationSchedulerFailure,
 } from "../src/lib/news-materialization-worker";
+import {
+  DEFAULT_NEWS_FEED_MAX_ATTEMPTS,
+  DEFAULT_NEWS_FEED_MIN_SUCCESSFUL_SOURCES,
+  DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
+  evaluateNewsMaterializationRuntimeHealth,
+  newsFeedRetryDelayMs,
+  shouldRetryNewsFeedFailure,
+} from "../src/lib/news-materialization-runtime-policy";
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
 import { persistOperationalJobRunTx } from "../src/lib/ops/operational-job-evidence";
 import { readBoundedResponseText } from "../src/lib/bounded-http-body";
@@ -93,7 +102,7 @@ function clean(value: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
+    .replace(/&#0?39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
@@ -126,7 +135,11 @@ function safeArticleUrl(rawUrl: string, source: ApprovedFeedSource): string | nu
   return null;
 }
 
-async function fetchSourceArticles(source: ApprovedFeedSource, fetchedAt: string, limit: number): Promise<FetchedArticle[]> {
+async function fetchSourceArticlesOnce(
+  source: ApprovedFeedSource,
+  fetchedAt: string,
+  limit: number,
+): Promise<FetchedArticle[]> {
   const response = await fetch(source.feedUrl, {
     headers: { "user-agent": "TecPeyNewsBot/2.0 (+https://tecpey.ir/crypto-news)" },
     signal: AbortSignal.timeout(NEWS_FEED_TIMEOUT_MS),
@@ -167,6 +180,40 @@ async function fetchSourceArticles(source: ApprovedFeedSource, fetchedAt: string
       sourceCoverage: fullContent && fullContent.length > description.length + 120 ? "feed_full" : "feed_summary",
     }];
   });
+}
+
+function feedFailureHttpStatus(error: unknown): number | null {
+  if (!(error instanceof Error)) return null;
+  const match = error.message.match(/^news_feed_failed:[^:]+:(\d{3})$/);
+  if (!match) return null;
+  const status = Number.parseInt(match[1], 10);
+  return Number.isSafeInteger(status) ? status : null;
+}
+
+async function fetchSourceArticles(
+  source: ApprovedFeedSource,
+  fetchedAt: string,
+  limit: number,
+  maximumAttempts: number,
+  retryBaseDelayMs: number,
+): Promise<FetchedArticle[]> {
+  let lastError: unknown = new Error(`news_feed_failed:${source.name}:unknown`);
+  for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+    try {
+      return await fetchSourceArticlesOnce(source, fetchedAt, limit);
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryNewsFeedFailure({
+        attempt,
+        maximumAttempts,
+        httpStatus: feedFailureHttpStatus(error),
+      })) {
+        throw error;
+      }
+      await delay(newsFeedRetryDelayMs({ attempt, baseDelayMs: retryBaseDelayMs }));
+    }
+  }
+  throw lastError;
 }
 
 async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T) => Promise<R>): Promise<R[]> {
@@ -302,16 +349,46 @@ async function main(): Promise<void> {
   const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 100, 1, 250);
   const translationConcurrency = boundedIntegerEnv("NEWS_TRANSLATION_CONCURRENCY", 2, 1, 4);
   const translationRetryMinutes = boundedIntegerEnv("NEWS_TRANSLATION_RETRY_MINUTES", 60, 15, 24 * 60);
+  const minimumSuccessfulSources = boundedIntegerEnv(
+    "NEWS_FEED_MIN_SUCCESSFUL_SOURCES",
+    DEFAULT_NEWS_FEED_MIN_SUCCESSFUL_SOURCES,
+    1,
+    INTERNATIONAL_FEED_SOURCES.length,
+  );
+  const feedMaximumAttempts = boundedIntegerEnv(
+    "NEWS_FEED_MAX_ATTEMPTS",
+    DEFAULT_NEWS_FEED_MAX_ATTEMPTS,
+    1,
+    3,
+  );
+  const feedRetryBaseDelayMs = boundedIntegerEnv(
+    "NEWS_FEED_RETRY_BASE_DELAY_MS",
+    DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
+    100,
+    2_000,
+  );
   const fetchedAt = new Date(process.env.NEWS_MATERIALIZATION_FETCHED_AT ?? Date.now()).toISOString();
   const results: NewsMaterializationWorkerResult[] = [];
   const failures: NewsMaterializationSchedulerFailure[] = [];
 
   const settled = await Promise.allSettled(
-    INTERNATIONAL_FEED_SOURCES.map((source) => fetchSourceArticles(source, fetchedAt, limitPerSource)),
+    INTERNATIONAL_FEED_SOURCES.map((source) => fetchSourceArticles(
+      source,
+      fetchedAt,
+      limitPerSource,
+      feedMaximumAttempts,
+      feedRetryBaseDelayMs,
+    )),
   );
+  let successfulSourceCount = 0;
   settled.forEach((result, index) => {
+    const sourceSlug = INTERNATIONAL_FEED_SOURCES[index].name.toLowerCase().replace(/\W+/g, "_");
     if (result.status === "rejected") {
-      failures.push({ reasonCode: `news_feed_failed_${INTERNATIONAL_FEED_SOURCES[index].name.toLowerCase().replace(/\W+/g, "_")}` });
+      failures.push({ reasonCode: `news_feed_failed_${sourceSlug}` });
+    } else if (result.value.length === 0) {
+      failures.push({ reasonCode: `news_feed_empty_${sourceSlug}` });
+    } else {
+      successfulSourceCount += 1;
     }
   });
   const articles = dedupeArticles(settled.flatMap((result) => result.status === "fulfilled" ? result.value : []));
@@ -515,14 +592,30 @@ async function main(): Promise<void> {
     freshness = buildNewsMaterializationFreshnessReport({ completedAt, results });
   }
 
-  const exitCode = run.resultStatus === "succeeded" ? 0 : run.resultStatus === "authority_unavailable" ? 1 : 2;
+  const runtimeHealth = evaluateNewsMaterializationRuntimeHealth({
+    run,
+    results,
+    failures,
+    successfulSourceCount,
+    minimumSuccessfulSources,
+    archiveTransactionCommitted,
+    databaseEvidencePersisted,
+    requiredLocales: ["en", "fa"],
+  });
+  const exitCode = runtimeHealth.exitCode;
   console.log(JSON.stringify({
     ok: exitCode === 0,
     exitCode,
+    degraded: runtimeHealth.degraded,
+    runtimeHealth,
     runId: run.runId,
     status: run.resultStatus,
     fetchedAt,
     sourceMode,
+    successfulSourceCount,
+    minimumSuccessfulSources,
+    feedMaximumAttempts,
+    feedRetryBaseDelayMs,
     archiveInputCount: articles.length,
     translatedFaCount: faInputs.length,
     translationFailedCount: prepared.length - faInputs.length,
