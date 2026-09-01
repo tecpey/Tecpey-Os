@@ -27,7 +27,7 @@ export async function databaseSchemaFingerprint(client: SchemaQueryable): Promis
     `SELECT object_type, identity, definition
        FROM (
          SELECT 'column' AS object_type,
-                table_name || '.' || LPAD(ordinal_position::text, 5, '0') AS identity,
+                table_name || '.' || column_name AS identity,
                 concat_ws('|', column_name, data_type, udt_name, is_nullable, column_default, collation_name) AS definition
            FROM information_schema.columns WHERE table_schema = 'public'
          UNION ALL
