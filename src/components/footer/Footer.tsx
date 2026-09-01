@@ -59,7 +59,7 @@ export default function Footer() {
               </section>
             ))}
           </div>
-          <p className="mt-3 px-2 text-[10px] font-bold text-white/35 md:hidden">{isEnglish ? "Swipe horizontally to explore all footer sections." : "برای مشاهده همه بخش‌ها، باکس را به‌صورت افقی اسکرول کنید."}</p>
+          <p className="mt-3 px-2 text-[10px] font-bold text-white/70 md:hidden">{isEnglish ? "Swipe horizontally to explore all footer sections." : "برای مشاهده همه بخش‌ها، باکس را به‌صورت افقی اسکرول کنید."}</p>
         </nav>
 
         <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs leading-6 text-white/45 md:flex-row md:items-center md:justify-between">

@@ -39,6 +39,8 @@ test("footer is one governed box with four equal groups in both locales and mobi
   assert.match(footer, /overflow-x-auto/);
   assert.match(footer, /snap-mandatory/);
   assert.match(footer, /xl:grid-cols-4/);
+  assert.doesNotMatch(footer, /text-white\/35/);
+  assert.match(footer, /text-white\/70 md:hidden/);
   assert.match(footer, /Collaboration & Support/);
 });
 
