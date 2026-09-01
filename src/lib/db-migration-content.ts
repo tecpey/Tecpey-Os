@@ -398,10 +398,20 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   aiControlPlane: one(
     "0091_ai_control_plane.sql",
     AI_CONTROL_PLANE_SQL,
+    [
+      "33c352015866c4fc880415e6a86352516228f409f132266f534e47dc4e61e04b",
+      "8e5a19b472a0baff",
+      "3bb54ffbdae67711ac7508a27e8d0b4846dba2d8dd0e319ed2edbe842584c7a8",
+    ],
   ),
   aiAutomationOrchestration: one(
     "0092_ai_automation_orchestration.sql",
     AI_AUTOMATION_ORCHESTRATION_SQL,
+    [
+      "944a3e2e3c228979c81da690737b7e105f043d24d9b4a0bdfa8c8926f7136d27",
+      "871f8653abd41554",
+      "6c490226a77fd372f0f2cd5229e2caa458eb467447b69fbf6b106b87fb92e853",
+    ],
   ),
   aiControlJsonTriggerRepair: one(
     "0093_ai_control_json_trigger_repair.sql",
@@ -410,6 +420,10 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   aiRoutingBudget: one(
     "0094_ai_routing_budget.sql",
     AI_ROUTING_BUDGET_SQL,
+    [
+      "888f0c294de5d0fc2b7fbd6c430e723220799fb88ae401cbee0d4d2934fe6c1a",
+      "ac3da0b7d01eb1f5",
+    ],
   ),
   aiRouteCandidates: one(
     "0095_ai_route_candidates.sql",
