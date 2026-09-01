@@ -151,12 +151,16 @@ for (const invariant of [
   requireText("service", invariant, `systemd service is missing ${invariant}`);
 }
 for (const invariant of [
-  "OnCalendar=hourly",
+  "OnBootSec=2min",
+  "OnUnitActiveSec=10min",
   "Persistent=true",
+  "RandomizedDelaySec=45",
+  "AccuracySec=20s",
   "Unit=tecpey-news-materialization.service",
 ]) {
   requireText("timer", invariant, `systemd timer is missing ${invariant}`);
 }
+rejectText("timer", "OnCalendar=", "systemd timer must use the governed activation-relative cadence");
 for (const invariant of [
   "staging-news-materialization-evidence.yml",
   "news-materialization-last-run.json",

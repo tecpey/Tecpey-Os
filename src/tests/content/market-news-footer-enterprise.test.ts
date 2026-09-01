@@ -22,6 +22,7 @@ test("news pages read the database archive and never activate RSS ingestion on m
   const home = read("src/components/home/TecpeyHomeAI.tsx");
   const api = read("src/app/api/crypto-news/route.ts");
   const timer = read("deploy/systemd/tecpey-news-materialization.timer");
+  const stagingGuard = read("scripts/check-news-materialization-staging-evidence-authority.mjs");
   assert.match(fa, /getNewsArchiveDayFromAuthority/);
   assert.doesNotMatch(fa, /CryptoNewsCenter/);
   assert.match(home, /fetch\(`\/api\/crypto-news/);
@@ -30,6 +31,8 @@ test("news pages read the database archive and never activate RSS ingestion on m
   assert.match(timer, /OnBootSec=2min/);
   assert.match(timer, /OnUnitActiveSec=10min/);
   assert.match(timer, /Persistent=true/);
+  assert.doesNotMatch(timer, /OnCalendar=/);
+  assert.match(stagingGuard, /rejectText\("timer", "OnCalendar="/);
 });
 
 test("footer is one governed box with four equal groups in both locales and mobile horizontal scroll", () => {
