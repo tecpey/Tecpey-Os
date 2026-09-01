@@ -1,4 +1,4 @@
-name: Export Branch Source Once
+name: Apply PR 584 implementation once
 
 on:
   push:
@@ -8,30 +8,88 @@ on:
       - .github/workflows/export-branch-source-once.yml
 
 permissions:
-  contents: read
+  contents: write
+  issues: read
+  pull-requests: read
 
 jobs:
-  export:
+  apply:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Checkout exact branch source
+      - name: Checkout exact branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: feat/market-news-footer-enterprise-v1
-          fetch-depth: 0
-          persist-credentials: false
+          fetch-depth: 2
+          persist-credentials: true
 
-      - name: Archive source with local git metadata
+      - name: Verify exact lineage
         shell: bash
         run: |
           set -Eeuo pipefail
-          tar -czf "$RUNNER_TEMP/tecpey-source.tgz" .
+          test "$(git rev-parse HEAD^)" = "9904f4774bf4cac3764569648da6c0940afe4591"
+          test "$(git rev-parse HEAD^^)" = "1f93f7cb3db0b67085fa0145acf1a93d8225b8a2"
 
-      - name: Upload source archive
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: tecpey-source-${{ github.sha }}
-          path: ${{ runner.temp }}/tecpey-source.tgz
-          if-no-files-found: error
-          retention-days: 1
+      - name: Reconstruct authenticated audited patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/tecpey/Tecpey-Os/issues/584/comments?per_page=100" \
+            > "$RUNNER_TEMP/comments.json"
+          python3 - "$RUNNER_TEMP/comments.json" "$RUNNER_TEMP/pr584.patch.b64" <<'PY'
+          import json, pathlib, sys
+          source = pathlib.Path(sys.argv[1])
+          target = pathlib.Path(sys.argv[2])
+          comments = json.loads(source.read_text(encoding="utf-8"))
+          markers = [f"<!-- PR584_PATCH_{i:02d} -->" for i in range(1, 8)] + [f"<!-- PR584_FINAL_{i:02d} -->" for i in range(8, 13)]
+          chunks = []
+          for marker in markers:
+              matches = [c for c in comments if c.get("user", {}).get("login") == "tecpey" and str(c.get("body", "")).startswith(marker + "\n")]
+              if len(matches) != 1:
+                  raise SystemExit(f"expected exactly one owner-authored {marker}, got {len(matches)}")
+              lines = str(matches[0]["body"]).splitlines()
+              if len(lines) != 2:
+                  raise SystemExit(f"invalid transport shape for {marker}")
+              chunk = lines[1].strip()
+              if len(chunk) != 7892:
+                  raise SystemExit(f"invalid chunk length for {marker}: {len(chunk)}")
+              chunks.append(chunk)
+          payload = "".join(chunks)
+          if len(payload) != 94704:
+              raise SystemExit(f"invalid payload length: {len(payload)}")
+          target.write_text(payload, encoding="ascii")
+          PY
+          base64 -d "$RUNNER_TEMP/pr584.patch.b64" | bunzip2 > "$RUNNER_TEMP/pr584.patch"
+          echo "22d8b504d416318f95a2b34245853293023a4370fc7f7c8bebaccf98e0527b3b  $RUNNER_TEMP/pr584.patch" | sha256sum -c -
+
+      - name: Apply patch and run structural gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git show HEAD^:.github/workflows/export-branch-source-once.yml > .github/workflows/export-branch-source-once.yml
+          git add .github/workflows/export-branch-source-once.yml
+          git apply --check "$RUNNER_TEMP/pr584.patch"
+          git apply --index "$RUNNER_TEMP/pr584.patch"
+          test ! -e .github/workflows/export-branch-source-once.yml
+          git diff --cached --check
+          node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+          bash -n scripts/install-news-materialization-scheduler.sh
+          bash -n scripts/install-organic-growth-trend-scheduler.sh
+          bash -n scripts/create-support-deployment-bundle.sh
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" -ge 40
+
+      - name: Commit exact implementation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(growth): build market news organic growth operating system"
+          git push origin HEAD:feat/market-news-footer-enterprise-v1
