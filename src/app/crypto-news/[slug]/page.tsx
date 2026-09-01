@@ -8,6 +8,7 @@ import {
   buildNewsDetailSchemas,
   getNewsEditorialBoundaryCards,
   getNewsDetailDisplayMeta,
+  getNewsDirectAnswerCards,
   getNewsDetailMetadata,
   getNewsDetailPageModelFromAuthority,
   getNewsDetailStaticParams,
@@ -33,6 +34,7 @@ export default async function CryptoNewsDetailPage({ params }: Props) {
 
   const { item, relatedCoins, relatedTools } = model;
   const meta = getNewsDetailDisplayMeta(item, "fa");
+  const directAnswerCards = getNewsDirectAnswerCards(model, "fa");
   const editorialBoundaryCards = getNewsEditorialBoundaryCards(model, "fa");
 
   return (
@@ -89,6 +91,19 @@ export default async function CryptoNewsDetailPage({ params }: Props) {
                   دلیل ثبت در history
                 </div>
                 <p className="mt-4 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{item.reasonFa}</p>
+              </section>
+
+              <section className="mt-8 rounded-[28px] border border-cyan-300/20 bg-slate-950 p-5 text-white">
+                <h2 className="text-2xl font-black">پاسخ سریع و قابل استناد</h2>
+                <p className="mt-2 text-xs font-bold leading-6 text-slate-300">پاسخ‌های مستقیم از دادهٔ همین صفحه ساخته شده‌اند تا کاربر، موتور جست‌وجو و Answer Engine بتوانند واقعیت، اهمیت و مسیر بررسی را بدون حدس استخراج کنند.</p>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {directAnswerCards.map((card) => (
+                    <div key={card.question} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+                      <h3 className="text-sm font-black text-cyan-200">{card.question}</h3>
+                      <p className="mt-2 text-sm font-bold leading-7 text-slate-200">{card.answer}</p>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">

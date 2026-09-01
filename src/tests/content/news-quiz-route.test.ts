@@ -4,18 +4,23 @@ import { NextRequest } from "next/server";
 import { GET } from "../../app/api/crypto-news/route";
 import { findInvalidQuizQuestions } from "../../lib/academy-quiz-authority";
 
-// The crypto-news route gained an opt-in `quiz=1` mode that turns traceable live
-// reports into validated, risk-first quiz questions. These tests drive the real
-// route handler with deterministic RSS fixtures: the positive path proves a
-// sourced report can become a question, while the offline path proves editorial
-// fallback cards never masquerade as current news inside the quiz.
+// The public news route is a DB-only read surface. RSS ingestion, translation
+// and AI research belong to scheduled workers and must never be activated by a
+// visitor opening News/Home/Quiz. Positive quiz-generation behavior is covered
+// by the pure news-quiz source/generator tests; this suite protects the runtime
+// boundary and fail-closed behavior when persisted news is unavailable.
 
 const realFetch = globalThis.fetch;
 const TEST_NOW = Date.parse("2030-03-15T12:00:00.000Z");
-const LIVE_PUBLISHED_AT = new Date(TEST_NOW - 60 * 60 * 1000).toUTCString();
+let externalFetches = 0;
 
 beforeEach(() => {
+  externalFetches = 0;
   mock.timers.enable({ apis: ["Date"], now: TEST_NOW });
+  globalThis.fetch = (async () => {
+    externalFetches += 1;
+    throw new Error("public news GET must not perform external fetches");
+  }) as typeof fetch;
 });
 
 afterEach(() => {
@@ -23,93 +28,52 @@ afterEach(() => {
   mock.timers.reset();
 });
 
-const liveFeedEn = `<?xml version="1.0" encoding="UTF-8"?>
-  <rss><channel><item>
-    <title>Spot ETF flows reshape Bitcoin liquidity</title>
-    <description>Daily creations and redemptions changed available market liquidity.</description>
-    <link>https://example.com/research/bitcoin-etf-flows</link>
-    <pubDate>${LIVE_PUBLISHED_AT}</pubDate>
-  </item></channel></rss>`;
-
-async function callRoute(
-  url: string,
-  mode: "live" | "offline" = "live",
-): Promise<Record<string, unknown>> {
-  globalThis.fetch = (async () => {
-    if (mode === "offline") throw new Error("network disabled in test");
-    return new Response(liveFeedEn, {
-      status: 200,
-      headers: { "content-type": "application/rss+xml; charset=utf-8" },
-    });
-  }) as typeof fetch;
+async function callRoute(url: string): Promise<{ status: number; body: Record<string, unknown> }> {
   const response = await GET(new NextRequest(url));
-  return (await response.json()) as Record<string, unknown>;
+  return { status: response.status, body: (await response.json()) as Record<string, unknown> };
 }
 
-describe("crypto-news route quiz mode", () => {
-  it("omits the quiz bank unless it is opted in", async () => {
-    const body = await callRoute("http://localhost/api/crypto-news?locale=en");
+describe("crypto-news DB-only route", () => {
+  it("never triggers RSS or AI provider network calls on a public read", async () => {
+    const { body } = await callRoute("http://localhost/api/crypto-news?locale=en");
     assert.equal(body.ok, true);
+    assert.ok(Array.isArray(body.items));
+    assert.ok(Array.isArray(body.archiveItems));
+    assert.equal(externalFetches, 0);
+  });
+
+  it("omits quiz material unless quiz=1 is explicitly requested", async () => {
+    const { body } = await callRoute("http://localhost/api/crypto-news?locale=en");
     assert.equal(body.newsQuiz, undefined);
-    assert.ok(Array.isArray(body.items) && body.items.length > 0, "news items are always returned");
+    assert.equal(externalFetches, 0);
   });
 
-  it("returns a validated quiz bank when quiz=1", async () => {
-    const body = await callRoute("http://localhost/api/crypto-news?locale=en&quiz=1");
+  it("builds only authority-valid quiz questions from persisted items", async () => {
+    const { body } = await callRoute("http://localhost/api/crypto-news?locale=en&quiz=1");
     const quiz = body.newsQuiz as Parameters<typeof findInvalidQuizQuestions>[0];
-    assert.ok(Array.isArray(quiz) && quiz.length > 0, "a quiz bank is present");
-    assert.deepEqual(
-      findInvalidQuizQuestions(quiz),
-      [],
-      "every generated question must be answerable",
-    );
-    assert.equal(new Set(quiz.map((q) => q.id)).size, quiz.length, "quiz ids are unique");
+    assert.ok(Array.isArray(quiz));
+    assert.deepEqual(findInvalidQuizQuestions(quiz), []);
+    assert.equal(new Set(quiz.map((question) => question.id)).size, quiz.length);
+    assert.equal(externalFetches, 0);
   });
 
-  it("builds a Persian quiz for locale=fa", async () => {
-    const body = await callRoute("http://localhost/api/crypto-news?locale=fa&quiz=1");
-    const quiz = body.newsQuiz as Array<{ question: string }>;
-    const items = body.items as Array<{ source: string; summary: string }>;
-    assert.ok(Array.isArray(quiz) && quiz.length > 0);
-    assert.match(quiz[0].question, /[؀-ۿ]/, "the Persian quiz prompt must contain Persian text");
-    assert.ok(items.length > 0);
-    assert.ok(items.every((item) => ["CoinDesk", "Cointelegraph", "Decrypt", "The Block"].includes(item.source)));
-    assert.ok(items.every((item) => /[؀-ۿ]/.test(item.summary)), "Persian cards must carry Persian summaries");
-    assert.ok(items.every((item) => !item.summary.includes("Daily creations and redemptions")));
-  });
-
-  it("does not turn editorial fallback cards into current-news questions", async () => {
-    const body = await callRoute(
-      "http://localhost/api/crypto-news?locale=en&quiz=1&automation=1",
-      "offline",
-    );
-    assert.equal(body.mode, "fallback");
-    assert.deepEqual(body.newsQuiz, []);
-    const items = body.items as Array<{ publishedAt: string; isBreaking?: boolean }>;
-    assert.deepEqual(items, [], "offline mode must not present educational copy as live news");
+  it("keeps automation preview pure and bounded to already persisted news", async () => {
+    const { body } = await callRoute("http://localhost/api/crypto-news?locale=fa&quiz=1&automation=1");
     const automation = body.automation as { publishable: number; needsReview: number; rejected: number };
-    assert.deepEqual(
-      [automation.publishable, automation.needsReview, automation.rejected],
-      [0, 0, 0],
-      "fallback learning cards must not enter the live-news automation pipeline",
-    );
+    assert.ok(automation && Number.isInteger(automation.publishable));
+    assert.ok(Number.isInteger(automation.needsReview));
+    assert.ok(Number.isInteger(automation.rejected));
+    assert.equal(externalFetches, 0);
   });
 
-  it("fails closed when a source omits a trustworthy publication timestamp", async () => {
-    const undatedFeed = `<?xml version="1.0" encoding="UTF-8"?>
-      <rss><channel><item>
-        <title>Undated Bitcoin market claim</title>
-        <description>This report intentionally has no publication timestamp.</description>
-        <link>https://example.com/research/undated-bitcoin-claim</link>
-      </item></channel></rss>`;
-    globalThis.fetch = (async () => new Response(undatedFeed, {
-      status: 200,
-      headers: { "content-type": "application/rss+xml; charset=utf-8" },
-    })) as typeof fetch;
+  it("rejects invalid and future archive dates before reading content", async () => {
+    const invalid = await callRoute("http://localhost/api/crypto-news?locale=en&date=2030-02-31");
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error, "news_archive_day_invalid");
 
-    const response = await GET(new NextRequest("http://localhost/api/crypto-news?locale=en&quiz=1"));
-    const body = (await response.json()) as Record<string, unknown>;
-    assert.equal(body.mode, "fallback");
-    assert.deepEqual(body.newsQuiz, []);
+    const future = await callRoute("http://localhost/api/crypto-news?locale=en&date=2030-03-16");
+    assert.equal(future.status, 400);
+    assert.equal(future.body.error, "news_archive_future_day_forbidden");
+    assert.equal(externalFetches, 0);
   });
 });

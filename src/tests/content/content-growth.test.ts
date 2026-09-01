@@ -45,6 +45,7 @@ import {
   buildNewsHubSchemas,
   getNewsDetailMetadata,
   getNewsDetailPageModel,
+  getNewsDirectAnswerCards,
   getNewsDetailSitemapEntries,
   getNewsDetailStaticParams,
   getNewsHubMetadata,
@@ -286,7 +287,7 @@ describe("Content growth entity contract", () => {
         description: "تحلیل آموزشی جریان سرمایه ETF بیت‌کوین و اثر آن بر زمینه بازار، نقدشوندگی و مدیریت ریسک.",
         canonical: canonicalUrl,
         hreflang: { fa: canonicalUrl },
-        schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
+        schemaTypes: ["NewsArticle", "WebPage", "BreadcrumbList"],
         aeoAnswer: "تک‌پی این خبر را زمینه آموزشی بازار می‌داند، نه سیگنال معامله.",
         llmSummary: "جریان سرمایه ETF بیت‌کوین می‌تواند زمینه بازار و نقدشوندگی را توضیح دهد، اما توصیه معامله نیست.",
       },
@@ -296,7 +297,7 @@ describe("Content growth entity contract", () => {
     assert.equal(validateOrganicGrowthProfile(undefined), false);
     assert.equal(
       validateOrganicGrowthProfile({
-        policyVersion: "tecpey-organic-growth-policy-v1",
+        policyVersion: "tecpey-organic-growth-policy-v2",
         entityType: "news",
         locale: "en",
         canonicalPath: "/crypto-news/wrong-locale",
@@ -312,12 +313,21 @@ describe("Content growth entity contract", () => {
           canonicalPath: "/crypto-news/btc-etf-flow",
           title: "جریان سرمایه ETF بیت‌کوین | اخبار رمزارز تک‌پی",
           metaDescription: "تحلیل آموزشی جریان سرمایه ETF بیت‌کوین و اثر آن بر زمینه بازار، نقدشوندگی و مدیریت ریسک.",
-          schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
-          keywords: ["ETF بیت‌کوین", "اخبار رمزارز", "مدیریت ریسک"],
-          entityTags: ["content:news", "coin:btc", "tone:neutral"],
-          internalLinks: ["/crypto-news/btc-etf-flow", "/crypto-news", "/academy/term-5"],
-          answerSummary: "تک‌پی این خبر را برای توضیح زمینه بازار، نقدشوندگی و مدیریت ریسک ثبت می‌کند.",
-          llmSummary: "جریان سرمایه ETF بیت‌کوین می‌تواند زمینه بازار و نقدشوندگی را توضیح دهد، اما توصیه معامله نیست و فقط برای آموزش منتشر می‌شود.",
+          schemaTypes: ["NewsArticle", "WebPage", "BreadcrumbList"],
+          keywords: ["ETF بیت‌کوین", "اخبار رمزارز", "مدیریت ریسک", "BTC", "نقدشوندگی", "جریان سرمایه"],
+          entityTags: ["content:news", "coin:btc", "tone:neutral", "topic:etf", "topic:liquidity"],
+          internalLinks: ["/crypto-news/btc-etf-flow", "/crypto-news", "/academy/term-5", "/coins/bitcoin", "/markets"],
+          answerSummary: "تک‌پی این خبر را برای توضیح زمینه بازار، نقدشوندگی، اثر ETF و مدیریت ریسک ثبت می‌کند تا کاربر بداند چه اتفاقی افتاده و چه چیزی را باید بررسی کند.",
+          llmSummary: "جریان سرمایه ETF بیت‌کوین می‌تواند زمینه بازار و نقدشوندگی را توضیح دهد. این صفحه منبع، موجودیت BTC، موضوع ETF، ریسک و مسیر آموزشی را به شکل قابل استناد ثبت می‌کند و توصیه معامله نیست.",
+          citationSummary: "گزارش اصلی به منبع خبری نسبت داده می‌شود و تک‌پی فقط زمینه آموزشی، نگاشت موجودیت و ریسک را به صورت جداگانه اضافه می‌کند.",
+          searchIntents: ["خبر ETF بیت کوین", "اثر ETF بر BTC", "نقدشوندگی بیت کوین"],
+          questionIntents: ["چه اتفاقی افتاده است؟", "چرا این خبر مهم است؟", "چه ریسکی باید بررسی شود؟"],
+          keyFacts: ["Coin: BTC", "Topic: ETF", "Impact: liquidity", "Educational only"],
+          sourceAttributions: [
+            { name: "CoinDesk", url: "https://www.coindesk.com/example", role: "primary" },
+            { name: "TecPey", url: "https://tecpey.ir/crypto-news/btc-etf-flow", role: "tecpey" },
+          ],
+          contentValue: "تک‌پی علاوه بر منبع، اثر خبر، موجودیت‌های مرتبط، ریسک‌ها و لینک‌های آموزشی را متصل می‌کند تا محتوا از بازنویسی ساده خبر ارزشمندتر باشد.",
           safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله یا وعده سود نیست.",
           freshnessTag: "fresh",
         }),
@@ -512,13 +522,16 @@ describe("Content growth entity contract", () => {
     const metadata = getNewsDetailMetadata(model, "en");
     const schemas = buildNewsDetailSchemas(model, "en");
     const newsSchema = schemas[0] as Record<string, unknown>;
-    const faqSchema = schemas[2] as { mainEntity: unknown[] };
     const sitemapEntries = getNewsDetailSitemapEntries();
 
     assert.equal(metadata.alternates.canonical, "https://tecpey.ir/en/crypto-news/security-phishing-risk-tools");
     assert.equal(newsSchema["@type"], "NewsArticle");
     assert.equal(newsSchema.mainEntityOfPage, "https://tecpey.ir/en/crypto-news/security-phishing-risk-tools");
-    assert.equal(faqSchema.mainEntity.length, 2);
+    assert.deepEqual(schemas.map((schema) => schema["@type"]), ["NewsArticle", "BreadcrumbList"]);
+    assert.ok(!schemas.some((schema) => schema["@type"] === "FAQPage"));
+    const directAnswers = getNewsDirectAnswerCards(model, "en");
+    assert.equal(directAnswers.length, 4);
+    assert.ok(directAnswers.every((card) => card.question.length > 8 && card.answer.length > 24));
     assert.ok(sitemapEntries.some((entry) => entry.path === "/en/crypto-news/security-phishing-risk-tools"));
   });
 

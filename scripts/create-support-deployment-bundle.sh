@@ -101,6 +101,11 @@ deploy/systemd/tecpey-news-materialization.service.in
 deploy/systemd/tecpey-news-materialization.timer
 scripts/install-news-materialization-scheduler.sh
 scripts/check-news-materialization-env.ts
+deploy/systemd/tecpey-organic-growth-trend.service.in
+deploy/systemd/tecpey-organic-growth-trend.timer
+scripts/install-organic-growth-trend-scheduler.sh
+scripts/check-organic-growth-trend-env.ts
+scripts/run-organic-growth-trend-worker.ts
 
 Governed brand assets included:
 public/images/tecpey-logo.png

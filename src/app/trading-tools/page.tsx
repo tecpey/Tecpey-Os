@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { StructuredData } from "@/components/seo/StructuredData";
 import TradingToolsClient from "@/components/tools/TradingToolsClient";
 import { buildTradingToolsSchemas } from "@/lib/trading-tools-growth";
+import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
+import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
 export const metadata: Metadata = {
   title: "جعبه ابزار معامله‌گر تک‌پی | ابزار تحلیل، آنچین، امنیت و تحقیق رمزارز",
@@ -37,10 +39,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Page() {
+export default async function Page() {
+  const trendRadar = await getGrowthTrendRadarFromAuthority("fa");
   return (
     <>
       <StructuredData data={buildTradingToolsSchemas("fa")} />
+      <TrendRadarWidget data={trendRadar} locale="fa" />
       <TradingToolsClient locale="fa" />
     </>
   );

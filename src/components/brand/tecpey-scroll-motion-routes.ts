@@ -11,6 +11,14 @@ const PUBLIC_STORY_ROUTES = new Set([
   "/en/start-guide",
   "/why-tecpey",
   "/en/why-tecpey",
+  "/markets",
+  "/en/markets",
+  "/crypto-news",
+  "/en/crypto-news",
+  "/coins",
+  "/en/coins",
+  "/trading-tools",
+  "/en/trading-tools",
 ]);
 
 const ACADEMY_READING_ROUTES = new Set([

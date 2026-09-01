@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import rawTools from "@/data/traderTools.json";
+import legacyToolGrowthSnapshot from "@/data/generated/toolGrowthSnapshot.json";
 import { toolGrowthCandidates, type ToolGrowthCandidate } from "@/data/toolGrowthCandidates";
 import {
   materializeToolGrowthSnapshot,
@@ -27,10 +28,18 @@ describe("tool growth automation", () => {
     assert.ok(snapshot.tools.every((tool) => tool.automation.publishCapability === "educational_directory"));
     assert.ok(snapshot.tools.every((tool) => tool.automation.externalCapability === "manual_review_required"));
     assert.ok(snapshot.tools.every((tool) => tool.site.startsWith("https://")));
-    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v1"));
-    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v1"));
+    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v2"));
+    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.fa.canonicalPath === `/trading-tools/${slugifyToolName(tool.name)}`));
     assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.canonicalPath === `/en/trading-tools/${slugifyToolName(tool.name)}`));
+  });
+
+  it("upgrades immutable legacy tool snapshots to SEO/AEO/GEO v2 at read time", () => {
+    const tools = readPublishedToolGrowthRecords(legacyToolGrowthSnapshot as Parameters<typeof readPublishedToolGrowthRecords>[0]);
+    assert.ok(tools.length > 0);
+    assert.ok(tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v2"));
+    assert.ok(tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v2"));
+    assert.ok(tools.every((tool) => tool.organicGrowth?.fa.readiness.ready && tool.organicGrowth?.en.readiness.ready));
   });
 
   it("scores high-trust research and security tools above the publication threshold", () => {

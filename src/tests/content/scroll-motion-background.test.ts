@@ -69,6 +69,9 @@ describe("TecPey scroll motion background", () => {
     assert.equal(isTecpeyScrollMotionRoute("/learn/technical-analysis-basics"), true);
     assert.equal(isTecpeyScrollMotionRoute("/glossary/liquidity"), true);
     assert.equal(isTecpeyScrollMotionRoute("/en/glossary/liquidity"), true);
+    for (const route of ["/markets", "/en/markets", "/crypto-news", "/en/crypto-news", "/coins", "/en/coins", "/trading-tools", "/en/trading-tools"]) {
+      assert.equal(isTecpeyScrollMotionRoute(route), true, route);
+    }
   });
 
   it("keeps auth, assessment, interactive practice, and financial surfaces motion-free", () => {
@@ -84,7 +87,6 @@ describe("TecPey scroll motion background", () => {
       "/academy/practice-lab",
       "/academy/flashcards",
       "/academy/ai-guide",
-      "/markets",
       "/swap",
       "/command-center",
     ];

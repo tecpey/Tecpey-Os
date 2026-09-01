@@ -7,6 +7,8 @@ import { ContentHero, ContentShell, TrustStrip } from "@/components/content/Cont
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft } from "lucide-react";
 import { safeJsonLd } from "@/lib/json-ld";
+import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
+import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
 export const metadata: Metadata = {
   title: "خرید و راهنمای رمزارزها | تک‌پی",
@@ -46,7 +48,8 @@ const schema = {
   about: ["Crypto Prices", "Bitcoin", "USDT", "Ethereum", "Altcoins"],
 };
 
-export default function CoinsPage() {
+export default async function CoinsPage() {
+  const trendRadar = await getGrowthTrendRadarFromAuthority("fa");
   return (
     <ContentShell>
       <ArticleSchema headline="راهنمای رمزارزهای تک‌پی" description="صفحات آموزشی رمزارزها برای بررسی کاربرد، ریسک، شبکه انتقال و نکات مهم قبل از خرید." url="https://tecpey.ir/coins" language="fa-IR" />
@@ -59,6 +62,7 @@ export default function CoinsPage() {
         ctaLabel="مشاهده قیمت لحظه‌ای"
       />
       <TrustStrip />
+      <TrendRadarWidget data={trendRadar} locale="fa" />
       <section className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
           {coinPages.map((coin) => (

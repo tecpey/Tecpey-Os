@@ -38,6 +38,13 @@ export const AI_AUTOMATION_EXECUTOR_BINDINGS: readonly AiAutomationExecutorBindi
       blockingReason: "output_authority_unavailable",
     }),
     executorBinding({
+      workflowId: "organic_growth_intelligence",
+      connectorId: "tecpey.internal.organic-growth-intelligence.v1",
+      externalEffect: "none",
+      launchReady: false,
+      blockingReason: "output_authority_unavailable",
+    }),
+    executorBinding({
       workflowId: "content_publication",
       connectorId: "tecpey.content.publisher.v1",
       externalEffect: "publish",

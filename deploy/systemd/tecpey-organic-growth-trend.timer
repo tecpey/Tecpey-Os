@@ -1,0 +1,13 @@
+[Unit]
+Description=Run TecPey Organic Growth Trend Intelligence every 30 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=30min
+Persistent=true
+RandomizedDelaySec=90
+AccuracySec=30s
+Unit=tecpey-organic-growth-trend.service
+
+[Install]
+WantedBy=timers.target

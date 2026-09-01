@@ -6,7 +6,7 @@ type Props = {
 };
 export default function MarketsHero({ t: _t }: Props) {
   return (
-    <section className="w-full pt-36 pb-6 px-4 md:pt-40">
+    <section className="w-full px-4 pb-3 pt-4">
       <div className="max-w-7xl mx-auto text-center">
         <h1 className="text-[34px] md:text-[44px] font-black text-fg tracking-[-0.04em]">
           مارکت برد آنلاین

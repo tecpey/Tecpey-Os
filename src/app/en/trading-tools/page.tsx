@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { StructuredData } from "@/components/seo/StructuredData";
 import TradingToolsClient from "@/components/tools/TradingToolsClient";
 import { buildTradingToolsSchemas } from "@/lib/trading-tools-growth";
+import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
+import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
 export const metadata: Metadata = {
   title: "TecPey Trader Toolbox | Crypto analysis, on-chain, security and research tools",
@@ -37,10 +39,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Page() {
+export default async function Page() {
+  const trendRadar = await getGrowthTrendRadarFromAuthority("en");
   return (
     <>
       <StructuredData data={buildTradingToolsSchemas("en")} />
+      <TrendRadarWidget data={trendRadar} locale="en" />
       <TradingToolsClient locale="en" />
     </>
   );
