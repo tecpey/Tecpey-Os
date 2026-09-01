@@ -1,10 +1,156 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
+import { AI_AUTOMATION_RUN_TRANSITION_FUNCTION_SQL } from "./db-migrate-ai-automation";
 import { logger } from "./logger";
 
 const FILENAME = "0094_ai_routing_budget.sql";
 
+export const AI_SCHEMA96_FORWARD_RECONCILIATION_SQL = `
+-- Main before 0094 contains two evolved canonical migrations (0091/0092).
+-- Their historical ledger identities must remain immutable, so reconcile the
+-- missing forward schema here, at the first migration not yet present in that
+-- release. Every operation is idempotent for clean and already-upgraded stores.
+ALTER TABLE ai_automation_runs
+  ADD COLUMN IF NOT EXISTS command_hash TEXT,
+  ADD COLUMN IF NOT EXISTS execution_connector_id TEXT;
+
+-- Historical runs predate the command envelope. A deliberately non-replayable
+-- deterministic value preserves the row without falsely accepting a new command.
+UPDATE ai_automation_runs
+   SET command_hash = md5('tecpey-legacy-command-v1:' || id::text || ':' || input_hash)
+                    || md5('tecpey-legacy-command-v2:' || id::text || ':' || input_hash)
+ WHERE command_hash IS NULL;
+
+-- Preserve historical execution evidence explicitly instead of inventing a
+-- live connector binding. New transitions can never produce this prefix.
+UPDATE ai_automation_runs
+   SET execution_connector_id = 'legacy-unbound:' || id::text
+ WHERE execution_started_at IS NOT NULL
+   AND execution_connector_id IS NULL;
+
+ALTER TABLE ai_automation_runs
+  ALTER COLUMN command_hash SET NOT NULL;
+
+DO $schema96_legacy_knowledge_fk$
+DECLARE
+  legacy_constraint TEXT;
+BEGIN
+  FOR legacy_constraint IN
+    SELECT conname FROM pg_constraint
+     WHERE conrelid = 'ai_knowledge_item_events'::regclass
+       AND contype = 'f'
+       AND pg_get_constraintdef(oid) =
+         'FOREIGN KEY (knowledge_item_id) REFERENCES ai_knowledge_items(id) ON DELETE RESTRICT'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE ai_knowledge_item_events DROP CONSTRAINT %I',
+      legacy_constraint
+    );
+  END LOOP;
+END
+$schema96_legacy_knowledge_fk$;
+
+DO $schema96_constraints$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'ai_automation_runs'::regclass
+       AND conname = 'ai_automation_runs_command_hash_check'
+  ) THEN
+    ALTER TABLE ai_automation_runs
+      ADD CONSTRAINT ai_automation_runs_command_hash_check
+      CHECK (command_hash ~ '^[0-9a-f]{64}$');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'ai_automation_runs'::regclass
+       AND conname = 'ai_automation_runs_execution_connector_check'
+  ) THEN
+    ALTER TABLE ai_automation_runs
+      ADD CONSTRAINT ai_automation_runs_execution_connector_check CHECK (
+        execution_connector_id IS NULL OR
+        execution_connector_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$'
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'ai_automation_runs'::regclass
+       AND conname = 'ai_automation_runs_started_connector_check'
+  ) THEN
+    ALTER TABLE ai_automation_runs
+      ADD CONSTRAINT ai_automation_runs_started_connector_check CHECK (
+        execution_started_at IS NULL OR (
+          execution_connector_id IS NOT NULL AND
+          status IN ('executing', 'completed', 'failed', 'blocked')
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'ai_knowledge_items'::regclass
+       AND contype = 'u'
+       AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, workspace_id, id)'
+  ) THEN
+    ALTER TABLE ai_knowledge_items
+      ADD CONSTRAINT ai_knowledge_items_tenant_workspace_id_key
+      UNIQUE (tenant_id, workspace_id, id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'ai_knowledge_item_events'::regclass
+       AND contype = 'f'
+       AND pg_get_constraintdef(oid) LIKE
+         'FOREIGN KEY (tenant_id, workspace_id, knowledge_item_id) REFERENCES ai_knowledge_items(tenant_id, workspace_id, id)%'
+  ) THEN
+    ALTER TABLE ai_knowledge_item_events
+      ADD CONSTRAINT ai_knowledge_item_events_scope_fk
+      FOREIGN KEY (tenant_id, workspace_id, knowledge_item_id)
+      REFERENCES ai_knowledge_items(tenant_id, workspace_id, id)
+      ON DELETE RESTRICT;
+  END IF;
+END
+$schema96_constraints$;
+
+DO $schema96_workflow_unique$
+DECLARE
+  legacy_constraint TEXT;
+BEGIN
+  FOR legacy_constraint IN
+    SELECT conname FROM pg_constraint
+     WHERE conrelid = 'ai_workflow_run_evidence'::regclass
+       AND contype = 'u'
+       AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, run_id, status)'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE ai_workflow_run_evidence DROP CONSTRAINT %I',
+      legacy_constraint
+    );
+  END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'ai_workflow_run_evidence'::regclass
+       AND contype = 'u'
+       AND pg_get_constraintdef(oid) =
+         'UNIQUE (tenant_id, workspace_id, run_id, status)'
+  ) THEN
+    ALTER TABLE ai_workflow_run_evidence
+      ADD CONSTRAINT ai_workflow_run_evidence_scope_status_key
+      UNIQUE (tenant_id, workspace_id, run_id, status);
+  END IF;
+END
+$schema96_workflow_unique$;
+
+${AI_AUTOMATION_RUN_TRANSITION_FUNCTION_SQL}
+`;
+
 export const AI_ROUTING_BUDGET_SQL = `
+${AI_SCHEMA96_FORWARD_RECONCILIATION_SQL}
+
 ALTER TABLE ai_agent_bindings
   ADD COLUMN IF NOT EXISTS max_request_cost_usd_micros BIGINT NOT NULL DEFAULT 1000000;
 
