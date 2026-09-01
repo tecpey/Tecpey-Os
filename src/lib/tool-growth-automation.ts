@@ -1,5 +1,6 @@
-import type {
-  ToolGrowthCandidate,
+import {
+  toolGrowthCandidates,
+  type ToolGrowthCandidate,
   ToolGrowthImportance,
   ToolGrowthIntegrationRisk,
   ToolGrowthRiskLevel,
@@ -226,6 +227,22 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
       ],
       answerSummary: `${candidate.name} یک ابزار در دسته ${candidate.categoryFa} است که در تک‌پی فقط برای آموزش، مقایسه منبع رسمی و چک‌لیست تصمیم‌گیری معرفی می‌شود.`,
       llmSummary: `${buildArticleFa(candidate)} این محتوای خودکار باید به صفحه ابزار، خبرهای مرتبط، Academy و صفحات کوین وصل شود و نباید به سیگنال معامله یا اجازه اتصال حساب تبدیل شود.`,
+      citationSummary: `مرجع هویت ${candidate.name} دامنه رسمی ${candidate.domain} است. تک‌پی مزایا، محدودیت‌ها، ریسک دسترسی و کاربرد آموزشی را به‌صورت مستقل توضیح می‌دهد.`,
+      searchIntents: [candidate.name, `${candidate.name} چیست`, `${candidate.name} آموزش`, `${candidate.name} امنیت`, candidate.categoryFa, ...candidate.narratives],
+      questionIntents: [
+        `${candidate.name} چیست و چه کاربردی دارد؟`,
+        `آیا ${candidate.name} برای تازه‌کار مناسب است؟`,
+        `ریسک‌های اتصال حساب یا کیف‌پول به ${candidate.name} چیست؟`,
+        `لینک رسمی ${candidate.name} کدام است؟`,
+      ],
+      keyFacts: [
+        `دامنه رسمی: ${candidate.domain}`,
+        `دسته: ${candidate.categoryFa}`,
+        `ریسک یکپارچه‌سازی: ${candidate.integrationRisk}`,
+        `سطح ریسک آموزشی: ${candidate.riskLevel}`,
+      ],
+      sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
+      contentValue: `تک‌پی ${candidate.name} را صرفاً فهرست نمی‌کند؛ کاربرد، مزایا، محدودیت‌ها، ریسک مجوزها، مسیر استفاده امن، خبرهای مرتبط و جایگاه آن در workflow تصمیم‌گیری را کنار هم ارائه می‌دهد.`,
       safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله، تأیید سرمایه‌گذاری یا مجوز اتصال کیف‌پول/API نیست.",
       freshnessTag: "scheduled_refresh",
     }),
@@ -254,6 +271,22 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
       ],
       answerSummary: `${candidate.name} is a ${candidate.categoryEn} tool. TecPey lists it for education, official-source comparison and risk-aware workflow building.`,
       llmSummary: `${buildArticleEn(candidate)} The automated page must connect to related tools, news, Academy paths and coin context without becoming a trading signal or account-connection instruction.`,
+      citationSummary: `${candidate.name} identity is anchored to its official domain ${candidate.domain}. TecPey independently explains use cases, limitations, permission risk and educational context.`,
+      searchIntents: [candidate.name, `${candidate.name} guide`, `${candidate.name} review`, `${candidate.name} security`, candidate.categoryEn, ...candidate.narratives],
+      questionIntents: [
+        `What is ${candidate.name}?`,
+        `Who is ${candidate.name} useful for?`,
+        `What are the account, wallet or API risks of ${candidate.name}?`,
+        `What is the official ${candidate.name} website?`,
+      ],
+      keyFacts: [
+        `Official domain: ${candidate.domain}`,
+        `Category: ${candidate.categoryEn}`,
+        `Integration risk: ${candidate.integrationRisk}`,
+        `Educational risk level: ${candidate.riskLevel}`,
+      ],
+      sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
+      contentValue: `TecPey goes beyond a directory entry by combining ${candidate.name} use cases, limitations, permission risks, a safe-use workflow, related news and learning context on one canonical page.`,
       safetyDisclaimer: "This page is not financial advice, a trading signal, investment endorsement or permission to connect a wallet/API key.",
       freshnessTag: "scheduled_refresh",
     }),
@@ -372,11 +405,20 @@ export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): Au
   if (snapshot.schemaVersion !== 1) return [];
   if (snapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
   if (snapshot.stats.externalEnabled !== 0) return [];
-  return snapshot.tools.filter(
-    (tool) =>
-      tool.automation.status === "published_content" &&
-      tool.automation.publishCapability === "educational_directory" &&
-      tool.automation.externalCapability === "manual_review_required" &&
-      officialSiteMatchesDomain(tool.site, tool.domain),
-  );
+  return snapshot.tools
+    .filter(
+      (tool) =>
+        tool.automation.status === "published_content" &&
+        tool.automation.publishCapability === "educational_directory" &&
+        tool.automation.externalCapability === "manual_review_required" &&
+        officialSiteMatchesDomain(tool.site, tool.domain),
+    )
+    .map((tool) => {
+      // Keep committed snapshots append-only while serving the newest
+      // SEO/AEO/GEO contract from the same governed candidate catalog.
+      const candidate = toolGrowthCandidates.find(
+        (item) => slugifyToolName(item.name) === slugifyToolName(tool.name),
+      );
+      return candidate ? { ...tool, organicGrowth: buildToolOrganicGrowthProfiles(candidate) } : tool;
+    });
 }

@@ -13,6 +13,8 @@ import {
   buildOrganicGrowthProfile,
   type OrganicGrowthProfile,
 } from "./organic-growth-automation";
+import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
+import { coinSlugForSymbol, extractNewsTaxonomy } from "./news-taxonomy";
 
 export type NewsSourceTier = "official" | "trusted_media" | "tecpey_editorial" | "watchlist";
 
@@ -50,6 +52,9 @@ export type NormalizedNewsArticle = {
   tone: NewsImpactTone;
   detectedCoins: string[];
   detectedTools: string[];
+  topicTags: string[];
+  searchIntents: string[];
+  growthKeywords: string[];
   relatedLessonHref: string;
   impactScore: number;
   priority: number;
@@ -81,11 +86,6 @@ export type NewsAutomationDecision = {
   historyItems: NewsImpactHistoryItem[];
 };
 
-type EntityDictionary = {
-  coins: Record<string, string[]>;
-  tools: Record<string, string[]>;
-};
-
 export const DEFAULT_APPROVED_NEWS_SOURCES: ApprovedNewsSource[] = [
   { name: "TecPey News Desk", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
   { name: "TecPey Academy", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
@@ -95,43 +95,23 @@ export const DEFAULT_APPROVED_NEWS_SOURCES: ApprovedNewsSource[] = [
   { name: "The Block", domain: "theblock.co", tier: "trusted_media", trustScore: 0.82 },
 ];
 
-const ENTITY_DICTIONARY: EntityDictionary = {
-  coins: {
-    BTC: ["bitcoin", "btc", "بیت کوین", "بیت‌کوین"],
-    ETH: ["ethereum", "eth", "ether", "اتریوم"],
-    USDT: ["tether", "usdt", "تتر"],
-    TON: ["toncoin", "ton", "telegram open network", "تون", "تون کوین", "تون‌کوین"],
-    SOL: ["solana", "sol", "سولانا"],
-    DOGE: ["dogecoin", "doge", "دوج کوین", "دوج‌کوین"],
-  },
-  tools: {
-    tradingview: ["tradingview", "chart", "technical analysis", "نمودار", "تحلیل تکنیکال"],
-    coinmarketcap: ["coinmarketcap", "market cap", "market data", "داده بازار", "ارزش بازار"],
-    coingecko: ["coingecko", "market data", "داده بازار"],
-    coinglass: ["coinglass", "open interest", "funding", "liquidation", "لیکویید", "فاندینگ"],
-    cryptoquant: ["cryptoquant", "on-chain", "exchange flow", "آنچین", "جریان صرافی"],
-    glassnode: ["glassnode", "on-chain", "آنچین"],
-    messari: ["messari", "research", "گزارش پژوهشی"],
-  },
-};
-
-const MARKET_IMPORTANCE: Record<string, number> = {
+const CORE_MARKET_IMPORTANCE: Record<string, number> = {
   BTC: 1,
   ETH: 0.94,
   USDT: 0.9,
-  SOL: 0.78,
-  TON: 0.72,
-  DOGE: 0.55,
+  BNB: 0.84,
+  SOL: 0.82,
+  XRP: 0.8,
+  TON: 0.76,
+  DOGE: 0.62,
+  ADA: 0.62,
+  TRX: 0.6,
 };
 
-const COIN_SLUGS: Record<string, string> = {
-  BTC: "bitcoin",
-  DOGE: "dogecoin",
-  ETH: "ethereum",
-  SOL: "solana",
-  TON: "toncoin",
-  USDT: "tether",
-};
+const MARKET_IMPORTANCE: Record<string, number> = Object.fromEntries([
+  ...Object.entries(CORE_MARKET_IMPORTANCE),
+  ...coinGrowthCandidates.map((coin) => [coin.symbol, coin.marketImportance] as const),
+]);
 
 const PROHIBITED_ADVICE_PATTERNS = [
   /\b(buy|sell|hold|long|short)\s+(now|today|immediately)\b/i,
@@ -191,13 +171,6 @@ function containsAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
 
-function detectEntities(text: string, dictionary: Record<string, string[]>): string[] {
-  const normalized = text.toLowerCase();
-  return Object.entries(dictionary)
-    .filter(([, aliases]) => aliases.some((alias) => normalized.includes(alias.toLowerCase())))
-    .map(([id]) => id)
-    .sort();
-}
 
 function inferTone(text: string): NewsImpactTone {
   if (/\b(hack|exploit|phishing|fraud|ban|lawsuit|crash|outflow)\b|هک|فیشینگ|کلاهبرداری|ممنوعیت|شکایت|سقوط|خروج سرمایه/i.test(text)) {
@@ -262,7 +235,7 @@ function buildSeo(article: NormalizedNewsArticle): SeoProfile {
     hreflang: {
       [article.locale]: canonical,
     },
-    schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
+    schemaTypes: ["NewsArticle", "WebPage", "BreadcrumbList"],
     aeoAnswer: isEn
       ? `${article.title}: TecPey frames this as educational market context, not a trading signal.`
       : `${article.title}: تک‌پی این خبر را به‌عنوان زمینه آموزشی بازار نمایش می‌دهد، نه سیگنال معامله.`,
@@ -278,8 +251,8 @@ function buildNewsOrganicGrowthProfile(article: NormalizedNewsArticle): OrganicG
   const isEn = article.locale === "en";
   const coinLinks = article.detectedCoins.map((symbol) =>
     isEn
-      ? `/en/coins/${COIN_SLUGS[symbol] ?? symbol.toLowerCase()}`
-      : `/coins/${COIN_SLUGS[symbol] ?? symbol.toLowerCase()}`,
+      ? `/en/coins/${coinSlugForSymbol(symbol)}`
+      : `/coins/${coinSlugForSymbol(symbol)}`,
   );
   const toolLinks = article.detectedTools.map((slug) =>
     isEn ? `/en/trading-tools/${slug}` : `/trading-tools/${slug}`,
@@ -290,6 +263,7 @@ function buildNewsOrganicGrowthProfile(article: NormalizedNewsArticle): OrganicG
     `tone:${article.tone}`,
     ...article.detectedCoins.map((symbol) => `coin:${symbol.toLowerCase()}`),
     ...article.detectedTools.map((slug) => `tool:${slug}`),
+    ...article.topicTags.map((tag) => `topic:${tag}`),
   ];
   const safetyDisclaimer = isEn
     ? "This automated news page is not financial advice, a trading signal or a profit promise."
@@ -301,7 +275,7 @@ function buildNewsOrganicGrowthProfile(article: NormalizedNewsArticle): OrganicG
     canonicalPath: newsDetailPath(article),
     title: isEn ? `${article.title} | TecPey Crypto News` : `${article.title} | اخبار رمزارز تک‌پی`,
     metaDescription: article.summary,
-    schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
+    schemaTypes: ["NewsArticle", "WebPage", "BreadcrumbList"],
     keywords: [
       article.title,
       article.sourceName,
@@ -309,19 +283,45 @@ function buildNewsOrganicGrowthProfile(article: NormalizedNewsArticle): OrganicG
       "market context",
       ...article.detectedCoins,
       ...article.detectedTools,
+      ...article.topicTags,
+      ...article.growthKeywords,
     ],
     entityTags,
     internalLinks: [
       newsDetailPath(article),
       isEn ? "/en/crypto-news" : "/crypto-news",
       article.relatedLessonHref,
+      isEn ? "/en/coins" : "/coins",
+      isEn ? "/en/trading-tools" : "/trading-tools",
       ...coinLinks,
       ...toolLinks,
     ],
     answerSummary: isEn
-      ? `${article.title}: TecPey records this as educational market context connected to supported coins, tools and Academy learning paths.`
-      : `${article.title}: تک‌پی این خبر را به‌عنوان زمینه آموزشی بازار و مرتبط با کوین‌ها، ابزارها و مسیرهای آکادمی ثبت می‌کند.`,
-    llmSummary: `${article.title}. ${article.summary} Source: ${article.sourceName}. ${safetyDisclaimer}`,
+      ? `${article.title}: TecPey records what happened, why it matters, which entities are affected and which risks should be checked before any decision.`
+      : `${article.title}: تک‌پی مشخص می‌کند چه اتفاقی افتاده، چرا مهم است، چه کوین‌ها یا ابزارهایی درگیرند و قبل از هر تصمیم چه ریسک‌هایی باید بررسی شوند.`,
+    llmSummary: `${article.title}. ${article.summary} Primary source: ${article.sourceName}. Topics: ${article.topicTags.join(", ") || "crypto-market"}. Entities: ${[...article.detectedCoins, ...article.detectedTools].join(", ") || "market"}. ${safetyDisclaimer}`,
+    citationSummary: isEn
+      ? `Primary reporting is attributed to ${article.sourceName} at ${article.canonicalUrl}. TecPey adds entity mapping, risk context and learning links without presenting the source report as its own reporting.`
+      : `گزارش اصلی به ${article.sourceName} در ${article.canonicalUrl} نسبت داده می‌شود. تک‌پی فقط نگاشت موجودیت‌ها، زمینه ریسک و مسیر آموزشی را اضافه می‌کند و خبر منبع را گزارش اختصاصی خود معرفی نمی‌کند.`,
+    searchIntents: article.searchIntents.length ? article.searchIntents : article.growthKeywords,
+    questionIntents: isEn
+      ? ["What happened?", "Why does this crypto news matter?", "Which coins or tools are affected?", "What risks should users verify next?"]
+      : ["چه اتفاقی افتاده است؟", "چرا این خبر برای بازار رمزارز مهم است؟", "کدام کوین‌ها یا ابزارها تحت تأثیرند؟", "کاربر چه ریسک‌هایی را باید بررسی کند؟"],
+    keyFacts: [
+      `Source: ${article.sourceName}`,
+      `Published: ${article.publishedAt}`,
+      `Impact score: ${Math.round(article.impactScore * 10)}/10`,
+      `Tone: ${article.tone}`,
+      ...(article.detectedCoins.length ? [`Coins: ${article.detectedCoins.join(", ")}`] : []),
+      ...(article.topicTags.length ? [`Topics: ${article.topicTags.join(", ")}`] : []),
+    ],
+    sourceAttributions: [
+      { name: article.sourceName, url: article.canonicalUrl, role: "primary" },
+      { name: "TecPey", url: `https://tecpey.ir${newsDetailPath(article)}`, role: "tecpey" },
+    ],
+    contentValue: isEn
+      ? "TecPey adds original value through source attribution, entity and topic mapping, impact/risk framing, related coin and tool links, and a learning path instead of merely rewriting the headline."
+      : "تک‌پی به‌جای بازنویسی ساده تیتر، منبع را شفاف نگه می‌دارد و با نگاشت کوین/ابزار/موضوع، چارچوب اثر و ریسک، لینک‌های داخلی و مسیر آموزشی ارزش مستقل ایجاد می‌کند.",
     safetyDisclaimer,
     freshnessTag: "fresh",
   });
@@ -372,7 +372,9 @@ function reviewReasons(input: RawNewsInput, article: NormalizedNewsArticle, sour
   if (hoursBetween(article.publishedAt, article.recordedAt) > 168) reasons.push("stale_news");
   if (containsAny(text, PROHIBITED_ADVICE_PATTERNS)) reasons.push("prohibited_financial_advice");
   if (containsAny(text, HYPE_PATTERNS)) reasons.push("hype_or_profit_promise");
-  if (article.detectedCoins.length === 0 && article.detectedTools.length === 0) reasons.push("no_supported_entity");
+  if (article.detectedCoins.length === 0 && article.detectedTools.length === 0 && article.topicTags.length === 0) {
+    reasons.push("no_supported_entity");
+  }
   return reasons;
 }
 
@@ -384,8 +386,9 @@ export function normalizeNewsInput(
   const title = cleanText(input.title);
   const summary = cleanText(input.summary);
   const combined = `${title} ${summary}`;
-  const detectedCoins = detectEntities(combined, ENTITY_DICTIONARY.coins);
-  const detectedTools = detectEntities(combined, ENTITY_DICTIONARY.tools);
+  const taxonomy = extractNewsTaxonomy(combined);
+  const detectedCoins = taxonomy.coinSymbols;
+  const detectedTools = taxonomy.toolSlugs;
   const idempotencyKey = stableHash(`${input.locale}|${input.url}|${input.publishedAt}|${title}`);
   const slug = `${slugify(title).slice(0, 72)}-${idempotencyKey.slice(0, 6)}`;
   const impactScore = baseImpactScore(combined, detectedCoins.length, detectedTools.length);
@@ -404,6 +407,9 @@ export function normalizeNewsInput(
     tone: inferTone(combined),
     detectedCoins,
     detectedTools,
+    topicTags: taxonomy.topicTags,
+    searchIntents: taxonomy.searchIntents,
+    growthKeywords: taxonomy.keywords,
     relatedLessonHref: inferRelatedLessonHref(input, combined),
     impactScore,
     priority: 0,

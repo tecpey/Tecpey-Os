@@ -87,6 +87,7 @@ import { runAiRoutingBudgetMigrations } from "./db-migrate-ai-routing-budget";
 import { runAiRouteCandidateMigrations } from "./db-migrate-ai-route-candidates";
 import { runAiTenantRlsMigrations } from "./db-migrate-ai-tenant-rls";
 import { runSupportMessagesMigrations } from "./db-migrate-support-messages";
+import { runNewsArchiveAndGrowthMigrations } from "./db-migrate-news-growth";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -211,6 +212,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(80, "migration-step-080", CANONICAL_MIGRATION_CONTENT.aiRouteCandidates, "platform-security", "ai-routing", runAiRouteCandidateMigrations),
   entry(81, "migration-step-081", CANONICAL_MIGRATION_CONTENT.aiTenantRowLevelSecurity, "platform-security", "ai-tenant-isolation", runAiTenantRlsMigrations),
   entry(82, "migration-step-082", CANONICAL_MIGRATION_CONTENT.supportMessages, "engagement-platform", "crm", runSupportMessagesMigrations),
+  entry(83, "migration-step-083", CANONICAL_MIGRATION_CONTENT.newsArchiveAndGrowth, "growth-platform", "organic-growth", runNewsArchiveAndGrowthMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

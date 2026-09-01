@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Chart from "@/components/charts/chart";
 import { CryptoAssetIcon } from "@/components/crypto/CryptoAssetIcon";
+import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 import { handleDecimal } from "@/utils/handleDecimal";
 import type { MarketCurrency } from "@/types/market";
 
@@ -38,6 +39,7 @@ export default function MarketsTableRow({
       : null;
 
   const href = `/crypto/${(coin.symbol ?? "").toLowerCase()}`;
+  const visual = getCoinVisualAsset({ symbol: coin.symbol, name: coin.name, remoteIcon: typeof coin.icon === "string" ? coin.icon : undefined });
 
   return (
     <div
@@ -52,8 +54,8 @@ export default function MarketsTableRow({
       className={`
         grid ${gridClass}
         items-center
-        gap-1
-        px-2 sm:px-4
+        gap-2
+        px-3 sm:px-5
         h-[58px] sm:h-[62px]
         cursor-pointer
         transition-colors
@@ -62,7 +64,7 @@ export default function MarketsTableRow({
     >
       {/* coin */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <CryptoAssetIcon symbol={coin.symbol || ""} name={coin.name} size="sm" />
+        <CryptoAssetIcon symbol={coin.symbol || ""} name={coin.name} size="sm" assetSrc={visual.src} assetSource={visual.source} />
         <div className="min-w-0">
           <p className="truncate text-[11px] sm:text-[13px] font-bold text-fg/80">
             {coin.symbol}

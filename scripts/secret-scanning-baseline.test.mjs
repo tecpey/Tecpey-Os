@@ -18,7 +18,7 @@ function clone(value) {
 test("baseline binds exact scanner supply-chain and reviewed finding identities", () => {
   assert.equal(baseline.scanner.name, "gitleaks");
   assert.equal(baseline.scanner.version, "8.30.1");
-  assert.equal(baseline.findings.length, 57);
+  assert.equal(baseline.findings.length, 58);
   assert.equal(
     baseline.findings.every((finding) => finding.classification === "known-non-secret"),
     true,

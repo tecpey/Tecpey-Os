@@ -59,6 +59,7 @@ import { LEARNING_BRAIN_REFRESH_COLUMNS_SQL } from "./db-migrate-learning-brain-
 import { ACHIEVEMENT_CONTRACT_COLUMNS_SQL } from "./db-migrate-achievement-contract";
 import { LEARNING_BRAIN_TENANT_CACHE_SQL } from "./db-migrate-learning-brain-tenant-cache";
 import { NEWS_MATERIALIZATION_AUTHORITY_SQL } from "./db-migrate-news-materialization";
+import { NEWS_ARCHIVE_AND_GROWTH_SQL } from "./db-migrate-news-growth";
 import { COMMUNITY_PROFILE_TENANT_PRIMARY_KEY_SQL } from "./db-migrate-community-profile-tenant-primary-key";
 import { AI_MENTOR_EVIDENCE_TENANT_KEY_SQL } from "./db-migrate-ai-mentor-evidence-tenant-key";
 import { ACADEMY_QUESTION_BANK_LOCALE_SQL } from "./db-migrate-academy-question-bank-locale";
@@ -421,5 +422,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   supportMessages: one(
     "0097_support_messages.sql",
     SUPPORT_MESSAGES_SQL,
+  ),
+  newsArchiveAndGrowth: one(
+    "0098_news_archive_and_growth_intelligence.sql",
+    NEWS_ARCHIVE_AND_GROWTH_SQL,
   ),
 });

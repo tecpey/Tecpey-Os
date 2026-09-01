@@ -11,7 +11,12 @@ import {
   getNewsImpactSlugs,
   type NewsImpactHistoryItem,
 } from "./news-impact-history";
-import { getNewsImpactHistoryItemsFromAuthority } from "./news-impact-history-authority";
+import {
+  getNewsImpactHistoryArchiveItemsFromAuthority,
+  getNewsImpactHistoryItemBySlugFromAuthority,
+  getNewsImpactHistoryItemBySourceUrlFromAuthority,
+  getNewsImpactHistoryItemsFromAuthority,
+} from "./news-impact-history-authority";
 import { getTraderToolBySlug, type RankedTraderTool } from "./trading-tools-growth";
 
 const SITE_URL = "https://tecpey.ir";
@@ -44,6 +49,11 @@ export type NewsHubPageModel = {
 export type NewsEditorialBoundaryCard = {
   title: string;
   body: string;
+};
+
+export type NewsDirectAnswerCard = {
+  question: string;
+  answer: string;
 };
 
 export function getNewsDetailStaticParams(locale: ContentLocale): { slug: string }[] {
@@ -112,12 +122,12 @@ export async function getNewsDetailPageModelFromAuthority(
   slug: string,
   locale: ContentLocale,
 ): Promise<NewsDetailPageModel | undefined> {
-  const [items, counterpartItems] = await Promise.all([
-    getNewsImpactHistoryItemsFromAuthority(locale),
-    getNewsImpactHistoryItemsFromAuthority(locale === "en" ? "fa" : "en"),
-  ]);
-  const item = items.find((entry) => getNewsImpactSlug(entry) === slug);
-  const counterpart = counterpartItems.find((entry) => getNewsImpactSlug(entry) === slug);
+  const item = await getNewsImpactHistoryItemBySlugFromAuthority(slug, locale);
+  if (!item) return undefined;
+  const counterpart = await getNewsImpactHistoryItemBySourceUrlFromAuthority(
+    item.sourceUrl,
+    locale === "en" ? "fa" : "en",
+  );
   return buildNewsDetailPageModelFromItem(item, slug, locale, counterpart);
 }
 
@@ -130,7 +140,7 @@ export function getNewsDetailSitemapEntries() {
 }
 
 export async function getNewsDetailSitemapEntriesFromAuthority() {
-  const items = await getNewsImpactHistoryItemsFromAuthority();
+  const items = await getNewsImpactHistoryArchiveItemsFromAuthority();
   return items.map((item) => ({
     path: getNewsImpactDetailPath(item),
     lastModified: new Date(item.recordedAt),
@@ -201,32 +211,6 @@ export function buildNewsHubSchemas(model: NewsHubPageModel): Record<string, unk
     }),
     {
       "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: isEn ? "How does TecPey choose crypto news for this page?" : "تک‌پی خبرهای این صفحه را چطور انتخاب می‌کند؟",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: isEn
-              ? "TecPey prioritizes trusted sources, supported coin or tool entities, source timing, impact evidence and safety checks."
-              : "تک‌پی خبرها را بر اساس منبع معتبر، ارتباط با کوین یا ابزار پشتیبانی‌شده، زمان منبع، شواهد اثرگذاری و گارد ایمنی اولویت‌بندی می‌کند.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: isEn ? "Is this news hub financial advice?" : "آیا این مرکز خبر توصیه مالی است؟",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: isEn
-              ? "No. The hub is educational market context and should not be read as a buy, sell or profit signal."
-              : "خیر. این مرکز فقط زمینه آموزشی بازار است و نباید به‌عنوان سیگنال خرید، فروش یا وعده سود تفسیر شود.",
-          },
-        },
-      ],
-    },
-    {
-      "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: isEn ? "Home" : "خانه", item: homeUrl },
@@ -287,6 +271,13 @@ export function buildNewsDetailSchemas(model: NewsDetailPageModel, locale: Conte
       isAccessibleForFree: true,
       articleSection: isEn ? "Crypto market education" : "آموزش و خبر بازار رمزارز",
       about,
+      citation: [model.item.sourceUrl],
+      keywords: Array.from(new Set([
+        ...model.item.relatedCoinSymbols,
+        ...model.item.relatedToolSlugs,
+        isEn ? "crypto news" : "اخبار رمزارز",
+        isEn ? "market context" : "زمینه بازار",
+      ])).join(", "),
       author: { "@type": "Organization", name: "TecPey", url: SITE_URL },
       publisher: {
         "@type": "Organization",
@@ -310,32 +301,6 @@ export function buildNewsDetailSchemas(model: NewsDetailPageModel, locale: Conte
         { "@type": "ListItem", position: 3, name: model.item.title, item: model.url },
       ],
     },
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: isEn ? "Is this TecPey news page a trading signal?" : "آیا این صفحه خبر تک‌پی سیگنال معامله است؟",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: isEn
-              ? "No. TecPey presents the news as educational market context with source, timing and risk framing."
-              : "خیر. تک‌پی این خبر را به‌عنوان زمینه آموزشی بازار همراه با منبع، زمان و چارچوب ریسک نمایش می‌دهد.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: isEn ? "Why is this news linked to coins or tools?" : "چرا این خبر به کوین یا ابزار وصل شده است؟",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: isEn
-              ? "The news is linked when TecPey detects a supported coin or tool and records enough impact evidence for audit."
-              : "وقتی تک‌پی ارتباط خبر با کوین یا ابزار پشتیبانی‌شده و اثر قابل ثبت را تشخیص دهد، این ارتباط برای audit ذخیره و نمایش داده می‌شود.",
-          },
-        },
-      ],
-    },
   ];
 }
 
@@ -354,6 +319,33 @@ export function getNewsDetailDisplayMeta(item: NewsImpactHistoryItem, locale: Co
             : isEn ? "Neutral context" : "زمینه خنثی",
     slug: getNewsImpactSlug(item),
   };
+}
+
+export function getNewsDirectAnswerCards(
+  model: NewsDetailPageModel,
+  locale: ContentLocale,
+): NewsDirectAnswerCard[] {
+  const isEn = locale === "en";
+  const entities = [
+    ...model.item.relatedCoinSymbols,
+    ...model.relatedTools.map((tool) => tool.name),
+  ];
+  const entityAnswer = entities.length > 0
+    ? entities.join(", ")
+    : isEn ? "The broader crypto market" : "بازار رمزارز";
+  return isEn
+    ? [
+        { question: "What happened?", answer: model.item.summary },
+        { question: "Why does it matter?", answer: model.item.reasonEn },
+        { question: "Which entities are connected?", answer: entityAnswer },
+        { question: "What should I verify next?", answer: `Open the original ${model.item.sourceName} source and review the linked TecPey learning path before drawing conclusions. This is not a trading signal.` },
+      ]
+    : [
+        { question: "چه اتفاقی افتاده است؟", answer: model.item.summary },
+        { question: "چرا این خبر مهم است؟", answer: model.item.reasonFa },
+        { question: "چه موجودیت‌هایی به این خبر مرتبط‌اند؟", answer: entityAnswer },
+        { question: "برای بررسی بعدی چه چیزی را ببینم؟", answer: `منبع اصلی ${model.item.sourceName} و مسیر آموزشی مرتبط تک‌پی را بررسی کنید؛ این محتوا سیگنال معامله نیست.` },
+      ];
 }
 
 export function getNewsEditorialBoundaryCards(

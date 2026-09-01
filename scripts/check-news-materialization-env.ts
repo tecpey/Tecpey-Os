@@ -66,7 +66,9 @@ try {
   required("DATABASE_URL");
   const selectedLocales = locales();
   const selectedSourceMode = sourceMode();
-  const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 10, 1, 30);
+  const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 100, 1, 250);
+  const translationConcurrency = boundedIntegerEnv("NEWS_TRANSLATION_CONCURRENCY", 2, 1, 4);
+  const translationRetryMinutes = boundedIntegerEnv("NEWS_TRANSLATION_RETRY_MINUTES", 60, 15, 24 * 60);
   const stateDirectory = optionalAbsoluteDirectory("TECPEY_OPS_STATE_DIR");
   console.log(JSON.stringify({
     ok: true,
@@ -74,6 +76,8 @@ try {
     locales: selectedLocales,
     sourceMode: selectedSourceMode,
     limitPerSource,
+    translationConcurrency,
+    translationRetryMinutes,
     stateDirectory,
   }));
 } catch (error) {

@@ -180,6 +180,25 @@ function buildCoinOrganicGrowthProfile(candidate: CoinGrowthCandidate): OrganicG
     ],
     answerSummary: `${candidate.faName} (${candidate.symbol}) دارایی مرتبط با ${candidate.category} است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.`,
     llmSummary: `${intro} این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.`,
+    citationSummary: `مرجع هویتی و فنی ${candidate.faName} وب‌سایت رسمی پروژه است. تک‌پی داده‌های خبری و بازار را به‌عنوان زمینه تکمیلی نمایش می‌دهد و میان واقعیت منبع، تحلیل آموزشی و ریسک تفکیک ایجاد می‌کند.`,
+    searchIntents: keywords,
+    questionIntents: [
+      `${candidate.faName} چیست؟`,
+      `${candidate.symbol} چه کاربردی دارد؟`,
+      `ریسک‌های ${candidate.faName} چیست؟`,
+      `برای بررسی ${candidate.symbol} از چه منابع و ابزارهایی استفاده کنم؟`,
+    ],
+    keyFacts: [
+      `نماد: ${candidate.symbol}`,
+      `دسته: ${candidate.category}`,
+      `سطح ریسک آموزشی: ${candidate.riskLevel}`,
+      `وب‌سایت رسمی: ${candidate.officialWebsite}`,
+    ],
+    sourceAttributions: [
+      { name: `${candidate.name} official`, url: candidate.officialWebsite, role: "official" },
+      ...(candidate.docs ? [{ name: `${candidate.name} documentation`, url: candidate.docs, role: "official" as const }] : []),
+    ],
+    contentValue: `تک‌پی صفحه ${candidate.faName} را به یک پرونده تصمیم آموزشی تبدیل می‌کند: تعریف دارایی، کاربردهای واقعی، ریسک‌ها، منابع رسمی، خبرهای مرتبط، ابزارهای بررسی و مسیر آموزشی در یک canonical واحد جمع می‌شوند.`,
     safetyDisclaimer: "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
     freshnessTag: "scheduled_refresh",
   });
@@ -307,14 +326,22 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
 
   const strictPinnedHosts = snapshot.hostPinVersion === 1;
 
-  return snapshot.coins.filter((coin) => {
-    if (coin.automation.status !== "published_content") return false;
-    if (coin.automation.exchangeCapability !== "manual_review_required") return false;
+  return snapshot.coins
+    .filter((coin) => {
+      if (coin.automation.status !== "published_content") return false;
+      if (coin.automation.exchangeCapability !== "manual_review_required") return false;
 
-    const pinnedHost = strictPinnedHosts
-      ? coin.automation.officialHost
-      : legacyPinnedHostForCoin(coin);
+      const pinnedHost = strictPinnedHosts
+        ? coin.automation.officialHost
+        : legacyPinnedHostForCoin(coin);
 
-    return officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, pinnedHost);
-  });
+      return officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, pinnedHost);
+    })
+    .map((coin) => {
+      // Published snapshots are immutable evidence and may predate the current
+      // organic-growth contract. Upgrade the in-memory profile from the same
+      // governed candidate source instead of rewriting historical evidence.
+      const candidate = coinGrowthCandidates.find((item) => item.slug === coin.slug);
+      return candidate ? { ...coin, organicGrowth: buildCoinOrganicGrowthProfile(candidate) } : coin;
+    });
 }

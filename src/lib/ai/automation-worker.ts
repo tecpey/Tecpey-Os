@@ -169,7 +169,7 @@ async function reviewWithAgent(input: {
     timeoutMs: 24_000,
     maxOutputTokens,
     circuitScope: `${input.run.tenantId}:${input.run.workspaceId}:automation`,
-    toolsEnabled: ["news_x_researcher", "coin_tool_researcher"].includes(input.agentId),
+    toolsEnabled: ["news_x_researcher", "coin_tool_researcher", "growth_hacker"].includes(input.agentId),
   });
   const spendAndRouting = await settleAiAgentSpendAndRecordRoutingDecision({
     settlement: {

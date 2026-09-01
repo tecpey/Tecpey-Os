@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
+import legacyCoinGrowthSnapshot from "@/data/generated/coinGrowthSnapshot.json";
 import { coreCoinPages } from "@/data/coins";
 import {
   materializeCoinGrowthSnapshot,
@@ -24,10 +25,17 @@ describe("coin growth automation", () => {
     assert.ok(snapshot.coins.every((coin) => coin.automation.exchangeCapability === "manual_review_required"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.officialWebsite.startsWith("https://")));
     assert.ok(snapshot.coins.every((coin) => (coin.automation.officialHost?.length ?? 0) > 0));
-    assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v1"));
+    assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.canonicalPath === `/coins/${coin.slug}`));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.entityTags.includes(`coin:${coin.symbol.toLowerCase()}`)));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.schemaTypes.includes("FAQPage")));
+  });
+
+  it("upgrades immutable legacy published snapshots to the current organic-growth contract at read time", () => {
+    const pages = readPublishedCoinGrowthPages(legacyCoinGrowthSnapshot as Parameters<typeof readPublishedCoinGrowthPages>[0]);
+    assert.ok(pages.length > 0);
+    assert.ok(pages.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
+    assert.ok(pages.every((coin) => coin.organicGrowth.readiness.ready));
   });
 
   it("scores core stablecoin and high-trend AI candidates above the publication threshold", () => {

@@ -25,7 +25,7 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: "https://tecpey.ir/sitemap.xml",
+    sitemap: ["https://tecpey.ir/sitemap.xml", "https://tecpey.ir/news-sitemap.xml"],
     host: "https://tecpey.ir",
   };
 }

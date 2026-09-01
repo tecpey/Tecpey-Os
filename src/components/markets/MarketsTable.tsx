@@ -33,7 +33,7 @@ export default function MarketsTable({
   
 
   if (isLoading) {
-    return <PriceTableSkeleton rows={8} hasIRT={isIRTenabled} />;
+    return <PriceTableSkeleton rows={12} hasIRT={isIRTenabled} />;
   }
 
   if (!rows || rows.length === 0) {
@@ -52,11 +52,11 @@ export default function MarketsTable({
 
   return (
     <div className="w-full h-full px-2 sm:px-4 md:px-0">
-      <div className="mx-auto max-w-[1320px] rounded-[22px] bg-[var(--card-1)] border border-primary/20 overflow-hidden shadow-[0_14px_40px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto max-w-[1480px] rounded-[26px] border border-cyan-300/20 bg-white/58 backdrop-blur-xl overflow-hidden shadow-[0_18px_65px_rgba(15,23,42,0.08)] dark:bg-slate-950/58">
         
-        <div className="w-full overflow-hidden">
+        <div className="w-full overflow-x-auto table-scroll">
           
-          <div className={`grid ${gridClass} items-center gap-1 px-2 sm:px-4 h-[44px] border-b border-primary/20`}>
+          <div className={`grid min-w-[860px] ${gridClass} items-center gap-2 px-3 sm:px-5 h-[46px] border-b border-cyan-300/15 bg-white/25 dark:bg-white/[0.025]`}>
              <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("coin")}</span>
              <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("priceUsdt")}</span>
              {isIRTenabled && <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("priceIrt")}</span>}
@@ -66,7 +66,7 @@ export default function MarketsTable({
              <span></span>
           </div>
 
-          <div className="divide-y divide-primary/20">
+          <div className="min-w-[860px] divide-y divide-cyan-300/15">
             {rows.map((coin) => (
               <MarketsTableRow
                 key={coin.id}

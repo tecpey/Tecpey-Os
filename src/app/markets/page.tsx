@@ -73,7 +73,7 @@ export default function MarketsPage() {
   const [_sortBy, _setSortBy] = useState<"volume" | "change">("volume");
   const [_sortDir, _setSortDir] = useState<"desc" | "asc">("desc");
 
-  const LIMIT = 10;
+  const LIMIT = 30;
   const [currentPage, setCurrentPage] = useState(1);
 
   const debouncedQuery = useDebouncedValue(query, 400);
@@ -147,27 +147,32 @@ export default function MarketsPage() {
 
 
  return (
-    <main className="bg-bg">
-      <MarketsHero t={t} />
-
-      <section className="py-12 px-4 md:px-8 max-w-7xl mx-auto">
-        <MarketsSearchBar
+    <main className="relative bg-transparent">
+      <section className="px-4 pt-32 md:px-8 md:pt-36">
+        <div className="mx-auto max-w-[1480px]">
+          <MarketsSearchBar
           t={t}
           query={query}
           onQueryChange={(value) => {
             setQuery(value);
             setCurrentPage(1);
           }}
-        />
+          />
+        </div>
+      </section>
+      <MarketsHero t={t} />
+
+      <section className="px-2 pb-12 pt-2 sm:px-4 md:px-6">
+        <div className="mx-auto max-w-[1480px]">
         {/* <MarketsFilters
           t={t}
           activeFilter={filter}
           onFilterChange={setFilter}
         /> */}
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="w-full">
-            <div className="relative mt-12">
+            <div className="relative mt-3">
               <MarketsTable
                 t={t}
                 rows={processedCurrencies}
@@ -255,6 +260,7 @@ export default function MarketsPage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </section>
     </main>

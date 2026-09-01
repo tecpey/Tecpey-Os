@@ -6,6 +6,8 @@ import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredDat
 import { coinPages } from "@/data/coins";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowRight } from "lucide-react";
+import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
+import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
 export const metadata: Metadata = {
   title: "Crypto coin guides | TecPey",
@@ -28,11 +30,13 @@ const introCards = [
   { title: "Market connection", text: "Review live market information before making a trading or transfer decision.", href: "/en/markets" },
 ];
 
-export default function CoinsPage() {
+export default async function CoinsPage() {
+  const trendRadar = await getGrowthTrendRadarFromAuthority("en");
   return (
     <EnglishShell>
       <ArticleSchema headline="TecPey Coin Guides" description="Readable crypto guides covering coin use cases, risks, networks and market checks." url="https://tecpey.ir/en/coins" language="en" />
       <StructuredData data={[schema, breadcrumbSchema([{ name: "Home", url: "https://tecpey.ir/en" }, { name: "Coins", url: "https://tecpey.ir/en/coins" }])]} />
+      <TrendRadarWidget data={trendRadar} locale="en" />
       <EnglishHero eyebrow="Coin guides" title="Explore Bitcoin, Tether and major crypto assets" description="Read simple guides about use cases, risks, networks and important considerations before buying or transferring crypto." ctaHref="/en/markets" ctaLabel="View markets" secondaryHref="/en/start-guide" secondaryLabel="Start guide" />
       <section className="px-4 pb-8 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">

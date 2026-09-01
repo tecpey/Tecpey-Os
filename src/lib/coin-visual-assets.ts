@@ -295,5 +295,14 @@ export function getCoinVisualAsset(input: {
     };
   }
 
-  return fallbackCoinVisual;
+  const safeSymbol = symbol || String(input.name ?? "TP").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || "TP";
+  return {
+    symbol: safeSymbol,
+    slug: String(input.slug ?? safeSymbol.toLowerCase()),
+    name: input.name || safeSymbol,
+    faName: input.faName || input.name || safeSymbol,
+    isLocal: true,
+    source: "tecpey-vector" as const,
+    sourceLabel: "TecPey generated vector fallback",
+  };
 }

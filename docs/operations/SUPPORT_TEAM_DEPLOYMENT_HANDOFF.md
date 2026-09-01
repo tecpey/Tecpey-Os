@@ -329,6 +329,24 @@ sudo systemctl start tecpey-news-materialization.service
 TECPEY_NEWS_MATERIALIZATION_LAST_RUN_FILE="$TECPEY_OPS_STATE_DIR/news-materialization-last-run.json" \
 TECPEY_NEWS_MATERIALIZATION_EXPECTED_LOCALES="fa,en" \
   npm run news:materialization:last-run:verify
+
+# Organic Growth OS trend intelligence is independently scheduled. It does not
+# depend on a user opening News, Coins or Tools pages.
+export TECPEY_DRY_RUN=1
+npm run growth:trend:install
+
+# After infrastructure-owner approval, install it with the same exact release,
+# runtime identity and protected environment file used above.
+sudo env \
+  TECPEY_APP_DIR="$TECPEY_APP_DIR" \
+  TECPEY_ENV_FILE="$TECPEY_ENV_FILE" \
+  TECPEY_RUN_USER="$TECPEY_RUN_USER" \
+  TECPEY_RUN_GROUP="$TECPEY_RUN_GROUP" \
+  npm run growth:trend:install
+
+systemctl is-enabled tecpey-organic-growth-trend.timer
+systemctl is-active tecpey-organic-growth-trend.timer
+sudo systemctl start tecpey-organic-growth-trend.service
 ```
 
 ## Evidence Support Must Return
@@ -345,6 +363,10 @@ Return only non-secret evidence:
 - TLS certificate/domain result if HTTPS was configured.
 - Staging workflow artifact name if the GitHub runner was enabled.
 - News materialization timer status and last-run verifier summary when enabled.
+- Organic Growth OS trend timer status plus the redacted worker summary
+  (`xSignalCount`, `perplexitySignalCount`, `acceptedSignalCount`,
+  `persistedSignalCount`) when enabled. Never return prompts, API keys or raw
+  provider payloads.
 - Brand asset authority result from `npm run ui:public:check` or the specific
   `node scripts/check-brand-asset-authority.mjs` output.
 

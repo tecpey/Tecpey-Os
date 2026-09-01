@@ -498,6 +498,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run launch:go-approval-matrix-evidence:check
 
+      - name: Market, news, footer and Organic Growth OS tests
+        run: npm run test:market-news-footer-enterprise
+
       - name: News materialization staging evidence guard
         run: npm run news:materialization:staging-evidence:check
 

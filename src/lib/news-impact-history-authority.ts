@@ -107,6 +107,66 @@ export async function readNewsImpactHistoryItemsTx(
   return result.rows.map(mapNewsImpactHistoryRow).sort(sortNewsImpactHistoryItems);
 }
 
+export async function readNewsImpactHistoryArchiveItemsTx(
+  client: PoolClient,
+  locale?: ContentLocale,
+  limit = 10_000,
+): Promise<NewsImpactHistoryItem[]> {
+  const boundedLimit = Math.max(1, Math.min(50_000, Math.trunc(limit)));
+  const params: Array<string | number> = locale ? [locale, boundedLimit] : [boundedLimit];
+  const where = locale ? "WHERE locale = $1" : "";
+  const limitParam = locale ? "$2" : "$1";
+  const result = await client.query<NewsImpactHistoryRow>(
+    `SELECT history_id, locale, slug, news_url, title, summary, source_name, source_url,
+            published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
+            related_tool_slugs, related_coin_symbols, related_lesson_href
+       FROM platform_news_impact_history_items
+       ${where}
+      ORDER BY published_at DESC, recorded_at DESC, history_id ASC
+      LIMIT ${limitParam}`,
+    params,
+  );
+  return result.rows.map(mapNewsImpactHistoryRow);
+}
+
+export async function readNewsImpactHistoryItemBySlugTx(
+  client: PoolClient,
+  slug: string,
+  locale: ContentLocale,
+): Promise<NewsImpactHistoryItem | undefined> {
+  if (!/^[a-z0-9][a-z0-9-]{2,140}$/.test(slug)) return undefined;
+  const result = await client.query<NewsImpactHistoryRow>(
+    `SELECT history_id, locale, slug, news_url, title, summary, source_name, source_url,
+            published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
+            related_tool_slugs, related_coin_symbols, related_lesson_href
+       FROM platform_news_impact_history_items
+      WHERE locale = $1 AND slug = $2
+      ORDER BY recorded_at DESC, published_at DESC
+      LIMIT 1`,
+    [locale, slug],
+  );
+  return result.rows[0] ? mapNewsImpactHistoryRow(result.rows[0]) : undefined;
+}
+
+export async function readNewsImpactHistoryItemBySourceUrlTx(
+  client: PoolClient,
+  sourceUrl: string,
+  locale: ContentLocale,
+): Promise<NewsImpactHistoryItem | undefined> {
+  if (!/^https:\/\//i.test(sourceUrl)) return undefined;
+  const result = await client.query<NewsImpactHistoryRow>(
+    `SELECT history_id, locale, slug, news_url, title, summary, source_name, source_url,
+            published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
+            related_tool_slugs, related_coin_symbols, related_lesson_href
+       FROM platform_news_impact_history_items
+      WHERE locale = $1 AND source_url = $2
+      ORDER BY recorded_at DESC, published_at DESC
+      LIMIT 1`,
+    [locale, sourceUrl],
+  );
+  return result.rows[0] ? mapNewsImpactHistoryRow(result.rows[0]) : undefined;
+}
+
 export function mergeNewsImpactHistoryItems(
   persisted: NewsImpactHistoryItem[],
   seeded: NewsImpactHistoryItem[],
@@ -130,6 +190,50 @@ export async function getPostgresNewsImpactHistoryItems(
     });
     return [];
   }
+}
+
+export async function getNewsImpactHistoryArchiveItemsFromAuthority(
+  locale?: ContentLocale,
+  limit = 10_000,
+): Promise<NewsImpactHistoryItem[]> {
+  const seeded = getNewsImpactHistoryItems(locale);
+  try {
+    const result = await withDb((client) => readNewsImpactHistoryArchiveItemsTx(client, locale, limit));
+    const persisted = result.enabled ? result.value : [];
+    return persisted.length > 0 ? mergeNewsImpactHistoryItems(persisted, seeded) : seeded;
+  } catch (error) {
+    logger.warn("[news-impact-history] archive authority read failed; using seed fallback", {
+      locale: locale ?? "all",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return seeded;
+  }
+}
+
+export async function getNewsImpactHistoryItemBySlugFromAuthority(
+  slug: string,
+  locale: ContentLocale,
+): Promise<NewsImpactHistoryItem | undefined> {
+  try {
+    const result = await withDb((client) => readNewsImpactHistoryItemBySlugTx(client, slug, locale));
+    if (result.enabled && result.value) return result.value;
+  } catch (error) {
+    logger.warn("[news-impact-history] slug authority read failed; using seed fallback", { slug, locale, error: error instanceof Error ? error.message : String(error) });
+  }
+  return getNewsImpactHistoryItems(locale).find((item) => getNewsImpactSlug(item) === slug);
+}
+
+export async function getNewsImpactHistoryItemBySourceUrlFromAuthority(
+  sourceUrl: string,
+  locale: ContentLocale,
+): Promise<NewsImpactHistoryItem | undefined> {
+  try {
+    const result = await withDb((client) => readNewsImpactHistoryItemBySourceUrlTx(client, sourceUrl, locale));
+    if (result.enabled && result.value) return result.value;
+  } catch (error) {
+    logger.warn("[news-impact-history] counterpart authority read failed; using seed fallback", { locale, error: error instanceof Error ? error.message : String(error) });
+  }
+  return getNewsImpactHistoryItems(locale).find((item) => item.sourceUrl === sourceUrl);
 }
 
 export async function getNewsImpactHistoryItemsFromAuthority(
