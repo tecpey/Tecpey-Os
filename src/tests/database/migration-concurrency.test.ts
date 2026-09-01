@@ -229,7 +229,7 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
   });
 
   it("reconciles allow-listed runtime ledger history but rejects unknown checksums", async () => {
-    await withIsolatedDatabase("runtime-ledger-reconciliation", async (isolatedDatabaseUrl) => {
+    await withIsolatedDatabase("runtime_ledger_reconciliation", async (isolatedDatabaseUrl) => {
       const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 1 });
       const client = await pool.connect();
       try {
