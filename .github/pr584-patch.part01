@@ -1,0 +1,152 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 95d3974d..e2893631 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -513,6 +513,12 @@ jobs:
+       - name: News coins tools product surface tests
+         run: npm run test:content-issue83-surface
+ 
++      - name: Market news organic growth enterprise guard
++        run: npm run market-news-growth:check
++
++      - name: Market news organic growth enterprise tests
++        run: npm run test:market-news-growth-enterprise
++
+       - name: Exact-head workflow evidence origin guard
+         if: github.event_name == 'push'
+         env:
+diff --git a/.github/workflows/staging-news-materialization-evidence.yml b/.github/workflows/staging-news-materialization-evidence.yml
+index 6b69e08c..09314896 100644
+--- a/.github/workflows/staging-news-materialization-evidence.yml
++++ b/.github/workflows/staging-news-materialization-evidence.yml
+@@ -88,7 +88,7 @@ jobs:
+           systemctl cat tecpey-news-materialization.timer > "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+           grep -F "news:materialization:env-check" "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
+           grep -F "news:materialization:worker" "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
+-          grep -F "OnCalendar=hourly" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
++          grep -F "OnUnitActiveSec=10min" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+ 
+       - name: Run one governed news materialization pass
+         shell: bash
+diff --git a/deploy/systemd/tecpey-news-materialization.timer b/deploy/systemd/tecpey-news-materialization.timer
+index 66541d40..078f3e80 100644
+--- a/deploy/systemd/tecpey-news-materialization.timer
++++ b/deploy/systemd/tecpey-news-materialization.timer
+@@ -1,12 +1,13 @@
+ [Unit]
+-Description=Run TecPey Crypto News Materialization Hourly
++Description=Run TecPey Crypto News Materialization Continuously
+ Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
+ 
+ [Timer]
+-OnCalendar=hourly
++OnBootSec=2min
++OnUnitActiveSec=10min
+ Persistent=true
+-RandomizedDelaySec=60
+-AccuracySec=30s
++RandomizedDelaySec=30
++AccuracySec=15s
+ Unit=tecpey-news-materialization.service
+ 
+ [Install]
+diff --git a/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md b/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
+index 3889f3f9..d49e7d1c 100644
+--- a/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
++++ b/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
+@@ -154,6 +154,12 @@ this package directly. News materialization persists it in each decision summary
+ so collection, translation, tagging and publication evidence can be audited before
+ history items affect public coin/tool/news pages.
+ 
++News now has an additional fail-closed authority in `src/lib/news-growth-authority.ts`. Every publishable news item must carry a validated SEO/GEO/AEO envelope: canonical identity, real-locale hreflang only, NewsArticle/Breadcrumb schema intent, broad entity/topic taxonomy, search-intent clusters, long-tail query candidates, visible direct-answer questions, citation facts, LLM-readable factual summary, internal-link targets and freshness evidence. The public detail page renders the same AEO questions that structured data may describe; structured data must never claim hidden FAQ content. Historical detail sitemap generation reads the durable archive rather than the seven-day live-ranking window.
++
++`src/lib/growth-trend-intelligence.ts` is the shared trend authority for News, Coins and Trading Tools. It computes 24-hour, 7-day and 30-day high-signal entities from persisted evidence using freshness, impact, source diversity and verified social-source evidence. Raw mention volume alone is explicitly insufficient. Social/X material is supporting evidence only and remains subject to the existing provider-readiness and manual-review boundary; it cannot become a factual public summary by itself. The shared `GrowthTrendWidget` exposes the same governed model across FA/EN News, Coin and Tool hubs.
++
++The news C-Level review set includes `chief_growth_hacker_ai`. This reviewer checks entity coverage, topic breadth, source quality and internal-learning links, but is recommendation-only and has no direct publish or policy-mutation authority. Scheduled `public_intelligence_digest` research supplies internal 24h/7d/30d opportunity, content-gap and SEO/GEO/AEO observations for later human/governed action.
++
+ ### Stage 4 — Quality and Safety Gate
+ 
+ The gate rejects or queues content when:
+diff --git a/docs/architecture/TECPEY_ORGANIC_GROWTH_ROUTE_INVENTORY.md b/docs/architecture/TECPEY_ORGANIC_GROWTH_ROUTE_INVENTORY.md
+index 0f4d462a..721e1847 100644
+--- a/docs/architecture/TECPEY_ORGANIC_GROWTH_ROUTE_INVENTORY.md
++++ b/docs/architecture/TECPEY_ORGANIC_GROWTH_ROUTE_INVENTORY.md
+@@ -73,3 +73,11 @@ Every future implementation should preserve these hooks:
+ - Mentor AI operational-memory retrieval for repeated incidents, content rejections and support/debug patterns.
+ - Account bridge from Academy account to the final TecPey exchange account.
+ - Page-by-page screenshots and browser accessibility evidence.
++
++### 2026-09 governed growth expansion
++
++- News, Coin and Trading Tool hubs share one trend-intelligence widget with 24h/7d/30d windows.
++- News publication is fail-closed on `NewsGrowthAuthority` (SEO + GEO + AEO), source/translation quality, topic/entity tags and safety boundaries.
++- The daily archive is keyed by `Asia/Tehran`, keeps historical days accessible, and never backfills today's feed with yesterday's headlines.
++- Social signals from X/Reddit/YouTube/Telegram can increase trend confidence only when they are stored as verifiable supporting evidence; raw mention counts and unverified social rumors never create a public trend alone.
++- Search growth is built through useful topic authority and internal entity graphs, not doorway pages, keyword stuffing or scaled thin content.
+diff --git a/docs/ui/TECPEY_VISUAL_IDENTITY_ARENA_MENTOR_DISCOVERY_AUDIT.md b/docs/ui/TECPEY_VISUAL_IDENTITY_ARENA_MENTOR_DISCOVERY_AUDIT.md
+index edb399b7..d42d2a03 100644
+--- a/docs/ui/TECPEY_VISUAL_IDENTITY_ARENA_MENTOR_DISCOVERY_AUDIT.md
++++ b/docs/ui/TECPEY_VISUAL_IDENTITY_ARENA_MENTOR_DISCOVERY_AUDIT.md
+@@ -295,7 +295,7 @@ Tool ranking should combine:
+ 
+ ### Update Cadence
+ 
+-- News ingestion target: hourly.
++- News ingestion target: every ten minutes through the independent governed scheduler.
+ - Public pages should serve cached server results, not client-only recomputation.
+ - The UI should show "updated at" and degraded/fallback states.
+ - No hype labels should imply trading advice.
+diff --git a/package.json b/package.json
+index 69fef0b0..2fada989 100644
+--- a/package.json
++++ b/package.json
+@@ -56,6 +56,8 @@
+     "tools:growth:check": "node scripts/check-tool-growth-automation.mjs",
+     "content:issue83:surface:check": "node scripts/check-news-coins-tools-product-surface.mjs",
+     "test:content-issue83-surface": "node --test scripts/news-coins-tools-product-surface.test.mjs",
++    "market-news-growth:check": "node scripts/check-market-news-growth-enterprise.mjs",
++    "test:market-news-growth-enterprise": "node --test scripts/market-news-growth-enterprise.test.mjs",
+     "test:home-locale-parity": "node --test scripts/home-locale-parity.test.mjs",
+     "ui:check": "node scripts/check-ui-style-authority.mjs",
+     "ui:public:check": "node scripts/check-public-ui-foundation.mjs && node scripts/check-brand-asset-authority.mjs",
+@@ -185,7 +187,7 @@
+     "clean:hard": "rm -rf node_modules .next package-lock.json && npm cache clean --force",
+     "install:safe": "npm run npm:registry:fix && npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund",
+     "ci:safe": "npm run npm:registry:fix && npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund",
+-    "release:check": "npm run env:check && npm run check && npm run ui:check && npm run ui:public:check && npm run routes:integrity:check && npm run ip:ownership:check && npm run browser:persistence:check && npm run test:browser-persistence && npm run redis:safety:check && npm run test:redis-safety && npm run auth:check && npm run test:auth-session && npm run ai:redteam:check && npm run custody:check && npm run test:custody-gate && npm run withdrawals:check && npm run withdrawal:issue29:evidence:check && npm run test:withdrawal-admission && npm run test:withdrawal-issue29-evidence && npm run wallet:precision:check && npm run test:wallet-precision && npm run risk:check && npm run test:risk-enforcement && npm run test:api-command-idempotency && npm run audit:sensitive:check && npm run test:sensitive-mutation-audit && npm run community:reputation:check && npm run test:community-reputation && npm run community:journal-discipline:check && npm run test:community-journal-discipline && npm run ops:scheduler:check && npm run test:ops-scheduler && npm run ops:staging:evidence:check && npm run test:ops-staging-evidence && npm run coins:growth:check && npm run tools:growth:check && npm run content:issue83:surface:check && npm run test:content-issue83-surface && npm run news:materialization:staging-evidence:check && npm run launch:decision:check && npm run platform:redteam:closure:check && npm run ops:redteam:readiness:check && npm run product:global-readiness:check && npm run offline:check && npm run tenant:isolation:check && npm run test:offline-sync && npm run academy:progress:check && npm run test:academy-progress && npm run crm:check && npm run support:check && npm run test:crm-leads && npm run exchange:check && npm run test:exchange-order-authority && npm run test:exchange-reconciliation && npm run release:coverage:check && npm run security:markers:check && npm run bounded-body:check && npm run test:bounded-body && npm run api:security:check && npm run test:api-security-manifest && npm run notifications:check && npm run notifications:runtime:check && npm run notifications:producers:check && npm run notifications:domain:check && npm run notifications:copy-safety:check && npm run build && npm run ui:runtime:prod",
++    "release:check": "npm run env:check && npm run check && npm run ui:check && npm run ui:public:check && npm run routes:integrity:check && npm run ip:ownership:check && npm run browser:persistence:check && npm run test:browser-persistence && npm run redis:safety:check && npm run test:redis-safety && npm run auth:check && npm run test:auth-session && npm run ai:redteam:check && npm run custody:check && npm run test:custody-gate && npm run withdrawals:check && npm run withdrawal:issue29:evidence:check && npm run test:withdrawal-admission && npm run test:withdrawal-issue29-evidence && npm run wallet:precision:check && npm run test:wallet-precision && npm run risk:check && npm run test:risk-enforcement && npm run test:api-command-idempotency && npm run audit:sensitive:check && npm run test:sensitive-mutation-audit && npm run community:reputation:check && npm run test:community-reputation && npm run community:journal-discipline:check && npm run test:community-journal-discipline && npm run ops:scheduler:check && npm run test:ops-scheduler && npm run ops:staging:evidence:check && npm run test:ops-staging-evidence && npm run coins:growth:check && npm run tools:growth:check && npm run content:issue83:surface:check && npm run test:content-issue83-surface && npm run market-news-growth:check && npm run test:market-news-growth-enterprise && npm run news:materialization:staging-evidence:check && npm run launch:decision:check && npm run platform:redteam:closure:check && npm run ops:redteam:readiness:check && npm run product:global-readiness:check && npm run offline:check && npm run tenant:isolation:check && npm run test:offline-sync && npm run academy:progress:check && npm run test:academy-progress && npm run crm:check && npm run support:check && npm run test:crm-leads && npm run exchange:check && npm run test:exchange-order-authority && npm run test:exchange-reconciliation && npm run release:coverage:check && npm run security:markers:check && npm run bounded-body:check && npm run test:bounded-body && npm run api:security:check && npm run test:api-security-manifest && npm run notifications:check && npm run notifications:runtime:check && npm run notifications:producers:check && npm run notifications:domain:check && npm run notifications:copy-safety:check && npm run build && npm run ui:runtime:prod",
+     "qa:academy-core": "node scripts/qa-academy-core.mjs",
+     "qa:offline-core": "node scripts/qa-offline-core.mjs",
+     "qa:academy-arena-mentor-a11y:check": "node scripts/check-academy-arena-mentor-accessibility-evidence.mjs",
+diff --git a/scripts/check-market-news-growth-enterprise.mjs b/scripts/check-market-news-growth-enterprise.mjs
+new file mode 100644
+index 00000000..c5e2cdd8
+--- /dev/null
++++ b/scripts/check-market-news-growth-enterprise.mjs
+@@ -0,0 +1,100 @@
++import fs from "node:fs";
++import path from "node:path";
++import process from "node:process";
++
++const ROOT = process.cwd();
++const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
++const fail = (errors, label, condition) => { if (!condition) errors.push(label); };
++
++export function evaluateMarketNewsGrowthEnterprise() {
++  const errors = [];
++  const market = read("src/app/markets/page.tsx");
++  const table = read("src/components/markets/MarketsTable.tsx");
++  const motion = read("src/components/brand/tecpey-scroll-motion-routes.ts");
++  const coinVisuals = read("src/lib/coin-visual-assets.ts");
++  const footer = read("src/components/footer/Footer.tsx");
++  const newsApi = read("src/app/api/crypto-news/route.ts");
++  const worker = read("scripts/run-news-materialization-worker.ts");
++  const timer = read("deploy/systemd/tecpey-news-materialization.timer");
++  const growth = read("src/lib/news-growth-authority.ts");
++  const trends = read("src/lib/growth-trend-intelligence.ts");
++  const trendWidget = read("src/components/content/GrowthTrendWidget.tsx");
++  const archive = read("src/components/content/CryptoNewsArchiveCenter.tsx");
++  const intelligence = read("src/lib/news-intelligence-graph.ts");
++  const materialization = read("src/lib/news-materialization.ts");
++  const migration = read("src/lib/db-migrate-news-growth-archive.ts");
++  const registry = read("src/lib/db-migration-registry.ts");
