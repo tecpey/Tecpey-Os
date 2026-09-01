@@ -18,7 +18,15 @@ function clone(value) {
 test("baseline binds exact scanner supply-chain and reviewed finding identities", () => {
   assert.equal(baseline.scanner.name, "gitleaks");
   assert.equal(baseline.scanner.version, "8.30.1");
-  assert.equal(baseline.findings.length, 58);
+  assert.equal(baseline.findings.length, 59);
+  assert.equal(
+    baseline.findings.some(
+      (finding) =>
+        finding.findingIdentity ===
+        "cd8ddee93e184b0e31f745916bcef4631748c3ce:docs/architecture/TECPEY_ORGANIC_GROWTH_OS_PR584_EVIDENCE.md:generic-api-key:11",
+    ),
+    true,
+  );
   assert.equal(
     baseline.findings.every((finding) => finding.classification === "known-non-secret"),
     true,
