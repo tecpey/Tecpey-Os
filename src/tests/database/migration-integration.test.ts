@@ -335,6 +335,7 @@ describe("PostgreSQL migration authority", () => {
                  AND pg_get_constraintdef(oid) =
                    'UNIQUE (tenant_id, workspace_id, run_id, status)'
                )
+               ORDER BY CASE contype WHEN 'f' THEN 0 ELSE 1 END
             LOOP
               EXECUTE format(
                 'ALTER TABLE %s DROP CONSTRAINT %I CASCADE',
