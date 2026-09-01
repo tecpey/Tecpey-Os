@@ -244,6 +244,47 @@ describe("CRM lead PostgreSQL authority", () => {
     assert.deepEqual(state.rows[0], { status: "delivered", successes: "1" });
   });
 
+  it("skips a delivery while its lead is locked for revision", {
+    skip: !databaseConfigured,
+    timeout: 30_000,
+  }, async () => {
+    const tenantId = `crm-lock-order-${randomUUID()}`;
+    await seedTenant(tenantId);
+    const created = await ingestAcademyLead(command({
+      tenantId,
+      idempotencyKey: `crm-lock-order-${randomUUID()}`,
+    }));
+    assert.equal(created.status, "committed");
+    if (created.status !== "committed") return;
+
+    const revisionClient = await pool!.connect();
+    await revisionClient.query("BEGIN");
+    try {
+      await revisionClient.query(
+        "SELECT id FROM crm_leads WHERE id = $1::uuid FOR UPDATE",
+        [created.result.id],
+      );
+
+      const claims = await inTransaction(async (client) => {
+        await client.query("SET LOCAL statement_timeout = '1s'");
+        return claimCrmLeadDeliveries(client, `crm-worker-${randomUUID()}`, {
+          tenantId,
+          limit: 1,
+        });
+      });
+      assert.deepEqual(claims, []);
+    } finally {
+      await revisionClient.query("ROLLBACK");
+      revisionClient.release();
+    }
+
+    const state = await pool!.query<{ status: string }>(
+      "SELECT status FROM crm_lead_delivery_outbox WHERE lead_id = $1::uuid",
+      [created.result.id],
+    );
+    assert.deepEqual(state.rows, [{ status: "pending" }]);
+  });
+
   it("claims CRM lead deliveries only for the requested tenant", {
     skip: !databaseConfigured,
     timeout: 30_000,

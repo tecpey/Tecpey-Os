@@ -415,15 +415,20 @@ export async function claimCrmLeadDeliveries(
   });
   const bounded = Math.max(1, Math.min(limit, 100));
   const claims = await client.query<DeliveryClaim>(
-    `WITH candidates AS (
-       SELECT id
-         FROM crm_lead_delivery_outbox
-        WHERE status IN ('pending', 'retryable')
-          AND available_at <= NOW()
-          AND ($2::text IS NULL OR tenant_id = $2)
-        ORDER BY available_at, created_at
+    `WITH candidates AS MATERIALIZED (
+       -- Ingestion locks the parent lead before its outbox rows. Preserve that
+       -- order here so audit FK checks cannot deadlock with a concurrent revision.
+       SELECT outbox.id
+         FROM crm_lead_delivery_outbox outbox
+         JOIN crm_leads lead
+           ON lead.tenant_id = outbox.tenant_id
+          AND lead.id = outbox.lead_id
+        WHERE outbox.status IN ('pending', 'retryable')
+          AND outbox.available_at <= NOW()
+          AND ($2::text IS NULL OR outbox.tenant_id = $2)
+        ORDER BY outbox.available_at, outbox.created_at
         LIMIT $1
-        FOR UPDATE SKIP LOCKED
+        FOR UPDATE OF lead SKIP LOCKED
      )
      UPDATE crm_lead_delivery_outbox outbox
         SET status = 'processing',
@@ -434,6 +439,8 @@ export async function claimCrmLeadDeliveries(
             updated_at = NOW()
        FROM candidates
       WHERE outbox.id = candidates.id
+        AND outbox.status IN ('pending', 'retryable')
+        AND outbox.available_at <= NOW()
       RETURNING outbox.id, outbox.lead_id, outbox.tenant_id,
                 outbox.lead_revision, outbox.attempt_count,
                 outbox.max_attempts`,
