@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-const read = (path) => fs.readFileSync(path, "utf8");
+const read = (path: string) => fs.readFileSync(path, "utf8");
 
 test("market board carries 30 rows, search-first layout, wide glass surface and governed motion", () => {
   const fa = read("src/app/markets/page.tsx");

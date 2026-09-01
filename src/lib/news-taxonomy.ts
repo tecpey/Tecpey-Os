@@ -1,5 +1,6 @@
 import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
 import { toolGrowthCandidates } from "@/data/toolGrowthCandidates";
+import coreTraderTools from "@/data/traderTools.json";
 
 export type NewsTopicTag = {
   id: string;
@@ -118,12 +119,17 @@ const COINS = (() => {
   return Array.from(bySymbol.values());
 })();
 
-const TOOLS = toolGrowthCandidates.map((tool) => ({
-  slug: slugify(tool.name),
-  // Tool matching is identity-based. Categories/narratives are discovery
-  // topics, not proof that a specific third-party tool is mentioned.
-  aliases: Array.from(new Set([tool.name, tool.domain, slugify(tool.name)])),
-}));
+const TOOLS = Array.from(new Map(
+  [...coreTraderTools, ...toolGrowthCandidates].map((tool) => {
+    const slug = slugify(tool.name);
+    return [slug, {
+      slug,
+      // Tool matching is identity-based. Categories/narratives are discovery
+      // topics, not proof that a specific third-party tool is mentioned.
+      aliases: Array.from(new Set([tool.name, tool.domain, slug])),
+    }] as const;
+  }),
+).values());
 
 export const NEWS_TOPIC_TAXONOMY = TOPICS;
 

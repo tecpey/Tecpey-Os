@@ -86,6 +86,15 @@ export type NewsAutomationDecision = {
   historyItems: NewsImpactHistoryItem[];
 };
 
+export const DEFAULT_APPROVED_NEWS_SOURCES: ApprovedNewsSource[] = [
+  { name: "TecPey News Desk", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
+  { name: "TecPey Academy", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
+  { name: "CoinDesk", domain: "coindesk.com", tier: "trusted_media", trustScore: 0.86 },
+  { name: "Cointelegraph", domain: "cointelegraph.com", tier: "trusted_media", trustScore: 0.78 },
+  { name: "Decrypt", domain: "decrypt.co", tier: "trusted_media", trustScore: 0.76 },
+  { name: "The Block", domain: "theblock.co", tier: "trusted_media", trustScore: 0.82 },
+];
+
 const CORE_MARKET_IMPORTANCE: Record<string, number> = {
   BTC: 1,
   ETH: 0.94,

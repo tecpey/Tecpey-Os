@@ -8,6 +8,7 @@ import { getCurrencies } from "@/services/swap.services";
 import { CryptoAssetIcon } from "@/components/crypto/CryptoAssetIcon";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 import { coinSlugForSymbol } from "@/lib/news-taxonomy";
+import { normalizeMarketSymbol } from "@/lib/public-market-data";
 
 function formatUsdPrice(value: unknown) {
   const n = Number(value ?? 0);
@@ -46,7 +47,7 @@ export default function EnglishMarketsPage() {
               <div className="grid grid-cols-[1.25fr_.9fr_.75fr_.65fr] gap-3 border-b border-cyan-300/15 bg-white/25 px-5 py-3 text-[11px] font-black uppercase tracking-wide text-slate-500 dark:bg-white/[0.025] dark:text-slate-400"><span>Asset</span><span>Price</span><span>24h change</span><span>Rank</span></div>
               <div className="divide-y divide-cyan-300/15">
                 {rows.map((coin, index) => {
-                  const symbol = String(coin.symbol ?? "").toUpperCase();
+                  const symbol = normalizeMarketSymbol(coin.symbol ?? coin.priceData?.symbol);
                   const visual = getCoinVisualAsset({ symbol, name: coin.name, remoteIcon: typeof coin.icon === "string" ? coin.icon : undefined });
                   const change = Number(coin.priceData?.changePercent ?? coin.changePercent);
                   const price = coin.priceData?.last ?? coin.priceData?.price ?? coin.last ?? coin.price;
