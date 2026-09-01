@@ -1,4 +1,9 @@
 import path from "node:path";
+import {
+  DEFAULT_NEWS_FEED_MAX_ATTEMPTS,
+  DEFAULT_NEWS_FEED_MIN_SUCCESSFUL_SOURCES,
+  DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
+} from "../src/lib/ops/news-materialization-runtime-policy";
 
 function required(name: string): string {
   const value = process.env[name]?.trim() ?? "";
@@ -69,6 +74,24 @@ try {
   const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 100, 1, 250);
   const translationConcurrency = boundedIntegerEnv("NEWS_TRANSLATION_CONCURRENCY", 2, 1, 4);
   const translationRetryMinutes = boundedIntegerEnv("NEWS_TRANSLATION_RETRY_MINUTES", 60, 15, 24 * 60);
+  const minimumSuccessfulSources = boundedIntegerEnv(
+    "NEWS_FEED_MIN_SUCCESSFUL_SOURCES",
+    DEFAULT_NEWS_FEED_MIN_SUCCESSFUL_SOURCES,
+    1,
+    4,
+  );
+  const feedMaximumAttempts = boundedIntegerEnv(
+    "NEWS_FEED_MAX_ATTEMPTS",
+    DEFAULT_NEWS_FEED_MAX_ATTEMPTS,
+    1,
+    3,
+  );
+  const feedRetryBaseDelayMs = boundedIntegerEnv(
+    "NEWS_FEED_RETRY_BASE_DELAY_MS",
+    DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
+    100,
+    2_000,
+  );
   const stateDirectory = optionalAbsoluteDirectory("TECPEY_OPS_STATE_DIR");
   console.log(JSON.stringify({
     ok: true,
@@ -78,6 +101,9 @@ try {
     limitPerSource,
     translationConcurrency,
     translationRetryMinutes,
+    minimumSuccessfulSources,
+    feedMaximumAttempts,
+    feedRetryBaseDelayMs,
     stateDirectory,
   }));
 } catch (error) {
