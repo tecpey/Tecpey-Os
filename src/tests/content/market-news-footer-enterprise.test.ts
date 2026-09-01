@@ -58,6 +58,15 @@ test("growth authority includes SEO, AEO, GEO, trend radar, social/web evidence 
   assert.match(worker, /citations\.has\(url\)/);
 });
 
+test("growth trend persistence uses a PostgreSQL-safe window column", () => {
+  const migration = read("src/lib/db-migrate-news-growth.ts");
+  const authority = read("src/lib/news-growth-authority.ts");
+  assert.match(migration, /trend_window TEXT NOT NULL CHECK \(trend_window IN/);
+  assert.doesNotMatch(migration, /\n\s*window TEXT NOT NULL/);
+  assert.match(authority, /observed_at, trend_window, magnitude/);
+  assert.match(authority, /trend_window AS "window"/);
+});
+
 test("news SEO preserves historical detail authority and keeps AEO answers visible instead of emitting FAQ schema spam", () => {
   const model = read("src/lib/news-detail-pages.ts");
   const authority = read("src/lib/news-impact-history-authority.ts");

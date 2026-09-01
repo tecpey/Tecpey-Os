@@ -441,7 +441,7 @@ export async function persistGrowthTrendSignalsTx(client: PoolClient, signals: G
     const result = await client.query(
       `INSERT INTO platform_growth_trend_signals
          (signal_id, entity_type, entity_id, label, locale, source_family, source_name,
-          source_url, observed_at, window, magnitude, velocity, confidence, authority,
+          source_url, observed_at, trend_window, magnitude, velocity, confidence, authority,
           manipulation_risk, evidence_label, evidence_hash)
        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz, $10,
           $11, $12, $13, $14, $15, $16, $17)
@@ -464,7 +464,7 @@ export async function readGrowthTrendSignalsFromAuthority(days = 31): Promise<Gr
     const result = await withDb(async (client) => {
       const rows = await client.query<Record<string, unknown>>(
         `SELECT signal_id::text, entity_type, entity_id, label, locale, source_family,
-                source_name, source_url, observed_at, window, magnitude, velocity,
+                source_name, source_url, observed_at, trend_window AS "window", magnitude, velocity,
                 confidence, authority, manipulation_risk, evidence_label
            FROM platform_growth_trend_signals
           WHERE observed_at >= NOW() - ($1::text || ' days')::interval

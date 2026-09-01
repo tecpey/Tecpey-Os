@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS platform_growth_trend_signals (
   source_name TEXT NOT NULL,
   source_url TEXT NOT NULL,
   observed_at TIMESTAMPTZ NOT NULL,
-  window TEXT NOT NULL CHECK (window IN ('24h', '7d', '30d')),
+  trend_window TEXT NOT NULL CHECK (trend_window IN ('24h', '7d', '30d')),
   magnitude DOUBLE PRECISION NOT NULL CHECK (magnitude BETWEEN 0 AND 1),
   velocity DOUBLE PRECISION NOT NULL CHECK (velocity BETWEEN 0 AND 1),
   confidence DOUBLE PRECISION NOT NULL CHECK (confidence BETWEEN 0 AND 1),
@@ -94,11 +94,11 @@ CREATE TABLE IF NOT EXISTS platform_growth_trend_signals (
   CONSTRAINT platform_growth_trend_entity_id_check CHECK (entity_id ~ '^[a-z0-9][a-z0-9._:-]{1,100}$'),
   CONSTRAINT platform_growth_trend_source_url_check CHECK (source_url ~ '^https://'),
   CONSTRAINT platform_growth_trend_evidence_hash_check CHECK (evidence_hash ~ '^[0-9a-f]{64}$'),
-  UNIQUE (entity_type, entity_id, source_family, source_url, observed_at, window, evidence_hash)
+  UNIQUE (entity_type, entity_id, source_family, source_url, observed_at, trend_window, evidence_hash)
 );
 
 CREATE INDEX IF NOT EXISTS platform_growth_trend_window_idx
-  ON platform_growth_trend_signals (window, observed_at DESC, entity_type, entity_id);
+  ON platform_growth_trend_signals (trend_window, observed_at DESC, entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS platform_growth_trend_entity_idx
   ON platform_growth_trend_signals (entity_type, entity_id, observed_at DESC);
 
