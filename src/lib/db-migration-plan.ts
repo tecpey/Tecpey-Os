@@ -201,7 +201,14 @@ async function recordAndValidateCanonicalEvidence(client: PoolClient): Promise<v
       `INSERT INTO _migration_runtime_ledger
          (identity, sequence, ordinal, migration_id, expected_checksum, owner, domain)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (identity) DO NOTHING`,
+       ON CONFLICT (identity) DO UPDATE SET
+         expected_checksum = EXCLUDED.expected_checksum
+       WHERE _migration_runtime_ledger.sequence = EXCLUDED.sequence
+         AND _migration_runtime_ledger.ordinal = EXCLUDED.ordinal
+         AND _migration_runtime_ledger.migration_id = EXCLUDED.migration_id
+         AND _migration_runtime_ledger.owner = EXCLUDED.owner
+         AND _migration_runtime_ledger.domain = EXCLUDED.domain
+         AND _migration_runtime_ledger.expected_checksum = ANY($8::text[])`,
       [
         expectation.identity,
         expectation.sequence,
@@ -210,6 +217,7 @@ async function recordAndValidateCanonicalEvidence(client: PoolClient): Promise<v
         expectation.checksum,
         expectation.owner,
         expectation.domain,
+        [expectation.checksum, ...expectation.compatibleHistoricalChecksums],
       ],
     );
   }

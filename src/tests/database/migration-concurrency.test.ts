@@ -228,6 +228,54 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
     });
   });
 
+  it("reconciles allow-listed runtime ledger history but rejects unknown checksums", async () => {
+    await withIsolatedDatabase("runtime_ledger_reconciliation", async (isolatedDatabaseUrl) => {
+      const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 1 });
+      const client = await pool.connect();
+      try {
+        await applyDatabaseMigrationsWithLock(client);
+        const target = DATABASE_MIGRATION_EXPECTATIONS.find(
+          (expectation) => expectation.identity === "0091_ai_control_plane.sql",
+        )!;
+        const historicalChecksum = target.compatibleHistoricalChecksums.find(
+          (checksum) => checksum.length === 64,
+        );
+        assert.ok(historicalChecksum);
+
+        await client.query(
+          "UPDATE _migration_runtime_ledger SET expected_checksum = $1 WHERE identity = $2",
+          [historicalChecksum, target.identity],
+        );
+        await applyDatabaseMigrationsWithLock(client);
+        const reconciled = await client.query<{ expected_checksum: string }>(
+          "SELECT expected_checksum FROM _migration_runtime_ledger WHERE identity = $1",
+          [target.identity],
+        );
+        assert.equal(reconciled.rows[0]?.expected_checksum, target.checksum);
+        assert.equal((await checkMigrationReadiness(client)).status, "current");
+
+        const unknownChecksum = "f".repeat(64);
+        await client.query(
+          "UPDATE _migration_runtime_ledger SET expected_checksum = $1 WHERE identity = $2",
+          [unknownChecksum, target.identity],
+        );
+        await assert.rejects(
+          applyDatabaseMigrationsWithLock(client),
+          /migration_runtime_ledger_expected_checksum_mismatch:/,
+        );
+        const rejected = await client.query<{ expected_checksum: string }>(
+          "SELECT expected_checksum FROM _migration_runtime_ledger WHERE identity = $1",
+          [target.identity],
+        );
+        assert.equal(rejected.rows[0]?.expected_checksum, unknownChecksum);
+        assert.equal((await checkMigrationReadiness(client)).status, "migration_failed");
+      } finally {
+        client.release();
+        await pool.end();
+      }
+    });
+  });
+
   it("rolls back an interrupted migration transaction and recovers on rerun", async () => {
     await withIsolatedDatabase("rollback", async (isolatedDatabaseUrl) => {
       const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 1 });
