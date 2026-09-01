@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-31",
+  "reviewedAt": "2026-09-01",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "69fef0b07ebf2e3ace7c7378903ef4188e4e7bb9",
-      "sha256": "e077e8a3c11aa1c85a9dfd14eab33f4d1a8cbc4946e25a1b01d5e81462f03fb3",
-      "lines": 266,
+      "gitObjectId": "4dc33169929e76c0ff48f4600eea6764309986f9",
+      "sha256": "755a6bb29c27bce0658efbb5e39a52cc8224aa66fdae6447e28fdd9b34b011bb",
+      "lines": 270,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 266
+          "endLine": 270
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -127,16 +127,17 @@
         "2026-08-30: re-reviewed after adding support:check and support:retention, and composing support:check into release:check beside crm:check (SB-013). support:check is a read-only static guard over the contact form, its intake route, the parsed-input and storage authorities, the migration, the tenant-scoped table registry and the package wiring; support:retention runs the bounded PII erasure sweep the contact form's consent text promises, mirroring crm:retention. Neither adds a dependency, engine constraint, override, network access, product activation surface or secret-printing path, and the file now has 249 lines.",
         "2026-08-30: re-reviewed after adding support:inbox (SB-013 review). The command runs a read-only operator query over support_messages for one tenant and returns redacted rows unless SUPPORT_INBOX_REVEAL is set explicitly; it opens no network connection, mutates nothing, and exists because a stored message no one can read leaves the contact form promising a reply that cannot happen. No dependency, engine, override, release-authority command or activation surface changed, and the file now has 250 lines.",
         "2026-08-31: re-reviewed the complete 257-line package after restacking SB-013 on the governed AI/RLS mainline. The final composition preserves every AI trust/evidence command, adds the support-message static guard beside CRM authority, runs the support parser and PostgreSQL proof serially with the CRM suite, and exposes only explicit operator inbox/retention commands. No dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface was added.",
-        "2026-08-31: re-reviewed the complete package after restacking the Living Mentor workspace onto current main. The merge preserves every governed AI runtime-evidence, support-message and release command from main, extends ai:trust:check only with the read-only Mentor vector-source and Rive activation guards, and adds focused local Mentor vector/Rive/workspace test commands. It adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch authority."
+        "2026-08-31: re-reviewed the complete package after restacking the Living Mentor workspace onto current main. The merge preserves every governed AI runtime-evidence, support-message and release command from main, extends ai:trust:check only with the read-only Mentor vector-source and Rive activation guards, and adds focused local Mentor vector/Rive/workspace test commands. It adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch authority.",
+        "2026-09-01: re-reviewed the complete 270-line package after adding the Organic Growth trend environment check, worker, scheduler installer and focused Market/News/Footer enterprise test command, then composing that focused suite into release:check before the existing news materialization staging-evidence gate. These are repository-local validation, worker and installation entrypoints over the governed Growth implementation; they add no dependency, engine, override, automatic publishing authority, exchange/custody activation, deployment or production-launch authority."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 166,
+          "line": 183,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 166 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 183 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
@@ -282,8 +283,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "811dcfa5267e0f8bfd01549b061faea2e3421054",
-      "sha256": "83e9fe32f45cf817f678618ce769832e2d985fa5fa1f92124b2492b9f0c4125f",
+      "gitObjectId": "07057dc782a326d4597fbd94bd60103e0ab4dbff",
+      "sha256": "b85742fd8f0091982c30a540b28f2087e1c19d97b9377fe61c689aac3f36e99d",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -308,7 +309,8 @@
         "2026-08-25: re-reviewed after Policy v20 explicitly classified src/lib/production-next-runtime-config.ts as operations-runtime Batch 11. The helper reads only the exact build-serialized Next.js config, validates its immutable 40-character release identity and installs it before the custom production server creates the application; it adds no network, persistence or capability activation surface. Source-path fail-closed behavior and rule ordering remain unchanged, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-25: re-reviewed after Policy v21 explicitly classified src/lib/communication-provider-store.ts as authentication-admin-security Batch 3 because it governs encrypted administrator-managed communication-provider configuration, and src/lib/public-market-data.ts as product-ui Batch 10 because it only validates and normalizes freshness-bounded public CoinGecko display data. Source-path fail-closed behavior and existing rule ordering remain unchanged; neither route enables a provider or financial execution path, and focused classification assertions cover both.",
         "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow.",
-        "2026-08-31: re-reviewed after extending the existing mentor-ai classifier with the explicit living-mentor prefix. The change classifies the new Living Mentor presentation and Rive adapter source under the existing P2 Mentor AI batch; it does not broaden unrelated src/lib coverage, weaken fail-closed classification, change provenance, or alter audit workflow authority."
+        "2026-08-31: re-reviewed after extending the existing mentor-ai classifier with the explicit living-mentor prefix. The change classifies the new Living Mentor presentation and Rive adapter source under the existing P2 Mentor AI batch; it does not broaden unrelated src/lib coverage, weaken fail-closed classification, change provenance, or alter audit workflow authority.",
+        "2026-09-01: re-reviewed the complete policy after explicitly adding the Growth analytics, trend authority/intelligence, IndexNow, News growth authority, taxonomy and translation modules to the existing product-ui Batch 10 rule. The anchored alternation remains limited to named src/lib TypeScript modules, preserves rule ordering and fail-closed classification for unknown source paths, adds no runtime authority, and the focused policy tests cover the new classifications."
       ],
       "findings": []
     },
