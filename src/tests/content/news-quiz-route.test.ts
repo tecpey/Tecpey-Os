@@ -12,13 +12,20 @@ import { findInvalidQuizQuestions } from "../../lib/academy-quiz-authority";
 
 const realFetch = globalThis.fetch;
 const TEST_NOW = Date.parse("2030-03-15T12:00:00.000Z");
-let externalFetches = 0;
+let contentProviderFetches = 0;
 
 beforeEach(() => {
-  externalFetches = 0;
+  contentProviderFetches = 0;
   mock.timers.enable({ apis: ["Date"], now: TEST_NOW });
-  globalThis.fetch = (async () => {
-    externalFetches += 1;
+  globalThis.fetch = (async (input) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url === `${process.env.UPSTASH_REDIS_REST_URL}/pipeline`) {
+      return new Response(JSON.stringify([{ result: "OK" }, { result: 1 }]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    contentProviderFetches += 1;
     throw new Error("public news GET must not perform external fetches");
   }) as typeof fetch;
 });
@@ -39,13 +46,13 @@ describe("crypto-news DB-only route", () => {
     assert.equal(body.ok, true);
     assert.ok(Array.isArray(body.items));
     assert.ok(Array.isArray(body.archiveItems));
-    assert.equal(externalFetches, 0);
+    assert.equal(contentProviderFetches, 0);
   });
 
   it("omits quiz material unless quiz=1 is explicitly requested", async () => {
     const { body } = await callRoute("http://localhost/api/crypto-news?locale=en");
     assert.equal(body.newsQuiz, undefined);
-    assert.equal(externalFetches, 0);
+    assert.equal(contentProviderFetches, 0);
   });
 
   it("builds only authority-valid quiz questions from persisted items", async () => {
@@ -54,7 +61,7 @@ describe("crypto-news DB-only route", () => {
     assert.ok(Array.isArray(quiz));
     assert.deepEqual(findInvalidQuizQuestions(quiz), []);
     assert.equal(new Set(quiz.map((question) => question.id)).size, quiz.length);
-    assert.equal(externalFetches, 0);
+    assert.equal(contentProviderFetches, 0);
   });
 
   it("keeps automation preview pure and bounded to already persisted news", async () => {
@@ -63,7 +70,7 @@ describe("crypto-news DB-only route", () => {
     assert.ok(automation && Number.isInteger(automation.publishable));
     assert.ok(Number.isInteger(automation.needsReview));
     assert.ok(Number.isInteger(automation.rejected));
-    assert.equal(externalFetches, 0);
+    assert.equal(contentProviderFetches, 0);
   });
 
   it("rejects invalid and future archive dates before reading content", async () => {
@@ -74,6 +81,6 @@ describe("crypto-news DB-only route", () => {
     const future = await callRoute("http://localhost/api/crypto-news?locale=en&date=2030-03-16");
     assert.equal(future.status, 400);
     assert.equal(future.body.error, "news_archive_future_day_forbidden");
-    assert.equal(externalFetches, 0);
+    assert.equal(contentProviderFetches, 0);
   });
 });
