@@ -1,0 +1,293 @@
+     locale: row.locale,
+     title: row.title,
+     summary: row.summary,
++    originalTitle: row.original_title ?? undefined,
++    originalSummary: row.original_summary ?? undefined,
++    originalBody: row.original_body ?? undefined,
++    translatedTitle: row.translated_title ?? undefined,
++    translatedLead: row.translated_lead ?? undefined,
++    translatedBody: row.translated_body ?? undefined,
++    translationStatus: row.translation_status ?? (row.locale === "fa" ? "pending" : "not_required"),
++    topicTags: Array.isArray(row.topic_tags) ? row.topic_tags : [],
++    growthAuthority: row.growth_authority && typeof row.growth_authority === "object" ? row.growth_authority as NewsImpactHistoryItem["growthAuthority"] : undefined,
+     sourceName: row.source_name,
+     sourceUrl: row.source_url,
+     newsUrl: row.news_url,
+@@ -94,8 +112,9 @@ export async function readNewsImpactHistoryItemsTx(
+   const params = locale ? [locale] : [];
+   const where = locale ? "WHERE locale = $1" : "";
+   const result = await client.query<NewsImpactHistoryRow>(
+-    `SELECT history_id, locale, slug, news_url, title, summary, source_name, source_url,
+-            published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
++    `SELECT history_id, locale, slug, news_url, title, summary, original_title, original_summary, original_body,
++            translated_title, translated_lead, translated_body, translation_status, topic_tags, growth_authority,
++            source_name, source_url, published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
+             related_tool_slugs, related_coin_symbols, related_lesson_href
+        FROM platform_news_impact_history_items
+        ${where}
+@@ -107,6 +126,118 @@ export async function readNewsImpactHistoryItemsTx(
+   return result.rows.map(mapNewsImpactHistoryRow).sort(sortNewsImpactHistoryItems);
+ }
+ 
++export function validateNewsArchiveDate(value: string): string {
++  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("news_archive_date_invalid");
++  const [year, month, day] = value.split("-").map(Number);
++  const date = new Date(Date.UTC(year, month - 1, day));
++  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
++    throw new Error("news_archive_date_invalid");
++  }
++  return value;
++}
++
++export function tehranNewsDate(now = new Date()): string {
++  const parts = new Intl.DateTimeFormat("en-CA", {
++    timeZone: "Asia/Tehran",
++    year: "numeric",
++    month: "2-digit",
++    day: "2-digit",
++  }).formatToParts(now);
++  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
++  return `${value.year}-${value.month}-${value.day}`;
++}
++
++export async function readNewsArchiveDayTx(
++  client: PoolClient,
++  locale: ContentLocale,
++  date: string,
++): Promise<NewsImpactHistoryItem[]> {
++  const selectedDate = validateNewsArchiveDate(date);
++  const result = await client.query<NewsImpactHistoryRow>(
++    `SELECT history_id, locale, slug, news_url, title, summary, original_title, original_summary, original_body,
++            translated_title, translated_lead, translated_body, translation_status, topic_tags, growth_authority,
++            source_name, source_url, published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
++            related_tool_slugs, related_coin_symbols, related_lesson_href
++       FROM platform_news_impact_history_items
++      WHERE locale = $1
++        AND (published_at AT TIME ZONE 'Asia/Tehran')::date = $2::date
++      ORDER BY published_at DESC, priority DESC, history_id ASC`,
++    [locale, selectedDate],
++  );
++  return result.rows.map(mapNewsImpactHistoryRow);
++}
++
++export async function readNewsArchiveDatesTx(
++  client: PoolClient,
++  locale: ContentLocale,
++): Promise<string[]> {
++  const result = await client.query<{ news_date: string }>(
++    `SELECT DISTINCT to_char((published_at AT TIME ZONE 'Asia/Tehran')::date, 'YYYY-MM-DD') AS news_date
++       FROM platform_news_impact_history_items
++      WHERE locale = $1
++      ORDER BY news_date DESC
++      LIMIT 366`,
++    [locale],
++  );
++  return result.rows.map((row) => row.news_date);
++}
++
++export async function getNewsArchiveDayFromAuthority(
++  locale: ContentLocale,
++  date = tehranNewsDate(),
++): Promise<{ items: NewsImpactHistoryItem[]; dates: string[]; date: string; sourceAuthority: "postgres" | "seed_fallback" }> {
++  const selectedDate = validateNewsArchiveDate(date);
++  try {
++    const result = await withDb(async (client) => {
++      const items = await readNewsArchiveDayTx(client, locale, selectedDate);
++      const dates = await readNewsArchiveDatesTx(client, locale);
++      return { items, dates };
++    });
++    if (result.enabled) return { ...result.value, date: selectedDate, sourceAuthority: "postgres" };
++  } catch (error) {
++    logger.warn("[news-impact-history] archive authority read failed", {
++      locale,
++      date: selectedDate,
++      error: error instanceof Error ? error.message : String(error),
++    });
++  }
++  const seedItems = getNewsImpactHistoryItems(locale);
++  const seeded = seedItems.filter((item) => tehranNewsDate(new Date(item.publishedAt)) === selectedDate);
++  const dates = Array.from(
++    new Set(seedItems.map((item) => tehranNewsDate(new Date(item.publishedAt)))),
++  ).sort((left, right) => right.localeCompare(left));
++  return { items: seeded.sort(sortNewsImpactHistoryItems), dates, date: selectedDate, sourceAuthority: "seed_fallback" };
++}
++
++export async function getNewsImpactHistoryArchiveFromAuthority(
++  locale?: ContentLocale,
++): Promise<NewsImpactHistoryItem[]> {
++  try {
++    const result = await withDb((client) => {
++      const params = locale ? [locale] : [];
++      const where = locale ? "WHERE locale = $1" : "";
++      return client.query<NewsImpactHistoryRow>(
++        `SELECT history_id, locale, slug, news_url, title, summary, original_title, original_summary, original_body,
++                translated_title, translated_lead, translated_body, translation_status, topic_tags, growth_authority,
++                source_name, source_url, published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
++                related_tool_slugs, related_coin_symbols, related_lesson_href
++           FROM platform_news_impact_history_items
++           ${where}
++          ORDER BY published_at DESC, priority DESC, history_id ASC
++          LIMIT 5000`,
++        params,
++      );
++    });
++    if (result.enabled) return result.value.rows.map(mapNewsImpactHistoryRow);
++  } catch (error) {
++    logger.warn("[news-impact-history] archive sitemap read failed", {
++      locale: locale ?? "all",
++      error: error instanceof Error ? error.message : String(error),
++    });
++  }
++  return getNewsImpactHistoryItems(locale).sort(sortNewsImpactHistoryItems);
++}
++
+ export function mergeNewsImpactHistoryItems(
+   persisted: NewsImpactHistoryItem[],
+   seeded: NewsImpactHistoryItem[],
+diff --git a/src/lib/news-impact-history.ts b/src/lib/news-impact-history.ts
+index 90843b4d..93beabe6 100644
+--- a/src/lib/news-impact-history.ts
++++ b/src/lib/news-impact-history.ts
+@@ -1,4 +1,5 @@
+ import type { ContentLocale } from "./content-growth";
++import type { NewsGrowthAuthority } from "./news-growth-authority";
+ 
+ export type NewsImpactTone = "bullish" | "bearish" | "neutral" | "risk";
+ 
+@@ -7,6 +8,15 @@ export type NewsImpactHistoryItem = {
+   locale: ContentLocale;
+   title: string;
+   summary: string;
++  originalTitle?: string;
++  originalSummary?: string;
++  originalBody?: string;
++  translatedTitle?: string;
++  translatedLead?: string;
++  translatedBody?: string;
++  translationStatus?: "not_required" | "translated" | "pending" | "failed";
++  topicTags?: string[];
++  growthAuthority?: NewsGrowthAuthority;
+   sourceName: string;
+   sourceUrl: string;
+   newsUrl: string;
+diff --git a/src/lib/news-intelligence-graph.ts b/src/lib/news-intelligence-graph.ts
+index 655360b0..0d2287be 100644
+--- a/src/lib/news-intelligence-graph.ts
++++ b/src/lib/news-intelligence-graph.ts
+@@ -111,7 +111,8 @@ export type TecPeyCLevelAIRole =
+   | "chief_risk_compliance_ai"
+   | "chief_editor_ai"
+   | "chief_academy_ai"
+-  | "chief_product_ai";
++  | "chief_product_ai"
++  | "chief_growth_hacker_ai";
+ 
+ export type TecPeyCLevelAIReview = {
+   role: TecPeyCLevelAIRole;
+@@ -521,6 +522,17 @@ function buildReviews(
+       candidate.thumbnail ? 0.84 : 0.68,
+       [candidate.thumbnail ? `thumbnail:${candidate.thumbnail.rights}` : "thumbnail:tecpey-generated-required"],
+     ),
++    reviewDossier(
++      "chief_growth_hacker_ai",
++      !hasSourceBlock && candidate.tags.length >= 4 && candidate.entities.length > 0 && Boolean(candidate.relatedLessonHref),
++      Math.min(1, source.trustScore * 0.45 + Math.min(candidate.tags.length, 10) * 0.035 + Math.min(candidate.entities.length, 6) * 0.045),
++      [
++        `growth-tags:${candidate.tags.length}`,
++        `growth-entities:${candidate.entities.length}`,
++        candidate.relatedLessonHref ? `internal-learning-link:${candidate.relatedLessonHref}` : "missing-internal-learning-link",
++        "organic-growth:recommendation-only",
++      ],
++    ),
+   ];
+ }
+ 
+diff --git a/src/lib/news-materialization-persistence.ts b/src/lib/news-materialization-persistence.ts
+index 221a5675..d92616ba 100644
+--- a/src/lib/news-materialization-persistence.ts
++++ b/src/lib/news-materialization-persistence.ts
+@@ -6,6 +6,7 @@ import {
+ } from "./news-impact-history";
+ import type { MaterializedNewsSnapshot } from "./news-materialization";
+ import { validateOrganicGrowthProfile } from "./organic-growth-automation";
++import { validateNewsGrowthAuthority } from "./news-growth-authority";
+ 
+ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ const HASH_RE = /^[0-9a-f]{64}$/;
+@@ -62,6 +63,15 @@ function boundedText(value: string, minimum: number, maximum: number, code: stri
+   return normalized;
+ }
+ 
++function optionalBoundedText(value: string | undefined, maximum: number, code: string): string | undefined {
++  if (value === undefined) return undefined;
++  const normalized = value.replace(/\s+/g, " ").trim();
++  if (!normalized || normalized.length > maximum || /[\u0000-\u001f\u007f]/.test(normalized)) {
++    throw new Error(code);
++  }
++  return normalized;
++}
++
+ function boundedTokens(values: string[], maximum: number, code: string): string[] {
+   if (!Array.isArray(values) || values.length > maximum) throw new Error(code);
+   const selected = new Set<string>();
+@@ -100,11 +110,26 @@ function validateHistoryItem(item: NewsImpactHistoryItem): NewsImpactHistoryItem
+   if (!item.relatedLessonHref.startsWith(lessonPrefix)) {
+     throw new Error("news_materialization_lesson_invalid");
+   }
++  if (item.growthAuthority && !validateNewsGrowthAuthority(item.growthAuthority)) {
++    throw new Error("news_materialization_growth_authority_invalid");
++  }
++  if (item.translationStatus && !["not_required", "translated", "pending", "failed"].includes(item.translationStatus)) {
++    throw new Error("news_materialization_translation_status_invalid");
++  }
+   return {
+     ...item,
+     id: boundedText(item.id, 8, 220, "news_materialization_history_id_invalid"),
+     title: boundedText(item.title, 8, 280, "news_materialization_title_invalid"),
+     summary: boundedText(item.summary, 24, 1200, "news_materialization_summary_invalid"),
++    originalTitle: optionalBoundedText(item.originalTitle, 500, "news_materialization_original_title_invalid"),
++    originalSummary: optionalBoundedText(item.originalSummary, 4_000, "news_materialization_original_summary_invalid"),
++    originalBody: optionalBoundedText(item.originalBody, 24_000, "news_materialization_original_body_invalid"),
++    translatedTitle: optionalBoundedText(item.translatedTitle, 500, "news_materialization_translated_title_invalid"),
++    translatedLead: optionalBoundedText(item.translatedLead, 4_000, "news_materialization_translated_lead_invalid"),
++    translatedBody: optionalBoundedText(item.translatedBody, 24_000, "news_materialization_translated_body_invalid"),
++    translationStatus: item.translationStatus ?? (item.locale === "fa" ? "pending" : "not_required"),
++    topicTags: boundedTokens(item.topicTags ?? [], 48, "news_materialization_topic_tags_invalid"),
++    growthAuthority: item.growthAuthority,
+     sourceName: boundedText(item.sourceName, 2, 160, "news_materialization_source_name_invalid"),
+     sourceUrl: item.sourceUrl.trim(),
+     publishedAt,
+@@ -246,9 +271,12 @@ export async function persistMaterializedNewsSnapshotTx(
+       `INSERT INTO platform_news_impact_history_items
+          (history_id, locale, slug, news_url, title, summary, source_name, source_url,
+           published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
+-          related_tool_slugs, related_coin_symbols, related_lesson_href, payload_hash, first_snapshot_id)
++          related_tool_slugs, related_coin_symbols, related_lesson_href, payload_hash, first_snapshot_id,
++          original_title, original_summary, original_body, translated_title, translated_lead, translated_body,
++          translation_status, topic_tags, growth_authority, content_fingerprint)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz, $10::timestamptz,
+-          $11, $12, $13, $14, $15, $16::text[], $17::text[], $18, $19, $20::uuid)
++          $11, $12, $13, $14, $15, $16::text[], $17::text[], $18, $19, $20::uuid,
++          $21, $22, $23, $24, $25, $26, $27, $28::text[], $29::jsonb, $30)
+        ON CONFLICT (locale, slug) DO NOTHING
+        RETURNING history_id, payload_hash`,
+       [
+@@ -272,6 +300,16 @@ export async function persistMaterializedNewsSnapshotTx(
+         item.relatedLessonHref,
+         payloadHash,
+         valid.snapshotId,
++        item.originalTitle ?? null,
++        item.originalSummary ?? null,
++        item.originalBody ?? null,
++        item.translatedTitle ?? null,
++        item.translatedLead ?? null,
++        item.translatedBody ?? null,
++        item.translationStatus ?? (item.locale === "fa" ? "pending" : "not_required"),
++        item.topicTags ?? [],
++        item.growthAuthority ? JSON.stringify(item.growthAuthority) : null,
++        payloadHash,
+       ],
+     );
+     const row = inserted.rows[0];
+diff --git a/src/lib/news-materialization.ts b/src/lib/news-materialization.ts
+index 234a74c9..634af3bf 100644
