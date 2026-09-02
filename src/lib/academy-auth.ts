@@ -12,8 +12,17 @@ export type AcademyAuthSession = {
   username?: string;
 };
 
+// SB-010 — one authoritative secret per credential class. This used to fall
+// back through the access-session secret (a different credential class) and
+// two generic ambient names that this platform's env validator does not
+// govern at all and that an unrelated service on the same host could set for
+// its own purposes, widening the blast radius of any one of those four values
+// leaking into a forged academy session. validate-env.mjs already requires
+// every signing secret, this one included, to be present and pairwise
+// distinct from the others — matches the canonical academyAuthKey() in
+// auth-session.ts.
 function authSecret() {
-  const secret = process.env.TECPEY_ACADEMY_AUTH_SECRET || process.env.TECPEY_SESSION_SECRET || process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+  const secret = process.env.TECPEY_ACADEMY_AUTH_SECRET;
   if (secret && secret.length >= 24) return new TextEncoder().encode(secret);
   if (process.env.NODE_ENV !== "production") {
     return new TextEncoder().encode("tecpey-local-academy-auth-dev-secret-please-set-env");
