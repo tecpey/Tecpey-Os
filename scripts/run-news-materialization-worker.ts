@@ -33,6 +33,7 @@ import {
   persistGrowthTrendSignalsTx,
   persistNewsArchiveItemTx,
   persistNewsArchiveTranslationTx,
+  resolveNewsArchiveObservationTimes,
   reusableNewsArchiveTranslationKey,
 } from "../src/lib/news-growth-authority";
 import {
@@ -511,7 +512,12 @@ async function main(): Promise<void> {
           });
         }
         if (translationInserted) changedArticleUrls.add(item.articleUrl);
-        stablePrepared.push({ ...item, fetchedAt: archive.firstFetchedAt });
+        const observation = resolveNewsArchiveObservationTimes({
+          firstFetchedAt: archive.firstFetchedAt,
+          currentFetchedAt: item.fetchedAt,
+          publishedAt: item.publishedAt,
+        });
+        stablePrepared.push({ ...item, fetchedAt: observation.observedAt });
       }
 
       enInputs = stablePrepared.map(toEnglishInput);
