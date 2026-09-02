@@ -6,8 +6,14 @@ import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session"
 export const STUDENT_SESSION_COOKIE = COOKIES.STUDENT_SESSION;
 export const LEGACY_STUDENT_COOKIE = COOKIES.STUDENT_ID;
 
+// SB-010 — one authoritative secret per credential class. This used to fall
+// back through two generic ambient names that this platform's env validator
+// does not govern at all and that an unrelated service on the same host could
+// set for its own purposes, widening the blast radius of either leaking into
+// a forged student session. Matches the canonical sessionKey() in
+// auth-session.ts.
 function sessionSecret() {
-  const secret = process.env.TECPEY_SESSION_SECRET || process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+  const secret = process.env.TECPEY_SESSION_SECRET;
   if (secret && secret.length >= 24) return new TextEncoder().encode(secret);
   if (process.env.NODE_ENV !== "production") {
     return new TextEncoder().encode("tecpey-local-student-session-dev-secret-please-set-env");

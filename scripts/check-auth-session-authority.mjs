@@ -10,6 +10,8 @@ const files = {
   unified: "src/lib/unified-session.ts",
   sessionRefresh: "src/lib/session-refresh.ts",
   legacySession: "src/lib/session.ts",
+  academyAuthLib: "src/lib/academy-auth.ts",
+  academySessionLib: "src/lib/academy-session.ts",
   api: "src/lib/api.ts",
   authSession: "src/lib/auth-session.ts",
   jti: "src/lib/security/jti-store.ts",
@@ -65,6 +67,19 @@ for (const target of ["unified", "legacySession"]) {
   rejectText(target, "JWT_SECRET", "generic access-session secret fallback is forbidden");
   rejectText(target, "NEXTAUTH_SECRET", "NextAuth secret fallback is forbidden");
 }
+// SB-010 — the same one-secret-per-credential-class policy the two guards
+// above enforce, applied to the never-sunset legacy verifiers that
+// getAcademyAuthFromRequest/getStudentSessionFromRequest still expose. These
+// predate auth-session.ts's governed legacyCookieCompatibilityEnabled() path
+// and are still imported directly by live routes, so a secret fan-out here is
+// not dead code — it is a reachable widening of the auth surface.
+requireText("academySessionLib", "TECPEY_SESSION_SECRET", "legacy student sessions must use the canonical secret");
+rejectText("academySessionLib", "JWT_SECRET", "generic legacy student-session secret fallback is forbidden");
+rejectText("academySessionLib", "NEXTAUTH_SECRET", "NextAuth secret fallback is forbidden for legacy student sessions");
+requireText("academyAuthLib", "TECPEY_ACADEMY_AUTH_SECRET", "legacy academy sessions must use the canonical secret");
+rejectText("academyAuthLib", "TECPEY_SESSION_SECRET", "legacy academy sessions cannot fall back to the access-session secret — a different credential class");
+rejectText("academyAuthLib", "JWT_SECRET", "generic legacy academy-session secret fallback is forbidden");
+rejectText("academyAuthLib", "NEXTAUTH_SECRET", "NextAuth secret fallback is forbidden for legacy academy sessions");
 requireText("platform", "ACCESS_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60", "access sessions need a four-hour ceiling");
 requireText("platform", "return `${sessionMaxAgeSeconds()}s`", "JWT and cookie duration must share authority");
 requireText("refresh", "ACCESS_COOKIE_TTL_S = sessionMaxAgeSeconds()", "access cookie lifetime must match JWT authority");

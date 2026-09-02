@@ -40,6 +40,7 @@
 > | SB-007 | **Closed.** Production no longer degrades to a per-instance memory limiter: without Redis authority the production path returns a fail-closed `ok: false` result. | `src/lib/rate-limit.ts` (`productionFallbackResult`) |
 > | SB-008 | **Closed / bounded.** The browser-persistence guard passes with 25 classified lines across 7 production files, and quarantined legacy modules cannot become official evidence. | `npm run browser:persistence:check`; `scripts/check-browser-persistence.mjs` |
 > | SB-009 | **Closed.** Connection policy is exact-origin and fail-closed; placeholder or broad values throw rather than widening CSP. | `src/lib/security/csp-connection-policy.ts`; `src/tests/security/csp-connection-policy.test.ts` |
+> | SB-010 | **Closed.** `src/lib/academy-auth.ts` and `src/lib/academy-session.ts` — legacy JWT-cookie verifiers still reachable from three live routes — fell back through `TECPEY_SESSION_SECRET`, then the ambient `JWT_SECRET`/`NEXTAUTH_SECRET`, neither governed by `validate-env.mjs`. A token forged with the cross-class access-session secret was demonstrably accepted before the fix and is rejected after it. Each legacy verifier now uses only its own credential class's secret, matching the canonical `academyAuthKey()`/`sessionKey()` in `src/lib/auth-session.ts`, and `scripts/check-auth-session-authority.mjs` — already enforcing this for `unified-session.ts`/`session.ts` — now covers both. | `src/lib/academy-auth.ts`; `src/lib/academy-session.ts`; `scripts/check-auth-session-authority.mjs` |
 > | SB-011 | **Closed.** Same authority as SB-002 — no admin credential is held in `sessionStorage` or `localStorage`. | `src/lib/admin-passkey-service.ts`; browser-persistence guard |
 > | SB-012 | **Closed at the document root.** `lang` and `dir` are resolved server-side on `<html>` before hydration. | `src/app/layout.tsx:233-234` |
 > | SB-013 | **Closed.** The contact form posts to a governed, CSRF-checked, rate-limited, encrypted-at-rest intake (`support_messages`) instead of a `mailto:` link; storage failure answers `503`, never a false success. | `src/app/api/support-message/route.ts`; `src/components/contact/SupportMessageForm.tsx`; `scripts/check-support-message-authority.mjs`; #577 |
@@ -340,7 +341,7 @@ was still a P0.
 | SB-007 | Per-instance rate limit | Medium | Medium | P1 | Closed |
 | SB-008 | Local auth in prod | High | Low | P1 | Closed / bounded |
 | SB-009 | Broad CSP | Medium | Medium | P1 | Closed |
-| SB-010 | Secret fan-out | High | Low | P1 | Not reconciled — no verified-current-state row exists |
+| SB-010 | Secret fan-out | High | Low | P1 | Closed |
 | SB-011 | Admin browser storage | High | Low | P1 | Closed |
 | SB-012 | English lang/dir | Medium | Medium | P2 | Closed at the document root |
 | SB-013 | Visual contact forms | Low | High | P3 | Closed |
