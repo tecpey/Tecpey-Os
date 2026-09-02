@@ -141,6 +141,22 @@ function translationHash(input: NewsArchiveTranslationInput): string | null {
     .digest("hex");
 }
 
+export function resolveNewsArchiveObservationTimes(input: {
+  firstFetchedAt: string;
+  currentFetchedAt: string;
+  publishedAt: string;
+}): { firstFetchedAt: string; observedAt: string } {
+  const firstFetchedAt = new Date(input.firstFetchedAt).toISOString();
+  const observedAt = new Date(input.currentFetchedAt).toISOString();
+  const publishedAt = new Date(input.publishedAt).toISOString();
+
+  if (Date.parse(observedAt) < Date.parse(publishedAt)) {
+    throw new Error("news_archive_observation_before_publication");
+  }
+
+  return { firstFetchedAt, observedAt };
+}
+
 export async function persistNewsArchiveItemTx(
   client: PoolClient,
   input: NewsArchiveRawInput,

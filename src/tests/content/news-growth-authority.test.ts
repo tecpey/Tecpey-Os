@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, tehranCalendarDay } from "../../lib/news-growth-authority";
+import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, resolveNewsArchiveObservationTimes, tehranCalendarDay } from "../../lib/news-growth-authority";
 import { compactNewsBodyAtSentenceBoundary, validatePersianNewsTranslationIntegrity } from "../../lib/news-translation";
 
 describe("daily news archive authority", () => {
@@ -23,6 +23,20 @@ describe("daily news archive authority", () => {
     const input = { articleUrl: "https://example.com/a", sourceTitle: "Bitcoin update", sourceLead: "Lead", sourceBody: "Body" };
     assert.equal(newsArchiveContentHash(input), newsArchiveContentHash(input));
     assert.notEqual(newsArchiveContentHash(input), newsArchiveContentHash({ ...input, sourceBody: "Body changed" }));
+  });
+
+  it("keeps historical first fetch separate from the current materialization observation", () => {
+    assert.deepEqual(
+      resolveNewsArchiveObservationTimes({
+        firstFetchedAt: "2026-09-01T10:00:00.000Z",
+        currentFetchedAt: "2026-09-02T09:32:20.569Z",
+        publishedAt: "2026-09-02T08:45:00.000Z",
+      }),
+      {
+        firstFetchedAt: "2026-09-01T10:00:00.000Z",
+        observedAt: "2026-09-02T09:32:20.569Z",
+      },
+    );
   });
   it("fails closed when title/lead numbers are dropped, output invents numbers, or trading advice is added", () => {
     const source = {
