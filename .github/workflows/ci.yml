@@ -347,6 +347,9 @@ jobs:
       - name: Support message authority guard
         run: npm run support:check
 
+      - name: Nginx auth rate-limit authority guard
+        run: npm run nginx:auth-rate-limit:check
+
       - name: CRM lead PostgreSQL integration tests
         timeout-minutes: 5
         run: |

@@ -42,8 +42,8 @@
 > | SB-009 | **Closed.** Connection policy is exact-origin and fail-closed; placeholder or broad values throw rather than widening CSP. | `src/lib/security/csp-connection-policy.ts`; `src/tests/security/csp-connection-policy.test.ts` |
 > | SB-011 | **Closed.** Same authority as SB-002 — no admin credential is held in `sessionStorage` or `localStorage`. | `src/lib/admin-passkey-service.ts`; browser-persistence guard |
 > | SB-012 | **Closed at the document root.** `lang` and `dir` are resolved server-side on `<html>` before hydration. | `src/app/layout.tsx:233-234` |
-> | SB-013 | **Still open.** The contact surface is still `mailto:`-only; no server-side form handler exists. | `src/app/contact-us/page.tsx:16,17,51,61` |
-> | SB-014 | **Not verified here.** Nginx auth-zone rate limiting is deployment configuration and is not asserted by any repository gate. | `deploy/nginx/tecpey.conf` |
+> | SB-013 | **Closed.** The contact form posts to a governed, CSRF-checked, rate-limited, encrypted-at-rest intake (`support_messages`) instead of a `mailto:` link; storage failure answers `503`, never a false success. | `src/app/api/support-message/route.ts`; `src/components/contact/SupportMessageForm.tsx`; `scripts/check-support-message-authority.mjs`; #577 |
+> | SB-014 | **Closed.** Both `deploy/nginx/tecpey.conf` and `deploy/nginx/tecpey.ssl.conf` carry a dedicated `tecpey_auth` zone (`rate=1r/s`, one-tenth of `tecpey_api`'s `10r/s`) applied via a regex location ahead of the general `/api/` block, covering every route under `auth/`, `academy-auth`, `academy/auth/` and `command-center/auth/`. `npm run nginx:auth-rate-limit:check` derives the auth-route set from `src/app/api` itself and fails if any such route, in either config file, is not covered by the tighter zone — or if the general `/api/` location is declared `^~`, which would silently shadow it. | `deploy/nginx/tecpey.conf`; `scripts/check-nginx-auth-rate-limit-authority.mjs` |
 >
 > ### Newly confirmed while reconciling
 >
@@ -343,8 +343,8 @@ was still a P0.
 | SB-010 | Secret fan-out | High | Low | P1 | Not reconciled — no verified-current-state row exists |
 | SB-011 | Admin browser storage | High | Low | P1 | Closed |
 | SB-012 | English lang/dir | Medium | Medium | P2 | Closed at the document root |
-| SB-013 | Visual contact forms | Low | High | P3 | Still open |
-| SB-014 | Auth rate limiting | Low | Medium | P3 | Not verified in-repo — deployment configuration |
+| SB-013 | Visual contact forms | Low | High | P3 | Closed |
+| SB-014 | Auth rate limiting | Low | Medium | P3 | Closed |
 
 ---
 
