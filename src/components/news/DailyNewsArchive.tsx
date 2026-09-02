@@ -30,6 +30,16 @@ function formatTime(value: string, locale: "fa" | "en") {
   return new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : "en-US", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
+function normalizedNewsText(value: string): string {
+  return value.replace(/\\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+function hasDistinctBody(lead: string, body: string): boolean {
+  const normalizedLead = normalizedNewsText(lead);
+  const normalizedBody = normalizedNewsText(body);
+  return Boolean(normalizedBody) && normalizedBody !== normalizedLead;
+}
+
 function normalizeRequestedTags(values: string[] | undefined): string[] {
   return Array.from(new Set((values ?? []).flatMap((raw) => {
     const value = raw.trim().toLowerCase();
@@ -163,7 +173,7 @@ export function DailyNewsArchive({
               )}
               {isFa && item.translationStatus === "completed" && item.displayTitle !== item.sourceTitle && <p className="mt-2 text-xs font-bold leading-6 text-slate-500 dark:text-slate-400" dir="ltr">Original: {item.sourceTitle}</p>}
               <p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-200">{item.displayLead}</p>
-              <details className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4"><summary className="cursor-pointer text-xs font-black text-cyan-700 dark:text-cyan-100">{isFa ? "نمایش متن کامل موجود در فید ناشر" : "Show full publisher-provided feed text"}</summary><p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700 dark:text-slate-200">{item.displayBody}</p>{isFa && item.translationStatus === "completed" && <details className="mt-4 border-t border-cyan-300/15 pt-3"><summary className="cursor-pointer text-[11px] font-black text-slate-500">متن اصلی</summary><p className="mt-2 whitespace-pre-wrap text-xs leading-7 text-slate-500" dir="ltr">{item.sourceBody}</p></details>}</details>
+              {hasDistinctBody(item.displayLead, item.displayBody) && <details className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4"><summary className="cursor-pointer text-xs font-black text-cyan-700 dark:text-cyan-100">{isFa ? (item.translationStatus === "completed" ? "نمایش ترجمهٔ فشردهٔ متن موجود در فید ناشر" : "نمایش متن موجود در فید ناشر") : "Show publisher-provided feed text"}</summary><p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700 dark:text-slate-200">{item.displayBody}</p>{isFa && item.translationStatus === "completed" && hasDistinctBody(item.displayBody, item.sourceBody) && <details className="mt-4 border-t border-cyan-300/15 pt-3"><summary className="cursor-pointer text-[11px] font-black text-slate-500">متن اصلی موجود در فید</summary><p className="mt-2 whitespace-pre-wrap text-xs leading-7 text-slate-500" dir="ltr">{item.sourceBody}</p></details>}</details>}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-1.5">{tagList(item).slice(0, 10).map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600 dark:bg-white/8 dark:text-slate-300">{newsTaxonomyTagLabel(tag, locale)}</span>)}</div>
                 <div className="flex flex-wrap items-center gap-3">
