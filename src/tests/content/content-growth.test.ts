@@ -66,13 +66,33 @@ import {
   runNewsMaterializationWorkerTx,
 } from "../../lib/news-materialization-worker";
 import {
+  hashNewsMaterializationEvidence,
+  hashNewsMaterializationHistoryPayload,
   persistMaterializedNewsSnapshotTx,
   type PersistMaterializedNewsSnapshotInput,
 } from "../../lib/news-materialization-persistence";
 
 class FakeNewsMaterializationClient {
   snapshots = new Map<string, { snapshot_id: string; snapshot_hash: string; decisions: string }>();
-  history = new Map<string, { history_id: string; payload_hash: string }>();
+  history = new Map<string, {
+    history_id: string;
+    payload_hash: string;
+    news_url: string;
+    title: string;
+    summary: string;
+    source_name: string;
+    source_url: string;
+    published_at: string;
+    recorded_at: string;
+    priority: number;
+    impact_score: number;
+    tone: NewsImpactHistoryItem["tone"];
+    reason_fa: string;
+    reason_en: string;
+    related_tool_slugs: string[];
+    related_coin_symbols: string[];
+    related_lesson_href: string;
+  }>();
   snapshotItems: Array<{ snapshotId: string; historyId: string; position: number }> = [];
 
   async query<T = Record<string, unknown>>(sql: string, values: readonly unknown[] = []): Promise<{ rows: T[] }> {
@@ -94,6 +114,21 @@ class FakeNewsMaterializationClient {
       const row = {
         history_id: String(values[0]),
         payload_hash: String(values[18]),
+        news_url: String(values[3]),
+        title: String(values[4]),
+        summary: String(values[5]),
+        source_name: String(values[6]),
+        source_url: String(values[7]),
+        published_at: String(values[8]),
+        recorded_at: String(values[9]),
+        priority: Number(values[10]),
+        impact_score: Number(values[11]),
+        tone: String(values[12]) as NewsImpactHistoryItem["tone"],
+        reason_fa: String(values[13]),
+        reason_en: String(values[14]),
+        related_tool_slugs: values[15] as string[],
+        related_coin_symbols: values[16] as string[],
+        related_lesson_href: String(values[17]),
       };
       this.history.set(key, row);
       return { rows: [row as T] };
@@ -820,6 +855,142 @@ describe("Content growth entity contract", () => {
     assert.equal(reviewDecision.intelligence.status, "rejected");
     assert.ok(reviewDecision.intelligence.reasons.includes("source_not_authorized"));
     assert.ok(reviewDecision.intelligence.reasons.includes("missing_entities"));
+  });
+
+  it("keeps history payload identity stable across observation-time changes", () => {
+    const item: NewsImpactHistoryItem = {
+      id: "en-bitcoin-etf-approval-impact",
+      locale: "en",
+      newsUrl: "/en/crypto-news/bitcoin-etf-approval",
+      title: "Bitcoin ETF approval raises market-data checks",
+      summary: "ETF approval news can affect liquidity and requires careful market-data verification.",
+      sourceName: "CoinDesk",
+      sourceUrl: "https://www.coindesk.com/markets/bitcoin-etf-approval",
+      publishedAt: "2026-08-09T07:00:00.000Z",
+      recordedAt: "2026-08-09T07:05:00.000Z",
+      priority: 85,
+      impactScore: 8,
+      tone: "neutral",
+      reasonFa: "این خبر از نظر آموزشی و داده‌های بازار اهمیت بالایی دارد.",
+      reasonEn: "This news has high educational and market-data relevance.",
+      relatedToolSlugs: ["tradingview"],
+      relatedCoinSymbols: ["BTC"],
+      relatedLessonHref: "/en/academy/market-intelligence",
+    };
+
+    assert.equal(
+      hashNewsMaterializationHistoryPayload(item),
+      hashNewsMaterializationHistoryPayload({
+        ...item,
+        recordedAt: "2026-08-09T08:05:00.000Z",
+      }),
+    );
+
+    assert.equal(
+      hashNewsMaterializationHistoryPayload(item),
+      hashNewsMaterializationHistoryPayload({
+        ...item,
+        priority: 99,
+      }),
+    );
+
+    assert.notEqual(
+      hashNewsMaterializationHistoryPayload(item),
+      hashNewsMaterializationHistoryPayload({
+        ...item,
+        title: "Bitcoin ETF approval materially changes market-data checks",
+      }),
+    );
+
+    assert.notEqual(
+      hashNewsMaterializationHistoryPayload(item),
+      hashNewsMaterializationHistoryPayload({
+        ...item,
+        publishedAt: "2026-08-09T06:59:00.000Z",
+      }),
+    );
+  });
+
+  it("accepts legacy history hashes when only observation time changed and rejects real payload changes", async () => {
+    const buildSnapshot = (fetchedAt: string) => {
+      const decisions = buildNewsAutomationBatch([
+        {
+          locale: "en",
+          title: "Bitcoin ETF approval raises BTC and Ethereum market-data checks",
+          summary:
+            "ETF approval news can affect BTC and ETH liquidity, so users compare TradingView charts and CoinMarketCap data with risk management.",
+          sourceName: "CoinDesk",
+          sourceUrl: "https://www.coindesk.com/markets/",
+          url: "https://www.coindesk.com/markets/bitcoin-etf-approval-example",
+          publishedAt: "2026-08-09T07:00:00.000Z",
+          fetchedAt,
+        },
+      ]);
+      return materializeNewsAutomationDecisions(decisions, {
+        locale: "en",
+        generatedAt: fetchedAt,
+      });
+    };
+
+    const legacySnapshot = buildSnapshot("2026-08-09T07:05:00.000Z");
+    const currentSnapshot = buildSnapshot("2026-08-09T08:05:00.000Z");
+    const legacyItem = legacySnapshot.historyItems[0];
+    const currentItem = currentSnapshot.historyItems[0];
+    assert.ok(legacyItem);
+    assert.ok(currentItem);
+
+    const slug = currentItem.newsUrl.split("/").filter(Boolean).at(-1);
+    assert.ok(slug);
+
+    const client = new FakeNewsMaterializationClient() as unknown as PoolClient & FakeNewsMaterializationClient;
+    client.history.set(`en:${slug}`, {
+      history_id: legacyItem.id,
+      payload_hash: hashNewsMaterializationEvidence(legacyItem),
+      news_url: legacyItem.newsUrl,
+      title: legacyItem.title,
+      summary: legacyItem.summary,
+      source_name: legacyItem.sourceName,
+      source_url: legacyItem.sourceUrl,
+      published_at: legacyItem.publishedAt,
+      recorded_at: legacyItem.recordedAt,
+      priority: legacyItem.priority,
+      impact_score: legacyItem.impactScore,
+      tone: legacyItem.tone,
+      reason_fa: legacyItem.reasonFa,
+      reason_en: legacyItem.reasonEn,
+      related_tool_slugs: legacyItem.relatedToolSlugs,
+      related_coin_symbols: legacyItem.relatedCoinSymbols,
+      related_lesson_href: legacyItem.relatedLessonHref,
+    });
+
+    await assert.doesNotReject(() =>
+      persistMaterializedNewsSnapshotTx(client, {
+        snapshotId: "00000000-0000-4000-8000-000000000063",
+        idempotencyKey: "crypto-news:auto:2026-08-09T08:05:00Z:en:legacy-observation",
+        sourceMode: "test",
+        snapshot: currentSnapshot,
+      }),
+    );
+
+    await assert.rejects(
+      () =>
+        persistMaterializedNewsSnapshotTx(client, {
+          snapshotId: "00000000-0000-4000-8000-000000000064",
+          idempotencyKey: "crypto-news:auto:2026-08-09T08:06:00Z:en:legacy-real-change",
+          sourceMode: "test",
+          snapshot: {
+            ...currentSnapshot,
+            generatedAt: "2026-08-09T08:06:00.000Z",
+            historyItems: [
+              {
+                ...currentItem,
+                title: "Bitcoin ETF approval materially changes market-data checks",
+              },
+            ],
+          },
+        }),
+      /news_materialization_history_conflict/,
+    );
   });
 
   it("persists materialized news snapshots idempotently with conflict detection", async () => {

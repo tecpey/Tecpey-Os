@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, tehranCalendarDay } from "../../lib/news-growth-authority";
-import { validatePersianNewsTranslationIntegrity } from "../../lib/news-translation";
+import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, resolveNewsArchiveObservationTimes, tehranCalendarDay } from "../../lib/news-growth-authority";
+import { compactNewsBodyAtSentenceBoundary, validatePersianNewsTranslationIntegrity } from "../../lib/news-translation";
 
 describe("daily news archive authority", () => {
   it("uses Tehran calendar boundaries rather than UTC day boundaries", () => {
@@ -24,7 +24,21 @@ describe("daily news archive authority", () => {
     assert.equal(newsArchiveContentHash(input), newsArchiveContentHash(input));
     assert.notEqual(newsArchiveContentHash(input), newsArchiveContentHash({ ...input, sourceBody: "Body changed" }));
   });
-  it("fails closed when a Persian translation drops a source number or adds trading advice", () => {
+
+  it("keeps historical first fetch separate from the current materialization observation", () => {
+    assert.deepEqual(
+      resolveNewsArchiveObservationTimes({
+        firstFetchedAt: "2026-09-01T10:00:00.000Z",
+        currentFetchedAt: "2026-09-02T09:32:20.569Z",
+        publishedAt: "2026-09-02T08:45:00.000Z",
+      }),
+      {
+        firstFetchedAt: "2026-09-01T10:00:00.000Z",
+        observedAt: "2026-09-02T09:32:20.569Z",
+      },
+    );
+  });
+  it("fails closed when title/lead numbers are dropped, output invents numbers, or trading advice is added", () => {
     const source = {
       sourceTitle: "Bitcoin rises 12.5% in 2026",
       sourceLead: "Volume reached 42 million dollars.",
@@ -48,6 +62,26 @@ describe("daily news archive authority", () => {
       translatedLead: "حجم به ۴۲ میلیون دلار رسید.",
       translatedBody: "این گزارش می‌گوید ۳ نهاد مشارکت داشتند؛ حتماً بخرید.",
     }).ok, false);
+    assert.deepEqual(validatePersianNewsTranslationIntegrity({
+      ...source,
+      translatedTitle: "بیت‌کوین در سال ۲۰۲۶ حدود ۱۲٫۵٪ رشد کرد",
+      translatedLead: "حجم به ۴۲ میلیون دلار رسید.",
+      translatedBody: "گزارش به مشارکت چند نهاد اشاره می‌کند.",
+    }), { ok: true });
+    assert.equal(validatePersianNewsTranslationIntegrity({
+      ...source,
+      translatedTitle: "بیت‌کوین در سال ۲۰۲۶ حدود ۱۲٫۵٪ رشد کرد",
+      translatedLead: "حجم به ۴۲ میلیون دلار رسید.",
+      translatedBody: "این گزارش از مشارکت ۹ نهاد خبر می‌دهد.",
+    }).ok, false);
   });
+
+  it("limits translated news body at a sentence boundary", () => {
+    const sentence = "این یک جملهٔ کامل دربارهٔ خبر است. ";
+    const rendered = compactNewsBodyAtSentenceBoundary(sentence.repeat(400), 600);
+    assert.ok(rendered.length <= 600);
+    assert.match(rendered, /[.!?؟؛]$/);
+  });
+
 
 });

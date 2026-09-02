@@ -5,6 +5,7 @@ import { withTx } from "../src/lib/db";
 import type { ContentLocale } from "../src/lib/content-growth";
 import type { RawNewsInput, NewsAutomationDecision } from "../src/lib/news-automation";
 import { buildNewsAutomationBatch } from "../src/lib/news-automation";
+import { validNewsPublishedAt } from "../src/lib/news-published-at";
 import {
   buildNewsMaterializationFreshnessReport,
   runNewsMaterializationWorkerTx,
@@ -32,6 +33,7 @@ import {
   persistGrowthTrendSignalsTx,
   persistNewsArchiveItemTx,
   persistNewsArchiveTranslationTx,
+  resolveNewsArchiveObservationTimes,
   reusableNewsArchiveTranslationKey,
 } from "../src/lib/news-growth-authority";
 import {
@@ -67,7 +69,6 @@ type PreparedArticle = FetchedArticle & {
 
 const NEWS_FEED_TIMEOUT_MS = 7_000;
 const MAX_NEWS_FEED_BYTES = 2_000_000;
-const MAX_ARCHIVE_AGE_MS = 35 * 24 * 60 * 60 * 1_000;
 
 const INTERNATIONAL_FEED_SOURCES: readonly ApprovedFeedSource[] = [
   { name: "CoinDesk", feedUrl: "https://www.coindesk.com/arc/outboundfeeds/rss/", fallbackUrl: "https://www.coindesk.com" },
@@ -115,14 +116,6 @@ function pick(xml: string, tag: string): string {
   return clean(match?.[1] ?? "");
 }
 
-function validPublishedAt(raw: string, fetchedAt: string): string | null {
-  const timestamp = Date.parse(raw);
-  const fetched = Date.parse(fetchedAt);
-  if (!Number.isFinite(timestamp) || !Number.isFinite(fetched)) return null;
-  if (timestamp > fetched + 10 * 60_000 || fetched - timestamp > MAX_ARCHIVE_AGE_MS) return null;
-  return new Date(timestamp).toISOString();
-}
-
 function safeArticleUrl(rawUrl: string, source: ApprovedFeedSource): string | null {
   try {
     const candidate = canonicalPublisherUrl(rawUrl);
@@ -162,7 +155,7 @@ async function fetchSourceArticlesOnce(
     const lead = description || body.slice(0, 1_200) || title;
     const hrefMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*>/i);
     const rawUrl = pick(block, "link") || clean(hrefMatch?.[1] ?? "");
-    const publishedAt = validPublishedAt(
+    const publishedAt = validNewsPublishedAt(
       pick(block, "pubDate") || pick(block, "published") || pick(block, "updated"),
       fetchedAt,
     );
@@ -519,7 +512,12 @@ async function main(): Promise<void> {
           });
         }
         if (translationInserted) changedArticleUrls.add(item.articleUrl);
-        stablePrepared.push({ ...item, fetchedAt: archive.firstFetchedAt });
+        const observation = resolveNewsArchiveObservationTimes({
+          firstFetchedAt: archive.firstFetchedAt,
+          currentFetchedAt: item.fetchedAt,
+          publishedAt: item.publishedAt,
+        });
+        stablePrepared.push({ ...item, fetchedAt: observation.observedAt });
       }
 
       enInputs = stablePrepared.map(toEnglishInput);

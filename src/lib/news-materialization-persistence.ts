@@ -47,6 +47,15 @@ export function hashNewsMaterializationEvidence(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 
+export function hashNewsMaterializationHistoryPayload(item: NewsImpactHistoryItem): string {
+  const {
+    recordedAt: _recordedAt,
+    priority: _priority,
+    ...stable
+  } = item;
+  return hashNewsMaterializationEvidence(stable);
+}
+
 function iso(value: string, code: string): string {
   if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) throw new Error(code);
   const normalized = new Date(value).toISOString();
@@ -241,7 +250,7 @@ export async function persistMaterializedNewsSnapshotTx(
   let insertedHistoryItems = 0;
   for (const [index, item] of valid.historyItems.entries()) {
     const slug = getNewsImpactSlug(item);
-    const payloadHash = hashNewsMaterializationEvidence(item);
+    const payloadHash = hashNewsMaterializationHistoryPayload(item);
     const inserted = await client.query<{ history_id: string; payload_hash: string }>(
       `INSERT INTO platform_news_impact_history_items
          (history_id, locale, slug, news_url, title, summary, source_name, source_url,
@@ -279,16 +288,62 @@ export async function persistMaterializedNewsSnapshotTx(
     if (row) {
       insertedHistoryItems += 1;
     } else {
-      const existing = await client.query<{ history_id: string; payload_hash: string }>(
-        `SELECT history_id, payload_hash
+      const existing = await client.query<{
+        history_id: string;
+        payload_hash: string;
+        news_url: string;
+        title: string;
+        summary: string;
+        source_name: string;
+        source_url: string;
+        published_at: Date | string;
+        recorded_at: Date | string;
+        priority: number;
+        impact_score: number;
+        tone: NewsImpactHistoryItem["tone"];
+        reason_fa: string;
+        reason_en: string;
+        related_tool_slugs: string[];
+        related_coin_symbols: string[];
+        related_lesson_href: string;
+      }>(
+        `SELECT history_id, payload_hash, news_url, title, summary, source_name, source_url,
+                published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
+                related_tool_slugs, related_coin_symbols, related_lesson_href
            FROM platform_news_impact_history_items
           WHERE locale = $1 AND slug = $2 LIMIT 1`,
         [item.locale, slug],
       );
-      if (existing.rows[0]?.payload_hash !== payloadHash) {
-        throw new Error("news_materialization_history_conflict");
+      const existingRow = existing.rows[0];
+      if (!existingRow) throw new Error("news_materialization_history_conflict");
+
+      if (existingRow.payload_hash !== payloadHash) {
+        const existingItem = validateHistoryItem({
+          id: existingRow.history_id,
+          locale: item.locale,
+          newsUrl: existingRow.news_url,
+          title: existingRow.title,
+          summary: existingRow.summary,
+          sourceName: existingRow.source_name,
+          sourceUrl: existingRow.source_url,
+          publishedAt: new Date(existingRow.published_at).toISOString(),
+          recordedAt: new Date(existingRow.recorded_at).toISOString(),
+          priority: existingRow.priority,
+          impactScore: existingRow.impact_score,
+          tone: existingRow.tone,
+          reasonFa: existingRow.reason_fa,
+          reasonEn: existingRow.reason_en,
+          relatedToolSlugs: existingRow.related_tool_slugs,
+          relatedCoinSymbols: existingRow.related_coin_symbols,
+          relatedLessonHref: existingRow.related_lesson_href,
+        });
+
+        if (hashNewsMaterializationHistoryPayload(existingItem) !== payloadHash) {
+          throw new Error("news_materialization_history_conflict");
+        }
       }
-      historyId = existing.rows[0].history_id;
+
+      historyId = existingRow.history_id;
     }
     await client.query(
       `INSERT INTO platform_news_materialization_snapshot_items
