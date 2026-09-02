@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, resolveNewsArchiveObservationTimes, tehranCalendarDay } from "../../lib/news-growth-authority";
-import { compactNewsBodyAtSentenceBoundary, validatePersianNewsTranslationIntegrity } from "../../lib/news-translation";
+import { resolveReusableOrFreshPersianNewsTranslation, compactNewsBodyAtSentenceBoundary, validatePersianNewsTranslationIntegrity } from "../../lib/news-translation";
 
 describe("daily news archive authority", () => {
   it("uses Tehran calendar boundaries rather than UTC day boundaries", () => {
@@ -120,4 +120,110 @@ describe("daily news archive authority", () => {
   });
 
 
+});
+
+
+it("refreshes a cached Persian translation when the current integrity contract rejects reuse", async () => {
+  let freshCalls = 0;
+
+  const result = await resolveReusableOrFreshPersianNewsTranslation({
+    reused: {
+      title: "حجم به ۱٫۶ میلیون دلار رسید",
+      lead: "حجم معاملات افزایش یافت",
+      body: "حجم معاملات افزایش یافت",
+      sourceTitle: "Volume reached $1.6 billion",
+      sourceLead: "Trading volume increased",
+      sourceBody: "Trading volume increased",
+      providerId: "openai",
+      model: "cached-model",
+      sourceCoverage: "feed_summary",
+    },
+    fresh: async () => {
+      freshCalls += 1;
+      return {
+        ok: true as const,
+        translation: {
+          title: "حجم به ۱٫۶ میلیارد دلار رسید",
+          lead: "حجم معاملات افزایش یافت",
+          body: "حجم معاملات افزایش یافت",
+          providerId: "openai" as const,
+          model: "fresh-model",
+          sourceCoverage: "feed_summary" as const,
+          quality: {
+            persian: true as const,
+            numericIntegrity: true as const,
+            noAddedAdvice: true as const,
+          },
+        },
+      };
+    },
+  });
+
+  assert.equal(freshCalls, 1);
+  assert.equal(result.ok, true);
+  assert.equal(result.ok && result.reused === true, false);
+  assert.equal(result.ok && result.translation.model, "fresh-model");
+});
+
+it("reuses a cached Persian translation that still satisfies the current integrity contract", async () => {
+  let freshCalls = 0;
+
+  const result = await resolveReusableOrFreshPersianNewsTranslation({
+    reused: {
+      title: "حجم به ۱٫۶ میلیارد دلار رسید",
+      lead: "حجم معاملات افزایش یافت",
+      body: "حجم معاملات افزایش یافت",
+      sourceTitle: "Volume reached $1.6 billion",
+      sourceLead: "Trading volume increased",
+      sourceBody: "Trading volume increased",
+      providerId: "openai",
+      model: "cached-model",
+      sourceCoverage: "feed_summary",
+    },
+    fresh: async () => {
+      freshCalls += 1;
+      return { ok: false as const, reason: "must_not_run" };
+    },
+  });
+
+  assert.equal(freshCalls, 0);
+  assert.equal(result.ok, true);
+  assert.equal(result.ok && result.reused, true);
+  assert.equal(result.ok && result.translation.model, "cached-model");
+});
+
+
+it("preserves a fresh translation failure after rejecting an invalid cached translation", async () => {
+  let freshCalls = 0;
+
+  const result = await resolveReusableOrFreshPersianNewsTranslation({
+    reused: {
+      title: "حجم به ۱٫۶ میلیون دلار رسید",
+      lead: "حجم معاملات افزایش یافت",
+      body: "حجم معاملات افزایش یافت",
+      sourceTitle: "Volume reached $1.6 billion",
+      sourceLead: "Trading volume increased",
+      sourceBody: "Trading volume increased",
+      providerId: "openai",
+      model: "cached-model",
+      sourceCoverage: "feed_summary",
+    },
+    fresh: async () => {
+      freshCalls += 1;
+      return {
+        ok: false as const,
+        reason: "translation_numeric_integrity_failed",
+        providerId: "openai",
+        model: "fresh-model",
+      };
+    },
+  });
+
+  assert.equal(freshCalls, 1);
+  assert.deepEqual(result, {
+    ok: false,
+    reason: "translation_numeric_integrity_failed",
+    providerId: "openai",
+    model: "fresh-model",
+  });
 });

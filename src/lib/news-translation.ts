@@ -20,6 +20,15 @@ export type NewsTranslationResult =
 
 export const MAX_PERSIAN_NEWS_BODY_CHARS = 6_000;
 
+export async function resolveReusableOrFreshPersianNewsTranslation(input: {
+  reused: Parameters<typeof buildReusedPersianNewsTranslation>[0];
+  fresh: () => Promise<NewsTranslationResult>;
+}): Promise<NewsTranslationResult> {
+  const reused = buildReusedPersianNewsTranslation(input.reused);
+  if (reused.ok) return reused;
+  return input.fresh();
+}
+
 export function buildReusedPersianNewsTranslation(input: {
   title: string;
   lead: string;

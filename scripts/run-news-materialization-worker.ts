@@ -37,7 +37,7 @@ import {
   reusableNewsArchiveTranslationKey,
 } from "../src/lib/news-growth-authority";
 import {
-  buildReusedPersianNewsTranslation,
+  resolveReusableOrFreshPersianNewsTranslation,
   translateNewsFeedToPersian,
   type NewsTranslationResult,
 } from "../src/lib/news-translation";
@@ -406,18 +406,28 @@ async function main(): Promise<void> {
       reusable?.status === "completed" &&
       reusable.translatedTitle && reusable.translatedLead && reusable.translatedBody
     ) {
-      translation = buildReusedPersianNewsTranslation({
-        title: reusable.translatedTitle,
-        lead: reusable.translatedLead,
-        body: reusable.translatedBody,
-        sourceTitle: article.title,
-        sourceLead: article.lead,
-        sourceBody: article.body,
-        providerId: reusable.providerId,
-        model: reusable.model,
-        sourceCoverage: article.sourceCoverage,
+      translation = await resolveReusableOrFreshPersianNewsTranslation({
+        reused: {
+          title: reusable.translatedTitle,
+          lead: reusable.translatedLead,
+          body: reusable.translatedBody,
+          sourceTitle: article.title,
+          sourceLead: article.lead,
+          sourceBody: article.body,
+          providerId: reusable.providerId,
+          model: reusable.model,
+          sourceCoverage: article.sourceCoverage,
+        },
+        fresh: () => translateNewsFeedToPersian({
+          title: article.title,
+          lead: article.lead,
+          body: article.body,
+          sourceName: article.source.name,
+          sourceUrl: article.articleUrl,
+          sourceCoverage: article.sourceCoverage,
+        }),
       });
-      translationReused = translation.ok;
+      translationReused = translation.ok && translation.reused === true;
     } else if (
       reusable?.status === "failed" &&
       Date.now() - Date.parse(reusable.generatedAt) < translationRetryMinutes * 60_000
