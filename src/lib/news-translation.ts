@@ -101,16 +101,106 @@ function normalizeDigits(value: string): string {
   });
 }
 
-function numericalTokens(value: string): string[] {
+type CanonicalNumericFact = {
+  value: string;
+  sign: "positive" | "negative" | "unsigned";
+  percent: boolean;
+  magnitude: "thousand" | "million" | "billion" | "trillion" | null;
+  currency: "USD" | "EUR" | "GBP" | null;
+};
+
+function canonicalDecimal(value: string): string {
+  const normalized = value.replace(/,/g, "");
+  const number = Number(normalized);
+  if (!Number.isFinite(number)) return normalized;
+  return String(number);
+}
+
+function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
   const normalized = normalizeDigits(value)
     .replace(/٫/g, ".")
     .replace(/٬/g, ",")
-    .replace(/٪/g, "%");
-  return Array.from(new Set(
-    normalized
-      .match(/\b\d+(?:[.,]\d+)?%?/g)
-      ?.map((token) => token.replace(/,/g, "")) ?? [],
-  )).filter((token) => token.length >= 1).slice(0, 40);
+    .replace(/٪/g, "%")
+    .toLowerCase();
+
+  const matches = Array.from(normalized.matchAll(/([+-])?\s*([$€£])?\s*(\d+(?:[.,]\d+)?)(\s*%)?/g));
+  const facts: CanonicalNumericFact[] = [];
+
+  for (const match of matches.slice(0, 80)) {
+    const index = match.index ?? 0;
+    const end = index + match[0].length;
+    const before = normalized.slice(Math.max(0, index - 24), index);
+    const after = normalized.slice(end, Math.min(normalized.length, end + 40));
+
+    const percent =
+      Boolean(match[4])
+      || /^\s*(?:(?:percent|percentage)\b|درصد(?=\s|$|[،؛,.!?؟]))/i.test(after);
+
+    let magnitude: CanonicalNumericFact["magnitude"] = null;
+    let magnitudeMatch: RegExpMatchArray | null = null;
+
+    if ((magnitudeMatch = after.match(/^\s*(?:(?:k|thousand)\b|هزار(?=\s|$|[،؛,.!?؟]))/i))) {
+      magnitude = "thousand";
+    } else if ((magnitudeMatch = after.match(/^\s*(?:(?:m|mn|million)\b|میلیون(?=\s|$|[،؛,.!?؟]))/i))) {
+      magnitude = "million";
+    } else if ((magnitudeMatch = after.match(/^\s*(?:(?:b|bn|billion)\b|میلیارد(?=\s|$|[،؛,.!?؟]))/i))) {
+      magnitude = "billion";
+    } else if ((magnitudeMatch = after.match(/^\s*(?:(?:t|tn|trillion)\b|تریلیون(?=\s|$|[،؛,.!?؟]))/i))) {
+      magnitude = "trillion";
+    }
+
+    const afterNumericPhrase = magnitudeMatch
+      ? after.slice(magnitudeMatch[0].length)
+      : after;
+
+    const usdPrefix =
+      match[2] === "$"
+      || /(?:^|[\s(])usd\s*$/i.test(before)
+      || /دلار\s*$/.test(before);
+    const eurPrefix =
+      match[2] === "€"
+      || /(?:^|[\s(])eur\s*$/i.test(before)
+      || /یورو\s*$/.test(before);
+    const gbpPrefix =
+      match[2] === "£"
+      || /(?:^|[\s(])gbp\s*$/i.test(before)
+      || /پوند\s*$/.test(before);
+
+    const usdSuffix =
+      /^\s*(?:\$|usd\b|dollars?\b|دلار(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
+    const eurSuffix =
+      /^\s*(?:€|eur\b|euros?\b|یورو(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
+    const gbpSuffix =
+      /^\s*(?:£|gbp\b|pounds?\b|پوند(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
+
+    let currency: CanonicalNumericFact["currency"] = null;
+    if (usdPrefix || usdSuffix) currency = "USD";
+    else if (eurPrefix || eurSuffix) currency = "EUR";
+    else if (gbpPrefix || gbpSuffix) currency = "GBP";
+
+    facts.push({
+      value: canonicalDecimal(match[3]),
+      sign: match[1] === "-" ? "negative" : match[1] === "+" ? "positive" : "unsigned",
+      percent,
+      magnitude,
+      currency,
+    });
+  }
+
+  const key = (fact: CanonicalNumericFact) =>
+    [fact.value, fact.sign, fact.percent ? "percent" : "scalar", fact.magnitude ?? "-", fact.currency ?? "-"].join("|");
+
+  return Array.from(new Map(facts.map((fact) => [key(fact), fact])).values()).slice(0, 40);
+}
+
+function numericFactKey(fact: CanonicalNumericFact): string {
+  return [
+    fact.value,
+    fact.sign,
+    fact.percent ? "percent" : "scalar",
+    fact.magnitude ?? "-",
+    fact.currency ?? "-",
+  ].join("|");
 }
 
 function hasPersian(value: string): boolean {
@@ -148,17 +238,27 @@ export function validatePersianNewsTranslationIntegrity(input: {
   if (/(سیگنال\s+(خرید|فروش)|سود\s+تضمینی|حتماً\s+(بخرید|بفروشید))/i.test(translatedText)) {
     return { ok: false, reason: "added_financial_advice" };
   }
-  const sourceTitleNumbers = numericalTokens(input.sourceTitle);
-  const sourceLeadNumbers = numericalTokens(input.sourceLead);
-  const allowedSourceNumbers = new Set(numericalTokens(`${input.sourceTitle} ${input.sourceLead} ${input.sourceBody}`));
-  const translatedTitleNumbers = new Set(numericalTokens(translatedTitle));
-  const translatedLeadNumbers = new Set(numericalTokens(translatedLead));
-  const translatedNumbers = numericalTokens(translatedText);
+  const sourceTitleFacts = canonicalNumericFacts(input.sourceTitle);
+  const sourceLeadFacts = canonicalNumericFacts(input.sourceLead);
+  const allowedSourceFacts = new Set(
+    [
+      ...canonicalNumericFacts(input.sourceTitle),
+      ...canonicalNumericFacts(input.sourceLead),
+      ...canonicalNumericFacts(input.sourceBody),
+    ].map(numericFactKey),
+  );
+  const translatedTitleFacts = new Set(canonicalNumericFacts(translatedTitle).map(numericFactKey));
+  const translatedLeadFacts = new Set(canonicalNumericFacts(translatedLead).map(numericFactKey));
+  const translatedFacts = [
+    ...canonicalNumericFacts(translatedTitle),
+    ...canonicalNumericFacts(translatedLead),
+    ...canonicalNumericFacts(translatedBody),
+  ];
 
   if (
-    sourceTitleNumbers.some((token) => !translatedTitleNumbers.has(token))
-    || sourceLeadNumbers.some((token) => !translatedLeadNumbers.has(token))
-    || translatedNumbers.some((token) => !allowedSourceNumbers.has(token))
+    sourceTitleFacts.some((fact) => !translatedTitleFacts.has(numericFactKey(fact)))
+    || sourceLeadFacts.some((fact) => !translatedLeadFacts.has(numericFactKey(fact)))
+    || translatedFacts.some((fact) => !allowedSourceFacts.has(numericFactKey(fact)))
   ) {
     return { ok: false, reason: "numeric_integrity_failed" };
   }

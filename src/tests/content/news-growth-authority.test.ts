@@ -76,6 +76,42 @@ describe("daily news archive authority", () => {
     }).ok, false);
   });
 
+  it("canonicalizes percent, magnitude, currency and sign without weakening numeric integrity", () => {
+    const valid = (sourceTitle: string, translatedTitle: string) =>
+      validatePersianNewsTranslationIntegrity({
+        sourceTitle,
+        sourceLead: "Market update",
+        sourceBody: "Market update",
+        translatedTitle,
+        translatedLead: "به‌روزرسانی بازار",
+        translatedBody: "به‌روزرسانی بازار",
+      });
+
+    assert.deepEqual(valid("Bitcoin rises 12.5%", "بیت‌کوین ۱۲٫۵ درصد رشد کرد"), { ok: true });
+    assert.deepEqual(valid("Volume reached $1.6 billion", "حجم به ۱٫۶ میلیارد دلار رسید"), { ok: true });
+    assert.deepEqual(valid("Fund buys $131M of ETH", "صندوق ۱۳۱ میلیون دلار اتریوم خرید"), { ok: true });
+    assert.deepEqual(
+      valid(
+        "Bitcoin rose 5% while volume hit $1 million",
+        "بیت‌کوین ۵ درصد رشد کرد و حجم به ۱ میلیون دلار رسید",
+      ),
+      { ok: true },
+    );
+    assert.deepEqual(
+      valid(
+        "Users reached 42 million while revenue hit $5 million",
+        "تعداد کاربران به ۴۲ میلیون رسید و درآمد به ۵ میلیون دلار رسید",
+      ),
+      { ok: true },
+    );
+
+    assert.equal(valid("Bitcoin falls 15%", "بیت‌کوین ۱۵ واحد افت کرد").ok, false);
+    assert.equal(valid("Volume reached $1.6 billion", "حجم به ۱٫۶ میلیون دلار رسید").ok, false);
+    assert.equal(valid("Bitcoin rises +5%", "بیت‌کوین ۵ درصد رشد کرد").ok, false);
+    assert.equal(valid("Bitcoin rises +5%", "بیت‌کوین ۵- درصد تغییر کرد").ok, false);
+    assert.equal(valid("Bitcoin rises 10%", "بیت‌کوین ۱۲ درصد رشد کرد").ok, false);
+  });
+
   it("limits translated news body at a sentence boundary", () => {
     const sentence = "این یک جملهٔ کامل دربارهٔ خبر است. ";
     const rendered = compactNewsBodyAtSentenceBoundary(sentence.repeat(400), 600);
