@@ -51,6 +51,7 @@ export function hashNewsMaterializationHistoryPayload(item: NewsImpactHistoryIte
   const {
     recordedAt: _recordedAt,
     priority: _priority,
+    summary: _summary,
     ...stable
   } = item;
   return hashNewsMaterializationEvidence(stable);
