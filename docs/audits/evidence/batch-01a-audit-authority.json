@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "4dc33169929e76c0ff48f4600eea6764309986f9",
-      "sha256": "755a6bb29c27bce0658efbb5e39a52cc8224aa66fdae6447e28fdd9b34b011bb",
-      "lines": 270,
+      "gitObjectId": "978ed9131e4808ceddff73dffa1eac18ae1aca39",
+      "sha256": "f4727877d851eddbb425ee7722241e74b41bbe35238df4b9836219e08a6845f8",
+      "lines": 271,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 270
+          "endLine": 271
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -128,7 +128,8 @@
         "2026-08-30: re-reviewed after adding support:inbox (SB-013 review). The command runs a read-only operator query over support_messages for one tenant and returns redacted rows unless SUPPORT_INBOX_REVEAL is set explicitly; it opens no network connection, mutates nothing, and exists because a stored message no one can read leaves the contact form promising a reply that cannot happen. No dependency, engine, override, release-authority command or activation surface changed, and the file now has 250 lines.",
         "2026-08-31: re-reviewed the complete 257-line package after restacking SB-013 on the governed AI/RLS mainline. The final composition preserves every AI trust/evidence command, adds the support-message static guard beside CRM authority, runs the support parser and PostgreSQL proof serially with the CRM suite, and exposes only explicit operator inbox/retention commands. No dependency, engine, override, provider/spend/launch authority, merge, deployment or product activation surface was added.",
         "2026-08-31: re-reviewed the complete package after restacking the Living Mentor workspace onto current main. The merge preserves every governed AI runtime-evidence, support-message and release command from main, extends ai:trust:check only with the read-only Mentor vector-source and Rive activation guards, and adds focused local Mentor vector/Rive/workspace test commands. It adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch authority.",
-        "2026-09-01: re-reviewed the complete 270-line package after adding the Organic Growth trend environment check, worker, scheduler installer and focused Market/News/Footer enterprise test command, then composing that focused suite into release:check before the existing news materialization staging-evidence gate. These are repository-local validation, worker and installation entrypoints over the governed Growth implementation; they add no dependency, engine, override, automatic publishing authority, exchange/custody activation, deployment or production-launch authority."
+        "2026-09-01: re-reviewed the complete 270-line package after adding the Organic Growth trend environment check, worker, scheduler installer and focused Market/News/Footer enterprise test command, then composing that focused suite into release:check before the existing news materialization staging-evidence gate. These are repository-local validation, worker and installation entrypoints over the governed Growth implementation; they add no dependency, engine, override, automatic publishing authority, exchange/custody activation, deployment or production-launch authority.",
+        "2026-09-01: re-reviewed the complete 271-line package after adding nginx:auth-rate-limit:check (SB-014) and composing it into release:check beside crm:check and support:check. The new command is a read-only static guard that parses deploy/nginx/tecpey.conf and deploy/nginx/tecpey.ssl.conf, derives the auth-route surface from the live src/app/api tree, and fails if any auth route is not covered by a dedicated tecpey_auth zone strictly tighter than tecpey_api, or if the general /api/ location could shadow it with ^~. It adds no dependency, engine, override, network access, product activation surface or secret-printing path, and does not itself run nginx or touch deployment infrastructure."
       ],
       "findings": [
         {
