@@ -48,8 +48,14 @@
 >
 > ### Newly confirmed while reconciling
 >
-> `SB-015` below was found during this pass. It is **open**, and it is a
-> financial-safety defect rather than stale documentation.
+> `SB-015` and `SB-016` were found during earlier reconciliation passes as
+> genuine financial-safety defects rather than stale documentation. Both are
+> now **closed** — `SB-015` by refusal of `stop_limit` orders at the admission
+> boundary (2026-08-20), `SB-016` by `requireFeature("exchange.enabled")`
+> enforcement at `POST /api/orders` (2026-08-20, issue #502) — see their own
+> entries below for the full record, including what each earlier draft got
+> wrong before review corrected it. Every `SB-001`…`SB-016` item is now closed
+> or a deliberate closure-candidate/gated-by-design state; none is open.
 
 ---
 
