@@ -857,7 +857,7 @@ describe("Content growth entity contract", () => {
     assert.ok(reviewDecision.intelligence.reasons.includes("missing_entities"));
   });
 
-  it("keeps history payload identity stable across observation-time changes", () => {
+  it("keeps history payload identity stable across mutable observation fields", () => {
     const item: NewsImpactHistoryItem = {
       id: "en-bitcoin-etf-approval-impact",
       locale: "en",
@@ -891,6 +891,14 @@ describe("Content growth entity contract", () => {
       hashNewsMaterializationHistoryPayload({
         ...item,
         priority: 99,
+      }),
+    );
+
+    assert.equal(
+      hashNewsMaterializationHistoryPayload(item),
+      hashNewsMaterializationHistoryPayload({
+        ...item,
+        summary: "Updated publisher feed summary for the same canonical news event.",
       }),
     );
 
