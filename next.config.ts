@@ -34,6 +34,15 @@ const securityHeaders = [
   // and resource embedding ( Spectre-class and UI-redress mitigations ).
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  // Nginx buffers proxied responses by default, collecting an entire
+  // streamed React response before forwarding a single byte to the
+  // browser — silently erasing every benefit of Suspense-based streaming
+  // (see src/app/layout.tsx). X-Accel-Buffering: no is the header Nginx
+  // itself recognizes to disable buffering for that one response, without
+  // a broader `proxy_buffering off` in nginx.conf that would also remove
+  // Nginx's slow-client protection for every other response through the
+  // same location block.
+  { key: "X-Accel-Buffering", value: "no" },
 ];
 
 const privateNoStoreHeaders = [
