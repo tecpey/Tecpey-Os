@@ -301,3 +301,14 @@ it("propagates numeric diagnostics from rejected cached translations", async () 
   assert.equal(!result.ok && result.reason, "translation_numeric_integrity_failed");
   assert.equal(!result.ok && result.numericFailureKind, "missing_title_fact");
 });
+
+it("does not treat HTML quote entities as numeric source facts", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "OpenClaw 2.0 Is Here",
+    sourceLead: "The framework started the &#34;autonomous AI&#34; hype cycle.",
+    sourceBody: "The framework started the &#34;autonomous AI&#34; hype cycle.",
+    translatedTitle: "OpenClaw ۲٫۰ منتشر شد",
+    translatedLead: "این چارچوب چرخه هیجان «هوش مصنوعی خودمختار» را آغاز کرد.",
+    translatedBody: "این چارچوب چرخه هیجان «هوش مصنوعی خودمختار» را آغاز کرد.",
+  }), { ok: true });
+});

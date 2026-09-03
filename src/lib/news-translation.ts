@@ -128,6 +128,22 @@ function normalizeDigits(value: string): string {
   });
 }
 
+function decodeHtmlEntitiesForNumericFacts(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]{1,6});/gi, (_match, hex: string) => {
+      const codePoint = Number.parseInt(hex, 16);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
+    })
+    .replace(/&#(\d{1,6});/g, (_match, decimal: string) => {
+      const codePoint = Number.parseInt(decimal, 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
+    })
+    .replace(/&quot;/gi, "\"")
+    .replace(/&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&");
+}
+
 type CanonicalNumericFact = {
   value: string;
   sign: "positive" | "negative" | "unsigned";
@@ -144,7 +160,7 @@ function canonicalDecimal(value: string): string {
 }
 
 function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
-  const normalized = normalizeDigits(value)
+  const normalized = normalizeDigits(decodeHtmlEntitiesForNumericFacts(value))
     .replace(/٫/g, ".")
     .replace(/٬/g, ",")
     .replace(/٪/g, "%")
