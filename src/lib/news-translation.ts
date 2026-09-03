@@ -413,8 +413,8 @@ export async function translateNewsFeedToPersian(input: {
     "Return strict JSON only with keys title, lead, body. All three values must be Persian prose; keep unavoidable proper nouns/tickers in Latin script.",
     "The body must be a faithful, information-dense Persian rendering of the publisher-provided body text. Condense repetition and boilerplate, but do not add facts or change meaning.",
     "Keep the body materially distinct from the lead only when the supplied publisher body contains additional information beyond the lead.",
-"When the supplied publisher body repeats the lead, the Persian body may repeat or closely match the Persian lead; never expand it just to make it distinct.",
-"The Persian body must translate only the supplied publisher body, not combine title-only facts, lead-only facts, causal interpretation or market impact analysis.",
+    "When the supplied publisher body repeats the lead, the Persian body may repeat or closely match the Persian lead; never expand it just to make it distinct.",
+    "The Persian body must translate only the supplied publisher body, not combine title-only facts, lead-only facts, causal interpretation or market impact analysis.",
     `Keep the body concise and at most ${MAX_PERSIAN_NEWS_BODY_CHARS} characters; prefer complete sentences and preserve the most material factual information, dates, quantities and uncertainty.`,
   ];
 
