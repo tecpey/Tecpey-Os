@@ -395,6 +395,7 @@ export async function readNewsArchiveDayTx(
           ORDER BY history.recorded_at DESC, history.published_at DESC
           LIMIT 1
        ) internal_news ON TRUE
+      WHERE ($2 <> 'fa' OR translation.status = 'completed')
       ORDER BY article.published_at DESC, article.source_name, article.article_url
       LIMIT 1000`,
     [day, locale],
