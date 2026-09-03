@@ -73,6 +73,12 @@ describe("crypto-news DB-only route", () => {
     assert.equal(contentProviderFetches, 0);
   });
 
+
+  it("keeps failed Persian translations out of the public archive feed", async () => {
+    const source = await import("node:fs").then((fs) => fs.readFileSync("src/lib/news-growth-authority.ts", "utf8"));
+    assert.match(source, /WHERE \(\$2 <> 'fa' OR translation\.status = 'completed'\)/);
+  });
+
   it("rejects invalid and future archive dates before reading content", async () => {
     const invalid = await callRoute("http://localhost/api/crypto-news?locale=en&date=2030-02-31");
     assert.equal(invalid.status, 400);
