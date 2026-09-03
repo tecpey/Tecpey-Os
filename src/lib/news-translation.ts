@@ -14,9 +14,21 @@ export type PersianNewsTranslation = {
   };
 };
 
+export type NewsTranslationNumericFailureKind =
+  | "missing_title_fact"
+  | "missing_lead_fact"
+  | "invented_numeric_fact";
+
 export type NewsTranslationResult =
   | { ok: true; translation: PersianNewsTranslation; route?: AiProviderCallResult; reused?: boolean }
-  | { ok: false; reason: string; providerId?: string; model?: string; retryDeferredUntil?: string };
+  | {
+    ok: false;
+    reason: string;
+    providerId?: string;
+    model?: string;
+    retryDeferredUntil?: string;
+    numericFailureKind?: NewsTranslationNumericFailureKind;
+  };
 
 export const MAX_PERSIAN_NEWS_BODY_CHARS = 6_000;
 
@@ -56,7 +68,13 @@ export function buildReusedPersianNewsTranslation(input: {
     translatedBody: body,
   });
   if (!integrity.ok) {
-    return { ok: false, reason: `translation_reuse_${integrity.reason}`, providerId, model: input.model ?? undefined };
+    return {
+      ok: false,
+      reason: `translation_reuse_${integrity.reason}`,
+      providerId,
+      model: input.model ?? undefined,
+      numericFailureKind: integrity.numericFailureKind,
+    };
   }
   return {
     ok: true,
@@ -233,7 +251,11 @@ export function validatePersianNewsTranslationIntegrity(input: {
   translatedTitle: string;
   translatedLead: string;
   translatedBody: string;
-}): { ok: true } | { ok: false; reason: "language_or_shape_invalid" | "added_financial_advice" | "numeric_integrity_failed" } {
+}): { ok: true } | {
+  ok: false;
+  reason: "language_or_shape_invalid" | "added_financial_advice" | "numeric_integrity_failed";
+  numericFailureKind?: NewsTranslationNumericFailureKind;
+} {
   const translatedTitle = compact(input.translatedTitle, 500);
   const translatedLead = compact(input.translatedLead, 4_000);
   const translatedBody = compactNewsBodyAtSentenceBoundary(
@@ -264,12 +286,31 @@ export function validatePersianNewsTranslationIntegrity(input: {
     ...canonicalNumericFacts(translatedBody),
   ];
 
-  if (
-    sourceTitleFacts.some((fact) => !translatedTitleFacts.has(numericFactKey(fact)))
-    || sourceLeadFacts.some((fact) => !translatedLeadFacts.has(numericFactKey(fact)))
-    || translatedFacts.some((fact) => !allowedSourceFacts.has(numericFactKey(fact)))
-  ) {
-    return { ok: false, reason: "numeric_integrity_failed" };
+  const missingTitleFact = sourceTitleFacts.find((fact) => !translatedTitleFacts.has(numericFactKey(fact)));
+  if (missingTitleFact) {
+    return {
+      ok: false,
+      reason: "numeric_integrity_failed",
+      numericFailureKind: "missing_title_fact",
+    };
+  }
+
+  const missingLeadFact = sourceLeadFacts.find((fact) => !translatedLeadFacts.has(numericFactKey(fact)));
+  if (missingLeadFact) {
+    return {
+      ok: false,
+      reason: "numeric_integrity_failed",
+      numericFailureKind: "missing_lead_fact",
+    };
+  }
+
+  const inventedNumericFact = translatedFacts.find((fact) => !allowedSourceFacts.has(numericFactKey(fact)));
+  if (inventedNumericFact) {
+    return {
+      ok: false,
+      reason: "numeric_integrity_failed",
+      numericFailureKind: "invented_numeric_fact",
+    };
   }
   return { ok: true };
 }
@@ -369,7 +410,13 @@ export async function translateNewsFeedToPersian(input: {
     translatedBody,
   });
   if (!integrity.ok) {
-    return { ok: false, reason: `translation_${integrity.reason}`, providerId: routed.providerId, model: routed.model };
+    return {
+      ok: false,
+      reason: `translation_${integrity.reason}`,
+      providerId: routed.providerId,
+      model: routed.model,
+      numericFailureKind: integrity.numericFailureKind,
+    };
   }
   return {
     ok: true,

@@ -227,3 +227,77 @@ it("preserves a fresh translation failure after rejecting an invalid cached tran
     model: "fresh-model",
   });
 });
+
+it("reports deterministic numeric integrity diagnostic kinds without changing rejection semantics", () => {
+  const source = {
+    sourceTitle: "Fund buys $131M of ETH",
+    sourceLead: "Trading volume reached 42 million dollars.",
+    sourceBody: "The report says 3 institutions participated.",
+  };
+
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    ...source,
+    translatedTitle: "صندوق اتریوم خرید",
+    translatedLead: "حجم معاملات به ۴۲ میلیون دلار رسید.",
+    translatedBody: "این گزارش می‌گوید ۳ نهاد مشارکت داشتند.",
+  }), {
+    ok: false,
+    reason: "numeric_integrity_failed",
+    numericFailureKind: "missing_title_fact",
+  });
+
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    ...source,
+    translatedTitle: "صندوق ۱۳۱ میلیون دلار اتریوم خرید",
+    translatedLead: "حجم معاملات افزایش یافت.",
+    translatedBody: "این گزارش می‌گوید ۳ نهاد مشارکت داشتند.",
+  }), {
+    ok: false,
+    reason: "numeric_integrity_failed",
+    numericFailureKind: "missing_lead_fact",
+  });
+
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    ...source,
+    translatedTitle: "صندوق ۱۳۱ میلیون دلار اتریوم خرید",
+    translatedLead: "حجم معاملات به ۴۲ میلیون دلار رسید.",
+    translatedBody: "این گزارش می‌گوید ۹ نهاد مشارکت داشتند.",
+  }), {
+    ok: false,
+    reason: "numeric_integrity_failed",
+    numericFailureKind: "invented_numeric_fact",
+  });
+});
+
+it("propagates numeric diagnostics from rejected cached translations", async () => {
+  let freshCalls = 0;
+
+  const result = await resolveReusableOrFreshPersianNewsTranslation({
+    reused: {
+      title: "حجم به ۱٫۶ میلیون دلار رسید",
+      lead: "حجم معاملات افزایش یافت",
+      body: "حجم معاملات افزایش یافت",
+      sourceTitle: "Volume reached $1.6 billion",
+      sourceLead: "Trading volume increased",
+      sourceBody: "Trading volume increased",
+      providerId: "openai",
+      model: "cached-model",
+      sourceCoverage: "feed_summary",
+    },
+    fresh: async () => {
+      freshCalls += 1;
+      return {
+        ok: false as const,
+        reason: "translation_numeric_integrity_failed",
+        providerId: "openai",
+        model: "fresh-model",
+        numericFailureKind: "missing_title_fact",
+      };
+    },
+  });
+
+  assert.equal(freshCalls, 1);
+  assert.equal(result.ok, false);
+  assert.equal(!result.ok && result.reason, "translation_numeric_integrity_failed");
+  assert.equal(!result.ok && result.numericFailureKind, "missing_title_fact");
+});

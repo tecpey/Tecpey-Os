@@ -518,6 +518,7 @@ async function main(): Promise<void> {
             evidence: {
               reason: item.translation.reason,
               retryDeferredUntil: item.translation.retryDeferredUntil ?? null,
+              numericFailureKind: item.translation.numericFailureKind ?? null,
             },
           });
         }
