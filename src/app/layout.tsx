@@ -3,9 +3,10 @@ import "./tecpey-brand-tokens.css";
 import { NextIntlClientProvider } from "next-intl";
 import { headers } from "next/headers";
 import { connection } from "next/server";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Providers from "./providers";
 import Navbar from "@/components/navbar/Navbar";
+import NavbarServer from "@/components/navbar/NavbarServer";
 import { getProfileInfo } from "@/services/profile";
 import Footer from "@/components/footer/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -227,7 +228,18 @@ export default async function RootLayout({
   const locale = isEnglish ? "en" : "fa";
   const messages = (await import(`../i18n/messages/${locale}.json`)).default;
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
-  const user = await getProfileInfo();
+  // Started here, not awaited: every page on the site was blocking its
+  // entire response — the static shell, the page content, the footer — on
+  // this one network round trip to /dashboard/profile before sending a
+  // single byte of HTML. NavbarServer awaits it inside its own Suspense
+  // boundary below, so only that slice defers; everything else streams
+  // immediately. The Suspense fallback is the real Navbar rendered
+  // logged-out, so anonymous visitors — the majority on a public
+  // education/marketing site — see the correct navbar on first paint with
+  // no skeleton and no layout shift; a signed-in visitor sees the
+  // login/signup buttons swap for their account for the moment the profile
+  // fetch takes, in parallel with the rest of the page instead of ahead of it.
+  const userPromise = getProfileInfo();
 
   return (
     <html
@@ -247,7 +259,9 @@ export default async function RootLayout({
             <TecpeyScrollMotionBackground />
             <Providers>
               <HtmlLangDir />
-              <Navbar user={user} />
+              <Suspense fallback={<Navbar user={null} />}>
+                <NavbarServer userPromise={userPromise} />
+              </Suspense>
               {children}
               <Footer />
               <PublicMentorEntry />
