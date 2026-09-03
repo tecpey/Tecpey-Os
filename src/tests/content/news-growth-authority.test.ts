@@ -244,6 +244,7 @@ it("reports deterministic numeric integrity diagnostic kinds without changing re
     ok: false,
     reason: "numeric_integrity_failed",
     numericFailureKind: "missing_title_fact",
+    numericFailureFactKey: "131|unsigned|scalar|million|USD",
   });
 
   assert.deepEqual(validatePersianNewsTranslationIntegrity({
@@ -255,6 +256,7 @@ it("reports deterministic numeric integrity diagnostic kinds without changing re
     ok: false,
     reason: "numeric_integrity_failed",
     numericFailureKind: "missing_lead_fact",
+    numericFailureFactKey: "42|unsigned|scalar|million|USD",
   });
 
   assert.deepEqual(validatePersianNewsTranslationIntegrity({
@@ -266,6 +268,7 @@ it("reports deterministic numeric integrity diagnostic kinds without changing re
     ok: false,
     reason: "numeric_integrity_failed",
     numericFailureKind: "invented_numeric_fact",
+    numericFailureFactKey: "9|unsigned|scalar|-|-",
   });
 });
 
@@ -292,6 +295,7 @@ it("propagates numeric diagnostics from rejected cached translations", async () 
         providerId: "openai",
         model: "fresh-model",
         numericFailureKind: "missing_title_fact",
+        numericFailureFactKey: "1.6|unsigned|scalar|billion|USD",
       };
     },
   });
@@ -300,6 +304,7 @@ it("propagates numeric diagnostics from rejected cached translations", async () 
   assert.equal(result.ok, false);
   assert.equal(!result.ok && result.reason, "translation_numeric_integrity_failed");
   assert.equal(!result.ok && result.numericFailureKind, "missing_title_fact");
+  assert.equal(!result.ok && result.numericFailureFactKey, "1.6|unsigned|scalar|billion|USD");
 });
 
 it("does not treat HTML quote entities as numeric source facts", () => {

@@ -28,6 +28,7 @@ export type NewsTranslationResult =
     model?: string;
     retryDeferredUntil?: string;
     numericFailureKind?: NewsTranslationNumericFailureKind;
+    numericFailureFactKey?: string;
   };
 
 export const MAX_PERSIAN_NEWS_BODY_CHARS = 6_000;
@@ -74,6 +75,7 @@ export function buildReusedPersianNewsTranslation(input: {
       providerId,
       model: input.model ?? undefined,
       numericFailureKind: integrity.numericFailureKind,
+      numericFailureFactKey: integrity.numericFailureFactKey,
     };
   }
   return {
@@ -271,6 +273,7 @@ export function validatePersianNewsTranslationIntegrity(input: {
   ok: false;
   reason: "language_or_shape_invalid" | "added_financial_advice" | "numeric_integrity_failed";
   numericFailureKind?: NewsTranslationNumericFailureKind;
+  numericFailureFactKey?: string;
 } {
   const translatedTitle = compact(input.translatedTitle, 500);
   const translatedLead = compact(input.translatedLead, 4_000);
@@ -308,6 +311,7 @@ export function validatePersianNewsTranslationIntegrity(input: {
       ok: false,
       reason: "numeric_integrity_failed",
       numericFailureKind: "missing_title_fact",
+      numericFailureFactKey: numericFactKey(missingTitleFact),
     };
   }
 
@@ -317,6 +321,7 @@ export function validatePersianNewsTranslationIntegrity(input: {
       ok: false,
       reason: "numeric_integrity_failed",
       numericFailureKind: "missing_lead_fact",
+      numericFailureFactKey: numericFactKey(missingLeadFact),
     };
   }
 
@@ -326,6 +331,7 @@ export function validatePersianNewsTranslationIntegrity(input: {
       ok: false,
       reason: "numeric_integrity_failed",
       numericFailureKind: "invented_numeric_fact",
+      numericFailureFactKey: numericFactKey(inventedNumericFact),
     };
   }
   return { ok: true };
@@ -434,6 +440,7 @@ export async function translateNewsFeedToPersian(input: {
       providerId: routed.providerId,
       model: routed.model,
       numericFailureKind: integrity.numericFailureKind,
+      numericFailureFactKey: integrity.numericFailureFactKey,
     };
   }
   return {
