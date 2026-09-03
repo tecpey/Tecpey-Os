@@ -403,77 +403,110 @@ export async function translateNewsFeedToPersian(input: {
   const title = compact(input.title, 500);
   const lead = compact(input.lead, 4_000);
   const body = compact(input.body, 16_000);
-  const routed = await callAiProvider({
-    providerId: config.providerId,
-    agentId: "content_reviewer",
-    apiKey: config.apiKey,
-    model: config.model,
-    fallbackModel: config.fallbackModel,
-    instructions: [
-      "You are TecPey's governed Persian news translator.",
-      "Translate only the publisher-provided feed text. Do not browse, add facts, predict prices, give financial advice, or rewrite it as TecPey reporting.",
-      "Preserve proper nouns, tickers, dates, quantities, percentages, monetary amounts, time windows, reporting periods and uncertainty exactly in meaning.",
-      "Field-level numeric contract: every number, percentage, amount, currency, magnitude, ticker quantity and reporting-period marker present in the source title must remain in the Persian title; every one present in the source lead must remain in the Persian lead.",
-      "Do not move numbers between title, lead and body. Do not summarize away numeric facts even when the prose sounds repetitive.",
-      "Return strict JSON only with keys title, lead, body. All three values must be Persian prose; keep unavoidable proper nouns/tickers in Latin script.",
-      "The body must be a faithful, information-dense Persian rendering of the publisher-provided body text. Condense repetition and boilerplate, but do not add facts or change meaning.",
-      "Keep the body materially distinct from the lead when the supplied body contains additional information.",
-      `Keep the body concise and at most ${MAX_PERSIAN_NEWS_BODY_CHARS} characters; prefer complete sentences and preserve the most material factual information, dates, quantities and uncertainty.`,
-    ].join(" "),
-    input: JSON.stringify({
-      source: input.sourceName,
-      sourceUrl: input.sourceUrl,
-      sourceCoverage: input.sourceCoverage,
-      title,
-      lead,
-      body,
-    }),
-    timeoutMs: 20_000,
-    maxOutputTokens: 3_200,
-    dataClass: "public",
-    circuitScope: "news-translation:public",
-    toolsEnabled: false,
-    requireZeroDataRetention: true,
-    requestSignal: input.requestSignal,
-  });
-  if (!routed.ok) {
-    return { ok: false, reason: `translation_${routed.reason}`, providerId: config.providerId, model: routed.model ?? config.model };
-  }
-  const parsed = safeJsonObject(routed.text);
-  const translatedTitle = typeof parsed?.title === "string" ? compact(parsed.title, 500) : "";
-  const translatedLead = typeof parsed?.lead === "string" ? compact(parsed.lead, 4_000) : "";
-  const translatedBody = typeof parsed?.body === "string"
-    ? compactNewsBodyAtSentenceBoundary(parsed.body, MAX_PERSIAN_NEWS_BODY_CHARS)
-    : "";
-  const integrity = validatePersianNewsTranslationIntegrity({
-    sourceTitle: title,
-    sourceLead: lead,
-    sourceBody: body,
-    translatedTitle,
-    translatedLead,
-    translatedBody,
-  });
-  if (!integrity.ok) {
+
+  const baseInstructions = [
+    "You are TecPey's governed Persian news translator.",
+    "Translate only the publisher-provided feed text. Do not browse, add facts, predict prices, give financial advice, or rewrite it as TecPey reporting.",
+    "Preserve proper nouns, tickers, dates, quantities, percentages, monetary amounts, time windows, reporting periods and uncertainty exactly in meaning.",
+    "Field-level numeric contract: every number, percentage, amount, currency, magnitude, ticker quantity and reporting-period marker present in the source title must remain in the Persian title; every one present in the source lead must remain in the Persian lead.",
+    "Do not move numbers between title, lead and body. Do not summarize away numeric facts even when the prose sounds repetitive.",
+    "Return strict JSON only with keys title, lead, body. All three values must be Persian prose; keep unavoidable proper nouns/tickers in Latin script.",
+    "The body must be a faithful, information-dense Persian rendering of the publisher-provided body text. Condense repetition and boilerplate, but do not add facts or change meaning.",
+    "Keep the body materially distinct from the lead when the supplied body contains additional information.",
+    `Keep the body concise and at most ${MAX_PERSIAN_NEWS_BODY_CHARS} characters; prefer complete sentences and preserve the most material factual information, dates, quantities and uncertainty.`,
+  ];
+
+  const runTranslation = async (extraInstructions: string[] = []): Promise<NewsTranslationResult> => {
+    const routed = await callAiProvider({
+      providerId: config.providerId,
+      agentId: "content_reviewer",
+      apiKey: config.apiKey,
+      model: config.model,
+      fallbackModel: config.fallbackModel,
+      instructions: [
+        ...baseInstructions,
+        ...extraInstructions,
+      ].join(" "),
+      input: JSON.stringify({
+        source: input.sourceName,
+        sourceUrl: input.sourceUrl,
+        sourceCoverage: input.sourceCoverage,
+        title,
+        lead,
+        body,
+      }),
+      timeoutMs: 20_000,
+      maxOutputTokens: 3_200,
+      dataClass: "public",
+      circuitScope: "news-translation:public",
+      toolsEnabled: false,
+      requireZeroDataRetention: true,
+      requestSignal: input.requestSignal,
+    });
+
+    if (!routed.ok) {
+      return {
+        ok: false,
+        reason: `translation_${routed.reason}`,
+        providerId: config.providerId,
+        model: routed.model ?? config.model,
+      };
+    }
+
+    const parsed = safeJsonObject(routed.text);
+    const translatedTitle = typeof parsed?.title === "string" ? compact(parsed.title, 500) : "";
+    const translatedLead = typeof parsed?.lead === "string" ? compact(parsed.lead, 4_000) : "";
+    const translatedBody = typeof parsed?.body === "string"
+      ? compactNewsBodyAtSentenceBoundary(parsed.body, MAX_PERSIAN_NEWS_BODY_CHARS)
+      : "";
+    const integrity = validatePersianNewsTranslationIntegrity({
+      sourceTitle: title,
+      sourceLead: lead,
+      sourceBody: body,
+      translatedTitle,
+      translatedLead,
+      translatedBody,
+    });
+
+    if (!integrity.ok) {
+      return {
+        ok: false,
+        reason: `translation_${integrity.reason}`,
+        providerId: routed.providerId,
+        model: routed.model,
+        numericFailureKind: integrity.numericFailureKind,
+        numericFailureFactKey: integrity.numericFailureFactKey,
+      };
+    }
+
     return {
-      ok: false,
-      reason: `translation_${integrity.reason}`,
-      providerId: routed.providerId,
-      model: routed.model,
-      numericFailureKind: integrity.numericFailureKind,
-      numericFailureFactKey: integrity.numericFailureFactKey,
+      ok: true,
+      translation: {
+        title: translatedTitle,
+        lead: translatedLead,
+        body: translatedBody,
+        providerId: routed.providerId as "openai" | "anthropic" | "openrouter",
+        model: routed.model,
+        sourceCoverage: input.sourceCoverage,
+        quality: { persian: true, numericIntegrity: true, noAddedAdvice: true },
+      },
+      route: routed,
     };
-  }
-  return {
-    ok: true,
-    translation: {
-      title: translatedTitle,
-      lead: translatedLead,
-      body: translatedBody,
-      providerId: routed.providerId as "openai" | "anthropic" | "openrouter",
-      model: routed.model,
-      sourceCoverage: input.sourceCoverage,
-      quality: { persian: true, numericIntegrity: true, noAddedAdvice: true },
-    },
-    route: routed,
   };
+
+  const first = await runTranslation();
+  if (
+    !first.ok
+    && first.reason === "translation_numeric_integrity_failed"
+    && (first.numericFailureKind === "missing_title_fact" || first.numericFailureKind === "missing_lead_fact")
+  ) {
+    const failedField = first.numericFailureKind === "missing_title_fact" ? "title" : "lead";
+    return runTranslation([
+      `Repair pass: the previous translation failed because numeric fact ${first.numericFailureFactKey ?? "unknown"} was missing from the Persian ${failedField}.`,
+      `Regenerate all JSON fields from the original source, and make sure every numeric fact in the source ${failedField} remains in the Persian ${failedField}.`,
+      "Do not add commentary, do not change meaning, and do not move the missing numeric fact to another field.",
+    ]);
+  }
+
+  return first;
 }
