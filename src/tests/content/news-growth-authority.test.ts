@@ -317,3 +317,14 @@ it("does not treat HTML quote entities as numeric source facts", () => {
     translatedBody: "این چارچوب چرخه هیجان «هوش مصنوعی خودمختار» را آغاز کرد.",
   }), { ok: true });
 });
+
+it("matches reporting-period quarter markers across English and Persian forms", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "XRP inflows continue",
+    sourceLead: "Q2 filings show Goldman among the biggest holders.",
+    sourceBody: "Q2 filings show Goldman among the biggest holders.",
+    translatedTitle: "ورود سرمایه به XRP ادامه دارد",
+    translatedLead: "پرونده‌های سه‌ماهه دوم نشان می‌دهد گلدمن در میان بزرگ‌ترین دارندگان است.",
+    translatedBody: "پرونده‌های سه‌ماهه دوم نشان می‌دهد گلدمن در میان بزرگ‌ترین دارندگان است.",
+  }), { ok: true });
+});

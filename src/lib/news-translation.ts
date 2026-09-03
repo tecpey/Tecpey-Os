@@ -232,6 +232,26 @@ function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
     });
   }
 
+  const quarterMatches = Array.from(normalized.matchAll(/\bq([1-4])\b|(?:سه[\s\u200c-]*ماهه|فصل|ربع)\s+(اول|نخست|دوم|سوم|چهارم)(?=\s|$|[،؛,.!?؟])/gi));
+  for (const match of quarterMatches.slice(0, 20)) {
+    const persianOrdinal = match[2];
+    const value = match[1]
+      ?? (persianOrdinal === "اول" || persianOrdinal === "نخست"
+        ? "1"
+        : persianOrdinal === "دوم"
+          ? "2"
+          : persianOrdinal === "سوم"
+            ? "3"
+            : "4");
+    facts.push({
+      value,
+      sign: "unsigned",
+      percent: false,
+      magnitude: null,
+      currency: null,
+    });
+  }
+
   const key = (fact: CanonicalNumericFact) =>
     [fact.value, fact.sign, fact.percent ? "percent" : "scalar", fact.magnitude ?? "-", fact.currency ?? "-"].join("|");
 
