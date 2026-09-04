@@ -309,6 +309,7 @@ function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
 
     let magnitude: CanonicalNumericFact["magnitude"] = null;
     let magnitudeMatch: RegExpMatchArray | null = null;
+    let sharedRangeMagnitudeTail = "";
 
     if ((magnitudeMatch = after.match(/^\s*[-+]?\s*(?:(?:k|thousand)\b|هزار(?=\s|$|[،؛,.!?؟]))/i))) {
       magnitude = "thousand";
@@ -318,11 +319,22 @@ function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
       magnitude = "billion";
     } else if ((magnitudeMatch = after.match(/^\s*[-+]?\s*(?:(?:t|tn|trillion)\b|تریلیون(?=\s|$|[،؛,.!?؟]))/i))) {
       magnitude = "trillion";
+    } else {
+      const sharedRangeMagnitudeMatch = after.match(
+        /^\s*(?:تا|to\b|and\b|[-–—])\s*[+-]?\s*\d+(?:\.\d+)?\s*(?:(k|thousand|هزار)|(m|mn|million|میلیون)|(b|bn|billion|میلیارد)|(t|tn|trillion|تریلیون))(?=\s|$|[،؛,.!?؟])/i,
+      );
+      if (sharedRangeMagnitudeMatch) {
+        if (sharedRangeMagnitudeMatch[1]) magnitude = "thousand";
+        else if (sharedRangeMagnitudeMatch[2]) magnitude = "million";
+        else if (sharedRangeMagnitudeMatch[3]) magnitude = "billion";
+        else if (sharedRangeMagnitudeMatch[4]) magnitude = "trillion";
+        sharedRangeMagnitudeTail = after.slice(sharedRangeMagnitudeMatch[0].length);
+      }
     }
 
     const afterNumericPhrase = magnitudeMatch
       ? after.slice(magnitudeMatch[0].length)
-      : after;
+      : sharedRangeMagnitudeTail || after;
 
     const usdPrefix =
       match[2] === "$"

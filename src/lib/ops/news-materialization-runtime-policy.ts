@@ -132,3 +132,25 @@ export function newsFeedRetryDelayMs(input: {
     : DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS;
   return Math.min(5_000, baseDelayMs * 2 ** Math.max(0, attempt - 1));
 }
+
+export function shouldDeferNewsTranslationRetry(input: {
+  failureReason: string | null | undefined;
+  generatedAt: string;
+  nowMs?: number;
+  retryMinutes: number;
+}): boolean {
+  const failureReason = input.failureReason?.trim();
+  if (!failureReason) return false;
+  if (failureReason === "translation_circuit_open") return false;
+  if (failureReason === "translation_timeout") return false;
+
+  const generatedAtMs = Date.parse(input.generatedAt);
+  if (!Number.isFinite(generatedAtMs)) return false;
+
+  const retryMinutes = Number.isFinite(input.retryMinutes) && input.retryMinutes > 0
+    ? input.retryMinutes
+    : 60;
+
+  const nowMs = input.nowMs ?? Date.now();
+  return nowMs - generatedAtMs < retryMinutes * 60_000;
+}

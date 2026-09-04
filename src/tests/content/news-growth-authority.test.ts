@@ -696,6 +696,42 @@ it("handles hyphenated magnitudes and euro cents without weakening currency inte
   assert.equal(!poundOmitted.ok && poundOmitted.reason, "numeric_integrity_failed");
 });
 
+
+it("supports shared magnitude and currency suffixes in translated ranges without allowing invented numbers", () => {
+  const valid = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Bitcoin ETF inflows hit $731M, highest since January as BTC reclaims $80K",
+    sourceLead:
+      "Bitcoin traded in a range between roughly $76,000 and $81,000 this week, with $83,000 emerging as a key threshold.",
+    sourceBody:
+      "Bitcoin traded in a range between roughly $76,000 and $81,000 this week, with $83,000 emerging as a key threshold.",
+    translatedTitle: "ورودی ETF بیت‌کوین به ۷۳۱ میلیون دلار رسید؛ بالاترین سطح از ژانویه، همزمان با بازپس‌گیری ۸۰ هزار دلار",
+    translatedLead:
+      "بیت‌کوین این هفته در محدوده‌ای بین حدود ۷۶ تا ۸۱ هزار دلار معامله شد و سطح ۸۳ هزار دلار به‌عنوان یک آستانه کلیدی مطرح شد.",
+    translatedBody:
+      "بیت‌کوین این هفته در محدوده‌ای بین حدود ۷۶ تا ۸۱ هزار دلار معامله شد و سطح ۸۳ هزار دلار به‌عنوان یک آستانه کلیدی مطرح شد.",
+  });
+
+  assert.deepEqual(valid, { ok: true });
+
+  const invented = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Bitcoin ETF inflows hit $731M, highest since January as BTC reclaims $80K",
+    sourceLead:
+      "Bitcoin traded in a range between roughly $76,000 and $81,000 this week, with $83,000 emerging as a key threshold.",
+    sourceBody:
+      "Bitcoin traded in a range between roughly $76,000 and $81,000 this week, with $83,000 emerging as a key threshold.",
+    translatedTitle: "ورودی ETF بیت‌کوین به ۷۳۱ میلیون دلار رسید؛ بالاترین سطح از ژانویه، همزمان با بازپس‌گیری ۸۰ هزار دلار",
+    translatedLead:
+      "بیت‌کوین این هفته در محدوده‌ای بین حدود ۷۶ تا ۸۱ هزار دلار معامله شد و سطح ۸۳ هزار دلار به‌عنوان یک آستانه کلیدی مطرح شد.",
+    translatedBody:
+      "بیت‌کوین این هفته در محدوده‌ای بین حدود ۷۶ تا ۸۱ هزار دلار معامله شد و عدد ۸۴ هزار دلار نیز مطرح شد.",
+  });
+
+  assert.equal(invented.ok, false);
+  if (!invented.ok) {
+    assert.equal(invented.numericFailureKind, "invented_numeric_fact");
+  }
+});
+
 it("supports shared percent suffixes in translated ranges without weakening currency integrity", () => {
   assert.deepEqual(validatePersianNewsTranslationIntegrity({
     sourceTitle: "Holdings growth",

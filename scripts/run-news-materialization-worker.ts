@@ -21,6 +21,7 @@ import {
   DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
   evaluateNewsMaterializationRuntimeHealth,
   newsFeedRetryDelayMs,
+  shouldDeferNewsTranslationRetry,
   shouldRetryNewsFeedFailure,
 } from "../src/lib/ops/news-materialization-runtime-policy";
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
@@ -509,8 +510,11 @@ async function main(): Promise<void> {
       translationReused = translation.ok && translation.reused === true;
     } else if (
       reusable?.status === "failed" &&
-      reusable.failureReason !== "translation_circuit_open" &&
-      Date.now() - Date.parse(reusable.generatedAt) < translationRetryMinutes * 60_000
+      shouldDeferNewsTranslationRetry({
+        failureReason: reusable.failureReason,
+        generatedAt: reusable.generatedAt,
+        retryMinutes: translationRetryMinutes,
+      })
     ) {
       translation = {
         ok: false,

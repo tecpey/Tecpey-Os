@@ -4,6 +4,7 @@ import {
   DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
   evaluateNewsMaterializationRuntimeHealth,
   newsFeedRetryDelayMs,
+  shouldDeferNewsTranslationRetry,
   shouldRetryNewsFeedFailure,
 } from "../../lib/ops/news-materialization-runtime-policy";
 import { buildNewsMaterializationRunEvidence, type NewsMaterializationWorkerResult } from "../../lib/news-materialization-worker";
@@ -226,5 +227,53 @@ describe("news feed retry policy", () => {
     assert.equal(newsFeedRetryDelayMs({ attempt: 2, baseDelayMs: 350 }), 700);
     assert.equal(newsFeedRetryDelayMs({ attempt: 8, baseDelayMs: 2_000 }), 5_000);
     assert.equal(newsFeedRetryDelayMs({ attempt: 1, baseDelayMs: 0 }), DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS);
+  });
+});
+
+
+describe("news translation retry policy", () => {
+  it("retries transient timeouts immediately while preserving cooldown for quality failures", () => {
+    const generatedAt = "2026-09-04T06:33:13.170Z";
+    const nowMs = Date.parse("2026-09-04T06:40:00.000Z");
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_timeout",
+        generatedAt,
+        nowMs,
+        retryMinutes: 60,
+      }),
+      false,
+    );
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_circuit_open",
+        generatedAt,
+        nowMs,
+        retryMinutes: 60,
+      }),
+      false,
+    );
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_numeric_integrity_failed",
+        generatedAt,
+        nowMs,
+        retryMinutes: 60,
+      }),
+      true,
+    );
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_numeric_integrity_failed",
+        generatedAt,
+        nowMs: Date.parse("2026-09-04T07:40:00.000Z"),
+        retryMinutes: 60,
+      }),
+      false,
+    );
   });
 });
