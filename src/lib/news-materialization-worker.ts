@@ -295,8 +295,11 @@ export function buildNewsMaterializationRunEvidence({
     (sum, result) => sum + result.needsReview + result.rejected,
     0,
   );
+  const failureBearingFailures = normalizedFailures.filter(
+    (failure) => !failure.reasonCode.startsWith("news_feed_stale_"),
+  );
   const failureFingerprints = uniqueSorted(
-    normalizedFailures.map(fingerprintNewsMaterializationFailure),
+    failureBearingFailures.map(fingerprintNewsMaterializationFailure),
   );
   const reasonCodes = uniqueSorted(normalizedFailures.map((failure) => failure.reasonCode));
   const resultStatus: OperationalJobRunEvidence["resultStatus"] =

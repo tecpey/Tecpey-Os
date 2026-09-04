@@ -26,6 +26,10 @@ function isFeedDegradationReason(reasonCode: string): boolean {
   return reasonCode.startsWith("news_feed_failed_") || reasonCode.startsWith("news_feed_empty_");
 }
 
+function isInformationalFeedReason(reasonCode: string): boolean {
+  return reasonCode.startsWith("news_feed_stale_");
+}
+
 function hasHealthyLocaleSnapshot(
   results: readonly NewsMaterializationWorkerResult[],
   locale: ContentLocale,
@@ -67,7 +71,11 @@ export function evaluateNewsMaterializationRuntimeHealth(input: {
   );
   const hardFailureReasons = input.failures
     .map((failure) => failure.reasonCode.trim().toLowerCase())
-    .filter((reasonCode) => !isFeedDegradationReason(reasonCode));
+    .filter(
+      (reasonCode) =>
+        !isFeedDegradationReason(reasonCode)
+        && !isInformationalFeedReason(reasonCode),
+    );
 
   if (!input.archiveTransactionCommitted) {
     hardFailureReasons.push("archive_transaction_not_committed");

@@ -6,7 +6,7 @@ import {
   newsFeedRetryDelayMs,
   shouldRetryNewsFeedFailure,
 } from "../../lib/ops/news-materialization-runtime-policy";
-import type { NewsMaterializationWorkerResult } from "../../lib/news-materialization-worker";
+import { buildNewsMaterializationRunEvidence, type NewsMaterializationWorkerResult } from "../../lib/news-materialization-worker";
 import type { OperationalJobRunEvidence } from "../../lib/ops/operational-job-evidence";
 
 function run(status: OperationalJobRunEvidence["resultStatus"]): OperationalJobRunEvidence {
@@ -69,6 +69,52 @@ describe("news materialization runtime health policy", () => {
       hardFailureReasons: [],
       softFailureReasons: [],
     });
+  });
+
+  it("keeps a stale upstream feed informational while preserving quorum semantics", () => {
+    const staleRun = buildNewsMaterializationRunEvidence({
+      runId: "11111111-1111-4111-8111-111111111114",
+      hostName: "test-host",
+      startedAt: "2026-09-01T00:00:00.000Z",
+      completedAt: "2026-09-01T00:00:10.000Z",
+      results: healthyResults,
+      failures: [{ reasonCode: "news_feed_stale_blockworks" }],
+    });
+
+    assert.equal(staleRun.resultStatus, "succeeded");
+    assert.equal(staleRun.failureCount, 0);
+    assert.deepEqual(staleRun.failureFingerprints, []);
+    assert.deepEqual(staleRun.reasonCodes, ["news_feed_stale_blockworks"]);
+
+    const health = evaluateNewsMaterializationRuntimeHealth({
+      run: staleRun,
+      results: healthyResults,
+      failures: [{ reasonCode: "news_feed_stale_blockworks" }],
+      successfulSourceCount: 3,
+      minimumSuccessfulSources: 2,
+      archiveTransactionCommitted: true,
+      databaseEvidencePersisted: true,
+    });
+
+    assert.deepEqual(health, {
+      exitCode: 0,
+      degraded: false,
+      hardFailureReasons: [],
+      softFailureReasons: [],
+    });
+
+    const lostQuorum = evaluateNewsMaterializationRuntimeHealth({
+      run: staleRun,
+      results: healthyResults,
+      failures: [{ reasonCode: "news_feed_stale_blockworks" }],
+      successfulSourceCount: 1,
+      minimumSuccessfulSources: 2,
+      archiveTransactionCommitted: true,
+      databaseEvidencePersisted: true,
+    });
+
+    assert.equal(lostQuorum.exitCode, 2);
+    assert.ok(lostQuorum.hardFailureReasons.includes("news_feed_source_quorum_lost"));
   });
 
   it("treats one upstream feed outage as degraded success when quorum and bilingual snapshots remain healthy", () => {

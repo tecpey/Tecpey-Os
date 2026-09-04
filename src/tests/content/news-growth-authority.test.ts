@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, resolveNewsArchiveObservationTimes, tehranCalendarDay } from "../../lib/news-growth-authority";
-import { resolveReusableOrFreshPersianNewsTranslation, compactNewsBodyAtSentenceBoundary, validatePersianNewsTranslationIntegrity } from "../../lib/news-translation";
+import {
+  findUnsupportedFeedSummaryLatinEntities,
+  maxFeedSummaryTranslationBodyChars,
+  isFeedSummaryTranslationBodyLengthAcceptable,
+  isReusableNewsCoverageCompatible, resolveReusableOrFreshPersianNewsTranslation, compactNewsBodyAtSentenceBoundary, validatePersianNewsTranslationIntegrity, translateNewsFeedToPersian } from "../../lib/news-translation";
 
 describe("daily news archive authority", () => {
   it("uses Tehran calendar boundaries rather than UTC day boundaries", () => {
@@ -122,6 +126,139 @@ describe("daily news archive authority", () => {
 
 });
 
+
+it("normalizes hyphenated entities and plural acronyms without weakening the summary entity gate", () => {
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Hayden Adams Says AMMs Will Win",
+      sourceLead: "The thesis concerns automated market makers.",
+      sourceBody: "The discussion concerns AMMs and tokenized markets.",
+      translatedTitle: "Hayden Adams درباره AMMها صحبت کرد",
+      translatedLead: "بحث درباره AMM است.",
+      translatedBody: "این متن درباره AMM است.",
+    }),
+    [],
+  );
+
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Tokenized ETFs expand",
+      sourceLead: "Distribution of tokenized ETFs is expanding.",
+      sourceBody: "BlackRock discussed tokenized ETFs.",
+      translatedTitle: "ETFهای توکنیزه‌شده گسترش می‌یابند",
+      translatedLead: "توزیع ETF گسترش می‌یابد.",
+      translatedBody: "BlackRock درباره ETF صحبت کرده است.",
+    }),
+    [],
+  );
+
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Cronos Automatic Token Support",
+      sourceLead: "Cronos is an EVM-compatible Layer 1 blockchain.",
+      sourceBody: "Cronos is EVM-compatible.",
+      translatedTitle: "پشتیبانی Cronos",
+      translatedLead: "Cronos با EVM سازگار است.",
+      translatedBody: "Cronos از EVM استفاده می‌کند.",
+    }),
+    [],
+  );
+
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "US perpetuals plan",
+      sourceLead: "The plan would use CFTC-regulated Bitnomial.",
+      sourceBody: "The reported plan requires regulatory sign-off.",
+      translatedTitle: "طرح معاملات دائمی آمریکا",
+      translatedLead: "این طرح از Bitnomial تحت نظارت CFTC استفاده می‌کند.",
+      translatedBody: "CFTC در متن منبع ذکر شده است.",
+    }),
+    [],
+  );
+
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Firelight raises funding",
+      sourceLead: "The Sentora-incubated protocol raised funding.",
+      sourceBody: "Firelight raised funding.",
+      translatedTitle: "Firelight سرمایه جذب کرد",
+      translatedLead: "پروتکل تحت حمایت Sentora سرمایه جذب کرد.",
+      translatedBody: "Sentora در منبع ذکر شده است.",
+    }),
+    [],
+  );
+
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Revolut Gets Conditional OCC Approval",
+      sourceLead: "OCC conditionally approved the application.",
+      sourceBody: "The approval does not clear the bank to launch.",
+      translatedTitle: "Revolut تأیید مشروط OCC را گرفت",
+      translatedLead: "Revolut هنوز به تأیید FDIC نیاز دارد.",
+      translatedBody: "Federal Reserve نیز باید مجوز صادر کند.",
+    }),
+    ["fdic", "federal", "reserve"],
+  );
+});
+
+it("rejects unsupported Latin entities in summary-only translations", () => {
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Revolut Says OCC Conditionally Approved Proposed US National Bank",
+      sourceLead: "Revolut said OCC conditionally approved the application.",
+      sourceBody: "Revolut said OCC conditionally approved the application.",
+      translatedTitle: "Revolut از تأیید مشروط OCC خبر داد",
+      translatedLead: "Revolut اعلام کرد OCC درخواست را مشروط تأیید کرده است.",
+      translatedBody: "Revolut هنوز به تأیید FDIC و Federal Reserve نیاز دارد.",
+    }),
+    ["fdic", "federal", "reserve"],
+  );
+
+  assert.deepEqual(
+    findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: "Coinbase Files SEC Notices",
+      sourceLead: "Coinbase filed notices with the SEC.",
+      sourceBody: "Coinbase filed notices with the SEC.",
+      translatedTitle: "Coinbase اطلاعیه‌های SEC را ثبت کرد",
+      translatedLead: "Coinbase نزد SEC اطلاعیه ثبت کرد.",
+      translatedBody: "Coinbase نزد SEC اطلاعیه ثبت کرده است.",
+    }),
+    [],
+  );
+});
+
+it("fails closed on excessive summary-only expansion without constraining full evidence", () => {
+  const source = "A".repeat(331);
+
+  assert.equal(maxFeedSummaryTranslationBodyChars(source), 451);
+  assert.equal(
+    isFeedSummaryTranslationBodyLengthAcceptable({
+      sourceBody: source,
+      translatedBody: "ب".repeat(430),
+    }),
+    true,
+  );
+  assert.equal(
+    isFeedSummaryTranslationBodyLengthAcceptable({
+      sourceBody: source,
+      translatedBody: "ب".repeat(511),
+    }),
+    false,
+  );
+
+  const largerSource = "A".repeat(2_000);
+  assert.equal(maxFeedSummaryTranslationBodyChars(largerSource), 2_700);
+});
+
+it("invalidates cached translations when source coverage changes", () => {
+  assert.equal(isReusableNewsCoverageCompatible("feed_full", "feed_summary"), false);
+  assert.equal(isReusableNewsCoverageCompatible("feed_summary", "feed_full"), false);
+  assert.equal(isReusableNewsCoverageCompatible("article_full", "feed_summary"), false);
+  assert.equal(isReusableNewsCoverageCompatible(null, "feed_summary"), false);
+  assert.equal(isReusableNewsCoverageCompatible("feed_summary", "feed_summary"), true);
+  assert.equal(isReusableNewsCoverageCompatible("feed_full", "feed_full"), true);
+  assert.equal(isReusableNewsCoverageCompatible("article_full", "article_full"), true);
+});
 
 it("refreshes a cached Persian translation when the current integrity contract rejects reuse", async () => {
   let freshCalls = 0;
@@ -327,4 +464,369 @@ it("matches reporting-period quarter markers across English and Persian forms", 
     translatedLead: "پرونده‌های سه‌ماهه دوم نشان می‌دهد گلدمن در میان بزرگ‌ترین دارندگان است.",
     translatedBody: "پرونده‌های سه‌ماهه دوم نشان می‌دهد گلدمن در میان بزرگ‌ترین دارندگان است.",
   }), { ok: true });
+});
+
+it("repairs one invented numeric fact once and still fails closed if the repair remains invalid", async () => {
+  const previousProvider = process.env.NEWS_TRANSLATION_PROVIDER;
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousModel = process.env.NEWS_TRANSLATION_MODEL;
+
+  process.env.NEWS_TRANSLATION_PROVIDER = "openai";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.NEWS_TRANSLATION_MODEL = "gpt-test";
+
+  try {
+    let calls = 0;
+    const repaired = await translateNewsFeedToPersian({
+      title: "Fund buys $131M of ETH",
+      lead: "Trading volume reached 42 million dollars.",
+      body: "The report says 3 institutions participated.",
+      sourceName: "Test Publisher",
+      sourceUrl: "https://example.com/article",
+      sourceCoverage: "feed_full",
+    }, {
+      fetchImpl: async () => {
+        calls += 1;
+        const text = calls === 1
+          ? JSON.stringify({
+              title: "صندوق ۱۳۱ میلیون دلار اتریوم خرید",
+              lead: "حجم معاملات به ۴۲ میلیون دلار رسید.",
+              body: "این گزارش می‌گوید ۹ نهاد مشارکت داشتند.",
+            })
+          : JSON.stringify({
+              title: "صندوق ۱۳۱ میلیون دلار اتریوم خرید",
+              lead: "حجم معاملات به ۴۲ میلیون دلار رسید.",
+              body: "این گزارش می‌گوید ۳ نهاد مشارکت داشتند.",
+            });
+
+        return new Response(JSON.stringify({
+          model: "gpt-test",
+          output_text: text,
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }), { status: 200 });
+      },
+    });
+
+    assert.equal(calls, 2);
+    assert.equal(repaired.ok, true);
+
+    calls = 0;
+    const stillInvalid = await translateNewsFeedToPersian({
+      title: "Fund buys $131M of ETH",
+      lead: "Trading volume reached 42 million dollars.",
+      body: "The report says 3 institutions participated.",
+      sourceName: "Test Publisher Invalid",
+      sourceUrl: "https://example.com/article-2",
+      sourceCoverage: "feed_full",
+    }, {
+      fetchImpl: async () => {
+        calls += 1;
+        const text = JSON.stringify({
+          title: "صندوق ۱۳۱ میلیون دلار اتریوم خرید",
+          lead: "حجم معاملات به ۴۲ میلیون دلار رسید.",
+          body: calls === 1
+            ? "این گزارش می‌گوید ۹ نهاد مشارکت داشتند."
+            : "این گزارش می‌گوید ۸ نهاد مشارکت داشتند.",
+        });
+
+        return new Response(JSON.stringify({
+          model: "gpt-test",
+          output_text: text,
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }), { status: 200 });
+      },
+    });
+
+    assert.equal(calls, 2);
+    assert.equal(stillInvalid.ok, false);
+    assert.equal(!stillInvalid.ok && stillInvalid.reason, "translation_numeric_integrity_failed");
+    assert.equal(!stillInvalid.ok && stillInvalid.numericFailureKind, "invented_numeric_fact");
+  } finally {
+    if (previousProvider === undefined) delete process.env.NEWS_TRANSLATION_PROVIDER;
+    else process.env.NEWS_TRANSLATION_PROVIDER = previousProvider;
+
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+
+    if (previousModel === undefined) delete process.env.NEWS_TRANSLATION_MODEL;
+    else process.env.NEWS_TRANSLATION_MODEL = previousModel;
+  }
+});
+
+it("treats hyphenated numeric ranges as unsigned facts without weakening true negative-number integrity", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Protocol roadmap update",
+    sourceLead: "The roadmap covers the 2026-2027 period.",
+    sourceBody: "The roadmap covers the 2026-2027 period.",
+    translatedTitle: "به‌روزرسانی نقشه راه پروتکل",
+    translatedLead: "نقشه راه دوره ۲۰۲۶ تا ۲۰۲۷ را پوشش می‌دهد.",
+    translatedBody: "نقشه راه دوره ۲۰۲۶ تا ۲۰۲۷ را پوشش می‌دهد.",
+  }), { ok: true });
+
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Advisor crypto service timeline",
+    sourceLead: "The service is targeted for mid-2027.",
+    sourceBody: "The service is targeted for mid-2027.",
+    translatedTitle: "زمان‌بندی سرویس رمزارزی مشاوران",
+    translatedLead: "راه‌اندازی سرویس برای میانه سال ۲۰۲۷ هدف‌گذاری شده است.",
+    translatedBody: "راه‌اندازی سرویس برای میانه سال ۲۰۲۷ هدف‌گذاری شده است.",
+  }), { ok: true });
+
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Agency freezes Premier League funds",
+    sourceLead: "The agency froze £10,024,041.33 in the account.",
+    sourceBody: "The agency froze £10,024,041.33 in the account.",
+    translatedTitle: "مسدود شدن وجوه لیگ برتر توسط نهاد",
+    translatedLead: "این نهاد ۱۰٬۰۲۴٬۰۴۱٫۳۳ پوند از وجوه حساب را مسدود کرد.",
+    translatedBody: "این نهاد ۱۰٬۰۲۴٬۰۴۱٫۳۳ پوند از وجوه حساب را مسدود کرد.",
+  }), { ok: true });
+
+  const negative = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Metric falls to -5%",
+    sourceLead: "The metric fell to -5%.",
+    sourceBody: "The metric fell to -5%.",
+    translatedTitle: "شاخص به ۵ درصد رسید",
+    translatedLead: "شاخص به ۵ درصد رسید.",
+    translatedBody: "شاخص به ۵ درصد رسید.",
+  });
+
+  assert.equal(negative.ok, false);
+  assert.equal(!negative.ok && negative.reason, "numeric_integrity_failed");
+});
+
+it("allows equivalent numeric magnitudes without weakening percent or currency integrity", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Customer milestone",
+    sourceLead: "The deal brought roughly 300,000 funded customers.",
+    sourceBody: "The deal brought roughly 300,000 funded customers.",
+    translatedTitle: "رشد تعداد مشتریان",
+    translatedLead: "این معامله حدود ۳۰۰ هزار مشتری تأمین‌شده به همراه داشت.",
+    translatedBody: "این معامله حدود ۳۰۰ هزار مشتری تأمین‌شده به همراه داشت.",
+  }), { ok: true });
+
+  const percentOmitted = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Bitcoin monthly performance",
+    sourceLead: "Bitcoin recorded a 37.29% rally.",
+    sourceBody: "Bitcoin recorded a 37.29% rally.",
+    translatedTitle: "عملکرد ماهانه بیت‌کوین",
+    translatedLead: "بیت‌کوین رشد ۳۷٫۲۹ را ثبت کرد.",
+    translatedBody: "بیت‌کوین رشد ۳۷٫۲۹ را ثبت کرد.",
+  });
+  assert.equal(percentOmitted.ok, false);
+  assert.equal(!percentOmitted.ok && percentOmitted.reason, "numeric_integrity_failed");
+
+  const currencyOmitted = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Asset sale",
+    sourceLead: "The assets sold for $4.47 million.",
+    sourceBody: "The assets sold for $4.47 million.",
+    translatedTitle: "فروش دارایی‌ها",
+    translatedLead: "دارایی‌ها به مبلغ ۴٫۴۷ میلیون فروخته شدند.",
+    translatedBody: "دارایی‌ها به مبلغ ۴٫۴۷ میلیون فروخته شدند.",
+  });
+  assert.equal(currencyOmitted.ok, false);
+  assert.equal(!currencyOmitted.ok && currencyOmitted.reason, "numeric_integrity_failed");
+});
+
+it("ignores numeric HTML metadata while preserving visible article numbers", () => {
+  const valid = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Ledger policy update",
+    sourceLead: "Ledger released an application update.",
+    sourceBody:
+      '<a href="/issues/35665" onclick="seek(&apos;37:17&apos;)">Ledger Bitcoin app 2.5.0 adds human-readable policy descriptions</a>',
+    translatedTitle: "به‌روزرسانی سیاست‌های لجر",
+    translatedLead: "لجر یک به‌روزرسانی برای اپلیکیشن خود منتشر کرد.",
+    translatedBody:
+      "اپلیکیشن بیت‌کوین لجر نسخه ۲٫۵٫۰ توضیحات خوانا برای سیاست‌ها اضافه می‌کند.",
+  });
+  assert.equal(valid.ok, true);
+
+  const metadataLeak = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Ledger policy update",
+    sourceLead: "Ledger released an application update.",
+    sourceBody:
+      '<a href="/issues/35665" onclick="seek(&apos;37:17&apos;)">Ledger Bitcoin app 2.5.0 adds human-readable policy descriptions</a>',
+    translatedTitle: "به‌روزرسانی سیاست‌های لجر",
+    translatedLead: "لجر یک به‌روزرسانی برای اپلیکیشن خود منتشر کرد.",
+    translatedBody:
+      "اپلیکیشن بیت‌کوین لجر نسخه ۲٫۵٫۰ را منتشر کرد و عدد ۳۷ نیز گزارش شد.",
+  });
+  assert.equal(metadataLeak.ok, false);
+  assert.equal(!metadataLeak.ok && metadataLeak.reason, "numeric_integrity_failed");
+});
+
+it("canonicalizes plus-marked magnitudes without weakening numeric integrity", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "More than $457+ Billion in crypto activity",
+    sourceLead: "Potentially taxable activity exceeded $457+ billion.",
+    sourceBody: "Potentially taxable activity exceeded $457+ billion.",
+    translatedTitle: "بیش از ۴۵۷ میلیارد دلار فعالیت رمزارزی",
+    translatedLead: "فعالیت بالقوه مشمول مالیات از ۴۵۷ میلیارد دلار فراتر رفت.",
+    translatedBody: "فعالیت بالقوه مشمول مالیات از ۴۵۷ میلیارد دلار فراتر رفت.",
+  }), { ok: true });
+});
+
+it("handles hyphenated magnitudes and euro cents without weakening currency integrity", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Premier League partnership",
+    sourceLead: "The company signed a four-year, $162-million partnership deal.",
+    sourceBody: "The company signed a four-year, $162-million partnership deal.",
+    translatedTitle: "قرارداد همکاری لیگ برتر",
+    translatedLead: "این شرکت یک قرارداد همکاری چهار ساله به ارزش ۱۶۲ میلیون دلار امضا کرد.",
+    translatedBody: "این شرکت یک قرارداد همکاری چهار ساله به ارزش ۱۶۲ میلیون دلار امضا کرد.",
+  }), { ok: true });
+
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Share issuance",
+    sourceLead: "The firm issued shares at 58 euro cents per share.",
+    sourceBody: "The firm issued shares at 58 euro cents per share.",
+    translatedTitle: "انتشار سهام",
+    translatedLead: "این شرکت سهام را با قیمت ۵۸ سنت یورو برای هر سهم منتشر کرد.",
+    translatedBody: "این شرکت سهام را با قیمت ۵۸ سنت یورو برای هر سهم منتشر کرد.",
+  }), { ok: true });
+
+  const poundOmitted = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Funds frozen",
+    sourceLead: "The agency froze £10,024,041.33 in the account.",
+    sourceBody: "The agency froze £10,024,041.33 in the account.",
+    translatedTitle: "مسدود شدن وجوه",
+    translatedLead: "این نهاد مبلغ ۱۰٬۰۲۴٬۰۴۱٫۳۳ را در حساب مسدود کرد.",
+    translatedBody: "این نهاد مبلغ ۱۰٬۰۲۴٬۰۴۱٫۳۳ را در حساب مسدود کرد.",
+  });
+  assert.equal(poundOmitted.ok, false);
+  assert.equal(!poundOmitted.ok && poundOmitted.reason, "numeric_integrity_failed");
+});
+
+it("supports shared percent suffixes in translated ranges without weakening currency integrity", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Holdings growth",
+    sourceLead: "Holdings increased by 25% to 30%.",
+    sourceBody: "Holdings increased by 25% to 30%.",
+    translatedTitle: "رشد دارایی‌ها",
+    translatedLead: "دارایی‌ها ۲۵ تا ۳۰ درصد افزایش یافت.",
+    translatedBody: "دارایی‌ها ۲۵ تا ۳۰ درصد افزایش یافت.",
+  }), { ok: true });
+
+  const currencyOmitted = validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Tokenized loan",
+    sourceLead: "The loan was worth $19,600.",
+    sourceBody: "The loan was worth $19,600.",
+    translatedTitle: "وام توکنیزه",
+    translatedLead: "ارزش وام ۱۹٬۶۰۰ بود.",
+    translatedBody: "ارزش وام ۱۹٬۶۰۰ بود.",
+  });
+  assert.equal(currencyOmitted.ok, false);
+  assert.equal(!currencyOmitted.ok && currencyOmitted.reason, "numeric_integrity_failed");
+});
+
+it("preserves real-world title and lead numeric facts across targeted repair", async () => {
+  const previousProvider = process.env.NEWS_TRANSLATION_PROVIDER;
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousModel = process.env.NEWS_TRANSLATION_MODEL;
+
+  process.env.NEWS_TRANSLATION_PROVIDER = "openai";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.NEWS_TRANSLATION_MODEL = "gpt-test";
+
+  try {
+    const cases = [
+      {
+        title: "Australia is cracking down on crypto businesses as its strict new regulatory deadline nears",
+        lead: "Firms that miss the deadline could breach financial services law from Oct. 1 and face civil or criminal penalties.",
+        body: "Firms that miss the deadline could breach financial services law from Oct. 1 and face civil or criminal penalties.",
+        bad: {
+          title: "استرالیا مقررات کسب‌وکارهای رمزارزی را سخت‌تر می‌کند",
+          lead: "شرکت‌هایی که مهلت را از دست بدهند ممکن است قوانین خدمات مالی را نقض کنند و با مجازات روبه‌رو شوند.",
+          body: "شرکت‌هایی که مهلت را از دست بدهند ممکن است قوانین خدمات مالی را نقض کنند و با مجازات روبه‌رو شوند.",
+        },
+        good: {
+          title: "استرالیا مقررات کسب‌وکارهای رمزارزی را سخت‌تر می‌کند",
+          lead: "شرکت‌هایی که مهلت را از دست بدهند ممکن است از ۱ اکتبر قوانین خدمات مالی را نقض کنند و با مجازات روبه‌رو شوند.",
+          body: "شرکت‌هایی که مهلت را از دست بدهند ممکن است از ۱ اکتبر قوانین خدمات مالی را نقض کنند و با مجازات روبه‌رو شوند.",
+        },
+      },
+      {
+        title: "Bitcoin withstands $90 oil and rising yields while gold slides. A firm dollar is the catch",
+        lead: "BTC trades choppy as $90 oil and rising bond yields weigh on stocks and gold.",
+        body: "BTC trades choppy as $90 oil and rising bond yields weigh on stocks and gold.",
+        bad: {
+          title: "بیت‌کوین در برابر نفت گران و رشد بازدهی مقاومت می‌کند",
+          lead: "بیت‌کوین نوسانی معامله می‌شود و رشد بازدهی اوراق بر سهام و طلا فشار می‌آورد.",
+          body: "بیت‌کوین نوسانی معامله می‌شود و رشد بازدهی اوراق بر سهام و طلا فشار می‌آورد.",
+        },
+        good: {
+          title: "بیت‌کوین در برابر نفت ۹۰ دلاری و رشد بازدهی مقاومت می‌کند",
+          lead: "بیت‌کوین در شرایط نفت ۹۰ دلاری و رشد بازدهی اوراق نوسانی معامله می‌شود.",
+          body: "بیت‌کوین در شرایط نفت ۹۰ دلاری و رشد بازدهی اوراق نوسانی معامله می‌شود.",
+        },
+      },
+      {
+        title: "Capital B aims to add 376 BTC to bitcoin treasury following $8.8 million Adam Back investment",
+        lead: "The firm issued shares and warrants according to a filing.",
+        body: "The firm issued shares and warrants according to a filing.",
+        bad: {
+          title: "Capital B قصد دارد ۳۷۶ بیت‌کوین به خزانه خود اضافه کند",
+          lead: "این شرکت طبق یک پرونده سهام و وارانت منتشر کرده است.",
+          body: "این شرکت طبق یک پرونده سهام و وارانت منتشر کرده است.",
+        },
+        good: {
+          title: "Capital B پس از سرمایه‌گذاری ۸٫۸ میلیون دلاری Adam Back قصد دارد ۳۷۶ بیت‌کوین به خزانه اضافه کند",
+          lead: "این شرکت طبق یک پرونده سهام و وارانت منتشر کرده است.",
+          body: "این شرکت طبق یک پرونده سهام و وارانت منتشر کرده است.",
+        },
+      },
+      {
+        title: "Revolut Starts EURR Rollout With Bridge as Regulated Issuer",
+        lead: "Revolut opens EURR to selected customers; Bridge reported €374 outstanding.",
+        body: "Revolut opens EURR to selected customers; Bridge reported €374 outstanding.",
+        bad: {
+          title: "رولوت عرضه EURR را آغاز می‌کند",
+          lead: "رولوت EURR را برای برخی مشتریان باز کرده و Bridge موجودی در گردش را گزارش کرده است.",
+          body: "رولوت EURR را برای برخی مشتریان باز کرده و Bridge موجودی در گردش را گزارش کرده است.",
+        },
+        good: {
+          title: "رولوت عرضه EURR را آغاز می‌کند",
+          lead: "رولوت EURR را برای برخی مشتریان باز کرده و Bridge رقم ۳۷۴ یورو موجودی را گزارش کرده است.",
+          body: "رولوت EURR را برای برخی مشتریان باز کرده و Bridge رقم ۳۷۴ یورو موجودی را گزارش کرده است.",
+        },
+      },
+    ];
+
+    for (const [index, item] of cases.entries()) {
+      let calls = 0;
+      const result = await translateNewsFeedToPersian({
+        title: item.title,
+        lead: item.lead,
+        body: item.body,
+        sourceName: `Targeted Repair Test ${index + 1}`,
+        sourceUrl: `https://example.com/targeted-repair-${index + 1}`,
+        sourceCoverage: "feed_full",
+      }, {
+        fetchImpl: async () => {
+          calls += 1;
+          const text = JSON.stringify(calls === 1 ? item.bad : item.good);
+          return new Response(JSON.stringify({
+            model: "gpt-test",
+            output_text: text,
+            usage: { input_tokens: 10, output_tokens: 10 },
+          }), { status: 200 });
+        },
+      });
+
+      assert.equal(calls, 2, `targeted repair case ${index + 1} should use exactly two provider calls`);
+      assert.equal(
+        result.ok,
+        true,
+        `targeted repair case ${index + 1} failed: ${JSON.stringify(result)}`,
+      );
+    }
+  } finally {
+    if (previousProvider === undefined) delete process.env.NEWS_TRANSLATION_PROVIDER;
+    else process.env.NEWS_TRANSLATION_PROVIDER = previousProvider;
+
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+
+    if (previousModel === undefined) delete process.env.NEWS_TRANSLATION_MODEL;
+    else process.env.NEWS_TRANSLATION_MODEL = previousModel;
+  }
 });

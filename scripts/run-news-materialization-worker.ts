@@ -5,7 +5,8 @@ import { withTx } from "../src/lib/db";
 import type { ContentLocale } from "../src/lib/content-growth";
 import type { RawNewsInput, NewsAutomationDecision } from "../src/lib/news-automation";
 import { buildNewsAutomationBatch } from "../src/lib/news-automation";
-import { validNewsPublishedAt } from "../src/lib/news-published-at";
+import { MAX_NEWS_ARCHIVE_AGE_MS, validNewsPublishedAt } from "../src/lib/news-published-at";
+import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import {
   buildNewsMaterializationFreshnessReport,
   runNewsMaterializationWorkerTx,
@@ -25,6 +26,7 @@ import {
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
 import { persistOperationalJobRunTx } from "../src/lib/ops/operational-job-evidence";
 import { readBoundedResponseText } from "../src/lib/bounded-http-body";
+import { extractNewsArticleEvidence } from "../src/lib/news-article-evidence";
 import { extractNewsTaxonomy } from "../src/lib/news-taxonomy";
 import {
   canonicalPublisherUrl,
@@ -37,18 +39,20 @@ import {
   reusableNewsArchiveTranslationKey,
 } from "../src/lib/news-growth-authority";
 import {
+  isReusableNewsCoverageCompatible,
   resolveReusableOrFreshPersianNewsTranslation,
   translateNewsFeedToPersian,
   type NewsTranslationResult,
 } from "../src/lib/news-translation";
 import { submitIndexNowUrls } from "../src/lib/indexnow";
 import type { GrowthTrendSignal } from "../src/lib/growth-trend-intelligence";
+import {
+  NEWS_SOURCE_REGISTRY,
+  isApprovedNewsSourceHost,
+  type NewsSourceRegistryEntry,
+} from "../src/lib/news-source-registry";
 
-type ApprovedFeedSource = {
-  name: string;
-  feedUrl: string;
-  fallbackUrl: string;
-};
+type ApprovedFeedSource = NewsSourceRegistryEntry;
 
 type FetchedArticle = {
   source: ApprovedFeedSource;
@@ -58,7 +62,7 @@ type FetchedArticle = {
   articleUrl: string;
   publishedAt: string;
   fetchedAt: string;
-  sourceCoverage: "feed_full" | "feed_summary";
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full";
 };
 
 type PreparedArticle = FetchedArticle & {
@@ -69,13 +73,11 @@ type PreparedArticle = FetchedArticle & {
 
 const NEWS_FEED_TIMEOUT_MS = 7_000;
 const MAX_NEWS_FEED_BYTES = 2_000_000;
+const NEWS_ARTICLE_TIMEOUT_MS = 6_000;
+const MAX_NEWS_ARTICLE_BYTES = 2_500_000;
+const NEWS_ARTICLE_FETCH_CONCURRENCY = 4;
 
-const INTERNATIONAL_FEED_SOURCES: readonly ApprovedFeedSource[] = [
-  { name: "CoinDesk", feedUrl: "https://www.coindesk.com/arc/outboundfeeds/rss/", fallbackUrl: "https://www.coindesk.com" },
-  { name: "Cointelegraph", feedUrl: "https://cointelegraph.com/rss", fallbackUrl: "https://cointelegraph.com" },
-  { name: "Decrypt", feedUrl: "https://decrypt.co/feed", fallbackUrl: "https://decrypt.co" },
-  { name: "The Block", feedUrl: "https://www.theblock.co/rss.xml", fallbackUrl: "https://www.theblock.co" },
-] as const;
+const INTERNATIONAL_FEED_SOURCES: readonly ApprovedFeedSource[] = NEWS_SOURCE_REGISTRY;
 
 function boundedIntegerEnv(name: string, fallback: number, minimum: number, maximum: number): number {
   const raw = process.env[name];
@@ -119,9 +121,8 @@ function pick(xml: string, tag: string): string {
 function safeArticleUrl(rawUrl: string, source: ApprovedFeedSource): string | null {
   try {
     const candidate = canonicalPublisherUrl(rawUrl);
-    const host = new URL(candidate).hostname.replace(/^www\./, "").toLowerCase();
-    const expected = new URL(source.fallbackUrl).hostname.replace(/^www\./, "").toLowerCase();
-    if (host === expected || host.endsWith(`.${expected}`)) return candidate;
+    const host = new URL(candidate).hostname;
+    if (isApprovedNewsSourceHost(host, source)) return candidate;
   } catch {
     return null;
   }
@@ -146,7 +147,7 @@ async function fetchSourceArticlesOnce(
   const entryBlocks = Array.from(xml.matchAll(/<entry[\s\S]*?<\/entry>/gi)).map((match) => match[0]);
   const blocks = (itemBlocks.length ? itemBlocks : entryBlocks).slice(0, limit);
 
-  return blocks.flatMap((block): FetchedArticle[] => {
+  const articles = blocks.flatMap((block): FetchedArticle[] => {
     const title = pick(block, "title");
     if (!title) return [];
     const description = pick(block, "description") || pick(block, "summary");
@@ -170,9 +171,75 @@ async function fetchSourceArticlesOnce(
       articleUrl,
       publishedAt,
       fetchedAt,
-      sourceCoverage: fullContent && fullContent.length > description.length + 120 ? "feed_full" : "feed_summary",
+      sourceCoverage: classifyFeedSourceCoverage({
+        fullContent,
+        description,
+      }),
     }];
   });
+
+  if (articles.length === 0 && blocks.length > 0) {
+    const fetchedTimestamp = Date.parse(fetchedAt);
+    const datedBlocks = blocks
+      .map((block) => pick(block, "pubDate") || pick(block, "published") || pick(block, "updated"))
+      .map((raw) => Date.parse(raw))
+      .filter((timestamp) => Number.isFinite(timestamp));
+
+    if (
+      Number.isFinite(fetchedTimestamp)
+      && datedBlocks.length === blocks.length
+      && datedBlocks.every(
+        (timestamp) => fetchedTimestamp - timestamp > MAX_NEWS_ARCHIVE_AGE_MS,
+      )
+    ) {
+      throw new Error(`news_feed_stale:${source.name}`);
+    }
+  }
+
+  return articles;
+}
+
+async function enrichArticleWithPublisherEvidence(article: FetchedArticle): Promise<FetchedArticle> {
+  if (article.sourceCoverage !== "feed_summary") return article;
+  if (!article.source.allowFullArticleFetch) return article;
+  if (!article.source.allowFullArticleFetch) return article;
+
+  try {
+    const response = await fetch(article.articleUrl, {
+      headers: {
+        "user-agent": "TecPeyNewsBot/2.0 (+https://tecpey.ir/crypto-news)",
+        accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "error",
+      signal: AbortSignal.timeout(NEWS_ARTICLE_TIMEOUT_MS),
+    });
+
+    if (!response.ok) return article;
+
+    const finalUrl = safeArticleUrl(response.url || article.articleUrl, article.source);
+    if (!finalUrl) return article;
+
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    if (contentType && !contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
+      return article;
+    }
+
+    const html = await readBoundedResponseText(response, {
+      maxBytes: MAX_NEWS_ARTICLE_BYTES,
+      errorCode: `news_article_too_large:${article.source.name}`,
+    });
+
+    const evidence = extractNewsArticleEvidence(html);
+    if (!evidence) return article;
+
+    return {
+      ...article,
+      body: evidence.body,
+      sourceCoverage: "article_full",
+    };
+  } catch {
+    return article;
+  }
 }
 
 function feedFailureHttpStatus(error: unknown): number | null {
@@ -377,14 +444,25 @@ async function main(): Promise<void> {
   settled.forEach((result, index) => {
     const sourceSlug = INTERNATIONAL_FEED_SOURCES[index].name.toLowerCase().replace(/\W+/g, "_");
     if (result.status === "rejected") {
-      failures.push({ reasonCode: `news_feed_failed_${sourceSlug}` });
+      const stale = result.reason instanceof Error
+        && result.reason.message === `news_feed_stale:${INTERNATIONAL_FEED_SOURCES[index].name}`;
+      failures.push({
+        reasonCode: stale
+          ? `news_feed_stale_${sourceSlug}`
+          : `news_feed_failed_${sourceSlug}`,
+      });
     } else if (result.value.length === 0) {
       failures.push({ reasonCode: `news_feed_empty_${sourceSlug}` });
     } else {
       successfulSourceCount += 1;
     }
   });
-  const articles = dedupeArticles(settled.flatMap((result) => result.status === "fulfilled" ? result.value : []));
+  const feedArticles = dedupeArticles(settled.flatMap((result) => result.status === "fulfilled" ? result.value : []));
+  const articles = await mapWithConcurrency(
+    feedArticles,
+    NEWS_ARTICLE_FETCH_CONCURRENCY,
+    enrichArticleWithPublisherEvidence,
+  );
   const archiveLookupInputs = articles.map((article) => ({
     articleUrl: article.articleUrl,
     sourceTitle: article.title,
@@ -404,6 +482,7 @@ async function main(): Promise<void> {
     let translationReused = false;
     if (
       reusable?.status === "completed" &&
+      isReusableNewsCoverageCompatible(reusable.sourceCoverage, article.sourceCoverage) &&
       reusable.translatedTitle && reusable.translatedLead && reusable.translatedBody
     ) {
       translation = await resolveReusableOrFreshPersianNewsTranslation({
@@ -430,6 +509,7 @@ async function main(): Promise<void> {
       translationReused = translation.ok && translation.reused === true;
     } else if (
       reusable?.status === "failed" &&
+      reusable.failureReason !== "translation_circuit_open" &&
       Date.now() - Date.parse(reusable.generatedAt) < translationRetryMinutes * 60_000
     ) {
       translation = {
@@ -520,6 +600,8 @@ async function main(): Promise<void> {
               retryDeferredUntil: item.translation.retryDeferredUntil ?? null,
               numericFailureKind: item.translation.numericFailureKind ?? null,
               numericFailureFactKey: item.translation.numericFailureFactKey ?? null,
+              unsupportedLatinEntities:
+                item.translation.unsupportedLatinEntities?.slice(0, 12) ?? null,
             },
           });
         }

@@ -72,6 +72,8 @@ export type ReusableNewsArchiveTranslation = {
   translatedLead: string | null;
   translatedBody: string | null;
   generatedAt: string;
+  failureReason: string | null;
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full" | null;
 };
 
 function compact(value: string, max: number): string {
@@ -275,7 +277,8 @@ export async function readReusableNewsArchiveTranslationsTx(
      SELECT DISTINCT ON (matched.article_url, matched.content_hash)
             matched.article_url, matched.content_hash, translation.status,
             translation.provider_id, translation.model, translation.translated_title,
-            translation.translated_lead, translation.translated_body, translation.generated_at
+            translation.translated_lead, translation.translated_body, translation.generated_at,
+            translation.evidence
        FROM matched
        JOIN platform_news_archive_translations translation
          ON translation.archive_id = matched.archive_id
@@ -302,6 +305,25 @@ export async function readReusableNewsArchiveTranslationsTx(
       translatedLead: row.translated_lead ? String(row.translated_lead) : null,
       translatedBody: row.translated_body ? String(row.translated_body) : null,
       generatedAt: new Date(row.generated_at as string | Date).toISOString(),
+      failureReason:
+        row.evidence &&
+        typeof row.evidence === "object" &&
+        !Array.isArray(row.evidence) &&
+        typeof (row.evidence as Record<string, unknown>).reason === "string"
+          ? String((row.evidence as Record<string, unknown>).reason)
+          : null,
+      sourceCoverage:
+        row.evidence &&
+        typeof row.evidence === "object" &&
+        !Array.isArray(row.evidence) &&
+        (
+          (row.evidence as Record<string, unknown>).sourceCoverage === "feed_full" ||
+          (row.evidence as Record<string, unknown>).sourceCoverage === "feed_summary" ||
+          (row.evidence as Record<string, unknown>).sourceCoverage === "article_full"
+        )
+          ? (row.evidence as Record<string, unknown>).sourceCoverage as
+              "feed_full" | "feed_summary" | "article_full"
+          : null,
     });
   }
   return output;

@@ -1,4 +1,4 @@
-import { callAiProvider, type AiProviderCallResult } from "./ai/provider-router";
+import { callAiProvider, type AiProviderCallResult, type AiProviderRouterDependencies } from "./ai/provider-router";
 
 export type PersianNewsTranslation = {
   title: string;
@@ -6,7 +6,7 @@ export type PersianNewsTranslation = {
   body: string;
   providerId: "openai" | "anthropic" | "openrouter";
   model: string;
-  sourceCoverage: "feed_full" | "feed_summary";
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full";
   quality: {
     persian: true;
     numericIntegrity: true;
@@ -29,9 +29,17 @@ export type NewsTranslationResult =
     retryDeferredUntil?: string;
     numericFailureKind?: NewsTranslationNumericFailureKind;
     numericFailureFactKey?: string;
+    unsupportedLatinEntities?: string[];
   };
 
 export const MAX_PERSIAN_NEWS_BODY_CHARS = 6_000;
+
+export function isReusableNewsCoverageCompatible(
+  previous: "feed_full" | "feed_summary" | "article_full" | null,
+  current: "feed_full" | "feed_summary" | "article_full",
+): boolean {
+  return previous !== null && previous === current;
+}
 
 export async function resolveReusableOrFreshPersianNewsTranslation(input: {
   reused: Parameters<typeof buildReusedPersianNewsTranslation>[0];
@@ -51,7 +59,7 @@ export function buildReusedPersianNewsTranslation(input: {
   sourceBody: string;
   providerId: string | null;
   model: string | null;
-  sourceCoverage: "feed_full" | "feed_summary";
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full";
 }): NewsTranslationResult {
   const providerId = input.providerId;
   if (providerId !== "openai" && providerId !== "anthropic" && providerId !== "openrouter") {
@@ -78,6 +86,42 @@ export function buildReusedPersianNewsTranslation(input: {
       numericFailureFactKey: integrity.numericFailureFactKey,
     };
   }
+
+  if (input.sourceCoverage === "feed_summary") {
+    const unsupportedLatinEntities = findUnsupportedFeedSummaryLatinEntities({
+      sourceTitle: input.sourceTitle,
+      sourceLead: input.sourceLead,
+      sourceBody: input.sourceBody,
+      translatedTitle: title,
+      translatedLead: lead,
+      translatedBody: body,
+    });
+    if (unsupportedLatinEntities.length > 0) {
+      return {
+        ok: false,
+        reason: "translation_reuse_summary_unsupported_entity",
+        providerId,
+        model: input.model ?? undefined,
+        unsupportedLatinEntities,
+      };
+    }
+  }
+
+  if (
+    input.sourceCoverage === "feed_summary"
+    && !isFeedSummaryTranslationBodyLengthAcceptable({
+      sourceBody: input.sourceBody,
+      translatedBody: body,
+    })
+  ) {
+    return {
+      ok: false,
+      reason: "translation_reuse_summary_expansion_exceeded",
+      providerId,
+      model: input.model ?? undefined,
+    };
+  }
+
   return {
     ok: true,
     reused: true,
@@ -91,6 +135,69 @@ export function buildReusedPersianNewsTranslation(input: {
       quality: { persian: true, numericIntegrity: true, noAddedAdvice: true },
     },
   };
+}
+
+const SUMMARY_LATIN_ENTITY_STOPWORDS = new Set([
+  "a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "is", "it",
+  "of", "on", "or", "the", "to", "us", "with",
+]);
+
+function normalizeLatinEntityToken(token: string): string {
+  const trimmed = token.trim();
+  if (/^[A-Z][A-Z0-9]{1,}s$/.test(trimmed)) {
+    return trimmed.slice(0, -1).toLowerCase();
+  }
+  return trimmed.toLowerCase();
+}
+
+function latinEntityTokens(value: string): Set<string> {
+  const tokens = value.match(/\b[A-Za-z][A-Za-z0-9.+&]{1,}\b/g) ?? [];
+  return new Set(
+    tokens
+      .map(normalizeLatinEntityToken)
+      .filter((token) => !SUMMARY_LATIN_ENTITY_STOPWORDS.has(token)),
+  );
+}
+
+export function findUnsupportedFeedSummaryLatinEntities(input: {
+  sourceTitle: string;
+  sourceLead: string;
+  sourceBody: string;
+  translatedTitle: string;
+  translatedLead: string;
+  translatedBody: string;
+}): string[] {
+  const source = latinEntityTokens([
+    input.sourceTitle,
+    input.sourceLead,
+    input.sourceBody,
+  ].join(" "));
+
+  const translated = latinEntityTokens([
+    input.translatedTitle,
+    input.translatedLead,
+    input.translatedBody,
+  ].join(" "));
+
+  return [...translated]
+    .filter((token) => !source.has(token))
+    .sort();
+}
+
+export function maxFeedSummaryTranslationBodyChars(sourceBody: string): number {
+  const sourceLength = compact(sourceBody, 16_000).length;
+  return Math.max(
+    sourceLength + 120,
+    Math.ceil(sourceLength * 1.35),
+  );
+}
+
+export function isFeedSummaryTranslationBodyLengthAcceptable(input: {
+  sourceBody: string;
+  translatedBody: string;
+}): boolean {
+  return compact(input.translatedBody, MAX_PERSIAN_NEWS_BODY_CHARS).length
+    <= maxFeedSummaryTranslationBodyChars(input.sourceBody);
 }
 
 function compact(value: string, max: number): string {
@@ -161,14 +268,29 @@ function canonicalDecimal(value: string): string {
   return String(number);
 }
 
+function visibleTextForNumericFacts(value: string): string {
+  return value
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<!--[^]*?-->/g, " ")
+    .replace(/<[^>]*>/g, " ");
+}
+
 function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
-  const normalized = normalizeDigits(decodeHtmlEntitiesForNumericFacts(value))
+  const normalized = normalizeDigits(
+    decodeHtmlEntitiesForNumericFacts(visibleTextForNumericFacts(value)),
+  )
     .replace(/٫/g, ".")
     .replace(/٬/g, ",")
     .replace(/٪/g, "%")
     .toLowerCase();
 
-  const matches = Array.from(normalized.matchAll(/([+-])?\s*([$€£])?\s*(\d+(?:[.,]\d+)?)(\s*%)?/g));
+  const matches = Array.from(
+    normalized.matchAll(
+      /([+-])?\s*([$€£])?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s*%)?/g,
+    ),
+  );
   const facts: CanonicalNumericFact[] = [];
 
   for (const match of matches.slice(0, 80)) {
@@ -177,20 +299,24 @@ function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
     const before = normalized.slice(Math.max(0, index - 24), index);
     const after = normalized.slice(end, Math.min(normalized.length, end + 40));
 
+    const sharedRangePercent =
+      /^\s*(?:تا|to\b|[-–—])\s*[+-]?\s*\d+(?:\.\d+)?\s*(?:%|(?:percent|percentage)\b|درصد(?=\s|$|[،؛,.!?؟]))/i.test(after);
+
     const percent =
       Boolean(match[4])
-      || /^\s*(?:(?:percent|percentage)\b|درصد(?=\s|$|[،؛,.!?؟]))/i.test(after);
+      || /^\s*(?:(?:percent|percentage)\b|درصد(?=\s|$|[،؛,.!?؟]))/i.test(after)
+      || sharedRangePercent;
 
     let magnitude: CanonicalNumericFact["magnitude"] = null;
     let magnitudeMatch: RegExpMatchArray | null = null;
 
-    if ((magnitudeMatch = after.match(/^\s*(?:(?:k|thousand)\b|هزار(?=\s|$|[،؛,.!?؟]))/i))) {
+    if ((magnitudeMatch = after.match(/^\s*[-+]?\s*(?:(?:k|thousand)\b|هزار(?=\s|$|[،؛,.!?؟]))/i))) {
       magnitude = "thousand";
-    } else if ((magnitudeMatch = after.match(/^\s*(?:(?:m|mn|million)\b|میلیون(?=\s|$|[،؛,.!?؟]))/i))) {
+    } else if ((magnitudeMatch = after.match(/^\s*[-+]?\s*(?:(?:m|mn|million)\b|میلیون(?=\s|$|[،؛,.!?؟]))/i))) {
       magnitude = "million";
-    } else if ((magnitudeMatch = after.match(/^\s*(?:(?:b|bn|billion)\b|میلیارد(?=\s|$|[،؛,.!?؟]))/i))) {
+    } else if ((magnitudeMatch = after.match(/^\s*[-+]?\s*(?:(?:b|bn|billion)\b|میلیارد(?=\s|$|[،؛,.!?؟]))/i))) {
       magnitude = "billion";
-    } else if ((magnitudeMatch = after.match(/^\s*(?:(?:t|tn|trillion)\b|تریلیون(?=\s|$|[،؛,.!?؟]))/i))) {
+    } else if ((magnitudeMatch = after.match(/^\s*[-+]?\s*(?:(?:t|tn|trillion)\b|تریلیون(?=\s|$|[،؛,.!?؟]))/i))) {
       magnitude = "trillion";
     }
 
@@ -212,20 +338,34 @@ function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
       || /پوند\s*$/.test(before);
 
     const usdSuffix =
-      /^\s*(?:\$|usd\b|dollars?\b|دلار(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
+      /^\s*(?:\$|usd\b|dollars?\b|دلار(?:ی)?(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
     const eurSuffix =
-      /^\s*(?:€|eur\b|euros?\b|یورو(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
+      /^\s*(?:€|eur\b|euros?\b|euro\s+cents?\b|یورو(?:یی)?(?=\s|$|[،؛,.!?؟])|سنت(?:\s|\u200c)+یورو(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
     const gbpSuffix =
-      /^\s*(?:£|gbp\b|pounds?\b|پوند(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
+      /^\s*(?:£|gbp\b|pounds?\b|پوند(?:ی)?(?=\s|$|[،؛,.!?؟]))/i.test(afterNumericPhrase);
 
     let currency: CanonicalNumericFact["currency"] = null;
     if (usdPrefix || usdSuffix) currency = "USD";
     else if (eurPrefix || eurSuffix) currency = "EUR";
     else if (gbpPrefix || gbpSuffix) currency = "GBP";
 
+    const precedingNonWhitespace = normalized.slice(0, index).match(/\S(?=\s*$)/)?.[0] ?? "";
+    const immediatelyBefore = index > 0 ? normalized[index - 1] : "";
+    const hyphenIsNonSignSeparator =
+      match[1] === "-"
+      && (
+        /[a-z0-9]/i.test(immediatelyBefore)
+        || /\d/.test(precedingNonWhitespace)
+      );
+
     facts.push({
       value: canonicalDecimal(match[3]),
-      sign: match[1] === "-" ? "negative" : match[1] === "+" ? "positive" : "unsigned",
+      sign:
+        match[1] === "-" && !hyphenIsNonSignSeparator
+          ? "negative"
+          : match[1] === "+"
+            ? "positive"
+            : "unsigned",
       percent,
       magnitude,
       currency,
@@ -266,6 +406,44 @@ function numericFactKey(fact: CanonicalNumericFact): string {
     fact.magnitude ?? "-",
     fact.currency ?? "-",
   ].join("|");
+}
+
+function numericFactAbsoluteValue(fact: CanonicalNumericFact): number | null {
+  const value = Number(fact.value);
+  if (!Number.isFinite(value)) return null;
+  const multiplier =
+    fact.magnitude === "thousand"
+      ? 1_000
+      : fact.magnitude === "million"
+        ? 1_000_000
+        : fact.magnitude === "billion"
+          ? 1_000_000_000
+          : fact.magnitude === "trillion"
+            ? 1_000_000_000_000
+            : 1;
+  return value * multiplier;
+}
+
+function numericFactsEquivalent(left: CanonicalNumericFact, right: CanonicalNumericFact): boolean {
+  if (
+    left.sign !== right.sign
+    || left.percent !== right.percent
+    || left.currency !== right.currency
+  ) {
+    return false;
+  }
+
+  if (numericFactKey(left) === numericFactKey(right)) return true;
+
+  const leftAbsolute = numericFactAbsoluteValue(left);
+  const rightAbsolute = numericFactAbsoluteValue(right);
+  return (
+    leftAbsolute !== null
+    && rightAbsolute !== null
+    && Number.isSafeInteger(leftAbsolute)
+    && Number.isSafeInteger(rightAbsolute)
+    && leftAbsolute === rightAbsolute
+  );
 }
 
 function hasPersian(value: string): boolean {
@@ -310,22 +488,22 @@ export function validatePersianNewsTranslationIntegrity(input: {
   }
   const sourceTitleFacts = canonicalNumericFacts(input.sourceTitle);
   const sourceLeadFacts = canonicalNumericFacts(input.sourceLead);
-  const allowedSourceFacts = new Set(
-    [
-      ...canonicalNumericFacts(input.sourceTitle),
-      ...canonicalNumericFacts(input.sourceLead),
-      ...canonicalNumericFacts(input.sourceBody),
-    ].map(numericFactKey),
-  );
-  const translatedTitleFacts = new Set(canonicalNumericFacts(translatedTitle).map(numericFactKey));
-  const translatedLeadFacts = new Set(canonicalNumericFacts(translatedLead).map(numericFactKey));
+  const translatedTitleFacts = canonicalNumericFacts(translatedTitle);
+  const translatedLeadFacts = canonicalNumericFacts(translatedLead);
+  const allowedSourceFactList = [
+    ...canonicalNumericFacts(input.sourceTitle),
+    ...canonicalNumericFacts(input.sourceLead),
+    ...canonicalNumericFacts(input.sourceBody),
+  ];
   const translatedFacts = [
     ...canonicalNumericFacts(translatedTitle),
     ...canonicalNumericFacts(translatedLead),
     ...canonicalNumericFacts(translatedBody),
   ];
 
-  const missingTitleFact = sourceTitleFacts.find((fact) => !translatedTitleFacts.has(numericFactKey(fact)));
+  const missingTitleFact = sourceTitleFacts.find(
+    (fact) => !translatedTitleFacts.some((translatedFact) => numericFactsEquivalent(fact, translatedFact)),
+  );
   if (missingTitleFact) {
     return {
       ok: false,
@@ -335,7 +513,9 @@ export function validatePersianNewsTranslationIntegrity(input: {
     };
   }
 
-  const missingLeadFact = sourceLeadFacts.find((fact) => !translatedLeadFacts.has(numericFactKey(fact)));
+  const missingLeadFact = sourceLeadFacts.find(
+    (fact) => !translatedLeadFacts.some((translatedFact) => numericFactsEquivalent(fact, translatedFact)),
+  );
   if (missingLeadFact) {
     return {
       ok: false,
@@ -345,7 +525,9 @@ export function validatePersianNewsTranslationIntegrity(input: {
     };
   }
 
-  const inventedNumericFact = translatedFacts.find((fact) => !allowedSourceFacts.has(numericFactKey(fact)));
+  const inventedNumericFact = translatedFacts.find(
+    (fact) => !allowedSourceFactList.some((sourceFact) => numericFactsEquivalent(fact, sourceFact)),
+  );
   if (inventedNumericFact) {
     return {
       ok: false,
@@ -395,27 +577,38 @@ export async function translateNewsFeedToPersian(input: {
   body: string;
   sourceName: string;
   sourceUrl: string;
-  sourceCoverage: "feed_full" | "feed_summary";
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full";
   requestSignal?: AbortSignal;
-}): Promise<NewsTranslationResult> {
+}, dependencies: AiProviderRouterDependencies = {}): Promise<NewsTranslationResult> {
   const config = routeConfig();
   if (!config) return { ok: false, reason: "translation_provider_unavailable" };
   const title = compact(input.title, 500);
   const lead = compact(input.lead, 4_000);
   const body = compact(input.body, 16_000);
 
+  const hasFullEvidence = input.sourceCoverage === "feed_full" || input.sourceCoverage === "article_full";
+  const sourceBodyLength = body.length;
+
   const baseInstructions = [
-    "You are TecPey's governed Persian news translator.",
-    "Translate only the publisher-provided feed text. Do not browse, add facts, predict prices, give financial advice, or rewrite it as TecPey reporting.",
+    "You are TecPey's governed Persian news editor and translator.",
+    "Use only the publisher-provided evidence supplied in this request. Do not browse, add unsupported facts, predict prices, or give financial advice.",
+    hasFullEvidence
+      ? "For full publisher evidence, produce a complete, fluent Persian editorial rendering rather than a compressed summary. Preserve the factual scope and sequence of the source while using natural professional Persian prose."
+      : "For summary-only publisher evidence, translate faithfully without artificially expanding the text or inventing context.",
     "Preserve proper nouns, tickers, dates, quantities, percentages, monetary amounts, time windows, reporting periods and uncertainty exactly in meaning.",
     "Field-level numeric contract: every number, percentage, amount, currency, magnitude, ticker quantity and reporting-period marker present in the source title must remain in the Persian title; every one present in the source lead must remain in the Persian lead.",
     "Do not move numbers between title, lead and body. Do not summarize away numeric facts even when the prose sounds repetitive.",
     "Return strict JSON only with keys title, lead, body. All three values must be Persian prose; keep unavoidable proper nouns/tickers in Latin script.",
-    "The body must be a faithful, information-dense Persian rendering of the publisher-provided body text. Condense repetition and boilerplate, but do not add facts or change meaning.",
-    "Keep the body materially distinct from the lead only when the supplied publisher body contains additional information beyond the lead.",
-    "When the supplied publisher body repeats the lead, the Persian body may repeat or closely match the Persian lead; never expand it just to make it distinct.",
-    "The Persian body must translate only the supplied publisher body, not combine title-only facts, lead-only facts, causal interpretation or market impact analysis.",
-    `Keep the body concise and at most ${MAX_PERSIAN_NEWS_BODY_CHARS} characters; prefer complete sentences and preserve the most material factual information, dates, quantities and uncertainty.`,
+    "The body must remain fully grounded in the supplied publisher body. Remove navigation, subscription prompts, unrelated boilerplate and obvious repetition, but do not add facts or change meaning.",
+    hasFullEvidence
+      ? "When full publisher evidence is available, preserve materially all substantive facts, quotations in paraphrased form, dates, quantities, entities, causal statements, uncertainty and chronology. Do not collapse the article into the lead."
+      : "Keep the body materially distinct from the lead only when the supplied publisher body contains additional information beyond the lead.",
+    hasFullEvidence
+      ? `Target a Persian body length broadly comparable to the useful source evidence, normally about 65% to 115% of the source body character count, while never exceeding ${MAX_PERSIAN_NEWS_BODY_CHARS} characters. Do not pad the article merely to hit a length target.`
+      : "When the supplied publisher body repeats the lead, the Persian body may repeat or closely match the Persian lead; never expand it just to make it distinct.",
+    "Use clear, polished Persian newsroom prose with natural crypto/finance terminology and preserve relevant keywords organically. Do not keyword-stuff.",
+    "The Persian body must remain evidence-bound; do not introduce TecPey opinions, causal interpretation not present in the source, or market-impact analysis into the translated news body.",
+    `Absolute body limit: ${MAX_PERSIAN_NEWS_BODY_CHARS} characters. Prefer complete sentences and preserve the most material factual information, dates, quantities and uncertainty.`,
   ];
 
   const runTranslation = async (extraInstructions: string[] = []): Promise<NewsTranslationResult> => {
@@ -433,6 +626,7 @@ export async function translateNewsFeedToPersian(input: {
         source: input.sourceName,
         sourceUrl: input.sourceUrl,
         sourceCoverage: input.sourceCoverage,
+        sourceBodyCharacterCount: sourceBodyLength,
         title,
         lead,
         body,
@@ -440,11 +634,11 @@ export async function translateNewsFeedToPersian(input: {
       timeoutMs: 20_000,
       maxOutputTokens: 3_200,
       dataClass: "public",
-      circuitScope: "news-translation:public",
+      circuitScope: `news-translation:public:${input.sourceName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "unknown"}`,
       toolsEnabled: false,
       requireZeroDataRetention: true,
       requestSignal: input.requestSignal,
-    });
+    }, dependencies);
 
     if (!routed.ok) {
       return {
@@ -481,6 +675,41 @@ export async function translateNewsFeedToPersian(input: {
       };
     }
 
+    if (input.sourceCoverage === "feed_summary") {
+      const unsupportedLatinEntities = findUnsupportedFeedSummaryLatinEntities({
+        sourceTitle: title,
+        sourceLead: lead,
+        sourceBody: body,
+        translatedTitle,
+        translatedLead,
+        translatedBody,
+      });
+      if (unsupportedLatinEntities.length > 0) {
+        return {
+          ok: false,
+          reason: "translation_summary_unsupported_entity",
+          providerId: routed.providerId,
+          model: routed.model,
+          unsupportedLatinEntities,
+        };
+      }
+    }
+
+    if (
+      input.sourceCoverage === "feed_summary"
+      && !isFeedSummaryTranslationBodyLengthAcceptable({
+        sourceBody: body,
+        translatedBody: translatedBody,
+      })
+    ) {
+      return {
+        ok: false,
+        reason: "translation_summary_expansion_exceeded",
+        providerId: routed.providerId,
+        model: routed.model,
+      };
+    }
+
     return {
       ok: true,
       translation: {
@@ -497,17 +726,54 @@ export async function translateNewsFeedToPersian(input: {
   };
 
   const first = await runTranslation();
+
+  if (!first.ok && first.reason === "translation_summary_unsupported_entity") {
+    return runTranslation([
+      "Repair pass: the previous Persian translation introduced Latin-script names, abbreviations, tickers, products, institutions or entities that are absent from the supplied publisher evidence.",
+      "Regenerate the JSON using only entities explicitly present in the supplied title, lead and body.",
+      "Do not add background institutions, regulators, products, protocols, people, organizations, tickers or acronyms from prior knowledge.",
+      "If an entity is not explicitly present in the supplied evidence, omit it.",
+      "Do not browse, infer continuation, or reconstruct the rest of a truncated article.",
+    ]);
+  }
+
+  if (!first.ok && first.reason === "translation_summary_expansion_exceeded") {
+    return runTranslation([
+      "Repair pass: the previous Persian body expanded beyond the supplied summary evidence.",
+      "Regenerate the JSON using only facts explicitly present in the supplied title, lead and body.",
+      "For summary-only evidence, do not add background knowledge, regulatory next steps, inferred context, explanations, future plans, institutions, dates, products, or consequences that are absent from the supplied evidence.",
+      `Keep the Persian body at or below ${maxFeedSummaryTranslationBodyChars(body)} characters while preserving every material fact actually present in the supplied publisher body.`,
+      "Do not pad the text. Do not browse. Do not infer missing continuation from a truncated publisher snippet.",
+    ]);
+  }
+
   if (
     !first.ok
     && first.reason === "translation_numeric_integrity_failed"
-    && (first.numericFailureKind === "missing_title_fact" || first.numericFailureKind === "missing_lead_fact")
+    && first.numericFailureKind
   ) {
-    const failedField = first.numericFailureKind === "missing_title_fact" ? "title" : "lead";
-    return runTranslation([
-      `Repair pass: the previous translation failed because numeric fact ${first.numericFailureFactKey ?? "unknown"} was missing from the Persian ${failedField}.`,
-      `Regenerate all JSON fields from the original source, and make sure every numeric fact in the source ${failedField} remains in the Persian ${failedField}.`,
-      "Do not add commentary, do not change meaning, and do not move the missing numeric fact to another field.",
-    ]);
+    const repairInstructions =
+      first.numericFailureKind === "invented_numeric_fact"
+        ? [
+            `Repair pass: the previous translation introduced numeric fact ${first.numericFailureFactKey ?? "unknown"} that does not exactly match any canonical numeric fact in the supplied publisher evidence.`,
+            "Regenerate all JSON fields from the original source. For every numeric expression, preserve its complete source meaning: numeric value, sign, percent marker, currency, and magnitude such as thousand/million/billion/trillion.",
+            "Before deleting the flagged number, check whether the same value exists in the source with a missing qualifier. For example, $736,000 must remain ۷۳۶ هزار دلار, 19% must remain ۱۹ درصد, and $1.3 million must remain ۱٫۳ میلیون دلار.",
+            "If the flagged value truly does not exist anywhere in the supplied source evidence, remove it. Never repair it by guessing a different number or qualifier.",
+            "Do not add commentary, predictions, advice, or change the publisher's meaning.",
+          ]
+        : (() => {
+            const failedField = first.numericFailureKind === "missing_title_fact" ? "title" : "lead";
+            const sourceField = failedField === "title" ? title : lead;
+            return [
+              `Repair pass: the previous translation failed because numeric fact ${first.numericFailureFactKey ?? "unknown"} was missing from the Persian ${failedField}.`,
+              `The authoritative source ${failedField} is exactly: ${JSON.stringify(sourceField)}.`,
+              `Regenerate the JSON from the original evidence, with special attention to the Persian ${failedField}. Every numeric fact in that source ${failedField} must remain in the Persian ${failedField}, including dates, day numbers, percentages, currencies and magnitudes.`,
+              `The required fact ${first.numericFailureFactKey ?? "unknown"} must be explicitly represented in the Persian ${failedField}; do not paraphrase it away or move it to another field.`,
+              "Do not add commentary, do not invent replacement numbers, and do not change meaning.",
+            ];
+          })();
+
+    return runTranslation(repairInstructions);
   }
 
   return first;
