@@ -632,7 +632,7 @@ it("ignores numeric HTML metadata while preserving visible article numbers", () 
     sourceTitle: "Ledger policy update",
     sourceLead: "Ledger released an application update.",
     sourceBody:
-      '<a href="/issues/35665" onclick="seek(&apos;37:17&apos;)">Ledger Bitcoin app 2.5.0 adds human-readable policy descriptions</a>',
+      '<a href="https://example.test/issues/35665" onclick="seek(&apos;37:17&apos;)">Ledger Bitcoin app 2.5.0 adds human-readable policy descriptions</a>',
     translatedTitle: "به‌روزرسانی سیاست‌های لجر",
     translatedLead: "لجر یک به‌روزرسانی برای اپلیکیشن خود منتشر کرد.",
     translatedBody:
@@ -644,7 +644,7 @@ it("ignores numeric HTML metadata while preserving visible article numbers", () 
     sourceTitle: "Ledger policy update",
     sourceLead: "Ledger released an application update.",
     sourceBody:
-      '<a href="/issues/35665" onclick="seek(&apos;37:17&apos;)">Ledger Bitcoin app 2.5.0 adds human-readable policy descriptions</a>',
+      '<a href="https://example.test/issues/35665" onclick="seek(&apos;37:17&apos;)">Ledger Bitcoin app 2.5.0 adds human-readable policy descriptions</a>',
     translatedTitle: "به‌روزرسانی سیاست‌های لجر",
     translatedLead: "لجر یک به‌روزرسانی برای اپلیکیشن خود منتشر کرد.",
     translatedBody:
