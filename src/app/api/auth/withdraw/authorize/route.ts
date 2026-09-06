@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
 import { withTx } from "@/lib/db";
 import { apiError, apiOk } from "@/lib/api-validation";
-import { getCanonicalSession } from "@/lib/auth-session";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
-import { PLATFORM } from "@/lib/platform-config";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   claimApiCommandTx,
@@ -54,13 +53,14 @@ export async function POST(req: NextRequest) {
     async () => {
       if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-      const session = await getCanonicalSession(req, { strictRevocation: true });
-      const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-      if (!userId) return apiError("authentication_required", 401);
+      const session = await getExchangeSession(req);
+      if (!session) return apiError("exchange_authentication_required", 401);
+      const userId = session.productAccountId;
+      const tenantId = session.tenantId;
 
       const limited = await rateLimit(req, {
         namespace: "withdraw-authorize",
-        identity: userId,
+        identity: `${tenantId}:${userId}`,
         limit: 5,
         windowMs: 5 * 60_000,
       });
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       if (!canonical.ok) return apiError(canonical.reason, 400);
 
       const receiptScope: ApiCommandScope = {
-        tenantId: PLATFORM.DEFAULT_TENANT_ID,
+        tenantId,
         principalType: "user",
         principalId: userId,
         operation: "withdrawal.authorize",
@@ -108,9 +108,7 @@ export async function POST(req: NextRequest) {
           totpCodeHash: hashApiCommand(code),
         }),
       };
-      const requestFingerprint = fingerprintWithdrawalRequest(
-        canonical.requestHash,
-      );
+      const requestFingerprint = fingerprintWithdrawalRequest(canonical.requestHash);
       const destinationFingerprint = fingerprintWithdrawalDestination({
         network: canonical.command.network,
         destinationAddress: canonical.command.destinationAddress,
@@ -127,10 +125,21 @@ export async function POST(req: NextRequest) {
 
       try {
         const issued = await withTx<AuthorizationTransactionResult>(async (db) => {
-          const claim = await claimApiCommandTx<AuthorizationReceipt>(
-            db,
-            receiptScope,
+          const principal = await db.query<{ account_id: string | null }>(
+            `SELECT account_id
+               FROM platform_principals
+              WHERE tenant_id = $1
+                AND id = $2::uuid
+                AND status = 'active'
+              FOR SHARE`,
+            [tenantId, session.principalId],
           );
+          const factorUserId = principal.rows[0]?.account_id ?? null;
+          if (!factorUserId) {
+            throw new AuthorizationDependencyError("identity_factor_unavailable");
+          }
+
+          const claim = await claimApiCommandTx<AuthorizationReceipt>(db, receiptScope);
           if (claim.status === "conflict") {
             return {
               receipt: {
@@ -143,9 +152,7 @@ export async function POST(req: NextRequest) {
           if (claim.status === "in_progress") {
             throw new AuthorizationDependencyError("idempotency_in_progress");
           }
-          if (claim.status === "replayed") {
-            return { receipt: claim.response, replayed: true };
-          }
+          if (claim.status === "replayed") return { receipt: claim.response, replayed: true };
 
           const factor = await db.query<{ encrypted_secret: string }>(
             `SELECT encrypted_secret
@@ -153,7 +160,7 @@ export async function POST(req: NextRequest) {
               WHERE user_id = $1
                 AND enabled = TRUE
               FOR UPDATE`,
-            [userId],
+            [factorUserId],
           );
           const row = factor.rows[0];
           if (!row) {
@@ -162,7 +169,7 @@ export async function POST(req: NextRequest) {
               withdrawalRequestHash: canonical.requestHash,
             };
             await writeWithdrawalEvidenceTx(db, {
-              tenantId: PLATFORM.DEFAULT_TENANT_ID,
+              tenantId,
               actorType: "user",
               actorId: userId,
               action: "withdrawal.authorization.reject",
@@ -196,7 +203,7 @@ export async function POST(req: NextRequest) {
               withdrawalRequestHash: canonical.requestHash,
             };
             await writeWithdrawalEvidenceTx(db, {
-              tenantId: PLATFORM.DEFAULT_TENANT_ID,
+              tenantId,
               actorType: "user",
               actorId: userId,
               action: "withdrawal.authorization.reject",
@@ -233,7 +240,7 @@ export async function POST(req: NextRequest) {
               WHERE user_id = $1
                 AND enabled = TRUE
               RETURNING user_id`,
-            [userId],
+            [factorUserId],
           );
           if ((touched.rowCount ?? 0) !== 1) {
             throw new Error("withdrawal_2fa_disabled_during_authorization");
@@ -246,7 +253,7 @@ export async function POST(req: NextRequest) {
             withdrawalRequestHash: canonical.requestHash,
           };
           await writeWithdrawalEvidenceTx(db, {
-            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            tenantId,
             actorType: "user",
             actorId: userId,
             action: "withdrawal.authorization.issue",
@@ -258,8 +265,8 @@ export async function POST(req: NextRequest) {
             metadata: {
               ...evidenceMetadata,
               factorPresent: true,
-              authorizationLifetimeSeconds:
-                WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
+              identityFactorSubject: "canonical_principal_account",
+              authorizationLifetimeSeconds: WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
             },
           });
           await completeApiCommandTx(db, receiptScope, {
@@ -270,18 +277,12 @@ export async function POST(req: NextRequest) {
         });
         if (!issued.enabled) return apiError("db_unavailable", 503);
 
-        if (
-          issued.value.receipt.withdrawalRequestHash === "idempotency_conflict"
-        ) {
+        if (issued.value.receipt.withdrawalRequestHash === "idempotency_conflict") {
           return apiError("idempotency_key_conflict", 409);
         }
-        if (issued.value.receipt.outcome === "2fa_required") {
-          return apiError("2fa_required", 403);
-        }
+        if (issued.value.receipt.outcome === "2fa_required") return apiError("2fa_required", 403);
         if (issued.value.receipt.outcome === "invalid_totp") {
-          return apiError("invalid_totp_code", 401, {
-            replayed: issued.value.replayed,
-          });
+          return apiError("invalid_totp_code", 401, { replayed: issued.value.replayed });
         }
         return apiOk({
           authorizationId: issued.value.receipt.authorizationId,
@@ -291,17 +292,17 @@ export async function POST(req: NextRequest) {
         });
       } catch (error) {
         if (error instanceof AuthorizationDependencyError) {
-          const code = error.reason === "idempotency_in_progress" ? 409 :
-            error.reason === "2fa_secret_corrupt" ? 500 : 503;
-          return apiError(error.reason, code);
+          const status = error.reason === "idempotency_in_progress" ? 409
+            : error.reason === "2fa_secret_corrupt" ? 500
+            : error.reason === "identity_factor_unavailable" ? 403
+            : 503;
+          return apiError(error.reason, status);
         }
         const codeValue =
           typeof error === "object" && error !== null && "code" in error
             ? String((error as { code?: unknown }).code ?? "")
             : "";
-        if (codeValue === "23505") {
-          return apiError("totp_code_already_used", 409);
-        }
+        if (codeValue === "23505") return apiError("totp_code_already_used", 409);
         return apiError("authorization_store_unavailable", 503);
       }
     },
