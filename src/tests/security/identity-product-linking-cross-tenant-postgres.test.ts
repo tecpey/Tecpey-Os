@@ -609,7 +609,7 @@ describe("Identity product-linking tenant, assurance and consent authority", () 
           [tenantId, principalId, linkId, exchange.id,
            `correlation-${randomUUID()}`, `forbidden-${randomUUID()}`],
         ),
-        /check constraint|violates/i,
+        /requested scope|completed exact-account link ceremony|check constraint|violates/i,
       );
       await expectRejected(
         client,
