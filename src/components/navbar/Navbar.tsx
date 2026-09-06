@@ -14,6 +14,11 @@ import {
 } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import ThemeToggle from "@/components/ThemeToggle";
+import {
+  getLocaleFromPathname,
+  localizePath,
+  resolveLocalePath,
+} from "@/i18n/config";
 
 export interface User {
   id: number;
@@ -103,16 +108,13 @@ export default function Navbar({
   const appUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
   const appLink = (path = "") => (appUrl ? `${appUrl}${path}` : path || "/");
   const pathname = usePathname();
-  const normalizedPath =
-    pathname === "/" ? "" : pathname.replace(/^\/en(?=\/|$)/, "");
-  const faHref = normalizedPath || "/";
-  const enHref = `/en${normalizedPath}`.replace(/\/$/, "") || "/en";
-  const isEnglish = pathname.startsWith("/en");
+  const currentLocale = getLocaleFromPathname(pathname);
+  const { path: semanticPath } = resolveLocalePath(pathname);
+  const faHref = localizePath("fa", pathname);
+  const enHref = localizePath("en", pathname);
+  const isEnglish = currentLocale === "en";
   const isAcademyArea =
-    pathname === "/academy" ||
-    pathname.startsWith("/academy/") ||
-    pathname === "/en/academy" ||
-    pathname.startsWith("/en/academy/");
+    semanticPath === "/academy" || semanticPath.startsWith("/academy/");
   const activePrimaryLinks = isEnglish ? primaryLinksEn : primaryLinks;
   const activeKnowledgeLinks = isEnglish ? knowledgeLinksEn : knowledgeLinks;
   const homeHref = isEnglish ? "/en" : "/";

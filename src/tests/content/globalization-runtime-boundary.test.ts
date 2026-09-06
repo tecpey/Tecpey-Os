@@ -92,3 +92,14 @@ test("next-intl request authority and proxy policy both follow the canonical URL
   assert.doesNotMatch(proxy, /"\/en\/academy\/login"/);
   assert.doesNotMatch(proxy, /pathname\.startsWith\("\/en\/academy\/"\)/);
 });
+
+test("language switcher preserves semantic route identity through canonical localization helpers", () => {
+  const navbar = readFileSync("src/components/navbar/Navbar.tsx", "utf8");
+
+  assert.match(navbar, /getLocaleFromPathname\(pathname\)/);
+  assert.match(navbar, /resolveLocalePath\(pathname\)/);
+  assert.match(navbar, /localizePath\("fa", pathname\)/);
+  assert.match(navbar, /localizePath\("en", pathname\)/);
+  assert.doesNotMatch(navbar, /pathname\.replace\(\/\^\\\/en/);
+  assert.doesNotMatch(navbar, /pathname\.startsWith\("\/en"\)/);
+});
