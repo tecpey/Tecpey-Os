@@ -4,7 +4,7 @@
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { getCanonicalSession } from "@/lib/auth-session";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
@@ -29,11 +29,11 @@ export async function GET(
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-    if (!userId) return apiError("authentication_required", 401);
+    const session = await getExchangeSession(req);
+    if (!session) return apiError("exchange_authentication_required", 401);
+    const userId = session.productAccountId;
 
-    const read = await readWithdrawal(id, userId);
+    const read = await readWithdrawal(id, userId, session.tenantId);
     if (!read.ok) return apiError(read.reason, 503);
     if (!read.withdrawal) return apiError("withdrawal_not_found", 404);
 
@@ -56,13 +56,11 @@ export async function DELETE(
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-    if (!userId) return apiError("authentication_required", 401);
+    const session = await getExchangeSession(req);
+    if (!session) return apiError("exchange_authentication_required", 401);
+    const userId = session.productAccountId;
 
-    const idempotencyKey = parseApiIdempotencyKey(
-      req.headers.get("Idempotency-Key"),
-    );
+    const idempotencyKey = parseApiIdempotencyKey(req.headers.get("Idempotency-Key"));
     if (!idempotencyKey) return apiError("idempotency_key_required", 400);
 
     const result = await cancelWithdrawalIdempotently({
