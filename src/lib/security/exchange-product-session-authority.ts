@@ -132,7 +132,13 @@ function normalizeAmr(
   ) {
     fail("exchange_session_invalid_amr");
   }
-  if (assurance === "aal2" && !normalized.some((method) => AAL2_METHODS.has(method))) {
+  // AAL2 here means a genuinely multi-method browser/BFF authentication event.
+  // Merely labelling a single OTP/TOTP/WebAuthn method as AAL2 would let callers
+  // manufacture an elevated Exchange session without proving a second method.
+  if (
+    assurance === "aal2" &&
+    (normalized.length < 2 || !normalized.some((method) => AAL2_METHODS.has(method)))
+  ) {
     fail("exchange_session_aal2_method_required");
   }
   return normalized as ExchangeSessionAmr[];
