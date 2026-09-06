@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { AuthGatewayPage } from "@/components/auth/AuthGatewayPage";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Create your TecPey account",
+  title: "Create your TecPey account | Academy",
   robots: { index: false, follow: false },
 };
 
 export default function SignUpPage() {
-  return <AuthGatewayPage locale="en" mode="signup" />;
+  redirect("/en/academy/signup");
 }

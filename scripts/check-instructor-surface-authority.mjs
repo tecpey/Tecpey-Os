@@ -120,17 +120,24 @@ requireText(
 );
 
 for (const invariant of [
+  'import { resolveLocalePath } from "@/i18n/config"',
   'REQUEST_ROUTE_CONTEXT_HEADER = "x-tecpey-request-path"',
   '"/academy/community/instructor"',
+  "PROFILE_FREE_SEMANTIC_ROUTES",
   "export function isProfileFreeRoute",
-  "PROFILE_FREE_ROUTES.has(normalized)",
+  "PROFILE_FREE_SEMANTIC_ROUTES.has(resolveLocalePath(pathname).path)",
 ]) {
   requireText(
     "routeContext",
     invariant,
-    `trusted profile-free route context is missing: ${invariant}`,
+    `trusted profile-free semantic route context is missing: ${invariant}`,
   );
 }
+rejectText(
+  "routeContext",
+  '"/en/academy/',
+  "profile-free policy must use semantic route identity rather than per-locale duplicated allowlists",
+);
 
 for (const invariant of [
   'from "@/lib/request-route-context"',
@@ -269,5 +276,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Instructor surface authority passed: the route is static, noindex, direct-evidence-free and excluded from shared session/profile reads; the historical self-view dashboard has zero active source importers; real Instructor access remains launch-disabled pending verified role and scoped student grant authority.",
+  "Instructor surface authority passed: the route is static, noindex, direct-evidence-free and excluded from shared session/profile reads through semantic locale-independent route authority; the historical self-view dashboard has zero active source importers; real Instructor access remains launch-disabled pending verified role and scoped student grant authority.",
 );

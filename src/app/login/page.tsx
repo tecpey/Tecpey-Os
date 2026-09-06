@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { AuthGatewayPage } from "@/components/auth/AuthGatewayPage";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "ورود امن به تک‌پی",
+  title: "ورود به حساب تک‌پی | آکادمی",
   robots: { index: false, follow: false },
 };
 
 export default function LoginPage() {
-  return <AuthGatewayPage locale="fa" mode="signin" />;
+  redirect("/academy/login");
 }

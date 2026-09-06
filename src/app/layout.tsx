@@ -1,7 +1,9 @@
 import "./globals.css";
 import "./tecpey-brand-tokens.css";
+import "./navbar-focus.css";
 import { NextIntlClientProvider } from "next-intl";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import Providers from "./providers";
@@ -17,6 +19,7 @@ import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
 import { REQUEST_ROUTE_CONTEXT_HEADER } from "@/lib/request-route-context";
 import { safeJsonLd } from "@/lib/json-ld";
 import { TecpeyScrollMotionBackground } from "@/components/brand/TecpeyScrollMotionBackground";
+import { resolveRequestLocale } from "@/i18n/runtime";
 
 const globalSeoSchemas = [
   {
@@ -224,8 +227,16 @@ export default async function RootLayout({
 
   const requestHeaders = await headers();
   const requestPath = requestHeaders.get(REQUEST_ROUTE_CONTEXT_HEADER) ?? "/";
-  const isEnglish = requestPath === "/en" || requestPath.startsWith("/en/");
-  const locale = isEnglish ? "en" : "fa";
+  const runtimeLocale = resolveRequestLocale(requestPath);
+
+  // Quality-gated locale prefixes must never silently render Persian/English
+  // chrome or become indexable merely because a route or message file exists.
+  // Activation remains an explicit Globalization OS release decision.
+  if (runtimeLocale.status !== "active") {
+    notFound();
+  }
+
+  const { locale, htmlLang, direction } = runtimeLocale;
   const messages = (await import(`../i18n/messages/${locale}.json`)).default;
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   // Started here, not awaited: every page on the site was blocking its
@@ -243,8 +254,8 @@ export default async function RootLayout({
 
   return (
     <html
-      lang={isEnglish ? "en-US" : "fa-IR"}
-      dir={isEnglish ? "ltr" : "rtl"}
+      lang={htmlLang}
+      dir={direction}
       suppressHydrationWarning
     >
       <body>

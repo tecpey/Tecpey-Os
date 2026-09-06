@@ -11,7 +11,7 @@ type Props = {
   coin: MarketCurrency;
   isIRTenabled: boolean;
   USDT_IRT?: number | string | null;
-  tradeLabel: string;
+  detailsLabel: string;
   gridClass: string;
 };
 
@@ -19,7 +19,7 @@ export default function MarketsTableRow({
   coin,
   isIRTenabled,
   USDT_IRT,
-  tradeLabel,
+  detailsLabel,
   gridClass,
 }: Props) {
   const router = useRouter();
@@ -62,7 +62,6 @@ export default function MarketsTableRow({
         hover:bg-white/5
       `}
     >
-      {/* coin */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         <CryptoAssetIcon symbol={coin.symbol || ""} name={coin.name} size="sm" assetSrc={visual.src} assetSource={visual.source} />
         <div className="min-w-0">
@@ -75,24 +74,20 @@ export default function MarketsTableRow({
         </div>
       </div>
 
-      {/* price usdt */}
       <p className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
         {hasPrice ? handleDecimal(rawPrice) : "—"}
       </p>
 
-      {/* price irt */}
       {isIRTenabled && (
         <p className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
           {irtPrice ? Math.floor(irtPrice).toLocaleString() : "-"}
         </p>
       )}
 
-      {/* volume */}
       <p className="text-[10px] sm:text-[11px] font-medium text-muted whitespace-nowrap">
         {hasVolume ? Number(rawVolume).toFixed(2) : "—"}{" "}
       </p>
 
-      {/* change */}
       <p
         className={`text-[10px] sm:text-[11px] font-bold whitespace-nowrap ${
           !hasChange ? "text-muted" : isUp ? "text-green-600" : "text-red-600"
@@ -101,19 +96,17 @@ export default function MarketsTableRow({
         {hasChange ? `${isUp ? "+" : ""}${change.toFixed(2)}%` : "—"}
       </p>
 
-      {/* chart */}
       <div className="h-[28px] w-[54px] sm:h-[32px] sm:w-[76px] lg:w-[92px]">
         {hasChange ? <Chart symbol={coin.priceData?.symbol ?? coin.symbol ?? ""} change={change} height={28} /> : <span className="text-muted">—</span>}
       </div>
 
-      {/* action */}
       <div className="flex justify-end">
         <a
-          href={"https://my.tecpey.ir/signin"}
+          href={href}
           onClick={(e) => e.stopPropagation()}
           className="inline-flex h-[30px] min-w-[58px] items-center justify-center rounded-full bg-primary px-2 text-[10px] font-bold text-white transition-shadow hover:shadow-lg sm:h-[32px] sm:min-w-[76px] sm:px-3 sm:text-[11px]"
         >
-          {tradeLabel}
+          {detailsLabel}
         </a>
       </div>
     </div>

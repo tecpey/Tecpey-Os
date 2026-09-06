@@ -14,6 +14,11 @@ import {
 } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import ThemeToggle from "@/components/ThemeToggle";
+import {
+  getLocaleFromPathname,
+  localizePath,
+  resolveLocalePath,
+} from "@/i18n/config";
 
 export interface User {
   id: number;
@@ -27,22 +32,24 @@ export interface User {
 
 const primaryLinks = [
   { label: "خانه", href: "/" },
+  { label: "آکادمی", href: "/academy" },
+  { label: "منتور هوشمند", href: "/academy/ai-guide" },
   { label: "بازارها", href: "/markets" },
   { label: "رمزارزها", href: "/coins" },
   { label: "ابزارها", href: "/trading-tools" },
   { label: "اخبار", href: "/crypto-news" },
-  { label: "آکادمی", href: "/academy" },
   { label: "امنیت", href: "/security" },
   { label: "تماس", href: "/contact-us" },
 ];
 
 const primaryLinksEn = [
   { label: "Home", href: "/en" },
+  { label: "Academy", href: "/en/academy" },
+  { label: "AI Learning Mentor", href: "/en/academy/ai-guide" },
   { label: "Markets", href: "/en/markets" },
   { label: "Coins", href: "/en/coins" },
   { label: "Tools", href: "/en/trading-tools" },
   { label: "News", href: "/en/crypto-news" },
-  { label: "Academy", href: "/en/academy" },
   { label: "Security", href: "/en/security" },
   { label: "Contact", href: "/en/contact-us" },
 ];
@@ -100,20 +107,14 @@ export default function Navbar({
   const profileRef = useRef<HTMLDivElement>(null);
   const appUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
   const appLink = (path = "") => (appUrl ? `${appUrl}${path}` : path || "/");
-  const authLink = (
-    path: "https://my.tecpey.ir/signin" | "https://my.tecpey.ir/signup",
-  ) => path;
   const pathname = usePathname();
-  const normalizedPath =
-    pathname === "/" ? "" : pathname.replace(/^\/en(?=\/|$)/, "");
-  const faHref = normalizedPath || "/";
-  const enHref = `/en${normalizedPath}`.replace(/\/$/, "") || "/en";
-  const isEnglish = pathname.startsWith("/en");
+  const currentLocale = getLocaleFromPathname(pathname);
+  const { path: semanticPath } = resolveLocalePath(pathname);
+  const faHref = localizePath("fa", pathname);
+  const enHref = localizePath("en", pathname);
+  const isEnglish = currentLocale === "en";
   const isAcademyArea =
-    pathname === "/academy" ||
-    pathname.startsWith("/academy/") ||
-    pathname === "/en/academy" ||
-    pathname.startsWith("/en/academy/");
+    semanticPath === "/academy" || semanticPath.startsWith("/academy/");
   const activePrimaryLinks = isEnglish ? primaryLinksEn : primaryLinks;
   const activeKnowledgeLinks = isEnglish ? knowledgeLinksEn : knowledgeLinks;
   const homeHref = isEnglish ? "/en" : "/";
@@ -141,12 +142,8 @@ export default function Navbar({
   const academySignupHref = isEnglish
     ? "/en/academy/signup"
     : "/academy/signup";
-  const resolvedLoginHref = isAcademyArea
-    ? academyLoginHref
-    : authLink("https://my.tecpey.ir/signin");
-  const resolvedSignupHref = isAcademyArea
-    ? academySignupHref
-    : authLink("https://my.tecpey.ir/signup");
+  const resolvedLoginHref = academyLoginHref;
+  const resolvedSignupHref = academySignupHref;
   const menuAriaLabel = isOpen
     ? isEnglish
       ? "Close menu"

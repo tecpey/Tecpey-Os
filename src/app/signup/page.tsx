@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { AuthGatewayPage } from "@/components/auth/AuthGatewayPage";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "ثبت‌نام امن در تک‌پی",
+  title: "ساخت حساب تک‌پی | آکادمی",
   robots: { index: false, follow: false },
 };
 
 export default function SignUpPage() {
-  return <AuthGatewayPage locale="fa" mode="signup" />;
+  redirect("/academy/signup");
 }

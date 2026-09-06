@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  isActiveLocale,
+  localizePath,
+  resolveLocalePath,
+} from "@/i18n/config";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { buildCspConnectSrc } from "@/lib/security/csp-connection-policy";
 import {
@@ -6,13 +11,10 @@ import {
 } from "@/lib/request-route-context";
 import { TRACE_REQUEST_HEADER, TRACE_RESPONSE_HEADER, generateRequestId } from "@/lib/trace";
 
-const PUBLIC_ACADEMY_PATHS = new Set([
+const PUBLIC_ACADEMY_SEMANTIC_PATHS = new Set([
   "/academy/login",
   "/academy/signup",
   "/academy/free",
-  "/en/academy/login",
-  "/en/academy/signup",
-  "/en/academy/free",
 ]);
 
 function buildCsp(nonce: string): string {
@@ -43,6 +45,7 @@ function buildCsp(nonce: string): string {
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const { locale, path: semanticPath } = resolveLocalePath(pathname);
 
   const requestId = generateRequestId();
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
@@ -56,15 +59,19 @@ export async function proxy(request: NextRequest) {
   // the route context established by this proxy invocation.
   requestHeaders.set(REQUEST_ROUTE_CONTEXT_HEADER, pathname);
 
-  const isAcademy =
-    pathname.startsWith("/academy/") || pathname.startsWith("/en/academy/");
+  const isAcademy = semanticPath.startsWith("/academy/");
+  const shouldProtectAcademy =
+    isActiveLocale(locale) &&
+    isAcademy &&
+    !PUBLIC_ACADEMY_SEMANTIC_PATHS.has(semanticPath);
 
-  if (isAcademy && !PUBLIC_ACADEMY_PATHS.has(pathname)) {
+  // Recognized quality-gated locale prefixes deliberately bypass auth redirects.
+  // The root layout owns their fail-closed 404 boundary, so middleware must not
+  // rewrite them into an active-locale login experience.
+  if (shouldProtectAcademy) {
     const session = await getCanonicalSession(request);
     if (!session.isAcademyUser) {
-      const loginPath = pathname.startsWith("/en/")
-        ? "/en/academy/login"
-        : "/academy/login";
+      const loginPath = localizePath(locale, "/academy/login");
       const url = new URL(loginPath, request.url);
       url.searchParams.set("redirect", `${pathname}${search}`);
       return NextResponse.redirect(url);
@@ -97,8 +104,5 @@ export const config = {
         { type: "header", key: "purpose", value: "prefetch" },
       ],
     },
-    // Still protect academy routes even if the pattern above were narrowed.
-    "/academy/:path+",
-    "/en/academy/:path+",
   ],
 };
