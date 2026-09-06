@@ -12,7 +12,7 @@ import {
   assertFirstReleaseFinancialBoundary,
   isFirstReleaseSurface,
   isRestrictedFinancialSurface,
-} from "@/lib/product-experience-authority";
+} from "@/services/product-authority/product-experience-authority";
 import { PRODUCTS } from "@/lib/product-registry";
 
 test("first release is academy-first and mentor-led", () => {

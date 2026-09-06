@@ -13,7 +13,7 @@ import {
   PRODUCT_SURFACE_REGISTRY,
   assertFirstReleaseExperienceBoundary,
   mayCloseExperienceFinding,
-} from "@/lib/product-design-council-authority";
+} from "@/services/product-authority/product-design-council-authority";
 
 test("design council contains every required authority role", () => {
   assert.deepEqual(PRODUCT_DESIGN_COUNCIL_ROLES, [

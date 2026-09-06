@@ -7,7 +7,7 @@ import {
   contentAutomationDestinationPolicies,
   contentAutomationModes,
   getContentAutomationDestinationPolicy,
-} from "@/lib/content-automation-os";
+} from "@/services/product-authority/content-automation-os";
 
 test("content automation exposes only approved v1 modes", () => {
   assert.deepEqual(contentAutomationModes, [

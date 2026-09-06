@@ -16,7 +16,7 @@ import {
 import {
   FIRST_RELEASE_POSITIONING,
   SAFE_EXCHANGE_BOUNDARY,
-} from "@/lib/product-experience-authority";
+} from "@/services/product-authority/product-experience-authority";
 import {
   ACADEMY_INFINITE_GROWTH_CYCLE,
   ACADEMY_INFINITE_GROWTH_TERM_NUMBER,
