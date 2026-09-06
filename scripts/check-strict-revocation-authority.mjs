@@ -1,10 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 
-// Strict revocation is a ratchet. Every route enrolled here must keep
-// `strictRevocation: true`, and — enforced below — every route that requests it
-// must be enrolled. This list previously held 9 entries while 43 routes actually
-// used strict revocation, so 34 of them (including withdrawals, orders and API
-// keys) could have lost it silently without any gate failing.
+// Strict revocation is a ratchet. Core/Admin routes enrolled here must keep
+// `strictRevocation: true`; Exchange financial routes use the independent
+// getExchangeSession authority, which itself is fail-closed on durable + Redis
+// revocation evidence and active product-account binding.
 const directStrictFiles = [
   "src/app/api/academy-auth/route.ts",
   "src/app/api/academy-certificates/route.ts",
@@ -39,9 +38,6 @@ const directStrictFiles = [
   "src/app/api/auth/webauthn/credentials/route.ts",
   "src/app/api/auth/webauthn/register/challenge/route.ts",
   "src/app/api/auth/webauthn/register/verify/route.ts",
-  "src/app/api/auth/withdraw/[id]/route.ts",
-  "src/app/api/auth/withdraw/authorize/route.ts",
-  "src/app/api/auth/withdraw/route.ts",
   "src/app/api/community/journal-discipline-score/route.ts",
   "src/app/api/community/profile/route.ts",
   "src/app/api/community/reputation-evidence/route.ts",
@@ -61,12 +57,20 @@ const directStrictFiles = [
   "src/app/api/notifications/read/route.ts",
   "src/app/api/notifications/route.ts",
   "src/app/api/offline-sync/route.ts",
-  "src/app/api/orders/[id]/route.ts",
-  "src/app/api/orders/route.ts",
   "src/app/api/trading-arena/execution/route.ts",
   "src/app/api/trading-arena/reflections/route.ts",
   "src/app/api/trading-arena/route.ts",
 ];
+
+const exchangeStrictFiles = [
+  "src/app/api/orders/route.ts",
+  "src/app/api/orders/open/route.ts",
+  "src/app/api/orders/[id]/route.ts",
+  "src/app/api/auth/withdraw/route.ts",
+  "src/app/api/auth/withdraw/authorize/route.ts",
+  "src/app/api/auth/withdraw/[id]/route.ts",
+];
+
 const sources = new Map(
   await Promise.all(
     directStrictFiles.map(async (path) => [
@@ -78,11 +82,6 @@ const sources = new Map(
 const failures = [];
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-// The invariant is per handler, not per file. A read handler may use the
-// non-strict session — it tolerates the short revocation cache — but every
-// mutating handler must resolve identity with `strictRevocation: true`. Several
-// governed routes legitimately serve a non-strict GET alongside a strict POST,
-// so a file-wide ban on the non-strict call would be wrong.
 function handlerBlocks(source) {
   const pattern = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*\(/g;
   const found = [...source.matchAll(pattern)];
@@ -102,16 +101,56 @@ for (const [path, source] of sources) {
     if (!MUTATING_METHODS.has(method)) continue;
     if (!body.includes("getCanonicalSession(")) continue;
     if (!body.includes("strictRevocation: true")) {
-      failures.push(
-        `${path}: ${method} resolves identity without strict revocation`,
-      );
+      failures.push(`${path}: ${method} resolves identity without strict revocation`);
+    }
+  }
+}
+
+const exchangeSessionAuthority = await readFile(
+  "src/lib/security/exchange-session.ts",
+  "utf8",
+).catch(() => null);
+if (!exchangeSessionAuthority) {
+  failures.push("Exchange session authority is missing");
+} else {
+  for (const invariant of [
+    "strictRevocationVerdict(session.jti)",
+    "activeExchangeBinding(session)",
+    "EXCHANGE_SESSION_AUDIENCE",
+    "TECPEY_EXCHANGE_SESSION_SECRET",
+  ]) {
+    if (!exchangeSessionAuthority.includes(invariant)) {
+      failures.push(`Exchange session authority is missing ${invariant}`);
+    }
+  }
+  if (exchangeSessionAuthority.includes("getCanonicalSession(")) {
+    failures.push("Exchange financial session authority may not delegate to the Core session");
+  }
+}
+
+for (const path of exchangeStrictFiles) {
+  const source = await readFile(path, "utf8").catch(() => null);
+  if (!source) {
+    failures.push(`${path}: Exchange strict-session route is missing`);
+    continue;
+  }
+  if (!source.includes("getExchangeSession(")) {
+    failures.push(`${path}: Exchange route must use isolated getExchangeSession authority`);
+  }
+  if (source.includes("getCanonicalSession(")) {
+    failures.push(`${path}: Exchange financial route may not accept the Core session`);
+  }
+  for (const { method, body } of handlerBlocks(source)) {
+    if (!MUTATING_METHODS.has(method)) continue;
+    if (!body.includes("getExchangeSession(")) {
+      failures.push(`${path}: ${method} lacks Exchange session revocation authority`);
     }
   }
 }
 
 // Drift detection. A hand-maintained enrollment list cannot notice a route that
-// starts using strict revocation, and an unenrolled route is one nobody guards.
-const enrolled = new Set(directStrictFiles);
+// starts using strict Core revocation, and an unenrolled route is one nobody guards.
+const enrolled = new Set([...directStrictFiles, ...exchangeStrictFiles]);
 const apiRoutes = (await readdir("src/app/api", { recursive: true }))
   .filter((entry) => entry.endsWith("route.ts"))
   .map((entry) => `src/app/api/${entry.replaceAll("\\", "/")}`)
@@ -127,9 +166,7 @@ for (const path of apiRoutes) {
   }
 }
 for (const path of enrolled) {
-  if (!apiRoutes.includes(path)) {
-    failures.push(`${path}: enrolled for strict revocation but no longer exists`);
-  }
+  if (!apiRoutes.includes(path)) failures.push(`${path}: enrolled for strict revocation but no longer exists`);
 }
 
 const alias = await readFile("src/app/api/ai-mentor-v2/route.ts", "utf8");
@@ -166,14 +203,9 @@ for (const invariant of [
   "updateCommunityProfileConsent",
   'req.headers.get("idempotency-key")',
 ]) {
-  if (!community.includes(invariant)) {
-    failures.push(`community profile mutation is missing ${invariant}`);
-  }
+  if (!community.includes(invariant)) failures.push(`community profile mutation is missing ${invariant}`);
 }
-for (const forbidden of [
-  "setPublicVisibilityForStudent",
-  "setCurrentPublicVisibility",
-]) {
+for (const forbidden of ["setPublicVisibilityForStudent", "setCurrentPublicVisibility"]) {
   if (community.includes(forbidden)) {
     failures.push(`community mutation may not use legacy identity or visibility setter ${forbidden}`);
   }
@@ -182,6 +214,9 @@ for (const forbidden of [
 const detector = await readFile("scripts/api-security-runtime-evidence.mjs", "utf8");
 if (!detector.includes("detectStrictRevocationCall")) {
   failures.push("runtime evidence must expose strict revocation detection");
+}
+if (!detector.includes("getExchangeSession")) {
+  failures.push("runtime evidence must recognize Exchange strict session authority");
 }
 if (!detector.includes("loadAdminPrincipal")) {
   failures.push("runtime evidence must recognize live admin principal authority");
@@ -192,4 +227,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log("Strict revocation authority check passed for all governed mutations.");
+console.log("Strict revocation authority check passed for Core, Admin and Exchange mutations.");
