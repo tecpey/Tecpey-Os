@@ -1,0 +1,18 @@
+/*
+ * Navbar keyboard-focus authority.
+ *
+ * The primary navigation already uses :focus-visible rings. Firefox can briefly
+ * lose the focus-visible heuristic while the Academy navbar hydrates and async
+ * auth/profile state resolves, leaving a genuinely focused link with no rendered
+ * indicator. A real :focus outline is the fail-safe: keyboard focus remains
+ * visible through hydration/re-render transitions instead of depending on a
+ * transient browser heuristic.
+ */
+nav[dir] a:focus {
+  outline: 2px solid rgb(30 64 175);
+  outline-offset: 3px;
+}
+
+.dark nav[dir] a:focus {
+  outline-color: var(--tp-primary);
+}
