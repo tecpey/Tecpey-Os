@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { localizePath } from "@/i18n/config";
 import { resolveRequestLocale } from "@/i18n/runtime";
 import { isProfileFreeRoute } from "@/lib/request-route-context";
 
@@ -23,6 +24,15 @@ test("shared locale runtime resolves active locales and preserves semantic route
     direction: "ltr",
     routeSegment: "en",
   });
+
+  assert.equal(
+    localizePath("en", "/academy/trading-arena"),
+    "/en/academy/trading-arena",
+  );
+  assert.equal(
+    localizePath("fa", "/en/academy/trading-arena"),
+    "/academy/trading-arena",
+  );
 });
 
 test("quality-gated locale prefixes are recognized without becoming active runtime locales", () => {
@@ -66,4 +76,19 @@ test("root and client html locale authorities no longer hardcode English route d
   assert.match(htmlLangDir, /getLocaleFromPathname\(pathname\)/);
   assert.match(htmlLangDir, /getLocaleDefinition\(locale\)/);
   assert.doesNotMatch(htmlLangDir, /isEnPath/);
+});
+
+test("next-intl request authority and proxy policy both follow the canonical URL locale", () => {
+  const requestConfig = readFileSync("src/i18n/request.ts", "utf8");
+  const proxy = readFileSync("src/proxy.ts", "utf8");
+
+  assert.match(requestConfig, /REQUEST_ROUTE_CONTEXT_HEADER/);
+  assert.match(requestConfig, /resolveRequestLocale\(requestPath\)/);
+  assert.doesNotMatch(requestConfig, /getUserLocale\(/);
+
+  assert.match(proxy, /resolveLocalePath\(pathname\)/);
+  assert.match(proxy, /isActiveLocale\(locale\)/);
+  assert.match(proxy, /localizePath\(locale, "\/academy\/login"\)/);
+  assert.doesNotMatch(proxy, /"\/en\/academy\/login"/);
+  assert.doesNotMatch(proxy, /pathname\.startsWith\("\/en\/academy\/"\)/);
 });
