@@ -17,6 +17,7 @@ import { buildLocalizedAlternates } from "@/i18n/seo";
 import {
   GLOBALIZATION_AUTOMATION_POLICY,
   assertGlobalizationAuthority,
+  decideAutomatedLocalizationPublication,
   decideLocalizationPublication,
   type LocalizationEvidence,
 } from "@/services/product-authority/globalization-authority";
@@ -109,8 +110,6 @@ test("deterministic localization QA preserves multilingual digits, URLs, placeho
     protectedTerms: ["BTC", "TecPey"],
   });
 
-  // TecPey is intentionally absent from the target and must be caught even though the
-  // numeric, URL and interpolation-token floors all pass.
   assert.equal(integrity.numericIntegrity, true);
   assert.equal(integrity.urlIntegrity, true);
   assert.equal(integrity.placeholderIntegrity, true);
@@ -148,6 +147,56 @@ test("public localization remains fail-closed until quality and locale activatio
   assert.ok(legalWithoutReview.reasons.includes("legal-human-review-required"));
 
   assert.equal(GLOBALIZATION_AUTOMATION_POLICY.machineTranslationDirectPublish, false);
+  assert.equal(GLOBALIZATION_AUTOMATION_POLICY.qualityGatedAutomatedPublish, true);
   assert.equal(GLOBALIZATION_AUTOMATION_POLICY.simultaneousDraftFanOut, true);
   assert.equal(GLOBALIZATION_AUTOMATION_POLICY.independentLocaleQualityGate, true);
+});
+
+test("high-confidence low-risk active-locale content can auto-publish only through the governed gate", () => {
+  const governedNews = decideAutomatedLocalizationPublication({
+    ...passingEvidence("en", "news"),
+    riskLevel: "low",
+    automatedQualityConfidence: 0.99,
+    independentSemanticEvaluatorPassed: true,
+  });
+  assert.equal(governedNews.autoPublishable, true);
+  assert.equal(governedNews.indexable, true);
+  assert.deepEqual(governedNews.reasons, []);
+
+  const gatedSpanish = decideAutomatedLocalizationPublication({
+    ...passingEvidence("es", "news"),
+    riskLevel: "low",
+    automatedQualityConfidence: 0.99,
+    independentSemanticEvaluatorPassed: true,
+  });
+  assert.equal(gatedSpanish.autoPublishable, false);
+  assert.ok(gatedSpanish.reasons.includes("locale-quality-gated-not-active"));
+
+  const lowConfidence = decideAutomatedLocalizationPublication({
+    ...passingEvidence("en", "news"),
+    riskLevel: "low",
+    automatedQualityConfidence: 0.95,
+    independentSemanticEvaluatorPassed: true,
+  });
+  assert.equal(lowConfidence.autoPublishable, false);
+  assert.ok(lowConfidence.reasons.includes("automated-publish-confidence-too-low"));
+
+  const highRisk = decideAutomatedLocalizationPublication({
+    ...passingEvidence("en", "news"),
+    riskLevel: "high",
+    automatedQualityConfidence: 0.99,
+    independentSemanticEvaluatorPassed: true,
+  });
+  assert.equal(highRisk.autoPublishable, false);
+  assert.ok(highRisk.reasons.includes("automated-publish-risk-too-high"));
+
+  const legal = decideAutomatedLocalizationPublication({
+    ...passingEvidence("en", "legal"),
+    riskLevel: "low",
+    automatedQualityConfidence: 1,
+    independentSemanticEvaluatorPassed: true,
+  });
+  assert.equal(legal.autoPublishable, false);
+  assert.ok(legal.reasons.includes("surface-not-eligible-for-automated-publish"));
+  assert.ok(legal.reasons.includes("legal-automation-forbidden"));
 });

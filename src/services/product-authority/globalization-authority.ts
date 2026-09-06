@@ -25,11 +25,26 @@ export const GLOBAL_CONTENT_SURFACES = [
 ] as const;
 export type GlobalContentSurface = (typeof GLOBAL_CONTENT_SURFACES)[number];
 
+export const GLOBALIZATION_AUTO_PUBLISH_SURFACES = [
+  "news",
+  "markets",
+  "coins",
+  "tools",
+  "seo",
+] as const satisfies readonly GlobalContentSurface[];
+export type GlobalAutoPublishSurface = (typeof GLOBALIZATION_AUTO_PUBLISH_SURFACES)[number];
+
+export type LocalizationRiskLevel = "low" | "medium" | "high" | "very_high";
+
 export const GLOBALIZATION_AUTOMATION_POLICY = {
   sourceMustBeVerified: true,
   simultaneousDraftFanOut: true,
   independentLocaleQualityGate: true,
   machineTranslationDirectPublish: false,
+  qualityGatedAutomatedPublish: true,
+  automatedPublishMinimumConfidence: 0.97,
+  automatedPublishMaxRiskLevel: "low" as const,
+  independentSemanticEvaluatorRequiredForAutoPublish: true,
   legalAutoPublish: false,
   localeSpecificSeoMetadataRequired: true,
   localeSpecificAeoGeoRequired: true,
@@ -97,6 +112,19 @@ export type LocalizationPublicationDecision = Readonly<{
   reasons: readonly string[];
 }>;
 
+export type AutomatedLocalizationReleaseEvidence = LocalizationEvidence &
+  Readonly<{
+    riskLevel: LocalizationRiskLevel;
+    automatedQualityConfidence: number;
+    independentSemanticEvaluatorPassed: boolean;
+  }>;
+
+export type AutomatedLocalizationPublicationDecision = Readonly<{
+  autoPublishable: boolean;
+  indexable: boolean;
+  reasons: readonly string[];
+}>;
+
 function hasOperationalIdentity(evidence: LocalizationEvidence): boolean {
   return (
     evidence.sourceId.trim().length > 0 &&
@@ -108,14 +136,6 @@ function hasOperationalIdentity(evidence: LocalizationEvidence): boolean {
   );
 }
 
-/**
- * Fail-closed publication authority for any localized TecPey artifact.
- *
- * `draftReady` means the artifact may exist in a review queue.
- * `publicPublishable` means it may be exposed publicly.
- * `indexable` is intentionally stricter and is false for quality-gated locales
- * until that locale is explicitly promoted to active after route/content QA.
- */
 export function decideLocalizationPublication(
   evidence: LocalizationEvidence,
 ): LocalizationPublicationDecision {
@@ -169,6 +189,50 @@ export function decideLocalizationPublication(
   };
 }
 
+export function decideAutomatedLocalizationPublication(
+  evidence: AutomatedLocalizationReleaseEvidence,
+): AutomatedLocalizationPublicationDecision {
+  const base = decideLocalizationPublication(evidence);
+  const reasons = [...base.reasons];
+
+  if (!base.publicPublishable) reasons.push("base-publication-authority-not-passed");
+
+  if (!(GLOBALIZATION_AUTO_PUBLISH_SURFACES as readonly GlobalContentSurface[]).includes(evidence.surface)) {
+    reasons.push("surface-not-eligible-for-automated-publish");
+  }
+
+  if (evidence.riskLevel !== GLOBALIZATION_AUTOMATION_POLICY.automatedPublishMaxRiskLevel) {
+    reasons.push("automated-publish-risk-too-high");
+  }
+
+  if (
+    !Number.isFinite(evidence.automatedQualityConfidence) ||
+    evidence.automatedQualityConfidence < GLOBALIZATION_AUTOMATION_POLICY.automatedPublishMinimumConfidence ||
+    evidence.automatedQualityConfidence > 1
+  ) {
+    reasons.push("automated-publish-confidence-too-low");
+  }
+
+  if (
+    GLOBALIZATION_AUTOMATION_POLICY.independentSemanticEvaluatorRequiredForAutoPublish &&
+    !evidence.independentSemanticEvaluatorPassed
+  ) {
+    reasons.push("independent-semantic-evaluator-required");
+  }
+
+  if (evidence.surface === "legal") reasons.push("legal-automation-forbidden");
+
+  const uniqueReasons = [...new Set(reasons)];
+  const autoPublishable =
+    GLOBALIZATION_AUTOMATION_POLICY.qualityGatedAutomatedPublish && uniqueReasons.length === 0;
+
+  return {
+    autoPublishable,
+    indexable: autoPublishable && base.indexable,
+    reasons: uniqueReasons,
+  };
+}
+
 export function assertGlobalizationAuthority(): void {
   if (GLOBALIZATION_TARGET_LOCALES.length !== 10) {
     throw new Error("Global Core locale count drifted from the approved ten-language strategy");
@@ -179,7 +243,15 @@ export function assertGlobalizationAuthority(): void {
   }
 
   if (GLOBALIZATION_AUTOMATION_POLICY.machineTranslationDirectPublish) {
-    throw new Error("Machine translation may not publish directly");
+    throw new Error("Ungated machine translation may not publish directly");
+  }
+
+  if (!GLOBALIZATION_AUTOMATION_POLICY.qualityGatedAutomatedPublish) {
+    throw new Error("Governed high-confidence automation is required for global content scale");
+  }
+
+  if (GLOBALIZATION_AUTOMATION_POLICY.legalAutoPublish) {
+    throw new Error("Legal/compliance localization may never auto-publish");
   }
 
   if (!GLOBALIZATION_AUTOMATION_POLICY.independentLocaleQualityGate) {

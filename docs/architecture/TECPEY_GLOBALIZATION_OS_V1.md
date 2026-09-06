@@ -127,6 +127,10 @@ Pipeline:
 
 The pipeline should generate locale drafts concurrently for latency efficiency. Publication remains independent per locale: one bad Arabic translation must not force a good Spanish artifact to publish incorrectly or be silently marked complete.
 
+Raw machine output never publishes directly. For an already-active locale, high-volume low-risk artifacts such as News and evidence-backed market/coin/tool/SEO context may publish automatically only after the governed automation gate proves all base localization requirements, low risk, an independent semantic evaluator pass and confidence of at least 0.97. Any ambiguity, failed gate, elevated risk or inactive locale routes the artifact to review instead of publication. Legal/compliance content is never eligible for automated publication.
+
+This distinction is intentional: TecPey can achieve simultaneous multilingual freshness without turning translation speed into an editorial or financial-safety bypass.
+
 The all-locale batch is complete only when every required target locale has either:
 
 - passed and published, or
