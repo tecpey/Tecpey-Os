@@ -3,8 +3,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { getCanonicalSession } from "@/lib/auth-session";
-import { PLATFORM } from "@/lib/platform-config";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { setApiKeyActive, deleteApiKey, rotateApiKey } from "@/lib/security/api-keys";
 import {
   hashSensitiveAuditRequest,
@@ -13,10 +12,6 @@ import {
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
-
-function actorTypeForSession(session: Awaited<ReturnType<typeof getCanonicalSession>>) {
-  return session.userId ? "user" as const : "student" as const;
-}
 
 export async function PATCH(
   req: NextRequest,
@@ -32,10 +27,10 @@ export async function PATCH(
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.studentId ?? session.userId;
-    if (!userId) return apiError("unauthorized", 401);
-    const actorType = actorTypeForSession(session);
+    const session = await getExchangeSession(req, { requireRecentStepUp: true });
+    if (!session) return apiError("exchange_step_up_required", 401);
+    const userId = session.productAccountId;
+    const actorType = "user" as const;
     const { id: keyId } = await params;
 
     const boundedBodyRequest = await readBoundedJsonRequest(req, {
@@ -62,7 +57,7 @@ export async function PATCH(
       req.headers.get("x-tecpey-request-id"),
     );
     const requestHash = hashSensitiveAuditRequest({
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: session.tenantId,
       actorType,
       actorId: userId,
       action: `api_key.${action}`,
@@ -70,7 +65,7 @@ export async function PATCH(
       resourceId: keyId,
     });
     const audit = {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: session.tenantId,
       actorType,
       actorId: userId,
       correlationId,
@@ -112,17 +107,17 @@ export async function DELETE(
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.studentId ?? session.userId;
-    if (!userId) return apiError("unauthorized", 401);
-    const actorType = actorTypeForSession(session);
+    const session = await getExchangeSession(req, { requireRecentStepUp: true });
+    if (!session) return apiError("exchange_step_up_required", 401);
+    const userId = session.productAccountId;
+    const actorType = "user" as const;
     const { id: keyId } = await params;
 
     const correlationId = resolveSensitiveAuditCorrelation(
       req.headers.get("x-tecpey-request-id"),
     );
     const requestHash = hashSensitiveAuditRequest({
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: session.tenantId,
       actorType,
       actorId: userId,
       action: "api_key.delete",
@@ -132,7 +127,7 @@ export async function DELETE(
 
     try {
       const deleted = await deleteApiKey(keyId, userId, {
-        tenantId: PLATFORM.DEFAULT_TENANT_ID,
+        tenantId: session.tenantId,
         actorType,
         actorId: userId,
         correlationId,
