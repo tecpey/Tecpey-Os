@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { getCanonicalSession } from "@/lib/auth-session";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { listTrades, listUserTrades } from "@/lib/trading/trade-service";
@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 // GET /api/trades
 // ?market=BTCUSDT    — public recent trades for a market
-// ?mine=1            — authenticated user's trade history (across all markets)
-// ?mine=1&market=X   — authenticated user's trades for a specific market
+// ?mine=1            — authenticated Exchange account trade history
+// ?mine=1&market=X   — authenticated Exchange account trades for a specific market
 // ?limit=N           — page size (1–200, default 50)
 // ?before=<ISO>      — cursor: only trades executed before this timestamp
 // ?from=<ISO>        — lower bound (inclusive)
@@ -24,23 +24,33 @@ export async function GET(req: NextRequest) {
     const market = url.searchParams.get("market");
     const mine = url.searchParams.get("mine") === "1";
     const rawLimit = Number(url.searchParams.get("limit") ?? 50);
-    const queryLimit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 200) : 50;
+    const queryLimit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(Math.floor(rawLimit), 1), 200)
+      : 50;
     const before = url.searchParams.get("before") ?? undefined;
     const from = url.searchParams.get("from") ?? undefined;
     const to = url.searchParams.get("to") ?? undefined;
 
     if (mine) {
-      const session = await getCanonicalSession(req);
-      if (!session.userId && !session.studentId) return apiError("authentication_required", 401);
-      const userId = session.userId ?? session.studentId ?? "";
-      const trades = await listUserTrades(userId, market ?? undefined, queryLimit, before);
-      const nextCursor = trades.length === queryLimit ? trades[trades.length - 1]?.executedAt : null;
+      const session = await getExchangeSession(req);
+      if (!session) return apiError("exchange_authentication_required", 401);
+      const trades = await listUserTrades(
+        session.productAccountId,
+        market ?? undefined,
+        queryLimit,
+        before,
+      );
+      const nextCursor = trades.length === queryLimit
+        ? trades[trades.length - 1]?.executedAt
+        : null;
       return apiOk({ trades, count: trades.length, nextCursor });
     }
 
     if (!market) return apiError("symbol_required", 400);
     const trades = await listTrades({ market, limit: queryLimit, before, from, to });
-    const nextCursor = trades.length === queryLimit ? trades[trades.length - 1]?.executedAt : null;
+    const nextCursor = trades.length === queryLimit
+      ? trades[trades.length - 1]?.executedAt
+      : null;
     return apiOk({ trades, count: trades.length, market, nextCursor });
   });
 }
