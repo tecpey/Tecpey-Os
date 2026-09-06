@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./tecpey-brand-tokens.css";
+import "./navbar-focus.css";
 import { NextIntlClientProvider } from "next-intl";
 import { headers } from "next/headers";
 import { connection } from "next/server";

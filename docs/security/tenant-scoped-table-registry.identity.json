@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "ownerIssue": "#109",
+  "domain": "identity-linking",
+  "description": "Tenant-isolation registry fragment for the TecPey shared-identity / distinct-product-account boundary. This fragment is explicitly allowlisted by scripts/check-tenant-scoped-table-coverage.mjs and is merged fail-closed with the primary registry.",
+  "tables": [
+    {
+      "table": "platform_product_accounts",
+      "domain": "identity-linking",
+      "sourceFile": "src/lib/db-migrate-identity-product-linking.ts",
+      "isolationModel": "Every Academy or Exchange product-account binding carries tenant_id and principal_id, with a composite foreign key to platform_principals(tenant_id, id). Account-reference fingerprint uniqueness is tenant-leading and a partial unique index permits at most one non-closed binding per tenant/principal/product while retaining closed historical bindings. Binding identity, product, fingerprint and key version are immutable; closed accounts are terminal and DELETE is rejected, so a product account cannot be moved, recycled or silently rebound across tenants.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "isolationNote": "The PostgreSQL proof inserts principals in two tenants, proves a tenant A product account cannot reference tenant B's principal, attacks identity mutation/reopening/deletion, and proves a closed historical Exchange binding can coexist with exactly one new live replacement for the same principal.",
+      "testReference": "src/tests/security/identity-product-linking-cross-tenant-postgres.test.ts"
+    },
+    {
+      "table": "product_account_link_transactions",
+      "domain": "identity-linking",
+      "sourceFile": "src/lib/db-migrate-identity-product-linking.ts",
+      "isolationModel": "Each linking ceremony carries tenant_id and principal_id and composite foreign keys to the canonical principal plus exact source and target product-account rows in the same tenant. The immutable ceremony binds source account, target product, target HMAC fingerprint, state, proof challenge, redirect fingerprint and requested read-only scopes. An insert guard requires every ceremony to start pending with an active source account; a transition guard requires the exact target account to belong to the same principal/product/fingerprint tuple before target_verified, requires both exact accounts to remain active before completed, blocks replay after terminal states and retains the ceremony by rejecting DELETE.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "isolationNote": "The PostgreSQL proof rejects direct insertion into an approved state, source-account substitution, verification with another principal's Exchange account, scope mutation and terminal replay, while also proving identity-only linking can complete with zero data-sharing scopes.",
+      "testReference": "src/tests/security/identity-product-linking-cross-tenant-postgres.test.ts"
+    },
+    {
+      "table": "identity_assurance_records",
+      "domain": "identity-linking",
+      "sourceFile": "src/lib/db-migrate-identity-product-linking.ts",
+      "isolationModel": "Every minimized KYC/identity-assurance event carries tenant_id, principal_id and exchange_product_account_id with composite foreign keys to the same tenant. An insert guard proves the Exchange account belongs to that exact principal and any superseded event stays on the same principal/account tuple. The event_sequence ledger is append-only and deterministically orders lifecycle state even inside one PostgreSQL transaction; raw documents/biometrics are not modeled, only bounded assurance metadata and optional HMAC provider-subject fingerprint. The effective view additionally requires the latest event to be verified plus an active principal and active Exchange product account.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "isolationNote": "The PostgreSQL proof rejects assurance for another principal's Exchange account, rejects UPDATE/DELETE on evidence, proves suspension immediately removes effective assurance, and proves a later revocation can still be appended and becomes the deterministic current state while the Exchange account is suspended.",
+      "testReference": "src/tests/security/identity-product-linking-cross-tenant-postgres.test.ts"
+    },
+    {
+      "table": "product_data_consent_events",
+      "domain": "identity-linking",
+      "sourceFile": "src/lib/db-migrate-identity-product-linking.ts",
+      "isolationModel": "Every consent event is tenant/principal scoped and composite-FK bound to the completed linking ceremony and exact Exchange product account. The insert guard requires the requested scope to have been declared by that exact completed account-link ceremony, constrains purpose to the receiving service and allows only a fixed read-only scope vocabulary. Events are append-only and revoke is represented by a later event; grants require an active Exchange account, while revocation remains recordable after suspension. The effective-consent view requires the latest event to be granted and the principal, linked Exchange account and linking ceremony to remain effective.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "isolationNote": "The PostgreSQL proof rejects an allowed-but-unrequested scope, exchange.orders.write and a mismatched Mentor/Core purpose, proves account suspension fails effective Mentor access closed and blocks new grants, then proves revocation remains appendable after suspension without erasing the completed identity link.",
+      "testReference": "src/tests/security/identity-product-linking-cross-tenant-postgres.test.ts"
+    }
+  ]
+}

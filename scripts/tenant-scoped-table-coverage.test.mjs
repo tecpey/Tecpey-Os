@@ -1,10 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { rmSync, writeFileSync, readFileSync } from "node:fs";
+import { rmSync, writeFileSync, readFileSync, renameSync } from "node:fs";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
 const GATE = "scripts/check-tenant-scoped-table-coverage.mjs";
 const REGISTRY = "docs/security/tenant-scoped-table-registry.json";
+const IDENTITY_REGISTRY = "docs/security/tenant-scoped-table-registry.identity.json";
 const PROBE_FILES = [
   "src/lib/db-migrate-zzz-coverage-probe.ts",
   "src/lib/db-migrate-zzz-alter-probe.ts",
@@ -27,7 +28,7 @@ function runGate() {
   }
 }
 
-test("passes on the committed registry", () => {
+test("passes on all committed fixed registry fragments", () => {
   cleanupProbes();
   const { code } = runGate();
   assert.equal(code, 0);
@@ -114,5 +115,32 @@ test('rejects a "proven" claim whose testReference does not mention the table', 
     assert.match(out, /does not mention .* the proof must be tied to the registered table/);
   } finally {
     writeFileSync(REGISTRY, original);
+  }
+});
+
+test("rejects duplicate table enrollment across fixed registry fragments", () => {
+  const primary = JSON.parse(readFileSync(REGISTRY, "utf8"));
+  const originalIdentity = readFileSync(IDENTITY_REGISTRY, "utf8");
+  const identity = JSON.parse(originalIdentity);
+  identity.tables.push({ ...primary.tables[0] });
+  writeFileSync(IDENTITY_REGISTRY, JSON.stringify(identity, null, 2) + "\n");
+  try {
+    const { code, out } = runGate();
+    assert.equal(code, 1);
+    assert.match(out, /registered more than once across/);
+  } finally {
+    writeFileSync(IDENTITY_REGISTRY, originalIdentity);
+  }
+});
+
+test("fails closed when an allowlisted registry fragment is missing", () => {
+  const parked = `${IDENTITY_REGISTRY}.test-disabled`;
+  renameSync(IDENTITY_REGISTRY, parked);
+  try {
+    const { code, out } = runGate();
+    assert.equal(code, 1);
+    assert.match(out, /cannot read .*tenant-scoped-table-registry\.identity\.json/);
+  } finally {
+    renameSync(parked, IDENTITY_REGISTRY);
   }
 });
