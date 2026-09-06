@@ -1,4 +1,5 @@
 const PRINCIPAL_CALL_PATTERNS = [
+  /\b(getExchangeSession)\s*\(/,
   /\b(getCanonicalSession)\s*\(/,
   /\b(requireCanonicalSession)\s*\(/,
   /\b(getAcademyAuthFromRequest)\s*\(/,
@@ -109,7 +110,7 @@ export function detectCsrfCall(handler) {
 
 export function detectStrictRevocationCall(handler) {
   const source = runtimeEvidenceSource(handler);
-  return /strictRevocation\s*:\s*true|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(|\bloadAdminPrincipal\s*\(|\bauthorizeAdminRequest\s*\(/i.test(source);
+  return /strictRevocation\s*:\s*true|\bgetExchangeSession\s*\(|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(|\bloadAdminPrincipal\s*\(|\bauthorizeAdminRequest\s*\(/i.test(source);
 }
 
 export function detectAuditCall(handler) {
