@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { getCanonicalSession } from "@/lib/auth-session";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
@@ -31,7 +31,6 @@ import type {
   PlaceOrderRequest,
   TimeInForce,
 } from "@/lib/trading/types";
-import { PLATFORM } from "@/lib/platform-config";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { requireFeature } from "@/lib/route-guards";
 
@@ -48,11 +47,9 @@ export async function GET(req: NextRequest) {
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
-    if (!session.userId && !session.studentId) {
-      return apiError("authentication_required", 401);
-    }
-    const userId = session.userId ?? session.studentId ?? "";
+    const session = await getExchangeSession(req);
+    if (!session) return apiError("exchange_authentication_required", 401);
+    const userId = session.productAccountId;
     const url = new URL(req.url);
     const market = url.searchParams.get("market") ?? undefined;
     const status = url.searchParams.get("status") as OrderStatus | undefined;
@@ -110,22 +107,14 @@ function finalResponse(input: {
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/orders" }, async () => {
     const startedAt = Date.now();
-    // SB-016. Real-money Exchange activation is launch-gated, and this is where
-    // that gate is enforced. Before this guard, exchange.enabled was read only by
-    // the product registry and the admin control-plane matrix, so the control
-    // plane could report the Exchange as launch_locked while this route accepted
-    // orders against the seeded active markets. The flag defaults to off, so the
-    // refusal is fail-closed: an unset FEATURE_EXCHANGE_ENABLED rejects.
     const exchangeGate = requireFeature("exchange.enabled");
     if (exchangeGate) return exchangeGate;
 
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    if (!session.userId && !session.studentId) {
-      return apiError("authentication_required", 401);
-    }
-    const userId = session.userId ?? session.studentId ?? "";
+    const session = await getExchangeSession(req, { requireRecentStepUp: true });
+    if (!session) return apiError("exchange_step_up_required", 401);
+    const userId = session.productAccountId;
     const rlimit = await rateLimit(req, {
       namespace: "orders-place",
       limit: 30,
@@ -156,19 +145,10 @@ export async function POST(req: NextRequest) {
     const market = String(body.market ?? "").toUpperCase().trim();
     const side = body.side;
     const type = body.type;
-    if (typeof body.quantity !== "string") {
-      return apiError("quantity_must_be_string", 400);
-    }
-    if (body.price !== undefined && typeof body.price !== "string") {
-      return apiError("price_must_be_string", 400);
-    }
-    if (body.stopPrice !== undefined && typeof body.stopPrice !== "string") {
-      return apiError("stop_price_must_be_string", 400);
-    }
-    if (
-      body.maxQuoteAmount !== undefined &&
-      typeof body.maxQuoteAmount !== "string"
-    ) {
+    if (typeof body.quantity !== "string") return apiError("quantity_must_be_string", 400);
+    if (body.price !== undefined && typeof body.price !== "string") return apiError("price_must_be_string", 400);
+    if (body.stopPrice !== undefined && typeof body.stopPrice !== "string") return apiError("stop_price_must_be_string", 400);
+    if (body.maxQuoteAmount !== undefined && typeof body.maxQuoteAmount !== "string") {
       return apiError("max_quote_amount_must_be_string", 400);
     }
 
@@ -176,12 +156,8 @@ export async function POST(req: NextRequest) {
     const price = body.price as string | undefined;
     const stopPrice = body.stopPrice as string | undefined;
     const maxQuoteAmount = body.maxQuoteAmount as string | undefined;
-    const clientOrderId = body.clientOrderId
-      ? String(body.clientOrderId).slice(0, 64)
-      : undefined;
-    const rawTimeInForce = body.timeInForce
-      ? String(body.timeInForce).toUpperCase()
-      : undefined;
+    const clientOrderId = body.clientOrderId ? String(body.clientOrderId).slice(0, 64) : undefined;
+    const rawTimeInForce = body.timeInForce ? String(body.timeInForce).toUpperCase() : undefined;
     const idempotencyKey = (
       req.headers.get("idempotency-key") ??
       (typeof body.idempotencyKey === "string" ? body.idempotencyKey : null) ??
@@ -189,9 +165,7 @@ export async function POST(req: NextRequest) {
       ""
     ).trim();
 
-    if (!IDEMPOTENCY_KEY.test(idempotencyKey)) {
-      return apiError("idempotency_key_required", 400);
-    }
+    if (!IDEMPOTENCY_KEY.test(idempotencyKey)) return apiError("idempotency_key_required", 400);
     if (!market) return apiError("market_required", 400);
     if (!isValidOrderSide(side)) return apiError("invalid_order_side", 400);
     if (!isValidOrderType(type)) return apiError("invalid_order_type", 400);
@@ -209,9 +183,7 @@ export async function POST(req: NextRequest) {
     if (!marketDefinition) return apiError("market_not_active", 422);
 
     const tradeBlock = await enforceTradeAllowed(userId);
-    if (tradeBlock === "risk_authority_unavailable") {
-      return apiError(tradeBlock, 503);
-    }
+    if (tradeBlock === "risk_authority_unavailable") return apiError(tradeBlock, 503);
     if (tradeBlock) return apiError(tradeBlock, 403);
     const riskCheck = await checkOrderRisk({
       userId,
@@ -233,9 +205,7 @@ export async function POST(req: NextRequest) {
       timeInForce,
     };
     const validation = validatePlaceOrderRequest(request, marketDefinition);
-    if (!validation.ok) {
-      return apiError(validation.error, 400, { detail: validation.detail });
-    }
+    if (!validation.ok) return apiError(validation.error, 400, { detail: validation.detail });
 
     let hold: ReturnType<typeof calculateOrderHold>;
     try {
@@ -261,23 +231,19 @@ export async function POST(req: NextRequest) {
     }
 
     const admission = await admitExchangeOrderCommand({
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: session.tenantId,
       userId,
       idempotencyKey,
       request,
       hold: { asset: hold.asset, amount: hold.amount },
     });
-    if (admission.status === "conflict") {
-      return apiError("idempotency_conflict", 409);
-    }
+    if (admission.status === "conflict") return apiError("idempotency_conflict", 409);
     if (admission.status === "insufficient_balance") {
       return apiError("insufficient_balance", 422, {
         detail: "balance changed between precheck and committed hold",
       });
     }
-    if (admission.status === "unavailable") {
-      return apiError("order_admission_unavailable", 503);
-    }
+    if (admission.status === "unavailable") return apiError("order_admission_unavailable", 503);
 
     if (admission.state === "final" && admission.outcome) {
       return finalResponse({
