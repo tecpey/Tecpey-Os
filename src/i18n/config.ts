@@ -197,14 +197,14 @@ export const localeRegistry = [
   },
 ] as const satisfies readonly LocaleDefinition[];
 
-const localeRegistryByCode = Object.fromEntries(
-  localeRegistry.map((definition) => [definition.code, definition]),
-) as Record<Locale, LocaleDefinition>;
+const localeRegistryByCode = new Map<Locale, LocaleDefinition>(
+  localeRegistry.map((definition) => [definition.code, definition] as const),
+);
 
 const localeRegistryByRoute = new Map(
   localeRegistry
     .filter((definition) => definition.routeSegment.length > 0)
-    .map((definition) => [definition.routeSegment.toLowerCase(), definition]),
+    .map((definition) => [definition.routeSegment.toLowerCase(), definition] as const),
 );
 
 export const rtlLocales = localeRegistry
@@ -227,7 +227,11 @@ export function isRtlLocale(value: unknown): value is RtlLocale {
 }
 
 export function getLocaleDefinition(locale: Locale): LocaleDefinition {
-  return localeRegistryByCode[locale];
+  const definition = localeRegistryByCode.get(locale);
+  if (!definition) {
+    throw new Error(`Unknown TecPey locale: ${locale}`);
+  }
+  return definition;
 }
 
 export function getLocaleByRouteSegment(segment: string): Locale | null {
