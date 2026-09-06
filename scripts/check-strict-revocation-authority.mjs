@@ -23,8 +23,6 @@ const directStrictFiles = [
   "src/app/api/achievements/route.ts",
   "src/app/api/arena/leaderboard/route.ts",
   "src/app/api/ai-mentor/route.ts",
-  "src/app/api/api-keys/[id]/route.ts",
-  "src/app/api/api-keys/route.ts",
   "src/app/api/auth/2fa/backup/route.ts",
   "src/app/api/auth/2fa/disable/route.ts",
   "src/app/api/auth/2fa/enroll/route.ts",
@@ -66,6 +64,9 @@ const exchangeStrictFiles = [
   "src/app/api/orders/route.ts",
   "src/app/api/orders/open/route.ts",
   "src/app/api/orders/[id]/route.ts",
+  "src/app/api/trades/route.ts",
+  "src/app/api/api-keys/route.ts",
+  "src/app/api/api-keys/[id]/route.ts",
   "src/app/api/auth/withdraw/route.ts",
   "src/app/api/auth/withdraw/authorize/route.ts",
   "src/app/api/auth/withdraw/[id]/route.ts",
@@ -148,8 +149,6 @@ for (const path of exchangeStrictFiles) {
   }
 }
 
-// Drift detection. A hand-maintained enrollment list cannot notice a route that
-// starts using strict Core revocation, and an unenrolled route is one nobody guards.
 const enrolled = new Set([...directStrictFiles, ...exchangeStrictFiles]);
 const apiRoutes = (await readdir("src/app/api", { recursive: true }))
   .filter((entry) => entry.endsWith("route.ts"))
