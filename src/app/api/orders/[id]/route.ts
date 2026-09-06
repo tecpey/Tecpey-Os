@@ -21,8 +21,8 @@ export async function DELETE(
     const startedAt = Date.now();
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const session = await getExchangeSession(req, { requireRecentStepUp: true });
-    if (!session) return apiError("exchange_step_up_required", 401);
+    const session = await getExchangeSession(req);
+    if (!session) return apiError("exchange_authentication_required", 401);
     const userId = session.productAccountId;
     const rlimit = await rateLimit(req, {
       namespace: "orders-cancel",
