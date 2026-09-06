@@ -68,7 +68,7 @@ export const SAFE_EXCHANGE_BOUNDARY = {
   requiresKycWhenApplicable: true,
   requiresLegalAndRegulatoryGate: true,
   requiresIndependentRiskBoundary: true,
-  targetInfrastructureBoundary: "separate_service_domain_or_server",
+  targetInfrastructureBoundary: "separate_registrable_domain_and_service",
   commercialModel: "transparent_service_or_trading_fee",
 } as const;
 
