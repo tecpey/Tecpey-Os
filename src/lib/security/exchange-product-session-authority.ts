@@ -300,6 +300,7 @@ export function createExchangeProductSessionAuthority(
         issuer: EXCHANGE_PRODUCT_SESSION_ISSUER,
         audience: EXCHANGE_PRODUCT_SESSION_AUDIENCE,
         clockTolerance: 5,
+        currentDate: deps.now(),
       });
       if (protectedHeader.typ !== EXCHANGE_PRODUCT_SESSION_TYP) {
         fail("exchange_session_invalid");
