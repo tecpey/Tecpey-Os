@@ -1,11 +1,10 @@
 // POST /api/auth/withdraw  — create a server-authoritative withdrawal request
-// GET  /api/auth/withdraw  — list the current user's withdrawal history
+// GET  /api/auth/withdraw  — list the current Exchange account withdrawal history
 
-import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { getCanonicalSession } from "@/lib/auth-session";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { deviceFingerprint } from "@/lib/security/webauthn";
@@ -18,7 +17,6 @@ import { listUserWithdrawalsStrict } from "@/lib/security/withdrawal-read-author
 import { ensureWithdrawalPriceSnapshot } from "@/lib/security/withdrawal-price-producer";
 import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
-import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const dynamic = "force-dynamic";
 
@@ -26,23 +24,14 @@ export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/withdraw POST" }, async () => {
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-    if (!userId) return apiError("authentication_required", 401);
-    const tenantContext = await resolveTenantPrincipalContext({
-      session,
-      request: req,
-      requiredPrincipalType: "user",
-      scopes: ["withdrawals:create"],
-      requestId: req.headers.get("x-request-id") ?? randomUUID(),
-    });
-    if (!tenantContext.available) {
-      return apiError("tenant_context_required", 403);
-    }
+    const session = await getExchangeSession(req, { requireRecentStepUp: true });
+    if (!session) return apiError("exchange_step_up_required", 401);
+    const userId = session.productAccountId;
+    const tenantId = session.tenantId;
 
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-create",
-      identity: `${tenantContext.tenantId}:${userId}`,
+      identity: `${tenantId}:${userId}`,
       limit: 5,
       windowMs: 60_000,
     });
@@ -87,17 +76,13 @@ export async function POST(req: NextRequest) {
     if (!canonical.ok) return apiError(canonical.reason, 400);
 
     const replay = await resolveWithdrawalReplay({
-      tenantId: tenantContext.tenantId,
+      tenantId,
       userId,
       idempotencyKey,
       requestHash: canonical.requestHash,
     });
-    if (replay.status === "unavailable") {
-      return apiError("withdrawal_storage_unavailable", 503);
-    }
-    if (replay.status === "conflict") {
-      return apiError("idempotency_conflict", 409);
-    }
+    if (replay.status === "unavailable") return apiError("withdrawal_storage_unavailable", 503);
+    if (replay.status === "conflict") return apiError("idempotency_conflict", 409);
     if (replay.status === "replay") {
       if (replay.withdrawal.state === "blocked") {
         return apiError("withdrawal_blocked", 403, {
@@ -110,24 +95,16 @@ export async function POST(req: NextRequest) {
 
     const authorizationId =
       typeof body.authorizationId === "string" ? body.authorizationId.trim() : "";
-    if (!authorizationId) {
-      return apiError("withdrawal_authorization_required", 403);
-    }
+    if (!authorizationId) return apiError("withdrawal_authorization_required", 403);
 
     const authorization = await inspectWithdrawalAuthorization({
       authorizationId,
       userId,
       requestHash: canonical.requestHash,
     });
-    if (authorization === "unavailable") {
-      return apiError("authorization_store_unavailable", 503);
-    }
-    if (authorization === "invalid") {
-      return apiError("withdrawal_authorization_invalid", 403);
-    }
+    if (authorization === "unavailable") return apiError("authorization_store_unavailable", 503);
+    if (authorization === "invalid") return apiError("withdrawal_authorization_invalid", 403);
 
-    // Normal admission owns its own price production. A fresh signed snapshot is
-    // reused; otherwise at least two direct-USD providers must reach consensus.
     const priceReady = await ensureWithdrawalPriceSnapshot(canonical.command.asset);
     if (!priceReady) return apiError("price_consensus_unavailable", 503);
 
@@ -136,7 +113,7 @@ export async function POST(req: NextRequest) {
     const fingerprint = deviceFingerprint(userAgent, ip);
 
     const result = await createAuthoritativeWithdrawal({
-      tenantId: tenantContext.tenantId,
+      tenantId,
       ...canonical.command,
       authorizationId,
       deviceFingerprint: fingerprint,
@@ -169,44 +146,24 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/withdraw GET" }, async () => {
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-    if (!userId) return apiError("authentication_required", 401);
-    const tenantContext = await resolveTenantPrincipalContext({
-      session,
-      request: req,
-      requiredPrincipalType: "user",
-      scopes: ["withdrawals:read"],
-      requestId: req.headers.get("x-request-id") ?? randomUUID(),
-    });
-    if (!tenantContext.available) {
-      return apiError("tenant_context_required", 403);
-    }
+    const session = await getExchangeSession(req);
+    if (!session) return apiError("exchange_authentication_required", 401);
+    const userId = session.productAccountId;
+    const tenantId = session.tenantId;
 
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-list",
-      identity: `${tenantContext.tenantId}:${userId}`,
+      identity: `${tenantId}:${userId}`,
       limit: 30,
       windowMs: 60_000,
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
     const url = new URL(req.url);
-    const limit = Math.min(
-      parseInt(url.searchParams.get("limit") ?? "20", 10) || 20,
-      100,
-    );
-    const offset = Math.max(
-      parseInt(url.searchParams.get("offset") ?? "0", 10) || 0,
-      0,
-    );
+    const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20", 10) || 20, 100);
+    const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10) || 0, 0);
 
-    const result = await listUserWithdrawalsStrict(
-      userId,
-      limit,
-      offset,
-      tenantContext.tenantId,
-    );
+    const result = await listUserWithdrawalsStrict(userId, limit, offset, tenantId);
     if (!result.ok) return apiError(result.reason, 503);
     return apiOk({ withdrawals: result.withdrawals, limit, offset });
   });
