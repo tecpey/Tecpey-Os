@@ -74,10 +74,29 @@ export function extractPlaceholders(value: string): string[] {
   return value.match(PLACEHOLDER_PATTERN) ?? [];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function visibleTextForEntityCheck(value: string): string {
+  // A brand/symbol occurring only inside a URL or interpolation token does not prove
+  // that the translated prose preserved the entity. Strip those machine-owned regions
+  // before evaluating protected terminology.
+  return value.replace(URL_PATTERN, " ").replace(PLACEHOLDER_PATTERN, " ");
+}
+
 function includesProtectedToken(target: string, token: string): boolean {
-  return target.normalize("NFKC").toLocaleLowerCase().includes(
-    token.normalize("NFKC").toLocaleLowerCase(),
+  const normalizedTarget = visibleTextForEntityCheck(target).normalize("NFKC");
+  const normalizedToken = token.normalize("NFKC").trim();
+  if (!normalizedToken) return true;
+
+  // Unicode-aware token boundaries prevent symbols such as ETH from passing merely
+  // because the letters happen to occur inside an unrelated word (for example method).
+  const pattern = new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escapeRegExp(normalizedToken)}(?:$|[^\\p{L}\\p{N}])`,
+    "iu",
   );
+  return pattern.test(normalizedTarget);
 }
 
 export type DeterministicLocalizationIntegrity = Readonly<{
