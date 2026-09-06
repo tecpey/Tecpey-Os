@@ -20,16 +20,22 @@ function resolve(origin: string | undefined) {
   });
 }
 
-test("TecPey Exchange is an external affiliated provider, not a Core execution surface", () => {
+test("TecPey Exchange is a distinct product surface on the shared identity plane", () => {
   assertExchangeAppBoundary();
 
   assert.equal(EXCHANGE_DISCOVERY_POLICY.primaryNavigation, false);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.academyNavigation, false);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.directExecutionInsideCore, false);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedIdentityPlaneWithCore, true);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.consentBasedAccountLinking, true);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedKycAssuranceWithCore, true);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedKycDocumentStoreWithCore, false);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.mentorReadOnlySignalsViaConsent, true);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedFinancialSessionWithCore, false);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedExecutionAuthWithCore, false);
-  assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedKycFlowWithCore, false);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.sharedCustodySurfaceWithCore, false);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.separateRegistrableDomainRequired, true);
+  assert.equal(EXCHANGE_DISCOVERY_POLICY.separateProductSessionRequired, true);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.leavingCoreDisclosureRequired, true);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.affiliationDisclosureRequired, true);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.securityClaims, "evidence_only");
@@ -44,6 +50,10 @@ test("TecPey affiliation is disclosed and cannot improve provider ranking", () =
   assert.equal(TECPEY_EXCHANGE_PROVIDER.disclosureRequired, true);
   assert.equal(TECPEY_EXCHANGE_PROVIDER.rankingBoostFromAffiliation, false);
   assert.equal(EXCHANGE_DISCOVERY_POLICY.affiliationAffectsRanking, false);
+  assert.equal(
+    TECPEY_EXCHANGE_PROVIDER.identityRelationship,
+    "shared_identity_distinct_product_account",
+  );
   assert.equal(TECPEY_EXCHANGE_PROVIDER.originEnv, TECPEY_EXCHANGE_ORIGIN_ENV);
 
   for (const dimension of [

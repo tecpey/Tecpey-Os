@@ -1,5 +1,5 @@
 export const EXCHANGE_APP_BOUNDARY_POLICY_VERSION =
-  "tecpey-exchange-app-boundary-v1" as const;
+  "tecpey-exchange-app-boundary-v2" as const;
 
 export const TECPEY_EXCHANGE_ORIGIN_ENV = "TECPEY_EXCHANGE_ORIGIN" as const;
 
@@ -23,10 +23,16 @@ export const EXCHANGE_DISCOVERY_POLICY = {
   primaryNavigation: false,
   academyNavigation: false,
   directExecutionInsideCore: false,
+  sharedIdentityPlaneWithCore: true,
+  consentBasedAccountLinking: true,
+  sharedKycAssuranceWithCore: true,
+  sharedKycDocumentStoreWithCore: false,
+  mentorReadOnlySignalsViaConsent: true,
+  sharedFinancialSessionWithCore: false,
   sharedExecutionAuthWithCore: false,
-  sharedKycFlowWithCore: false,
   sharedCustodySurfaceWithCore: false,
   separateRegistrableDomainRequired: true,
+  separateProductSessionRequired: true,
   leavingCoreDisclosureRequired: true,
   affiliationDisclosureRequired: true,
   affiliationAffectsRanking: false,
@@ -50,6 +56,7 @@ export const TECPEY_EXCHANGE_PROVIDER = {
   disclosureRequired: true,
   rankingBoostFromAffiliation: false,
   executionSurface: "external_app",
+  identityRelationship: "shared_identity_distinct_product_account",
   originEnv: TECPEY_EXCHANGE_ORIGIN_ENV,
 } as const;
 
@@ -129,15 +136,28 @@ export function assertExchangeAppBoundary(): void {
     EXCHANGE_DISCOVERY_POLICY.primaryNavigation ||
     EXCHANGE_DISCOVERY_POLICY.academyNavigation ||
     EXCHANGE_DISCOVERY_POLICY.directExecutionInsideCore ||
+    EXCHANGE_DISCOVERY_POLICY.sharedFinancialSessionWithCore ||
     EXCHANGE_DISCOVERY_POLICY.sharedExecutionAuthWithCore ||
-    EXCHANGE_DISCOVERY_POLICY.sharedKycFlowWithCore ||
+    EXCHANGE_DISCOVERY_POLICY.sharedKycDocumentStoreWithCore ||
     EXCHANGE_DISCOVERY_POLICY.sharedCustodySurfaceWithCore
   ) {
-    throw new Error("Exchange execution leaked into TecPey Core");
+    throw new Error("Exchange execution or sensitive authority leaked into TecPey Core");
   }
 
-  if (!EXCHANGE_DISCOVERY_POLICY.separateRegistrableDomainRequired) {
-    throw new Error("TecPey Exchange must use a separate registrable domain");
+  if (
+    !EXCHANGE_DISCOVERY_POLICY.sharedIdentityPlaneWithCore ||
+    !EXCHANGE_DISCOVERY_POLICY.consentBasedAccountLinking ||
+    !EXCHANGE_DISCOVERY_POLICY.sharedKycAssuranceWithCore ||
+    !EXCHANGE_DISCOVERY_POLICY.mentorReadOnlySignalsViaConsent
+  ) {
+    throw new Error("TecPey identity, consent or Mentor linkage boundary missing");
+  }
+
+  if (
+    !EXCHANGE_DISCOVERY_POLICY.separateRegistrableDomainRequired ||
+    !EXCHANGE_DISCOVERY_POLICY.separateProductSessionRequired
+  ) {
+    throw new Error("TecPey Exchange must keep a separate domain and product session");
   }
 
   if (
