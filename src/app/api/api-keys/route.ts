@@ -3,8 +3,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { getCanonicalSession } from "@/lib/auth-session";
-import { PLATFORM } from "@/lib/platform-config";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { createApiKey, listApiKeys } from "@/lib/security/api-keys";
 import type { ApiKeyPermission } from "@/lib/security/api-keys";
 import {
@@ -26,11 +25,10 @@ export async function GET(req: NextRequest) {
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.studentId ?? session.userId;
-    if (!userId) return apiError("unauthorized", 401);
+    const session = await getExchangeSession(req);
+    if (!session) return apiError("exchange_authentication_required", 401);
 
-    const keys = await listApiKeys(userId);
+    const keys = await listApiKeys(session.productAccountId);
     return apiOk({ keys });
   });
 }
@@ -46,10 +44,10 @@ export async function POST(req: NextRequest) {
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.studentId ?? session.userId;
-    if (!userId) return apiError("unauthorized", 401);
-    const actorType = session.userId ? "user" as const : "student" as const;
+    const session = await getExchangeSession(req, { requireRecentStepUp: true });
+    if (!session) return apiError("exchange_step_up_required", 401);
+    const userId = session.productAccountId;
+    const actorType = "user" as const;
 
     const boundedBodyRequest = await readBoundedJsonRequest(req, {
       maxBytes: 8_192,
@@ -100,7 +98,7 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-tecpey-request-id"),
     );
     const requestHash = hashSensitiveAuditRequest({
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: session.tenantId,
       actorType,
       actorId: userId,
       action: "api_key.create",
@@ -118,7 +116,7 @@ export async function POST(req: NextRequest) {
         ipWhitelist: whitelist,
         expiresAt: expiresAtDate,
         audit: {
-          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          tenantId: session.tenantId,
           actorType,
           actorId: userId,
           correlationId,
