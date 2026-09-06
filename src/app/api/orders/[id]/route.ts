@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { getCanonicalSession } from "@/lib/auth-session";
+import { getExchangeSession } from "@/lib/security/exchange-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
@@ -21,11 +21,9 @@ export async function DELETE(
     const startedAt = Date.now();
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    if (!session.userId && !session.studentId) {
-      return apiError("authentication_required", 401);
-    }
-    const userId = session.userId ?? session.studentId ?? "";
+    const session = await getExchangeSession(req, { requireRecentStepUp: true });
+    if (!session) return apiError("exchange_step_up_required", 401);
+    const userId = session.productAccountId;
     const rlimit = await rateLimit(req, {
       namespace: "orders-cancel",
       limit: 30,
@@ -37,16 +35,12 @@ export async function DELETE(
     const { id: orderId } = await params;
     if (
       !orderId ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        orderId,
-      )
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)
     ) {
       return apiError("invalid_order_id", 400);
     }
 
-    const idempotencyKey = parseApiIdempotencyKey(
-      req.headers.get("Idempotency-Key"),
-    );
+    const idempotencyKey = parseApiIdempotencyKey(req.headers.get("Idempotency-Key"));
     if (!idempotencyKey) return apiError("idempotency_key_required", 400);
 
     const result = await cancelOrderIdempotently({
@@ -88,10 +82,7 @@ export async function DELETE(
       cancelled: true,
       replayed: result.replayed,
     });
-    response.headers.set(
-      "Idempotency-Replayed",
-      result.replayed ? "true" : "false",
-    );
+    response.headers.set("Idempotency-Replayed", result.replayed ? "true" : "false");
     return response;
   });
 }
