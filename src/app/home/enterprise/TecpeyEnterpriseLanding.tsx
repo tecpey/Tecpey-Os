@@ -42,10 +42,9 @@ import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
 import { formatMarketPrice, normalizeMarketSymbol } from "@/lib/public-market-data";
 import type { MarketCurrency } from "@/types/market";
 
-const exchangeHref = "https://my.tecpey.ir";
-const exchangeSignupHref = "https://my.tecpey.ir/signup";
 const academyHref = "/academy";
-const academyAuthHref = "/academy/login";
+const mentorHref = "/academy/ai-guide";
+const tradingArenaHref = "/academy/trading-arena";
 
 const marketRows = [
   { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین" },
@@ -193,13 +192,13 @@ function Hero() {
             آموزش، قیمت‌های مرجع، تمرین مجازی و منتور آموزشی برای شروع آرام، امن و بدون سیگنال‌فروشی.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
-            <Link href={exchangeHref} className="tecpey-action-primary group sm:text-base">
-              ورود به صرافی
-              <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-1" />
+            <Link href={academyHref} className="tecpey-action-primary group sm:text-base">
+              شروع آکادمی رایگان
+              <GraduationCap className="h-5 w-5 transition group-hover:-translate-x-1" />
             </Link>
-            <Link href={academyHref} className="tecpey-action-secondary sm:text-base">
-              آکادمی رایگان
-              <GraduationCap className="h-5 w-5 text-[color:var(--tp-primary)]" />
+            <Link href={mentorHref} className="tecpey-action-secondary sm:text-base">
+              گفتگو با منتور هوشمند
+              <Sparkles className="h-5 w-5 text-[color:var(--tp-primary)]" />
             </Link>
           </div>
           <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-[color:var(--tp-muted)] sm:text-xs lg:max-w-xl">
@@ -264,32 +263,32 @@ function GlobalUxMetrics() {
 function SoftLaunchProductFocus() {
   const paths = [
     {
-      icon: MousePointerClick,
-      title: "ورود به صرافی",
-      desc: "مسیر دسترسی به بازار، حساب کاربری و تجربه اصلی تک‌پی برای کاربران آماده ورود.",
-      href: exchangeHref,
-      cta: "باز کردن صرافی",
-    },
-    {
       icon: GraduationCap,
       title: "آکادمی رایگان",
-      desc: "مسیر فارسی و مرحله‌ای برای یادگیری مفاهیم، امنیت، ریسک و کار با بازار رمزارز.",
+      desc: "مسیر مرحله‌ای یادگیری از مبانی و امنیت تا تحلیل، مدیریت ریسک و رشد پیوسته.",
       href: academyHref,
-      cta: "شروع یادگیری",
+      cta: "شروع مسیر یادگیری",
+    },
+    {
+      icon: Sparkles,
+      title: "منتور هوشمند",
+      desc: "همراه آموزشی شخصی برای توضیح مفاهیم، شناخت نقاط ضعف و پیشنهاد تمرین بعدی؛ بدون فروش سیگنال.",
+      href: mentorHref,
+      cta: "گفتگو با منتور",
     },
     {
       icon: LineChart,
-      title: "مارکت برد آنلاین",
-      desc: "قیمت‌ها، رمزارزها و داده‌های مرجع بازار برای بررسی اولیه پیش از تصمیم.",
+      title: "نمای آموزشی بازار",
+      desc: "قیمت‌ها و داده‌های مرجع بازار برای یادگیری، مشاهده زمینه بازار و تمرین تصمیم‌گیری.",
       href: "/markets",
-      cta: "مشاهده بازار",
+      cta: "بررسی بازار",
     },
     {
       icon: Trophy,
       title: "تریدینگ آرنا",
-      desc: "محیط تمرین آموزشی با سرمایه مجازی برای ساختن عادت مدیریت ریسک.",
-      href: "/academy/trading-arena",
-      cta: "تمرین بدون ریسک",
+      desc: "محیط تمرین با سرمایه مجازی برای تبدیل آموخته‌ها به مهارت و ساختن عادت مدیریت ریسک.",
+      href: tradingArenaHref,
+      cta: "شروع تمرین",
     },
   ];
 
@@ -298,12 +297,12 @@ function SoftLaunchProductFocus() {
       <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/15 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,85,170,.10)] dark:bg-white/[0.055] lg:p-7">
         <div className="grid gap-6 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
           <div>
-            <p className="text-sm font-black text-[color:var(--tp-primary)]">تمرکز نسخه فعلی تک‌پی</p>
+            <p className="text-sm font-black text-[color:var(--tp-primary)]">مسیر اصلی تجربه تک‌پی</p>
             <h2 className="mt-3 text-2xl font-black leading-10 text-[color:var(--tp-text)] sm:text-3xl">
-              چهار مسیر اصلی برای soft launch سالم
+              از یادگیری تا تمرین، با منتور در کنار شما
             </h2>
             <p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">
-              در این مرحله، تجربه کاربر باید سریع بفهمد از کجا وارد صرافی شود، از کجا یادگیری را شروع کند و پیش از تصمیم، بازار و تمرین آموزشی را ببیند.
+              آکادمی نقطه شروع است؛ منتور مسیر یادگیری را همراهی می‌کند، داده‌های بازار زمینه آموزشی می‌دهند و تریدینگ آرنا آموخته‌ها را به تمرین قابل سنجش تبدیل می‌کند.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -1070,12 +1069,12 @@ function FinalCta() {
         <h2 className="mx-auto mt-6 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">تک‌پی، نقطه امن ورود به بازار رمزارز</h2>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-8 text-white/70 sm:text-base">آموزش‌های رایگان آکادمی را شروع کنید، اطلاعات آموزشی بازار را مرور کنید، در آزمون‌ها امتیاز بگیرید و اگر جزو کاربران آماده‌تر باشید، وارد مسیر حرفه‌ای تک‌پی شوید.</p>
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link href={exchangeSignupHref} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5">
-            ورود به صرافی
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <Link href={academyHref} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">
+          <Link href={academyHref} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5">
             شروع آکادمی رایگان
+            <GraduationCap className="h-5 w-5" />
+          </Link>
+          <Link href={mentorHref} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">
+            گفتگو با منتور هوشمند
           </Link>
         </div>
       </div>
@@ -1087,11 +1086,11 @@ function StickyMobileCta() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/92 px-4 py-3 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl sm:hidden">
       <div className="mx-auto grid max-w-md grid-cols-2 items-center gap-2">
-        <Link href={exchangeHref} className="rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
-          ورود به صرافی
+        <Link href={academyHref} className="rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
+          شروع آکادمی
         </Link>
-        <Link href={academyAuthHref} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-center text-xs font-black text-white transition hover:bg-white/15">
-          ورود به آکادمی
+        <Link href={mentorHref} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-center text-xs font-black text-white transition hover:bg-white/15">
+          منتور هوشمند
         </Link>
       </div>
     </div>
