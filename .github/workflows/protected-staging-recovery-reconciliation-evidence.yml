@@ -52,6 +52,7 @@ jobs:
           EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
           EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
           HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
+          RECOVERY_ENV_FILE: ${{ vars.TECPEY_RECOVERY_ENV_FILE }}
         run: |
           set -Eeuo pipefail
           test "$AUTHORITY_REF" = refs/heads/main
@@ -62,6 +63,7 @@ jobs:
           test -n "$EXPECTED_USER"
           test -n "$EXPECTED_GROUP"
           test -n "$HEALTH_URL"
+          test -n "$RECOVERY_ENV_FILE"
           test "$(id -un)" = "$EXPECTED_USER"
           test "$(id -gn)" = "$EXPECTED_GROUP"
           (cd authority && test "$(git rev-parse HEAD)" = "$AUTHORITY_SHA")
@@ -89,7 +91,7 @@ jobs:
       - name: Configure governed protected CA trust
         shell: bash
         env:
-          ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          ENV_FILE: ${{ vars.TECPEY_RECOVERY_ENV_FILE }}
         run: |
           set -Eeuo pipefail
           node <<'NODE'
@@ -152,7 +154,7 @@ jobs:
         shell: bash
         env:
           TECPEY_RECOVERY_AUTHORITY_DIR: ${{ github.workspace }}/authority
-          TECPEY_RECOVERY_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          TECPEY_RECOVERY_ENV_FILE: ${{ vars.TECPEY_RECOVERY_ENV_FILE }}
           TECPEY_RECOVERY_HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
           TECPEY_RECOVERY_SOURCE_SHA: ${{ inputs.release_sha }}
           TECPEY_RECOVERY_OPERATOR: github:${{ github.actor }}
