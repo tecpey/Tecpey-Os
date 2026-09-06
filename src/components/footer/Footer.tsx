@@ -7,11 +7,11 @@ const faGroups = [
   { title: "تک‌پی", links: [
     ["درباره تک‌پی", "/about"], ["چرا تک‌پی؟", "/why-tecpey"], ["امنیت", "/security"], ["شفافیت", "/transparency"], ["بیانیه ریسک", "/risk-disclosure"], ["قوانین", "/rules"], ["تماس با ما", "/contact-us"],
   ] },
+  { title: "آموزش و تمرین", links: [
+    ["آکادمی تک‌پی", "/academy"], ["منتور هوشمند", "/academy/ai-guide"], ["تریدینگ آرنا", "/academy/trading-arena"], ["مرکز یادگیری", "/learn"], ["جعبه ابزار معامله‌گر", "/trading-tools"], ["واژه‌نامه رمزارز", "/glossary"], ["سؤالات پرتکرار", "/faq"],
+  ] },
   { title: "بازار و معامله", links: [
     ["مارکت برد آنلاین", "/markets"], ["رمزارزها", "/coins"], ["اخبار رمزارز", "/crypto-news"], ["کارمزدها", "/fees"], ["راهنمای شروع", "/start-guide"], ["مقایسه صرافی‌ها", "/compare"], ["سواپ", "/swap"],
-  ] },
-  { title: "آموزش و تمرین", links: [
-    ["آکادمی تک‌پی", "/academy"], ["تریدینگ آرنا", "/academy/trading-arena"], ["منتور هوشمند", "/academy/ai-guide"], ["مرکز یادگیری", "/learn"], ["جعبه ابزار معامله‌گر", "/trading-tools"], ["واژه‌نامه رمزارز", "/glossary"], ["سؤالات پرتکرار", "/faq"],
   ] },
   { title: "همکاری و پشتیبانی", links: [
     ["مرکز پشتیبانی", "/support"], ["همکاری با تک‌پی", "/partners"], ["راهکار کسب‌وکار", "/business"], ["درخواست لیست شدن", "/listing"], ["رسانه و برند", "/media"], ["سیاست تحریریه", "/editorial-policy"], ["روش‌شناسی", "/methodology"],
@@ -22,11 +22,11 @@ const enGroups = [
   { title: "TecPey", links: [
     ["About TecPey", "/en/about"], ["Why TecPey?", "/en/why-tecpey"], ["Security", "/en/security"], ["Transparency", "/en/transparency"], ["Risk Disclosure", "/en/risk-disclosure"], ["Rules", "/en/rules"], ["Contact", "/en/contact-us"],
   ] },
+  { title: "Academy & Practice", links: [
+    ["Academy", "/en/academy"], ["AI Learning Mentor", "/en/academy/ai-guide"], ["Trading Arena", "/en/academy/trading-arena"], ["Trader Toolbox", "/en/trading-tools"], ["Crypto Glossary", "/en/glossary"], ["FAQ", "/en/faq"], ["News Quiz", "/en/academy/news-quiz"],
+  ] },
   { title: "Markets & Trading", links: [
     ["Markets", "/en/markets"], ["Coins", "/en/coins"], ["Crypto News", "/en/crypto-news"], ["Fees", "/en/fees"], ["Start Guide", "/en/start-guide"], ["Exchange Comparisons", "/en/compare"], ["Swap", "/en/swap"],
-  ] },
-  { title: "Academy & Practice", links: [
-    ["Academy", "/en/academy"], ["Trading Arena", "/en/academy/trading-arena"], ["AI Learning Mentor", "/en/academy/ai-guide"], ["Trader Toolbox", "/en/trading-tools"], ["Crypto Glossary", "/en/glossary"], ["FAQ", "/en/faq"], ["News Quiz", "/en/academy/news-quiz"],
   ] },
   { title: "Collaboration & Support", links: [
     ["Support Center", "/en/support"], ["Partners", "/en/partners"], ["Business Solutions", "/en/business"], ["Listing Request", "/en/listing"], ["Media & Brand", "/en/media"], ["Editorial Policy", "/en/editorial-policy"], ["Methodology", "/en/methodology"],
