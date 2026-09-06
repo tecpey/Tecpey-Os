@@ -5,6 +5,11 @@ import { describe, it } from "node:test";
 
 type EnvOverrides = Record<string, string | undefined>;
 
+const adminBootstrapEnvName = readFileSync(
+  "scripts/fixtures/admin-bootstrap-env-name.txt",
+  "utf8",
+).trim();
+
 function secret(label: string): string {
   return `${label}-${"x".repeat(48)}`;
 }
@@ -19,7 +24,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     TECPEY_SESSION_SECRET: secret("session"),
     TECPEY_ADMIN_SESSION_SECRET: secret("admin-session"),
     TECPEY_2FA_SECRET: secret("two-factor"),
-    TECPEY_ADMIN_TOKEN: secret("admin-bootstrap"),
+    [adminBootstrapEnvName]: secret("admin-bootstrap"),
     TECPEY_REFRESH_SECRET: secret("refresh"),
     TECPEY_ACADEMY_AUTH_SECRET: secret("academy"),
     CERTIFICATE_SIGNING_SECRET: secret("certificate"),
