@@ -81,7 +81,7 @@ export const localeRegistry = [
   {
     code: "en",
     routeSegment: "en",
-    htmlLang: "en",
+    htmlLang: "en-US",
     hreflang: "en",
     ogLocale: "en_US",
     direction: "ltr",

@@ -19,7 +19,7 @@ test("shared locale runtime resolves active locales and preserves semantic route
     status: "active",
     locale: "en",
     semanticPath: "/academy/trading-arena",
-    htmlLang: "en",
+    htmlLang: "en-US",
     direction: "ltr",
     routeSegment: "en",
   });
