@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { resolveArenaAccessGate } from "@/lib/arena-access-state";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -45,7 +46,7 @@ const POLL_MS = 20_000;
 const FEE_RATE = 0.001;
 
 type EmotionalState = "calm" | "neutral" | "confident" | "anxious" | "fearful" | "greedy";
-type LoadState = "loading" | "ready" | "profile" | "error";
+type LoadState = "loading" | "ready" | "profile" | "login" | "error";
 
 type TradeDraft = {
   asset: ArenaExecutionAsset;
@@ -573,7 +574,7 @@ export function TradingArenaExecutionClient() {
         if (response.status === 401) {
           snapshotRef.current = null;
           setSnapshot(null);
-          setLoadState("profile");
+          setLoadState(resolveArenaAccessGate(code, response.status));
         } else {
           setLoadState("error");
         }
@@ -716,13 +717,14 @@ export function TradingArenaExecutionClient() {
     return <div className="flex min-h-[420px] items-center justify-center"><div className="text-center"><LoaderCircle className="mx-auto h-8 w-8 animate-spin text-cyan-300" /><p className="mt-3 text-sm font-black text-slate-400">در حال بازیابی حساب معتبر آرنا...</p></div></div>;
   }
 
-  if (loadState === "profile" && !snapshot) {
+  if ((loadState === "profile" || loadState === "login") && !snapshot) {
+    const needsLogin = loadState === "login";
     return (
       <div className="mx-auto max-w-xl rounded-[28px] border border-amber-300/25 bg-amber-400/10 p-8 text-center" dir="rtl">
         <ShieldCheck className="mx-auto h-11 w-11 text-amber-200" />
-        <h1 className="mt-4 text-xl font-black">ابتدا پروفایل آکادمی را کامل کنید</h1>
-        <p className="mt-3 text-sm font-bold leading-7 text-slate-300">حساب آرنا، فرصت‌ها و تاریخچه اجرای شما به شناسه پایدار دانشجو متصل می‌شوند.</p>
-        <Link href="/academy/onboarding" className="mt-5 inline-flex rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white hover:bg-cyan-700">ساخت یا تکمیل پروفایل</Link>
+        <h1 className="mt-4 text-xl font-bold">{needsLogin ? "برای ادامه تمرین وارد شوید" : "پروفایل آموزشی را بررسی کنید"}</h1>
+        <p role="status" className="mt-3 text-sm leading-7 text-slate-300">{needsLogin ? "برای دسترسی به تمرین‌ها و سابقه خود، ورود به حساب آکادمی لازم است." : "برای اتصال آرنا به مسیر یادگیری، اطلاعات پروفایل را بررسی و ذخیره کنید."}</p>
+        <Link href={needsLogin ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/academy/onboarding"} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{needsLogin ? "ورود به آکادمی" : "بررسی پروفایل"}</Link>
       </div>
     );
   }

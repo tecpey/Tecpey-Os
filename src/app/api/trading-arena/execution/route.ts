@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import { NextRequest } from "next/server";
 import Decimal from "decimal.js";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { resolveArenaSessionError } from "@/lib/arena-access-state";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { getArenaMarketPriceSnapshot } from "@/lib/arena-market-price";
 import { persistNewArenaTradeScores } from "@/lib/arena-league-score-ledger";
@@ -360,7 +361,9 @@ export async function GET(request: NextRequest) {
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(request);
+    const session = await getCanonicalSession(request, { strictRevocation: true });
+    const sessionError = resolveArenaSessionError(session);
+    if (sessionError) return apiError(sessionError.code, sessionError.status);
     if (!session.studentId) return apiError("academy_profile_required", 401);
     const market = await optionalMarketForRead();
 
@@ -410,6 +413,8 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
 
     const session = await getCanonicalSession(request, { strictRevocation: true });
+    const sessionError = resolveArenaSessionError(session);
+    if (sessionError) return apiError(sessionError.code, sessionError.status);
     if (!session.studentId) return apiError("academy_profile_required", 401);
     const tenantContext = await resolveTenantPrincipalContext({
       session,

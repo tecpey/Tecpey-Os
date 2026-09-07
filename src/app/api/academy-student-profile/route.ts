@@ -272,13 +272,19 @@ export async function POST(req: NextRequest) {
         const session = await getCanonicalSession(req, {
           strictRevocation: true,
         });
+        if (session.authorityDegraded) {
+          return apiError("academy_profile_service_unavailable", 503);
+        }
         if (!session.studentId && !session.isAcademyUser) {
           return apiError("academy_login_required", 401);
         }
 
         const ip = getClientIp(req);
         const userAgent = (req.headers.get("user-agent") || "").slice(0, 500);
-        const email = body.email || session.email;
+        // This form edits presentation fields, not identity provider claims.
+        // Email comes from the authenticated session; phone is loaded from the
+        // verified account record below. OAuth subjects need their own ceremony.
+        const email = session.email ?? undefined;
         const result = await withDb(async (client) => {
           const verifiedPhone = session.academyAccountId
             ? await client.query<{ phone_e164: string | null }>(
@@ -296,8 +302,6 @@ export async function POST(req: NextRequest) {
               locale: body.locale,
               email,
               phone: verifiedPhone?.rows[0]?.phone_e164 ?? undefined,
-              googleId: body.googleId,
-              appleId: body.appleId,
               displayName: body.displayName || session.displayName,
               username: body.username || session.username,
               avatar: body.avatar,
@@ -337,7 +341,6 @@ export async function POST(req: NextRequest) {
           accountKey: session.academyAccountId || null,
           studentId: session.studentId || null,
           email,
-          phone: body.phone,
           displayName: body.displayName || session.displayName,
           username: body.username || session.username,
           avatar: body.avatar,
@@ -364,6 +367,17 @@ export async function POST(req: NextRequest) {
         );
         return response;
       } catch (error) {
+        if (error && typeof error === "object" &&
+          "code" in error && error.code === "23505" &&
+          "constraint" in error && error.constraint === "academy_students_username_key") {
+          return apiError("academy_username_unavailable", 409);
+        }
+        if (error instanceof Error && [
+          "academy_student_identity_ambiguous",
+          "academy_student_identity_missing",
+        ].includes(error.message)) {
+          return apiError("academy_profile_identity_conflict", 409);
+        }
         if (
           error instanceof Error &&
           [

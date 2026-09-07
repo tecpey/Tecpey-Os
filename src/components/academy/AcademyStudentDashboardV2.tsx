@@ -86,13 +86,13 @@ const fa = {
   unlocked: "باز",
   passed: "قبول‌شده",
   progress: "پیشرفت",
-  streak: "استریک",
+  streak: "تداوم یادگیری",
   achievements: "نشان‌ها",
   mentor: "منتور",
-  arena: "Trading Arena",
+  arena: "تریدینگ آرنا",
   certs: "مدارک",
   account: "حساب",
-  smart: "مرکز هوشمند",
+  smart: "اعلان‌ها",
   terms: "مسیر ترم‌ها",
   tecpeyId: "شناسه داخلی تک‌پی",
   noIndex: "این داشبورد خصوصی است و برای کاربر عمومی یا موتور جستجو نمایش داده نمی‌شود.",
@@ -119,7 +119,7 @@ const en = {
   arena: "Trading Arena",
   certs: "Certificates",
   account: "Account",
-  smart: "Smart Center",
+  smart: "Notifications",
   terms: "Term path",
   tecpeyId: "Internal TecPey ID",
   noIndex: "This dashboard is private and is not shown to public users or search engines.",
@@ -309,19 +309,20 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,.16),transparent_35%),#020617] px-4 pb-32 pt-10 text-white sm:px-6 lg:px-8 lg:pb-10" dir={isFa ? "rtl" : "ltr"}>
+    <main className="min-h-screen bg-slate-950 px-4 pb-32 pt-8 text-white sm:px-6 lg:px-8 lg:pb-12" dir={isFa ? "rtl" : "ltr"}>
       <section className="mx-auto max-w-7xl">
-        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-          <div className="rounded-[38px] border border-cyan-300/20 bg-white/[0.065] p-6 shadow-[0_30px_120px_rgba(34,211,238,.14)] lg:p-8">
+        <p className="mb-6 text-sm font-medium text-cyan-200">{isFa ? "آکادمی تک‌پی / مسیر من" : "TecPey Academy / My journey"}</p>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-5">
               <div className="flex items-center gap-4">
                 <div className="grid h-16 w-16 place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{avatar}</div>
                 <div>
-                  <p className="text-sm font-black text-cyan-200">{username}</p>
-                  <h1 className="mt-1 text-3xl font-black sm:text-4xl">{t.hello} {displayName} 👋</h1>
+                  <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
+                  <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
                 </div>
               </div>
-              <Link href={smartHref} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-cyan-500 to-blue-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+              <Link href={smartHref} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
                 <BrainCircuit className="h-4 w-4" /> {t.smart}
               </Link>
             </div>
@@ -334,14 +335,14 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length + credentials.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
 
-            <div className="mt-7 rounded-[30px] border border-cyan-300/15 bg-cyan-400/10 p-5">
+            <div className="mt-7 rounded-3xl border border-cyan-300/25 bg-slate-900 p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-black text-cyan-100">{t.currentTerm}</p>
-                  <h2 className="mt-2 text-2xl font-black">{coreComplete ? (isFa ? "ترم ۸؛ ترم رشد بی‌نهایت" : "Term 8: Infinite Growth") : currentTerm?.title}</h2>
+                  <p className="text-sm font-semibold text-cyan-200">{isFa ? "قدم بعدی تو" : "Your next step"}</p>
+                  <h2 className="mt-3 text-2xl font-bold leading-relaxed">{coreComplete ? (isFa ? "ترم ۸؛ ترم رشد بی‌نهایت" : "Term 8: Infinite Growth") : currentTerm?.title}</h2>
                   <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-slate-300">{coreComplete ? (isFa ? "ارزیابی، برنامه‌ریزی، تمرین، بازتاب و اعتبارسنجی در چرخه‌ای شخصی‌سازی‌شده؛ بدون وعده مالی یا دسترسی ویژه خودکار." : "A personalized assess, plan, practice, reflect and verify cycle—with no automatic financial or privileged entitlement.") : currentTerm?.subtitle}</p>
                 </div>
-                <Link href={`${termBase}/term-${currentTermNumber}`} className="min-h-11 rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200">
+                <Link href={`${termBase}/term-${currentTermNumber}`} className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-cyan-300 px-6 py-4 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-slate-900 sm:w-auto">
                   {completedCoreTerms === 0 ? t.startTerm : t.continueTerm}
                 </Link>
               </div>
@@ -351,36 +352,36 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           <aside className="space-y-4">
             <div className="rounded-[32px] border border-white/10 bg-white/[0.055] p-5">
               <p className="text-xs font-black text-slate-400">{t.tecpeyId}</p>
-              <p className="mt-2 font-mono text-lg font-black text-cyan-200">{profile.public_student_id}</p>
+              <p className="mt-2 break-all font-mono text-lg font-semibold text-cyan-200"><bdi>{profile.public_student_id}</bdi></p>
               <p className="mt-3 text-xs font-bold leading-6 text-slate-400">{t.noIndex}</p>
             </div>
-            <Quick href={isFa ? "/academy/mentor-coach" : "/en/academy/mentor-coach"} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "تحلیل مسیر یادگیری و پیشنهاد تمرین بعدی" : "Learning insight and next practice recommendation"} />
-            <Quick href={isFa ? "/academy/simulator" : "/en/academy/simulator"} icon={<TrendingUp />} title={t.arena} text={isFa ? "تمرین تصمیم‌گیری و ژورنال معامله آزمایشی" : "Demo decision practice and trading journal"} />
+            <Quick href={`${termBase}/ai-guide`} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "گفت‌وگو درباره مسیر یادگیری و تمرین بعدی" : "Talk through your learning journey and next practice"} />
+            <Quick href={`${termBase}/trading-arena`} icon={<TrendingUp />} title={t.arena} text={isFa ? "تمرین تصمیم‌گیری با سرمایه مجازی" : "Practice decisions with virtual capital"} />
             <Quick href={isFa ? "/academy/certificates" : "/en/academy/certificates"} icon={<ShieldCheck />} title={t.certs} text={isFa ? "مشاهده مدارک قابل استعلام" : "View verifiable certificates"} />
           </aside>
         </div>
 
         <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
 
-        <section className="mt-8 rounded-[38px] border border-cyan-300/15 bg-white/[0.055] p-6">
-          <h2 className="text-2xl font-black">{t.terms}</h2>
+        <section className="mt-10 border-t border-white/10 pt-8" aria-labelledby="academy-term-path-title">
+          <h2 id="academy-term-path-title" className="text-2xl font-bold">{t.terms}</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {terms.map((term) => {
               const passed = passedTerms.has(term.number);
               const unlocked = term.number === 1 || passedTerms.has(term.number - 1);
               return (
-                <Link key={term.slug} href={unlocked ? `${termBase}/term-${term.number}` : `${termBase}/term-${Math.max(1, term.number - 1)}`} className={`rounded-[28px] border p-5 transition ${passed ? "border-emerald-300/30 bg-emerald-400/10" : unlocked ? "border-cyan-300/25 bg-cyan-400/10 hover:-translate-y-1 motion-reduce:transform-none" : "border-white/10 bg-white/[0.035] opacity-70"}`}>
+                <Link key={term.slug} href={`${termBase}/term-${term.number}`} className={`rounded-3xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${passed ? "border-emerald-300/30 bg-emerald-400/10" : unlocked ? "border-cyan-300/25 bg-slate-900 hover:border-cyan-200" : "border-white/10 bg-slate-950 hover:border-slate-500"}`}>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">Term {term.number}</span>
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold">{isFa ? "ترم" : "Term"} {term.number.toLocaleString(isFa ? "fa-IR" : "en-US")}</span>
                     {passed ? <CheckCircle2 className="h-5 w-5 text-emerald-300" /> : unlocked ? <Sparkles className="h-5 w-5 text-cyan-300" /> : <Lock className="h-5 w-5 text-slate-500" />}
                   </div>
                   <h3 className="mt-4 text-lg font-black leading-8">{term.title}</h3>
-                  <p className="mt-2 text-xs font-bold leading-6 text-slate-300">{passed ? t.passed : unlocked ? t.unlocked : t.locked}</p>
+                  <p className="mt-2 text-xs font-medium leading-6 text-slate-300">{passed ? t.passed : unlocked ? t.unlocked : isFa ? `پس از قبولی ترم ${(term.number - 1).toLocaleString("fa-IR")} باز می‌شود` : `Unlocks after passing term ${term.number - 1}`}</p>
                 </Link>
               );
             })}
             <Link
-              href={coreComplete ? `${termBase}/term-8` : `${termBase}/term-7`}
+              href={`${termBase}/term-8`}
               className={`rounded-[28px] border p-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1" : "border-white/10 bg-white/[0.035] opacity-70"}`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -437,7 +438,7 @@ function MedalCabinet({ locale, achievements, credentials, degraded }: {
     <section className="mt-8 rounded-[38px] border border-amber-300/20 bg-[linear-gradient(145deg,rgba(251,191,36,.1),rgba(255,255,255,.035))] p-6 lg:p-8" aria-labelledby="academy-medal-cabinet-title">
       <div className="flex flex-wrap items-start justify-between gap-5">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-3 text-amber-200"><Trophy className="h-6 w-6" aria-hidden="true" /><p className="text-xs font-black uppercase tracking-wider">Credential cabinet</p></div>
+          <div className="flex items-center gap-3 text-amber-200"><Trophy className="h-6 w-6" aria-hidden="true" /><p className="text-xs font-semibold">{isFa ? "دستاوردهای تأییدشده" : "Verified achievements"}</p></div>
           <h2 id="academy-medal-cabinet-title" className="mt-3 text-2xl font-black sm:text-3xl">{isFa ? "ویترین مدارک و مدال‌های من" : "My credentials and medals"}</h2>
           <p className="mt-3 text-sm font-bold leading-7 text-slate-300">{isFa ? "فقط افتخاراتی نمایش داده می‌شوند که از شواهد رسمی آکادمی، لیگ یا مسابقه صادر شده باشند." : "Only honors issued from official Academy, league or competition evidence appear here."}</p>
         </div>
@@ -469,7 +470,7 @@ function MedalCabinet({ locale, achievements, credentials, degraded }: {
 }
 
 function Metric({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
-  return <div className="rounded-[26px] border border-white/10 bg-slate-950/40 p-4"><div className="flex items-center gap-2 text-cyan-200 [&_svg]:h-5 [&_svg]:w-5">{icon}<span className="text-xs font-black text-slate-300">{label}</span></div><p className="mt-3 text-2xl font-black">{value}</p><p className="mt-1 text-xs font-bold text-slate-400">{note}</p></div>;
+  return <div className="min-w-0 border-s border-white/15 ps-4"><div className="flex items-center gap-2 text-cyan-200 [&_svg]:h-4 [&_svg]:w-4">{icon}<span className="text-xs font-medium text-slate-300">{label}</span></div><p className="mt-3 text-2xl font-semibold tabular-nums"><bdi dir="ltr">{value}</bdi></p><p className="mt-2 text-xs leading-6 text-slate-400">{note}</p></div>;
 }
 function Quick({ href, icon, title, text }: { href: string; icon: React.ReactNode; title: string; text: string }) {
   return <Link href={href} className="block rounded-[30px] border border-white/10 bg-white/[0.055] p-5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-300/30"><div className="flex items-center gap-3 text-cyan-200 [&_svg]:h-5 [&_svg]:w-5">{icon}<h3 className="font-black text-white">{title}</h3></div><p className="mt-3 text-sm font-bold leading-7 text-slate-300">{text}</p></Link>;

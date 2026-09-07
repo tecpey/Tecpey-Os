@@ -60,7 +60,9 @@ export async function findStudentCartaxProfile(
     values.push(identity.studentId);
     filters.push(`s.id = $${values.length}::uuid`);
   }
-  if (identity.email) {
+  // A signed student ID is authoritative. Never fall through to another row
+  // because the session also contains an email address.
+  if (!identity.studentId && identity.email) {
     values.push(identity.email);
     filters.push(`s.email = $${values.length}`);
   }
@@ -73,9 +75,10 @@ export async function findStudentCartaxProfile(
        FROM academy_students s
        LEFT JOIN academy_student_cartax c ON c.student_id = s.id
       WHERE ${filters.join(" OR ")}
-      LIMIT 1`,
+      LIMIT 2`,
     values,
   );
+  if (query.rows.length > 1) throw new Error("academy_student_identity_ambiguous");
   return query.rows[0] || null;
 }
 
@@ -94,15 +97,20 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
 
   const lookup = await client.query(
     `SELECT id FROM academy_students
-     WHERE ($1::text IS NOT NULL AND email = $1)
-        OR ($2::text IS NOT NULL AND phone = $2)
-        OR ($3::text IS NOT NULL AND google_id = $3)
-        OR ($4::text IS NOT NULL AND apple_id = $4)
-        OR ($6::text IS NOT NULL AND username = $6)
-        OR id = $5::uuid
-     LIMIT 1`,
-    [email, phone, googleId, appleId, id, username],
+     WHERE ($5::uuid IS NOT NULL AND id = $5::uuid)
+        OR ($5::uuid IS NULL AND (
+          ($1::text IS NOT NULL AND email = $1)
+          OR ($2::text IS NOT NULL AND phone = $2)
+          OR ($3::text IS NOT NULL AND google_id = $3)
+          OR ($4::text IS NOT NULL AND apple_id = $4)
+        ))
+     LIMIT 2`,
+    [email, phone, googleId, appleId, fallbackStudentId ?? null],
   );
+  // Names are editable labels, never ownership evidence. Multiple identity
+  // matches require explicit reconciliation, not an arbitrary LIMIT 1 merge.
+  if (lookup.rows.length > 1) throw new Error("academy_student_identity_ambiguous");
+  if (fallbackStudentId && !lookup.rows.length) throw new Error("academy_student_identity_missing");
   const studentId = String(lookup.rows[0]?.id ?? id);
   const publicStudentId = makePublicStudentId(studentId);
 
