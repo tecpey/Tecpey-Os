@@ -73,8 +73,11 @@ a random temporary PostgreSQL database, and starts an unprivileged Redis process
 bound only to a temporary Unix socket. It then compares deterministic table
 counts and row hashes between source and restore, verifies the current migration
 plan hash, executes the exchange financial-conservation queries, and proves that
-the 52-table tenant registry exactly matches runtime tenant-scoped tables. Both
-temporary restore targets are removed before an accepted artifact is written.
+the complete fixed tenant-registry authority exactly matches runtime tenant-scoped
+tables. For the current first-release candidate that authority is the merged
+primary plus identity-linking registry fragments and covers 56 tables; both the
+invariant checks and source/restore fingerprints must cover the same 56-table set.
+Both temporary restore targets are removed before an accepted artifact is written.
 
 The artifact contains only aggregate counts, SHA-256/MD5 digests, bounded UTC
 windows, participant identities, and accepted dispositions. Database URLs,

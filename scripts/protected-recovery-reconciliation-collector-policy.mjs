@@ -47,6 +47,18 @@ export const DOMAIN_TABLES = Object.freeze({
   ]),
 });
 
+// The recovery collector currently loads the primary tenant registry JSON directly.
+// These tables are the fixed identity-linking registry fragment that the canonical
+// tenant coverage authority merges with that primary registry. The policy test
+// binds this list byte-for-table to tenant-scoped-table-registry.identity.json so
+// a future fragment change cannot silently diverge from protected recovery.
+export const RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES = Object.freeze([
+  "identity_assurance_records",
+  "platform_product_accounts",
+  "product_account_link_transactions",
+  "product_data_consent_events",
+]);
+
 export const FINANCIAL_INVARIANT_QUERIES = Object.freeze([
   Object.freeze({
     name: "walletBalanceLedger",
@@ -232,11 +244,20 @@ export function assertTenantRegistryCoverage(registryTables, runtimeTables) {
     if (new Set(result).size !== result.length) throw new Error(`${label}_duplicate`);
     return result;
   };
-  const expected = normalize(registryTables, "tenant_registry_tables");
+  const expected = normalize(
+    [...registryTables, ...RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES],
+    "tenant_registry_tables",
+  );
   const actual = normalize(runtimeTables, "tenant_runtime_tables");
   if (JSON.stringify(expected) !== JSON.stringify(actual)) {
     throw new Error("tenant_registry_runtime_drift");
   }
+
+  // The protected collector reuses this array immediately after the invariant
+  // check to fingerprint the tenant/principal isolation domain. Canonicalizing
+  // it in place guarantees the evidence hashes the exact same complete registry
+  // set that was just proven against the runtime schema.
+  registryTables.splice(0, registryTables.length, ...expected);
   return expected;
 }
 

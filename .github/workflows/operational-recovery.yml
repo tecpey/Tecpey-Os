@@ -23,6 +23,8 @@ on:
       - scripts/operational-recovery-authority-policy.test.mjs
       - scripts/operational-recovery-evidence.test.mjs
       - scripts/protected-recovery-reconciliation-evidence.test.mjs
+      - docs/security/tenant-scoped-table-registry.json
+      - docs/security/tenant-scoped-table-registry.identity.json
       - docs/operations/OPERATIONAL_RECOVERY_DRILLS.md
       - docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
