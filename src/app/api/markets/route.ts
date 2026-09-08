@@ -23,15 +23,21 @@ const MAX_PUBLIC_PAGE = 10;
 const MAX_PUBLIC_LIMIT = 100;
 const BITYCLE_DEFAULT_SOURCE = "binance_spot";
 const BITYCLE_BASE_URL = "https://api.bitycle.com";
+const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
 const DEFAULT_IRAN_SOURCES = ["nobitex_spot", "ramzinex_spot", "bit24_spot"] as const;
 const SOURCE_RE = /^[a-z0-9_]{2,40}$/;
+const COINGECKO_ID_RE = /^[a-z0-9][a-z0-9._-]{0,119}$/;
 const BITYCLE_REQUEST_TIMEOUT_MS = 6_000;
 const MAX_LOCAL_SOURCES = 5;
 const IRAN_MAX_COMPARISON_SKEW_MS = 60_000;
 const BITYCLE_MARKETS_CACHE_TTL_MS = 20_000;
 const BITYCLE_FRAME_CACHE_TTL_MS = 10_000;
+const COINGECKO_SEARCH_CACHE_TTL_MS = 60_000;
+const MAX_COINGECKO_SEARCH_CACHE_ENTRIES = 64;
+const MAX_COINGECKO_SEARCH_RESULTS = MAX_PUBLIC_PAGE * MAX_PUBLIC_LIMIT;
 const MAX_BITYCLE_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_COINGECKO_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_COINGECKO_SEARCH_RESPONSE_BYTES = 512 * 1024;
 
 type IranComparison = {
   source: string;
@@ -54,6 +60,18 @@ type BitycleFrameCacheEntry = {
   expiresAt: number;
 };
 
+type CoinGeckoMarketsSnapshot = {
+  data: ReturnType<typeof normalizeCoinGeckoMarkets>;
+  observedAt: string;
+  total?: number;
+  lastPage: number;
+};
+
+type CoinGeckoSearchCacheEntry = {
+  ids: string[];
+  expiresAt: number;
+};
+
 let bitycleMarketsCache: {
   source: string;
   value: BitycleMarketsSnapshot;
@@ -65,6 +83,8 @@ let bitycleMarketsInFlight: {
 } | null = null;
 const bitycleFrameCache = new Map<string, BitycleFrameCacheEntry>();
 const bitycleFrameInFlight = new Map<string, Promise<Map<string, BitycleMarketFrameAuthority> | null>>();
+const coinGeckoSearchCache = new Map<string, CoinGeckoSearchCacheEntry>();
+const coinGeckoSearchInFlight = new Map<string, Promise<string[] | null>>();
 
 function boundedInteger(raw: string | null, fallback: number, max: number) {
   const parsed = Number(raw);
@@ -261,8 +281,135 @@ async function fetchBitycleMarkets(): Promise<BitycleMarketsSnapshot | null> {
   return promise;
 }
 
-async function fetchCoinGeckoMarkets(page: number, limit: number) {
+function coinGeckoHeaders(apiKey: string | undefined): Record<string, string> {
+  return apiKey
+    ? { Accept: "application/json", "x-cg-demo-api-key": apiKey }
+    : { Accept: "application/json" };
+}
+
+function normalizeCoinGeckoSearchIds(value: unknown): string[] | null {
+  if (!value || typeof value !== "object" || !("coins" in value)) return null;
+  const coins = (value as { coins?: unknown }).coins;
+  if (!Array.isArray(coins)) return null;
+
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of coins) {
+    if (!entry || typeof entry !== "object") continue;
+    const rawId = (entry as { id?: unknown }).id;
+    const id = typeof rawId === "string" ? rawId.trim().toLowerCase() : "";
+    if (!COINGECKO_ID_RE.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+    if (ids.length >= MAX_COINGECKO_SEARCH_RESULTS) break;
+  }
+  return ids;
+}
+
+function cacheCoinGeckoSearch(query: string, ids: string[]): void {
+  if (!coinGeckoSearchCache.has(query) && coinGeckoSearchCache.size >= MAX_COINGECKO_SEARCH_CACHE_ENTRIES) {
+    const oldest = coinGeckoSearchCache.keys().next().value;
+    if (typeof oldest === "string") coinGeckoSearchCache.delete(oldest);
+  }
+  coinGeckoSearchCache.set(query, {
+    ids,
+    expiresAt: Date.now() + COINGECKO_SEARCH_CACHE_TTL_MS,
+  });
+}
+
+async function fetchCoinGeckoSearchIds(
+  query: string,
+  apiKey: string | undefined,
+): Promise<string[] | null> {
+  const cached = coinGeckoSearchCache.get(query);
+  if (cached && cached.expiresAt > Date.now()) return cached.ids;
+  if (cached) coinGeckoSearchCache.delete(query);
+
+  const pending = coinGeckoSearchInFlight.get(query);
+  if (pending) return pending;
+
+  const promise = (async () => {
+    const params = new URLSearchParams({ query });
+    let response: Response;
+    try {
+      response = await fetch(`${COINGECKO_BASE_URL}/search?${params}`, {
+        headers: coinGeckoHeaders(apiKey),
+        cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(BITYCLE_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null;
+
+    const payload = await readBoundedJsonResponse(response, MAX_COINGECKO_SEARCH_RESPONSE_BYTES);
+    const ids = normalizeCoinGeckoSearchIds(payload);
+    if (!ids) return null;
+    cacheCoinGeckoSearch(query, ids);
+    return ids;
+  })().finally(() => {
+    coinGeckoSearchInFlight.delete(query);
+  });
+
+  coinGeckoSearchInFlight.set(query, promise);
+  return promise;
+}
+
+async function fetchCoinGeckoMarkets(
+  page: number,
+  limit: number,
+  query: string,
+): Promise<CoinGeckoMarketsSnapshot | null> {
   const apiKey = process.env.COINGECKO_API_KEY?.trim();
+  const headers = coinGeckoHeaders(apiKey);
+
+  if (query) {
+    const ids = await fetchCoinGeckoSearchIds(query, apiKey);
+    if (!ids) return null;
+
+    const total = ids.length;
+    const lastPage = Math.max(1, Math.ceil(total / limit));
+    const offset = (page - 1) * limit;
+    const selectedIds = ids.slice(offset, offset + limit);
+    const observedAt = new Date().toISOString();
+    if (selectedIds.length === 0) {
+      return { data: [], observedAt, total, lastPage };
+    }
+
+    const params = new URLSearchParams({
+      vs_currency: "usd",
+      ids: selectedIds.join(","),
+      per_page: String(selectedIds.length),
+      page: "1",
+      sparkline: "false",
+      price_change_percentage: "24h",
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(`${COINGECKO_BASE_URL}/coins/markets?${params}`, {
+        headers,
+        cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(BITYCLE_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null;
+
+    const payload = await readBoundedJsonResponse(response, MAX_COINGECKO_RESPONSE_BYTES);
+    const data = normalizeCoinGeckoMarkets(payload);
+    const relevance = new Map(selectedIds.map((id, index) => [`coingecko:${id}`, index]));
+    data.sort((left, right) => {
+      const leftOrder = relevance.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = relevance.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder;
+    });
+    return { data, observedAt, total, lastPage };
+  }
+
   const params = new URLSearchParams({
     vs_currency: "usd",
     order: "market_cap_desc",
@@ -274,8 +421,8 @@ async function fetchCoinGeckoMarkets(page: number, limit: number) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(`https://api.coingecko.com/api/v3/coins/markets?${params}`, {
-      headers: apiKey ? { "x-cg-demo-api-key": apiKey } : undefined,
+    upstream = await fetch(`${COINGECKO_BASE_URL}/coins/markets?${params}`, {
+      headers,
       cache: "no-store",
       redirect: "error",
       signal: AbortSignal.timeout(BITYCLE_REQUEST_TIMEOUT_MS),
@@ -287,7 +434,12 @@ async function fetchCoinGeckoMarkets(page: number, limit: number) {
 
   const payload = await readBoundedJsonResponse(upstream, MAX_COINGECKO_RESPONSE_BYTES);
   const data = normalizeCoinGeckoMarkets(payload);
-  return data.length > 0 ? { data, observedAt: new Date().toISOString() } : null;
+  if (data.length === 0) return null;
+  return {
+    data,
+    observedAt: new Date().toISOString(),
+    lastPage: data.length === limit ? page + 1 : page,
+  };
 }
 
 function oldestMarketTimestamp(data: ReturnType<typeof normalizeCoinGeckoMarkets>): string | null {
@@ -327,25 +479,23 @@ async function publicMarketResponse(request: NextRequest) {
     }
   }
 
-  const coinGecko = await fetchCoinGeckoMarkets(page, limit);
+  const coinGecko = await fetchCoinGeckoMarkets(page, limit, query);
   if (!coinGecko) return apiError("market_data_unavailable", 503);
-
-  const data = query
-    ? coinGecko.data.filter((coin) =>
-        String(coin.symbol || "").toLowerCase().includes(query)
-        || String(coin.name || "").toLowerCase().includes(query),
-      )
-    : coinGecko.data;
-  if (data.length === 0 && !query) return apiError("market_data_stale_or_empty", 503);
+  if (coinGecko.data.length === 0 && !query) return apiError("market_data_stale_or_empty", 503);
 
   const response = apiOk({
-    data,
-    meta: { current_page: page, last_page: data.length === limit ? page + 1 : page },
+    data: coinGecko.data,
+    meta: {
+      current_page: page,
+      last_page: coinGecko.lastPage,
+      ...(coinGecko.total !== undefined ? { total: coinGecko.total } : {}),
+    },
     provenance: {
       provider: PUBLIC_MARKET_SOURCE,
       providerUrl: PUBLIC_MARKET_SOURCE_URL,
       currency: "USD",
       fetchedAt: coinGecko.observedAt,
+      upstreamUpdatedAt: oldestMarketTimestamp(coinGecko.data),
       freshness: "upstream timestamps under 5 minutes",
       fallback: Boolean(process.env.BITYCLE_API_KEY?.trim()),
     },
