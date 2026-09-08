@@ -1,7 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyBitycleMarketFrameAuthority,
   normalizeBitycleCurrencyInfo,
+  normalizeBitycleMarketFrames,
   normalizeCoinGeckoMarkets,
 } from "../../lib/public-market-data";
 
@@ -54,6 +56,78 @@ describe("public market data authority", () => {
     assert.equal(rows[0].marketDataUpdatedAt, observedAt);
     assert.ok(Number(rows[0].changePercent) > 3.2);
     assert.ok(Number(rows[0].changePercent) < 3.3);
+  });
+
+  it("requires a fresh upstream Bitycle market frame before price data becomes authoritative", () => {
+    const now = Date.now();
+    const observedAt = new Date(now).toISOString();
+    const updatedAt = new Date(now - 20_000).toISOString();
+    const rows = normalizeBitycleCurrencyInfo({
+      data: [{
+        currency: { name: "Bitcoin", symbol: "BTC" },
+        price: 64_000,
+        open_24h: 62_000,
+        price_quote: "USDT",
+      }],
+    }, observedAt);
+    const frames = normalizeBitycleMarketFrames({
+      data: [{
+        source: "binance_spot",
+        market: "BTCUSDT",
+        frame: "24h",
+        open: 63_000,
+        high: 65_500,
+        low: 62_500,
+        price: 65_000,
+        volume: 1234,
+        updated_at: updatedAt,
+      }],
+    }, now);
+
+    const authoritative = applyBitycleMarketFrameAuthority(rows, frames);
+    assert.equal(authoritative.length, 1);
+    assert.equal(authoritative[0].price, 65_000);
+    assert.equal(authoritative[0].marketDataUpdatedAt, updatedAt);
+    assert.equal(authoritative[0].priceData?.open, 63_000);
+    assert.equal(authoritative[0].priceData?.high24h, 65_500);
+    assert.equal(authoritative[0].priceData?.low24h, 62_500);
+    assert.ok(Number(authoritative[0].changePercent) > 3.17);
+    assert.ok(Number(authoritative[0].changePercent) < 3.18);
+  });
+
+  it("rejects stale, future, malformed and missing Bitycle frame authority", () => {
+    const now = Date.now();
+    const rows = normalizeBitycleCurrencyInfo({
+      data: [{
+        currency: { name: "Bitcoin", symbol: "BTC" },
+        price: 64_000,
+        price_quote: "USDT",
+      }],
+    }, new Date(now).toISOString());
+
+    const stale = normalizeBitycleMarketFrames({
+      data: [{
+        source: "binance_spot",
+        market: "BTCUSDT",
+        frame: "24h",
+        price: 65_000,
+        updated_at: new Date(now - 180_000).toISOString(),
+      }],
+    }, now);
+    const future = normalizeBitycleMarketFrames({
+      data: [{
+        source: "binance_spot",
+        market: "BTCUSDT",
+        frame: "24h",
+        price: 65_000,
+        updated_at: new Date(now + 60_000).toISOString(),
+      }],
+    }, now);
+
+    assert.equal(stale.size, 0);
+    assert.equal(future.size, 0);
+    assert.equal(normalizeBitycleMarketFrames({ data: [{ market: "BTCUSDT", price: -1 }] }, now).size, 0);
+    assert.deepEqual(applyBitycleMarketFrameAuthority(rows, new Map()), []);
   });
 
   it("fails closed for malformed, negative-price, or stale rows", () => {
