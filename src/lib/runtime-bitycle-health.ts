@@ -12,25 +12,37 @@ export type BitycleOperationalHealth = BitycleRealtimeHealth & {
   authoritativeSnapshotReady: boolean;
 };
 
-export function getBitycleOperationalHealth(
-  now = Date.now(),
-  configured = Boolean(process.env.BITYCLE_STREAM_TOKEN?.trim()),
-): BitycleOperationalHealth {
-  const runtime = getBitycleRealtimeHealth();
-  if (!configured) {
+export function evaluateBitycleOperationalHealth(input: {
+  configured: boolean;
+  runtime: BitycleRealtimeHealth;
+  authoritativeSnapshotReady: boolean;
+}): BitycleOperationalHealth {
+  if (!input.configured) {
     return {
-      ...runtime,
+      ...input.runtime,
       status: "disabled",
       configured: false,
       authoritativeSnapshotReady: false,
     };
   }
 
-  const authoritativeSnapshotReady = getFreshBitycleArenaSnapshot(now) !== null;
   return {
-    ...runtime,
-    status: runtime.connected && authoritativeSnapshotReady ? "healthy" : "degraded",
+    ...input.runtime,
+    status: input.runtime.connected && input.authoritativeSnapshotReady
+      ? "healthy"
+      : "degraded",
     configured: true,
-    authoritativeSnapshotReady,
+    authoritativeSnapshotReady: input.authoritativeSnapshotReady,
   };
+}
+
+export function getBitycleOperationalHealth(
+  now = Date.now(),
+  configured = Boolean(process.env.BITYCLE_STREAM_TOKEN?.trim()),
+): BitycleOperationalHealth {
+  return evaluateBitycleOperationalHealth({
+    configured,
+    runtime: getBitycleRealtimeHealth(),
+    authoritativeSnapshotReady: getFreshBitycleArenaSnapshot(now) !== null,
+  });
 }
