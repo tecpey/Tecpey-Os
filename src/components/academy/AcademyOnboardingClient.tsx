@@ -250,7 +250,7 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
           <aside className="h-fit rounded-[28px] border border-white/10 bg-white/[0.045] p-5 lg:sticky lg:top-28">
             <div className="mx-auto grid h-28 w-28 place-items-center overflow-hidden rounded-[32px] border border-cyan-300/25 bg-cyan-400/10 text-5xl shadow-[0_20px_55px_rgba(34,211,238,.12)]">
               {photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- authenticated user photo is served by the governed same-origin avatar endpoint.
+                // eslint-disable-next-line @next/next/no-img-element -- #619: authenticated user photo is served by the governed same-origin avatar endpoint.
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />
               ) : avatar}
             </div>
