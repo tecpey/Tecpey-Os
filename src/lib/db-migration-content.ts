@@ -100,6 +100,7 @@ import { AI_ROUTE_CANDIDATES_SQL } from "./db-migrate-ai-route-candidates";
 import { AI_TENANT_RLS_SQL } from "./db-migrate-ai-tenant-rls";
 import { IDENTITY_PRODUCT_LINKING_SQL } from "./db-migrate-identity-product-linking";
 import { ACADEMY_PROFILE_DETAILS_SQL } from "./db-migrate-academy-profile-details";
+import { ACADEMY_QUESTION_BANK_BASELINE_SQL } from "./db-migrate-academy-question-bank-baseline";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -216,7 +217,7 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   crmHardening: one("0026_crm_lead_hardening.sql", CRM_LEAD_HARDENING_SQL),
   academyHardening: one("0027_academy_progress_authority_v2.sql", ACADEMY_PROGRESS_AUTHORITY_V2_SQL),
   exchangeAdmission: one("0027_exchange_order_admission_authority.sql", EXCHANGE_ORDER_ADMISSION_SQL),
-  withdrawalAdmission: one("0030_withdrawal_admission_authority.sql", WITHDRAWAL_ADMISSION_AUTHORITY_SQL),
+  withdrawalAdmission: one("0030_withdrawal_admission_authority.sql", WITHDRAWAL_ADMISSION_SQL),
   withdrawalSettlement: one("0031_withdrawal_settlement_authority.sql", WITHDRAWAL_SETTLEMENT_AUTHORITY_SQL),
   commandIdempotency: one("0032_api_command_idempotency.sql", API_COMMAND_IDEMPOTENCY_SQL),
   sensitiveAudit: one("0033_sensitive_mutation_audit.sql", SENSITIVE_MUTATION_AUDIT_SQL),
@@ -451,5 +452,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyProfileDetails: one(
     "0100_academy_profile_details.sql",
     ACADEMY_PROFILE_DETAILS_SQL,
+  ),
+  academyQuestionBankBaseline: one(
+    "0101_academy_question_bank_baseline.sql",
+    ACADEMY_QUESTION_BANK_BASELINE_SQL,
   ),
 });
