@@ -94,7 +94,9 @@ Controls implemented in V1:
 - authoritative Arena points require `type: "md"` and exact `t: "1m"`
 - close price is read from candle index 4
 - provider `issued_at` is read from candle index 6 and becomes the authoritative timestamp
-- MP envelopes may be parsed as receipt-time observations but can never become an Arena execution snapshot because they lack provider timestamp authority
+- MP envelopes may be parsed as receipt-time observations but can never become an Arena execution snapshot
+- receipt-time MP can never overwrite/downgrade an existing provider-authoritative MD point
+- a provider-authoritative MD point may replace receipt-only state even when local receipt time is later, avoiding cross-clock poisoning
 - decimal prices must be positive and bounded
 - source identifiers are validated
 - both assets must come from the same source
@@ -102,7 +104,7 @@ Controls implemented in V1:
 - out-of-order provider events cannot roll execution prices backward
 - the oldest accepted asset timestamp becomes snapshot time
 - WebSocket payloads are capped at 64 KiB and per-message compression is disabled
-- an inactivity watchdog terminates a connected-but-silent socket
+- after an initial grace period, the watchdog requires both recent transport traffic and a currently valid authoritative BTC+ETH snapshot; control/junk traffic cannot keep a degraded feed alive indefinitely
 - reconnect uses bounded exponential backoff from 1s to 30s with jitter
 - token is held only server-side
 - controlled runtime shutdown closes socket/reconnect/watchdog resources
@@ -258,8 +260,9 @@ The PR includes tests for:
 - CoinGecko zero/stale/future rejection
 - bounded provider response bodies
 - Bitycle MD provider timestamp/timeframe parsing
-- MP non-authority
+- MP non-authority and authority-downgrade prevention
 - mixed source, stale snapshot and out-of-order rejection
+- watchdog recycling when authoritative progress stalls
 - operational health policy
 - Iran route calculation, partial degradation and source mismatch
 - CoinGecko fallback search/pagination
