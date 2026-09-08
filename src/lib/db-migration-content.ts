@@ -99,6 +99,7 @@ import { AI_ROUTING_BUDGET_SQL } from "./db-migrate-ai-routing-budget";
 import { AI_ROUTE_CANDIDATES_SQL } from "./db-migrate-ai-route-candidates";
 import { AI_TENANT_RLS_SQL } from "./db-migrate-ai-tenant-rls";
 import { IDENTITY_PRODUCT_LINKING_SQL } from "./db-migrate-identity-product-linking";
+import { ACADEMY_PROFILE_DETAILS_SQL } from "./db-migrate-academy-profile-details";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -446,5 +447,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   identityProductLinking: one(
     "0099_identity_product_linking_authority.sql",
     IDENTITY_PRODUCT_LINKING_SQL,
+  ),
+  academyProfileDetails: one(
+    "0100_academy_profile_details.sql",
+    ACADEMY_PROFILE_DETAILS_SQL,
   ),
 });
