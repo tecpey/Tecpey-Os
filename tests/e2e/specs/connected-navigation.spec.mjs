@@ -58,6 +58,11 @@ test("shared mobile navigation keeps Home centered and follows the selected rout
   await expect(nav.locator('a[aria-current="page"]')).toHaveText(isEn ? "Account" : "حساب");
 });
 
+test.describe("Mentor conversation UI with deterministic API fixtures", () => {
+  // Keep route.fulfill fixtures independent of the Academy service worker.
+  // Real service-worker reload/persistence remains a separate acceptance check.
+  test.use({ serviceWorkers: "block" });
+
 test("Mentor starts a clean conversation and reopens saved history", async ({ page }, testInfo) => {
   const isEn = testInfo.project.metadata.locale === "en";
   const locale = isEn ? "en" : "fa";
@@ -83,4 +88,5 @@ test("Mentor starts a clean conversation and reopens saved history", async ({ pa
   await expect(log).toContainText("Saved lesson explanation");
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(log).toContainText("Saved lesson explanation");
+});
 });

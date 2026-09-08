@@ -57,3 +57,12 @@ launchers with that stack. A new browser test checks centered Home, route select
 and CTA geometry. No accessibility exclusion or threshold relaxation was added.
 The persistent header refreshes identity on mount, focus and existing auth/profile
 events instead of refetching both endpoints on every route transition.
+
+The f22e79d browser run passed navigation and Chromium Mentor recovery. Firefox
+received the restored Mentor fixture after reload but did not finish the document
+DOMContentLoaded lifecycle within 30 seconds. The deterministic Mentor fixture
+test now blocks service workers only within its own describe scope, following
+Playwright's routing guidance. Public navigation/PWA tests retain their normal
+service-worker behavior. This isolates a possible harness interaction; it does
+not prove the live PWA reload issue resolved. Verify authenticated Firefox reload
+with the real service worker and real history API on staging before acceptance.
