@@ -1,5 +1,5 @@
 import Decimal from "decimal.js";
-import { getFreshBitycleArenaSnapshot } from "./bitycle-market-realtime";
+import { getFreshBitycleArenaSnapshot } from "./runtime-bitycle-market";
 import type { ArenaPriceSnapshot } from "./trading-arena-execution-v2";
 
 const DEFAULT_BINANCE_FEED =
