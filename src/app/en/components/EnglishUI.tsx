@@ -1,3 +1,4 @@
+import styles from "./english-mobile-parity.module.css";
 import Link from "next/link";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowRight, CheckCircle2, Search, Sparkles, ExternalLink } from "lucide-react";
@@ -15,7 +16,7 @@ export function EnglishShell({ children }: { children: React.ReactNode }) {
   return (
     <main
       dir="ltr"
-      className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 text-left text-[color:var(--tp-text)] lg:pb-0"
+      className={`${styles.shell} tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 text-left text-[color:var(--tp-text)] lg:pb-0`}
     >
       {children}
     </main>
@@ -39,9 +40,14 @@ export function EnglishHero({
   secondaryHref?: string;
   secondaryLabel?: string;
 }) {
+  const academySurface = eyebrow === "Academy";
+
   return (
-    <section className="relative overflow-hidden px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-      {/* Background radial gradient */}
+    <section
+      className={`relative overflow-hidden px-4 sm:px-6 lg:px-8 lg:py-20 ${
+        academySurface ? "pb-10 pt-8 sm:pt-10" : "py-14"
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.18),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(30,64,175,.10),transparent_32%)]" />
       <div className="relative mx-auto max-w-7xl">
         <div className="max-w-4xl text-left">
