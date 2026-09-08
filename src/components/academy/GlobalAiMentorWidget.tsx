@@ -1,20 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Brain,
   Loader2,
   Send,
   X,
-  ChevronDown,
-  Sparkles,
   ShieldCheck,
   BookOpenCheck,
   Archive,
   MessageSquarePlus,
   MessagesSquare,
-  Globe2,
 } from "lucide-react";
 import { useMentorInsights } from "@/hooks/useMentorInsights";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
@@ -104,61 +101,6 @@ function getPageContext(pathname: string, locale: Locale) {
 
 // Tag label maps — keyed by server tag string, value is [fa, en].
 // Add entries here when new tags are introduced in mentor-signals.ts.
-const TAG_LABELS: Record<string, [string, string]> = {
-  // Weak area tags
-  quiz_review: ["مرور آزمون", "Quiz Review"],
-  risk_control: ["کنترل ریسک", "Risk Control"],
-  risk_discipline: ["انضباط ریسک", "Risk Discipline"],
-  fomo_management: ["کنترل FOMO", "FOMO Management"],
-  revenge_trading: ["معامله انتقامی", "Revenge Trading"],
-  journal_quality: ["کیفیت ژورنال", "Journal Quality"],
-  emotional_control: ["کنترل احساسات", "Emotional Control"],
-  // Strong area tags
-  learning_consistency: ["ثبات یادگیری", "Learning Consistency"],
-  trade_discipline: ["انضباط معامله", "Trade Discipline"],
-  clean_risk_record: ["ریسک پاک", "Clean Risk Record"],
-  quiz_mastery: ["تسلط آزمون", "Quiz Mastery"],
-  practice_commitment: ["تعهد تمرین", "Practice Commitment"],
-  // Primary goal tags
-  safe_spot_trading: ["ورود امن به معامله اسپات", "Safe Spot Trading"],
-  passive_income: ["درآمد غیرفعال", "Passive Income"],
-  futures_trading: ["معامله فیوچرز", "Futures Trading"],
-  academy_completion: ["تکمیل آکادمی", "Academy Completion"],
-  professional_trading: ["معامله حرفه‌ای", "Professional Trading"],
-};
-
-/** Convert a server tag string to a locale-aware human-readable label. */
-function formatMentorTag(tag: string, locale: Locale): string {
-  if (!tag) return "";
-  const isEn = locale === "en";
-
-  const termRetry = tag.match(/^term_(\d+)_retry$/);
-  if (termRetry) return isEn ? `Retry Term ${termRetry[1]}` : `مرور ترم ${termRetry[1]}`;
-
-  const topic = tag.match(/^topic_(.+)$/);
-  if (topic) {
-    const slug = topic[1].replace(/-/g, " ");
-    return slug; // lesson slugs are locale-neutral
-  }
-
-  const pair = TAG_LABELS[tag];
-  if (pair) return isEn ? pair[1] : pair[0];
-
-  // Graceful fallback: prettify unknown tags rather than showing raw slugs.
-  return tag.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const LEARNING_STYLE_LABELS: Record<string, [string, string]> = {
-  analytical: ["تحلیلی", "Analytical Learner"],
-  practical: ["عملی", "Practical Learner"],
-  mixed: ["ترکیبی", "Mixed Learner"],
-};
-
-function formatLearningStyle(style: string, locale: Locale): string {
-  const pair = LEARNING_STYLE_LABELS[style];
-  return pair ? (locale === "en" ? pair[1] : pair[0]) : style;
-}
-
 function defaultMentorProfile(): MentorProfile {
   return {
     source: "unavailable",
@@ -167,25 +109,6 @@ function defaultMentorProfile(): MentorProfile {
     weakArea: null,
     goal: null,
   };
-}
-
-function mentorProfileLabel(profile: MentorProfile, locale: Locale) {
-  const isEn = locale === "en";
-  const levelLabel = {
-    unknown: isEn ? "Not available yet" : "هنوز در دسترس نیست",
-    beginner: isEn ? "Beginner" : "مبتدی",
-    intermediate: isEn ? "Intermediate" : "متوسط",
-    advanced: isEn ? "Advanced" : "پیشرفته",
-  }[profile.level];
-
-  const riskLabel = {
-    unknown: isEn ? "Not available yet" : "هنوز در دسترس نیست",
-    low: isEn ? "Low" : "کم",
-    medium: isEn ? "Medium" : "متوسط",
-    high: isEn ? "High" : "زیاد",
-  }[profile.risk];
-
-  return { levelLabel, riskLabel };
 }
 
 function mentorPracticeGuidance(profile: MentorProfile, locale: Locale) {
@@ -217,25 +140,6 @@ function mentorPracticeGuidance(profile: MentorProfile, locale: Locale) {
       ? "Use a simulated scenario, define invalidation first and record the result."
       : "با سناریوی شبیه‌سازی‌شده تمرین کن، نقطهٔ ابطال را اول بنویس و نتیجه را ثبت کن.",
   };
-}
-
-function mentorQuickActions(locale: Locale, section: string, profile: MentorProfile) {
-  const isEn = locale === "en";
-  const weakLabel = profile.weakArea ? formatMentorTag(profile.weakArea, locale) : null;
-  const levelLabel = mentorProfileLabel(profile, locale).levelLabel;
-  return isEn
-    ? [
-        `What is the safest educational exercise for me today? Use only verified learning evidence${weakLabel ? ` and consider my focus area: ${weakLabel}` : ""}.`,
-        `Give me my next learning step for ${section}.`,
-        `Explain the most common learning mistake for my current level: ${levelLabel}.`,
-        `Connect this page to related Crypto Wiki lessons.`,
-      ]
-    : [
-        `امروز امن‌ترین تمرین آموزشی مناسب من چیست؟ فقط از داده‌های معتبر یادگیری استفاده کن${weakLabel ? ` و حوزهٔ تمرکز ${weakLabel} را در نظر بگیر` : ""}.`,
-        `قدم بعدی یادگیری من در بخش ${section} چیست؟`,
-        `رایج‌ترین اشتباه یادگیری در سطح فعلی من، یعنی ${levelLabel}، چیست؟`,
-        `این صفحه را به درس‌ها و واژه‌های مرتبط Crypto Wiki وصل کن.`,
-      ];
 }
 
 function fallbackAnswer(question: string, locale: Locale, section: string): MentorReply {
@@ -274,7 +178,6 @@ export function GlobalAiMentorWidget() {
   const locale = getLocale(pathname);
   const isEn = locale === "en";
   const pageContext = useMemo(() => getPageContext(pathname, locale), [pathname, locale]);
-  const suggestions = isEn ? enQuestions : faQuestions;
   const isAcademyArea =
     pathname === "/academy" ||
     pathname.startsWith("/academy/") ||
@@ -293,7 +196,6 @@ export function GlobalAiMentorWidget() {
   const {
     data: mentorData,
     loading: insightsLoading,
-    error: insightsError,
   } = useMentorInsights({
     enabled: shouldLoadMentorSession,
   });
@@ -318,9 +220,8 @@ export function GlobalAiMentorWidget() {
   const [threadError, setThreadError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [publicResearch, setPublicResearch] = useState(false);
+  const publicResearch = false;
   const [streaming, setStreaming] = useState(false);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [academyProfileReady, setAcademyProfileReady] = useState(false);
   const [academyChecked, setAcademyChecked] = useState(false);
 
@@ -330,6 +231,7 @@ export function GlobalAiMentorWidget() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localMessageIdRef = useRef(0);
+  const locallyAnsweredThreadRef = useRef<string | null>(null);
 
   const closeMentor = useCallback(() => {
     setOpen(false);
@@ -456,7 +358,7 @@ export function GlobalAiMentorWidget() {
   }, [open, academyProfileReady, loadThreads]);
 
   const createThread = async () => {
-    if (threadsLoading) return;
+    if (threadsLoading || loading || streaming || historyLoading) return;
     setThreadsLoading(true);
     setThreadError("");
     try {
@@ -484,7 +386,7 @@ export function GlobalAiMentorWidget() {
   };
 
   const archiveThread = async (threadId: string) => {
-    if (threadsLoading) return;
+    if (threadsLoading || loading || streaming || historyLoading) return;
     setThreadsLoading(true);
     setThreadError("");
     try {
@@ -512,10 +414,14 @@ export function GlobalAiMentorWidget() {
   };
 
   // Load chat history from server whenever the widget opens (Phase 8).
-  // Fetches the most-recent 30 turns. Silent on error — widget works with empty history.
+  // Fetches the most-recent 30 turns and exposes unavailable history to the user.
   useEffect(() => {
     if (!open || !academyProfileReady) return;
 
+    if (activeThreadId && locallyAnsweredThreadRef.current === activeThreadId) {
+      locallyAnsweredThreadRef.current = null;
+      return;
+    }
     let active = true;
     type ServerConv = {
       id: string;
@@ -532,9 +438,10 @@ export function GlobalAiMentorWidget() {
       fetch(`/api/mentor-conversations?${query.toString()}`, {
         cache: "no-store",
       })
-        .then((r) => r.json())
+        .then((r) => { if (!r.ok) throw new Error("history_unavailable"); return r.json(); })
         .then((data: { ok?: boolean; conversations?: ServerConv[]; threadId?: string | null }) => {
           if (!active) return;
+          if (!data.ok || !Array.isArray(data.conversations)) throw new Error("history_unavailable");
           if (data.ok && Array.isArray(data.conversations)) {
             if (data.threadId) setActiveThreadId(data.threadId);
             // API returns DESC (newest first); reverse to chronological for display.
@@ -551,7 +458,7 @@ export function GlobalAiMentorWidget() {
           }
         })
         .catch(() => {
-          // Silent fallback: widget shows empty history and works normally.
+          if (active) setThreadError(isEn ? "Conversation history could not be loaded. Reopen the chat to retry." : "تاریخچه بارگذاری نشد. چت را ببند و دوباره باز کن.");
         })
         .finally(() => {
           if (active) setHistoryLoading(false);
@@ -562,7 +469,7 @@ export function GlobalAiMentorWidget() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [open, academyProfileReady, activeThreadId]);
+  }, [open, academyProfileReady, activeThreadId, isEn]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -589,13 +496,6 @@ export function GlobalAiMentorWidget() {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }, 80);
   }, [history, loading, streaming, open]);
-
-  function fillSuggestion(value: string) {
-    setHistoryLoading(true);
-    setOpen(true);
-    setSuggestionsOpen(false);
-    void ask(value);
-  }
 
   function streamAssistant(content: string) {
     const finalText = content.trim() || (isEn ? "The mentor is preparing an educational answer. Please try again." : "مربی هوشمند در حال آماده‌سازی پاسخ آموزشی است. لطفاً دوباره تلاش کن.");
@@ -629,7 +529,7 @@ export function GlobalAiMentorWidget() {
       return;
     }
     const cleanQuestion = (providedQuestion ?? question).trim();
-    if (!cleanQuestion || loading || streaming) return;
+    if (!cleanQuestion || loading || streaming || historyLoading || threadsLoading) return;
 
     const userMessage: ChatMessage = {
       role: "user",
@@ -655,6 +555,7 @@ export function GlobalAiMentorWidget() {
 
       const data = normalizeReply((await response.json()) as MentorReply, cleanQuestion, locale, pageContext.section);
       if (data.threadId) {
+        if (data.threadId !== activeThreadId) locallyAnsweredThreadRef.current = data.threadId;
         setActiveThreadId(data.threadId);
         void loadThreads(data.threadId);
       }
@@ -691,9 +592,7 @@ export function GlobalAiMentorWidget() {
     }
   }
 
-  const profileLabel = mentorProfileLabel(profile, locale);
   const practiceGuidance = mentorPracticeGuidance(profile, locale);
-  const coachActions = mentorQuickActions(locale, pageContext.section, profile);
   const mentorAct = selectLivingMentorAct({
     riskCaution: practiceGuidance.tone === "caution",
     isSpeaking: streaming,
@@ -719,7 +618,7 @@ export function GlobalAiMentorWidget() {
           setHistoryLoading(true);
           setOpen(true);
         }}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-cyan-950/95"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 lg:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-cyan-950/95"
         aria-label={isEn ? "Open TecPey Mentor" : "باز کردن منتور تک‌پی"}
         aria-controls="tecpey-living-mentor-dialog"
         aria-expanded={open}
@@ -731,7 +630,7 @@ export function GlobalAiMentorWidget() {
       {open ? (
         <div
           id="tecpey-living-mentor-dialog"
-          className="fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+8.75rem)] z-[95] mx-auto max-w-[440px] sm:bottom-5 sm:left-5 sm:right-auto sm:mx-0 sm:w-[420px]"
+          className="fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+8.75rem)] z-[95] mx-auto max-w-[440px] lg:bottom-5 sm:left-5 sm:right-auto sm:mx-0 sm:w-[420px]"
           dir={isEn ? "ltr" : "rtl"}
           role="dialog"
           aria-modal="false"
@@ -747,13 +646,13 @@ export function GlobalAiMentorWidget() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <button type="button" onClick={() => void createThread()} disabled={threadsLoading} className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-cyan-100 transition hover:bg-white/10 disabled:opacity-50" aria-label={isEn ? "New conversation" : "گفت‌وگوی جدید"} title={isEn ? "New conversation" : "گفت‌وگوی جدید"}>
+                <button type="button" onClick={() => void createThread()} disabled={threadsLoading || loading || streaming || historyLoading} className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 text-cyan-100 transition hover:bg-white/10 disabled:opacity-50" aria-label={isEn ? "New conversation" : "گفت‌وگوی جدید"} title={isEn ? "New conversation" : "گفت‌وگوی جدید"}>
                   <MessageSquarePlus className="h-4 w-4" />
                 </button>
-                <button type="button" onClick={() => setThreadListOpen((value) => !value)} className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-cyan-100 transition hover:bg-white/10" aria-label={isEn ? "Conversation history" : "تاریخچه گفت‌وگوها"} title={isEn ? "Conversation history" : "تاریخچه گفت‌وگوها"} aria-expanded={threadListOpen}>
+                <button type="button" onClick={() => { setThreadListOpen((value) => !value); if (!threadListOpen) void loadThreads(); }} className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 text-cyan-100 transition hover:bg-white/10" aria-label={isEn ? "Conversation history" : "تاریخچه گفت‌وگوها"} title={isEn ? "Conversation history" : "تاریخچه گفت‌وگوها"} aria-expanded={threadListOpen}>
                   <MessagesSquare className="h-4 w-4" />
                 </button>
-                <button ref={closeRef} type="button" onClick={closeMentor} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:bg-white/10" aria-label={isEn ? "Close chat" : "بستن چت"} title={isEn ? "Close" : "بستن"}>
+                <button ref={closeRef} type="button" onClick={closeMentor} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:bg-white/10" aria-label={isEn ? "Close chat" : "بستن چت"} title={isEn ? "Close" : "بستن"}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -769,6 +668,7 @@ export function GlobalAiMentorWidget() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (loading || streaming || historyLoading) return;
                           setActiveThreadId(thread.id);
                           setThreadListOpen(false);
                         }}
@@ -781,20 +681,17 @@ export function GlobalAiMentorWidget() {
                           }).format(new Date(thread.lastMessageAt))}
                         </p>
                       </button>
-                      <button type="button" onClick={() => void archiveThread(thread.id)} disabled={threadsLoading} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-300/10 hover:text-rose-200 disabled:opacity-50" aria-label={isEn ? "Archive conversation" : "بایگانی گفت‌وگو"}>
+                      <button type="button" onClick={() => void archiveThread(thread.id)} disabled={threadsLoading || loading || streaming || historyLoading} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-300/10 hover:text-rose-200 disabled:opacity-50" aria-label={isEn ? "Archive conversation" : "بایگانی گفت‌وگو"}>
                         <Archive className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
                 </div>
-                {threadError ? (
-                  <p role="alert" className="mt-2 rounded-xl border border-rose-300/15 bg-rose-300/[0.08] p-2 text-[10px] font-bold text-rose-100">
-                    {threadError}
-                  </p>
-                ) : null}
+
               </div>
             ) : null}
 
+            {threadError ? <p role="alert" className="px-4 py-2 text-xs leading-6 text-rose-200">{threadError}</p> : null}
             {!academyProfileReady ? (
               <div className="min-h-0 flex-1 overflow-y-auto p-4">
                 <div className="rounded-3xl border border-amber-300/25 bg-amber-400/10 p-5 text-center">
@@ -826,131 +723,9 @@ export function GlobalAiMentorWidget() {
                   ))}
                 </div>
               ) : history.length === 0 ? (
-                <div className="rounded-3xl border border-cyan-300/20 bg-white/[0.055] p-3 text-xs font-bold leading-6 text-slate-100 sm:p-4 sm:text-sm sm:leading-7">
-                  <div className="mb-3 flex items-center gap-3">
-                    <LivingMentorAvatar act={mentorAct} decorative locale={locale} size="stage" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-cyan-200">
-                        <Sparkles className="h-4 w-4" />
-                        {isEn ? "Ask without leaving the page" : "بدون ترک صفحه سؤال بپرس"}
-                      </div>
-                      <p className="mt-1 text-[10px] leading-5 text-slate-400 sm:text-[11px]">
-                        {isEn
-                          ? "A fictional TecPey guide, shaped by verified learning evidence."
-                          : "راهنمای داستانی تک‌پی؛ متکی بر داده‌های معتبر یادگیری."}
-                      </p>
-                    </div>
-                  </div>
-                  <p>
-                    {isEn
-                      ? "I can explain concepts, security risks, academy lessons and next steps. I do not give buy/sell signals or guaranteed profit advice."
-                      : "می‌توانم مفهوم‌ها، ریسک‌های امنیتی، درس‌های آکادمی و قدم بعدی را توضیح بدهم. سیگنال خرید و فروش یا وعده سود نمی‌دهم."}
-                  </p>
-                  <div className="mt-2 flex items-center gap-2 rounded-2xl bg-emerald-400/10 p-2.5 text-emerald-100">
-                    <ShieldCheck className="h-4 w-4" />
-                    {isEn ? "Never send seed phrase, password or API key." : "Seed Phrase، رمز عبور یا کلیدهای محرمانه را ارسال نکن."}
-                  </div>
-                  <div className="mt-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/10 p-2.5 text-[11px] leading-5 text-cyan-50">
-                    <div className="mb-1 flex items-center justify-between gap-2 font-black">
-                      <span>{isEn ? "Learning profile" : "پرونده یادگیری"}</span>
-                      <span className="rounded-full bg-slate-950/45 px-2 py-0.5 text-[10px] text-cyan-100">
-                        {profile.source === "server"
-                          ? isEn
-                            ? "Verified evidence"
-                            : "دادهٔ معتبر"
-                          : isEn
-                            ? "Evidence pending"
-                            : "در انتظار داده"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 text-slate-100/90">
-                      <span>{isEn ? "Level" : "سطح"}: {profileLabel.levelLabel}</span>
-                      <span>{isEn ? "Risk style" : "سبک ریسک"}: {profileLabel.riskLabel}</span>
-                      <span className="col-span-2">
-                        {isEn ? "Focus" : "تمرکز"}: {profile.weakArea ? formatMentorTag(profile.weakArea, locale) : isEn ? "Not available yet" : "هنوز در دسترس نیست"}
-                      </span>
-                      <span className="col-span-2">
-                        {isEn ? "Goal" : "هدف"}: {profile.goal ? formatMentorTag(profile.goal, locale) : isEn ? "Not available yet" : "هنوز در دسترس نیست"}
-                      </span>
-                    </div>
-                    <div className="mt-2 rounded-2xl border border-white/10 bg-slate-950/35 p-2">
-                      <div className="flex items-center justify-between gap-2 text-[10px] font-black">
-                        <span>{practiceGuidance.label}</span>
-                        <span>{isEn ? "Practice guidance" : "راهنمای تمرین"}</span>
-                      </div>
-                      <p className="mt-1 text-[10px] leading-4 text-slate-200/90">{practiceGuidance.note}</p>
-                    </div>
-                  </div>
-
-                  {/* ── Learning DNA — server-driven, Phase 7 ── */}
-                  {serverProfile && (serverProfile.weakAreas.length > 0 || serverProfile.strongAreas.length > 0) ? (
-                    <div className="mt-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/5 p-2.5 text-[11px] leading-5">
-                      <div className="mb-2 flex items-center gap-1.5 font-black text-cyan-200">
-                        <Brain className="h-3.5 w-3.5" aria-hidden="true" />
-                        {isEn ? "Learning DNA" : "پروفایل یادگیری"}
-                      </div>
-
-                      {serverProfile.strongAreas.length > 0 ? (
-                        <div className="mb-2">
-                          <div className="mb-1 font-black text-emerald-300">{isEn ? "Strong Areas" : "نقاط قوت"}</div>
-                          <div className="flex flex-wrap gap-1">
-                            {serverProfile.strongAreas.map((tag) => (
-                              <span key={tag} className="rounded-lg bg-emerald-400/15 px-2 py-0.5 text-[9.5px] font-black text-emerald-200">
-                                {formatMentorTag(tag, locale)}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {serverProfile.weakAreas.length > 0 ? (
-                        <div className="mb-2">
-                          <div className="mb-1 font-black text-amber-300">{isEn ? "Weak Areas" : "نقاط ضعف"}</div>
-                          <div className="flex flex-wrap gap-1">
-                            {serverProfile.weakAreas.map((tag) => (
-                              <span key={tag} className="rounded-lg bg-amber-400/15 px-2 py-0.5 text-[9.5px] font-black text-amber-200">
-                                {formatMentorTag(tag, locale)}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {serverProfile.learningStyle ? (
-                        <div className="mb-2">
-                          <div className="mb-1 font-black text-slate-300">{isEn ? "Learning Style" : "سبک یادگیری"}</div>
-                          <span className="rounded-lg bg-cyan-400/10 px-2 py-0.5 text-[9.5px] font-black text-cyan-200">
-                            {formatLearningStyle(serverProfile.learningStyle, locale)}
-                          </span>
-                        </div>
-                      ) : null}
-
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                        <div>
-                          <div className="mb-1 flex items-center justify-between gap-1 text-[9.5px] font-black text-slate-300">
-                            <span>{isEn ? "Confidence" : "اعتماد به نفس"}</span>
-                            <span className="text-cyan-200">{serverProfile.confidenceScore}%</span>
-                          </div>
-                          <div className="h-1 overflow-hidden rounded-full bg-white/10">
-                            <div className="h-full rounded-full bg-cyan-400" style={{ width: `${serverProfile.confidenceScore}%` }} />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="mb-1 flex items-center justify-between gap-1 text-[9.5px] font-black text-slate-300">
-                            <span>{isEn ? "Discipline" : "انضباط"}</span>
-                            <span className="text-cyan-200">{serverProfile.disciplineScore}%</span>
-                          </div>
-                          <div className="h-1 overflow-hidden rounded-full bg-white/10">
-                            <div className="h-full rounded-full bg-cyan-400" style={{ width: `${serverProfile.disciplineScore}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : insightsError ? (
-                    <div className="mt-2 rounded-2xl border border-slate-700/50 bg-slate-800/40 px-3 py-2 text-[10px] font-bold text-slate-400">
-                      {isEn ? "Mentor profile unavailable" : "پروفایل مربی در دسترس نیست"}
-                    </div>
-                  ) : null}
+                <div className="flex min-h-48 flex-col items-center justify-center px-5 py-10 text-center">
+                  <h3 className="text-lg font-semibold">{isEn ? "What would you like to explore?" : "امروز چه چیزی را با هم یاد بگیریم؟"}</h3>
+                  <p className="mt-3 max-w-xs text-sm leading-7 text-slate-400">{isEn ? "Ask about your lessons or practice. Saved conversations are available in your history." : "دربارهٔ درس‌ها یا تمرین‌هایت بپرس. گفت‌وگوهای ذخیره‌شده را از تاریخچه ادامه بده."}</p>
                 </div>
               ) : null}
 
@@ -987,72 +762,20 @@ export function GlobalAiMentorWidget() {
 
             {academyProfileReady ? (
             <div className="shrink-0 border-t border-white/10 bg-slate-950/95 p-3 sm:p-4">
-              <div className="relative mb-2">
-                <button
-                  type="button"
-                  onClick={() => setSuggestionsOpen((value) => !value)}
-                  className="flex w-full items-center justify-between gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-2.5 text-xs font-black text-cyan-50 transition hover:bg-cyan-300/20"
-                  aria-expanded={suggestionsOpen}
-                >
-                  <span>{isEn ? "Suggested questions" : "پرسش‌های پیشنهادی"}</span>
-                  <ChevronDown className={`h-4 w-4 transition ${suggestionsOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {suggestionsOpen ? (
-                  <div className="absolute bottom-full left-0 right-0 z-10 mb-2 max-h-52 overflow-y-auto rounded-3xl border border-cyan-300/25 bg-slate-950/98 p-2 shadow-2xl shadow-black/40 backdrop-blur-xl">
-                    {[...suggestions, ...coachActions].slice(0, 10).map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => fillSuggestion(item)}
-                        className="mb-1.5 block w-full rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 text-start text-[10.5px] font-black leading-5 text-slate-100 transition last:mb-0 hover:border-cyan-300/35 hover:bg-cyan-300/10"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <button
-                type="button"
-                aria-pressed={publicResearch}
-                onClick={() => setPublicResearch((value) => !value)}
-                className={`mb-2 flex w-full items-center justify-between gap-2 rounded-2xl border px-3 py-2 text-[10px] font-black transition ${
-                  publicResearch
-                    ? "border-blue-300/35 bg-blue-400/15 text-blue-50"
-                    : "border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Globe2 className="h-3.5 w-3.5" />
-                  {isEn
-                    ? "Cited public research: coins, tools, news and X"
-                    : "پژوهش عمومی منبع‌دار: کوین، ابزار، خبر و X"}
-                </span>
-                <span className="rounded-full bg-slate-950/45 px-2 py-0.5">
-                  {publicResearch ? (isEn ? "On" : "روشن") : isEn ? "Off" : "خاموش"}
-                </span>
-              </button>
-              {publicResearch ? (
-                <p className="mb-2 rounded-xl border border-blue-300/15 bg-blue-400/[0.08] px-2.5 py-2 text-[9.5px] font-bold leading-5 text-blue-100/85">
-                  {isEn
-                    ? "Only this question is sent to the public research agent. Your history, profile, weak areas and private financial context are excluded."
-                    : "فقط همین سؤال برای ایجنت پژوهش ارسال می‌شود؛ تاریخچه، پروفایل، نقاط ضعف و اطلاعات مالی شخصی حذف می‌ماند."}
-                </p>
-              ) : null}
-
               <div className="flex items-end gap-2">
                 <textarea
                   ref={textareaRef}
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
+                    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       ask();
                     }
                   }}
+                  aria-label={isEn ? "Your message" : "پیام شما"}
+                  dir="auto"
+                  maxLength={900}
                   rows={2}
                   placeholder={
                     publicResearch
@@ -1068,27 +791,27 @@ export function GlobalAiMentorWidget() {
                 <button
                   type="button"
                   onClick={() => ask()}
-                  disabled={loading || streaming || !question.trim()}
+                  disabled={loading || streaming || historyLoading || threadsLoading || !question.trim()}
                   className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-2xl bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 sm:h-[54px] sm:w-[54px]"
                   aria-label={isEn ? "Send" : "ارسال"}
                 >
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </button>
               </div>
-              <div className="mt-2 flex justify-end">
+              <div className="mt-2 flex items-center justify-between">
+                <Link href={isEn ? "/en/academy/account#pro" : "/academy/account#pro"} className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-semibold text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" aria-label={isEn ? "Pro plan details" : "جزئیات پلن پرو"}>Pro</Link>
                 <a
                   href={TELEGRAM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={isEn ? "Telegram support" : "پشتیبانی تلگرام"}
                   title={isEn ? "Telegram support" : "پشتیبانی تلگرام"}
-                  className="inline-flex h-[50px] min-w-[50px] items-center justify-center gap-1.5 rounded-2xl border border-sky-300/35 bg-sky-500/10 px-3 text-[10px] font-black text-sky-100 shadow-[0_0_16px_rgba(56,189,248,.12)] transition hover:border-sky-200 hover:bg-sky-500/20 sm:h-[54px] sm:min-w-[54px] sm:text-[11px]"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-sky-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                 >
-                  <svg viewBox="0 0 240 240" className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true">
+                  <svg viewBox="0 0 240 240" className="h-5 w-5" aria-hidden="true">
                     <circle cx="120" cy="120" r="120" fill="#229ED9" />
                     <path fill="#fff" d="M51.7 116.2c35-15.2 58.3-25.3 70-30.2 33.4-13.9 40.4-16.3 44.9-16.4 1 0 3.2.2 4.7 1.4 1.2 1 1.5 2.4 1.7 3.4.2 1 .4 3.1.2 4.8-2.1 22.1-11.2 75.8-15.8 100.6-1.9 10.5-5.7 14-9.4 14.4-8 .7-14.1-5.3-21.9-10.4-12.2-8-19.1-13-30.9-20.8-13.7-9-4.8-14 3-22.1 2-2.1 37.5-34.4 38.2-37.3.1-.4.2-1.8-.7-2.5-.9-.7-2.1-.5-3.1-.3-1.3.3-22 14-62.1 41.1-5.9 4-11.2 6-16 5.9-5.3-.1-15.4-3-22.9-5.4-9.2-3-16.5-4.6-15.9-9.7.3-2.6 4.3-5.3 12-8.5Z" />
                   </svg>
-                  <span>{isEn ? "Support" : "پشتیبانی"}</span>
                 </a>
               </div>
 

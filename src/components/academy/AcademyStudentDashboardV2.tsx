@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Link from "next/link";
-import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Home, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
+import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
-import { LivingMobileNavigation } from "@/components/tecpey/LivingMobileNavigation";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
@@ -233,59 +232,6 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     : Math.max(0, numberOr(profile.streak_days));
   const smartHref = isFa ? "/academy/notifications" : "/en/academy/notifications";
   const termBase = isFa ? "/academy" : "/en/academy";
-  const dashboardHref = isFa ? "/academy/profile" : "/en/academy/profile";
-  const marketHref = isFa ? "/markets" : "/en/markets";
-  const accountHref = isFa ? "/academy/certificates" : "/en/academy/certificates";
-  const livingNavItems = [
-    {
-      label: isFa ? "خانه" : "Home",
-      href: dashboardHref,
-      match: [dashboardHref],
-      Icon: Home,
-    },
-    {
-      label: isFa ? "آکادمی" : "Academy",
-      href: `${termBase}/term-${currentTermNumber}`,
-      match: [
-        `${termBase}/term-1`,
-        `${termBase}/term-2`,
-        `${termBase}/term-3`,
-        `${termBase}/term-4`,
-        `${termBase}/term-5`,
-        `${termBase}/term-6`,
-        `${termBase}/term-7`,
-        `${termBase}/term-8`,
-        `${termBase}/mastery-seasons`,
-        `${termBase}/learning`,
-      ],
-      Icon: GraduationCap,
-    },
-    {
-      label: t.arena,
-      href: `${termBase}/trading-arena`,
-      match: [`${termBase}/trading-arena`, `${termBase}/simulator`],
-      Icon: Trophy,
-    },
-    {
-      label: isFa ? "بازار" : "Market",
-      href: marketHref,
-      match: isFa
-        ? ["/markets", "/coins", "/crypto-news", "/trading-tools"]
-        : ["/en/markets", "/en/coins", "/en/crypto-news", "/en/trading-tools"],
-      Icon: TrendingUp,
-    },
-    {
-      label: t.account,
-      href: accountHref,
-      // Note: dashboardHref (the Home tab's route) is deliberately NOT matched
-      // here — it belongs to Home, and listing it would light both tabs at once.
-      match: [
-        accountHref,
-        isFa ? "/academy/achievements" : "/en/academy/achievements",
-      ],
-      Icon: ShieldCheck,
-    },
-  ];
 
   if (loading) {
     return <main className="min-h-screen bg-slate-950 px-4 py-16 text-white"><div className="mx-auto max-w-3xl rounded-[32px] border border-cyan-300/20 bg-white/[0.06] p-8 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-300" /><p className="mt-4 font-black">{t.checking}</p></div></main>;
@@ -402,11 +348,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           </div>
         </section>
       </section>
-      <LivingMobileNavigation
-        ariaLabel={isFa ? "ناوبری اصلی داشبورد تک‌پی" : "TecPey dashboard primary navigation"}
-        dir={isFa ? "rtl" : "ltr"}
-        items={livingNavItems}
-      />
+
     </main>
   );
 }

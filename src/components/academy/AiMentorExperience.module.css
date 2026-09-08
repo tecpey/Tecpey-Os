@@ -1266,3 +1266,13 @@
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
+
+/* The conversation owns the workspace; secondary tools open on request. */
+.conversationWorkspace { grid-template-columns: minmax(0, 1fr); grid-template-areas: "chat" "arena"; }
+.conversationWorkspace .chatPanel { grid-column: 1; }
+@media (min-width: 1280px) {
+  .conversationWorkspace[data-arena-panel="docked"],
+  .conversationWorkspace[data-arena-panel="focus"] { grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr); grid-template-areas: "chat arena"; }
+  .conversationWorkspace[data-arena-panel="docked"] .arenaCell,
+  .conversationWorkspace[data-arena-panel="focus"] .arenaCell { grid-column: 2; }
+}

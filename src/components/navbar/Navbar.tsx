@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   BrainCircuit,
   ChevronDown,
   Globe2,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
+import { AcademyProgressBar } from "@/components/academy/AcademyProgressBar";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   getLocaleFromPathname,
@@ -98,6 +100,7 @@ export default function Navbar({
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [mobileKnowledgeOpen, setMobileKnowledgeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [academyIdentity, setAcademyIdentity] = useState<{ display_name?: string; username?: string; avatar?: string } | null>(null);
   const [academyProfileReady, setAcademyProfileReady] = useState(false);
   const [academyAuthReady, setAcademyAuthReady] = useState(false);
   const [_academyProfileChecked, setAcademyProfileChecked] = useState(false);
@@ -158,12 +161,6 @@ export default function Navbar({
   useEffect(() => {
     let active = true;
     const checkAcademyProfile = async () => {
-      if (!isAcademyArea) {
-        setAcademyAuthReady(false);
-        setAcademyProfileReady(false);
-        setAcademyProfileChecked(true);
-        return;
-      }
 
       try {
         const [authResponse, profileResponse] = await Promise.all([
@@ -176,9 +173,11 @@ export default function Navbar({
         setAcademyAuthReady(
           Boolean(authData?.authenticated || profileData?.authenticated),
         );
-        setAcademyProfileReady(Boolean(profileData?.profile?.display_name));
+        setAcademyProfileReady(Boolean(profileResponse.ok && profileData?.profile?.display_name));
+        setAcademyIdentity(profileResponse.ok && profileData?.authenticated ? profileData.profile : null);
       } catch {
         if (active) {
+          setAcademyIdentity(null);
           setAcademyAuthReady(false);
           setAcademyProfileReady(false);
         }
@@ -205,7 +204,7 @@ export default function Navbar({
       );
       window.removeEventListener("focus", checkAcademyProfile);
     };
-  }, [isAcademyArea]);
+  }, [pathname]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -598,6 +597,19 @@ export default function Navbar({
           </div>
         </div>
       )}
+      {academyAuthReady || loggedIn ? (
+        <div className="border-t border-fg/5">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1">
+            <Link href={isEnglish ? "/en/academy/account" : "/academy/account"} className="inline-flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+              <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cyan-400/10">{academyIdentity?.avatar || <UserIcon className="h-4 w-4" />}</span>
+              <span className="min-w-0 truncate text-sm font-semibold">{academyIdentity?.display_name || user?.name || accountLabel}</span>
+              {academyIdentity?.username ? <bdi className="hidden truncate text-xs text-muted sm:inline">@{academyIdentity.username}</bdi> : null}
+            </Link>
+            <Link href={isEnglish ? "/en/academy/notifications" : "/academy/notifications"} aria-label={isEnglish ? "Notifications" : "اعلان‌ها"} className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition-colors hover:bg-fg/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><Bell className="h-5 w-5" aria-hidden="true" /></Link>
+          </div>
+        </div>
+      ) : null}
+      {isAcademyArea && academyProfileReady ? <AcademyProgressBar key={pathname} locale={isEnglish ? "en" : "fa"} /> : null}
     </nav>
   );
 }
