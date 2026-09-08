@@ -181,14 +181,32 @@ export function parseBitycleRealtimeMarketMessage(
 }
 
 export function recordBitycleRealtimePrice(point: PricePoint): boolean {
-  const current = state().prices[point.market];
+  const runtime = state();
+  const current = runtime.prices[point.market];
   const nextAt = Date.parse(point.observedAt);
   if (!Number.isFinite(nextAt)) return false;
+
   if (current) {
+    // Provider-issued timestamps are a stronger authority class. Receipt-time
+    // observations may never downgrade an existing provider-authoritative row.
+    if (current.timestampAuthority === "provider" && point.timestampAuthority !== "provider") {
+      return false;
+    }
+
+    // Conversely, a valid provider-timestamp MD point may replace receipt-only
+    // state even when its provider event time is earlier than the local receipt
+    // time. Comparing those two clocks would otherwise let MP traffic poison the
+    // authoritative snapshot until a later MD timestamp happened to catch up.
+    if (current.timestampAuthority !== "provider" && point.timestampAuthority === "provider") {
+      runtime.prices[point.market] = point;
+      return true;
+    }
+
     const currentAt = Date.parse(current.observedAt);
     if (Number.isFinite(currentAt) && nextAt < currentAt) return false;
   }
-  state().prices[point.market] = point;
+
+  runtime.prices[point.market] = point;
   return true;
 }
 
@@ -216,6 +234,28 @@ export function getFreshBitycleArenaSnapshot(now = Date.now()): ArenaPriceSnapsh
     source: `bitycle_ws:${btc.source}`,
     observedAt,
   };
+}
+
+export function shouldRecycleBitycleRealtimeConnection(input: {
+  now: number;
+  openedAtMs: number;
+  lastMessageAt: string | null;
+  authoritativeSnapshotReady: boolean;
+}): boolean {
+  if (!Number.isFinite(input.now) || !Number.isFinite(input.openedAtMs) || input.openedAtMs <= 0) {
+    return true;
+  }
+
+  const connectionAgeMs = input.now - input.openedAtMs;
+  if (connectionAgeMs < 0) return true;
+  if (connectionAgeMs <= INACTIVITY_TIMEOUT_MS) return false;
+
+  const lastMessageMs = input.lastMessageAt ? Date.parse(input.lastMessageAt) : Number.NaN;
+  if (!Number.isFinite(lastMessageMs)) return true;
+  const messageAgeMs = input.now - lastMessageMs;
+  if (messageAgeMs < -MAX_FUTURE_SKEW_MS || messageAgeMs > INACTIVITY_TIMEOUT_MS) return true;
+
+  return !input.authoritativeSnapshotReady;
 }
 
 export function getBitycleRealtimeHealth(): BitycleRealtimeHealth {
@@ -248,6 +288,7 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
   let reconnectMs = RECONNECT_MIN_MS;
   let reconnectTimer: NodeJS.Timeout | null = null;
   let watchdogTimer: NodeJS.Timeout | null = null;
+  let openedAtMs = 0;
 
   const runtime = state();
   runtime.prices = {};
@@ -277,8 +318,9 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
 
     ws.on("open", () => {
       reconnectMs = RECONNECT_MIN_MS;
+      openedAtMs = Date.now();
       runtime.health.connected = true;
-      runtime.health.lastMessageAt = new Date().toISOString();
+      runtime.health.lastMessageAt = new Date(openedAtMs).toISOString();
       for (const market of ["BTCUSDT", "ETHUSDT"] as const) {
         ws.send(JSON.stringify({
           message_type: "subscribe_live_market",
@@ -304,6 +346,7 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
 
     ws.on("close", () => {
       if (socket === ws) socket = null;
+      openedAtMs = 0;
       runtime.health.connected = false;
       runtime.health.disconnectCount += 1;
       scheduleReconnect();
@@ -313,10 +356,13 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
   connect();
   watchdogTimer = setInterval(() => {
     if (stopped || !socket || socket.readyState !== WebSocket.OPEN) return;
-    const lastMessageAt = runtime.health.lastMessageAt
-      ? Date.parse(runtime.health.lastMessageAt)
-      : Number.NaN;
-    if (!Number.isFinite(lastMessageAt) || Date.now() - lastMessageAt > INACTIVITY_TIMEOUT_MS) {
+    const now = Date.now();
+    if (shouldRecycleBitycleRealtimeConnection({
+      now,
+      openedAtMs,
+      lastMessageAt: runtime.health.lastMessageAt,
+      authoritativeSnapshotReady: getFreshBitycleArenaSnapshot(now) !== null,
+    })) {
       socket.terminate();
     }
   }, WATCHDOG_INTERVAL_MS);
@@ -332,6 +378,7 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
       watchdogTimer = null;
       const active = socket;
       socket = null;
+      openedAtMs = 0;
       if (!active || active.readyState === WebSocket.CLOSED) return;
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(() => {
