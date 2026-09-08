@@ -77,10 +77,10 @@
     {
       "route": "/api/academy-profile-avatar/[owner]/[filename]",
       "sourcePath": "src/app/api/academy-profile-avatar/[owner]/[filename]/route.ts",
-      "sourceHash": "f3f7acf76eb98a353e8ea103",
+      "sourceHash": "a4f31d2b8ece44a066e930e4",
       "issue": "#619",
       "owner": "academy-platform",
-      "reason": "Adds a private Academy profile-photo GET route bound to the live strictly-revoked student session and verified tenant principal, with per-student rate limiting, no query parameters, owner-key authorization and private no-store responses so personal photos cannot become public bearer assets.",
+      "reason": "Adds a private Academy profile-photo GET route bound to the live strictly-revoked student session and verified tenant principal, Academy product entitlement, per-student rate limiting, no query parameters, owner-key authorization and private no-store responses so personal photos cannot become public bearer assets.",
       "controls": {
         "classification": "authenticated",
         "strictRevocation": true,
