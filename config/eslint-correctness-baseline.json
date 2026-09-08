@@ -18,7 +18,7 @@
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/StudyGroups.tsx", "line": 127, "column": 5, "domain": "community", "reason": "legacy study-group hydration" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/JournalView.tsx", "line": 549, "column": 10, "domain": "arena", "reason": "authoritative execution snapshot load" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/JournalView.tsx", "line": 558, "column": 5, "domain": "arena", "reason": "active-attempt reflection reset and reload" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx", "line": 680, "column": 10, "domain": "arena", "reason": "authoritative execution state load" },
+    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx", "line": 681, "column": 10, "domain": "arena", "reason": "authoritative execution state load" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/FlashcardDeck.tsx", "line": 259, "column": 5, "domain": "academy", "reason": "deck progress hydration" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/FlashcardsPageClient.tsx", "line": 21, "column": 5, "domain": "academy", "reason": "strict progress hydration transition" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/LearningInsightsDashboard.tsx", "line": 375, "column": 5, "domain": "academy", "reason": "server learning-insights load" },

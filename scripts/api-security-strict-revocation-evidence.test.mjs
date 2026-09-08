@@ -14,6 +14,13 @@ describe("strict revocation runtime evidence", () => {
     );
   });
 
+  it("recognizes refresh rotation calls but not imports, comments or signatures", () => {
+    assert.equal(detectStrictRevocationCall('await rotateSessionAuthority(input);'), true);
+    assert.equal(detectStrictRevocationCall('import { rotateSessionAuthority } from "x";'), false);
+    assert.equal(detectStrictRevocationCall('// await rotateSessionAuthority(input);'), false);
+    assert.equal(detectStrictRevocationCall('await verifyRefreshTokenSignature(raw);'), false);
+  });
+
   it("rejects a canonical session call without strict revocation", () => {
     assert.equal(detectStrictRevocationCall(`await getCanonicalSession(req);`), false);
   });

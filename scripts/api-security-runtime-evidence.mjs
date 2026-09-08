@@ -107,9 +107,11 @@ export function detectCsrfCall(handler) {
   return /\b(?:verifyCsrfOrigin|verifyCsrfToken|assertSameOrigin|requireCsrf|csrfProtection)\s*\(/.test(source);
 }
 
+// Refresh rotation checks locked token/family/device revocation in Session Authority.
+// It cannot require a valid access cookie: that cookie may already be expired.
 export function detectStrictRevocationCall(handler) {
   const source = runtimeEvidenceSource(handler);
-  return /strictRevocation\s*:\s*true|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(|\bloadAdminPrincipal\s*\(|\bauthorizeAdminRequest\s*\(/i.test(source);
+  return /strictRevocation\s*:\s*true|\brotateSessionAuthority\s*\(|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(|\bloadAdminPrincipal\s*\(|\bauthorizeAdminRequest\s*\(/i.test(source);
 }
 
 export function detectAuditCall(handler) {
