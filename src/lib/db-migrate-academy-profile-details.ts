@@ -7,7 +7,8 @@ export const ACADEMY_PROFILE_DETAILS_SQL = `
 ALTER TABLE academy_students
   ADD COLUMN IF NOT EXISTS birth_date DATE,
   ADD COLUMN IF NOT EXISTS gender TEXT,
-  ADD COLUMN IF NOT EXISTS country TEXT;
+  ADD COLUMN IF NOT EXISTS country TEXT,
+  ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
 ALTER TABLE academy_students
   DROP CONSTRAINT IF EXISTS academy_students_gender_check;
@@ -28,6 +29,15 @@ ALTER TABLE academy_students
 ALTER TABLE academy_students
   ADD CONSTRAINT academy_students_country_length_check
   CHECK (country IS NULL OR char_length(country) BETWEEN 2 AND 80);
+
+ALTER TABLE academy_students
+  DROP CONSTRAINT IF EXISTS academy_students_photo_url_check;
+ALTER TABLE academy_students
+  ADD CONSTRAINT academy_students_photo_url_check
+  CHECK (
+    photo_url IS NULL OR
+    photo_url ~ '^/api/academy-profile-avatar/[0-9a-f]{32}/[0-9a-f-]{36}\\.(jpg|png|webp)$'
+  );
 `;
 
 function checksum(sql: string): string {
