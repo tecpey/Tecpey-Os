@@ -3,21 +3,28 @@ import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 
 describe("Bitycle market UI locale parity", () => {
-  it("mounts one shared Iran intelligence surface in both Persian and English Markets", async () => {
-    const [faMarkets, enMarkets, intelligence] = await Promise.all([
+  it("mounts shared Iran intelligence and provenance surfaces in both locales", async () => {
+    const [faMarkets, enMarkets, intelligence, provenance] = await Promise.all([
       readFile(new URL("../../app/markets/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../../app/en/markets/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../../components/markets/IranMarketIntelligence.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../../components/markets/MarketDataProvenance.tsx", import.meta.url), "utf8"),
     ]);
 
     for (const source of [faMarkets, enMarkets]) {
       assert.match(source, /IranMarketIntelligence/);
       assert.match(source, /<IranMarketIntelligence\s*\/>/);
+      assert.match(source, /MarketDataProvenance/);
+      assert.match(source, /provenance=\{data\?\.provenance\}/);
     }
 
+    assert.match(faMarkets, /locale="fa"/);
+    assert.match(enMarkets, /locale="en"/);
     assert.match(intelligence, /fa:\s*\{/);
     assert.match(intelligence, /en:\s*\{/);
     assert.match(intelligence, /source_markets_frame\.updated_at/);
+    assert.match(provenance, /PROVIDER_LINKS/);
+    assert.match(provenance, /fallback === true/);
     assert.doesNotMatch(enMarkets, /[\u0600-\u06ff]/u);
   });
 });
