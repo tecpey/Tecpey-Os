@@ -6,6 +6,7 @@ import {
   getFreshBitycleArenaSnapshot,
   parseBitycleRealtimeMarketMessage,
   recordBitycleRealtimePrice,
+  shouldRecycleBitycleRealtimeConnection,
 } from "../lib/runtime-bitycle-market";
 
 function epochSeconds(iso: string): number {
@@ -27,6 +28,18 @@ function mdPoint(
       c: [epochSeconds(issuedAt) - 30, price, price, price, price, 1, epochSeconds(issuedAt)],
     },
   });
+}
+
+function mpPoint(
+  market: "BTCUSDT" | "ETHUSDT",
+  source: string,
+  price: number,
+  receivedAt: string,
+) {
+  return parseBitycleRealtimeMarketMessage({
+    type: "mp",
+    d: { f: source, p: price, s: market },
+  }, receivedAt);
 }
 
 describe("Bitycle realtime market authority", () => {
@@ -61,14 +74,8 @@ describe("Bitycle realtime market authority", () => {
   });
 
   it("parses MP only as receipt-time data and never promotes it to an Arena snapshot", () => {
-    const btc = parseBitycleRealtimeMarketMessage({
-      type: "mp",
-      d: { f: "binance_spot", p: 65_000, s: "BTCUSDT" },
-    }, "2026-09-09T00:00:05.000Z");
-    const eth = parseBitycleRealtimeMarketMessage({
-      type: "mp",
-      d: { f: "binance_spot", p: 3_500, s: "ETHUSDT" },
-    }, "2026-09-09T00:00:06.000Z");
+    const btc = mpPoint("BTCUSDT", "binance_spot", 65_000, "2026-09-09T00:00:05.000Z");
+    const eth = mpPoint("ETHUSDT", "binance_spot", 3_500, "2026-09-09T00:00:06.000Z");
     assert.ok(btc);
     assert.ok(eth);
     assert.equal(btc.timestampAuthority, "receipt");
@@ -77,6 +84,40 @@ describe("Bitycle realtime market authority", () => {
     recordBitycleRealtimePrice(eth);
 
     assert.equal(getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z")), null);
+  });
+
+  it("prevents receipt-time MP traffic from downgrading provider authority", () => {
+    const btcMd = mdPoint("BTCUSDT", "binance_spot", 65_100, "2026-09-09T00:00:05.000Z");
+    const ethMd = mdPoint("ETHUSDT", "binance_spot", 3_500, "2026-09-09T00:00:05.000Z");
+    const laterReceipt = mpPoint("BTCUSDT", "binance_spot", 1, "2026-09-09T00:00:09.000Z");
+    assert.ok(btcMd);
+    assert.ok(ethMd);
+    assert.ok(laterReceipt);
+
+    assert.equal(recordBitycleRealtimePrice(btcMd), true);
+    assert.equal(recordBitycleRealtimePrice(ethMd), true);
+    assert.equal(recordBitycleRealtimePrice(laterReceipt), false);
+    assert.deepEqual(
+      getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z"))?.prices,
+      { BTC: "65100.0000000000", ETH: "3500.0000000000" },
+    );
+  });
+
+  it("allows provider authority to replace receipt-only state even with an earlier event timestamp", () => {
+    const receipt = mpPoint("BTCUSDT", "binance_spot", 1, "2026-09-09T00:00:09.000Z");
+    const provider = mdPoint("BTCUSDT", "binance_spot", 65_100, "2026-09-09T00:00:05.000Z");
+    const eth = mdPoint("ETHUSDT", "binance_spot", 3_500, "2026-09-09T00:00:05.000Z");
+    assert.ok(receipt);
+    assert.ok(provider);
+    assert.ok(eth);
+
+    assert.equal(recordBitycleRealtimePrice(receipt), true);
+    assert.equal(recordBitycleRealtimePrice(provider), true);
+    assert.equal(recordBitycleRealtimePrice(eth), true);
+    assert.deepEqual(
+      getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z"))?.prices,
+      { BTC: "65100.0000000000", ETH: "3500.0000000000" },
+    );
   });
 
   it("builds an Arena snapshot only when both provider timestamps are fresh and share one source", () => {
@@ -122,6 +163,37 @@ describe("Bitycle realtime market authority", () => {
       getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z"))?.prices,
       { BTC: "65100.0000000000", ETH: "3500.0000000000" },
     );
+  });
+
+  it("recycles a connected socket that lacks authoritative market progress after grace", () => {
+    const openedAtMs = Date.parse("2026-09-09T00:00:00.000Z");
+    assert.equal(shouldRecycleBitycleRealtimeConnection({
+      now: Date.parse("2026-09-09T00:00:10.000Z"),
+      openedAtMs,
+      lastMessageAt: "2026-09-09T00:00:09.000Z",
+      authoritativeSnapshotReady: false,
+    }), false);
+
+    assert.equal(shouldRecycleBitycleRealtimeConnection({
+      now: Date.parse("2026-09-09T00:00:25.000Z"),
+      openedAtMs,
+      lastMessageAt: "2026-09-09T00:00:24.000Z",
+      authoritativeSnapshotReady: false,
+    }), true);
+
+    assert.equal(shouldRecycleBitycleRealtimeConnection({
+      now: Date.parse("2026-09-09T00:00:25.000Z"),
+      openedAtMs,
+      lastMessageAt: "2026-09-09T00:00:24.000Z",
+      authoritativeSnapshotReady: true,
+    }), false);
+
+    assert.equal(shouldRecycleBitycleRealtimeConnection({
+      now: Date.parse("2026-09-09T00:00:25.000Z"),
+      openedAtMs,
+      lastMessageAt: "2026-09-09T00:00:01.000Z",
+      authoritativeSnapshotReady: true,
+    }), true);
   });
 
   it("rejects malformed, unsupported-market and wrong-timeframe MD frames", () => {
