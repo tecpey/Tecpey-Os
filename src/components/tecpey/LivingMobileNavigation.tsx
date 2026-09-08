@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import { resolveActiveIndex } from "./living-nav-active";
@@ -15,6 +15,10 @@ type LivingNavItem = {
   Icon: LucideIcon;
 };
 
+const subscribeToClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export function LivingMobileNavigation({
   ariaLabel,
   items,
@@ -25,15 +29,15 @@ export function LivingMobileNavigation({
   dir?: "rtl" | "ltr";
 }) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToClient,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const activeIndex = resolveActiveIndex(pathname, items);
   const hasActive = activeIndex >= 0;
   const visualActiveIndex =
     dir === "rtl" ? items.length - 1 - activeIndex : activeIndex;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) return null;
 
