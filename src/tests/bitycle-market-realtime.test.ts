@@ -5,7 +5,7 @@ import {
   getFreshBitycleArenaSnapshot,
   parseBitycleRealtimeMarketMessage,
   recordBitycleRealtimePrice,
-} from "../lib/bitycle-market-realtime";
+} from "../lib/runtime-bitycle-market";
 
 describe("Bitycle realtime market authority", () => {
   beforeEach(() => clearBitycleRealtimeMarketForTests());
@@ -13,7 +13,7 @@ describe("Bitycle realtime market authority", () => {
   it("parses only supported MP envelopes and normalizes decimal prices", () => {
     const point = parseBitycleRealtimeMarketMessage({
       type: "mp",
-      d: { f: "binance_spot", p: 102872.612345678912, s: "BTCUSDT" },
+      d: { f: "binance_spot", p: "102872.612345678912", s: "BTCUSDT" },
     }, "2026-09-09T00:00:00.000Z");
 
     assert.deepEqual(point, {
