@@ -19,6 +19,7 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { isOwnedAcademyProfileAvatarUrl } from "@/lib/academy-profile-avatar-storage";
 
 type LocalProfile = {
   id: string;
@@ -29,6 +30,9 @@ type LocalProfile = {
   username?: string | null;
   avatar?: string | null;
   learning_goal?: string | null;
+  birth_date?: string | null;
+  gender?: string | null;
+  country?: string | null;
   locale?: string;
   streak_days?: number;
   progress?: Record<string, unknown>;
@@ -49,6 +53,9 @@ type LocalStore = {
   profiles: Record<string, LocalProfile>;
 };
 
+const AVATAR_OPTIONS = new Set(["🟦", "🟣", "🟢", "🟠", "⚡", "🎓", "🧠", "📈"]);
+const GENDERS = new Set(["female", "male", "nonbinary", "prefer_not_to_say"]);
+
 function publicIdFromUuid(id: string) {
   return `TP-STD-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
@@ -62,6 +69,37 @@ function canUseLocalProfileStorage() {
     process.env.NODE_ENV !== "production" &&
     process.env.TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE === "true"
   );
+}
+
+function parseOptionalBirthDate(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const text = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new Error("academy_birth_date_invalid");
+  const date = new Date(`${text}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text) {
+    throw new Error("academy_birth_date_invalid");
+  }
+  if (date.getUTCFullYear() < 1900 || date.getTime() > Date.now()) {
+    throw new Error("academy_birth_date_invalid");
+  }
+  return text;
+}
+
+function parseOptionalGender(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const gender = String(value).trim();
+  if (!GENDERS.has(gender)) throw new Error("academy_gender_invalid");
+  return gender;
+}
+
+function parseOptionalCountry(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const country = cleanText(value, 80);
+  if (country.length < 2) throw new Error("academy_country_invalid");
+  return country;
 }
 
 async function readLocalStore(): Promise<LocalStore> {
@@ -106,6 +144,9 @@ async function upsertLocalProfile(input: {
   username?: string;
   avatar?: string;
   learningGoal?: string;
+  birthDate?: string | null;
+  gender?: string | null;
+  country?: string | null;
   locale?: string;
 }) {
   const store = await readLocalStore();
@@ -129,9 +170,12 @@ async function upsertLocalProfile(input: {
         .slice(0, 32) ||
       existing.username ||
       null,
-    avatar: cleanText(input.avatar, 40) || existing.avatar || "🟦",
+    avatar: cleanText(input.avatar, 240) || existing.avatar || "🟦",
     learning_goal:
       cleanText(input.learningGoal, 120) || existing.learning_goal || null,
+    birth_date: input.birthDate === undefined ? existing.birth_date || null : input.birthDate,
+    gender: input.gender === undefined ? existing.gender || null : input.gender,
+    country: input.country === undefined ? existing.country || null : input.country,
     locale: cleanText(input.locale || existing.locale || "fa", 10) || "fa",
     streak_days: Math.max(1, Number(existing.streak_days || 1)),
     progress: existing.progress || {},
@@ -168,10 +212,6 @@ export async function GET(req: NextRequest) {
       if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
       const session = await getCanonicalSession(req, { strictRevocation: true });
-      // A degraded strict-revocation authority (e.g. Redis down while Postgres
-      // still holds an active session) returns a guest with authorityDegraded and
-      // cleared identity. That is an outage, not a logout — reporting an anonymous
-      // profile would sign valid users out mid-outage (#446 review).
       if (session.authorityDegraded) {
         return apiError("academy_profile_service_unavailable", 503);
       }
@@ -187,13 +227,6 @@ export async function GET(req: NextRequest) {
         );
         if (result.enabled) {
           const profile = result.value as { id?: string } | null;
-          // academy_student_cartax is student_global (classification registry):
-          // the joined progress, badges, XP and snapshots carry no tenant column.
-          // Gate them on the FOUND student's binding to the acting tenant, so a
-          // foreign branded host is not served the cross-tenant profile — this
-          // covers the account-only session (studentId:null, as academy-auth signs
-          // it) that finds the student by its verified email. A row with no student
-          // id (pre-student onboarding) has no cartax to gate.
           if (profile?.id) {
             const tenantContext = await resolveTenantPrincipalContext({
               session,
@@ -204,10 +237,6 @@ export async function GET(req: NextRequest) {
               requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
             });
             if (!tenantContext.available) {
-              // A binding-storage outage is a service failure; a foreign branded
-              // host or an unbound/revoked principal must not be served this
-              // student's cross-tenant profile. The response keeps the shape the
-              // client already handles before onboarding — authenticated, no profile.
               if (tenantContext.reason === "binding_storage_unavailable") {
                 return apiError("academy_profile_service_unavailable", 503);
               }
@@ -264,7 +293,7 @@ export async function POST(req: NextRequest) {
         req = boundedBodyRequest.request;
         const raw = await req.text();
         if (raw.length > 20_000) return apiError("payload_too_large", 413);
-        const body = JSON.parse(raw);
+        const body = JSON.parse(raw) as Record<string, unknown>;
         if (!isSessionConfigured()) {
           return apiError("session_service_not_configured", 503);
         }
@@ -279,11 +308,20 @@ export async function POST(req: NextRequest) {
           return apiError("academy_login_required", 401);
         }
 
+        const birthDate = parseOptionalBirthDate(body.birthDate);
+        const gender = parseOptionalGender(body.gender);
+        const country = parseOptionalCountry(body.country);
+        const requestedAvatar = typeof body.avatar === "string" ? body.avatar.trim() : undefined;
+        if (requestedAvatar) {
+          const builtInAvatar = AVATAR_OPTIONS.has(requestedAvatar);
+          const ownedPhoto = Boolean(session.studentId && isOwnedAcademyProfileAvatarUrl(requestedAvatar, session.studentId));
+          if (!builtInAvatar && !ownedPhoto) return apiError("academy_avatar_invalid", 400);
+        }
+
         const ip = getClientIp(req);
         const userAgent = (req.headers.get("user-agent") || "").slice(0, 500);
-        // This form edits presentation fields, not identity provider claims.
-        // Email comes from the authenticated session; phone is loaded from the
-        // verified account record below. OAuth subjects need their own ceremony.
+        // Email and mobile are identity-provider claims. They are displayed in
+        // the profile editor but never accepted from the presentation form.
         const email = session.email ?? undefined;
         const result = await withDb(async (client) => {
           const verifiedPhone = session.academyAccountId
@@ -299,14 +337,17 @@ export async function POST(req: NextRequest) {
           return upsertStudentCartax(
             client,
             {
-              locale: body.locale,
+              locale: typeof body.locale === "string" ? body.locale : undefined,
               email,
               phone: verifiedPhone?.rows[0]?.phone_e164 ?? undefined,
-              displayName: body.displayName || session.displayName,
-              username: body.username || session.username,
-              avatar: body.avatar,
-              learningGoal: body.learningGoal,
-              source: body.source || "academy-onboarding",
+              displayName: typeof body.displayName === "string" ? body.displayName : session.displayName,
+              username: typeof body.username === "string" ? body.username : session.username,
+              avatar: requestedAvatar,
+              learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
+              birthDate,
+              gender,
+              country,
+              source: typeof body.source === "string" ? body.source : "academy-profile-editor",
               ip,
               userAgent,
             },
@@ -341,11 +382,14 @@ export async function POST(req: NextRequest) {
           accountKey: session.academyAccountId || null,
           studentId: session.studentId || null,
           email,
-          displayName: body.displayName || session.displayName,
-          username: body.username || session.username,
-          avatar: body.avatar,
-          learningGoal: body.learningGoal,
-          locale: body.locale,
+          displayName: typeof body.displayName === "string" ? body.displayName : session.displayName,
+          username: typeof body.username === "string" ? body.username : session.username,
+          avatar: requestedAvatar,
+          learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
+          birthDate,
+          gender,
+          country,
+          locale: typeof body.locale === "string" ? body.locale : undefined,
         });
         const response = apiOk({
           storage: "local-dev" as const,
@@ -367,6 +411,13 @@ export async function POST(req: NextRequest) {
         );
         return response;
       } catch (error) {
+        if (error instanceof Error && [
+          "academy_birth_date_invalid",
+          "academy_gender_invalid",
+          "academy_country_invalid",
+        ].includes(error.message)) {
+          return apiError(error.message, 400);
+        }
         if (error && typeof error === "object" &&
           "code" in error && error.code === "23505" &&
           "constraint" in error && error.constraint === "academy_students_username_key") {
