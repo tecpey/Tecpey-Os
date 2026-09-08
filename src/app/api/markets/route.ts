@@ -128,6 +128,7 @@ async function fetchBitycleMarketFrames(
     const frames = normalizeBitycleMarketFrames(
       await response.json().catch(() => null),
       Date.now(),
+      source,
     );
     if (frames.size === 0) return null;
 
