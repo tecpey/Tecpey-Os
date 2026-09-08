@@ -82,7 +82,7 @@ describe("public market data authority", () => {
         volume: 1234,
         updated_at: updatedAt,
       }],
-    }, now);
+    }, now, "binance_spot");
 
     const authoritative = applyBitycleMarketFrameAuthority(rows, frames);
     assert.equal(authoritative.length, 1);
@@ -93,6 +93,33 @@ describe("public market data authority", () => {
     assert.equal(authoritative[0].priceData?.low24h, 62_500);
     assert.ok(Number(authoritative[0].changePercent) > 3.17);
     assert.ok(Number(authoritative[0].changePercent) < 3.18);
+  });
+
+  it("binds Bitycle frame authority to the exact requested source", () => {
+    const now = Date.now();
+    const updatedAt = new Date(now - 5_000).toISOString();
+    const frames = normalizeBitycleMarketFrames({
+      data: [
+        {
+          source: "bybit_spot",
+          market: "BTCUSDT",
+          frame: "24h",
+          price: 64_000,
+          updated_at: updatedAt,
+        },
+        {
+          source: "binance_spot",
+          market: "ETHUSDT",
+          frame: "24h",
+          price: 3_500,
+          updated_at: updatedAt,
+        },
+      ],
+    }, now, "binance_spot");
+
+    assert.equal(frames.has("BTCUSDT"), false);
+    assert.equal(frames.get("ETHUSDT")?.source, "binance_spot");
+    assert.equal(normalizeBitycleMarketFrames({ data: [] }, now, "").size, 0);
   });
 
   it("rejects stale, future, malformed and missing Bitycle frame authority", () => {
@@ -113,7 +140,7 @@ describe("public market data authority", () => {
         price: 65_000,
         updated_at: new Date(now - 180_000).toISOString(),
       }],
-    }, now);
+    }, now, "binance_spot");
     const future = normalizeBitycleMarketFrames({
       data: [{
         source: "binance_spot",
@@ -122,7 +149,7 @@ describe("public market data authority", () => {
         price: 65_000,
         updated_at: new Date(now + 60_000).toISOString(),
       }],
-    }, now);
+    }, now, "binance_spot");
 
     assert.equal(stale.size, 0);
     assert.equal(future.size, 0);
