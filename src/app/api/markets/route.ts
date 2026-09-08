@@ -3,9 +3,13 @@ import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
+  applyBitycleMarketFrameAuthority,
   BITYCLE_MARKET_SOURCE,
   BITYCLE_MARKET_SOURCE_URL,
+  BITYCLE_PUBLIC_MARKET_FRESHNESS_MS,
+  type BitycleMarketFrameAuthority,
   normalizeBitycleCurrencyInfo,
+  normalizeBitycleMarketFrames,
   normalizeCoinGeckoMarkets,
   PUBLIC_MARKET_SOURCE,
   PUBLIC_MARKET_SOURCE_URL,
@@ -20,10 +24,11 @@ const BITYCLE_DEFAULT_SOURCE = "binance_spot";
 const BITYCLE_BASE_URL = "https://api.bitycle.com";
 const DEFAULT_IRAN_SOURCES = ["nobitex_spot", "ramzinex_spot", "bit24_spot"] as const;
 const SOURCE_RE = /^[a-z0-9_]{2,40}$/;
-const IRAN_REQUEST_TIMEOUT_MS = 4_000;
+const BITYCLE_REQUEST_TIMEOUT_MS = 6_000;
 const MAX_LOCAL_SOURCES = 5;
-
-type PriceRow = { name?: unknown; market?: unknown; symbol?: unknown; price?: unknown };
+const IRAN_MAX_COMPARISON_SKEW_MS = 60_000;
+const BITYCLE_MARKETS_CACHE_TTL_MS = 20_000;
+const BITYCLE_FRAME_CACHE_TTL_MS = 10_000;
 
 type IranComparison = {
   source: string;
@@ -31,16 +36,36 @@ type IranComparison = {
   usdtIrt: number;
   impliedBtcUsdt: number;
   premiumPercent: number;
+  updatedAt: string;
+  maxSkewMs: number;
 };
+
+type BitycleMarketsSnapshot = {
+  data: ReturnType<typeof normalizeCoinGeckoMarkets>;
+  observedAt: string;
+  source: string;
+};
+
+type BitycleFrameCacheEntry = {
+  frames: Map<string, BitycleMarketFrameAuthority>;
+  expiresAt: number;
+};
+
+let bitycleMarketsCache: {
+  source: string;
+  value: BitycleMarketsSnapshot;
+  expiresAt: number;
+} | null = null;
+let bitycleMarketsInFlight: {
+  source: string;
+  promise: Promise<BitycleMarketsSnapshot | null>;
+} | null = null;
+const bitycleFrameCache = new Map<string, BitycleFrameCacheEntry>();
+const bitycleFrameInFlight = new Map<string, Promise<Map<string, BitycleMarketFrameAuthority> | null>>();
 
 function boundedInteger(raw: string | null, fallback: number, max: number) {
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, max) : fallback;
-}
-
-function finitePositive(value: unknown): number | null {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function cleanSource(value: string): string | null {
@@ -60,60 +85,97 @@ function configuredIranSources(): string[] {
   return [...unique];
 }
 
-function extractMarketPrice(payload: unknown, market: string): number | null {
-  const data = payload && typeof payload === "object" && "data" in payload
-    ? (payload as { data?: unknown }).data
-    : payload;
-  const target = market.toUpperCase();
-
-  if (Array.isArray(data)) {
-    for (const entry of data as PriceRow[]) {
-      if (!entry || typeof entry !== "object") continue;
-      const name = String(entry.name ?? entry.market ?? entry.symbol ?? "").trim().toUpperCase();
-      if (name !== target) continue;
-      return finitePositive(entry.price);
-    }
-    return null;
-  }
-
-  if (data && typeof data === "object") {
-    const row = data as PriceRow;
-    const name = String(row.name ?? row.market ?? row.symbol ?? target).trim().toUpperCase();
-    if (name !== target) return null;
-    return finitePositive(row.price);
-  }
-
-  return null;
+function frameFreshUntil(frame: BitycleMarketFrameAuthority): number {
+  return Date.parse(frame.updatedAt) + BITYCLE_PUBLIC_MARKET_FRESHNESS_MS;
 }
 
-async function fetchMarketPrice(apiKey: string, source: string, market: string): Promise<number | null> {
-  const params = new URLSearchParams({ source, market });
-  try {
-    const response = await fetch(`${BITYCLE_BASE_URL}/api/exchange/source_market_price?${params}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(IRAN_REQUEST_TIMEOUT_MS),
-    });
-    if (!response.ok) return null;
-    return extractMarketPrice(await response.json().catch(() => null), market);
-  } catch {
-    return null;
+function earliestFreshUntil(frames: Iterable<BitycleMarketFrameAuthority>): number {
+  let earliest = Number.POSITIVE_INFINITY;
+  for (const frame of frames) {
+    const freshUntil = frameFreshUntil(frame);
+    if (Number.isFinite(freshUntil)) earliest = Math.min(earliest, freshUntil);
   }
+  return earliest;
+}
+
+async function fetchBitycleMarketFrames(
+  apiKey: string,
+  source: string,
+): Promise<Map<string, BitycleMarketFrameAuthority> | null> {
+  const now = Date.now();
+  const cached = bitycleFrameCache.get(source);
+  if (cached && cached.expiresAt > now) return cached.frames;
+  if (cached) bitycleFrameCache.delete(source);
+
+  const pending = bitycleFrameInFlight.get(source);
+  if (pending) return pending;
+
+  const promise = (async () => {
+    const params = new URLSearchParams({ source, frame: "24h" });
+    let response: Response;
+    try {
+      response = await fetch(`${BITYCLE_BASE_URL}/api/exchange/source_markets_frame?${params}`, {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+        cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(BITYCLE_REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null;
+
+    const frames = normalizeBitycleMarketFrames(
+      await response.json().catch(() => null),
+      Date.now(),
+    );
+    if (frames.size === 0) return null;
+
+    const freshnessDeadline = earliestFreshUntil(frames.values());
+    const expiresAt = Math.min(Date.now() + BITYCLE_FRAME_CACHE_TTL_MS, freshnessDeadline);
+    if (expiresAt > Date.now()) {
+      bitycleFrameCache.set(source, { frames, expiresAt });
+    }
+    return frames;
+  })().finally(() => {
+    bitycleFrameInFlight.delete(source);
+  });
+
+  bitycleFrameInFlight.set(source, promise);
+  return promise;
 }
 
 function compareLocalMarket(
   source: string,
-  globalBtcUsdt: number,
-  btcIrt: number | null,
-  usdtIrt: number | null,
+  globalBtcUsdt: BitycleMarketFrameAuthority,
+  btcIrt: BitycleMarketFrameAuthority | undefined,
+  usdtIrt: BitycleMarketFrameAuthority | undefined,
 ): IranComparison | null {
-  if (!btcIrt || !usdtIrt || globalBtcUsdt <= 0) return null;
-  const impliedBtcUsdt = btcIrt / usdtIrt;
+  if (!btcIrt || !usdtIrt) return null;
+  if (btcIrt.source !== source || usdtIrt.source !== source) return null;
+  if (globalBtcUsdt.price <= 0 || btcIrt.price <= 0 || usdtIrt.price <= 0) return null;
+
+  const timestamps = [globalBtcUsdt.updatedAt, btcIrt.updatedAt, usdtIrt.updatedAt].map(Date.parse);
+  if (timestamps.some((timestamp) => !Number.isFinite(timestamp))) return null;
+  const oldest = Math.min(...timestamps);
+  const newest = Math.max(...timestamps);
+  const maxSkewMs = newest - oldest;
+  if (maxSkewMs > IRAN_MAX_COMPARISON_SKEW_MS) return null;
+
+  const impliedBtcUsdt = btcIrt.price / usdtIrt.price;
   if (!Number.isFinite(impliedBtcUsdt) || impliedBtcUsdt <= 0) return null;
-  const premiumPercent = ((impliedBtcUsdt / globalBtcUsdt) - 1) * 100;
+  const premiumPercent = ((impliedBtcUsdt / globalBtcUsdt.price) - 1) * 100;
   if (!Number.isFinite(premiumPercent)) return null;
-  return { source, btcIrt, usdtIrt, impliedBtcUsdt, premiumPercent };
+
+  return {
+    source,
+    btcIrt: btcIrt.price,
+    usdtIrt: usdtIrt.price,
+    impliedBtcUsdt,
+    premiumPercent,
+    updatedAt: new Date(oldest).toISOString(),
+    maxSkewMs,
+  };
 }
 
 function filterAndPagePublicMarkets(
@@ -134,30 +196,69 @@ function filterAndPagePublicMarkets(
     return left - right;
   });
   const offset = (page - 1) * limit;
-  return sorted.slice(offset, offset + limit);
+  return {
+    data: sorted.slice(offset, offset + limit),
+    total: sorted.length,
+    lastPage: Math.max(1, Math.ceil(sorted.length / limit)),
+  };
 }
 
-async function fetchBitycleMarkets() {
+async function fetchBitycleMarkets(): Promise<BitycleMarketsSnapshot | null> {
   const apiKey = process.env.BITYCLE_API_KEY?.trim();
   if (!apiKey) return null;
 
-  const source = process.env.BITYCLE_MARKET_SOURCE?.trim() || BITYCLE_DEFAULT_SOURCE;
-  const params = new URLSearchParams({ source });
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${BITYCLE_BASE_URL}/api/exchange/source_currency_info?${params}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(6_000),
-    });
-  } catch {
-    return null;
-  }
-  if (!upstream.ok) return null;
+  const source = cleanSource(process.env.BITYCLE_MARKET_SOURCE?.trim() || BITYCLE_DEFAULT_SOURCE);
+  if (!source) return null;
 
-  const observedAt = new Date().toISOString();
-  const data = normalizeBitycleCurrencyInfo(await upstream.json().catch(() => null), observedAt);
-  return data.length > 0 ? { data, observedAt, source } : null;
+  const now = Date.now();
+  if (bitycleMarketsCache && bitycleMarketsCache.source === source && bitycleMarketsCache.expiresAt > now) {
+    return bitycleMarketsCache.value;
+  }
+  if (bitycleMarketsInFlight && bitycleMarketsInFlight.source === source) {
+    return bitycleMarketsInFlight.promise;
+  }
+
+  const promise = (async () => {
+    const params = new URLSearchParams({ source });
+    const infoRequest = fetch(`${BITYCLE_BASE_URL}/api/exchange/source_currency_info?${params}`, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(BITYCLE_REQUEST_TIMEOUT_MS),
+    }).catch(() => null);
+
+    const [infoResponse, frames] = await Promise.all([
+      infoRequest,
+      fetchBitycleMarketFrames(apiKey, source),
+    ]);
+    if (!infoResponse?.ok || !frames || frames.size === 0) return null;
+
+    const observedAt = new Date().toISOString();
+    const enriched = normalizeBitycleCurrencyInfo(
+      await infoResponse.json().catch(() => null),
+      observedAt,
+    ).filter((row) => row.priceData?.symbol === `${String(row.symbol || "").toUpperCase()}USDT`);
+    const data = applyBitycleMarketFrameAuthority(enriched, frames);
+    if (data.length === 0) return null;
+
+    const value = { data, observedAt, source } satisfies BitycleMarketsSnapshot;
+    const freshUntil = data.reduce((deadline, row) => {
+      const updated = Date.parse(String(row.marketDataUpdatedAt || ""));
+      return Number.isFinite(updated)
+        ? Math.min(deadline, updated + BITYCLE_PUBLIC_MARKET_FRESHNESS_MS)
+        : deadline;
+    }, Number.POSITIVE_INFINITY);
+    const expiresAt = Math.min(Date.now() + BITYCLE_MARKETS_CACHE_TTL_MS, freshUntil);
+    if (expiresAt > Date.now()) {
+      bitycleMarketsCache = { source, value, expiresAt };
+    }
+    return value;
+  })().finally(() => {
+    if (bitycleMarketsInFlight?.promise === promise) bitycleMarketsInFlight = null;
+  });
+
+  bitycleMarketsInFlight = { source, promise };
+  return promise;
 }
 
 async function fetchCoinGeckoMarkets(page: number, limit: number) {
@@ -176,7 +277,8 @@ async function fetchCoinGeckoMarkets(page: number, limit: number) {
     upstream = await fetch(`https://api.coingecko.com/api/v3/coins/markets?${params}`, {
       headers: apiKey ? { "x-cg-demo-api-key": apiKey } : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(6_000),
+      redirect: "error",
+      signal: AbortSignal.timeout(BITYCLE_REQUEST_TIMEOUT_MS),
     });
   } catch {
     return null;
@@ -187,6 +289,15 @@ async function fetchCoinGeckoMarkets(page: number, limit: number) {
   return data.length > 0 ? { data, observedAt: new Date().toISOString() } : null;
 }
 
+function oldestMarketTimestamp(data: ReturnType<typeof normalizeCoinGeckoMarkets>): string | null {
+  let oldest = Number.POSITIVE_INFINITY;
+  for (const row of data) {
+    const timestamp = Date.parse(String(row.marketDataUpdatedAt || ""));
+    if (Number.isFinite(timestamp)) oldest = Math.min(oldest, timestamp);
+  }
+  return Number.isFinite(oldest) ? new Date(oldest).toISOString() : null;
+}
+
 async function publicMarketResponse(request: NextRequest) {
   const page = boundedInteger(request.nextUrl.searchParams.get("page"), 1, MAX_PUBLIC_PAGE);
   const limit = boundedInteger(request.nextUrl.searchParams.get("limit"), 20, MAX_PUBLIC_LIMIT);
@@ -194,22 +305,23 @@ async function publicMarketResponse(request: NextRequest) {
 
   const bitycle = await fetchBitycleMarkets();
   if (bitycle) {
-    const data = filterAndPagePublicMarkets(bitycle.data, query, page, limit);
-    if (data.length > 0 || query) {
+    const paged = filterAndPagePublicMarkets(bitycle.data, query, page, limit);
+    if (paged.data.length > 0 || query) {
       const response = apiOk({
-        data,
-        meta: { current_page: page, last_page: data.length === limit ? page + 1 : page },
+        data: paged.data,
+        meta: { current_page: page, last_page: paged.lastPage, total: paged.total },
         provenance: {
           provider: BITYCLE_MARKET_SOURCE,
           providerUrl: BITYCLE_MARKET_SOURCE_URL,
           upstreamSource: bitycle.source,
           currency: "USDT",
           fetchedAt: bitycle.observedAt,
-          freshness: "live Bitycle business market feed",
+          upstreamUpdatedAt: oldestMarketTimestamp(paged.data),
+          freshness: "Bitycle 24h market frames verified by upstream updated_at",
           fallback: false,
         },
       });
-      response.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+      response.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=10");
       return response;
     }
   }
@@ -250,26 +362,37 @@ async function iranMarketResponse() {
   const localSources = configuredIranSources();
   if (localSources.length === 0) return apiError("iran_market_sources_not_configured", 503);
 
-  const globalBtcUsdt = await fetchMarketPrice(apiKey, globalSource, "BTCUSDT");
-  if (!globalBtcUsdt) return apiError("global_market_reference_unavailable", 503);
+  const sources = [globalSource, ...localSources];
+  const frameSets = await Promise.all(sources.map((source) => fetchBitycleMarketFrames(apiKey, source)));
+  const globalBtcUsdt = frameSets[0]?.get("BTCUSDT");
+  if (!globalBtcUsdt || globalBtcUsdt.source !== globalSource) {
+    return apiError("global_market_reference_unavailable", 503);
+  }
 
-  const comparisons = (await Promise.all(localSources.map(async (source) => {
-    const [btcIrt, usdtIrt] = await Promise.all([
-      fetchMarketPrice(apiKey, source, "BTCIRT"),
-      fetchMarketPrice(apiKey, source, "USDTIRT"),
-    ]);
-    return compareLocalMarket(source, globalBtcUsdt, btcIrt, usdtIrt);
-  }))).filter((row): row is IranComparison => row !== null);
+  const comparisons = localSources.map((source, index) => {
+    const frames = frameSets[index + 1];
+    return compareLocalMarket(
+      source,
+      globalBtcUsdt,
+      frames?.get("BTCIRT"),
+      frames?.get("USDTIRT"),
+    );
+  }).filter((row): row is IranComparison => row !== null);
 
   if (comparisons.length === 0) return apiError("iran_market_intelligence_unavailable", 503);
 
   comparisons.sort((a, b) => a.premiumPercent - b.premiumPercent);
   const observedAt = new Date().toISOString();
+  const oldestUpstreamUpdatedAt = new Date(Math.min(
+    Date.parse(globalBtcUsdt.updatedAt),
+    ...comparisons.map((row) => Date.parse(row.updatedAt)),
+  )).toISOString();
   const response = apiOk({
     reference: {
       source: globalSource,
       market: "BTCUSDT",
-      price: globalBtcUsdt,
+      price: globalBtcUsdt.price,
+      updatedAt: globalBtcUsdt.updatedAt,
     },
     local: comparisons,
     summary: {
@@ -277,15 +400,18 @@ async function iranMarketResponse() {
       highestPremiumPercent: comparisons[comparisons.length - 1].premiumPercent,
       sourcesAvailable: comparisons.length,
       sourcesRequested: localSources.length,
+      maxComparisonSkewMs: Math.max(...comparisons.map((row) => row.maxSkewMs)),
     },
     provenance: {
       provider: "Bitycle",
       method: "BTCIRT / USDTIRT compared with global BTCUSDT",
       observedAt,
-      note: "ObservedAt is TecPey fetch time; this response does not claim an upstream exchange timestamp.",
+      upstreamUpdatedAt: oldestUpstreamUpdatedAt,
+      timestampAuthority: "source_markets_frame.updated_at",
+      note: "TecPey rejects stale market frames and comparisons whose global/local timestamps differ by more than 60 seconds.",
     },
   });
-  response.headers.set("Cache-Control", "public, s-maxage=15, stale-while-revalidate=30");
+  response.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=10");
   return response;
 }
 
