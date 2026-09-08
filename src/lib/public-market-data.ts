@@ -6,6 +6,7 @@ export const BITYCLE_MARKET_SOURCE = "Bitycle";
 export const BITYCLE_MARKET_SOURCE_URL = "https://bitycle.com/";
 export const PUBLIC_MARKET_FRESHNESS_MS = 5 * 60_000;
 export const BITYCLE_PUBLIC_MARKET_FRESHNESS_MS = 2 * 60_000;
+export const BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS = 30_000;
 
 export type MarketPriceLocale = "fa-IR" | "en-US";
 
@@ -67,7 +68,29 @@ type BitycleCurrencyInfo = {
   dominance?: unknown;
   volume_24h?: unknown;
   price_quote?: unknown;
+};
+
+type BitycleMarketFrameRow = {
+  source?: unknown;
+  market?: unknown;
+  frame?: unknown;
+  open?: unknown;
+  high?: unknown;
+  low?: unknown;
+  price?: unknown;
+  volume?: unknown;
   updated_at?: unknown;
+};
+
+export type BitycleMarketFrameAuthority = {
+  source: string;
+  market: string;
+  price: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  volume: number | null;
+  updatedAt: string;
 };
 
 function finiteNumber(value: unknown): number | null {
@@ -211,6 +234,86 @@ export function normalizeBitycleCurrencyInfo(
       marketDataSource: BITYCLE_MARKET_SOURCE,
       marketDataSourceUrl: BITYCLE_MARKET_SOURCE_URL,
       marketDataUpdatedAt: observedAt,
+    }];
+  });
+}
+
+export function normalizeBitycleMarketFrames(
+  value: unknown,
+  now = Date.now(),
+): Map<string, BitycleMarketFrameAuthority> {
+  const payload = value && typeof value === "object" && "data" in value
+    ? (value as { data?: unknown }).data
+    : value;
+  const frames = new Map<string, BitycleMarketFrameAuthority>();
+  if (!Array.isArray(payload) || !Number.isFinite(now)) return frames;
+
+  for (const entry of payload) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as BitycleMarketFrameRow;
+    const source = cleanText(row.source, 40).toLowerCase();
+    const market = cleanText(row.market, 40).toUpperCase();
+    const frame = cleanText(row.frame, 10).toLowerCase();
+    const price = finiteNumber(row.price);
+    const updatedAtRaw = cleanText(row.updated_at, 64);
+    const updatedMs = Date.parse(updatedAtRaw);
+    if (!source || !market || frame !== "24h" || price === null || price <= 0) continue;
+    if (!Number.isFinite(updatedMs)) continue;
+
+    const ageMs = now - updatedMs;
+    if (
+      ageMs > BITYCLE_PUBLIC_MARKET_FRESHNESS_MS
+      || ageMs < -BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS
+    ) {
+      continue;
+    }
+
+    const authority: BitycleMarketFrameAuthority = {
+      source,
+      market,
+      price,
+      open: finiteNumber(row.open),
+      high: finiteNumber(row.high),
+      low: finiteNumber(row.low),
+      volume: finiteNumber(row.volume),
+      updatedAt: new Date(updatedMs).toISOString(),
+    };
+    const previous = frames.get(market);
+    if (!previous || Date.parse(previous.updatedAt) < updatedMs) {
+      frames.set(market, authority);
+    }
+  }
+
+  return frames;
+}
+
+export function applyBitycleMarketFrameAuthority(
+  rows: MarketCurrency[],
+  frames: ReadonlyMap<string, BitycleMarketFrameAuthority>,
+): MarketCurrency[] {
+  return rows.flatMap((row): MarketCurrency[] => {
+    const market = cleanText(row.priceData?.symbol, 40).toUpperCase();
+    const frame = market ? frames.get(market) : undefined;
+    if (!frame) return [];
+
+    const change = percentChange(frame.price, frame.open);
+    return [{
+      ...row,
+      price: frame.price,
+      changePercent: change,
+      priceData: {
+        ...row.priceData,
+        last: frame.price,
+        price: frame.price,
+        lastPrice: frame.price,
+        close: frame.price,
+        open: frame.open,
+        high24h: frame.high,
+        low24h: frame.low,
+        changePercent: change,
+        timestamp: frame.updatedAt,
+      },
+      marketDataUpdatedAt: frame.updatedAt,
     }];
   });
 }
