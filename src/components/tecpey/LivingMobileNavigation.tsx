@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import { resolveActiveIndex } from "./living-nav-active";
 
@@ -23,16 +25,24 @@ export function LivingMobileNavigation({
   dir?: "rtl" | "ltr";
 }) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const activeIndex = resolveActiveIndex(pathname, items);
   const hasActive = activeIndex >= 0;
   const visualActiveIndex =
     dir === "rtl" ? items.length - 1 - activeIndex : activeIndex;
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <nav
       aria-label={ariaLabel}
       dir={dir}
-      className="tecpey-living-mobile-nav fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[80] lg:hidden"
+      className="tecpey-living-mobile-nav fixed inset-x-3 z-[80] lg:hidden"
+      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
     >
       <div className="tecpey-living-mobile-nav__bar">
         {hasActive ? (
@@ -52,8 +62,6 @@ export function LivingMobileNavigation({
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
         >
           {items.map((item, index) => {
-            // Exactly one matching item is active, so the highlight and the
-            // halo agree and only one link carries aria-current="page".
             const active = index === activeIndex;
             const Icon = item.Icon;
             return (
@@ -75,6 +83,7 @@ export function LivingMobileNavigation({
           })}
         </div>
       </div>
-    </nav>
+    </nav>,
+    document.body,
   );
 }
