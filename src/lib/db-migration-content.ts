@@ -201,7 +201,7 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
     canonical("0017_academy_lesson_progress.sql", requiredUserState("0017_academy_lesson_progress.sql", ACADEMY_LESSON_PROGRESS_SQL)),
     canonical("0020_trading_arena_execution.sql", requiredUserState("0020_trading_arena_execution.sql", TRADING_ARENA_EXECUTION_SQL)),
     canonical("0021_academy_progress_authority.sql", requiredUserState("0021_academy_progress_authority.sql", ACADEMY_PROGRESS_AUTHORITY_SQL)),
-    canonical("0022_trading_arena_reflections.sql", requiredUserState("0022_trading_arena_reflections.sql", ACADEMY_REFLECTION_MEMORY_SQL)),
+    canonical("0022_trading_arena_reflections.sql", requiredUserState("0022_trading_arena_reflections.sql", TRADING_ARENA_REFLECTIONS_SQL)),
   ]),
   adminFoundation: one("0018_admin_control_plane_foundation.sql", ADMIN_CONTROL_PLANE_SQL),
   adminHardening: one("0019_admin_control_plane_hardening.sql", ADMIN_CONTROL_PLANE_HARDENING_SQL),
