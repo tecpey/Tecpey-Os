@@ -4,12 +4,14 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { rateLimit } from "@/lib/rate-limit";
 import { withObservability } from "@/lib/observe";
+import { readBoundedBody } from "@/lib/security/bounded-request-body";
 import {
   MAX_PROFILE_AVATAR_BYTES,
   storeAcademyProfileAvatar,
 } from "@/lib/academy-profile-avatar-storage";
 
 export const dynamic = "force-dynamic";
+const MAX_PROFILE_AVATAR_REQUEST_BYTES = MAX_PROFILE_AVATAR_BYTES + 96_000;
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-profile-avatar" }, async () => {
@@ -22,17 +24,38 @@ export async function POST(req: NextRequest) {
     });
     if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-    const declaredLength = Number(req.headers.get("content-length") || 0);
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_PROFILE_AVATAR_BYTES + 96_000) {
-      return apiError("profile_avatar_too_large", 413);
-    }
-
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (session.authorityDegraded) return apiError("profile_avatar_service_unavailable", 503);
     if (!session.studentId || !session.isAcademyUser) return apiError("academy_profile_required", 409);
 
+    const contentType = req.headers.get("content-type")?.toLowerCase() || "";
+    if (!contentType.startsWith("multipart/form-data;") || !contentType.includes("boundary=")) {
+      return apiError("unsupported_media_type", 415);
+    }
+
+    const boundedBody = await readBoundedBody(req, {
+      maxBytes: MAX_PROFILE_AVATAR_REQUEST_BYTES,
+    });
+    if (!boundedBody.ok) {
+      if (boundedBody.error === "payload_too_large") {
+        return apiError("profile_avatar_too_large", 413);
+      }
+      return apiError(boundedBody.error, boundedBody.status);
+    }
+
+    const headers = new Headers(req.headers);
+    headers.delete("content-length");
+    headers.delete("content-encoding");
+    headers.delete("transfer-encoding");
+    const boundedRequest = new NextRequest(req.url, {
+      method: req.method,
+      headers,
+      body: boundedBody.bytes,
+      signal: req.signal,
+    });
+
     try {
-      const form = await req.formData();
+      const form = await boundedRequest.formData();
       const file = form.get("avatar");
       if (!(file instanceof File)) return apiError("profile_avatar_required", 400);
 
