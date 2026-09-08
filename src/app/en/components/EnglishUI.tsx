@@ -1,4 +1,4 @@
-import "./english-mobile-parity.css";
+import styles from "./english-mobile-parity.module.css";
 import Link from "next/link";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowRight, CheckCircle2, Search, Sparkles, ExternalLink } from "lucide-react";
@@ -16,7 +16,7 @@ export function EnglishShell({ children }: { children: React.ReactNode }) {
   return (
     <main
       dir="ltr"
-      className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 text-left text-[color:var(--tp-text)] lg:pb-0"
+      className={`${styles.shell} tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 text-left text-[color:var(--tp-text)] lg:pb-0`}
     >
       {children}
     </main>
