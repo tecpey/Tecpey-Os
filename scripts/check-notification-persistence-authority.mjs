@@ -93,7 +93,8 @@ requireText("notificationCenter", "actionUrl", "Notification Center must consume
 requireText("notificationCenter", "readAt", "Notification Center must consume the durable lifecycle contract");
 requireText("notificationCenter", "loadState === \"error\"", "Notification Center must expose inbox failures rather than fabricate an empty state");
 requireText("notificationCenter", "loadState === \"ready\" && topItems.length === 0", "Notification Center may show an empty state only after a successful inbox read");
-requireText("notificationCenter", "setLoadState(\"error\")", "Notification Center must preserve explicit failure state on inbox errors");
+requireText("notificationCenter", 'loadState: "error"', "Notification Center must preserve explicit failure state on inbox errors");
+requireText("notificationCenter", 'previous.loadState === "ready"', "Notification Center refresh failures must retain the last verified inbox instead of replacing it with fabricated emptiness");
 requireText("notificationCenter", "`/api/notifications/${encodeURIComponent(id)}`", "Notification Center must mutate the authoritative platform notification endpoint");
 requireText("notificationCenter", 'JSON.stringify({ action: "read" })', "Notification Center must use the typed read lifecycle mutation");
 requireText("notificationCenter", "aria-expanded={open}", "Notification Center trigger must expose open state");
