@@ -19,6 +19,7 @@ import {
 
 type Locale = "fa" | "en";
 type LoadState = "loading" | "ready" | "error";
+type NotificationSurface = "floating" | "compact" | "navbar";
 
 type NotificationItem = {
   id: string;
@@ -87,11 +88,16 @@ function safeActionUrl(value: string | null): string | null {
 export function NotificationCenter({
   locale = "fa",
   compact = false,
+  surface,
 }: {
   locale?: Locale;
   compact?: boolean;
+  surface?: NotificationSurface;
 }) {
   const isFa = locale === "fa";
+  const resolvedSurface: NotificationSurface = surface ?? (compact ? "compact" : "floating");
+  const isNavbar = resolvedSurface === "navbar";
+  const isCompact = compact || isNavbar;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
@@ -99,7 +105,7 @@ export function NotificationCenter({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pendingReads = useRef(new Set<string>());
-  const panelId = `tecpey-notification-center-${compact ? "compact" : "floating"}`;
+  const panelId = `tecpey-notification-center-${resolvedSurface}`;
 
   useEffect(() => {
     let active = true;
@@ -166,8 +172,8 @@ export function NotificationCenter({
   }, [open]);
 
   const topItems = useMemo(
-    () => items.slice(0, compact ? 4 : 12),
-    [items, compact],
+    () => items.slice(0, isCompact ? 4 : 12),
+    [items, isCompact],
   );
 
   const markRead = async (id: string) => {
@@ -211,30 +217,42 @@ export function NotificationCenter({
     }
   };
 
+  const rootClass = isNavbar
+    ? "relative z-[140]"
+    : resolvedSurface === "compact"
+      ? "relative"
+      : "fixed bottom-24 left-4 z-50 md:left-8";
+  const triggerClass = isNavbar
+    ? "relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-fg transition-colors hover:bg-fg/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+    : "relative inline-flex items-center gap-2 rounded-2xl border border-cyan-300/30 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-2xl shadow-cyan-500/15 backdrop-blur transition hover:border-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300";
+  const panelClass = isNavbar
+    ? "absolute end-0 top-12 z-[160] w-[min(92vw,420px)] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/98 text-white shadow-[0_24px_80px_rgba(2,8,23,.38)] backdrop-blur-xl"
+    : "absolute bottom-16 left-0 w-[min(92vw,390px)] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/95 text-white shadow-2xl shadow-cyan-500/20 backdrop-blur-xl";
+
   return (
     <div
       ref={rootRef}
-      className={compact ? "relative" : "fixed bottom-24 left-4 z-50 md:left-8"}
+      className={rootClass}
       dir={isFa ? "rtl" : "ltr"}
     >
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="relative inline-flex items-center gap-2 rounded-2xl border border-cyan-300/30 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-2xl shadow-cyan-500/15 backdrop-blur transition hover:border-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+        className={triggerClass}
         aria-label={isFa ? "مرکز اعلان‌های تک‌پی" : "TecPey notification center"}
         aria-expanded={open}
         aria-controls={panelId}
         aria-haspopup="dialog"
       >
-        <Bell className="h-5 w-5 text-cyan-200" aria-hidden="true" />
-        {!compact && <span>{isFa ? "مرکز اعلان‌ها" : "Notification Center"}</span>}
+        <Bell className={`h-5 w-5 ${isNavbar ? "" : "text-cyan-200"}`} aria-hidden="true" />
+        {!isCompact && <span>{isFa ? "مرکز اعلان‌ها" : "Notification Center"}</span>}
         {unread > 0 && (
           <span
-            className="absolute -right-2 -top-2 rounded-full bg-rose-500 px-2 py-0.5 text-[11px] text-white"
+            className={`absolute rounded-full bg-rose-500 px-2 py-0.5 text-[11px] text-white ${isNavbar ? "-end-1 -top-1" : "-right-2 -top-2"}`}
             aria-label={isFa ? `${unread} اعلان خوانده‌نشده` : `${unread} unread notifications`}
           >
-            {unread}
+            {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
@@ -245,7 +263,7 @@ export function NotificationCenter({
           role="dialog"
           aria-modal="false"
           aria-label={isFa ? "اعلان‌های تک‌پی" : "TecPey notifications"}
-          className="absolute bottom-16 left-0 w-[min(92vw,390px)] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/95 text-white shadow-2xl shadow-cyan-500/20 backdrop-blur-xl"
+          className={panelClass}
         >
           <div className="flex items-center justify-between border-b border-white/10 p-4">
             <div>
@@ -271,7 +289,7 @@ export function NotificationCenter({
             </button>
           </div>
 
-          <div className="max-h-[420px] space-y-2 overflow-y-auto p-3">
+          <div className="max-h-[min(56dvh,440px)] space-y-2 overflow-y-auto overscroll-contain p-3">
             {loadState === "loading" && (
               <div
                 className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-slate-300"
@@ -350,6 +368,7 @@ export function NotificationCenter({
           <div className="border-t border-white/10 p-3">
             <Link
               href={isFa ? "/academy/notifications" : "/en/academy/notifications"}
+              onClick={() => setOpen(false)}
               className="block rounded-2xl border border-cyan-300/25 bg-white/5 px-4 py-3 text-center text-sm font-black text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
               {isFa ? "مشاهده همه اعلان‌ها" : "View all notifications"}
