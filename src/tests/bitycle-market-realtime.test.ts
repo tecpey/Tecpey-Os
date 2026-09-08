@@ -124,17 +124,28 @@ describe("Bitycle realtime market authority", () => {
     );
   });
 
-  it("fails closed for malformed frames and keeps health state secret-free", () => {
+  it("rejects malformed, unsupported-market and wrong-timeframe MD frames", () => {
+    const issuedAt = epochSeconds("2026-09-09T00:00:05.000Z");
     assert.equal(parseBitycleRealtimeMarketMessage({ type: "md", d: {} }), null);
     assert.equal(parseBitycleRealtimeMarketMessage({
       type: "md",
-      d: { f: "bad source", s: "BTCUSDT", c: [0, 1, 1, 1, 1, 1, 1] },
+      d: { f: "bad source", s: "BTCUSDT", t: "1m", c: [0, 1, 1, 1, 1, 1, issuedAt] },
     }), null);
     assert.equal(parseBitycleRealtimeMarketMessage({
       type: "md",
-      d: { f: "binance_spot", s: "DOGEUSDT", c: [0, 1, 1, 1, 1, 1, 1] },
+      d: { f: "binance_spot", s: "DOGEUSDT", t: "1m", c: [0, 1, 1, 1, 1, 1, issuedAt] },
     }), null);
+    assert.equal(parseBitycleRealtimeMarketMessage({
+      type: "md",
+      d: { f: "binance_spot", s: "BTCUSDT", t: "5m", c: [0, 1, 1, 1, 65_000, 1, issuedAt] },
+    }), null);
+    assert.equal(parseBitycleRealtimeMarketMessage({
+      type: "md",
+      d: { f: "binance_spot", s: "BTCUSDT", c: [0, 1, 1, 1, 65_000, 1, issuedAt] },
+    }), null);
+  });
 
+  it("keeps health state secret-free", () => {
     assert.deepEqual(getBitycleRealtimeHealth(), {
       connected: false,
       source: null,
