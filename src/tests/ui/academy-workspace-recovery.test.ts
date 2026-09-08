@@ -26,9 +26,9 @@ test("profile form keeps semantic labels, announced errors and selected avatar s
   assert.match(source, /نام نمایشی/);
   assert.match(source, /نام کاربری/);
   assert.match(source, /هدف فعلی یادگیری/);
-  assert.match(source, /<label[^>]*>[^<]*\{isFa \? "نام نمایشی" : "Display name"\}<input/s);
-  assert.match(source, /<label[^>]*>[^<]*\{isFa \? "نام کاربری" : "Username"\}<input/s);
-  assert.match(source, /<label[^>]*>[^<]*\{isFa \? "هدف فعلی یادگیری" : "Current learning goal"\}<select/s);
+  assert.match(source, /<label[^>]*>[^<]*\{isFa \? "نام نمایشی" : "Display name"\}<input/);
+  assert.match(source, /<label[^>]*>[^<]*\{isFa \? "نام کاربری" : "Username"\}<input/);
+  assert.match(source, /<label[^>]*>[^<]*\{isFa \? "هدف فعلی یادگیری" : "Current learning goal"\}<select/);
   assert.match(source, /role="alert"/);
   assert.match(source, /aria-busy=\{saving \|\| uploadingPhoto\}/);
   assert.match(source, /aria-pressed=\{avatar === item\}/);
