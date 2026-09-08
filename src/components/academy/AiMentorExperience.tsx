@@ -628,6 +628,7 @@ export function AiMentorExperience({
                 type="button"
                 className={styles.historyTrigger}
                 onClick={() => setHistoryOpen(true)}
+                aria-label={copy.history}
                 aria-haspopup="dialog"
               >
                 <History aria-hidden="true" />

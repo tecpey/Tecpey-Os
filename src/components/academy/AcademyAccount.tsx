@@ -30,7 +30,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
   ];
   return <main dir={isFa ? "rtl" : "ltr"} className="min-h-[70vh] bg-bg px-4 py-10 text-fg sm:px-6">
     <div className="mx-auto max-w-3xl">
-      <p className="text-sm text-cyan-600 dark:text-cyan-200">{isFa ? "فضای شخصی تک‌پی" : "Your TecPey space"}</p>
+      <p className="text-sm text-cyan-800 dark:text-cyan-200">{isFa ? "فضای شخصی تک‌پی" : "Your TecPey space"}</p>
       <h1 className="mt-2 text-3xl font-bold">{isFa ? "حساب کاربری" : "Account"}</h1>
       {status === "loading" ? <p role="status" className="mt-6">{isFa ? "در حال دریافت حساب…" : "Loading account…"}</p> : profile ? <div className="mt-6 flex items-center gap-3 border-b border-fg/10 pb-6">
         <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-full bg-cyan-400/10 text-2xl">{profile.avatar || "👤"}</span>
