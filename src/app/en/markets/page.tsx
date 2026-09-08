@@ -7,6 +7,7 @@ import { EnglishShell } from "../components/EnglishUI";
 import { getCurrencies } from "@/services/swap.services";
 import { CryptoAssetIcon } from "@/components/crypto/CryptoAssetIcon";
 import IranMarketIntelligence from "@/components/markets/IranMarketIntelligence";
+import MarketDataProvenance from "@/components/markets/MarketDataProvenance";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 import { coinSlugForSymbol } from "@/lib/news-taxonomy";
 import { normalizeMarketSymbol } from "@/lib/public-market-data";
@@ -72,6 +73,8 @@ export default function EnglishMarketsPage() {
                 </div>
               </div>
             </section>
+
+            <MarketDataProvenance provenance={data?.provenance} locale="en" />
           </div>
         </div>
       </main>
