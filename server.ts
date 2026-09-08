@@ -25,7 +25,7 @@ import { installBakedNextRuntimeConfig } from "./src/lib/production-next-runtime
 import {
   startBitycleMarketRealtime,
   type BitycleMarketRealtimeController,
-} from "./src/lib/bitycle-market-realtime";
+} from "./src/lib/runtime-bitycle-market";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const hostname = process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0";
