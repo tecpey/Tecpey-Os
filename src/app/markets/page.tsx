@@ -8,6 +8,7 @@ import MarketsHero from "../../components/markets/MarketsHero";
 import MarketsSearchBar from "../../components/markets/MarketsSearchBar";
 import MarketsTable from "../../components/markets/MarketsTable";
 import IranMarketIntelligence from "../../components/markets/IranMarketIntelligence";
+import MarketDataProvenance from "../../components/markets/MarketDataProvenance";
 
 import { useQuery } from "@tanstack/react-query";
 import { getCurrencies } from "@/services/swap.services";
@@ -182,20 +183,7 @@ export default function MarketsPage() {
                   isLoading={isFetching && !data}
                 />
 
-                {processedCurrencies.some((coin) => coin.marketDataSource === "CoinGecko") ? (
-                  <p className="mt-3 text-center text-[11px] font-bold text-muted" role="status">
-                    {t("publicSourcePrefix")}{" "}
-                    <a
-                      href="https://www.coingecko.com/"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-black text-primary underline underline-offset-4"
-                    >
-                      CoinGecko
-                    </a>
-                    {" · "}{t("publicSourceFreshness")}
-                  </p>
-                ) : null}
+                <MarketDataProvenance provenance={data?.provenance} locale="fa" />
 
                 {isFetching && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"></div>
