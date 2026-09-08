@@ -23,6 +23,7 @@ type ProfileResponse = {
     username?: string | null;
     avatar?: string | null;
     public_student_id?: string | null;
+    learning_goal?: string | null;
   } | null;
 };
 
@@ -64,6 +65,7 @@ export function AcademyOnboardingClient({
   const [avatar, setAvatar] = useState(avatarOptions[0]);
   const [goal, setGoal] = useState(isFa ? goalsFa[0] : goalsEn[0]);
   const [error, setError] = useState("");
+  const [existingProfile, setExistingProfile] = useState(false);
 
   const usernameHint = useMemo(
     () => normalizeUsername(username || displayName),
@@ -95,10 +97,15 @@ export function AcademyOnboardingClient({
         return;
       }
       if (state.profile?.display_name) {
-        router.replace(
-          locale === "en" ? "/en/academy/profile" : "/academy/profile",
-        );
-        return;
+        // Returning users may arrive here from Arena with an account-only
+        // session. Keep the existing profile editable instead of redirecting
+        // them into a dashboard/onboarding loop. Only an explicit submission
+        // uses the existing server-authorized profile/session update.
+        setExistingProfile(true);
+        setDisplayName(state.profile.display_name);
+        setUsername(state.profile.username || "");
+        setAvatar(state.profile.avatar || avatarOptions[0]);
+        setGoal(state.profile.learning_goal || (locale === "fa" ? goalsFa[0] : goalsEn[0]));
       }
       setProfileStatus("ready");
     }
@@ -107,7 +114,7 @@ export function AcademyOnboardingClient({
     return () => {
       active = false;
     };
-  }, [locale, retryVersion, router]);
+  }, [locale, retryVersion]);
 
   async function submit() {
     setError("");
@@ -151,6 +158,13 @@ export function AcademyOnboardingClient({
       if (response.status === 503) {
         setProfileStatus("unavailable");
         throw new Error("profile_service_unavailable");
+      }
+      if (response.status === 409) {
+        const conflict = await response.json().catch(() => null);
+        setError(conflict?.error === "academy_username_unavailable"
+          ? (isFa ? "این نام کاربری در دسترس نیست. نام دیگری انتخاب کن." : "This username is unavailable. Choose another one.")
+          : (isFa ? "اتصال پروفایل نیاز به بررسی دارد. اطلاعاتت را نگه داشتیم؛ با پشتیبانی تماس بگیر." : "Your profile connection needs review. Your entries are preserved; contact support."));
+        return;
       }
       if (!response.ok) throw new Error("save_failed");
       window.dispatchEvent(new Event("tecpey-academy-profile-ready"));
@@ -249,27 +263,27 @@ export function AcademyOnboardingClient({
 
   return (
     <main
-      className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,.18),transparent_34%),#020617] px-4 py-10 text-white sm:px-6 lg:px-8"
+      className="min-h-screen bg-slate-950 px-4 py-10 text-white sm:px-6 lg:px-8"
       dir={isFa ? "rtl" : "ltr"}
     >
       <div className="mx-auto max-w-6xl">
         <Link
           href={isFa ? "/academy" : "/en/academy"}
-          className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-cyan-100"
+          className="inline-flex min-h-11 items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
         >
-          <ArrowLeft className="h-4 w-4" />{" "}
+          <ArrowLeft className={`h-4 w-4 ${isFa ? "rotate-180" : ""}`} aria-hidden="true" />{" "}
           {isFa ? "بازگشت به معرفی آکادمی" : "Back to academy"}
         </Link>
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
-          <div className="rounded-[38px] border border-cyan-300/20 bg-white/[0.055] p-7 shadow-[0_32px_110px_rgba(34,211,238,.16)] lg:p-10">
+          <div className="min-w-0 px-2 py-6 lg:pe-12 lg:pt-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-100">
               <UserRoundCheck className="h-4 w-4" />{" "}
-              {isFa ? "ساخت هویت آکادمی" : "Create academy identity"}
+              {isFa ? (existingProfile ? "پروفایل آموزشی" : "خوش آمدی") : (existingProfile ? "Learning profile" : "Welcome aboard")}
             </div>
-            <h1 className="mt-5 text-3xl font-black leading-tight sm:text-5xl">
+            <h1 className="mt-6 text-3xl font-bold leading-relaxed sm:text-4xl">
               {isFa
-                ? "اول هویت آموزشی‌ات را بساز؛ بعد وارد ترم‌ها و منتور شو"
-                : "Create your learning identity before terms and mentor"}
+                ? (existingProfile ? "پروفایلت را بررسی کن؛ مسیرت را ادامه بده" : "مسیر یادگیری تو از اینجا شروع می‌شود")
+                : (existingProfile ? "Review your profile. Continue your journey." : "Your learning journey starts here.")}
             </h1>
             <p className="mt-4 max-w-3xl text-sm font-bold leading-8 text-slate-300 sm:text-base">
               {isFa
@@ -293,7 +307,8 @@ export function AcademyOnboardingClient({
             </div>
           </div>
 
-          <div className="rounded-[38px] border border-white/10 bg-slate-950/85 p-6 shadow-2xl shadow-black/30">
+          <form onSubmit={(event) => { event.preventDefault(); if (!saving) void submit(); }} aria-busy={saving} className="rounded-[28px] border border-white/10 bg-slate-950 p-6">
+            {existingProfile ? <p role="status" className="mb-5 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 p-4 text-sm leading-7 text-cyan-100">{isFa ? "پروفایل قبلی‌ات پیدا شد. اطلاعات را بررسی و ذخیره کن تا اتصال حساب آموزشی تازه شود. پیشرفت ترم‌ها با این فرم تغییر نمی‌کند." : "We found your existing profile. Review and save it to refresh your learning account connection. This form does not change your term progress."}</p> : null}
             <div className="flex items-center gap-3">
               <div className="grid h-14 w-14 place-items-center rounded-3xl bg-cyan-400/15 text-3xl">
                 {avatar}
@@ -306,25 +321,34 @@ export function AcademyOnboardingClient({
                   {displayName.trim() || (isFa ? "نام تو" : "Your name")}
                 </p>
                 <p className="text-xs font-bold text-slate-400">
-                  @{usernameHint || "username"}
+                  <bdi>@{usernameHint || "username"}</bdi>
                 </p>
               </div>
             </div>
 
-            <label className="mt-6 block text-sm font-black text-slate-100">
+            <label htmlFor="academy-display-name" className="mt-6 block text-sm font-black text-slate-100">
               {isFa ? "نام نمایشی" : "Display name"}
             </label>
             <input
+              id="academy-display-name"
+              autoComplete="nickname"
+              maxLength={60}
+              disabled={saving}
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder={isFa ? "مثلاً منان" : "e.g. Mannan"}
               className="mt-2 w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold outline-none ring-cyan-300/30 transition focus:ring-4"
             />
 
-            <label className="mt-4 block text-sm font-black text-slate-100">
+            <label htmlFor="academy-profile-username" className="mt-4 block text-sm font-black text-slate-100">
               {isFa ? "نام کاربری انگلیسی" : "English username"}
             </label>
             <input
+              id="academy-profile-username"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              disabled={saving}
               value={username}
               onChange={(event) =>
                 setUsername(normalizeUsername(event.target.value))
@@ -339,30 +363,36 @@ export function AcademyOnboardingClient({
                 : "Used for public profile and Hall of Fame."}
             </p>
 
-            <label className="mt-4 block text-sm font-black text-slate-100">
+            <p className="mt-4 block text-sm font-black text-slate-100">
               {isFa ? "آواتار" : "Avatar"}
-            </label>
-            <div className="mt-2 grid grid-cols-8 gap-2">
+            </p>
+            <div role="group" aria-label={isFa ? "انتخاب آواتار" : "Choose an avatar"} className="mt-2 grid grid-cols-4 gap-2">
               {avatarOptions.map((item) => (
                 <button
                   key={item}
                   onClick={() => setAvatar(item)}
                   type="button"
-                  className={`grid h-10 place-items-center rounded-2xl border text-xl transition ${avatar === item ? "border-cyan-300 bg-cyan-300/20" : "border-white/10 bg-white/5"}`}
+                  aria-label={`${isFa ? "آواتار" : "Avatar"} ${item}`}
+                  aria-pressed={avatar === item}
+                  disabled={saving}
+                  className={`grid min-h-11 min-w-11 place-items-center rounded-2xl border text-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${avatar === item ? "border-cyan-300 bg-cyan-300/20" : "border-white/10 bg-white/5"}`}
                 >
                   {item}
                 </button>
               ))}
             </div>
 
-            <label className="mt-4 block text-sm font-black text-slate-100">
+            <label htmlFor="academy-learning-goal" className="mt-4 block text-sm font-black text-slate-100">
               {isFa ? "هدف فعلی" : "Current goal"}
             </label>
             <select
+              id="academy-learning-goal"
+              disabled={saving}
               value={goal}
               onChange={(event) => setGoal(event.target.value)}
               className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm font-bold outline-none ring-cyan-300/30 transition focus:ring-4"
             >
+              {!(isFa ? goalsFa : goalsEn).includes(goal) ? <option value={goal}>{goal}</option> : null}
               {(isFa ? goalsFa : goalsEn).map((item) => (
                 <option key={item}>{item}</option>
               ))}
@@ -374,14 +404,14 @@ export function AcademyOnboardingClient({
             </p>
 
             {error ? (
-              <p className="mt-4 rounded-2xl border border-rose-300/25 bg-rose-500/10 p-3 text-xs font-black leading-6 text-rose-100">
+              <p role="alert" className="mt-4 rounded-2xl border border-rose-300/25 bg-rose-500/10 p-3 text-xs font-black leading-6 text-rose-100">
                 {error}
               </p>
             ) : null}
             <button
-              onClick={submit}
+              type="submit"
               disabled={saving}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition-[transform,background-color,box-shadow] duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+              className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-6 py-4 text-sm font-bold text-slate-950 transition-colors duration-150 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950 motion-reduce:transition-none"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -389,8 +419,8 @@ export function AcademyOnboardingClient({
                 <Sparkles className="h-4 w-4" />
               )}
               {isFa
-                ? "ساخت پروفایل و ورود به داشبورد"
-                : "Create profile and enter dashboard"}
+                ? (saving ? "در حال ذخیره…" : existingProfile ? "ذخیره و ادامه مسیر" : "ساخت پروفایل و ورود به داشبورد")
+                : (saving ? "Saving…" : existingProfile ? "Save and continue" : "Create profile and enter dashboard")}
             </button>
             <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-3 text-xs font-bold leading-6 text-emerald-100">
               <ShieldCheck className="mt-1 h-4 w-4 shrink-0" />
@@ -398,7 +428,7 @@ export function AcademyOnboardingClient({
                 ? "بعد از ساخت پروفایل، مرکز هوشمند، منتور و ترم اول فعال می‌شود."
                 : "After profile creation, Smart Center, mentor and term 1 become available."}
             </div>
-          </div>
+          </form>
         </section>
       </div>
     </main>

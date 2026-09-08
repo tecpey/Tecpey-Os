@@ -4,6 +4,7 @@ import path from "path";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { resolveAcademyStudentSessionIdentity } from "@/lib/security/academy-student-session-identity";
 import { withDb } from "@/lib/db";
 import {
   academyAccountIdFromEmail,
@@ -347,9 +348,14 @@ export async function POST(req: NextRequest) {
       }
 
       const familyId = crypto.randomUUID();
+      const studentIdentity = productionAuthority
+        ? await resolveAcademyStudentSessionIdentity(req, account.accountId)
+        : { status: "unlinked", studentId: null };
+      if (studentIdentity.status === "unavailable") return apiError("academy_identity_unavailable", 503);
+      if (studentIdentity.status === "conflict") return apiError("academy_identity_review_required", 409);
       const accessToken = await signUnifiedSession({
         accountId: account.accountId,
-        studentId: null,
+        studentId: studentIdentity.studentId,
         email: account.email,
         displayName: account.displayName,
         username: account.username,

@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { Pool } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { refreshAcademyProgressProjection } from "../../lib/academy-progress-projection";
+import { VERIFIED_STUDENT_CANDIDATES_SQL } from "../../lib/security/academy-student-session-identity";
 import {
   findStudentCartaxProfile,
   upsertStudentCartax,
@@ -30,6 +31,68 @@ after(async () => {
 });
 
 describe("Academy PostgreSQL progress authority v2", () => {
+  it("requires persisted verified phone and detects competing session identity candidates", {
+    skip: !databaseConfigured,
+    timeout: 30_000,
+  }, async () => {
+    const client = await pool!.connect();
+    const accountId = randomUUID();
+    const studentId = randomUUID();
+    const email = `${accountId}@session-identity.test`;
+    const phone = `+989${accountId.replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`;
+    try {
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO academy_auth_accounts
+        (id, email, username, display_name, password_hash, phone_e164)
+        VALUES ($1, $2, $1, 'Session identity fixture', 'not-a-login-credential', $3)`, [accountId, email, phone]);
+      await client.query("INSERT INTO academy_students (id, email, phone) VALUES ($1::uuid, $2, $3)", [studentId, email, phone]);
+      assert.equal((await client.query(VERIFIED_STUDENT_CANDIDATES_SQL, [accountId])).rows.length, 0);
+      await client.query("UPDATE academy_auth_accounts SET phone_verified_at = NOW() WHERE id = $1", [accountId]);
+      assert.deepEqual((await client.query(VERIFIED_STUDENT_CANDIDATES_SQL, [accountId])).rows,
+        [{ student_id: studentId, email_matches: true, phone_matches: true }]);
+      assert.equal((await client.query(VERIFIED_STUDENT_CANDIDATES_SQL, [randomUUID()])).rows.length, 0);
+      await client.query("INSERT INTO academy_students (id, email) VALUES ($1::uuid, $2)", [randomUUID(), email]);
+      assert.equal((await client.query(VERIFIED_STUDENT_CANDIDATES_SQL, [accountId])).rows.length, 2);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("does not select another learner by username, conflicting identity or stale email", {
+    skip: !databaseConfigured,
+    timeout: 30_000,
+  }, async () => {
+    const client = await pool!.connect();
+    const own = randomUUID();
+    const other = randomUUID();
+    const ownEmail = `${own}@identity.test`;
+    const otherEmail = `${other}@identity.test`;
+    const otherUsername = `owner_${other.replaceAll("-", "").slice(0, 20)}`;
+    try {
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO academy_students (id, email, phone, username, display_name)
+        VALUES ($1::uuid, $2, NULL, NULL, 'Own profile'),
+               ($3::uuid, $4, $5, $6, 'Other profile')`,
+      [own, ownEmail, other, otherEmail, other, otherUsername]);
+      assert.equal((await findStudentCartaxProfile(client, { studentId: own, email: otherEmail }))?.id, own);
+      await assert.rejects(upsertStudentCartax(client, { email: ownEmail, phone: other }),
+        /academy_student_identity_ambiguous/);
+      await assert.rejects(upsertStudentCartax(client, { email: otherEmail }, randomUUID()),
+        /academy_student_identity_missing/);
+      await client.query("SAVEPOINT username_collision");
+      await assert.rejects(upsertStudentCartax(client, {
+        email: `${randomUUID()}@new.test`, username: otherUsername, displayName: "Must not overwrite",
+      }), (error: unknown) => (error as { code?: string }).code === "23505");
+      await client.query("ROLLBACK TO SAVEPOINT username_collision");
+      const unchanged = await client.query("SELECT email, display_name FROM academy_students WHERE id = $1", [other]);
+      assert.deepEqual(unchanged.rows[0], { email: otherEmail, display_name: "Other profile" });
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
   it("rejects client-declared section progress and section reward writes", {
     skip: !databaseConfigured,
     timeout: 30_000,
