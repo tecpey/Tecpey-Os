@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import Providers from "./providers";
+import { GlobalMobileNavigation } from "@/components/tecpey/GlobalMobileNavigation";
 import Navbar from "@/components/navbar/Navbar";
 import NavbarServer from "@/components/navbar/NavbarServer";
 import { getProfileInfo } from "@/services/profile";
@@ -277,6 +278,7 @@ export default async function RootLayout({
               <Footer />
               <PublicMentorEntry />
               <GlobalAiMentorWidget />
+              <Suspense fallback={null}><GlobalMobileNavigation /></Suspense>
             </Providers>
           </ThemeProvider>
         </NextIntlClientProvider>

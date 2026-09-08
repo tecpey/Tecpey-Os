@@ -40,8 +40,12 @@ describe("mobile overlay safety", () => {
 
     assert.match(
       publicMentor,
-      /bottom-\[calc\(env\(safe-area-inset-bottom\)\+5\.75rem\)\]/,
+      /bottom-\[calc\(env\(safe-area-inset-bottom\)\+var\(--tp-mentor-launcher-offset,5\.75rem\)\)\]/,
     );
+    const globals = fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8");
+    assert.match(globals, /--tp-mentor-launcher-offset: 11rem/);
+    assert.match(globals, /bottom: calc\(env\(safe-area-inset-bottom\) \+ 6\.25rem\)/);
+    assert.match(globals, /--tp-mobile-shell-clearance: 15rem/);
     assert.match(publicMentor, /inline-flex h-12 w-12/);
     assert.match(publicMentor, /sr-only sm:not-sr-only sm:truncate/);
     assert.match(publicMentor, /isAcademyAuthRoute \|\| profileStatus/);
@@ -50,5 +54,10 @@ describe("mobile overlay safety", () => {
       globalMentor,
       /!isAcademyAuthRoute && \(open \|\| isAcademyArea\)/,
     );
+  });
+
+  it("retains the selected navigation ring when motion is reduced", () => {
+    const tokens = fs.readFileSync(path.join(root, "src/app/tecpey-brand-tokens.css"), "utf8");
+    assert.match(tokens, /prefers-reduced-motion[\s\S]*\.tecpey-living-mobile-nav__halo\s*\{[^}]*opacity: 1/);
   });
 });

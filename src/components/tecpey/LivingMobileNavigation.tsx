@@ -9,6 +9,7 @@ type LivingNavItem = {
   label: string;
   href: string;
   match: string[];
+  exact?: boolean;
   Icon: LucideIcon;
 };
 
@@ -51,7 +52,7 @@ export function LivingMobileNavigation({
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
         >
           {items.map((item, index) => {
-            // Exactly the first matching item is active, so the highlight and the
+            // Exactly one matching item is active, so the highlight and the
             // halo agree and only one link carries aria-current="page".
             const active = index === activeIndex;
             const Icon = item.Icon;
