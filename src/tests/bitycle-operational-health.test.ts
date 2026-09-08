@@ -5,7 +5,10 @@ import {
   parseBitycleRealtimeMarketMessage,
   recordBitycleRealtimePrice,
 } from "../lib/runtime-bitycle-market";
-import { getBitycleOperationalHealth } from "../lib/runtime-bitycle-health";
+import {
+  evaluateBitycleOperationalHealth,
+  getBitycleOperationalHealth,
+} from "../lib/runtime-bitycle-health";
 
 function epochSeconds(iso: string): number {
   return Date.parse(iso) / 1_000;
@@ -46,6 +49,26 @@ describe("Bitycle operational health", () => {
     });
   });
 
+  it("reports healthy only when transport is connected and an authoritative snapshot is ready", () => {
+    const health = evaluateBitycleOperationalHealth({
+      configured: true,
+      authoritativeSnapshotReady: true,
+      runtime: {
+        connected: true,
+        source: "binance_spot",
+        lastMessageAt: "2026-09-09T00:00:09.000Z",
+        lastProviderEventAt: "2026-09-09T00:00:08.000Z",
+        reconnectCount: 1,
+        disconnectCount: 0,
+      },
+    });
+
+    assert.equal(health.status, "healthy");
+    assert.equal(health.configured, true);
+    assert.equal(health.authoritativeSnapshotReady, true);
+    assert.equal(health.source, "binance_spot");
+  });
+
   it("reports degraded when configured but no authoritative snapshot is ready", () => {
     const health = getBitycleOperationalHealth(Date.parse("2026-09-09T00:00:10.000Z"), true);
     assert.equal(health.status, "degraded");
@@ -53,7 +76,7 @@ describe("Bitycle operational health", () => {
     assert.equal(health.authoritativeSnapshotReady, false);
   });
 
-  it("does not call stale or partial market data healthy", () => {
+  it("does not call stale, partial or transport-unknown market data healthy", () => {
     recordProviderPoint("BTCUSDT", "2026-09-09T00:00:05.000Z", 65_000);
     const partial = getBitycleOperationalHealth(Date.parse("2026-09-09T00:00:10.000Z"), true);
     assert.equal(partial.status, "degraded");
