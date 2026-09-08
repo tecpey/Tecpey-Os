@@ -1,10 +1,24 @@
-
+import { Children, isValidElement } from "react";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, CheckCircle2, Clock3, Search, ShieldCheck, Sparkles } from "lucide-react";
 
-export function ContentShell({ children }: { children: React.ReactNode }) {
+function isAcademyHero(child: React.ReactNode) {
   return (
-    <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pt-24 text-[color:var(--tp-text)]">
+    isValidElement<{ eyebrow?: string }>(child) &&
+    child.type === ContentHero &&
+    child.props.eyebrow === "آکادمی تک‌پی"
+  );
+}
+
+export function ContentShell({ children }: { children: React.ReactNode }) {
+  const academySurface = Children.toArray(children).some(isAcademyHero);
+
+  return (
+    <main
+      className={`tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] text-[color:var(--tp-text)] ${
+        academySurface ? "pt-0 lg:pt-24" : "pt-24"
+      }`}
+    >
       {children}
     </main>
   );
@@ -25,8 +39,14 @@ export function ContentHero({
 }) {
   const secondaryHref = ctaHref === "/markets" ? "/academy" : "/markets";
   const secondaryLabel = ctaHref === "/markets" ? "آموزش قبل از خرید" : "مشاهده قیمت‌ها";
+  const academySurface = eyebrow === "آکادمی تک‌پی";
+
   return (
-    <section className="relative isolate overflow-hidden px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+    <section
+      className={`relative isolate overflow-hidden px-4 sm:px-6 lg:px-8 lg:py-20 ${
+        academySurface ? "pb-10 pt-8 sm:pt-10" : "py-14"
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.24),transparent_32%),radial-gradient(circle_at_15%_25%,rgba(37,99,235,.16),transparent_30%)]" />
       <div className="mx-auto max-w-7xl">
         <div className="max-w-4xl">
