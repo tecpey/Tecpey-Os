@@ -5,6 +5,7 @@ export const PUBLIC_MARKET_SOURCE_URL = "https://www.coingecko.com/";
 export const BITYCLE_MARKET_SOURCE = "Bitycle";
 export const BITYCLE_MARKET_SOURCE_URL = "https://bitycle.com/";
 export const PUBLIC_MARKET_FRESHNESS_MS = 5 * 60_000;
+export const PUBLIC_MARKET_FUTURE_SKEW_MS = 30_000;
 export const BITYCLE_PUBLIC_MARKET_FRESHNESS_MS = 2 * 60_000;
 export const BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS = 30_000;
 
@@ -125,8 +126,13 @@ export function normalizeCoinGeckoMarkets(value: unknown): MarketCurrency[] {
     const updatedAt = cleanText(coin.last_updated, 40);
     const updatedMs = Date.parse(updatedAt);
 
-    if (!id || !symbol || !name || price === null || price < 0) return [];
-    if (!Number.isFinite(updatedMs) || Date.now() - updatedMs > PUBLIC_MARKET_FRESHNESS_MS) {
+    if (!id || !symbol || !name || price === null || price <= 0) return [];
+    if (!Number.isFinite(updatedMs)) return [];
+    const ageMs = Date.now() - updatedMs;
+    if (
+      ageMs > PUBLIC_MARKET_FRESHNESS_MS
+      || ageMs < -PUBLIC_MARKET_FUTURE_SKEW_MS
+    ) {
       return [];
     }
 
@@ -182,7 +188,12 @@ export function normalizeBitycleCurrencyInfo(
   if (!Array.isArray(payload)) return [];
 
   const observedMs = Date.parse(observedAt);
-  if (!Number.isFinite(observedMs) || Date.now() - observedMs > BITYCLE_PUBLIC_MARKET_FRESHNESS_MS) {
+  if (!Number.isFinite(observedMs)) return [];
+  const observedAgeMs = Date.now() - observedMs;
+  if (
+    observedAgeMs > BITYCLE_PUBLIC_MARKET_FRESHNESS_MS
+    || observedAgeMs < -BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS
+  ) {
     return [];
   }
 
