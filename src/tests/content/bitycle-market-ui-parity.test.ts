@@ -22,7 +22,8 @@ describe("Bitycle market UI locale parity", () => {
     assert.match(enMarkets, /locale="en"/);
     assert.match(intelligence, /fa:\s*\{/);
     assert.match(intelligence, /en:\s*\{/);
-    assert.match(intelligence, /source_markets_frame\.updated_at/);
+    assert.match(intelligence, /timestampAuthority:\s*string/);
+    assert.match(intelligence, /data\.provenance\.upstreamUpdatedAt/);
     assert.match(provenance, /PROVIDER_LINKS/);
     assert.match(provenance, /fallback === true/);
     assert.doesNotMatch(enMarkets, /[\u0600-\u06ff]/u);
