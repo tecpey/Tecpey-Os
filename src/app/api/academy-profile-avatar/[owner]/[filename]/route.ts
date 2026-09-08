@@ -8,6 +8,7 @@ import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,10 @@ export async function GET(
     });
     if (!tenantContext.available || tenantContext.principalId !== session.studentId) {
       return privateResponse(null, { status: 503 });
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) {
+      return privateResponse(null, { status: productGate.status });
     }
 
     const { owner, filename } = await context.params;
