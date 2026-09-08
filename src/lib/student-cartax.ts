@@ -14,6 +14,9 @@ export type StudentCartaxInput = {
   username?: string;
   avatar?: string;
   learningGoal?: string;
+  birthDate?: string | null;
+  gender?: string | null;
+  country?: string | null;
   progress?: unknown;
   totalXp?: number;
   completedTerms?: number;
@@ -28,6 +31,21 @@ export type StudentCartaxInput = {
 
 export function cleanText(value: unknown, max = 240) {
   return String(value || "").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, max);
+}
+
+function cleanBirthDate(value: unknown): string | null {
+  const text = cleanText(value, 10);
+  if (!text) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const date = new Date(`${text}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text) return null;
+  if (date.getUTCFullYear() < 1900 || date.getTime() > Date.now()) return null;
+  return text;
+}
+
+function cleanGender(value: unknown): string | null {
+  const text = cleanText(value, 32);
+  return ["female", "male", "nonbinary", "prefer_not_to_say"].includes(text) ? text : null;
 }
 
 function makePublicStudentId(id: string) {
@@ -69,7 +87,9 @@ export async function findStudentCartaxProfile(
   if (!filters.length) return null;
 
   const query = await client.query(
-    `SELECT s.id, c.public_student_id, s.email, s.phone, s.display_name, s.username, s.avatar, s.learning_goal, s.locale, c.streak_days, s.last_active_day,
+    `SELECT s.id, c.public_student_id, s.email, s.phone, s.display_name, s.username, s.avatar,
+            s.learning_goal, s.locale, s.birth_date, s.gender, s.country,
+            c.streak_days, s.last_active_day,
             c.progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
             c.total_xp, c.completed_terms, c.overall_progress, c.identity_score, c.retention_score, c.community_score, c.updated_at
        FROM academy_students s
@@ -91,9 +111,15 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
   const displayName = cleanText(input.displayName, 160) || null;
   const usernameRaw = cleanText(input.username, 80).toLowerCase();
   const username = usernameRaw ? usernameRaw.replace(/[^a-z0-9_.-]/g, "").slice(0, 32) || null : null;
-  const avatar = cleanText(input.avatar, 40) || null;
+  const avatar = cleanText(input.avatar, 240) || null;
   const learningGoal = cleanText(input.learningGoal, 120) || null;
   const locale = cleanText(input.locale || "fa", 10) || "fa";
+  const birthDateProvided = input.birthDate !== undefined;
+  const genderProvided = input.gender !== undefined;
+  const countryProvided = input.country !== undefined;
+  const birthDate = cleanBirthDate(input.birthDate);
+  const gender = cleanGender(input.gender);
+  const country = cleanText(input.country, 80) || null;
 
   const lookup = await client.query(
     `SELECT id FROM academy_students
@@ -115,8 +141,9 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
   const publicStudentId = makePublicStudentId(studentId);
 
   await client.query(
-    `INSERT INTO academy_students (id, email, phone, google_id, apple_id, display_name, username, avatar, learning_goal, locale)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO academy_students
+      (id, email, phone, google_id, apple_id, display_name, username, avatar, learning_goal, locale, birth_date, gender, country)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::date, $12, $13)
      ON CONFLICT (id) DO UPDATE SET
        email = COALESCE(EXCLUDED.email, academy_students.email),
        phone = COALESCE(EXCLUDED.phone, academy_students.phone),
@@ -127,9 +154,29 @@ export async function upsertStudentCartax(client: SchemaQueryable, input: Studen
        avatar = COALESCE(EXCLUDED.avatar, academy_students.avatar),
        learning_goal = COALESCE(EXCLUDED.learning_goal, academy_students.learning_goal),
        locale = EXCLUDED.locale,
+       birth_date = CASE WHEN $14::boolean THEN EXCLUDED.birth_date ELSE academy_students.birth_date END,
+       gender = CASE WHEN $15::boolean THEN EXCLUDED.gender ELSE academy_students.gender END,
+       country = CASE WHEN $16::boolean THEN EXCLUDED.country ELSE academy_students.country END,
        updated_at = NOW(),
        last_seen_at = NOW()`,
-    [studentId, email, phone, googleId, appleId, displayName, username, avatar, learningGoal, locale],
+    [
+      studentId,
+      email,
+      phone,
+      googleId,
+      appleId,
+      displayName,
+      username,
+      avatar,
+      learningGoal,
+      locale,
+      birthDate,
+      gender,
+      country,
+      birthDateProvided,
+      genderProvided,
+      countryProvided,
+    ],
   );
 
   // public_student_id and streak_days are cartax-owned fields in the canonical
