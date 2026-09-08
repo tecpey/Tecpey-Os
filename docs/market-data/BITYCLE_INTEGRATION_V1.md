@@ -90,7 +90,7 @@ Before widget staging evidence:
 
 ## Iran market intelligence
 
-Bitycle supports Iranian exchange sources and IRT markets. TecPey now exposes a governed comparison endpoint at `/api/market-intelligence/iran`.
+Bitycle supports Iranian exchange sources and IRT markets. TecPey exposes this governed comparison through the existing public Markets boundary at `/api/markets?source=iran`; no additional public route file is introduced for this capability.
 
 The comparison avoids directly comparing a Toman number to a USDT number. For each local source:
 
@@ -100,7 +100,7 @@ The comparison avoids directly comparing a Toman number to a USDT number. For ea
 
 Default local sources are `nobitex_spot`, `ramzinex_spot`, and `bit24_spot`. Configuration can override these with up to five validated source identifiers.
 
-The endpoint returns:
+The response returns:
 - global BTCUSDT reference and source
 - local BTCIRT
 - local USDTIRT
@@ -165,7 +165,7 @@ Phase 1 — provider foundation
 - tests and audit-domain classification
 
 Phase 2 — native Iran intelligence
-- global/local comparison API
+- global/local comparison through `/api/markets?source=iran`
 - source-labelled UI and degradation states
 - premium/discount context
 - no profit-guarantee language
