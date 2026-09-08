@@ -22,6 +22,10 @@ import { assertDatabaseReadyForRuntime } from "./src/lib/db";
 import { requiredWorkerReadiness, setRuntimeReadiness } from "./src/lib/runtime-readiness";
 import { drainRuntime } from "./src/lib/runtime-shutdown";
 import { installBakedNextRuntimeConfig } from "./src/lib/production-next-runtime-config";
+import {
+  startBitycleMarketRealtime,
+  type BitycleMarketRealtimeController,
+} from "./src/lib/bitycle-market-realtime";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const hostname = process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0";
@@ -41,6 +45,7 @@ const pubsub = getRedisPubSub();
 type WithdrawalWorkerModule = typeof import("./src/workers/withdrawal-worker");
 let withdrawalWorkers: WithdrawalWorkerModule | null = null;
 let webSocketServer: WebSocketServer | null = null;
+let marketRealtime: BitycleMarketRealtimeController | null = null;
 let redisConfigured = false;
 let shutdownPromise: Promise<void> | null = null;
 
@@ -75,8 +80,10 @@ async function shutdown(reason: string, exitCode: number): Promise<void> {
       workers: withdrawalWorkers,
       redis: pubsub,
       redisConfigured,
+      marketRealtime,
     });
     webSocketServer = null;
+    marketRealtime = null;
 
     if (failures.length > 0) {
       console.error(`> Shutdown completed with errors: ${failures.join(", ")}`);
@@ -155,6 +162,16 @@ async function main(): Promise<void> {
   }
 
   assertBootstrapActive();
+
+  // ── External market intelligence feed ────────────────────────────────────
+  // Optional and non-authoritative: the Arena execution layer consumes only a
+  // fresh normalized snapshot and fails closed/falls back through its existing
+  // server-side price authority when this provider is absent or stale. The
+  // Bitycle token never crosses the server/browser boundary.
+  marketRealtime = startBitycleMarketRealtime();
+  if (marketRealtime) {
+    console.log("> Bitycle realtime market feed enabled for governed Arena pricing");
+  }
 
   // ── Withdrawal pipeline workers ──────────────────────────────────────────
   // Worker modules instantiate BullMQ queues at import time. They may start only
