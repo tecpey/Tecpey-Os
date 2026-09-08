@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const boundedRequest = new NextRequest(req.url, {
       method: req.method,
       headers,
-      body: boundedBody.bytes,
+      body: Uint8Array.from(boundedBody.bytes).buffer,
       signal: req.signal,
     });
 
