@@ -35,6 +35,7 @@ Configuration:
 - `BITYCLE_STREAM_TOKEN`: server-only Bitycle market WebSocket credential
 - `BITYCLE_MARKET_SOURCE`: optional upstream source, defaults to `binance_spot`
 - `BITYCLE_IRAN_SOURCES`: optional comma-separated local sources, max five
+- `BITYCLE_WIDGETS_ENABLED`: server-only exact boolean string; widgets remain CSP-denied unless this is exactly `true` and the request hostname is a governed TecPey hostname
 
 No Bitycle credential may be exposed through `NEXT_PUBLIC_*`, browser JavaScript, widget query parameters, logs, analytics or error responses.
 
@@ -80,9 +81,21 @@ Preferred widgets:
 
 Do not iframe the entire Markets product. Native TecPey UI remains the default for tables, navigation, coin detail composition, news, search, educational context and accessibility-sensitive flows.
 
+### Widget CSP activation contract
+
+Widget permission is fail-closed. The normal application policy remains `frame-src 'self'`.
+
+`https://widget.bitycle.com` is added to `frame-src` only when both conditions are true:
+1. `BITYCLE_WIDGETS_ENABLED=true` exactly; ambiguous values such as `1`, `yes`, `TRUE` or whitespace variants are rejected.
+2. The request hostname is exactly one of `tecpey.ir`, `www.tecpey.ir`, `tecp.ir`, or `www.tecp.ir`.
+
+A suffix lookalike such as `tecpey.ir.example.com`, localhost, or any unrelated host never receives the Bitycle frame permission. This flag grants only the exact widget frame origin; it does not expose REST/WebSocket credentials and it does not widen `script-src` or `connect-src`.
+
 Before widget staging evidence:
-- `tecp.ir` whitelist confirmed
-- CSP `frame-src` / `connect-src` implications reviewed
+- `tecp.ir` whitelist confirmed by Bitycle
+- exact widget embed/config contract received from Bitycle; do not invent undocumented query parameters
+- `BITYCLE_WIDGETS_ENABLED=true` set only on the intended staging runtime
+- resulting CSP verified to contain only `frame-src 'self' https://widget.bitycle.com`
 - FA RTL and EN LTR parity checked
 - mobile/responsive behavior checked
 - no credential or sensitive user data in public embed configuration
@@ -108,6 +121,8 @@ The response returns:
 - premium/discount percent
 - available/requested source counts
 - explicit provenance
+
+The native Markets UI consumes this governed endpoint directly. It shows source-labelled local cards, global reference price, source availability and an explicit educational/non-guarantee disclosure. A provider failure degrades only this panel; it does not blank the main Markets table.
 
 Because the price endpoint does not expose an exchange timestamp in the documented response, `observedAt` is explicitly labelled as TecPey fetch time rather than falsely claiming upstream event time.
 
@@ -166,13 +181,14 @@ Phase 1 — provider foundation
 
 Phase 2 — native Iran intelligence
 - global/local comparison through `/api/markets?source=iran`
-- source-labelled UI and degradation states
+- source-labelled native UI and degradation states
 - premium/discount context
 - no profit-guarantee language
 
 Phase 3 — FullChart Arena integration
 - `tecp.ir` whitelist
-- widget/CSP contract
+- hostname-bound, exact-origin widget CSP gate
+- exact Bitycle FullChart embed/config contract
 - TecPey-owned order/position overlays
 - replay compatibility
 - mobile/desktop QA
@@ -196,6 +212,7 @@ Before enabling Bitycle-dependent production paths, obtain/record:
 - REST rate limits
 - WebSocket connection/subscription limits
 - widget/domain whitelist scope (`tecpey.ir`, `tecp.ir`)
+- exact FullChart embed/configuration contract
 - caching and redistribution rights
 - historical-data retention rights
 - SLA/status escalation path
