@@ -146,7 +146,7 @@ describe("Academy profile client authority state", () => {
     // fields (for example hostname for CSP) without weakening query retention.
     assert.match(
       proxySource,
-      /const\s+\{[^}]*\bpathname\b[^}]*\bsearch\b[^}]*\}\s*=\s*request\.nextUrl;/s,
+      /const\s+\{[^}]*\bpathname\b[^}]*\bsearch\b[^}]*\}\s*=\s*request\.nextUrl;/,
     );
     assert.match(
       proxySource,
