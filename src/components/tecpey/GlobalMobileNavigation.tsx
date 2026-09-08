@@ -20,7 +20,7 @@ export function GlobalMobileNavigation() {
     { label: isFa ? "حساب" : "Account", href: href("/academy/account"), match: ["/academy/account", "/academy/profile", "/academy/onboarding", "/academy/notifications", "/academy/certificates", "/academy/achievements", "/academy/login", "/academy/signup"].map(href), Icon: UserRound },
   ];
   return <>
-    <div aria-hidden="true" className="h-[calc(env(safe-area-inset-bottom)+7rem)] lg:hidden" />
+    <div aria-hidden="true" className="h-[calc(env(safe-area-inset-bottom)+var(--tp-mobile-shell-clearance,9.5rem))] lg:hidden" />
     <LivingMobileNavigation ariaLabel={isFa ? "ناوبری اصلی تک‌پی" : "TecPey primary navigation"} dir={isFa ? "rtl" : "ltr"} items={items} />
   </>;
 }

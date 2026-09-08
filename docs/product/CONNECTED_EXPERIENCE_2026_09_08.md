@@ -46,3 +46,14 @@ name and username. This does not yet verify the new UI changes in this branch.
 The saved test profile subsequently entered Arena successfully. Arena reported no
 valid server price, so price-dependent commands remained blocked. Price-provider
 readiness is an additional acceptance item; it is not a successful trade test.
+
+## PR #617 browser regression follow-up
+
+The first exact-head browser run found insufficient contrast in dark-mode primary
+actions and overlapping English landing CTAs after introducing global navigation.
+The follow-up gives white CTA labels a contrast-safe action background, stacks
+landing actions above navigation, reserves footer clearance, and aligns both mentor
+launchers with that stack. A new browser test checks centered Home, route selection,
+and CTA geometry. No accessibility exclusion or threshold relaxation was added.
+The persistent header refreshes identity on mount, focus and existing auth/profile
+events instead of refetching both endpoints on every route transition.

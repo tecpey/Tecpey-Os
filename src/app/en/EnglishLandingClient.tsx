@@ -710,7 +710,7 @@ export default function EnglishLandingClient({
       {/* Mobile sticky CTA — two equal buttons, always visible on mobile */}
       <div className="sticky-cta-bar fixed inset-x-0 bottom-0 z-50 border-t border-cyan-300/20 bg-slate-950/92 px-3 pt-3 shadow-[0_-18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-md gap-2">
-          <Link href="/en/academy" className="flex flex-1 items-center justify-center rounded-2xl bg-cyan-700 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">
+          <Link href="/en/academy" className="flex min-h-11 flex-1 items-center justify-center rounded-2xl bg-cyan-700 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-800">
             Start Academy
           </Link>
           <Link href="/en/academy/ai-guide" className="flex flex-1 items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">

@@ -171,7 +171,7 @@ export default function Navbar({
         const profileData = await profileResponse.json();
         if (!active) return;
         setAcademyAuthReady(
-          Boolean(authData?.authenticated || profileData?.authenticated),
+          Boolean((authResponse.ok && authData?.authenticated) || (profileResponse.ok && profileData?.authenticated)),
         );
         setAcademyProfileReady(Boolean(profileResponse.ok && profileData?.profile?.display_name));
         setAcademyIdentity(profileResponse.ok && profileData?.authenticated ? profileData.profile : null);
@@ -204,7 +204,7 @@ export default function Navbar({
       );
       window.removeEventListener("focus", checkAcademyProfile);
     };
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

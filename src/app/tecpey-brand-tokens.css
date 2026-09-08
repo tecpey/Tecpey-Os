@@ -347,7 +347,8 @@ body.tecpey-motion-route .tecpey-motion-content-surface--dark {
 
 .tecpey-action-primary {
   border: 1px solid transparent;
-  background: var(--tp-primary);
+  /* White action labels need a dark blue even when dark-mode accents brighten. */
+  background: #075eab;
   color: #ffffff;
   box-shadow: 0 16px 40px rgba(8, 151, 242, 0.24);
 }
