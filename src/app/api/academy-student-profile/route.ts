@@ -29,6 +29,7 @@ type LocalProfile = {
   display_name?: string | null;
   username?: string | null;
   avatar?: string | null;
+  photo_url?: string | null;
   learning_goal?: string | null;
   birth_date?: string | null;
   gender?: string | null;
@@ -143,6 +144,7 @@ async function upsertLocalProfile(input: {
   displayName?: string;
   username?: string;
   avatar?: string;
+  photoUrl?: string | null;
   learningGoal?: string;
   birthDate?: string | null;
   gender?: string | null;
@@ -170,7 +172,8 @@ async function upsertLocalProfile(input: {
         .slice(0, 32) ||
       existing.username ||
       null,
-    avatar: cleanText(input.avatar, 240) || existing.avatar || "🟦",
+    avatar: cleanText(input.avatar, 40) || existing.avatar || "🟦",
+    photo_url: input.photoUrl === undefined ? existing.photo_url || null : input.photoUrl,
     learning_goal:
       cleanText(input.learningGoal, 120) || existing.learning_goal || null,
     birth_date: input.birthDate === undefined ? existing.birth_date || null : input.birthDate,
@@ -312,10 +315,23 @@ export async function POST(req: NextRequest) {
         const gender = parseOptionalGender(body.gender);
         const country = parseOptionalCountry(body.country);
         const requestedAvatar = typeof body.avatar === "string" ? body.avatar.trim() : undefined;
-        if (requestedAvatar) {
-          const builtInAvatar = AVATAR_OPTIONS.has(requestedAvatar);
-          const ownedPhoto = Boolean(session.studentId && isOwnedAcademyProfileAvatarUrl(requestedAvatar, session.studentId));
-          if (!builtInAvatar && !ownedPhoto) return apiError("academy_avatar_invalid", 400);
+        if (requestedAvatar && !AVATAR_OPTIONS.has(requestedAvatar)) {
+          return apiError("academy_avatar_invalid", 400);
+        }
+
+        let photoUrl: string | null | undefined;
+        if (body.photoUrl === undefined) {
+          photoUrl = undefined;
+        } else if (body.photoUrl === null || body.photoUrl === "") {
+          photoUrl = null;
+        } else if (
+          typeof body.photoUrl === "string" &&
+          session.studentId &&
+          isOwnedAcademyProfileAvatarUrl(body.photoUrl, session.studentId)
+        ) {
+          photoUrl = body.photoUrl;
+        } else {
+          return apiError("academy_profile_photo_invalid", 400);
         }
 
         const ip = getClientIp(req);
@@ -343,6 +359,7 @@ export async function POST(req: NextRequest) {
               displayName: typeof body.displayName === "string" ? body.displayName : session.displayName,
               username: typeof body.username === "string" ? body.username : session.username,
               avatar: requestedAvatar,
+              photoUrl,
               learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
               birthDate,
               gender,
@@ -385,6 +402,7 @@ export async function POST(req: NextRequest) {
           displayName: typeof body.displayName === "string" ? body.displayName : session.displayName,
           username: typeof body.username === "string" ? body.username : session.username,
           avatar: requestedAvatar,
+          photoUrl,
           learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
           birthDate,
           gender,
