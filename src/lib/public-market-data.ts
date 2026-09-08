@@ -241,12 +241,18 @@ export function normalizeBitycleCurrencyInfo(
 export function normalizeBitycleMarketFrames(
   value: unknown,
   now = Date.now(),
+  expectedSource?: string,
 ): Map<string, BitycleMarketFrameAuthority> {
   const payload = value && typeof value === "object" && "data" in value
     ? (value as { data?: unknown }).data
     : value;
   const frames = new Map<string, BitycleMarketFrameAuthority>();
   if (!Array.isArray(payload) || !Number.isFinite(now)) return frames;
+
+  const expected = expectedSource === undefined
+    ? null
+    : cleanText(expectedSource, 40).toLowerCase();
+  if (expectedSource !== undefined && !expected) return frames;
 
   for (const entry of payload) {
     if (!entry || typeof entry !== "object") continue;
@@ -257,7 +263,8 @@ export function normalizeBitycleMarketFrames(
     const price = finiteNumber(row.price);
     const updatedAtRaw = cleanText(row.updated_at, 64);
     const updatedMs = Date.parse(updatedAtRaw);
-    if (!source || !market || frame !== "24h" || price === null || price <= 0) continue;
+    if (!source || (expected && source !== expected)) continue;
+    if (!market || frame !== "24h" || price === null || price <= 0) continue;
     if (!Number.isFinite(updatedMs)) continue;
 
     const ageMs = now - updatedMs;
