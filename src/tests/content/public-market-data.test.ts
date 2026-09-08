@@ -157,13 +157,17 @@ describe("public market data authority", () => {
     assert.deepEqual(applyBitycleMarketFrameAuthority(rows, new Map()), []);
   });
 
-  it("fails closed for malformed, negative-price, or stale rows", () => {
+  it("fails closed for malformed, non-positive, stale, or future-skewed rows", () => {
+    const now = Date.now();
     assert.deepEqual(normalizeCoinGeckoMarkets(null), []);
-    assert.deepEqual(normalizeCoinGeckoMarkets([{ id: "bad", symbol: "bad", name: "Bad", current_price: -1, last_updated: new Date().toISOString() }]), []);
+    assert.deepEqual(normalizeCoinGeckoMarkets([{ id: "bad", symbol: "bad", name: "Bad", current_price: -1, last_updated: new Date(now).toISOString() }]), []);
+    assert.deepEqual(normalizeCoinGeckoMarkets([{ id: "zero", symbol: "zero", name: "Zero", current_price: 0, last_updated: new Date(now).toISOString() }]), []);
     assert.deepEqual(normalizeCoinGeckoMarkets([{ id: "old", symbol: "old", name: "Old", current_price: 1, last_updated: "2020-01-01T00:00:00.000Z" }]), []);
+    assert.deepEqual(normalizeCoinGeckoMarkets([{ id: "future", symbol: "future", name: "Future", current_price: 1, last_updated: new Date(now + 60_000).toISOString() }]), []);
 
     assert.deepEqual(normalizeBitycleCurrencyInfo(null), []);
     assert.deepEqual(normalizeBitycleCurrencyInfo({ data: [{ currency: { name: "Bad", symbol: "BAD" }, price: -1 }] }), []);
     assert.deepEqual(normalizeBitycleCurrencyInfo({ data: [{ currency: { name: "Old", symbol: "OLD" }, price: 1 }] }, "2020-01-01T00:00:00.000Z"), []);
+    assert.deepEqual(normalizeBitycleCurrencyInfo({ data: [{ currency: { name: "Future", symbol: "FUT" }, price: 1 }] }, new Date(now + 60_000).toISOString()), []);
   });
 });
