@@ -7,6 +7,7 @@ import { alertWebhookStatus } from "@/lib/alerts";
 import { emitAlert } from "@/lib/alerts";
 import { getRedisPubSub } from "@/lib/redis-pubsub";
 import { getRuntimeReadiness } from "@/lib/runtime-readiness";
+import { getBitycleOperationalHealth } from "@/lib/runtime-bitycle-health";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
     isEmailRuntimeConfigured(),
   ]);
   const runtime = getRuntimeReadiness();
+  const marketData = getBitycleOperationalHealth();
 
   const email = emailConfigured ? "configured" : "unconfigured";
 
@@ -84,12 +86,19 @@ export async function GET(request: Request) {
   if (redis.status === "unconfigured" && isProduction) warnings.push("redis_not_configured: production requires shared Redis");
   if (redis.status === "unavailable") warnings.push("redis_unavailable: cannot reach Redis");
   if (email === "unconfigured" && isProduction) warnings.push("email_not_configured: transactional emails will not be delivered");
+  if (marketData.status === "degraded") {
+    warnings.push("bitycle_realtime_degraded: configured market feed has no connected fresh authoritative BTC/ETH snapshot");
+  }
 
   // Production must fail closed when a dependency required for a healthy
   // promoted runtime is unavailable or missing. Transactional email is a
   // production readiness dependency: preflight refuses an unusable provider,
   // and the post-start health endpoint must make the same decision visible to
   // Compose/load-balancer curl --fail probes rather than returning HTTP 200.
+  // Bitycle is deliberately not part of this critical set: Arena keeps its
+  // existing server-side fallback/fail-closed price authority when Bitycle is
+  // disabled or degraded, so the condition is observable without taking the
+  // whole TecPey runtime out of service.
   const criticalDependencyFailure =
     db.status !== "ok" ||
     db.schema?.status !== "current" ||
@@ -111,6 +120,7 @@ export async function GET(request: Request) {
     runtime: runtime.phase,
     requiredWorkers: runtime.requiredWorkers,
     email,
+    marketData: marketData.status,
   };
 
   const flags = getAllFlags();
@@ -149,6 +159,18 @@ export async function GET(request: Request) {
       status: db.status === "ok" && db.schema?.status === "current" ? "available" : "unavailable",
       mode: "single-tenant",
       defaultTenantId: process.env.PLATFORM_DEFAULT_TENANT_ID ?? "tecpey",
+    },
+    marketData: {
+      provider: "Bitycle",
+      status: marketData.status,
+      configured: marketData.configured,
+      connected: marketData.connected,
+      authoritativeSnapshotReady: marketData.authoritativeSnapshotReady,
+      source: marketData.source,
+      lastMessageAt: marketData.lastMessageAt,
+      lastProviderEventAt: marketData.lastProviderEventAt,
+      reconnectCount: marketData.reconnectCount,
+      disconnectCount: marketData.disconnectCount,
     },
     featureFlags: flags,
     observability: {
