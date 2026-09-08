@@ -65,7 +65,7 @@ export async function GET(
     const asset = await readAcademyProfileAvatar(owner, filename);
     if (!asset) return privateResponse(null, { status: 404 });
 
-    return privateResponse(asset.bytes, {
+    return privateResponse(Uint8Array.from(asset.bytes).buffer, {
       status: 200,
       headers: {
         "Content-Type": asset.contentType,
