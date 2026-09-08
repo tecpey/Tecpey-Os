@@ -90,7 +90,8 @@ export async function GET(req: NextRequest) {
         ? await client.query(`SELECT question_id FROM mentor_challenge_attempts WHERE student_id = $1::uuid`, [studentId])
         : { rows: [] };
       const usedIds = used.rows.map((row) => row.question_id);
-      const rows = await client.query(
+
+      const matchedRows = await client.query(
         `SELECT id, term_number, lesson_slug, topic, cognitive_skill, difficulty, question, options
          FROM academy_question_bank
          WHERE locale = $1 AND term_number = $2 AND approved = TRUE
@@ -101,18 +102,67 @@ export async function GET(req: NextRequest) {
          LIMIT 1`,
         [locale, termNumber, topic, lessonSlug, difficulty, usedIds],
       );
-      const question = rows.rows[0] || null;
-      if (question) await client.query(`UPDATE academy_question_bank SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1`, [question.id]);
-      return question ? publicQuestion(question) : fallbackQuestion(locale, termNumber, lessonSlug);
+
+      let question = matchedRows.rows[0] || null;
+      let selection: "matched" | "term" | "repeat" = "matched";
+
+      // A sparse but healthy bank must not be presented as an outage. Prefer an
+      // unused approved question from the same term before falling back to a
+      // previously attempted row. The final generic stand-in is reserved for a
+      // genuinely unavailable or empty authority and is never POST-able.
+      if (!question) {
+        const termRows = await client.query(
+          `SELECT id, term_number, lesson_slug, topic, cognitive_skill, difficulty, question, options
+           FROM academy_question_bank
+           WHERE locale = $1 AND term_number = $2 AND approved = TRUE
+             AND NOT (id = ANY($4::text[]))
+           ORDER BY ABS(difficulty - $3::int) ASC, usage_count ASC, created_at ASC
+           LIMIT 1`,
+          [locale, termNumber, difficulty, usedIds],
+        );
+        question = termRows.rows[0] || null;
+        selection = "term";
+      }
+
+      if (!question) {
+        const repeatRows = await client.query(
+          `SELECT id, term_number, lesson_slug, topic, cognitive_skill, difficulty, question, options
+           FROM academy_question_bank
+           WHERE locale = $1 AND term_number = $2 AND approved = TRUE
+           ORDER BY usage_count ASC, ABS(difficulty - $3::int) ASC, created_at ASC
+           LIMIT 1`,
+          [locale, termNumber, difficulty],
+        );
+        question = repeatRows.rows[0] || null;
+        selection = "repeat";
+      }
+
+      if (!question) {
+        return {
+          degraded: true as const,
+          reason: "question_bank_empty" as const,
+          question: fallbackQuestion(locale, termNumber, lessonSlug),
+        };
+      }
+
+      await client.query(`UPDATE academy_question_bank SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1`, [question.id]);
+      return {
+        degraded: false as const,
+        selection,
+        question: publicQuestion(question),
+      };
     });
     if (!result.enabled) {
       recordDegradedRead(ROUTE, "storage_unavailable");
-      return apiOk({ degraded: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
+      return apiOk({ degraded: true, reason: "storage_unavailable", question: fallbackQuestion(locale, termNumber, lessonSlug) });
     }
-    return apiOk({ degraded: false, question: result.value });
+    if (result.value.degraded) {
+      recordDegradedRead(ROUTE, result.value.reason);
+    }
+    return apiOk(result.value);
   } catch (error) {
     recordDegradedRead(ROUTE, "read_failed", error);
-    return apiOk({ degraded: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    return apiOk({ degraded: true, reason: "read_failed", question: fallbackQuestion(locale, termNumber, lessonSlug) });
   }
   }); // end withObservability
 }

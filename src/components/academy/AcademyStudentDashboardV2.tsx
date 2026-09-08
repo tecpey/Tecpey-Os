@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Link from "next/link";
-import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
+import { Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
@@ -91,7 +91,6 @@ const fa = {
   arena: "تریدینگ آرنا",
   certs: "مدارک",
   account: "حساب",
-  smart: "اعلان‌ها",
   terms: "مسیر ترم‌ها",
   tecpeyId: "شناسه داخلی تک‌پی",
   noIndex: "این داشبورد خصوصی است و برای کاربر عمومی یا موتور جستجو نمایش داده نمی‌شود.",
@@ -118,7 +117,6 @@ const en = {
   arena: "Trading Arena",
   certs: "Certificates",
   account: "Account",
-  smart: "Notifications",
   terms: "Term path",
   tecpeyId: "Internal TecPey ID",
   noIndex: "This dashboard is private and is not shown to public users or search engines.",
@@ -230,7 +228,6 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const streakDays = profile?.streak_days == null
     ? null
     : Math.max(0, numberOr(profile.streak_days));
-  const smartHref = isFa ? "/academy/notifications" : "/en/academy/notifications";
   const termBase = isFa ? "/academy" : "/en/academy";
 
   if (loading) {
@@ -260,17 +257,12 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         <p className="mb-6 text-sm font-medium text-cyan-200">{isFa ? "آکادمی تک‌پی / مسیر من" : "TecPey Academy / My journey"}</p>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center justify-between gap-5">
-              <div className="flex items-center gap-4">
-                <div className="grid h-16 w-16 place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{avatar}</div>
-                <div>
-                  <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
-                  <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="grid h-16 w-16 place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{avatar}</div>
+              <div>
+                <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
+                <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
               </div>
-              <Link href={smartHref} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
-                <BrainCircuit className="h-4 w-4" /> {t.smart}
-              </Link>
             </div>
             <p className="mt-5 max-w-3xl text-sm font-bold leading-8 text-slate-300">{t.welcome}</p>
 
@@ -348,7 +340,6 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           </div>
         </section>
       </section>
-
     </main>
   );
 }

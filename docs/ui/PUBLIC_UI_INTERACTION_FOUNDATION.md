@@ -8,7 +8,7 @@ This bounded recovery slice addresses confirmed public-surface defects from owne
 
 - The Light/Dark control renders from `resolvedTheme`, communicates the active state and exposes an explicit Persian/English action.
 - Visitors without an Academy profile see a real TecPey Mentor entry point and a locked educational value/onboarding state rather than no widget.
-- Profile-ready users continue to use the existing personalized `GlobalAiMentorWidget`; the public entry hands off instead of creating a second personalized authority.
+- Profile-ready learners use the dedicated bilingual `AiMentorExperience` workspace from the Academy dashboard and shared Mentor navigation. The root layout no longer mounts the legacy floating `GlobalAiMentorWidget`, preventing a duplicate launcher while preserving the governed personalized Mentor journey.
 - Knowledge Center uses logical RTL/LTR alignment, a bounded visible panel, menu semantics, Escape dismissal, route-close behavior and a mobile accordion contract.
 - Trading Arena and AI Mentor are discoverable from shared navigation and Footer paths.
 - The English Trading Arena route now provides an honest English product surface instead of redirecting visitors into an unexpected language; it clearly discloses that authenticated execution parity is still being completed.
@@ -27,4 +27,4 @@ These remain mandatory follow-up slices under #80.
 
 ## Quality gate
 
-`npm run ui:public:check` prevents regression of the first interaction/visibility contracts. It supplements, but does not replace, browser-level interaction and screenshot evidence.
+`npm run ui:public:check` prevents regression of the first interaction/visibility contracts, including the dedicated Mentor workspace handoff and the absence of the retired duplicate global launcher. It supplements, but does not replace, browser-level interaction and screenshot evidence.

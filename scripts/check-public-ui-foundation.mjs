@@ -1,11 +1,23 @@
 import { readFile } from "node:fs/promises";
 
-const [theme, layout, publicMentor, navbar, footer] = await Promise.all([
+const [
+  theme,
+  layout,
+  publicMentor,
+  navbar,
+  footer,
+  academyDashboard,
+  persianMentorPage,
+  englishMentorPage,
+] = await Promise.all([
   readFile("src/components/ThemeToggle.tsx", "utf8"),
   readFile("src/app/layout.tsx", "utf8"),
   readFile("src/components/academy/PublicMentorEntry.tsx", "utf8"),
   readFile("src/components/navbar/Navbar.tsx", "utf8"),
   readFile("src/components/footer/Footer.tsx", "utf8"),
+  readFile("src/components/academy/AcademyStudentDashboardV2.tsx", "utf8"),
+  readFile("src/app/academy/ai-guide/page.tsx", "utf8"),
+  readFile("src/app/en/academy/ai-guide/page.tsx", "utf8"),
 ]);
 
 const failures = [];
@@ -23,7 +35,10 @@ requireText(theme, "Switch to", "English theme action must be explicit rather th
 rejectText(theme, "useState(theme ===", "Theme control must not freeze pre-hydration theme state");
 
 requireText(layout, "<PublicMentorEntry />", "Root layout must expose the public/locked Mentor entry");
-requireText(layout, "<GlobalAiMentorWidget />", "Root layout must preserve the personalized Mentor widget");
+rejectText(layout, "GlobalAiMentorWidget", "Root layout must not remount the retired floating personalized Mentor launcher");
+requireText(academyDashboard, 'href={`${termBase}/ai-guide`}', "Authenticated Academy dashboard must preserve the dedicated Mentor workspace entry");
+requireText(persianMentorPage, '<AiMentorExperience locale="fa-IR" plan="free" />', "Persian Mentor route must render the dedicated personalized workspace");
+requireText(englishMentorPage, '<AiMentorExperience locale="en-US" plan="free" />', "English Mentor route must render the dedicated personalized workspace");
 requireText(publicMentor, 'type ProfileStatus = "checking" | "absent" | "ready" | "unavailable"', "Public Mentor must distinguish absent profile from API failure");
 requireText(publicMentor, 'if (isAcademyAuthRoute || profileStatus !== "absent") return null', "Public Mentor must stay hidden on Academy auth routes and show only after an authoritative absent-profile result");
 requireText(publicMentor, 'setProfileStatus("unavailable")', "Mentor profile-check failure must fail closed instead of creating a duplicate launcher");
@@ -60,4 +75,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Public UI foundation check passed: theme, Mentor, Knowledge Center and Footer visibility contracts are present.");
+console.log("Public UI foundation check passed: theme, dedicated Mentor entry orchestration, Knowledge Center and Footer visibility contracts are present.");
