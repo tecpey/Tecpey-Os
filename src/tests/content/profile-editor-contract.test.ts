@@ -64,7 +64,7 @@ describe("academy profile editor contract", () => {
 
   it("routes signed-in Academy users back to their learning dashboard", () => {
     const nav = read("src/components/tecpey/GlobalMobileNavigation.tsx");
-    assert.match(nav, /academyProfileReady/);
+    assert.match(nav, /tecpey-academy-profile-ready/);
     assert.match(nav, /href\("\/academy\/profile"\)/);
   });
 });
