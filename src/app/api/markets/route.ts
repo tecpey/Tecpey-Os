@@ -14,6 +14,7 @@ import {
   PUBLIC_MARKET_SOURCE,
   PUBLIC_MARKET_SOURCE_URL,
 } from "@/lib/public-market-data";
+import { readBoundedJsonResponse } from "@/lib/runtime-bounded-json";
 import { listMarkets, getMarket } from "@/lib/trading/market-service";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,8 @@ const MAX_LOCAL_SOURCES = 5;
 const IRAN_MAX_COMPARISON_SKEW_MS = 60_000;
 const BITYCLE_MARKETS_CACHE_TTL_MS = 20_000;
 const BITYCLE_FRAME_CACHE_TTL_MS = 10_000;
+const MAX_BITYCLE_RESPONSE_BYTES = 8 * 1024 * 1024;
+const MAX_COINGECKO_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 type IranComparison = {
   source: string;
@@ -125,11 +128,8 @@ async function fetchBitycleMarketFrames(
     }
     if (!response.ok) return null;
 
-    const frames = normalizeBitycleMarketFrames(
-      await response.json().catch(() => null),
-      Date.now(),
-      source,
-    );
+    const payload = await readBoundedJsonResponse(response, MAX_BITYCLE_RESPONSE_BYTES);
+    const frames = normalizeBitycleMarketFrames(payload, Date.now(), source);
     if (frames.size === 0) return null;
 
     const freshnessDeadline = earliestFreshUntil(frames.values());
@@ -235,10 +235,9 @@ async function fetchBitycleMarkets(): Promise<BitycleMarketsSnapshot | null> {
     if (!infoResponse?.ok || !frames || frames.size === 0) return null;
 
     const observedAt = new Date().toISOString();
-    const enriched = normalizeBitycleCurrencyInfo(
-      await infoResponse.json().catch(() => null),
-      observedAt,
-    ).filter((row) => row.priceData?.symbol === `${String(row.symbol || "").toUpperCase()}USDT`);
+    const infoPayload = await readBoundedJsonResponse(infoResponse, MAX_BITYCLE_RESPONSE_BYTES);
+    const enriched = normalizeBitycleCurrencyInfo(infoPayload, observedAt)
+      .filter((row) => row.priceData?.symbol === `${String(row.symbol || "").toUpperCase()}USDT`);
     const data = applyBitycleMarketFrameAuthority(enriched, frames);
     if (data.length === 0) return null;
 
@@ -286,7 +285,8 @@ async function fetchCoinGeckoMarkets(page: number, limit: number) {
   }
   if (!upstream.ok) return null;
 
-  const data = normalizeCoinGeckoMarkets(await upstream.json().catch(() => null));
+  const payload = await readBoundedJsonResponse(upstream, MAX_COINGECKO_RESPONSE_BYTES);
+  const data = normalizeCoinGeckoMarkets(payload);
   return data.length > 0 ? { data, observedAt: new Date().toISOString() } : null;
 }
 
