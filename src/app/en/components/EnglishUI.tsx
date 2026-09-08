@@ -1,3 +1,4 @@
+import "./english-mobile-parity.css";
 import Link from "next/link";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowRight, CheckCircle2, Search, Sparkles, ExternalLink } from "lucide-react";
