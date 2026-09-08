@@ -626,7 +626,7 @@ export default function Navbar({
             <Link href={isEnglish ? "/en/academy/account" : "/academy/account"} className="inline-flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
               <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-400/10">
                 {academyIdentity?.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- private same-origin Academy photo endpoint is intentionally not image-optimizer proxied.
+                  // eslint-disable-next-line @next/next/no-img-element -- #619: private same-origin Academy photo endpoint is intentionally not image-optimizer proxied.
                   <img src={academyIdentity.photo_url} alt="" className="h-full w-full object-cover" />
                 ) : academyIdentity?.avatar || <UserIcon className="h-4 w-4" />}
               </span>
