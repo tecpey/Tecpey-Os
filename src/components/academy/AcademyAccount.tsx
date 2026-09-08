@@ -67,7 +67,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
         <div className="mt-6 flex items-center gap-3 border-b border-fg/10 pb-6">
           <span aria-hidden="true" className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-400/10 text-2xl">
             {profile.photo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- private same-origin account photo.
+              // eslint-disable-next-line @next/next/no-img-element -- #619: private same-origin account photo is intentionally not image-optimizer proxied.
               <img src={profile.photo_url} alt="" className="h-full w-full object-cover" />
             ) : (profile.avatar || "👤")}
           </span>
