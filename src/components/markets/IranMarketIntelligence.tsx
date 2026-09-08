@@ -15,6 +15,8 @@ type IranMarketRow = {
   usdtIrt: number;
   impliedBtcUsdt: number;
   premiumPercent: number;
+  updatedAt: string;
+  maxSkewMs: number;
 };
 
 type IranMarketPayload = {
@@ -23,6 +25,7 @@ type IranMarketPayload = {
     source: string;
     market: "BTCUSDT";
     price: number;
+    updatedAt: string;
   };
   local: IranMarketRow[];
   summary: {
@@ -30,11 +33,14 @@ type IranMarketPayload = {
     highestPremiumPercent: number;
     sourcesAvailable: number;
     sourcesRequested: number;
+    maxComparisonSkewMs: number;
   };
   provenance: {
     provider: string;
     method: string;
     observedAt: string;
+    upstreamUpdatedAt: string;
+    timestampAuthority: string;
     note: string;
   };
 };
@@ -44,35 +50,37 @@ const copy = {
     eyebrow: "هوش بازار ایران",
     title: "مقایسه قیمت ایران با بازار جهانی",
     description:
-      "قیمت بیت‌کوین تومانی هر منبع با نرخ تتر همان بازار نرمال می‌شود تا اختلاف واقعی با BTC/USDT جهانی قابل مقایسه باشد.",
+      "قیمت بیت‌کوین تومانی هر منبع با نرخ تتر همان بازار نرمال می‌شود و فقط وقتی نمایش داده می‌شود که timestamp بازارهای مقایسه‌شده تازه و همگام باشد.",
     reference: "مرجع جهانی",
-    sources: "منابع فعال",
+    sources: "منابع معتبر",
     premium: "اختلاف با مرجع",
     implied: "BTC/USDT ضمنی",
     btcIrt: "BTC/IRT",
     usdtIrt: "USDT/IRT",
-    updated: "آخرین دریافت تک‌پی",
-    unavailable: "داده بازار ایران فعلاً در دسترس نیست.",
+    updated: "قدیمی‌ترین زمان داده",
+    sync: "حداکثر اختلاف زمانی",
+    unavailable: "داده تازه و همگام بازار ایران فعلاً در دسترس نیست.",
     retry: "تلاش دوباره",
     note:
-      "اختلاف قیمت صرفاً داده تحلیلی و آموزشی است و به معنی امکان آربیتراژ یا سود تضمین‌شده نیست.",
+      "اختلاف قیمت صرفاً داده تحلیلی و آموزشی است. کارمزد، عمق سفارش، محدودیت برداشت/واریز و لغزش قیمت در این عدد لحاظ نشده و این داده به معنی امکان آربیتراژ یا سود تضمین‌شده نیست.",
   },
   en: {
     eyebrow: "Iran Market Intelligence",
     title: "Iran vs global market pricing",
     description:
-      "Each local BTC/IRT price is normalized by that market’s USDT/IRT rate so the implied BTC/USDT can be compared with the global reference.",
+      "Each local BTC/IRT price is normalized by that market’s USDT/IRT rate and is shown only when the compared market timestamps are fresh and synchronized.",
     reference: "Global reference",
-    sources: "Active sources",
+    sources: "Validated sources",
     premium: "Reference gap",
     implied: "Implied BTC/USDT",
     btcIrt: "BTC/IRT",
     usdtIrt: "USDT/IRT",
-    updated: "TecPey fetch time",
-    unavailable: "Iran market data is temporarily unavailable.",
+    updated: "Oldest provider timestamp",
+    sync: "Maximum timestamp skew",
+    unavailable: "Fresh synchronized Iran market data is temporarily unavailable.",
     retry: "Try again",
     note:
-      "Price gaps are informational and educational only; they do not imply executable arbitrage or guaranteed profit.",
+      "Price gaps are informational and educational only. Fees, order-book depth, transfer constraints and slippage are not included, so a gap does not imply executable arbitrage or guaranteed profit.",
   },
 } as const;
 
@@ -122,6 +130,17 @@ export default function IranMarketIntelligence() {
       maximumFractionDigits: 2,
     }).format(value);
 
+  const timeLabel = (value: string) => {
+    const timestamp = new Date(value);
+    return Number.isFinite(timestamp.getTime())
+      ? new Intl.DateTimeFormat(numberLocale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }).format(timestamp)
+      : "—";
+  };
+
   if (query.isError) {
     return (
       <section className="px-4 pb-3 md:px-8" aria-live="polite">
@@ -154,14 +173,8 @@ export default function IranMarketIntelligence() {
   }
 
   const data = query.data;
-  const observedAt = new Date(data.provenance.observedAt);
-  const observedLabel = Number.isFinite(observedAt.getTime())
-    ? new Intl.DateTimeFormat(numberLocale, {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }).format(observedAt)
-    : "—";
+  const observedLabel = timeLabel(data.provenance.upstreamUpdatedAt);
+  const skewSeconds = data.summary.maxComparisonSkewMs / 1_000;
 
   return (
     <section className="px-4 pb-4 md:px-8" aria-labelledby="iran-market-intelligence-title">
@@ -196,6 +209,7 @@ export default function IranMarketIntelligence() {
                   {number(data.summary.sourcesAvailable, 0)} / {number(data.summary.sourcesRequested, 0)}
                 </p>
                 <p className="mt-1 text-[10px] font-bold text-muted">{text.updated}: {observedLabel}</p>
+                <p className="mt-0.5 text-[10px] font-bold text-muted">{text.sync}: {number(skewSeconds, 0)}s</p>
               </div>
             </div>
           </div>
@@ -233,6 +247,9 @@ export default function IranMarketIntelligence() {
                     <dd className="mt-1 font-black tabular-nums text-foreground">{number(market.usdtIrt, 0)}</dd>
                   </div>
                 </dl>
+                <p className="mt-2 text-[10px] font-bold text-muted">
+                  {text.updated}: {timeLabel(market.updatedAt)} · {text.sync}: {number(market.maxSkewMs / 1_000, 0)}s
+                </p>
               </article>
             );
           })}
