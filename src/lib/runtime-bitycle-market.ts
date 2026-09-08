@@ -4,6 +4,7 @@ import type { ArenaPriceSnapshot } from "./trading-arena-execution-v2";
 
 const BITYCLE_STREAM_URL = "wss://streamer.bitycle.com/ws/market_data";
 const DEFAULT_SOURCE = "binance_spot";
+const AUTHORITATIVE_TIMEFRAME = "1m";
 const MAX_PRICE_AGE_MS = 15_000;
 const MAX_FUTURE_SKEW_MS = 5_000;
 const RECONNECT_MIN_MS = 1_000;
@@ -102,6 +103,12 @@ function sourceName(value: unknown): string | null {
   return source;
 }
 
+function timeframeName(value: unknown): string | null {
+  return typeof value === "string" && value.trim() === AUTHORITATIVE_TIMEFRAME
+    ? AUTHORITATIVE_TIMEFRAME
+    : null;
+}
+
 function receiptTimestamp(value: string): string | null {
   const time = Date.parse(value);
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
@@ -140,9 +147,10 @@ export function parseBitycleRealtimeMarketMessage(
     if (!envelope.d || typeof envelope.d !== "object" || !Array.isArray(envelope.d.c)) return null;
     const market = marketName(envelope.d.s);
     const source = sourceName(envelope.d.f);
+    const timeframe = timeframeName(envelope.d.t);
     const price = decimalPrice(envelope.d.c[4]);
     const providerAt = providerTimestampFromSeconds(envelope.d.c[6]);
-    if (!market || !source || !price || !providerAt) return null;
+    if (!market || !source || !timeframe || !price || !providerAt) return null;
     return {
       market,
       source,
@@ -242,7 +250,8 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
   let watchdogTimer: NodeJS.Timeout | null = null;
 
   const runtime = state();
-  runtime.health.source = source;
+  runtime.prices = {};
+  runtime.health = { ...emptyHealth(), source };
 
   const scheduleReconnect = () => {
     if (stopped || reconnectTimer) return;
@@ -273,7 +282,7 @@ export function startBitycleMarketRealtime(): BitycleMarketRealtimeController | 
       for (const market of ["BTCUSDT", "ETHUSDT"] as const) {
         ws.send(JSON.stringify({
           message_type: "subscribe_live_market",
-          data: { market, tf: "1m", source },
+          data: { market, tf: AUTHORITATIVE_TIMEFRAME, source },
         }));
       }
     });
