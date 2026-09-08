@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { getFreshBitycleArenaSnapshot } from "./bitycle-market-realtime";
 import type { ArenaPriceSnapshot } from "./trading-arena-execution-v2";
 
 const DEFAULT_BINANCE_FEED =
@@ -165,6 +166,9 @@ async function requestSnapshot(now = Date.now()): Promise<ArenaPriceSnapshot> {
 }
 
 export async function getArenaMarketPriceSnapshot(now = Date.now()): Promise<ArenaPriceSnapshot> {
+  const realtime = getFreshBitycleArenaSnapshot(now);
+  if (realtime) return assertFreshArenaMarketPriceSnapshot(realtime, now);
+
   if (cached && cached.expiresAt > now) {
     return assertFreshArenaMarketPriceSnapshot(cached.value, now);
   }
