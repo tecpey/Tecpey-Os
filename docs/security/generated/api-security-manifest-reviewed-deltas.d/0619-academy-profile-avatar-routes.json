@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [
+    {
+      "route": "/api/academy-profile-avatar/[owner]/[filename]",
+      "sourcePath": "src/app/api/academy-profile-avatar/[owner]/[filename]/route.ts",
+      "sourceHash": "022a1d8410ff060de4bfc932",
+      "issue": "#619",
+      "owner": "academy-platform",
+      "reason": "Adds a private Academy profile-photo GET route bound to the live strictly-revoked student session and verified tenant principal, with per-student rate limiting, no query parameters, owner-key authorization and private no-store responses so personal photos cannot become public bearer assets.",
+      "controls": {
+        "classification": "authenticated",
+        "strictRevocation": true,
+        "rateLimit": true,
+        "verifiedPrincipal": true,
+        "tenantFromVerifiedContext": true,
+        "noStore": true,
+        "queryParameters": "none"
+      }
+    }
+  ],
+  "addedOperations": [
+    {
+      "route": "/api/academy-profile-avatar",
+      "method": "POST",
+      "issue": "#619",
+      "owner": "academy-platform",
+      "reason": "Adds the private Academy profile-photo upload command with CSRF, strict revocation, per-route rate limiting, an enforceable streaming byte ceiling before multipart parsing, content-type validation, ownership-bound storage, observability and private no-store responses.",
+      "replacement": {
+        "route": "/api/academy-profile-avatar",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-profile-avatar/route.ts",
+        "sourceHash": "2f96ab11c34bc488e8243d5e",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-profile-avatar-upload",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": true,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedBody"
+        },
+        "domainOwner": "academy-profile-avatar",
+        "testReferences": [
+          "src/tests/content/academy-profile-editor-contract.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-profile-avatar/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
