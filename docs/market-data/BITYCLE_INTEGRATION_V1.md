@@ -32,34 +32,38 @@ Bitycle may provide:
 
 Configuration:
 - `BITYCLE_API_KEY`: server-only Bitycle Business credential
+- `BITYCLE_STREAM_TOKEN`: server-only Bitycle market WebSocket credential
 - `BITYCLE_MARKET_SOURCE`: optional upstream source, defaults to `binance_spot`
+- `BITYCLE_IRAN_SOURCES`: optional comma-separated local sources, max five
 
-The API key must never be exposed to browser JavaScript or widget configuration.
+No Bitycle credential may be exposed through `NEXT_PUBLIC_*`, browser JavaScript, widget query parameters, logs, analytics or error responses.
 
 ### Realtime Arena feed
 
-Use a dedicated server-side gateway for Bitycle WebSocket market data. Browser clients should subscribe to a TecPey-owned stream, not hold the Bitycle token.
+The TecPey custom Node runtime now has an optional server-to-server Bitycle market gateway. It connects to `wss://streamer.bitycle.com/ws/market_data` with `X-Bitycle-Token` and subscribes to BTCUSDT and ETHUSDT market-price messages from one configured source.
 
 Target flow:
 
-`Bitycle WS -> TecPey Market Feed Gateway -> normalized market events -> Arena market view`
+`Bitycle WS -> TecPey server-only gateway -> validated fresh snapshot -> Arena price authority`
 
-Arena execution consumes a validated snapshot/event contract. The chart and price feed never become execution authority.
+Controls implemented in V1:
+- only MP envelopes for BTCUSDT / ETHUSDT are accepted
+- decimal prices must be positive and bounded
+- source identifiers are validated
+- both assets must come from the same source
+- both assets must be fresh; stale/future-skewed snapshots are rejected
+- the oldest accepted asset timestamp becomes snapshot time
+- reconnect uses bounded exponential backoff
+- token is held only server-side
+- controlled runtime shutdown closes the upstream socket and reconnect timer
+- the existing Arena HTTPS feed/cache remains fallback
+- if no acceptable source exists, Arena keeps its existing fail-closed behavior
 
-Required controls:
-- monotonic event timestamps
-- source + symbol + timeframe provenance
-- stale-feed detection
-- reconnect/backoff
-- duplicate/out-of-order event rejection
-- bounded in-memory buffering
-- server-side token secrecy
-- provider health telemetry
-- deterministic fallback/replay behavior
+The chart, browser socket and Bitycle widget never become execution authority.
 
 ## Widget strategy
 
-The `tecpey.ir` production domain has been reported as whitelisted by Bitycle. Widget use remains allowlisted by product surface.
+The `tecpey.ir` production domain is confirmed by the TecPey/Bitycle business relationship as whitelisted. `tecp.ir` should be requested separately for staging before widget evidence begins.
 
 Preferred widgets:
 1. Full Chart: Trading Arena, with TecPey orders/positions overlaid through the supported custom data/user integration model.
@@ -71,26 +75,41 @@ Preferred widgets:
 7. Compare: asset comparison.
 8. Trends: discovery surface.
 9. Overview: market overview where it materially improves information density.
-10. News: only if routed through TecPey source governance, taxonomy, dedupe and localization controls.
+10. Ticker / Info: compact surfaces only where they avoid duplicate native TecPey UI.
+11. News: only if routed through TecPey source governance, taxonomy, dedupe and localization controls.
 
 Do not iframe the entire Markets product. Native TecPey UI remains the default for tables, navigation, coin detail composition, news, search, educational context and accessibility-sensitive flows.
 
-## Whitelist environments
-
-Production: `tecpey.ir` is reported whitelisted.
-
-Staging uses a separate domain and must not be assumed to inherit the production whitelist. Until Bitycle confirms staging-domain access, staging validation should use API-backed/native surfaces or an explicitly whitelisted staging hostname.
+Before widget staging evidence:
+- `tecp.ir` whitelist confirmed
+- CSP `frame-src` / `connect-src` implications reviewed
+- FA RTL and EN LTR parity checked
+- mobile/responsive behavior checked
+- no credential or sensitive user data in public embed configuration
+- graceful fallback exists when widget origin is unavailable
 
 ## Iran market intelligence
 
-Bitycle supports Iranian exchange sources and Toman/IRT markets. TecPey should build a native intelligence layer on top of normalized data:
-- global BTC/USDT reference
-- Iranian BTC/IRT reference
-- normalized Toman/USD or Toman/USDT comparison basis
-- local premium/discount
-- spread and liquidity context
-- cross-exchange deviation
-- freshness timestamp and source labels
+Bitycle supports Iranian exchange sources and IRT markets. TecPey now exposes a governed comparison endpoint at `/api/market-intelligence/iran`.
+
+The comparison avoids directly comparing a Toman number to a USDT number. For each local source:
+
+`implied BTC/USDT = BTCIRT / USDTIRT`
+
+`premium % = (local implied BTC/USDT / global BTCUSDT - 1) * 100`
+
+Default local sources are `nobitex_spot`, `ramzinex_spot`, and `bit24_spot`. Configuration can override these with up to five validated source identifiers.
+
+The endpoint returns:
+- global BTCUSDT reference and source
+- local BTCIRT
+- local USDTIRT
+- implied local BTCUSDT
+- premium/discount percent
+- available/requested source counts
+- explicit provenance
+
+Because the price endpoint does not expose an exchange timestamp in the documented response, `observedAt` is explicitly labelled as TecPey fetch time rather than falsely claiming upstream event time.
 
 Arbitrage-like differences are informational/educational context only; TecPey must not imply guaranteed executable profit.
 
@@ -141,30 +160,34 @@ Phase 1 — provider foundation
 - Bitycle public market normalizer
 - preferred-provider/fallback behavior
 - provenance and freshness
-- tests
+- realtime MP parser/cache
+- runtime lifecycle
+- tests and audit-domain classification
 
-Phase 2 — realtime gateway
-- server-side Bitycle WS adapter
-- normalized candle/ticker events
-- stale/reconnect/out-of-order controls
-- Arena read-only chart integration
+Phase 2 — native Iran intelligence
+- global/local comparison API
+- source-labelled UI and degradation states
+- premium/discount context
+- no profit-guarantee language
 
-Phase 3 — native market intelligence
-- Iranian/global comparison
-- heatmap/trends/compare
-- coin detail enrichment
-- mentor market-context adapter
-
-Phase 4 — Full Chart Arena integration
-- chart shell
+Phase 3 — FullChart Arena integration
+- `tecp.ir` whitelist
+- widget/CSP contract
 - TecPey-owned order/position overlays
 - replay compatibility
 - mobile/desktop QA
 
-Phase 5 — governed news and education enrichment
+Phase 4 — broader market surfaces
+- heatmap/trends/compare
+- coin detail enrichment
+- TA and sentiment context
+- mentor market-context adapter
+
+Phase 5 — governed news and replay
 - source adapter
 - taxonomy/dedupe/localization
 - mentor/news quiz integration
+- deterministic historical scenario evidence
 
 ## Non-negotiable production checks
 
@@ -172,10 +195,11 @@ Before enabling Bitycle-dependent production paths, obtain/record:
 - Business API entitlement
 - REST rate limits
 - WebSocket connection/subscription limits
-- widget/domain whitelist scope
-- staging whitelist policy
+- widget/domain whitelist scope (`tecpey.ir`, `tecp.ir`)
 - caching and redistribution rights
 - historical-data retention rights
 - SLA/status escalation path
 - token rotation/revocation process
 - expected behavior during upstream partial outage
+
+No merge or deployment is authorized by this document. Keep the PR Draft until exact-head CI, security/audit evidence and provider-contract review are complete.
