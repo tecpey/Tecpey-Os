@@ -2,43 +2,87 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   clearBitycleRealtimeMarketForTests,
+  getBitycleRealtimeHealth,
   getFreshBitycleArenaSnapshot,
   parseBitycleRealtimeMarketMessage,
   recordBitycleRealtimePrice,
 } from "../lib/runtime-bitycle-market";
 
+function epochSeconds(iso: string): number {
+  return Date.parse(iso) / 1_000;
+}
+
+function mdPoint(
+  market: "BTCUSDT" | "ETHUSDT",
+  source: string,
+  price: number,
+  issuedAt: string,
+) {
+  return parseBitycleRealtimeMarketMessage({
+    type: "md",
+    d: {
+      f: source,
+      s: market,
+      t: "1m",
+      c: [epochSeconds(issuedAt) - 30, price, price, price, price, 1, epochSeconds(issuedAt)],
+    },
+  });
+}
+
 describe("Bitycle realtime market authority", () => {
   beforeEach(() => clearBitycleRealtimeMarketForTests());
 
-  it("parses only supported MP envelopes and normalizes decimal prices", () => {
+  it("uses provider-issued MD timestamps for authoritative realtime prices", () => {
     const point = parseBitycleRealtimeMarketMessage({
-      type: "mp",
-      d: { f: "binance_spot", p: "102872.612345678912", s: "BTCUSDT" },
-    }, "2026-09-09T00:00:00.000Z");
+      type: "md",
+      d: {
+        f: "binance_spot",
+        s: "BTCUSDT",
+        t: "1m",
+        c: [
+          epochSeconds("2026-09-09T00:00:00.000Z"),
+          102_800,
+          102_900,
+          102_700,
+          "102872.612345678912",
+          19.79,
+          epochSeconds("2026-09-09T00:00:05.000Z"),
+        ],
+      },
+    });
 
     assert.deepEqual(point, {
       market: "BTCUSDT",
       source: "binance_spot",
       price: "102872.6123456789",
-      observedAt: "2026-09-09T00:00:00.000Z",
+      observedAt: "2026-09-09T00:00:05.000Z",
+      timestampAuthority: "provider",
     });
-
-    assert.equal(parseBitycleRealtimeMarketMessage({ type: "md", d: {} }), null);
-    assert.equal(parseBitycleRealtimeMarketMessage({ type: "mp", d: { f: "bad source", p: 1, s: "BTCUSDT" } }), null);
-    assert.equal(parseBitycleRealtimeMarketMessage({ type: "mp", d: { f: "binance_spot", p: -1, s: "BTCUSDT" } }), null);
-    assert.equal(parseBitycleRealtimeMarketMessage({ type: "mp", d: { f: "binance_spot", p: 1, s: "DOGEUSDT" } }), null);
   });
 
-  it("builds an Arena snapshot only when both assets are fresh and share one source", () => {
-    const now = Date.parse("2026-09-09T00:00:10.000Z");
+  it("parses MP only as receipt-time data and never promotes it to an Arena snapshot", () => {
     const btc = parseBitycleRealtimeMarketMessage({
       type: "mp",
-      d: { f: "binance_spot", p: 65000, s: "BTCUSDT" },
+      d: { f: "binance_spot", p: 65_000, s: "BTCUSDT" },
     }, "2026-09-09T00:00:05.000Z");
     const eth = parseBitycleRealtimeMarketMessage({
       type: "mp",
-      d: { f: "binance_spot", p: 3500, s: "ETHUSDT" },
+      d: { f: "binance_spot", p: 3_500, s: "ETHUSDT" },
     }, "2026-09-09T00:00:06.000Z");
+    assert.ok(btc);
+    assert.ok(eth);
+    assert.equal(btc.timestampAuthority, "receipt");
+    assert.equal(eth.timestampAuthority, "receipt");
+    recordBitycleRealtimePrice(btc);
+    recordBitycleRealtimePrice(eth);
+
+    assert.equal(getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z")), null);
+  });
+
+  it("builds an Arena snapshot only when both provider timestamps are fresh and share one source", () => {
+    const now = Date.parse("2026-09-09T00:00:10.000Z");
+    const btc = mdPoint("BTCUSDT", "binance_spot", 65_000, "2026-09-09T00:00:05.000Z");
+    const eth = mdPoint("ETHUSDT", "binance_spot", 3_500, "2026-09-09T00:00:06.000Z");
     assert.ok(btc);
     assert.ok(eth);
     recordBitycleRealtimePrice(btc);
@@ -53,19 +97,51 @@ describe("Bitycle realtime market authority", () => {
   });
 
   it("rejects mixed upstream sources to avoid a synthetic cross-source execution snapshot", () => {
-    const btc = parseBitycleRealtimeMarketMessage({
-      type: "mp",
-      d: { f: "binance_spot", p: 65000, s: "BTCUSDT" },
-    }, "2026-09-09T00:00:05.000Z");
-    const eth = parseBitycleRealtimeMarketMessage({
-      type: "mp",
-      d: { f: "bybit_spot", p: 3500, s: "ETHUSDT" },
-    }, "2026-09-09T00:00:05.000Z");
+    const btc = mdPoint("BTCUSDT", "binance_spot", 65_000, "2026-09-09T00:00:05.000Z");
+    const eth = mdPoint("ETHUSDT", "bybit_spot", 3_500, "2026-09-09T00:00:05.000Z");
     assert.ok(btc);
     assert.ok(eth);
     recordBitycleRealtimePrice(btc);
     recordBitycleRealtimePrice(eth);
 
     assert.equal(getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z")), null);
+  });
+
+  it("rejects out-of-order provider events instead of rolling the execution price backwards", () => {
+    const freshBtc = mdPoint("BTCUSDT", "binance_spot", 65_100, "2026-09-09T00:00:06.000Z");
+    const oldBtc = mdPoint("BTCUSDT", "binance_spot", 64_000, "2026-09-09T00:00:05.000Z");
+    const eth = mdPoint("ETHUSDT", "binance_spot", 3_500, "2026-09-09T00:00:06.000Z");
+    assert.ok(freshBtc);
+    assert.ok(oldBtc);
+    assert.ok(eth);
+
+    assert.equal(recordBitycleRealtimePrice(freshBtc), true);
+    assert.equal(recordBitycleRealtimePrice(oldBtc), false);
+    assert.equal(recordBitycleRealtimePrice(eth), true);
+    assert.deepEqual(
+      getFreshBitycleArenaSnapshot(Date.parse("2026-09-09T00:00:10.000Z"))?.prices,
+      { BTC: "65100.0000000000", ETH: "3500.0000000000" },
+    );
+  });
+
+  it("fails closed for malformed frames and keeps health state secret-free", () => {
+    assert.equal(parseBitycleRealtimeMarketMessage({ type: "md", d: {} }), null);
+    assert.equal(parseBitycleRealtimeMarketMessage({
+      type: "md",
+      d: { f: "bad source", s: "BTCUSDT", c: [0, 1, 1, 1, 1, 1, 1] },
+    }), null);
+    assert.equal(parseBitycleRealtimeMarketMessage({
+      type: "md",
+      d: { f: "binance_spot", s: "DOGEUSDT", c: [0, 1, 1, 1, 1, 1, 1] },
+    }), null);
+
+    assert.deepEqual(getBitycleRealtimeHealth(), {
+      connected: false,
+      source: null,
+      lastMessageAt: null,
+      lastProviderEventAt: null,
+      reconnectCount: 0,
+      disconnectCount: 0,
+    });
   });
 });
