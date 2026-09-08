@@ -584,6 +584,7 @@ body.tecpey-motion-route .tecpey-motion-content-surface--dark {
   }
 
   .tecpey-living-mobile-nav__halo {
-    opacity: 0;
+    /* Reduced motion removes travel, not the user's current-location marker. */
+    opacity: 1;
   }
 }

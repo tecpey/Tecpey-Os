@@ -73,7 +73,7 @@ const COPY = {
   fa: {
     eyebrow: "فضای کاری شخصی شما",
     title: "منتور هوشمند تک‌پی",
-    subtitle: "گفت‌وگو، حافظه آموزشی و پژوهش منبع‌دار در یک محیط واحد.",
+    subtitle: "فضایی برای یادگیری، پرسیدن و ادامه‌دادن گفت‌وگوهای قبلی.",
     freePlan: "نسخه پایه",
     premiumPlan: "نسخه پرمیوم",
     safety: "آموزشی و ریسک‌محور",
@@ -120,7 +120,7 @@ const COPY = {
   en: {
     eyebrow: "Your personal workspace",
     title: "TecPey AI Mentor",
-    subtitle: "Conversation, learning memory and source-backed research in one calm workspace.",
+    subtitle: "A calm space to ask, learn and continue your conversations.",
     freePlan: "Core plan",
     premiumPlan: "Premium plan",
     safety: "Education and risk first",
@@ -597,7 +597,7 @@ export function AiMentorExperience({
             {plan === "premium" ? <Crown aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
             {plan === "premium" ? copy.premiumPlan : copy.freePlan}
           </span>
-          <Link href={isFa ? "/academy/account#pro" : "/en/academy/account#pro"} className={styles.historyTrigger}><Crown aria-hidden="true" />Pro</Link>
+          <Link href={isFa ? "/academy/account#pro" : "/en/academy/account#pro"} className={styles.planLink}><Crown aria-hidden="true" />Pro</Link>
         </div>
       </header>
 
