@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, MessageCircle, ShieldCheck, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, MessageCircle, ShieldCheck, Trophy } from "lucide-react";
 import styles from "./calm-entry.module.css";
 
 type Props = { locale: "fa" | "en" };
@@ -55,7 +55,10 @@ export function CalmLearningSection({ locale }: Props) {
 
 export function LandingDetails({ locale, children }: Props & { children: ReactNode }) {
   return <details className={styles.extendedDetails} dir={locale === "fa" ? "rtl" : "ltr"}>
-    <summary>{locale === "fa" ? "راهنمای کامل تکپی و جزئیات مسیرهای آموزشی" : "Complete TecPey guide and learning pathway details"}</summary>
+    <summary>
+      <span>{locale === "fa" ? "راهنمای کامل تکپی و جزئیات مسیرهای آموزشی" : "Complete TecPey guide and learning pathway details"}</span>
+      <ChevronDown size={20} aria-hidden="true" />
+    </summary>
     <div className={styles.extendedContent}>{children}</div>
   </details>;
 }
@@ -84,7 +87,10 @@ export function CalmLandingClose({ locale }: Props) {
     </section>
     <section className={styles.faq} aria-labelledby={`faq-title-${locale}`}>
       <h2 id={`faq-title-${locale}`}>{fa ? "پیش از شروع، بدان." : "Before you begin."}</h2>
-      {faq.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
+      {faq.map(([question, answer]) => <details key={question}>
+        <summary><span>{question}</span><ChevronDown size={18} aria-hidden="true" /></summary>
+        <p>{answer}</p>
+      </details>)}
     </section>
     <section className={styles.closingCta}>
       <Image src="/images/brand/tecpey-logo-256.png" alt="TecPey" width={56} height={56} />
