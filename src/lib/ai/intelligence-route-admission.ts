@@ -153,10 +153,10 @@ export function evaluateAiIntelligenceRouteAdmission(input: {
   ) {
     return Object.freeze({
       status: "eligible",
-      reasons: [],
-      localReasons: [],
-      endpointReasons: [],
-      modelReasons: [],
+      reasons: [] as const,
+      localReasons: [] as const,
+      endpointReasons: [] as const,
+      modelReasons: [] as const,
       route,
       endpointEligibility,
       modelEligibility,
