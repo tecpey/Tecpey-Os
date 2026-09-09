@@ -35,9 +35,11 @@ export type AiIntelligenceCachePolicy =
   | "stable_prefix"
   | "session_prefix";
 
-export type AiIntelligenceProviderExecution =
-  | "optional"
-  | "required";
+export type AiIntelligenceEvidencePolicy =
+  | "none"
+  | "input_bound"
+  | "provider_citations"
+  | "verified_knowledge";
 
 export type AiIntelligenceOutputProtocol = Readonly<{
   mode: "text" | "json_schema";
@@ -57,12 +59,12 @@ export type AiIntelligenceTaskDefinition = Readonly<{
   dataClass: AiDataClass;
   criticality: "noncritical" | "standard" | "critical";
   externalEffect: false;
-  providerExecution: AiIntelligenceProviderExecution;
+  providerExecution: "optional" | "required";
   modelTier: AiIntelligenceModelTier;
   routeObjective: AiIntelligenceRouteObjective;
   requiredCapabilities: readonly string[];
   requiredTools: readonly string[];
-  citationsRequired: boolean;
+  evidencePolicy: AiIntelligenceEvidencePolicy;
   output: AiIntelligenceOutputProtocol;
   cachePolicy: AiIntelligenceCachePolicy;
   retry: AiIntelligenceRetryPolicy;
@@ -73,45 +75,47 @@ export type AiIntelligenceTaskDefinition = Readonly<{
   evalSuiteId: string;
 }>;
 
-const jsonOutput = (schemaId: string): AiIntelligenceOutputProtocol =>
-  Object.freeze({ mode: "json_schema", schemaId });
-
-const textOutput = Object.freeze({
-  mode: "text" as const,
-  schemaId: null,
+const jsonOutput = (schemaId: string): AiIntelligenceOutputProtocol => ({
+  mode: "json_schema",
+  schemaId,
 });
+
+const textOutput: AiIntelligenceOutputProtocol = {
+  mode: "text",
+  schemaId: null,
+};
 
 const transientRetry = (
   maxExecutions: number,
   minBackoffSeconds: number,
   maxProviderAttemptsPerExecution: number,
-): AiIntelligenceRetryPolicy => Object.freeze({
+): AiIntelligenceRetryPolicy => ({
   class: "transient_bounded",
   maxExecutions,
   minBackoffSeconds,
   maxProviderAttemptsPerExecution,
 });
 
-const noRetry = Object.freeze({
-  class: "none" as const,
+const noRetry: AiIntelligenceRetryPolicy = {
+  class: "none",
   maxExecutions: 1,
   minBackoffSeconds: 0,
   maxProviderAttemptsPerExecution: 1,
-});
+};
 
-export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
-  Object.freeze({
+export const AI_INTELLIGENCE_TASK_CATALOG = [
+  {
     id: "news_translate",
-    allowedAgents: Object.freeze(["content_reviewer"]),
+    allowedAgents: ["content_reviewer"],
     dataClass: "public",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "economy",
     routeObjective: "quality_per_dollar",
-    requiredCapabilities: Object.freeze(["text", "structured_output"]),
-    requiredTools: Object.freeze([]),
-    citationsRequired: false,
+    requiredCapabilities: ["text", "structured_output"],
+    requiredTools: [],
+    evidencePolicy: "input_bound",
     output: jsonOutput("news_translation_v1"),
     cachePolicy: "stable_prefix",
     retry: transientRetry(3, 120, 2),
@@ -120,19 +124,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: 2,
     evalSuiteId: "news_translation_fa_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "news_validate",
-    allowedAgents: Object.freeze(["content_reviewer", "risk_compliance_reviewer"]),
+    allowedAgents: ["content_reviewer", "risk_compliance_reviewer"],
     dataClass: "public",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "optional",
     modelTier: "economy",
     routeObjective: "quality_per_dollar",
-    requiredCapabilities: Object.freeze(["text", "structured_output"]),
-    requiredTools: Object.freeze([]),
-    citationsRequired: false,
+    requiredCapabilities: ["text", "structured_output"],
+    requiredTools: [],
+    evidencePolicy: "input_bound",
     output: jsonOutput("news_validation_v1"),
     cachePolicy: "stable_prefix",
     retry: noRetry,
@@ -141,19 +145,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: 2,
     evalSuiteId: "news_validation_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "growth_scan",
-    allowedAgents: Object.freeze(["growth_hacker"]),
+    allowedAgents: ["growth_hacker"],
     dataClass: "public",
     criticality: "noncritical",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "search_native",
     routeObjective: "quality_per_dollar",
-    requiredCapabilities: Object.freeze(["text", "web_search", "citations", "structured_output"]),
-    requiredTools: Object.freeze(["web_search"]),
-    citationsRequired: true,
+    requiredCapabilities: ["text", "web_search", "citations", "structured_output"],
+    requiredTools: ["web_search"],
+    evidencePolicy: "provider_citations",
     output: jsonOutput("growth_signal_batch_v1"),
     cachePolicy: "stable_prefix",
     retry: transientRetry(2, 300, 1),
@@ -162,19 +166,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: 15,
     evalSuiteId: "growth_signal_precision_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "growth_deep_research",
-    allowedAgents: Object.freeze(["growth_hacker", "news_x_researcher", "coin_tool_researcher"]),
+    allowedAgents: ["growth_hacker", "news_x_researcher", "coin_tool_researcher"],
     dataClass: "public",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "search_native",
     routeObjective: "research_depth",
-    requiredCapabilities: Object.freeze(["text", "web_search", "citations", "structured_output"]),
-    requiredTools: Object.freeze(["web_search"]),
-    citationsRequired: true,
+    requiredCapabilities: ["text", "web_search", "citations", "structured_output"],
+    requiredTools: ["web_search"],
+    evidencePolicy: "provider_citations",
     output: jsonOutput("growth_research_dossier_v1"),
     cachePolicy: "stable_prefix",
     retry: transientRetry(2, 900, 1),
@@ -183,19 +187,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "eligible",
     minimumScheduleMinutes: 60,
     evalSuiteId: "growth_deep_research_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "knowledge_curate",
-    allowedAgents: Object.freeze(["knowledge_curator", "risk_compliance_reviewer"]),
+    allowedAgents: ["knowledge_curator", "risk_compliance_reviewer"],
     dataClass: "approved_platform_content",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "balanced",
     routeObjective: "quality",
-    requiredCapabilities: Object.freeze(["text", "structured_output"]),
-    requiredTools: Object.freeze([]),
-    citationsRequired: true,
+    requiredCapabilities: ["text", "structured_output"],
+    requiredTools: [],
+    evidencePolicy: "input_bound",
     output: jsonOutput("knowledge_candidate_v1"),
     cachePolicy: "stable_prefix",
     retry: transientRetry(2, 300, 1),
@@ -204,19 +208,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: null,
     evalSuiteId: "knowledge_grounding_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "mentor_coach",
-    allowedAgents: Object.freeze(["mentor_coach"]),
+    allowedAgents: ["mentor_coach"],
     dataClass: "private_user",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "optional",
     modelTier: "balanced",
     routeObjective: "quality_per_dollar",
-    requiredCapabilities: Object.freeze(["text"]),
-    requiredTools: Object.freeze(["platform_knowledge"]),
-    citationsRequired: false,
+    requiredCapabilities: ["text"],
+    requiredTools: ["platform_knowledge"],
+    evidencePolicy: "verified_knowledge",
     output: textOutput,
     cachePolicy: "session_prefix",
     retry: transientRetry(2, 2, 1),
@@ -225,19 +229,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: null,
     evalSuiteId: "mentor_coaching_safety_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "mentor_public_research",
-    allowedAgents: Object.freeze(["news_x_researcher", "coin_tool_researcher"]),
+    allowedAgents: ["news_x_researcher", "coin_tool_researcher"],
     dataClass: "public",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "search_native",
     routeObjective: "quality",
-    requiredCapabilities: Object.freeze(["text", "web_search", "citations"]),
-    requiredTools: Object.freeze(["web_search"]),
-    citationsRequired: true,
+    requiredCapabilities: ["text", "web_search", "citations"],
+    requiredTools: ["web_search"],
+    evidencePolicy: "provider_citations",
     output: textOutput,
     cachePolicy: "stable_prefix",
     retry: transientRetry(2, 2, 1),
@@ -246,19 +250,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: null,
     evalSuiteId: "mentor_public_research_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "content_review",
-    allowedAgents: Object.freeze(["content_reviewer", "risk_compliance_reviewer"]),
+    allowedAgents: ["content_reviewer", "risk_compliance_reviewer"],
     dataClass: "approved_platform_content",
     criticality: "standard",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "balanced",
     routeObjective: "quality",
-    requiredCapabilities: Object.freeze(["text", "structured_output"]),
-    requiredTools: Object.freeze([]),
-    citationsRequired: true,
+    requiredCapabilities: ["text", "structured_output"],
+    requiredTools: [],
+    evidencePolicy: "input_bound",
     output: jsonOutput("content_review_v1"),
     cachePolicy: "stable_prefix",
     retry: transientRetry(2, 120, 1),
@@ -267,19 +271,19 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "forbidden",
     minimumScheduleMinutes: null,
     evalSuiteId: "content_editorial_quality_v1",
-  }),
-  Object.freeze({
+  },
+  {
     id: "executive_synthesis",
-    allowedAgents: Object.freeze(["executive_briefing", "risk_compliance_reviewer"]),
+    allowedAgents: ["executive_briefing", "risk_compliance_reviewer"],
     dataClass: "restricted_admin",
     criticality: "critical",
     externalEffect: false,
     providerExecution: "required",
     modelTier: "frontier",
     routeObjective: "quality",
-    requiredCapabilities: Object.freeze(["text", "structured_output"]),
-    requiredTools: Object.freeze([]),
-    citationsRequired: true,
+    requiredCapabilities: ["text", "structured_output"],
+    requiredTools: [],
+    evidencePolicy: "input_bound",
     output: jsonOutput("executive_synthesis_v1"),
     cachePolicy: "stable_prefix",
     retry: transientRetry(2, 300, 1),
@@ -288,8 +292,8 @@ export const AI_INTELLIGENCE_TASK_CATALOG = Object.freeze([
     multiAgent: "eligible",
     minimumScheduleMinutes: null,
     evalSuiteId: "executive_synthesis_v1",
-  }),
-] as const satisfies readonly AiIntelligenceTaskDefinition[]);
+  },
+] as const satisfies readonly AiIntelligenceTaskDefinition[];
 
 const TASKS_BY_ID = new Map<AiIntelligenceTaskId, AiIntelligenceTaskDefinition>(
   AI_INTELLIGENCE_TASK_CATALOG.map((task) => [task.id, task]),
@@ -316,6 +320,7 @@ export function validateAiIntelligenceTaskCatalog(
       throw new Error(`ai_intelligence_task_identity_invalid:${task.id}`);
     }
     ids.add(task.id);
+
     if (task.allowedAgents.length === 0 || new Set(task.allowedAgents).size !== task.allowedAgents.length) {
       throw new Error(`ai_intelligence_task_agents_invalid:${task.id}`);
     }
@@ -330,15 +335,26 @@ export function validateAiIntelligenceTaskCatalog(
         }
       }
     }
+
     if (new Set(task.requiredCapabilities).size !== task.requiredCapabilities.length) {
       throw new Error(`ai_intelligence_task_capabilities_invalid:${task.id}`);
     }
     if (new Set(task.requiredTools).size !== task.requiredTools.length) {
       throw new Error(`ai_intelligence_task_tools_invalid:${task.id}`);
     }
-    if (task.citationsRequired && !task.requiredCapabilities.includes("citations")) {
-      throw new Error(`ai_intelligence_task_citations_capability_missing:${task.id}`);
+    if (
+      task.evidencePolicy === "provider_citations" &&
+      (!task.requiredCapabilities.includes("citations") || task.requiredTools.length === 0)
+    ) {
+      throw new Error(`ai_intelligence_task_provider_citations_invalid:${task.id}`);
     }
+    if (
+      task.evidencePolicy === "verified_knowledge" &&
+      task.knowledgeRead !== "verified_only"
+    ) {
+      throw new Error(`ai_intelligence_task_verified_knowledge_invalid:${task.id}`);
+    }
+
     if (task.output.mode === "json_schema") {
       if (!task.output.schemaId || !validIdentifier(task.output.schemaId)) {
         throw new Error(`ai_intelligence_task_schema_invalid:${task.id}`);
@@ -349,6 +365,7 @@ export function validateAiIntelligenceTaskCatalog(
     } else if (task.output.schemaId !== null) {
       throw new Error(`ai_intelligence_task_text_schema_forbidden:${task.id}`);
     }
+
     if (
       !Number.isSafeInteger(task.retry.maxExecutions) ||
       task.retry.maxExecutions < 1 ||
@@ -369,6 +386,7 @@ export function validateAiIntelligenceTaskCatalog(
     ) {
       throw new Error(`ai_intelligence_task_retry_none_invalid:${task.id}`);
     }
+
     if (
       task.minimumScheduleMinutes !== null &&
       (!Number.isSafeInteger(task.minimumScheduleMinutes) || task.minimumScheduleMinutes < 1)
