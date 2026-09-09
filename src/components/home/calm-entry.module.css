@@ -89,7 +89,12 @@
   .authShell { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
   .authIntro { padding-block: 0; }
   .authIntro h1 { margin-block: .75rem .5rem; font-size: 1.75rem; }
-  .authArt { display: none; }
+}
+@media (max-width: 420px) {
+  .hero, .productSection, .learningSection, .landingClose, .extendedDetails { padding-inline: 1rem; }
+  .auth { padding-inline: 1rem; }
+  .authForm { padding-inline: 1rem; }
+  .visual { border-radius: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) { .primary, .secondary, .extendedDetails > summary > svg, .faq summary > svg { transition: none; } .primary:active, .secondary:active { transform: none; } }
 @media (prefers-contrast: more) { .secondary, .authForm { border-color: currentColor; } .description, .authIntro p { color: var(--tp-text); } }

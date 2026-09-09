@@ -104,7 +104,8 @@ function formatTime(value: string, locale: Locale) {
 }
 
 export function HomeAiMentorSpotlight({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
-  return compact ? <CalmMentorSection locale={locale} /> : <FullMentorSpotlight locale={locale} />;
+  if (compact) return <CalmMentorSection locale={locale} />;
+  return <FullMentorSpotlight locale={locale} />;
 }
 
 function FullMentorSpotlight({ locale }: { locale: Locale }) {
@@ -171,7 +172,7 @@ function FullMentorSpotlight({ locale }: { locale: Locale }) {
                   <Brain className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-slate-950 dark:text-white">{isFa ? "TecPey AI Mentor" : "TecPey AI Mentor"}</p>
+                  <p className="text-sm font-black text-slate-950 dark:text-white">TecPey AI Mentor</p>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-300">{isFa ? "آموزش ۲۴ ساعته، بدون سیگنال‌فروشی" : "24/7 learning, no signal selling"}</p>
                 </div>
               </div>
@@ -232,7 +233,6 @@ function FullMentorSpotlight({ locale }: { locale: Locale }) {
     </section>
   );
 }
-
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url || "");
@@ -432,7 +432,8 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
 }
 
 export function HomeLearningJourney({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
-  return compact ? <CalmLearningSection locale={locale} /> : <FullLearningJourney locale={locale} />;
+  if (compact) return <CalmLearningSection locale={locale} />;
+  return <FullLearningJourney locale={locale} />;
 }
 
 function FullLearningJourney({ locale }: { locale: Locale }) {
