@@ -1,0 +1,13 @@
+[Unit]
+Description=Run TecPey Crypto News Capture every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+RandomizedDelaySec=20s
+AccuracySec=10s
+Unit=tecpey-news-capture.service
+
+[Install]
+WantedBy=timers.target

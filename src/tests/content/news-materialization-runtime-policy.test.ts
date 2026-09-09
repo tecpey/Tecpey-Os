@@ -232,45 +232,66 @@ describe("news feed retry policy", () => {
 
 
 describe("news translation retry policy", () => {
-  it("retries transient timeouts immediately while preserving cooldown for quality failures", () => {
+  it("applies cooldown to every persisted failure so scheduler frequency cannot amplify AI spend", () => {
     const generatedAt = "2026-09-04T06:33:13.170Z";
     const nowMs = Date.parse("2026-09-04T06:40:00.000Z");
 
+    for (const failureReason of [
+      "translation_timeout",
+      "translation_circuit_open",
+      "translation_numeric_integrity_failed",
+      "translation_language_or_shape_invalid",
+    ]) {
+      assert.equal(
+        shouldDeferNewsTranslationRetry({
+          failureReason,
+          generatedAt,
+          nowMs,
+          retryMinutes: 60,
+        }),
+        true,
+        failureReason,
+      );
+    }
+  });
+
+  it("permits one retry after the configured cooldown expires", () => {
+    const generatedAt = "2026-09-04T06:33:13.170Z";
+    const afterCooldown = Date.parse("2026-09-04T07:40:00.000Z");
+
+    for (const failureReason of [
+      "translation_timeout",
+      "translation_circuit_open",
+      "translation_numeric_integrity_failed",
+    ]) {
+      assert.equal(
+        shouldDeferNewsTranslationRetry({
+          failureReason,
+          generatedAt,
+          nowMs: afterCooldown,
+          retryMinutes: 60,
+        }),
+        false,
+        failureReason,
+      );
+    }
+  });
+
+  it("does not suppress retry when persisted evidence is unusable", () => {
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: null,
+        generatedAt: "2026-09-04T06:33:13.170Z",
+        nowMs: Date.parse("2026-09-04T06:40:00.000Z"),
+        retryMinutes: 60,
+      }),
+      false,
+    );
     assert.equal(
       shouldDeferNewsTranslationRetry({
         failureReason: "translation_timeout",
-        generatedAt,
-        nowMs,
-        retryMinutes: 60,
-      }),
-      false,
-    );
-
-    assert.equal(
-      shouldDeferNewsTranslationRetry({
-        failureReason: "translation_circuit_open",
-        generatedAt,
-        nowMs,
-        retryMinutes: 60,
-      }),
-      false,
-    );
-
-    assert.equal(
-      shouldDeferNewsTranslationRetry({
-        failureReason: "translation_numeric_integrity_failed",
-        generatedAt,
-        nowMs,
-        retryMinutes: 60,
-      }),
-      true,
-    );
-
-    assert.equal(
-      shouldDeferNewsTranslationRetry({
-        failureReason: "translation_numeric_integrity_failed",
-        generatedAt,
-        nowMs: Date.parse("2026-09-04T07:40:00.000Z"),
+        generatedAt: "invalid",
+        nowMs: Date.parse("2026-09-04T06:40:00.000Z"),
         retryMinutes: 60,
       }),
       false,
