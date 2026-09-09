@@ -1,9 +1,15 @@
 import { hostname } from "node:os";
+import type { PoolClient } from "pg";
 
+import {
+  createNewsAiCostGovernedFetch,
+  newsAiCostConfigFromEnv,
+} from "../src/lib/ops/news-ai-cost-authority";
 import {
   persistNewsEnrichmentFailure,
   readNewsEnrichmentCandidatesFromAuthority,
   withNewsEnrichmentLease,
+  type NewsEnrichmentCandidate,
 } from "../src/lib/ops/news-enrichment-authority";
 import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import { persistNewsArchiveTranslationTx } from "../src/lib/news-growth-authority";
@@ -38,7 +44,7 @@ function assertProviderReady(): { provider: "openai" | "anthropic"; model: strin
 
   // OpenRouter can perform multiple provider attempts inside one routed call.
   // Keep it disabled for the initial news launch until the provider-call ledger
-  // can reserve spend per underlying attempt rather than per article.
+  // has explicit routing/cost evidence for every underlying attempt.
   if (provider === "openrouter") {
     throw new Error("news_enrichment_openrouter_requires_provider_call_ledger");
   }
@@ -61,6 +67,42 @@ function assertProviderReady(): { provider: "openai" | "anthropic"; model: strin
   throw new Error("news_enrichment_provider_not_allowed");
 }
 
+type CostAuthorityBlockReason =
+  | "budget_exhausted"
+  | "duplicate_attempt"
+  | "authority_unavailable";
+
+function costAuthorityBlockReason(response: Response): CostAuthorityBlockReason | null {
+  const reason = response.headers.get("x-tecpey-news-ai-authority");
+  return reason === "budget_exhausted" ||
+    reason === "duplicate_attempt" ||
+    reason === "authority_unavailable"
+    ? reason
+    : null;
+}
+
+async function nextTranslationAttempt(input: {
+  client: PoolClient;
+  candidate: NewsEnrichmentCandidate;
+  locale: "fa";
+  maximumAttempts: number;
+}): Promise<number | null> {
+  const result = await input.client.query<{ previous_attempt: string | number }>(
+    `SELECT COALESCE(MAX(translation_attempt), 0)::int AS previous_attempt
+       FROM platform_news_ai_provider_attempts
+      WHERE archive_id = $1::uuid
+        AND locale = $2
+        AND source_content_hash = $3`,
+    [input.candidate.archiveId, input.locale, input.candidate.contentHash],
+  );
+  const previousAttempt = Number(result.rows[0]?.previous_attempt ?? 0);
+  if (!Number.isSafeInteger(previousAttempt) || previousAttempt < 0 || previousAttempt > 20) {
+    throw new Error("news_ai_translation_attempt_state_invalid");
+  }
+  if (previousAttempt >= input.maximumAttempts) return null;
+  return previousAttempt + 1;
+}
+
 let providerCallsMayHaveStarted = false;
 
 async function main(): Promise<void> {
@@ -71,8 +113,8 @@ async function main(): Promise<void> {
   const maximumFailures = boundedIntegerEnv("NEWS_TRANSLATION_MAX_FAILURES_PER_VERSION", 3, 1, 5);
   const aiEnabled = process.env.NEWS_AI_ENABLED?.trim() === "1";
 
-  // Authority lookup happens before any provider readiness or paid work. A DB
-  // failure throws here and cannot be mistaken for an empty reusable state.
+  // Authority lookup happens before provider readiness, cost configuration or
+  // paid work. DB failure therefore cannot be confused with "nothing to do".
   const candidates = await readNewsEnrichmentCandidatesFromAuthority({ locale, limit });
   if (!aiEnabled) {
     console.log(JSON.stringify({
@@ -101,6 +143,10 @@ async function main(): Promise<void> {
   }
 
   const provider = assertProviderReady();
+  // Cost rates/budgets are required authority, not optional observability. A
+  // missing or internally inconsistent cost contract stops before any egress.
+  const costConfig = newsAiCostConfigFromEnv();
+
   let processed = 0;
   let completed = 0;
   let failed = 0;
@@ -108,11 +154,13 @@ async function main(): Promise<void> {
   let exhausted = 0;
   let terminal = 0;
   let skippedCompleted = 0;
+  let providerNetworkCalls = 0;
+  let costBudgetDeferred = 0;
+  let costReplayBlocked = 0;
+  let costAuthorityUnavailable = 0;
 
-  // Intentionally sequential. With OpenAI/Anthropic and fallback disabled,
-  // translateNewsFeedToPersian performs at most one initial call plus one
-  // governed repair call per article. Therefore this run has a deterministic
-  // upper bound of limit * 2 provider calls until the spend ledger lands.
+  // Intentionally sequential. The article lease plus provider-call ledger make
+  // duplicate spend fail closed; concurrency is unnecessary for initial launch.
   for (const candidate of candidates) {
     const leased = await withNewsEnrichmentLease({
       candidate,
@@ -121,17 +169,70 @@ async function main(): Promise<void> {
       maximumFailures,
       run: async (client) => {
         const generatedAt = new Date().toISOString();
-        processed += 1;
+        let translationAttempt: number | null;
         try {
-          providerCallsMayHaveStarted = true;
-          const translation = await translateNewsFeedToPersian({
-            title: candidate.sourceTitle,
-            lead: candidate.sourceLead,
-            body: candidate.sourceBody,
-            sourceName: candidate.sourceName,
-            sourceUrl: candidate.articleUrl,
-            sourceCoverage: sourceCoverage(candidate.sourceLead, candidate.sourceBody),
+          translationAttempt = await nextTranslationAttempt({
+            client,
+            candidate,
+            locale,
+            maximumAttempts: maximumFailures,
           });
+        } catch {
+          // Cost authority is a hard prerequisite. Do not write a translation
+          // failure or spend a provider call when its ledger is unavailable.
+          costAuthorityUnavailable += 1;
+          return { ok: false as const, reason: "cost_authority_unavailable" as const };
+        }
+        if (translationAttempt === null) {
+          exhausted += 1;
+          return { ok: false as const, reason: "cost_attempt_budget_exhausted" as const };
+        }
+
+        processed += 1;
+        let authorityBlock: CostAuthorityBlockReason | null = null;
+        const networkCallsBefore = providerNetworkCalls;
+        const actualNetworkFetch: typeof fetch = async (request, init) => {
+          providerCallsMayHaveStarted = true;
+          providerNetworkCalls += 1;
+          return fetch(request, init);
+        };
+        const governedFetch = createNewsAiCostGovernedFetch({
+          client,
+          candidate,
+          locale,
+          translationAttempt,
+          primaryModel: provider.model,
+          config: costConfig,
+          fetchImpl: actualNetworkFetch,
+        });
+        const observedGovernedFetch: typeof fetch = async (request, init) => {
+          const response = await governedFetch(request, init);
+          authorityBlock = costAuthorityBlockReason(response) ?? authorityBlock;
+          return response;
+        };
+
+        try {
+          const translation = await translateNewsFeedToPersian(
+            {
+              title: candidate.sourceTitle,
+              lead: candidate.sourceLead,
+              body: candidate.sourceBody,
+              sourceName: candidate.sourceName,
+              sourceUrl: candidate.articleUrl,
+              sourceCoverage: sourceCoverage(candidate.sourceLead, candidate.sourceBody),
+            },
+            { fetchImpl: observedGovernedFetch },
+          );
+
+          // Local cost-authority blocks are not translation failures. Persisting
+          // them as provider quota/quality failures would poison immutable retry
+          // state even though no provider network call occurred for the block.
+          if (authorityBlock) {
+            if (authorityBlock === "budget_exhausted") costBudgetDeferred += 1;
+            else if (authorityBlock === "duplicate_attempt") costReplayBlocked += 1;
+            else costAuthorityUnavailable += 1;
+            return { ok: false as const, reason: `cost_${authorityBlock}` as const };
+          }
 
           if (!translation.ok) {
             failed += 1;
@@ -144,12 +245,14 @@ async function main(): Promise<void> {
               model: translation.model ?? null,
               reason: translation.reason,
               evidence: {
+                translationAttempt,
+                providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
                 numericFailureKind: translation.numericFailureKind ?? null,
                 numericFailureFactKey: translation.numericFailureFactKey ?? null,
                 unsupportedLatinEntities: translation.unsupportedLatinEntities?.slice(0, 12) ?? null,
               },
             });
-            return { ok: false as const };
+            return { ok: false as const, reason: "translation_failed" as const };
           }
 
           const finalRoute = translation.route?.ok ? translation.route : null;
@@ -168,6 +271,8 @@ async function main(): Promise<void> {
               sourceCoverage: translation.translation.sourceCoverage,
               numericIntegrity: translation.translation.quality.numericIntegrity,
               noAddedAdvice: translation.translation.quality.noAddedAdvice,
+              translationAttempt,
+              providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
               finalProviderCall: finalRoute
                 ? {
                     requestedModel: finalRoute.requestedModel,
@@ -181,7 +286,7 @@ async function main(): Promise<void> {
             },
           });
           completed += 1;
-          return { ok: true as const };
+          return { ok: true as const, reason: "completed" as const };
         } catch (error) {
           failed += 1;
           await persistNewsEnrichmentFailure({
@@ -191,12 +296,14 @@ async function main(): Promise<void> {
             generatedAt,
             reason: "translation_worker_exception",
             evidence: {
+              translationAttempt,
+              providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
               errorCode: error instanceof Error
                 ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 160)
                 : "unknown",
             },
           });
-          return { ok: false as const };
+          return { ok: false as const, reason: "worker_exception" as const };
         }
       },
     });
@@ -233,6 +340,10 @@ async function main(): Promise<void> {
     exhausted,
     terminal,
     skippedCompleted,
+    providerNetworkCalls,
+    costBudgetDeferred,
+    costReplayBlocked,
+    costAuthorityUnavailable,
     retryMinutes,
     maximumFailures,
     maximumProviderCallsPerRun: limit * 2,
