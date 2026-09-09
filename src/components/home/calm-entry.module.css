@@ -19,7 +19,7 @@
 .secondary { color: var(--tp-text); border: 1px solid var(--tp-border); background: var(--tp-surface); }
 .primary:focus-visible, .secondary:focus-visible { outline: 3px solid var(--tp-primary); outline-offset: 4px; }
 .primary:active, .secondary:active { transform: scale(.98); }
-.visual { position: relative; min-width: 0; aspect-ratio: 1 / 1.08; overflow: hidden; border-radius: 2rem; background: #071221; }
+.visual { position: relative; min-width: 0; margin: 0; aspect-ratio: 1 / 1.08; overflow: hidden; border-radius: 2rem; background: #071221; }
 .visual img { object-fit: cover; }
 .visual figcaption { position: absolute; inset-inline: 0; bottom: 0; padding: 3rem 1.5rem 1.5rem; color: #f4f7fb; background: linear-gradient(transparent, #071221); font-size: .9375rem; text-align: center; }
 .auth { background: var(--tp-bg); padding: 2rem 1.25rem 6rem; color: var(--tp-text); }
@@ -43,28 +43,34 @@
   color: var(--tp-text);
 }
 .productSection { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(2rem, 5vw, 5rem); align-items: center; }
-.productHeading { max-width: 42rem; }
+.productHeading { max-width: 42rem; min-width: 0; }
 .productHeading > svg, .learningItem > svg, .trustNote > svg { color: var(--tp-primary); }
 .productHeading h2, .landingClose h2 { font-size: clamp(1.65rem, 3vw, 2.65rem); font-weight: 700; line-height: 1.45; text-wrap: balance; }
 .productHeading > svg { margin-bottom: 1rem; }
 .productHeading p, .mentorNote p, .learningItem p, .trustNote p, .closingCta p { color: var(--tp-muted); line-height: 1.95; margin-block: 1rem 1.5rem; }
-.mentorNote { background: var(--tp-surface); border-radius: 1.75rem; padding: clamp(1.5rem, 3vw, 2.5rem); }
+.mentorNote { min-width: 0; background: var(--tp-surface); border-radius: 1.75rem; padding: clamp(1.5rem, 3vw, 2.5rem); }
 .mentorNote h3, .learningItem h3 { font-size: 1.25rem; line-height: 1.7; font-weight: 650; }
 .mentorNote .smallNote { font-size: .875rem; border-top: 1px solid var(--tp-border); padding-top: 1rem; margin-bottom: 0; }
 .learningGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; }
-.learningItem { border-inline-start: 2px solid var(--tp-border-strong); padding-inline-start: 1.5rem; }
+.learningItem { min-width: 0; border-inline-start: 2px solid var(--tp-border-strong); padding-inline-start: 1.5rem; }
 .learningItem h3 { margin-top: 1rem; }
 .textLink { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; color: var(--tp-primary); text-decoration: underline; text-underline-offset: .3em; }
 .extendedDetails { padding-block: 1rem; }
 .extendedDetails > summary { cursor: pointer; min-height: 56px; padding: 1rem 1.25rem; background: var(--tp-surface); border-radius: 1rem; font-weight: 600; line-height: 1.7; }
+.extendedDetails > summary, .faq summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.extendedDetails > summary::-webkit-details-marker, .faq summary::-webkit-details-marker { display: none; }
+.extendedDetails > summary > span, .faq summary > span { min-width: 0; overflow-wrap: anywhere; }
+.extendedDetails > summary > svg, .faq summary > svg { flex-shrink: 0; transition: transform 160ms ease-out; }
+.extendedDetails[open] > summary > svg, .faq details[open] > summary > svg { transform: rotate(180deg); }
 .extendedContent { padding-top: 2rem; }
 .trustNote { display: flex; align-items: flex-start; gap: 1.25rem; padding-block: 1rem 3rem; border-bottom: 1px solid var(--tp-border); }
 .trustNote > svg { flex-shrink: 0; margin-top: .7rem; }
+.trustNote > div { min-width: 0; }
 .trustNote p { max-width: 48rem; }
 .faq { max-width: 52rem; margin: 3rem auto; }
 .faq h2 { margin-bottom: 1.5rem; }
 .faq details { border-bottom: 1px solid var(--tp-border); }
-.faq summary { padding-block: 1.25rem; cursor: pointer; font-weight: 600; line-height: 1.8; }
+.faq summary { min-height: 56px; padding-block: 1.25rem; cursor: pointer; font-weight: 600; line-height: 1.8; }
 .faq details p { padding-block: 0 1.5rem; color: var(--tp-muted); line-height: 1.95; }
 .closingCta { display: flex; flex-direction: column; align-items: center; text-align: center; padding-block: 3rem 1rem; }
 .closingCta h2 { margin-top: 1.25rem; }
@@ -85,5 +91,5 @@
   .authIntro h1 { margin-block: .75rem .5rem; font-size: 1.75rem; }
   .authArt { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .primary, .secondary { transition: none; } .primary:active, .secondary:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .primary, .secondary, .extendedDetails > summary > svg, .faq summary > svg { transition: none; } .primary:active, .secondary:active { transform: none; } }
 @media (prefers-contrast: more) { .secondary, .authForm { border-color: currentColor; } .description, .authIntro p { color: var(--tp-text); } }
