@@ -1,0 +1,284 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import useScrollReveal from "@/hooks/useScrollReveal";
+import { useTranslations } from "next-intl";
+import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
+import MarketsHero from "../../components/markets/MarketsHero";
+import MarketsSearchBar from "../../components/markets/MarketsSearchBar";
+import MarketsTable from "../../components/markets/MarketsTable";
+
+import { useQuery } from "@tanstack/react-query";
+import { getCurrencies } from "@/services/swap.services";
+import type { MarketCurrency } from "@/types/market";
+import {
+
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+
+const getPageNumbers = (current: number, total: number) => {
+  const pages: (number | string)[] = [];
+
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (current > 2) pages.push("...");
+
+    const start = Math.max(2, current - 1);
+    const end = Math.min(total - 1, current + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (current < total - 2) pages.push("...");
+    pages.push(total);
+  }
+  return pages;
+};
+
+function useDebouncedValue<T>(value: T, delay = 400) {
+  const [debounced, setDebounced] = React.useState(value);
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+type InitialCurrencies = {
+  data: MarketCurrency[];
+  meta: { current_page: number; last_page: number };
+};
+
+export default function MarketsPageClient({
+  initialCurrencies,
+}: {
+  initialCurrencies: InitialCurrencies | undefined;
+}) {
+  const t = useTranslations("Markets");
+  useScrollReveal({ threshold: 0.2 });
+
+  const initialPairs = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "USDTUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+  ];
+
+  const { USDT_IRT } = useBaseCurrenciesPrice(initialPairs);
+
+  const isIRTenabled = Boolean(USDT_IRT);
+
+  const [query, setQuery] = useState("");
+  const [filter, _setFilter] = useState<string>("all");
+
+  const [_sortBy, _setSortBy] = useState<"volume" | "change">("volume");
+  const [_sortDir, _setSortDir] = useState<"desc" | "asc">("desc");
+
+  const LIMIT = 30;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const debouncedQuery = useDebouncedValue(query, 400);
+
+  // initialCurrencies was prefetched on the server for exactly this default
+  // view (page 1, no search, no filter) — see src/app/markets/page.tsx. It
+  // only applies to the query's very first observation of this key, so it
+  // never overrides a later client-side refetch or a different page/search.
+  const isDefaultView = currentPage === 1 && !debouncedQuery && filter === "all";
+
+  const { data, isFetching } = useQuery({
+    queryKey: ["market-currencies", currentPage, LIMIT, debouncedQuery, filter],
+    queryFn: () => getCurrencies(currentPage, LIMIT, debouncedQuery),
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    placeholderData: (previousData) => previousData,
+    initialData: isDefaultView ? initialCurrencies : undefined,
+  });
+
+  const pageCurrencies = useMemo(() => {
+    return data?.data ?? [];
+  }, [data]);
+
+  const processedCurrencies = useMemo(() => {
+    let list = pageCurrencies.filter(
+      (coin) => !["IRT", "USD"].includes(coin.symbol ?? ""),
+    );
+
+    const q = debouncedQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter((c) => {
+        const symbol = String(c?.symbol ?? "").toLowerCase();
+        const name = String(c?.name ?? "").toLowerCase();
+        const priceSymbol = String(c?.priceData?.symbol ?? "").toLowerCase();
+
+        return (
+          symbol.includes(q) || name.includes(q) || priceSymbol.includes(q)
+        );
+      });
+    }
+
+    const getChange = (c: MarketCurrency) => Number(c.priceData?.changePercent ?? 0);
+    const getVolume = (c: MarketCurrency) => Number(c.priceData?.volume ?? 0);
+    const getRank = (c: MarketCurrency) => Number(c.priceData?.rank ?? 0);
+
+    list = [...list].sort((a, b) => {
+      if (filter === "all") {
+        return getRank(a);
+      }
+      if (filter === "ascending") {
+        return getChange(b) - getChange(a);
+      }
+
+      if (filter === "descending") {
+        return getChange(a) - getChange(b);
+      }
+
+      if (filter === "high_volume") {
+        return getVolume(b) - getVolume(a);
+      }
+
+      return getVolume(b) - getVolume(a);
+    });
+
+    return list;
+  }, [pageCurrencies, debouncedQuery, filter]);
+
+  const totalPages = Math.max(1, Number(data?.meta?.last_page ?? 1));
+
+  const pageNumbers = useMemo(
+    () => getPageNumbers(currentPage, totalPages),
+    [currentPage, totalPages],
+  );
+
+  const goToPrevPage = () => setCurrentPage((p) => Math.max(p - 1, 1));
+  const goToNextPage = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
+  const goToPage = (page: number) => setCurrentPage(page);
+
+
+ return (
+    <main className="relative bg-transparent">
+      <section className="px-4 pt-32 md:px-8 md:pt-36">
+        <div className="mx-auto max-w-[1480px]">
+          <MarketsSearchBar
+          t={t}
+          query={query}
+          onQueryChange={(value) => {
+            setQuery(value);
+            setCurrentPage(1);
+          }}
+          />
+        </div>
+      </section>
+      <MarketsHero t={t} />
+
+      <section className="px-2 pb-12 pt-2 sm:px-4 md:px-6">
+        <div className="mx-auto max-w-[1480px]">
+        {/* <MarketsFilters
+          t={t}
+          activeFilter={filter}
+          onFilterChange={setFilter}
+        /> */}
+
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="w-full">
+            <div className="relative mt-3">
+              <MarketsTable
+                t={t}
+                rows={processedCurrencies}
+                isIRTenabled={isIRTenabled}
+                USDT_IRT={USDT_IRT}
+                itemsPerPage={LIMIT}
+                isLoading={isFetching && !data}
+              />
+
+              {processedCurrencies.some((coin) => coin.marketDataSource === "CoinGecko") ? (
+                <p className="mt-3 text-center text-[11px] font-bold text-muted" role="status">
+                  {t("publicSourcePrefix")}{" "}
+                  <a
+                    href="https://www.coingecko.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-black text-primary underline underline-offset-4"
+                  >
+                    CoinGecko
+                  </a>
+                  {" · "}{t("publicSourceFreshness")}
+                </p>
+              ) : null}
+
+              {isFetching && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"></div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6 overflow-x-auto">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-max">
+                  <button
+                    onClick={goToPrevPage}
+                    aria-label="صفحه قبل"
+                    disabled={currentPage === 1 || isFetching}
+                    className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg text-white ${
+                      currentPage === 1 || isFetching
+                        ? "bg-gray-500 cursor-not-allowed"
+                        : "bg-primary hover:bg-blue-700"
+                    }`}
+                  >
+                    <ChevronsLeft className="size-4 rtl-flip" />
+                  </button>
+
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    {pageNumbers.map((p, idx) =>
+                      p === "..." ? (
+                        <span
+                          key={`dots-${idx}`}
+                          className="px-1 sm:px-2 text-gray-500"
+                        >
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => typeof p === "number" && goToPage(p)}
+                          disabled={isFetching}
+                          className={`min-w-8 h-8 sm:min-w-9 sm:h-9 px-2 sm:px-3 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${
+                            p === currentPage
+                              ? "bg-primary text-white border-primary/20"
+                              : "bg-[var(--card-1)] text-muted border-primary/30 hover:bg-white/5"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ),
+                    )}
+                  </div>
+
+                  <button
+                    onClick={goToNextPage}
+                    aria-label="صفحه بعد"
+                    disabled={currentPage === totalPages || isFetching}
+                    className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg text-white ${
+                      currentPage === totalPages || isFetching
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    }`}
+                  >
+                    <ChevronsRight className="size-4 rtl-flip" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        </div>
+      </section>
+    </main>
+  );
+}

@@ -28,7 +28,7 @@ describe("public market visual integrity", () => {
     const surfaces = [
       "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx",
       "src/app/en/EnglishLandingClient.tsx",
-      "src/app/en/markets/page.tsx",
+      "src/app/en/markets/MarketsPageClient.tsx",
       "src/components/charts/chart.tsx",
       "src/components/crypto/SwapPanel.tsx",
       "src/data/coinKnowledge.ts",
