@@ -186,7 +186,7 @@ describe("Logout-all session authority", () => {
   );
 
   it(
-    "returns durable success on Redis pipeline failure and repairs deny evidence on retry",
+    "keeps durable logout-all success correct when Redis publication fails or a concurrent publisher repairs it",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `logout-all-retry-${randomUUID()}`;
@@ -201,12 +201,14 @@ describe("Logout-all session authority", () => {
         ip: "127.0.0.2",
       });
       const originalRedis = globalThis.tecpeyRedisClient;
+      let pipelineExecAttempts = 0;
 
       const failingPipelineRedis = {
         get: (key: string) => redis!.get(key),
         pipeline: () => ({
           set: () => undefined,
           exec: async () => {
+            pipelineExecAttempts += 1;
             throw new Error("redis_pipeline_unavailable");
           },
         }),
@@ -217,13 +219,18 @@ describe("Logout-all session authority", () => {
           failingPipelineRedis as unknown as typeof originalRedis;
         const committed = await logoutAll(request(current.accessToken));
         assert.equal(committed.status, 200);
-        assert.deepEqual(await committed.json(), {
-          ok: true,
-          revokedCount: 1,
-          currentAccessRetained: true,
-          currentRefreshFamilyRetained: true,
-          revocationPending: true,
-        });
+        const committedBody = await committed.json() as {
+          ok: boolean;
+          revokedCount: number;
+          currentAccessRetained: boolean;
+          currentRefreshFamilyRetained: boolean;
+          revocationPending: boolean;
+        };
+        assert.equal(committedBody.ok, true);
+        assert.equal(committedBody.revokedCount, 1);
+        assert.equal(committedBody.currentAccessRetained, true);
+        assert.equal(committedBody.currentRefreshFamilyRetained, true);
+        assert.equal(typeof committedBody.revocationPending, "boolean");
 
         const durable = await withDb(async (client) => {
           const access = await client.query<{ is_revoked: boolean }>(
@@ -260,8 +267,24 @@ describe("Logout-all session authority", () => {
           );
           const denyValue = await redis!.get(denyKey(other.accessJti));
           assert.equal(denyValue === null || denyValue === "1", true);
-          if (denyValue === null) {
-            assert.equal(durable.value.outboxStatus, "pending");
+
+          if (committedBody.revocationPending) {
+            // This process reached the deliberately failing publisher. Another
+            // parallel test worker is still allowed to repair the same durable
+            // outbox row after the response, so post-response evidence may
+            // already have advanced from pending to published.
+            assert.equal(pipelineExecAttempts > 0, true);
+            if (denyValue === null) {
+              assert.equal(durable.value.outboxStatus, "pending");
+            }
+          } else {
+            // npm test runs PostgreSQL integration files concurrently. The
+            // revocation outbox is intentionally shared, so another healthy
+            // publisher may win the race between commit and this route's
+            // publication attempt. A false pending flag is valid only when the
+            // durable row and Redis deny evidence prove that repair already won.
+            assert.equal(durable.value.outboxStatus, "published");
+            assert.equal(denyValue, "1");
           }
         }
 
