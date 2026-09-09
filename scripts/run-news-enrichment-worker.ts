@@ -38,13 +38,14 @@ function sourceCoverage(sourceLead: string, sourceBody: string): "feed_full" | "
 function assertProviderReady(): { provider: "openai" | "anthropic"; model: string } {
   const provider = (process.env.NEWS_TRANSLATION_PROVIDER ?? "openai").trim().toLowerCase();
   const fallbackModel = process.env.NEWS_TRANSLATION_FALLBACK_MODEL?.trim() ?? "";
-  if (fallbackModel && process.env.NEWS_ENRICHMENT_ALLOW_FALLBACK?.trim() !== "1") {
-    throw new Error("news_enrichment_fallback_model_forbidden_without_explicit_authority");
+  // Initial activation is deliberately single-model. Every article attempt can
+  // therefore perform at most one primary call plus one validation repair. A
+  // multi-model fallback is enabled only in a later, separately evidenced
+  // release with explicit routing/cost tests.
+  if (fallbackModel) {
+    throw new Error("news_enrichment_fallback_model_disabled_for_initial_activation");
   }
 
-  // OpenRouter can perform multiple provider attempts inside one routed call.
-  // Keep it disabled for the initial news launch until the provider-call ledger
-  // has explicit routing/cost evidence for every underlying attempt.
   if (provider === "openrouter") {
     throw new Error("news_enrichment_openrouter_requires_provider_call_ledger");
   }
@@ -113,8 +114,6 @@ async function main(): Promise<void> {
   const maximumFailures = boundedIntegerEnv("NEWS_TRANSLATION_MAX_FAILURES_PER_VERSION", 3, 1, 5);
   const aiEnabled = process.env.NEWS_AI_ENABLED?.trim() === "1";
 
-  // Authority lookup happens before provider readiness, cost configuration or
-  // paid work. DB failure therefore cannot be confused with "nothing to do".
   const candidates = await readNewsEnrichmentCandidatesFromAuthority({ locale, limit });
   if (!aiEnabled) {
     console.log(JSON.stringify({
@@ -143,8 +142,6 @@ async function main(): Promise<void> {
   }
 
   const provider = assertProviderReady();
-  // Cost rates/budgets are required authority, not optional observability. A
-  // missing or internally inconsistent cost contract stops before any egress.
   const costConfig = newsAiCostConfigFromEnv();
 
   let processed = 0;
@@ -159,8 +156,6 @@ async function main(): Promise<void> {
   let costReplayBlocked = 0;
   let costAuthorityUnavailable = 0;
 
-  // Intentionally sequential. The article lease plus provider-call ledger make
-  // duplicate spend fail closed; concurrency is unnecessary for initial launch.
   for (const candidate of candidates) {
     const leased = await withNewsEnrichmentLease({
       candidate,
@@ -178,8 +173,6 @@ async function main(): Promise<void> {
             maximumAttempts: maximumFailures,
           });
         } catch {
-          // Cost authority is a hard prerequisite. Do not write a translation
-          // failure or spend a provider call when its ledger is unavailable.
           costAuthorityUnavailable += 1;
           return { ok: false as const, reason: "cost_authority_unavailable" as const };
         }
@@ -224,9 +217,6 @@ async function main(): Promise<void> {
             { fetchImpl: observedGovernedFetch },
           );
 
-          // Local cost-authority blocks are not translation failures. Persisting
-          // them as provider quota/quality failures would poison immutable retry
-          // state even though no provider network call occurred for the block.
           if (authorityBlock) {
             if (authorityBlock === "budget_exhausted") costBudgetDeferred += 1;
             else if (authorityBlock === "duplicate_attempt") costReplayBlocked += 1;
