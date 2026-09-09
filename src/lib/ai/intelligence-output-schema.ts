@@ -31,23 +31,11 @@ const boundedText = (maxLength: number) => Object.freeze({
   maxLength,
 });
 
-const nullableText = (maxLength: number) => Object.freeze({
-  anyOf: [boundedText(maxLength), { type: "null" }],
-});
-
 const confidence = Object.freeze({
   type: "number",
   minimum: 0,
   maximum: 1,
 });
-
-const urlReference = objectSchema(
-  {
-    url: Object.freeze({ type: "string", format: "uri", maxLength: 2048 }),
-    title: nullableText(300),
-  },
-  ["url", "title"],
-);
 
 const evidenceReference = objectSchema(
   {
