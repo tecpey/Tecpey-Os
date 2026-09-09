@@ -162,6 +162,12 @@ export function createAiIntelligenceEventEnvelope(input: {
   const workspaceId = safeScope(input.workspaceId, "workspace_id");
   assertScopePolicy({ tenantId, workspaceId, dataClass: input.dataClass });
 
+  const occurredAt = validIso(input.occurredAt, "occurred_at");
+  const recordedAt = validIso(input.recordedAt ?? new Date().toISOString(), "recorded_at");
+  if (Date.parse(recordedAt) < Date.parse(occurredAt)) {
+    throw new Error("ai_intelligence_event_recorded_before_occurred");
+  }
+
   const correlationId = boundedToken(input.correlationId, "correlation_id", 256);
   const aggregateType = boundedToken(input.aggregateType, "aggregate_type", 120);
   const aggregateId = boundedToken(input.aggregateId, "aggregate_id", 256);
@@ -193,8 +199,8 @@ export function createAiIntelligenceEventEnvelope(input: {
     eventId,
     eventType: input.eventType,
     schemaVersion: 1,
-    occurredAt: validIso(input.occurredAt, "occurred_at"),
-    recordedAt: validIso(input.recordedAt ?? new Date().toISOString(), "recorded_at"),
+    occurredAt,
+    recordedAt,
     tenantId,
     workspaceId,
     aggregateType,
