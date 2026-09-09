@@ -35,11 +35,26 @@ type CaptureArticle = {
   fetchedAt: string;
 };
 
+export type CaptureContinuity =
+  | "bootstrap"
+  | "proven_overlap"
+  | "continuity_unproven"
+  | "empty_feed"
+  | "source_failed";
+
 type SourceCaptureResult = {
   sourceName: string;
   fetchedCount: number;
   insertedCount: number;
   replayedCount: number;
+  continuity: CaptureContinuity;
+  previousLatestArticleUrl: string | null;
+  previousLatestPublishedAt: string | null;
+};
+
+type PreviousSourceHead = {
+  articleUrl: string;
+  publishedAt: string;
 };
 
 function boundedIntegerEnv(name: string, fallback: number, minimum: number, maximum: number): number {
@@ -186,6 +201,19 @@ export function dedupeCapturedArticles(items: readonly CaptureArticle[]): Captur
   return [...selected.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
 
+export function captureContinuity(input: {
+  sourceFailed: boolean;
+  previousHead: PreviousSourceHead | null;
+  fetchedCount: number;
+  replayedCount: number;
+}): CaptureContinuity {
+  if (input.sourceFailed) return "source_failed";
+  if (!input.previousHead) return "bootstrap";
+  if (input.fetchedCount === 0) return "empty_feed";
+  if (input.replayedCount > 0) return "proven_overlap";
+  return "continuity_unproven";
+}
+
 async function main(): Promise<void> {
   const fetchedAt = new Date(process.env.NEWS_CAPTURE_FETCHED_AT ?? Date.now()).toISOString();
   const limitPerSource = boundedIntegerEnv(
@@ -223,6 +251,7 @@ async function main(): Promise<void> {
         reason: result.reason instanceof Error ? result.reason.message : "unknown",
       }]
     : []);
+  const failedSources = new Set(failures.map((failure) => failure.sourceName));
   const fetchedBySource = new Map<string, number>();
   for (const result of settled) {
     if (result.status !== "fulfilled") continue;
@@ -242,10 +271,35 @@ async function main(): Promise<void> {
       fetchedCount: fetchedBySource.get(source.name) ?? 0,
       insertedCount: 0,
       replayedCount: 0,
+      continuity: failedSources.has(source.name) ? "source_failed" : "bootstrap",
+      previousLatestArticleUrl: null,
+      previousLatestPublishedAt: null,
     });
   }
 
   await withTx(async (client) => {
+    const previous = await client.query<{
+      source_name: string;
+      article_url: string;
+      published_at: string | Date;
+    }>(
+      `SELECT DISTINCT ON (source_name)
+              source_name, article_url, published_at
+         FROM platform_news_archive_items
+        WHERE source_name = ANY($1::text[])
+        ORDER BY source_name, published_at DESC, fetched_at DESC, archive_id DESC`,
+      [NEWS_SOURCE_REGISTRY.map((source) => source.name)],
+    );
+    const previousBySource = new Map<string, PreviousSourceHead>(
+      previous.rows.map((row) => [
+        row.source_name,
+        {
+          articleUrl: row.article_url,
+          publishedAt: new Date(row.published_at).toISOString(),
+        },
+      ]),
+    );
+
     for (const article of articles) {
       const archive = await persistNewsArchiveItemTx(client, {
         sourceName: article.source.name,
@@ -264,13 +318,31 @@ async function main(): Promise<void> {
       if (archive.inserted) result.insertedCount += 1;
       else result.replayedCount += 1;
     }
+
+    for (const source of NEWS_SOURCE_REGISTRY) {
+      const result = sourceResults.get(source.name);
+      if (!result) continue;
+      const previousHead = previousBySource.get(source.name) ?? null;
+      result.previousLatestArticleUrl = previousHead?.articleUrl ?? null;
+      result.previousLatestPublishedAt = previousHead?.publishedAt ?? null;
+      result.continuity = captureContinuity({
+        sourceFailed: failedSources.has(source.name),
+        previousHead,
+        fetchedCount: result.fetchedCount,
+        replayedCount: result.replayedCount,
+      });
+    }
   });
 
-  const insertedCount = [...sourceResults.values()].reduce((sum, item) => sum + item.insertedCount, 0);
-  const replayedCount = [...sourceResults.values()].reduce((sum, item) => sum + item.replayedCount, 0);
+  const results = [...sourceResults.values()];
+  const insertedCount = results.reduce((sum, item) => sum + item.insertedCount, 0);
+  const replayedCount = results.reduce((sum, item) => sum + item.replayedCount, 0);
+  const continuityRiskCount = results.filter((item) =>
+    item.continuity === "continuity_unproven" || item.continuity === "empty_feed"
+  ).length;
 
   console.log(JSON.stringify({
-    status: failures.length === 0 ? "ok" : "degraded",
+    status: failures.length === 0 && continuityRiskCount === 0 ? "ok" : "degraded",
     mode: "capture_only",
     aiCalls: 0,
     fetchedAt,
@@ -279,7 +351,11 @@ async function main(): Promise<void> {
     fetchedArticleCount: articles.length,
     insertedCount,
     replayedCount,
-    sourceResults: [...sourceResults.values()],
+    continuityRiskCount,
+    zeroLossClaim: continuityRiskCount === 0 && failures.length === 0
+      ? "continuity_observed"
+      : "not_proven",
+    sourceResults: results,
     failures,
   }));
 }
