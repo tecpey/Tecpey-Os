@@ -6,8 +6,9 @@ import {
   newsAiCostConfigFromEnv,
 } from "../../lib/ops/news-ai-cost-authority";
 
-function env(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+function env(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   return {
+    NODE_ENV: "test",
     NEWS_AI_DAILY_BUDGET_USD_MICROS: "1000000",
     NEWS_AI_MAX_CALL_COST_USD_MICROS: "100000",
     NEWS_AI_INPUT_COST_USD_MICROS_PER_MILLION_TOKENS: "400000",
