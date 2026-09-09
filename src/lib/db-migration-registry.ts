@@ -88,6 +88,7 @@ import { runAiRouteCandidateMigrations } from "./db-migrate-ai-route-candidates"
 import { runAiTenantRlsMigrations } from "./db-migrate-ai-tenant-rls";
 import { runSupportMessagesMigrations } from "./db-migrate-support-messages";
 import { runNewsArchiveAndGrowthMigrations } from "./db-migrate-news-growth";
+import { NEWS_AI_COST_AUTHORITY_SQL } from "./db-migrate-news-ai-cost-authority";
 import { runIdentityProductLinkingMigrations } from "./db-migrate-identity-product-linking";
 import { runAcademyProfileDetailsMigrations } from "./db-migrate-academy-profile-details";
 import { runAcademyQuestionBankBaselineMigrations } from "./db-migrate-academy-question-bank-baseline";
@@ -131,6 +132,24 @@ export function migrationEntryChecksum(migrations: readonly CanonicalMigrationCo
     .update(JSON.stringify(migrations.map(({ identity, checksum }) => ({ identity, checksum }))))
     .digest("hex");
 }
+
+const NEWS_AI_COST_MIGRATION: CanonicalMigrationContent = Object.freeze({
+  identity: "0102_news_ai_cost_authority.sql",
+  content: NEWS_AI_COST_AUTHORITY_SQL,
+  checksum: canonicalMigrationChecksum(NEWS_AI_COST_AUTHORITY_SQL),
+  acceptsHistoricalChecksumPrefix: false,
+  compatibleHistoricalChecksums: Object.freeze([
+    createHash("sha256")
+      .update(NEWS_AI_COST_AUTHORITY_SQL.replace(/\s+/g, " ").trim())
+      .digest("hex")
+      .slice(0, 16),
+  ]),
+});
+
+const NEWS_ARCHIVE_AND_COST_MIGRATIONS = Object.freeze([
+  ...CANONICAL_MIGRATION_CONTENT.newsArchiveAndGrowth,
+  NEWS_AI_COST_MIGRATION,
+]);
 
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
@@ -215,7 +234,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(80, "migration-step-080", CANONICAL_MIGRATION_CONTENT.aiRouteCandidates, "platform-security", "ai-routing", runAiRouteCandidateMigrations),
   entry(81, "migration-step-081", CANONICAL_MIGRATION_CONTENT.aiTenantRowLevelSecurity, "platform-security", "ai-tenant-isolation", runAiTenantRlsMigrations),
   entry(82, "migration-step-082", CANONICAL_MIGRATION_CONTENT.supportMessages, "engagement-platform", "crm", runSupportMessagesMigrations),
-  entry(83, "migration-step-083", CANONICAL_MIGRATION_CONTENT.newsArchiveAndGrowth, "growth-platform", "organic-growth", runNewsArchiveAndGrowthMigrations),
+  entry(83, "migration-step-083", NEWS_ARCHIVE_AND_COST_MIGRATIONS, "growth-platform", "organic-growth", runNewsArchiveAndGrowthMigrations),
   entry(84, "migration-step-084", CANONICAL_MIGRATION_CONTENT.identityProductLinking, "security-platform", "identity-linking", runIdentityProductLinkingMigrations),
   entry(85, "migration-step-085", CANONICAL_MIGRATION_CONTENT.academyProfileDetails, "academy-platform", "academy-profile", runAcademyProfileDetailsMigrations),
   entry(86, "migration-step-086", CANONICAL_MIGRATION_CONTENT.academyQuestionBankBaseline, "academy-platform", "academy", runAcademyQuestionBankBaselineMigrations),
