@@ -9,10 +9,25 @@ import {
 beforeEach(() => resetAiProviderCircuits());
 
 describe("AI provider router telemetry authority", () => {
+  it("rejects a forbidden provider-agent pair before any provider request", async () => {
+    let calls = 0;
+    await assert.rejects(callAiProvider({
+      providerId: "xai", agentId: "coin_tool_researcher",
+      apiKey: "xai-test-key", model: "grok-test-model",
+      instructions: "public research", input: "public query", dataClass: "public",
+    }, {
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response("{}");
+      },
+    }), /ai_agent_provider_forbidden:coin_tool_researcher:xai/);
+    assert.equal(calls, 0);
+  });
+
   it("projects legacy usage fields from the canonical normalized telemetry object", async () => {
     const result = await callAiProvider({
       providerId: "xai",
-      agentId: "coin_tool_researcher",
+      agentId: "news_x_researcher",
       apiKey: "xai-test-key",
       model: "grok-test-model",
       instructions: "trusted public research",
