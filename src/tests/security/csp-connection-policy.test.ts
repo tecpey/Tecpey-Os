@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   assertCspConnectionEnvironment,
   buildCspConnectSrc,
+  buildCspFrameSrc,
   getCspConnectionSources,
+  getCspFrameSources,
   type CspConnectionEnvironment,
 } from "@/lib/security/csp-connection-policy";
 
@@ -212,4 +214,38 @@ test("development permits explicitly configured local plaintext origins", () => 
     }),
     ["'self'", "http://127.0.0.1:3000", "ws://localhost:3000"],
   );
+});
+
+test("Bitycle frame origin is denied unless the explicit widget flag is enabled", () => {
+  assert.deepEqual(
+    getCspFrameSources("tecpey.ir", productionEnv()),
+    ["'self'"],
+  );
+  assert.equal(
+    buildCspFrameSrc("tecpey.ir", productionEnv()),
+    "frame-src 'self'",
+  );
+});
+
+test("Bitycle frame origin is allowed only on the governed TecPey production and staging hosts", () => {
+  const enabled = productionEnv({ BITYCLE_WIDGETS_ENABLED: "true" });
+  for (const hostname of ["tecpey.ir", "www.tecpey.ir", "tecp.ir", "www.tecp.ir", "TECP.IR."]) {
+    assert.deepEqual(getCspFrameSources(hostname, enabled), [
+      "'self'",
+      "https://widget.bitycle.com",
+    ]);
+  }
+
+  for (const hostname of ["evil.example", "tecpey.ir.evil.example", "localhost", "tecp.ir@evil.example"]) {
+    assert.deepEqual(getCspFrameSources(hostname, enabled), ["'self'"]);
+  }
+});
+
+test("Bitycle widget flag rejects ambiguous values instead of failing open", () => {
+  for (const value of ["TRUE", "1", "yes", " true "]) {
+    assert.throws(
+      () => getCspFrameSources("tecpey.ir", productionEnv({ BITYCLE_WIDGETS_ENABLED: value })),
+      /BITYCLE_WIDGETS_ENABLED:expected_true_or_false/,
+    );
+  }
 });

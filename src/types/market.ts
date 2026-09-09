@@ -56,10 +56,23 @@ export type MarketTickerUpdate = MarketPriceData & {
   symbol: string;
 };
 
+export type MarketDataProvenance = {
+  provider?: string;
+  providerUrl?: string;
+  upstreamSource?: string;
+  currency?: string;
+  fetchedAt?: string;
+  upstreamUpdatedAt?: string | null;
+  freshness?: string;
+  fallback?: boolean;
+};
+
 export type CurrencyListResponse = {
   data?: MarketCurrency[];
   meta?: {
     current_page?: number;
     last_page?: number;
+    total?: number;
   };
+  provenance?: MarketDataProvenance;
 };

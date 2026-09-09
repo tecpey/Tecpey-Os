@@ -5,7 +5,10 @@ import {
   resolveLocalePath,
 } from "@/i18n/config";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { buildCspConnectSrc } from "@/lib/security/csp-connection-policy";
+import {
+  buildCspConnectSrc,
+  buildCspFrameSrc,
+} from "@/lib/security/csp-connection-policy";
 import {
   REQUEST_ROUTE_CONTEXT_HEADER,
 } from "@/lib/request-route-context";
@@ -17,7 +20,7 @@ const PUBLIC_ACADEMY_SEMANTIC_PATHS = new Set([
   "/academy/free",
 ]);
 
-function buildCsp(nonce: string): string {
+function buildCsp(nonce: string, requestHostname: string): string {
   const isDev = process.env.NODE_ENV === "development";
   const directives = [
     "default-src 'self'",
@@ -34,7 +37,7 @@ function buildCsp(nonce: string): string {
     // Decorative motion is self-hosted; external media origins stay denied.
     "media-src 'self'",
     "object-src 'none'",
-    "frame-src 'self'",
+    buildCspFrameSrc(requestHostname),
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -44,12 +47,12 @@ function buildCsp(nonce: string): string {
 }
 
 export async function proxy(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+  const { pathname, search, hostname } = request.nextUrl;
   const { locale, path: semanticPath } = resolveLocalePath(pathname);
 
   const requestId = generateRequestId();
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = buildCsp(nonce);
+  const csp = buildCsp(nonce, hostname);
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(TRACE_REQUEST_HEADER, requestId);

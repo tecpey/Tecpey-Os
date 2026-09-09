@@ -3,16 +3,20 @@ import { normalizeMarketSymbol } from "@/lib/public-market-data";
 import type {
   CurrencyListResponse,
   MarketCurrency,
+  MarketDataProvenance,
 } from "@/types/market";
+
+export type CurrencyListResult = {
+  data: MarketCurrency[];
+  meta: { current_page: number; last_page: number; total?: number };
+  provenance?: MarketDataProvenance;
+};
 
 export const getCurrencies = async (
   page = 1,
   limit = 20,
   search = "",
-): Promise<{
-  data: MarketCurrency[];
-  meta: { current_page: number; last_page: number };
-}> => {
+): Promise<CurrencyListResult> => {
   try {
     const res = await fetcher<CurrencyListResponse>(
       `/api/v1/user/currency/list?page=${page}&limit=${limit}&symbol=${search}`,
@@ -21,13 +25,14 @@ export const getCurrencies = async (
       },
     );
 
-
-    const primary = {
+    const primary: CurrencyListResult = {
       data: res?.data ?? [],
       meta: {
         current_page: res?.meta?.current_page ?? page,
         last_page: res?.meta?.last_page ?? 1,
+        total: res?.meta?.total,
       },
+      provenance: res?.provenance,
     };
     if (primary.data.length > 0) return primary;
   } catch {
@@ -50,7 +55,9 @@ export const getCurrencies = async (
       meta: {
         current_page: fallback?.meta?.current_page ?? page,
         last_page: fallback?.meta?.last_page ?? page,
+        total: fallback?.meta?.total,
       },
+      provenance: fallback?.provenance,
     };
   } catch {
     return { data: [], meta: { current_page: 1, last_page: 1 } };
@@ -106,7 +113,6 @@ export const getCurrencyInfo = async ({
   symbol: string;
 }): Promise<Chart> => {
   try {
-
     const chartBaseUrl =
       process.env.NEXT_PUBLIC_API_BACKEND_URL?.trim().replace(/\/$/, "");
 
@@ -120,14 +126,11 @@ export const getCurrencyInfo = async ({
     const formattedSymbol = normalizeMarketSymbol(symbol);
 
     const response = await fetch(
-      `${chartBaseUrl}/api/v1/currency/chart?symbol=${formattedSymbol}&type=line`
+      `${chartBaseUrl}/api/v1/currency/chart?symbol=${formattedSymbol}&type=line`,
     );
 
     return normalizeChartPayload(await response.json());
-
   } catch {
-
-
     return {
       labels: [],
       prices: [],
