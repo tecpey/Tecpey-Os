@@ -5,6 +5,10 @@ import {
   type AiDataClass,
   type AiModelProviderId,
 } from "./control-plane-catalog";
+import {
+  normalizeAiProviderUsageTelemetry,
+  type AiProviderUsageTelemetry,
+} from "./provider-usage-telemetry";
 import { readBoundedResponseText } from "../bounded-http-body";
 
 export type AiSourceReference = {
@@ -32,6 +36,8 @@ export type AiProviderCallResult =
       model: string;
       requestedModel: string;
       sources: AiSourceReference[];
+      /** Canonical provider usage authority. Legacy scalar fields below remain for compatibility. */
+      usage: AiProviderUsageTelemetry;
       inputTokens: number;
       outputTokens: number;
       costUsdMicros: number | null;
@@ -273,40 +279,6 @@ function extractOpenRouterText(value: unknown): string {
   };
   const content = root?.choices?.[0]?.message?.content;
   return typeof content === "string" ? content.trim() : "";
-}
-
-function usage(value: unknown, providerId: AiModelProviderId, text: string, input: string) {
-  const root = value as {
-    usage?: {
-      input_tokens?: unknown;
-      output_tokens?: unknown;
-      inputTokens?: unknown;
-      outputTokens?: unknown;
-      prompt_tokens?: unknown;
-      completion_tokens?: unknown;
-      cost?: unknown;
-    };
-  };
-  const inputTokens = Number(
-    root?.usage?.input_tokens ??
-      root?.usage?.inputTokens ??
-      root?.usage?.prompt_tokens,
-  );
-  const outputTokens = Number(
-    root?.usage?.output_tokens ??
-      root?.usage?.outputTokens ??
-      root?.usage?.completion_tokens,
-  );
-  const costUsd = Number(root?.usage?.cost);
-  return {
-    inputTokens: Number.isFinite(inputTokens) ? Math.max(0, Math.trunc(inputTokens)) : Math.ceil(input.length / 3.2),
-    outputTokens: Number.isFinite(outputTokens) ? Math.max(0, Math.trunc(outputTokens)) : Math.ceil(text.length / 3.2),
-    costUsdMicros:
-      Number.isFinite(costUsd) && costUsd >= 0
-        ? Math.max(0, Math.round(costUsd * 1_000_000))
-        : null,
-    providerId,
-  };
 }
 
 function responseTools(providerId: AiModelProviderId, agentId: AiAgentId): unknown[] {
@@ -553,9 +525,7 @@ async function parseResponse(
       text: string;
       model: string;
       sources: AiSourceReference[];
-      inputTokens: number;
-      outputTokens: number;
-      costUsdMicros: number | null;
+      usage: AiProviderUsageTelemetry;
     }
   | {
       ok: false;
@@ -585,15 +555,18 @@ async function parseResponse(
           ? extractOpenRouterText(data)
           : extractOpenResponsesText(data);
     if (!text) return { ok: false, reason: "invalid_response" };
-    const tokenUsage = usage(data, input.providerId, text, input.input);
+    const usage = normalizeAiProviderUsageTelemetry({
+      providerId: input.providerId,
+      response: data,
+      inputText: input.input,
+      outputText: text,
+    });
     const responseModel = (data as { model?: unknown })?.model;
     return {
       ok: true,
       text,
       sources: collectSources(data),
-      inputTokens: tokenUsage.inputTokens,
-      outputTokens: tokenUsage.outputTokens,
-      costUsdMicros: tokenUsage.costUsdMicros,
+      usage,
       model:
         typeof responseModel === "string" && responseModel.trim()
           ? responseModel.trim().slice(0, 160)
@@ -801,9 +774,10 @@ export async function callAiProvider(
         model: parsed.model,
         requestedModel: model,
         sources: parsed.sources,
-        inputTokens: parsed.inputTokens,
-        outputTokens: parsed.outputTokens,
-        costUsdMicros: parsed.costUsdMicros,
+        usage: parsed.usage,
+        inputTokens: parsed.usage.inputTokens,
+        outputTokens: parsed.usage.outputTokens,
+        costUsdMicros: parsed.usage.costUsdMicros,
         attempts,
         durationMs: now() - startedAt,
       };
