@@ -42,13 +42,18 @@ test("shared mobile navigation keeps Home centered and follows the selected rout
   const [bar, home] = await Promise.all([nav.boundingBox(), nav.locator("a").nth(2).boundingBox()]);
   expect(Math.abs((home.x + home.width / 2) - (bar.x + bar.width / 2))).toBeLessThan(2);
 
-  if (isEn) {
-    const cta = page.locator(".sticky-cta-bar");
+  {
+    const cta = page.locator("[data-mobile-learning-cta]");
+    await cta.scrollIntoViewIfNeeded();
     await expect(cta).toBeVisible();
-    const bounds = await cta.boundingBox();
-    expect(bounds.y + bounds.height, "Landing actions must sit above the shared navigation").toBeLessThanOrEqual(bar.y);
+    expect(await cta.evaluate(el => getComputedStyle(el).position)).toBe("relative");
+    await expect(cta.getByRole("link")).toHaveCount(2);
     for (const link of await cta.getByRole("link").all()) {
+      await link.scrollIntoViewIfNeeded();
+      await link.click({ trial: true });
       const target = await link.boundingBox();
+      const navBounds = await nav.boundingBox();
+      expect(target.y + target.height, "Learning action must be reachable above navigation").toBeLessThanOrEqual(navBounds.y);
       expect(target.height).toBeGreaterThanOrEqual(44);
     }
   }

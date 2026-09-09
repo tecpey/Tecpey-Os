@@ -384,7 +384,7 @@ export function AcademyAuthClient({
           <TecpeyMark alt="TecPey" width={48} height={48} priority className="h-12 w-12 object-contain" />
           <h1>{isSignup ? (isFa ? "ثبت‌نام در آکادمی تک‌پی" : "Create your TecPey Academy account") : (isFa ? "ورود به آکادمی تک‌پی" : "Log in to TecPey Academy")}</h1>
           <p>{isSignup ? (isFa ? "مسیر یادگیری‌ات را بساز. درس‌ها، تمرین‌ها و منتور آموزشی در یک حساب همراهت هستند." : "Your lessons, practice and educational mentor, together in one account.") : (isFa ? "خوش برگشتی. از آخرین درس یا تمرین، مسیرت را ادامه بده." : "Welcome back. Continue from your latest lesson or practice.")}</p>
-          <div className={styles.authArt}><Image src="/images/brand/academy-auth-crystal.jpeg" alt="" fill sizes="(max-width: 760px) 1px, 480px" /></div>
+          <div className={styles.authArt}><Image src="/images/brand/academy-auth-crystal.jpeg" alt="" fill sizes="(max-width: 760px) calc(100vw - 40px), 540px" /></div>
           <p className="mt-5 text-sm">{isFa ? "حساب آموزشی از حساب صرافی جداست. تمرین‌ها با سرمایه مجازی انجام می‌شوند؛ تک‌پی تضمین سود نمی‌دهد." : "Your learning account is separate from the exchange. Practice uses virtual funds. TecPey does not promise profit."}</p>
         </aside>
 

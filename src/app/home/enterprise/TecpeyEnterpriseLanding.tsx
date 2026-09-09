@@ -1048,9 +1048,9 @@ function FinalCta() {
   );
 }
 
-function StickyMobileCta() {
+function MobileLearningCta() {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/92 px-4 py-3 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl sm:hidden">
+    <div data-mobile-learning-cta className="relative border-t border-white/10 bg-slate-950 px-4 py-3 sm:hidden">
       <div className="mx-auto grid max-w-md grid-cols-2 items-center gap-2">
         <Link href={academyHref} className="rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
           شروع آکادمی
@@ -1166,7 +1166,7 @@ export default function TecpeyEnterpriseLanding({
       <FinalCta />
       </LandingDetails>
       <CalmLandingClose locale="fa" />
-      <StickyMobileCta />
+      <MobileLearningCta />
     </main>
   );
 }

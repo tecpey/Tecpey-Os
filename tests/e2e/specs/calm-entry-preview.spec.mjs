@@ -35,10 +35,28 @@ for (const screen of ["landing", "login", "signup"]) {
       const widths = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
       expect(widths[0]).toBeLessThanOrEqual(widths[1] + 1);
       await page.evaluate(() => document.fonts.ready);
+      const artwork = page.locator('main img[src*="academy-auth-crystal"]');
+      await artwork.scrollIntoViewIfNeeded();
+      await expect.poll(() => artwork.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+      const resolution = await artwork.evaluate(img => ({
+        selectedWidth: Number(new URL(img.currentSrc).searchParams.get("w")) || img.naturalWidth,
+        renderedWidth: img.getBoundingClientRect().width,
+      }));
+      expect(resolution.selectedWidth, "Artwork must not upscale a tiny mobile source").toBeGreaterThanOrEqual(resolution.renderedWidth);
+      await page.evaluate(() => window.scrollTo(0, 0));
       await testInfo.attach(`${screen}-${theme}-${testInfo.project.name}`, {
         body: await page.screenshot({ fullPage: screen !== "landing", animations: "disabled" }),
         contentType: "image/png",
       });
+      if (screen !== "landing") {
+        const field = page.locator('main form input:not([type="hidden"])').first();
+        await field.scrollIntoViewIfNeeded();
+        await field.click({ trial: true });
+        await testInfo.attach(`${screen}-${theme}-form-viewport-${testInfo.project.name}`, {
+          body: await page.screenshot({ animations: "disabled" }),
+          contentType: "image/png",
+        });
+      }
     }
   });
 }
