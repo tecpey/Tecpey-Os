@@ -3,8 +3,7 @@ name: Temporary Auth Revocation Builder
 on:
   push:
     branches: [codex/auth-revocation-builder-20260909]
-    paths:
-      - .github/workflows/tmp-auth-revocation-builder.yml
+    paths: [.github/workflows/tmp-auth-revocation-builder.yml]
 
 permissions:
   contents: write
@@ -26,10 +25,10 @@ jobs:
         run: |
           python <<'PY'
           from pathlib import Path
+          import re
 
           authority = Path('src/lib/security/session-authority.ts')
           text = authority.read_text()
-
           marker = 'export async function revokeOtherSessionsAuthority(input: {'
           helper = '''async function areSessionRevocationsPublished(sessionJtis: string[]): Promise<boolean> {
             const ids = [...new Set(sessionJtis.filter(Boolean))];
@@ -43,8 +42,8 @@ jobs:
                 [ids],
               );
               return {
-                total: Number(rows.rows[0]?.total ?? '0'),
-                published: Number(rows.rows[0]?.published ?? '0'),
+                total: Number(rows.rows[0]?.total ?? "0"),
+                published: Number(rows.rows[0]?.published ?? "0"),
               };
             });
             return Boolean(
@@ -57,7 +56,6 @@ jobs:
           async function publishSessionRevocationsFor(sessionJtis: string[]): Promise<boolean> {
             const ids = [...new Set(sessionJtis.filter(Boolean))];
             if (ids.length === 0) return true;
-
             const pending = await withDb(async (client) => {
               const rows = await client.query<{ session_jti: string; expires_at: Date }>(
                 `SELECT session_jti, expires_at
@@ -71,7 +69,6 @@ jobs:
               return rows.rows;
             });
             if (!pending.enabled) return false;
-
             if (pending.value.length > 0) {
               const published = await revokeMultiple(
                 pending.value.map((row) => ({
@@ -81,34 +78,22 @@ jobs:
               );
               const updated = await withDb(async (client) => {
                 const pendingIds = pending.value.map((row) => row.session_jti);
-                if (published) {
-                  await client.query(
-                    `UPDATE session_revocation_outbox
-                        SET status = 'published',
-                            attempt_count = attempt_count + 1,
-                            last_error = NULL,
-                            updated_at = NOW(),
-                            published_at = NOW()
-                      WHERE session_jti = ANY($1::text[])
-                        AND status = 'pending'`,
-                    [pendingIds],
-                  );
-                } else {
-                  await client.query(
-                    `UPDATE session_revocation_outbox
-                        SET attempt_count = attempt_count + 1,
-                            last_error = 'redis_unavailable',
-                            updated_at = NOW()
-                      WHERE session_jti = ANY($1::text[])
-                        AND status = 'pending'`,
-                    [pendingIds],
-                  );
-                }
+                await client.query(
+                  published
+                    ? `UPDATE session_revocation_outbox
+                         SET status = 'published', attempt_count = attempt_count + 1,
+                             last_error = NULL, updated_at = NOW(), published_at = NOW()
+                       WHERE session_jti = ANY($1::text[]) AND status = 'pending'`
+                    : `UPDATE session_revocation_outbox
+                         SET attempt_count = attempt_count + 1,
+                             last_error = 'redis_unavailable', updated_at = NOW()
+                       WHERE session_jti = ANY($1::text[]) AND status = 'pending'`,
+                  [pendingIds],
+                );
                 return true;
               });
               if (!updated.enabled) return false;
             }
-
             return areSessionRevocationsPublished(ids);
           }
 
@@ -117,15 +102,15 @@ jobs:
             raise SystemExit('authority insertion marker missing')
           text = text.replace(marker, helper + marker, 1)
 
-          old_return = '''    return { revokedCount };
-          });
-          if (!result.enabled) throw new Error("database_unavailable");
-          const published = await publishPendingSessionRevocations();
-          return { ...result.value, revocationPending: !published };
-          }
-
-          export async function logoutSessionAuthority'''
-          new_return = '''    return {
+          pattern = re.compile(
+            r'    return \{ revokedCount \};\n'
+            r'  \}\);\n'
+            r'  if \(!result\.enabled\) throw new Error\("database_unavailable"\);\n'
+            r'  const published = await publishPendingSessionRevocations\(\);\n'
+            r'  return \{ \.\.\.result\.value, revocationPending: !published \};\n'
+            r'\}\n\nexport async function logoutSessionAuthority',
+          )
+          replacement = '''    return {
               revokedCount,
               revokedSessionJtis: otherSessions.rows.map((row) => row.id),
             };
@@ -137,89 +122,65 @@ jobs:
           }
 
           export async function logoutSessionAuthority'''
-          if old_return not in text:
-            raise SystemExit('logout-all return marker missing')
-          text = text.replace(old_return, new_return, 1)
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+            raise SystemExit(f'logout-all return replacement count={count}')
           authority.write_text(text)
 
           test = Path('src/tests/security/auth-sessions-route-postgres.test.ts')
           text = test.read_text()
-          text = text.replace(
-            '''      const failingPipelineRedis = {
-                get: (key: string) => redis!.get(key),
-                pipeline: () => ({
-                  set: () => undefined,
-                  exec: async () => {
-                    throw new Error("redis_pipeline_unavailable");
-                  },
-                }),
-              };''',
-            '''      let failingPipelineExecAttempts = 0;
-              const failingPipelineRedis = {
-                get: (key: string) => redis!.get(key),
-                pipeline: () => ({
-                  set: () => undefined,
-                  exec: async () => {
-                    failingPipelineExecAttempts += 1;
-                    throw new Error("redis_pipeline_unavailable");
-                  },
-                }),
-              };''',
-            1,
+          text, count = re.subn(
+            r'(      const failingPipelineRedis = \{\n(?:.*\n){3}          exec: async \(\) => \{\n)(            throw new Error\("redis_pipeline_unavailable"\);)',
+            r'      let failingPipelineExecAttempts = 0;\n\1            failingPipelineExecAttempts += 1;\n\2',
+            text,
+            count=1,
           )
-          old_assert = '''        assert.deepEqual(await committed.json(), {
-                  ok: true,
-                  revokedCount: 1,
-                  currentAccessRetained: true,
-                  currentRefreshFamilyRetained: true,
-                  revocationPending: true,
-                });'''
-          new_assert = '''        const committedBody = await committed.json();
-                assert.equal(committedBody.ok, true);
-                assert.equal(committedBody.revokedCount, 1);
-                assert.equal(committedBody.currentAccessRetained, true);
-                assert.equal(committedBody.currentRefreshFamilyRetained, true);
-                assert.equal(typeof committedBody.revocationPending, "boolean");'''
-          if old_assert not in text:
-            raise SystemExit('test assertion marker missing')
-          text = text.replace(old_assert, new_assert, 1)
+          if count != 1:
+            raise SystemExit(f'pipeline replacement count={count}')
 
-          old_deny = '''          const denyValue = await redis!.get(denyKey(other.accessJti));
-                  assert.equal(denyValue === null || denyValue === "1", true);
-                  if (denyValue === null) {
-                    assert.equal(durable.value.outboxStatus, "pending");
-                  }
-                }
+          old = '''        assert.deepEqual(await committed.json(), {
+            ok: true,
+            revokedCount: 1,
+            currentAccessRetained: true,
+            currentRefreshFamilyRetained: true,
+            revocationPending: true,
+          });'''
+          new = '''        const committedBody = await committed.json();
+          assert.equal(committedBody.ok, true);
+          assert.equal(committedBody.revokedCount, 1);
+          assert.equal(committedBody.currentAccessRetained, true);
+          assert.equal(committedBody.currentRefreshFamilyRetained, true);
+          assert.equal(typeof committedBody.revocationPending, "boolean");'''
+          if old not in text:
+            raise SystemExit('response assertion marker missing')
+          text = text.replace(old, new, 1)
 
-                globalThis.tecpeyRedisClient = originalRedis;'''
-          new_deny = '''          const denyValue = await redis!.get(denyKey(other.accessJti));
-                  assert.equal(denyValue === null || denyValue === "1", true);
-                  if (committedBody.revocationPending) {
-                    assert.equal(durable.value.outboxStatus, "pending");
-                    assert.equal(denyValue, null);
-                    assert.equal(failingPipelineExecAttempts > 0, true);
-                  } else {
-                    // A concurrent outbox publisher is allowed to win the race. In
-                    // that case the response is correctly non-pending even though
-                    // this worker was configured to fail its own Redis pipeline.
-                    assert.equal(durable.value.outboxStatus, "published");
-                    assert.equal(denyValue, "1");
-                  }
-                }
-
-                globalThis.tecpeyRedisClient = originalRedis;'''
-          if old_deny not in text:
-            raise SystemExit('test outbox marker missing')
-          text = text.replace(old_deny, new_deny, 1)
-          test.write_text(text)
+          old = '''          const denyValue = await redis!.get(denyKey(other.accessJti));
+          assert.equal(denyValue === null || denyValue === "1", true);
+          if (denyValue === null) {
+            assert.equal(durable.value.outboxStatus, "pending");
+          }'''
+          new = '''          const denyValue = await redis!.get(denyKey(other.accessJti));
+          assert.equal(denyValue === null || denyValue === "1", true);
+          if (committedBody.revocationPending) {
+            assert.equal(durable.value.outboxStatus, "pending");
+            assert.equal(denyValue, null);
+            assert.equal(failingPipelineExecAttempts > 0, true);
+          } else {
+            // A concurrent outbox publisher may legitimately win the race.
+            assert.equal(durable.value.outboxStatus, "published");
+            assert.equal(denyValue, "1");
+          }'''
+          if old not in text:
+            raise SystemExit('outbox assertion marker missing')
+          test.write_text(text.replace(old, new, 1))
           PY
       - name: Verify formatting and types
         run: |
-          npx prettier --check src/lib/security/session-authority.ts src/tests/security/auth-sessions-route-postgres.test.ts
+          npx prettier --write src/lib/security/session-authority.ts src/tests/security/auth-sessions-route-postgres.test.ts
           npm run typecheck
       - name: Commit generated fix
         run: |
-          test -z "$(git status --porcelain -- .github/workflows/tmp-auth-revocation-builder.yml)"
           git config user.name "tecpey-ci-builder"
           git config user.email "tecpey-ci-builder@users.noreply.github.com"
           git add src/lib/security/session-authority.ts src/tests/security/auth-sessions-route-postgres.test.ts
