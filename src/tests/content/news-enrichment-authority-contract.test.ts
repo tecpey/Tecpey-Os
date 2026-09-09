@@ -71,6 +71,28 @@ describe("news capture/enrichment authority contract", () => {
     assert.match(costAuthority, /x-tecpey-news-ai-authority/);
   });
 
+  it("reconciles expired cross-day spend before the enrichment process can start", async () => {
+    const service = await read("deploy/systemd/tecpey-news-enrichment.service.in");
+    const reconciliation = await read("scripts/run-news-ai-cost-reconciliation-worker.ts");
+    assert.match(
+      service,
+      /ExecStartPre=@@NPM_BIN@@ exec -- tsx scripts\/run-news-ai-cost-reconciliation-worker\.ts/,
+    );
+    assert.match(
+      service,
+      /ExecStartPre=[^\n]+\nExecStart=@@NPM_BIN@@ exec -- tsx scripts\/run-news-enrichment-worker\.ts/,
+    );
+    assert.match(reconciliation, /SELECT DISTINCT budget_day/);
+    assert.match(reconciliation, /status = 'egress_started'/);
+    assert.match(reconciliation, /expires_at <= NOW\(\)/);
+    assert.match(reconciliation, /reservation_expired_after_egress/);
+    assert.match(reconciliation, /cost_source = 'reservation_fallback'/);
+    assert.match(reconciliation, /active_reserved_usd_micros = active_reserved_usd_micros - \$2/);
+    assert.match(reconciliation, /settled_usd_micros = settled_usd_micros \+ \$2/);
+    assert.match(reconciliation, /aiCalls:\s*0/);
+    assert.match(reconciliation, /process\.exitCode = 1/);
+  });
+
   it("registers the forward-only 0102 cost ledger in database migration authority", async () => {
     const registry = await read("src/lib/db-migration-registry.ts");
     const newsGrowth = await read("src/lib/db-migrate-news-growth.ts");
