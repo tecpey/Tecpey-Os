@@ -7,8 +7,13 @@ const landingPath = path.join(
   process.cwd(),
   "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx",
 );
+const heroPath = path.join(
+  process.cwd(),
+  "src/components/home/CalmLandingHero.tsx",
+);
 
 const landing = fs.readFileSync(landingPath, "utf8");
+const sharedHero = fs.readFileSync(heroPath, "utf8");
 
 test("first-release landing has no exchange execution CTA", () => {
   const forbidden = [
@@ -22,25 +27,21 @@ test("first-release landing has no exchange execution CTA", () => {
 
   for (const pattern of forbidden) {
     assert.doesNotMatch(landing, pattern);
+    assert.doesNotMatch(sharedHero, pattern);
   }
 });
 
-test("hero is Academy-first and Mentor-second", () => {
-  const heroStart = landing.indexOf("function Hero()");
-  const heroEnd = landing.indexOf("function GlobalUxMetrics()", heroStart);
-
-  assert.ok(heroStart >= 0);
-  assert.ok(heroEnd > heroStart);
-
-  const hero = landing.slice(heroStart, heroEnd);
-
-  const academy = hero.indexOf('href={academyHref}');
-  const mentor = hero.indexOf('href={mentorHref}');
+test("shared hero is Academy-first and Mentor-second in FA and EN", () => {
+  const academy = sharedHero.indexOf('href={`${prefix}/academy`}');
+  const mentor = sharedHero.indexOf('href={`${prefix}/academy/ai-guide`}');
 
   assert.ok(academy >= 0);
   assert.ok(mentor > academy);
-  assert.match(hero, /شروع آکادمی رایگان/);
-  assert.match(hero, /گفتگو با منتور هوشمند/);
+  assert.match(sharedHero, /شروع آکادمی رایگان/);
+  assert.match(sharedHero, /گفتگو با منتور هوشمند/);
+  assert.match(sharedHero, /Start Free Academy/);
+  assert.match(sharedHero, /Talk to AI Mentor/);
+  assert.match(sharedHero, /const prefix = fa \? "" : "\/en"/);
 });
 
 test("product focus preserves the learning loop", () => {
