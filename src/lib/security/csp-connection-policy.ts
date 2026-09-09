@@ -7,6 +7,14 @@ export type CspRuntimeMode = "development" | "test" | "production";
 const API_BACKEND_ENV = "NEXT_PUBLIC_API_BACKEND_URL";
 const API_SOCKET_ENV = "NEXT_PUBLIC_API_SOCKET_URL";
 const EXTRA_CONNECT_ENV = "NEXT_PUBLIC_EXTRA_CONNECT_SRC";
+const BITYCLE_WIDGETS_ENV = "BITYCLE_WIDGETS_ENABLED";
+const BITYCLE_WIDGET_ORIGIN = "https://widget.bitycle.com";
+const BITYCLE_WIDGET_HOSTS = new Set([
+  "tecpey.ir",
+  "www.tecpey.ir",
+  "tecp.ir",
+  "www.tecp.ir",
+]);
 
 const PLACEHOLDER_PATTERNS = [
   /change[_-]?me/iu,
@@ -139,6 +147,21 @@ function extraSources(
     .sort();
 }
 
+function normalizedHostname(value: string): string {
+  const hostname = value.trim().toLowerCase().replace(/\.$/u, "");
+  if (!hostname || hostname.includes("/") || hostname.includes("\\") || hostname.includes("@")) {
+    return "";
+  }
+  return hostname;
+}
+
+function widgetsEnabled(env: CspConnectionEnvironment): boolean {
+  const raw = env[BITYCLE_WIDGETS_ENV];
+  if (raw === undefined || raw === "" || raw === "false") return false;
+  if (raw === "true") return true;
+  throw policyError(BITYCLE_WIDGETS_ENV, "expected_true_or_false");
+}
+
 export function getCspConnectionSources(
   env: CspConnectionEnvironment = process.env,
 ): string[] {
@@ -157,14 +180,34 @@ export function getCspConnectionSources(
   return [...sources];
 }
 
+export function getCspFrameSources(
+  requestHostname: string,
+  env: CspConnectionEnvironment = process.env,
+): string[] {
+  const sources = ["'self'"];
+  if (!widgetsEnabled(env)) return sources;
+
+  const hostname = normalizedHostname(requestHostname);
+  if (BITYCLE_WIDGET_HOSTS.has(hostname)) sources.push(BITYCLE_WIDGET_ORIGIN);
+  return sources;
+}
+
 export function buildCspConnectSrc(
   env: CspConnectionEnvironment = process.env,
 ): string {
   return `connect-src ${getCspConnectionSources(env).join(" ")}`;
 }
 
+export function buildCspFrameSrc(
+  requestHostname: string,
+  env: CspConnectionEnvironment = process.env,
+): string {
+  return `frame-src ${getCspFrameSources(requestHostname, env).join(" ")}`;
+}
+
 export function assertCspConnectionEnvironment(
   env: CspConnectionEnvironment = process.env,
 ): void {
   getCspConnectionSources(env);
+  widgetsEnabled(env);
 }

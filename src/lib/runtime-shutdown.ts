@@ -3,6 +3,7 @@ import type { WebSocketServer } from "ws";
 
 type ClosableWorkers = { stopWithdrawalWorkers(): Promise<void> } | null;
 type ClosableRedis = { shutdown(): Promise<void> };
+type ClosableMarketRealtime = { stop(): Promise<void> } | null;
 
 export type RuntimeShutdownDependencies = {
   httpServer: Server;
@@ -10,6 +11,7 @@ export type RuntimeShutdownDependencies = {
   workers: ClosableWorkers;
   redis: ClosableRedis;
   redisConfigured: boolean;
+  marketRealtime?: ClosableMarketRealtime;
   deadlineMs?: number;
 };
 
@@ -19,6 +21,7 @@ export async function drainRuntime({
   workers,
   redis,
   redisConfigured,
+  marketRealtime = null,
   deadlineMs = 10_000,
 }: RuntimeShutdownDependencies): Promise<string[]> {
   const failures: string[] = [];
@@ -57,6 +60,12 @@ export async function drainRuntime({
     await websocketDrain;
   }
   if (httpServer.listening) httpServer.closeAllConnections();
+
+  try {
+    await marketRealtime?.stop();
+  } catch (error) {
+    failures.push(`market_realtime:${error instanceof Error ? error.message : String(error)}`);
+  }
 
   try {
     await workers?.stopWithdrawalWorkers();

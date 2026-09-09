@@ -141,7 +141,13 @@ describe("Academy profile client authority state", () => {
       "utf8",
     );
 
-    assert.match(proxySource, /const \{ pathname, search \} = request\.nextUrl;/);
+    // This test owns the Academy redirect contract, not the complete shape of
+    // NextURL destructuring. Security/runtime concerns may legitimately add
+    // fields (for example hostname for CSP) without weakening query retention.
+    assert.match(
+      proxySource,
+      /const\s+\{[^}]*\bpathname\b[^}]*\bsearch\b[^}]*\}\s*=\s*request\.nextUrl;/,
+    );
     assert.match(
       proxySource,
       /url\.searchParams\.set\("redirect", `\$\{pathname\}\$\{search\}`\);/,

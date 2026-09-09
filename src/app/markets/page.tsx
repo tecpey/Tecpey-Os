@@ -7,12 +7,13 @@ import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import MarketsHero from "../../components/markets/MarketsHero";
 import MarketsSearchBar from "../../components/markets/MarketsSearchBar";
 import MarketsTable from "../../components/markets/MarketsTable";
+import IranMarketIntelligence from "../../components/markets/IranMarketIntelligence";
+import MarketDataProvenance from "../../components/markets/MarketDataProvenance";
 
 import { useQuery } from "@tanstack/react-query";
 import { getCurrencies } from "@/services/swap.services";
 import type { MarketCurrency } from "@/types/market";
 import {
-
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -145,122 +146,109 @@ export default function MarketsPage() {
   const goToNextPage = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
   const goToPage = (page: number) => setCurrentPage(page);
 
-
- return (
+  return (
     <main className="relative bg-transparent">
       <section className="px-4 pt-32 md:px-8 md:pt-36">
         <div className="mx-auto max-w-[1480px]">
           <MarketsSearchBar
-          t={t}
-          query={query}
-          onQueryChange={(value) => {
-            setQuery(value);
-            setCurrentPage(1);
-          }}
+            t={t}
+            query={query}
+            onQueryChange={(value) => {
+              setQuery(value);
+              setCurrentPage(1);
+            }}
           />
         </div>
       </section>
       <MarketsHero t={t} />
+      <IranMarketIntelligence />
 
       <section className="px-2 pb-12 pt-2 sm:px-4 md:px-6">
         <div className="mx-auto max-w-[1480px]">
-        {/* <MarketsFilters
+          {/* <MarketsFilters
           t={t}
           activeFilter={filter}
           onFilterChange={setFilter}
         /> */}
 
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="w-full">
-            <div className="relative mt-3">
-              <MarketsTable
-                t={t}
-                rows={processedCurrencies}
-                isIRTenabled={isIRTenabled}
-                USDT_IRT={USDT_IRT}
-                itemsPerPage={LIMIT}
-                isLoading={isFetching && !data}
-              />
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="w-full">
+              <div className="relative mt-3">
+                <MarketsTable
+                  t={t}
+                  rows={processedCurrencies}
+                  isIRTenabled={isIRTenabled}
+                  USDT_IRT={USDT_IRT}
+                  itemsPerPage={LIMIT}
+                  isLoading={isFetching && !data}
+                />
 
-              {processedCurrencies.some((coin) => coin.marketDataSource === "CoinGecko") ? (
-                <p className="mt-3 text-center text-[11px] font-bold text-muted" role="status">
-                  {t("publicSourcePrefix")}{" "}
-                  <a
-                    href="https://www.coingecko.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-black text-primary underline underline-offset-4"
-                  >
-                    CoinGecko
-                  </a>
-                  {" · "}{t("publicSourceFreshness")}
-                </p>
-              ) : null}
+                <MarketDataProvenance provenance={data?.provenance} locale="fa" />
 
-              {isFetching && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"></div>
+                {isFetching && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"></div>
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="mt-6 flex justify-center overflow-x-auto">
+                  <div className="flex min-w-max items-center gap-2 sm:gap-4">
+                    <button
+                      onClick={goToPrevPage}
+                      aria-label="صفحه قبل"
+                      disabled={currentPage === 1 || isFetching}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-white sm:h-10 sm:w-10 ${
+                        currentPage === 1 || isFetching
+                          ? "cursor-not-allowed bg-gray-500"
+                          : "bg-primary hover:bg-blue-700"
+                      }`}
+                    >
+                      <ChevronsLeft className="size-4 rtl-flip" />
+                    </button>
+
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      {pageNumbers.map((p, idx) =>
+                        p === "..." ? (
+                          <span
+                            key={`dots-${idx}`}
+                            className="px-1 text-gray-500 sm:px-2"
+                          >
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={p}
+                            onClick={() => typeof p === "number" && goToPage(p)}
+                            disabled={isFetching}
+                            className={`h-8 min-w-8 rounded-lg border px-2 text-xs font-medium transition-colors sm:h-9 sm:min-w-9 sm:px-3 sm:text-sm ${
+                              p === currentPage
+                                ? "border-primary/20 bg-primary text-white"
+                                : "border-primary/30 bg-[var(--card-1)] text-muted hover:bg-white/5"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ),
+                      )}
+                    </div>
+
+                    <button
+                      onClick={goToNextPage}
+                      aria-label="صفحه بعد"
+                      disabled={currentPage === totalPages || isFetching}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-white sm:h-10 sm:w-10 ${
+                        currentPage === totalPages || isFetching
+                          ? "cursor-not-allowed bg-gray-400"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }`}
+                    >
+                      <ChevronsRight className="size-4 rtl-flip" />
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-
-            {totalPages > 1 && (
-              <div className="flex justify-center mt-6 overflow-x-auto">
-                <div className="flex items-center gap-2 sm:gap-4 min-w-max">
-                  <button
-                    onClick={goToPrevPage}
-                    aria-label="صفحه قبل"
-                    disabled={currentPage === 1 || isFetching}
-                    className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg text-white ${
-                      currentPage === 1 || isFetching
-                        ? "bg-gray-500 cursor-not-allowed"
-                        : "bg-primary hover:bg-blue-700"
-                    }`}
-                  >
-                    <ChevronsLeft className="size-4 rtl-flip" />
-                  </button>
-
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    {pageNumbers.map((p, idx) =>
-                      p === "..." ? (
-                        <span
-                          key={`dots-${idx}`}
-                          className="px-1 sm:px-2 text-gray-500"
-                        >
-                          ...
-                        </span>
-                      ) : (
-                        <button
-                          key={p}
-                          onClick={() => typeof p === "number" && goToPage(p)}
-                          disabled={isFetching}
-                          className={`min-w-8 h-8 sm:min-w-9 sm:h-9 px-2 sm:px-3 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${
-                            p === currentPage
-                              ? "bg-primary text-white border-primary/20"
-                              : "bg-[var(--card-1)] text-muted border-primary/30 hover:bg-white/5"
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ),
-                    )}
-                  </div>
-
-                  <button
-                    onClick={goToNextPage}
-                    aria-label="صفحه بعد"
-                    disabled={currentPage === totalPages || isFetching}
-                    className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg text-white ${
-                      currentPage === totalPages || isFetching
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
-                  >
-                    <ChevronsRight className="size-4 rtl-flip" />
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
         </div>
       </section>
     </main>
