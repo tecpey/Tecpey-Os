@@ -28,8 +28,7 @@ export function approvedNewsPublicationSources(): ApprovedNewsSource[] {
   } as const;
 
   return [
-    { name: "TecPey News Desk", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
-    { name: "TecPey Academy", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
+    { name: "TecPey Editorial", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
     ...NEWS_SOURCE_REGISTRY.map((source): ApprovedNewsSource => ({
       name: source.name,
       domain: source.canonicalDomains[0],
