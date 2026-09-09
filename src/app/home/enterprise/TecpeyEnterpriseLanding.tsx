@@ -119,13 +119,13 @@ function DeviceFrame() {
   const dynamicRows = (currencies.length ? currencies : getMarketFallback()).slice(0, 6);
   return (
     <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[620px]">
-      <div className="absolute -inset-6 rounded-[48px] bg-[radial-gradient(circle_at_30%_20%,rgba(12,217,222,.35),transparent_35%),radial-gradient(circle_at_80%_40%,rgba(37,99,235,.30),transparent_35%)] blur-2xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[48px] bg-[radial-gradient(circle_at_30%_20%,rgba(12,217,222,.35),transparent_35%),radial-gradient(circle_at_80%_40%,rgba(37,99,235,.30),transparent_35%)] blur-2xl" />
       <div className="tecpey-glass relative rounded-[30px] p-3">
         <div className="rounded-[24px] border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-4 sm:p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" loading="eager" />
-              <div>
+            <div className="flex min-w-0 items-center gap-3">
+              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 shrink-0 rounded-2xl object-contain" loading="eager" />
+              <div className="min-w-0">
                 <p className="text-sm font-extrabold text-[color:var(--tp-text)]">نمای آموزشی بازار تک‌پی</p>
                 <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">داده مرجع برای آموزش و تمرین مجازی · USD/USDT</p>
               </div>

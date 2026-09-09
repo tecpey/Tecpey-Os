@@ -46,4 +46,19 @@ Before merging and staging, verify the complete change on an authorized preview:
 5. Footer/bottom-navigation overlap and safe-area spacing on mobile.
 6. Production build, repository CI and a screenshot comparison before promotion.
 
-No merge, push or deployment is recorded by this document.
+## CI correction after `d7b46c90`
+
+- The exact-head Full Suite Diagnostics run `34330536527` passed. CI run
+  `34330536578` failed because the existing reviewed news-loading finding moved
+  from line 292 to 297. Only that location is updated in both authority records;
+  the rule, reason, column and baseline count are unchanged.
+- Browser run `34330536535` still found a 394px document at a 390px Persian
+  mobile viewport. DeviceFrame's `-inset-6` decoration extended 24px beyond a
+  container with 20px side padding. Bound the decoration to `inset-0` and allow
+  the adjacent text flex items to shrink; do not hide overflow on the document.
+- Keep the newer shared English action and disclosure fixes. Strengthen the
+  browser CTA guard to require both entry actions to exist and be visible.
+- Source tests do not prove the overflow correction in a browser. A fresh
+  exact-head CI/browser run is required before merge or staging.
+
+No merge or deployment is recorded by this document.

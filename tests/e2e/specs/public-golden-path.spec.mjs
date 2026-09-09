@@ -434,11 +434,11 @@ async function visibleFixedControlSurfaces(page) {
 async function expectCtasClearOfFixedControls(page, contract) {
   const ctas = await governedPrimaryCtas(page, contract);
   const count = await ctas.count();
-  expect(count, `${contract.path}: no governed primary CTA was rendered`).toBeGreaterThan(0);
+  expect(count, `${contract.path}: both governed primary CTAs must be rendered`).toBe(contract.primaryCtas.length);
 
   for (let index = 0; index < count; index += 1) {
     const cta = ctas.nth(index);
-    if (!(await cta.isVisible())) continue;
+    await expect(cta, `${contract.path}: primary CTA ${index + 1} is hidden`).toBeVisible();
     const name = ((await cta.innerText()) || (await cta.getAttribute("aria-label")) || `CTA ${index + 1}`).trim();
     await cta.scrollIntoViewIfNeeded();
     await expect(cta, `${contract.path}: ${name} CTA is obscured`).toBeVisible();
