@@ -70,6 +70,7 @@ const REQUIRED_MIGRATIONS = [
   "0081_academy_credential_lifecycle_notification.sql",
   "0082_arena_entitlement_grants.sql",
   "0083_academy_daily_repair_challenges.sql",
+  "0102_news_ai_cost_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -99,6 +100,8 @@ const REQUIRED_TABLES = [
   "platform_news_materialization_snapshots",
   "platform_news_impact_history_items",
   "platform_news_materialization_snapshot_items",
+  "platform_news_ai_budget_daily",
+  "platform_news_ai_provider_attempts",
   "academy_credential_records",
   "academy_credential_events",
   "academy_credential_visibility_events",
@@ -354,6 +357,8 @@ describe("PostgreSQL migration authority", () => {
             ADD CONSTRAINT ai_workflow_run_evidence_legacy_status_key
             UNIQUE (tenant_id, run_id, status);
 
+          DROP TABLE IF EXISTS platform_news_ai_provider_attempts CASCADE;
+          DROP TABLE IF EXISTS platform_news_ai_budget_daily CASCADE;
           DROP TABLE IF EXISTS platform_news_archive_translations CASCADE;
           DROP TABLE IF EXISTS platform_growth_trend_signals CASCADE;
           DROP TABLE IF EXISTS platform_news_archive_items CASCADE;
@@ -372,7 +377,8 @@ describe("PostgreSQL migration authority", () => {
              '0095_ai_route_candidates.sql',
              '0096_ai_tenant_row_level_security.sql',
              '0097_support_messages.sql',
-             '0098_news_archive_and_growth_intelligence.sql'
+             '0098_news_archive_and_growth_intelligence.sql',
+             '0102_news_ai_cost_authority.sql'
            ]::text[]);
           UPDATE _migrations
              SET checksum = '3bb54ffbdae67711ac7508a27e8d0b4846dba2d8dd0e319ed2edbe842584c7a8'
