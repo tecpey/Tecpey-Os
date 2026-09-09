@@ -84,14 +84,14 @@ pattern = re.compile(
     r"\}\n\nexport async function logoutSessionAuthority"
 )
 replacement = '''    return {
-    revokedCount,
-    revokedSessionJtis: otherSessions.rows.map((row) => row.id),
-  };
-});
-if (!result.enabled) throw new Error("database_unavailable");
-const { revokedSessionJtis, ...response } = result.value;
-const published = await publishSessionRevocationsFor(revokedSessionJtis);
-return { ...response, revocationPending: !published };
+      revokedCount,
+      revokedSessionJtis: otherSessions.rows.map((row) => row.id),
+    };
+  });
+  if (!result.enabled) throw new Error("database_unavailable");
+  const { revokedSessionJtis, ...response } = result.value;
+  const published = await publishSessionRevocationsFor(revokedSessionJtis);
+  return { ...response, revocationPending: !published };
 }
 
 export async function logoutSessionAuthority'''
