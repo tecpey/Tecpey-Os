@@ -10,7 +10,12 @@ describe("news capture/enrichment authority contract", () => {
   it("keeps capture independent from paid AI and allows 300 items per source", async () => {
     const capture = await read("scripts/run-news-capture-worker.ts");
     assert.doesNotMatch(capture, /translateNewsFeedToPersian|callAiProvider|OPENAI_API_KEY|ANTHROPIC_API_KEY/);
-    assert.match(capture, /NEWS_MATERIALIZATION_LIMIT_PER_SOURCE[\s\S]*300/);
+    assert.match(capture, /const DEFAULT_CAPTURE_LIMIT_PER_SOURCE = 300/);
+    assert.match(capture, /const MAX_CAPTURE_LIMIT_PER_SOURCE = 300/);
+    assert.match(
+      capture,
+      /"NEWS_MATERIALIZATION_LIMIT_PER_SOURCE"[\s\S]*DEFAULT_CAPTURE_LIMIT_PER_SOURCE[\s\S]*MAX_CAPTURE_LIMIT_PER_SOURCE/,
+    );
     assert.match(capture, /aiCalls:\s*0/);
   });
 
