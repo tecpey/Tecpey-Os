@@ -87,10 +87,22 @@ function providerCost(usage: UnknownRecord | null): {
   return { costUsdMicros: null, costSource: null };
 }
 
+function numericRecordTotal(value: unknown): number | null {
+  const values = Object.values(record(value) ?? {})
+    .map(finiteNonNegativeInteger)
+    .filter((entry): entry is number => entry !== null);
+  return values.length > 0 ? values.reduce((sum, entry) => sum + entry, 0) : null;
+}
+
 function toolInvocationCount(usage: UnknownRecord | null): number | null {
   if (!usage) return null;
   const direct = finiteNonNegativeInteger(usage.num_server_side_tools_used);
   if (direct !== null) return direct;
+
+  // Anthropic exposes server-side tool usage as counters such as
+  // usage.server_tool_use.web_search_requests.
+  const serverToolTotal = numericRecordTotal(usage.server_tool_use);
+  if (serverToolTotal !== null) return serverToolTotal;
 
   const details = record(usage.tool_calls_details);
   if (!details) return null;
