@@ -42,12 +42,13 @@ test("FA and EN homes share the governed core section order", async () => {
   assert.doesNotMatch(fa, /TopDiscoveryGateway/);
 });
 
-test("FA mobile conversion and market cards expose the corrected academy journey", async () => {
+test("FA academy conversion and market cards expose the corrected academy journey", async () => {
   const fa = await source(faPath);
 
-  assert.match(fa, /const academyAuthHref = "\/academy\/login"/);
-  assert.match(fa, /href=\{academyAuthHref\}[\s\S]*ورود به آکادمی/);
-  assert.match(fa, /<GraduationCap className="h-5 w-5 text-\[color:var\(--tp-primary\)\]"/);
+  assert.match(fa, /const academyHref = "\/academy"/);
+  assert.doesNotMatch(fa, /academyAuthHref/);
+  assert.match(fa, /href=\{academyHref\}[\s\S]*شروع آکادمی رایگان/);
+  assert.match(fa, /<GraduationCap className="h-5 w-5 transition group-hover:-translate-x-1"/);
   assert.match(fa, /رنکینگ و لیگ‌های آموزشی/);
   assert.match(fa, /جوایز برای برترین‌ها/);
   assert.match(fa, /formatUsdPrice\(price\)/);

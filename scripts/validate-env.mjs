@@ -98,6 +98,9 @@ const optional = [
   'TECPEY_SESSION_MAX_AGE',
   'TECPEY_SESSION_MAX_AGE_SECONDS',
   'TECPEY_LEGACY_AUTH_UNTIL',
+  'TECPEY_EXCHANGE_ORIGIN',
+  'TECPEY_EXCHANGE_SESSION_SECRET_V1',
+  'TECPEY_IDENTITY_LINK_FINGERPRINT_KEY_V1',
   'TECPEY_WITHDRAWAL_DAILY_LIMIT_USD',
   'TECPEY_REAL_WITHDRAWALS_ENABLED',
   'TECPEY_CUSTODY_ENABLED_CHAINS',
@@ -153,6 +156,8 @@ const signingSecretNames = [
   'TECPEY_ADMIN_TOKEN',
   'TECPEY_REFRESH_SECRET',
   'TECPEY_ACADEMY_AUTH_SECRET',
+  'TECPEY_EXCHANGE_SESSION_SECRET_V1',
+  'TECPEY_IDENTITY_LINK_FINGERPRINT_KEY_V1',
   'CERTIFICATE_SIGNING_SECRET',
   'TECPEY_WITHDRAWAL_PRICE_SECRET',
   'TECPEY_OFFLINE_SYNC_SECRET',
@@ -164,6 +169,22 @@ for (const key of signingSecretNames) {
   const value = process.env[key] || '';
   if (value && key !== 'TECPEY_CRM_PII_KEY_B64' && value.length < 32) {
     errors.push(`${key} must be at least 32 characters`);
+  }
+}
+
+// The Exchange product remains independently activatable, so existing Core-only
+// deployments are not forced to carry dormant credentials. The moment an external
+// Exchange origin is configured, however, both security authorities become part
+// of the live runtime contract and deployment must fail closed if either is absent.
+const exchangeOrigin = process.env.TECPEY_EXCHANGE_ORIGIN?.trim();
+if (exchangeOrigin) {
+  for (const key of [
+    'TECPEY_EXCHANGE_SESSION_SECRET_V1',
+    'TECPEY_IDENTITY_LINK_FINGERPRINT_KEY_V1',
+  ]) {
+    if (!process.env[key]?.trim()) {
+      errors.push(`${key} is required when TECPEY_EXCHANGE_ORIGIN is configured`);
+    }
   }
 }
 

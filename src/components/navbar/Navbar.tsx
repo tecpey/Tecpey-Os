@@ -13,7 +13,14 @@ import {
   X,
 } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
+import { AcademyProgressBar } from "@/components/academy/AcademyProgressBar";
+import { NotificationCenter } from "@/components/learning-os/NotificationCenter";
 import ThemeToggle from "@/components/ThemeToggle";
+import {
+  getLocaleFromPathname,
+  localizePath,
+  resolveLocalePath,
+} from "@/i18n/config";
 
 export interface User {
   id: number;
@@ -27,22 +34,24 @@ export interface User {
 
 const primaryLinks = [
   { label: "خانه", href: "/" },
+  { label: "آکادمی", href: "/academy" },
+  { label: "منتور هوشمند", href: "/academy/ai-guide" },
   { label: "بازارها", href: "/markets" },
   { label: "رمزارزها", href: "/coins" },
   { label: "ابزارها", href: "/trading-tools" },
   { label: "اخبار", href: "/crypto-news" },
-  { label: "آکادمی", href: "/academy" },
   { label: "امنیت", href: "/security" },
   { label: "تماس", href: "/contact-us" },
 ];
 
 const primaryLinksEn = [
   { label: "Home", href: "/en" },
+  { label: "Academy", href: "/en/academy" },
+  { label: "AI Learning Mentor", href: "/en/academy/ai-guide" },
   { label: "Markets", href: "/en/markets" },
   { label: "Coins", href: "/en/coins" },
   { label: "Tools", href: "/en/trading-tools" },
   { label: "News", href: "/en/crypto-news" },
-  { label: "Academy", href: "/en/academy" },
   { label: "Security", href: "/en/security" },
   { label: "Contact", href: "/en/contact-us" },
 ];
@@ -91,8 +100,11 @@ export default function Navbar({
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [mobileKnowledgeOpen, setMobileKnowledgeOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [academyIdentity, setAcademyIdentity] = useState<{ display_name?: string; username?: string; avatar?: string; photo_url?: string } | null>(null);
   const [academyProfileReady, setAcademyProfileReady] = useState(false);
   const [academyAuthReady, setAcademyAuthReady] = useState(false);
+  const [academyLogoutPending, setAcademyLogoutPending] = useState(false);
+  const [academyLogoutError, setAcademyLogoutError] = useState(false);
   const [_academyProfileChecked, setAcademyProfileChecked] = useState(false);
   const loggedIn = !!user;
   const menuRef = useRef<HTMLLIElement>(null);
@@ -100,20 +112,14 @@ export default function Navbar({
   const profileRef = useRef<HTMLDivElement>(null);
   const appUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
   const appLink = (path = "") => (appUrl ? `${appUrl}${path}` : path || "/");
-  const authLink = (
-    path: "https://my.tecpey.ir/signin" | "https://my.tecpey.ir/signup",
-  ) => path;
   const pathname = usePathname();
-  const normalizedPath =
-    pathname === "/" ? "" : pathname.replace(/^\/en(?=\/|$)/, "");
-  const faHref = normalizedPath || "/";
-  const enHref = `/en${normalizedPath}`.replace(/\/$/, "") || "/en";
-  const isEnglish = pathname.startsWith("/en");
+  const currentLocale = getLocaleFromPathname(pathname);
+  const { path: semanticPath } = resolveLocalePath(pathname);
+  const faHref = localizePath("fa", pathname);
+  const enHref = localizePath("en", pathname);
+  const isEnglish = currentLocale === "en";
   const isAcademyArea =
-    pathname === "/academy" ||
-    pathname.startsWith("/academy/") ||
-    pathname === "/en/academy" ||
-    pathname.startsWith("/en/academy/");
+    semanticPath === "/academy" || semanticPath.startsWith("/academy/");
   const activePrimaryLinks = isEnglish ? primaryLinksEn : primaryLinks;
   const activeKnowledgeLinks = isEnglish ? knowledgeLinksEn : knowledgeLinks;
   const homeHref = isEnglish ? "/en" : "/";
@@ -141,12 +147,8 @@ export default function Navbar({
   const academySignupHref = isEnglish
     ? "/en/academy/signup"
     : "/academy/signup";
-  const resolvedLoginHref = isAcademyArea
-    ? academyLoginHref
-    : authLink("https://my.tecpey.ir/signin");
-  const resolvedSignupHref = isAcademyArea
-    ? academySignupHref
-    : authLink("https://my.tecpey.ir/signup");
+  const resolvedLoginHref = academyLoginHref;
+  const resolvedSignupHref = academySignupHref;
   const menuAriaLabel = isOpen
     ? isEnglish
       ? "Close menu"
@@ -161,13 +163,6 @@ export default function Navbar({
   useEffect(() => {
     let active = true;
     const checkAcademyProfile = async () => {
-      if (!isAcademyArea) {
-        setAcademyAuthReady(false);
-        setAcademyProfileReady(false);
-        setAcademyProfileChecked(true);
-        return;
-      }
-
       try {
         const [authResponse, profileResponse] = await Promise.all([
           fetch("/api/academy-auth", { cache: "no-store", credentials: "include" }),
@@ -177,11 +172,14 @@ export default function Navbar({
         const profileData = await profileResponse.json();
         if (!active) return;
         setAcademyAuthReady(
-          Boolean(authData?.authenticated || profileData?.authenticated),
+          Boolean((authResponse.ok && authData?.authenticated) || (profileResponse.ok && profileData?.authenticated)),
         );
-        setAcademyProfileReady(Boolean(profileData?.profile?.display_name));
+        setAcademyProfileReady(Boolean(profileResponse.ok && profileData?.profile?.display_name));
+        setAcademyIdentity(profileResponse.ok && profileData?.authenticated ? profileData.profile : null);
+        setAcademyLogoutError(false);
       } catch {
         if (active) {
+          setAcademyIdentity(null);
           setAcademyAuthReady(false);
           setAcademyProfileReady(false);
         }
@@ -208,7 +206,28 @@ export default function Navbar({
       );
       window.removeEventListener("focus", checkAcademyProfile);
     };
-  }, [isAcademyArea]);
+  }, []);
+
+  const logoutAcademy = async () => {
+    if (academyLogoutPending) return;
+    setAcademyLogoutPending(true);
+    setAcademyLogoutError(false);
+    try {
+      const response = await fetch("/api/academy-auth", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error("academy_logout_failed");
+      setAcademyIdentity(null);
+      setAcademyProfileReady(false);
+      setAcademyAuthReady(false);
+      window.location.assign(academyLoginHref);
+    } catch {
+      setAcademyLogoutError(true);
+      setAcademyLogoutPending(false);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -601,6 +620,38 @@ export default function Navbar({
           </div>
         </div>
       )}
+      {academyAuthReady || loggedIn ? (
+        <div className="border-t border-fg/5">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1">
+            <Link href={isEnglish ? "/en/academy/account" : "/academy/account"} className="inline-flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
+              <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-cyan-400/10">
+                {academyIdentity?.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- #619: private same-origin Academy photo endpoint is intentionally not image-optimizer proxied.
+                  <img src={academyIdentity.photo_url} alt="" className="h-full w-full object-cover" />
+                ) : academyIdentity?.avatar || <UserIcon className="h-4 w-4" />}
+              </span>
+              <span className="min-w-0 truncate text-sm font-semibold">{academyIdentity?.display_name || user?.name || accountLabel}</span>
+              {academyIdentity?.username ? <bdi className="hidden truncate text-xs text-muted sm:inline">@{academyIdentity.username}</bdi> : null}
+            </Link>
+            <div className="flex shrink-0 items-center gap-1">
+              {academyAuthReady ? <NotificationCenter locale={isEnglish ? "en" : "fa"} surface="navbar" /> : null}
+              {academyAuthReady ? (
+                <button
+                  type="button"
+                  onClick={() => void logoutAcademy()}
+                  disabled={academyLogoutPending}
+                  aria-label={academyLogoutError ? (isEnglish ? "Logout failed. Retry" : "خروج انجام نشد؛ تلاش دوباره") : logoutLabel}
+                  title={academyLogoutError ? (isEnglish ? "Logout failed. Retry" : "خروج انجام نشد؛ دوباره تلاش کنید") : logoutLabel}
+                  className={`grid h-11 w-11 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-60 ${academyLogoutError ? "text-rose-500 hover:bg-rose-500/10" : "hover:bg-fg/5"}`}
+                >
+                  <LogOut className="h-5 w-5" aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isAcademyArea && academyProfileReady ? <AcademyProgressBar key={pathname} locale={isEnglish ? "en" : "fa"} /> : null}
     </nav>
   );
 }

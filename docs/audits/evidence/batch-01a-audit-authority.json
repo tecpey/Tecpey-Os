@@ -284,8 +284,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "3f1dfc98658a6e9fd1644c855dcfdfd9b88073f1",
-      "sha256": "39653defa06a02aaa0105e2e7794ca15413947b0035df7510ae223c94d8b9397",
+      "gitObjectId": "e12320591445c217b3867880a556f4815d698980",
+      "sha256": "a4ac3081f48be0c4c39b958d98a5094a74c3f8dc4e933d118c6925056c14f936",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -312,7 +312,8 @@
         "2026-08-29: re-reviewed after Policy v22 explicitly classified src/lib/bounded-http-body.ts as operations-runtime Batch 11. The helper enforces byte-level response limits for public and scheduled RSS ingestion, performs no request itself, touches no credentials or persistence, and fails closed before or during streaming. Rule ordering and source-path fail-closed behavior remain unchanged, and focused tests cover declared-length and chunked-body overflow.",
         "2026-08-31: re-reviewed after extending the existing mentor-ai classifier with the explicit living-mentor prefix. The change classifies the new Living Mentor presentation and Rive adapter source under the existing P2 Mentor AI batch; it does not broaden unrelated src/lib coverage, weaken fail-closed classification, change provenance, or alter audit workflow authority.",
         "2026-09-01: re-reviewed the complete policy after explicitly adding the Growth analytics, trend authority/intelligence, IndexNow, News growth authority, taxonomy and translation modules to the existing product-ui Batch 10 rule. The anchored alternation remains limited to named src/lib TypeScript modules, preserves rule ordering and fail-closed classification for unknown source paths, adds no runtime authority, and the focused policy tests cover the new classifications.",
-        "2026-09-02: re-reviewed the complete policy after explicitly classifying src/lib/news-published-at.ts in the existing product-ui Batch 10 News rule. The helper only validates and normalizes publisher timestamps against the fetch time and archive-age boundary; the classification remains limited to the named module, preserves rule ordering and fail-closed handling of unknown src/lib paths, and introduces no runtime authority, persistence, credential access or financial activation surface."
+        "2026-09-02: re-reviewed the complete policy after explicitly classifying src/lib/news-published-at.ts in the existing product-ui Batch 10 News rule. The helper only validates and normalizes publisher timestamps against the fetch time and archive-age boundary; the classification remains limited to the named module, preserves rule ordering and fail-closed handling of unknown src/lib paths, and introduces no runtime authority, persistence, credential access or financial activation surface.",
+        "2026-09-04: re-reviewed the complete policy after explicitly classifying src/lib/news-article-evidence.ts, src/lib/news-feed-evidence.ts and src/lib/news-source-registry.ts in the existing product-ui Batch 10 News rule. The three modules respectively extract bounded publisher article evidence, classify feed evidence coverage, and centralize governed public news-source metadata. The anchored rule remains limited to named src/lib TypeScript modules, preserves rule ordering and source-path fail-closed behavior, and introduces no financial execution authority, credential access or capability activation surface."
       ],
       "findings": []
     },

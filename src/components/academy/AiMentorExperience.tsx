@@ -12,10 +12,8 @@ import {
   Loader2,
   MessageCircle,
   MessageSquarePlus,
-  Newspaper,
   Send,
   ShieldCheck,
-  Sparkles,
   WifiOff,
   X,
 } from "lucide-react";
@@ -27,13 +25,11 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { MentorOfficeScene } from "@/components/mentor/MentorOfficeScene";
 import { MentorArenaDock } from "@/components/mentor/MentorArenaDock";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
 import { useMentorInsights } from "@/hooks/useMentorInsights";
 import {
-  MENTOR_QUICK_QUESTIONS,
   detectMentorMode,
   toLocalReply,
   type MentorLocale,
@@ -77,7 +73,7 @@ const COPY = {
   fa: {
     eyebrow: "فضای کاری شخصی شما",
     title: "منتور هوشمند تک‌پی",
-    subtitle: "گفت‌وگو، حافظه آموزشی و پژوهش منبع‌دار در یک محیط واحد.",
+    subtitle: "فضایی برای یادگیری، پرسیدن و ادامه‌دادن گفت‌وگوهای قبلی.",
     freePlan: "نسخه پایه",
     premiumPlan: "نسخه پرمیوم",
     safety: "آموزشی و ریسک‌محور",
@@ -124,7 +120,7 @@ const COPY = {
   en: {
     eyebrow: "Your personal workspace",
     title: "TecPey AI Mentor",
-    subtitle: "Conversation, learning memory and source-backed research in one calm workspace.",
+    subtitle: "A calm space to ask, learn and continue your conversations.",
     freePlan: "Core plan",
     premiumPlan: "Premium plan",
     safety: "Education and risk first",
@@ -181,14 +177,13 @@ export function AiMentorExperience({
   const mentorLocale: MentorLocale = locale.toLowerCase().startsWith("fa")
     ? "fa"
     : "en";
+  const isFa = mentorLocale === "fa";
   const copy = mentorLocale === "fa" ? COPY.fa : COPY.en;
   const direction = mentorWorkspaceDirection(locale);
-  const quickQuestions = MENTOR_QUICK_QUESTIONS[mentorLocale];
   const officialProgress = useAcademyPathProgress(mentorLocale);
-  const { data: mentorInsights, loading: insightsLoading } = useMentorInsights({ enabled: true });
+  const { data: mentorInsights } = useMentorInsights({ enabled: true });
 
-  const [activeSurface, setActiveSurface] =
-    useState<MentorWorkspaceSurface>("academy");
+  const activeSurface: MentorWorkspaceSurface = "academy";
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
   const [threads, setThreads] = useState<MentorThread[]>([]);
@@ -306,6 +301,7 @@ export function AiMentorExperience({
     })
       .then(async (response) => ({ response, data: await response.json() }))
       .then(({ response, data }) => {
+        if (controller.signal.aborted) return;
         if (!response.ok || !data?.ok || !Array.isArray(data.conversations)) {
           setMessages([]);
           setHistoryUnavailable(true);
@@ -417,11 +413,6 @@ export function AiMentorExperience({
     [activeThreadId, closeHistory],
   );
 
-  const fillQuestion = useCallback((value: string) => {
-    setQuestion(value);
-    window.setTimeout(() => textareaRef.current?.focus(), 0);
-  }, []);
-
   const openArena = useCallback(() => {
     setScenarioCue(null);
     setArenaPanel("docked");
@@ -431,15 +422,6 @@ export function AiMentorExperience({
     setArenaPanel("closed");
     window.requestAnimationFrame(() => arenaTriggerRef.current?.focus());
   }, []);
-
-  const prepareNewsBrief = useCallback(() => {
-    if (plan !== "premium") return;
-    setArenaPanel("closed");
-    setActiveSurface("web_research");
-    setScenarioCue("news");
-    setQuestion(copy.newsPrompt);
-    window.requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [copy.newsPrompt, plan]);
 
   const ask = useCallback(async () => {
     const clean = question.trim();
@@ -551,16 +533,6 @@ export function AiMentorExperience({
     reducedMotion: prefersReducedMotion,
   });
   const mentorAct = stageDirection.act;
-  const officeStatus = loading
-    ? publicResearch
-      ? "researching" as const
-      : "thinking" as const
-    : isExplaining
-      ? "explaining" as const
-      : question.trim()
-        ? "listening" as const
-        : "idle" as const;
-
   const renderThreadList = () => (
     <div className={styles.threadList}>
       <button type="button" className={styles.newThreadButton} onClick={newConversation}>
@@ -625,30 +597,11 @@ export function AiMentorExperience({
             {plan === "premium" ? <Crown aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
             {plan === "premium" ? copy.premiumPlan : copy.freePlan}
           </span>
-          <span><ShieldCheck aria-hidden="true" />{copy.safety}</span>
+          <Link href={isFa ? "/academy/account#pro" : "/en/academy/account#pro"} className={styles.planLink}><Crown aria-hidden="true" />Pro</Link>
         </div>
       </header>
 
-      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel}>
-        <div className={styles.officeCell} dir={direction}>
-          <MentorOfficeScene
-            activeSurface={activeSurface}
-            completedTerms={completedTerms}
-            confidence={confidence}
-            locale={locale}
-            mentorAct={mentorAct}
-            framing={stageDirection.framing}
-            gaze={stageDirection.gaze}
-            intensity={stageDirection.intensity}
-            mode={stageDirection.mode}
-            motion={stageDirection.motion}
-            onSelectSurface={setActiveSurface}
-            plan={plan}
-            pose={stageDirection.pose}
-            status={officeStatus}
-          />
-        </div>
-
+      <div className={`${styles.workspaceGrid} ${styles.conversationWorkspace}`} data-arena-panel={arenaPanel}>
         <section className={styles.chatPanel} dir={direction} aria-label={copy.conversation}>
           <header className={styles.chatHeader}>
             <div>
@@ -659,18 +612,6 @@ export function AiMentorExperience({
               </div>
             </div>
             <div className={styles.chatHeaderActions}>
-              <button
-                type="button"
-                className={styles.scenarioAction}
-                onClick={prepareNewsBrief}
-                disabled={plan !== "premium"}
-                aria-label={plan === "premium" ? copy.newsLabel : copy.newsPremium}
-                title={plan === "premium" ? copy.newsLabel : copy.newsPremium}
-              >
-                <Newspaper aria-hidden="true" />
-                <span>{copy.newsBrief}</span>
-                {plan !== "premium" ? <Crown aria-hidden="true" /> : null}
-              </button>
               <button
                 ref={arenaTriggerRef}
                 type="button"
@@ -687,6 +628,7 @@ export function AiMentorExperience({
                 type="button"
                 className={styles.historyTrigger}
                 onClick={() => setHistoryOpen(true)}
+                aria-label={copy.history}
                 aria-haspopup="dialog"
               >
                 <History aria-hidden="true" />
@@ -774,30 +716,12 @@ export function AiMentorExperience({
                         </div>
                       ) : null}
 
-                      {message.reply?.suggestedQuestions?.length ? (
-                        <div className={styles.suggestedReplies}>
-                          <strong>{copy.suggested}</strong>
-                          {message.reply.suggestedQuestions.slice(0, 3).map((item) => (
-                            <button key={item} type="button" onClick={() => fillQuestion(item)}>{item}</button>
-                          ))}
-                        </div>
-                      ) : null}
                     </article>
                   ))
                 ) : (
                   <div className={styles.emptyConversation}>
-                    <LivingMentorAvatar act="greet" locale={locale} size="stage" />
-                    <h2>{copy.emptyTitle}</h2>
-                    <p>{copy.emptyText}</p>
-                    <strong>{copy.starterQuestions}</strong>
-                    <div className={styles.quickQuestions}>
-                      {quickQuestions.slice(0, 4).map((item) => (
-                        <button key={item} type="button" onClick={() => fillQuestion(item)}>{item}</button>
-                      ))}
-                    </div>
-                    {!mentorInsights?.profile && !insightsLoading ? (
-                      <p className={styles.profileUnavailable}>{copy.profileUnavailable}</p>
-                    ) : null}
+                    <h2>{isFa ? "امروز چه چیزی را با هم یاد بگیریم؟" : "What would you like to explore?"}</h2>
+                    <p>{isFa ? "دربارهٔ درس‌ها و تمرین‌هایت بپرس. گفت‌وگوهای ذخیره‌شده را از تاریخچه ادامه بده." : "Ask about your lessons and practice. Continue saved conversations from your history."}</p>
                   </div>
                 )}
 
@@ -812,10 +736,6 @@ export function AiMentorExperience({
               </div>
 
               <div className={styles.composer}>
-                <div className={styles.composerMode} data-research={publicResearch}>
-                  <Sparkles aria-hidden="true" />
-                  <span><strong>{copy.currentSurface}: {copy[activeSurface]}</strong>{publicResearch ? copy.researchMode : copy.standardMode}</span>
-                </div>
                 <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
                 <div className={styles.composerInput}>
                   <textarea

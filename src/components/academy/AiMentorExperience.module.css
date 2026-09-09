@@ -1266,3 +1266,26 @@
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
+
+/* The conversation owns the workspace; secondary tools open on request. */
+.planLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgb(103 232 249 / .3);
+  border-radius: 14px;
+  color: #a5f3fc;
+  text-decoration: none;
+}
+.planLink svg { width: 16px; height: 16px; }
+.planLink:focus-visible { outline: 2px solid #67e8f9; outline-offset: 3px; }
+.conversationWorkspace { grid-template-columns: minmax(0, 1fr); grid-template-areas: "chat" "arena"; }
+.conversationWorkspace .chatPanel { grid-column: 1; }
+@media (min-width: 1280px) {
+  .conversationWorkspace[data-arena-panel="docked"],
+  .conversationWorkspace[data-arena-panel="focus"] { grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr); grid-template-areas: "chat arena"; }
+  .conversationWorkspace[data-arena-panel="docked"] .arenaCell,
+  .conversationWorkspace[data-arena-panel="focus"] .arenaCell { grid-column: 2; }
+}

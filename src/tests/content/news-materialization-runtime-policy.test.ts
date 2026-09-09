@@ -4,9 +4,10 @@ import {
   DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
   evaluateNewsMaterializationRuntimeHealth,
   newsFeedRetryDelayMs,
+  shouldDeferNewsTranslationRetry,
   shouldRetryNewsFeedFailure,
 } from "../../lib/ops/news-materialization-runtime-policy";
-import type { NewsMaterializationWorkerResult } from "../../lib/news-materialization-worker";
+import { buildNewsMaterializationRunEvidence, type NewsMaterializationWorkerResult } from "../../lib/news-materialization-worker";
 import type { OperationalJobRunEvidence } from "../../lib/ops/operational-job-evidence";
 
 function run(status: OperationalJobRunEvidence["resultStatus"]): OperationalJobRunEvidence {
@@ -69,6 +70,52 @@ describe("news materialization runtime health policy", () => {
       hardFailureReasons: [],
       softFailureReasons: [],
     });
+  });
+
+  it("keeps a stale upstream feed informational while preserving quorum semantics", () => {
+    const staleRun = buildNewsMaterializationRunEvidence({
+      runId: "11111111-1111-4111-8111-111111111114",
+      hostName: "test-host",
+      startedAt: "2026-09-01T00:00:00.000Z",
+      completedAt: "2026-09-01T00:00:10.000Z",
+      results: healthyResults,
+      failures: [{ reasonCode: "news_feed_stale_blockworks" }],
+    });
+
+    assert.equal(staleRun.resultStatus, "succeeded");
+    assert.equal(staleRun.failureCount, 0);
+    assert.deepEqual(staleRun.failureFingerprints, []);
+    assert.deepEqual(staleRun.reasonCodes, ["news_feed_stale_blockworks"]);
+
+    const health = evaluateNewsMaterializationRuntimeHealth({
+      run: staleRun,
+      results: healthyResults,
+      failures: [{ reasonCode: "news_feed_stale_blockworks" }],
+      successfulSourceCount: 3,
+      minimumSuccessfulSources: 2,
+      archiveTransactionCommitted: true,
+      databaseEvidencePersisted: true,
+    });
+
+    assert.deepEqual(health, {
+      exitCode: 0,
+      degraded: false,
+      hardFailureReasons: [],
+      softFailureReasons: [],
+    });
+
+    const lostQuorum = evaluateNewsMaterializationRuntimeHealth({
+      run: staleRun,
+      results: healthyResults,
+      failures: [{ reasonCode: "news_feed_stale_blockworks" }],
+      successfulSourceCount: 1,
+      minimumSuccessfulSources: 2,
+      archiveTransactionCommitted: true,
+      databaseEvidencePersisted: true,
+    });
+
+    assert.equal(lostQuorum.exitCode, 2);
+    assert.ok(lostQuorum.hardFailureReasons.includes("news_feed_source_quorum_lost"));
   });
 
   it("treats one upstream feed outage as degraded success when quorum and bilingual snapshots remain healthy", () => {
@@ -180,5 +227,53 @@ describe("news feed retry policy", () => {
     assert.equal(newsFeedRetryDelayMs({ attempt: 2, baseDelayMs: 350 }), 700);
     assert.equal(newsFeedRetryDelayMs({ attempt: 8, baseDelayMs: 2_000 }), 5_000);
     assert.equal(newsFeedRetryDelayMs({ attempt: 1, baseDelayMs: 0 }), DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS);
+  });
+});
+
+
+describe("news translation retry policy", () => {
+  it("retries transient timeouts immediately while preserving cooldown for quality failures", () => {
+    const generatedAt = "2026-09-04T06:33:13.170Z";
+    const nowMs = Date.parse("2026-09-04T06:40:00.000Z");
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_timeout",
+        generatedAt,
+        nowMs,
+        retryMinutes: 60,
+      }),
+      false,
+    );
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_circuit_open",
+        generatedAt,
+        nowMs,
+        retryMinutes: 60,
+      }),
+      false,
+    );
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_numeric_integrity_failed",
+        generatedAt,
+        nowMs,
+        retryMinutes: 60,
+      }),
+      true,
+    );
+
+    assert.equal(
+      shouldDeferNewsTranslationRetry({
+        failureReason: "translation_numeric_integrity_failed",
+        generatedAt,
+        nowMs: Date.parse("2026-09-04T07:40:00.000Z"),
+        retryMinutes: 60,
+      }),
+      false,
+    );
   });
 });

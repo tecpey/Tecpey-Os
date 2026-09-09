@@ -559,17 +559,14 @@ export default function EnglishLandingClient({
               Free education for everyone; professional opportunities for ready learners
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-start">
-              <Link href="https://my.tecpey.ir" className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400">
-                Enter Exchange
-                <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
+              <Link href="/en/academy" className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400">
+                Start Free Academy
+                <GraduationCap className="h-5 w-5" />
               </Link>
-              <div className="flex flex-col items-center gap-1.5 sm:items-start">
-                <Link href="/en/academy" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-lg dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15">
-                  Enter Academy
-                  <LineChart className="h-5 w-5 text-cyan-500" />
-                </Link>
-                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">For a confident start, the Academy is with you.</p>
-              </div>
+              <Link href="/en/academy/ai-guide" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-lg dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15">
+                Talk to AI Mentor
+                <ArrowRight className="h-5 w-5 text-cyan-500" />
+              </Link>
             </div>
             <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-slate-600 dark:text-slate-300 sm:text-xs lg:max-w-xl">
               <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />7 foundation terms + continuous growth</span>
@@ -737,11 +734,11 @@ export default function EnglishLandingClient({
       {/* Mobile sticky CTA — two equal buttons, always visible on mobile */}
       <div className="sticky-cta-bar fixed inset-x-0 bottom-0 z-50 border-t border-cyan-300/20 bg-slate-950/92 px-3 pt-3 shadow-[0_-18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-md gap-2">
-          <Link href="https://my.tecpey.ir" className="flex flex-1 items-center justify-center rounded-2xl bg-cyan-700 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">
-            Enter Exchange
+          <Link href="/en/academy" className="flex min-h-11 flex-1 items-center justify-center rounded-2xl bg-cyan-700 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-800">
+            Start Academy
           </Link>
-          <Link href="/en/academy" className="flex flex-1 items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">
-            Enter Academy
+          <Link href="/en/academy/ai-guide" className="flex flex-1 items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">
+            AI Mentor
           </Link>
         </div>
       </div>

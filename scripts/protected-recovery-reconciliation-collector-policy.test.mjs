@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   DOMAIN_TABLES,
   FINANCIAL_INVARIANT_QUERIES,
+  RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES,
   assertFinancialInvariantCounts,
   assertSummariesMatch,
   assertTenantRegistryCoverage,
@@ -23,6 +25,19 @@ test("covers every governed recovery domain with deterministic table membership"
     assert.equal(tables.length > 0, true);
     assert.equal(new Set(tables).size, tables.length);
   }
+});
+
+test("binds protected recovery to the fixed identity tenant-registry fragment", async () => {
+  const identityRegistry = JSON.parse(await readFile(
+    new URL("../docs/security/tenant-scoped-table-registry.identity.json", import.meta.url),
+    "utf8",
+  ));
+  const identityTables = identityRegistry.tables.map((entry) => entry.table).sort();
+  assert.deepEqual(
+    [...RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES].sort(),
+    identityTables,
+  );
+  assert.equal(identityTables.length, 4);
 });
 
 test("builds a quoted aggregate fingerprint and rejects identifier injection", () => {
@@ -63,12 +78,24 @@ test("fails closed on source/restore drift and tenant registry drift", () => {
     () => assertSummariesMatch(source, restored, "exchangeLedger"),
     /exchangeLedger_source_restore_mismatch/,
   );
+
+  const primaryRegistry = ["academy_students", "mentor_profiles"];
+  const expected = [
+    ...primaryRegistry,
+    ...RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES,
+  ].sort();
+  const runtime = [...expected].reverse();
   assert.deepEqual(
-    assertTenantRegistryCoverage(["academy_students", "mentor_profiles"], ["mentor_profiles", "academy_students"]),
-    ["academy_students", "mentor_profiles"],
+    assertTenantRegistryCoverage(primaryRegistry, runtime),
+    expected,
   );
+  assert.deepEqual(primaryRegistry, expected);
+
   assert.throws(
-    () => assertTenantRegistryCoverage(["academy_students"], ["academy_students", "unknown_scope"]),
+    () => assertTenantRegistryCoverage(
+      ["academy_students"],
+      ["academy_students", ...RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES, "unknown_scope"],
+    ),
     /tenant_registry_runtime_drift/,
   );
 });

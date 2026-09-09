@@ -284,6 +284,8 @@ export function resolveArenaCommandIdentity(input: {
 export function arenaUiError(error: unknown, status?: number): string {
   const code = typeof error === "string" ? error : "arena_execution_unavailable";
   const messages: Record<string, string> = {
+    academy_login_required: "برای ادامه تمرین، دوباره وارد حساب آکادمی شوید.",
+    arena_session_unavailable: "بررسی حساب موقتاً در دسترس نیست. کمی بعد دوباره تلاش کنید؛ نیازی به ساخت پروفایل تازه نیست.",
     academy_profile_required: "برای ورود به آرنا ابتدا پروفایل آکادمی را کامل کنید.",
     revision_conflict: "وضعیت آرنا روی دستگاه دیگری تغییر کرده است. نسخه تازه بازیابی شد؛ تصمیم را دوباره بررسی کنید.",
     idempotency_key_reused: "شناسه درخواست قبلاً برای فرمان دیگری استفاده شده است. دوباره تلاش کنید.",
@@ -305,6 +307,6 @@ export function arenaUiError(error: unknown, status?: number): string {
     arena_execution_unavailable: "موتور امن آرنا موقتاً در دسترس نیست.",
   };
   if (messages[code]) return messages[code];
-  if (status === 401) return messages.academy_profile_required;
+  if (status === 401) return messages.academy_login_required;
   return "ارتباط امن با موتور آرنا انجام نشد. اطلاعات فرم حفظ شده است؛ دوباره تلاش کنید.";
 }

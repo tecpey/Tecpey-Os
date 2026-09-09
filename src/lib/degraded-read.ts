@@ -23,6 +23,8 @@ export type DegradedReadReason =
    * the reader was handed a guest it has no grounds to treat as one.
    */
   | "session_authority_unavailable"
+  /** Storage is healthy but the governed content required for the read is absent. */
+  | "question_bank_empty"
   /** The read threw after storage was reachable. */
   | "read_failed";
 

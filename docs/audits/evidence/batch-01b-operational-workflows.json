@@ -79,13 +79,13 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "f4ff11e0631fa41a8bb0c9943d9d9a7f50740ea5",
-      "sha256": "34137d5d118db9deaa9caf3c26179370b65578b08e4dcdd3616512b1e540bb1d",
-      "lines": 99,
+      "gitObjectId": "b74fd64ccba2917ef64f204473c8df82c188cba9",
+      "sha256": "b6d2f9d3f90cce64cae4dd45dfd35a173c294cba962d1d1e61a49b57210e9d18",
+      "lines": 101,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 99
+          "endLine": 101
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -95,7 +95,8 @@
         "2026-08-08: re-reviewed after adding docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
         "2026-08-12: re-reviewed after adding scripts/verify-protected-recovery-reconciliation-evidence.mjs and scripts/protected-recovery-reconciliation-evidence.test.mjs to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, exact migration-image identity, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
         "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries.",
-        "2026-08-23: re-reviewed after adding the protected staging recovery collector, collector policy/test and governed workflow to pull-request trigger coverage. Trigger-only change; exact-head checkout, pinned actions, read-only permissions, synthetic restore, RPO/RTO checks and artifact boundary remain unchanged. The file now has 99 lines."
+        "2026-08-23: re-reviewed after adding the protected staging recovery collector, collector policy/test and governed workflow to pull-request trigger coverage. Trigger-only change; exact-head checkout, pinned actions, read-only permissions, synthetic restore, RPO/RTO checks and artifact boundary remain unchanged. The file now has 99 lines.",
+        "2026-09-06: re-reviewed after adding both fixed tenant-scoped registry fragments to pull-request trigger coverage. This is a trigger-only change ensuring registry-authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, pinned actions, recovery authority command, isolated PostgreSQL/Redis restore, RPO/RTO enforcement, evidence upload and production activation boundaries are unchanged. The file now has 101 lines."
       ],
       "findings": []
     },

@@ -1,3 +1,4 @@
+import { LessonCarousel } from "./LessonCarousel";
 import type React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -149,7 +150,7 @@ export function AcademyTermPage({ slug }: { slug: string }) {
           </section>
 
           <section className="mt-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="space-y-6">
+            <LessonCarousel locale="fa">
               {term.lessons.map((lesson, index) => {
                 const [title, concept, example, mistake, checklist, proTip] = lesson;
                 return (
@@ -188,7 +189,7 @@ export function AcademyTermPage({ slug }: { slug: string }) {
                   </article>
                 );
               })}
-            </div>
+            </LessonCarousel>
 
             <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
               <div className="rounded-[30px] border border-cyan-300/15 bg-[#06111f] p-5 shadow-[0_20px_70px_rgba(0,0,0,.25)]">

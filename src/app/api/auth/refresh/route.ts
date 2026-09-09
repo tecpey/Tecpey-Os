@@ -23,6 +23,7 @@ import {
 import { rotateSessionAuthority } from "@/lib/security/session-authority";
 import { shouldUseSecureCookie, COOKIES, PLATFORM } from "@/lib/platform-config";
 import { withDb } from "@/lib/db";
+import { resolveAcademyStudentSessionIdentity } from "@/lib/security/academy-student-session-identity";
 import {
   hashSensitiveAuditRequest,
   resolveSensitiveAuditCorrelation,
@@ -82,9 +83,12 @@ export async function POST(req: NextRequest) {
     const correlationId = resolveSensitiveAuditCorrelation(
       req.headers.get("x-tecpey-request-id"),
     );
+    const studentIdentity = await resolveAcademyStudentSessionIdentity(req, account.id);
+    if (studentIdentity.status === "unavailable") return apiError("academy_identity_unavailable", 503);
+    if (studentIdentity.status === "conflict") return apiError("academy_identity_review_required", 409);
     const accessToken = await signUnifiedSession({
       accountId: account.id,
-      studentId: null,
+      studentId: studentIdentity.studentId,
       email: account.email,
       displayName: account.display_name,
       username: account.username,

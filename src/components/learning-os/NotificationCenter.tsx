@@ -11,7 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   NOTIFICATION_CLASSES,
   type NotificationClass,
@@ -19,6 +19,7 @@ import {
 
 type Locale = "fa" | "en";
 type LoadState = "loading" | "ready" | "error";
+type NotificationSurface = "floating" | "compact" | "navbar";
 
 type NotificationItem = {
   id: string;
@@ -28,6 +29,13 @@ type NotificationItem = {
   actionUrl: string | null;
   priority: number;
   readAt: string | null;
+};
+
+type NotificationInbox = {
+  locale: Locale;
+  items: NotificationItem[];
+  unread: number;
+  loadState: Exclude<LoadState, "loading">;
 };
 
 function parseNotificationItem(value: unknown): NotificationItem | null {
@@ -87,37 +95,54 @@ function safeActionUrl(value: string | null): string | null {
 export function NotificationCenter({
   locale = "fa",
   compact = false,
+  surface,
 }: {
   locale?: Locale;
   compact?: boolean;
+  surface?: NotificationSurface;
 }) {
   const isFa = locale === "fa";
+  const resolvedSurface: NotificationSurface =
+    surface ?? (compact ? "compact" : "floating");
+  const isNavbar = resolvedSurface === "navbar";
+  const isCompact = compact || isNavbar;
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<NotificationItem[]>([]);
-  const [unread, setUnread] = useState(0);
-  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [inbox, setInbox] = useState<NotificationInbox | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const pendingReads = useRef(new Set<string>());
-  const panelId = `tecpey-notification-center-${compact ? "compact" : "floating"}`;
+  const pendingReads = useRef(new Map<string, string>());
+  const panelId = `tecpey-notification-center-${resolvedSurface}`;
+
+  const currentInbox = inbox?.locale === locale ? inbox : null;
+  const items = currentInbox?.items ?? [];
+  const unread = currentInbox?.unread ?? 0;
+  const loadState: LoadState = currentInbox?.loadState ?? "loading";
+  const topItems = items.slice(0, isCompact ? 4 : 12);
 
   useEffect(() => {
-    let active = true;
-    setItems([]);
-    setUnread(0);
-    setLoadState("loading");
+    let disposed = false;
+    let controller: AbortController | null = null;
 
     const load = async () => {
+      controller?.abort();
+      const requestController = new AbortController();
+      controller = requestController;
+
       try {
         const response = await fetch(`/api/notifications?locale=${locale}`, {
           cache: "no-store",
           credentials: "same-origin",
+          signal: requestController.signal,
         });
         if (!response.ok) throw new Error("notification_inbox_unavailable");
-        const data = await response.json();
-        if (!active) return;
 
-        const notifications = Array.isArray(data?.notifications)
+        const data = (await response.json()) as {
+          notifications?: unknown;
+          unread?: unknown;
+        };
+        if (disposed || requestController.signal.aborted) return;
+
+        const notifications = Array.isArray(data.notifications)
           ? data.notifications
               .map(parseNotificationItem)
               .filter(
@@ -125,23 +150,53 @@ export function NotificationCenter({
                   Boolean(item),
               )
           : [];
-        setItems(notifications);
-        setUnread(
-          Number.isFinite(Number(data?.unread))
-            ? Math.max(0, Number(data.unread))
-            : 0,
-        );
-        setLoadState("ready");
+
+        const optimisticReads = new Map(pendingReads.current);
+        let optimisticUnreadAdjustment = 0;
+        const reconciledNotifications = notifications.map((item) => {
+          const optimisticReadAt = optimisticReads.get(item.id);
+          if (!optimisticReadAt || item.readAt) return item;
+          optimisticUnreadAdjustment += 1;
+          return { ...item, readAt: optimisticReadAt };
+        });
+        const serverUnread = Number.isFinite(Number(data.unread))
+          ? Math.max(0, Number(data.unread))
+          : 0;
+
+        setInbox({
+          locale,
+          items: reconciledNotifications,
+          unread: Math.max(0, serverUnread - optimisticUnreadAdjustment),
+          loadState: "ready",
+        });
       } catch {
-        if (active) setLoadState("error");
+        if (disposed || requestController.signal.aborted) return;
+        setInbox((previous) => {
+          if (previous?.locale === locale && previous.loadState === "ready") {
+            return previous;
+          }
+          return {
+            locale,
+            items: [],
+            unread: 0,
+            loadState: "error",
+          };
+        });
       }
     };
 
     void load();
     const timer = window.setInterval(() => void load(), 45_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
-      active = false;
+      disposed = true;
+      controller?.abort();
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [locale]);
 
@@ -165,25 +220,25 @@ export function NotificationCenter({
     };
   }, [open]);
 
-  const topItems = useMemo(
-    () => items.slice(0, compact ? 4 : 12),
-    [items, compact],
-  );
-
   const markRead = async (id: string) => {
     const target = items.find((item) => item.id === id);
     if (!target || target.readAt || pendingReads.current.has(id)) return;
 
-    pendingReads.current.add(id);
+    const requestLocale = locale;
     const optimisticReadAt = new Date().toISOString();
-    setItems((previous) =>
-      previous.map((item) =>
-        item.id === id && !item.readAt
-          ? { ...item, readAt: optimisticReadAt }
-          : item,
-      ),
-    );
-    setUnread((value) => Math.max(0, value - 1));
+    pendingReads.current.set(id, optimisticReadAt);
+    setInbox((previous) => {
+      if (!previous || previous.locale !== requestLocale) return previous;
+      const current = previous.items.find((item) => item.id === id);
+      if (!current || current.readAt) return previous;
+      return {
+        ...previous,
+        items: previous.items.map((item) =>
+          item.id === id ? { ...item, readAt: optimisticReadAt } : item,
+        ),
+        unread: Math.max(0, previous.unread - 1),
+      };
+    });
 
     try {
       const response = await fetch(
@@ -198,43 +253,66 @@ export function NotificationCenter({
       );
       if (!response.ok) throw new Error("notification_read_failed");
     } catch {
-      setItems((previous) =>
-        previous.map((item) =>
-          item.id === id && item.readAt === optimisticReadAt
-            ? { ...item, readAt: null }
-            : item,
-        ),
-      );
-      setUnread((value) => value + 1);
+      setInbox((previous) => {
+        if (!previous || previous.locale !== requestLocale) return previous;
+
+        let reverted = false;
+        const revertedItems = previous.items.map((item) => {
+          if (item.id !== id || item.readAt !== optimisticReadAt) return item;
+          reverted = true;
+          return { ...item, readAt: null };
+        });
+        if (!reverted) return previous;
+
+        return {
+          ...previous,
+          items: revertedItems,
+          unread: previous.unread + 1,
+        };
+      });
     } finally {
-      pendingReads.current.delete(id);
+      if (pendingReads.current.get(id) === optimisticReadAt) {
+        pendingReads.current.delete(id);
+      }
     }
   };
+
+  const rootClass = isNavbar
+    ? "relative z-[140]"
+    : resolvedSurface === "compact"
+      ? "relative"
+      : "fixed bottom-24 left-4 z-50 md:left-8";
+  const triggerClass = isNavbar
+    ? "relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-fg transition-colors hover:bg-fg/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+    : "relative inline-flex items-center gap-2 rounded-2xl border border-cyan-300/30 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-2xl shadow-cyan-500/15 backdrop-blur transition hover:border-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300";
+  const panelClass = isNavbar
+    ? "absolute end-0 top-12 z-[160] w-[min(92vw,420px)] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/98 text-white shadow-[0_24px_80px_rgba(2,8,23,.38)] backdrop-blur-xl"
+    : "absolute bottom-16 left-0 w-[min(92vw,390px)] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/95 text-white shadow-2xl shadow-cyan-500/20 backdrop-blur-xl";
 
   return (
     <div
       ref={rootRef}
-      className={compact ? "relative" : "fixed bottom-24 left-4 z-50 md:left-8"}
+      className={rootClass}
       dir={isFa ? "rtl" : "ltr"}
     >
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="relative inline-flex items-center gap-2 rounded-2xl border border-cyan-300/30 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-2xl shadow-cyan-500/15 backdrop-blur transition hover:border-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+        className={triggerClass}
         aria-label={isFa ? "مرکز اعلان‌های تک‌پی" : "TecPey notification center"}
         aria-expanded={open}
         aria-controls={panelId}
         aria-haspopup="dialog"
       >
-        <Bell className="h-5 w-5 text-cyan-200" aria-hidden="true" />
-        {!compact && <span>{isFa ? "مرکز اعلان‌ها" : "Notification Center"}</span>}
+        <Bell className={`h-5 w-5 ${isNavbar ? "" : "text-cyan-200"}`} aria-hidden="true" />
+        {!isCompact && <span>{isFa ? "مرکز اعلان‌ها" : "Notification Center"}</span>}
         {unread > 0 && (
           <span
-            className="absolute -right-2 -top-2 rounded-full bg-rose-500 px-2 py-0.5 text-[11px] text-white"
+            className={`absolute rounded-full bg-rose-500 px-2 py-0.5 text-[11px] text-white ${isNavbar ? "-end-1 -top-1" : "-right-2 -top-2"}`}
             aria-label={isFa ? `${unread} اعلان خوانده‌نشده` : `${unread} unread notifications`}
           >
-            {unread}
+            {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
@@ -245,7 +323,7 @@ export function NotificationCenter({
           role="dialog"
           aria-modal="false"
           aria-label={isFa ? "اعلان‌های تک‌پی" : "TecPey notifications"}
-          className="absolute bottom-16 left-0 w-[min(92vw,390px)] overflow-hidden rounded-[28px] border border-white/15 bg-slate-950/95 text-white shadow-2xl shadow-cyan-500/20 backdrop-blur-xl"
+          className={panelClass}
         >
           <div className="flex items-center justify-between border-b border-white/10 p-4">
             <div>
@@ -271,7 +349,7 @@ export function NotificationCenter({
             </button>
           </div>
 
-          <div className="max-h-[420px] space-y-2 overflow-y-auto p-3">
+          <div className="max-h-[min(56dvh,440px)] space-y-2 overflow-y-auto overscroll-contain p-3">
             {loadState === "loading" && (
               <div
                 className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-slate-300"
@@ -350,6 +428,7 @@ export function NotificationCenter({
           <div className="border-t border-white/10 p-3">
             <Link
               href={isFa ? "/academy/notifications" : "/en/academy/notifications"}
+              onClick={() => setOpen(false)}
               className="block rounded-2xl border border-cyan-300/25 bg-white/5 px-4 py-3 text-center text-sm font-black text-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
               {isFa ? "مشاهده همه اعلان‌ها" : "View all notifications"}

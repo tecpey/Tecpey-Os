@@ -232,7 +232,11 @@ export function AcademyAuthClient({
         await completeAuthenticatedNavigation();
       } catch (err) {
         const code = (err as Error)?.message;
-        setError(code === "preauth_token_invalid"
+        setError(code === "academy_identity_unavailable"
+          ? (isFa ? "بررسی حساب موقتاً در دسترس نیست؛ کمی بعد ورود را از ابتدا انجام بده." : "Account verification is temporarily unavailable; restart sign-in shortly.")
+          : code === "academy_identity_review_required"
+          ? (isFa ? "اتصال پروفایل نیاز به بررسی پشتیبانی دارد." : "Your profile connection needs support review.")
+          : code === "preauth_token_invalid"
           ? (isFa ? "زمان ورود تمام شد؛ دوباره وارد شو." : "The login challenge expired; sign in again.")
           : (isFa ? "کد احراز هویت معتبر نیست یا قبلاً استفاده شده است." : "The authenticator code is invalid or already used."));
       } finally {
@@ -319,6 +323,8 @@ export function AcademyAuthClient({
     } catch (err) {
       const code = (err as Error)?.message || "auth_failed";
       const faMessages: Record<string, string> = {
+        academy_identity_unavailable: "بررسی حساب موقتاً در دسترس نیست؛ کمی بعد دوباره تلاش کن.",
+        academy_identity_review_required: "اتصال پروفایل نیاز به بررسی پشتیبانی دارد.",
         username_taken: "این نام کاربری قبلاً ثبت شده است.",
         invalid_credentials: "ایمیل یا رمز عبور درست نیست.",
         invalid_email: "ایمیل معتبر وارد کن.",
@@ -337,6 +343,8 @@ export function AcademyAuthClient({
           "خطای داخلی ثبت‌نام آکادمی؛ لطفاً خروجی ترمینال را بررسی کن.",
       };
       const enMessages: Record<string, string> = {
+        academy_identity_unavailable: "Account verification is temporarily unavailable; try again shortly.",
+        academy_identity_review_required: "Your profile connection needs support review.",
         username_taken: "This username is already taken.",
         invalid_credentials: "Email or password is incorrect.",
         invalid_email: "Enter a valid email.",

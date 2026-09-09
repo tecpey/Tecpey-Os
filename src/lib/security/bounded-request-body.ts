@@ -24,6 +24,14 @@ export type BoundedJsonBodyResult<T = unknown> =
     }
   | BoundedJsonBodyFailure;
 
+export type BoundedBodyResult =
+  | {
+      ok: true;
+      bytes: Uint8Array;
+      bytesRead: number;
+    }
+  | BoundedJsonBodyFailure;
+
 export type BoundedJsonRequestResult<T = unknown> =
   | {
       ok: true;
@@ -37,6 +45,10 @@ export type ReadJsonBodyOptions = {
   maxBytes: number;
   allowEmptyObject?: boolean;
   requireJsonContentType?: boolean;
+};
+
+export type ReadBoundedBodyOptions = {
+  maxBytes: number;
 };
 
 const MAX_GOVERNED_BODY_BYTES = 8 * 1024 * 1024;
@@ -82,6 +94,87 @@ async function cancelReader(
   }
 }
 
+function validateBodyLimit(maxBytes: number): BoundedJsonBodyFailure | null {
+  if (
+    !Number.isSafeInteger(maxBytes) ||
+    maxBytes < 1 ||
+    maxBytes > MAX_GOVERNED_BODY_BYTES
+  ) {
+    return failure("invalid_body_limit", 500);
+  }
+  return null;
+}
+
+function validateContentEncoding(request: Request): BoundedJsonBodyFailure | null {
+  const contentEncoding = request.headers.get("content-encoding")?.trim().toLowerCase();
+  if (contentEncoding && contentEncoding !== "identity") {
+    return failure("unsupported_content_encoding", 415);
+  }
+  return null;
+}
+
+/**
+ * Reads an arbitrary untrusted request body while enforcing a hard byte ceiling
+ * against the stream itself. This is the binary/multipart counterpart to
+ * readJsonBody: Content-Length is only an early reject, compressed bodies are
+ * rejected, and chunked transfer cannot bypass the byte counter.
+ */
+export async function readBoundedBody(
+  request: Request,
+  options: ReadBoundedBodyOptions,
+): Promise<BoundedBodyResult> {
+  const invalidLimit = validateBodyLimit(options.maxBytes);
+  if (invalidLimit) return invalidLimit;
+
+  const invalidEncoding = validateContentEncoding(request);
+  if (invalidEncoding) return invalidEncoding;
+
+  const declared = declaredContentLength(
+    request.headers.get("content-length"),
+    options.maxBytes,
+  );
+  if (declared) return declared;
+
+  if (!request.body) {
+    return { ok: true, bytes: new Uint8Array(0), bytesRead: 0 };
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytesRead = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) {
+        await cancelReader(reader, "invalid_body_chunk");
+        return failure("body_read_failed", 400);
+      }
+      bytesRead += value.byteLength;
+      if (bytesRead > options.maxBytes) {
+        await cancelReader(reader, "payload_too_large");
+        return failure("payload_too_large", 413);
+      }
+      if (value.byteLength > 0) chunks.push(value);
+    }
+  } catch {
+    await cancelReader(reader, "body_read_failed");
+    return failure("body_read_failed", 400);
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(bytesRead);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { ok: true, bytes, bytesRead };
+}
+
 /**
  * Reads and parses an untrusted JSON request body while enforcing the maximum
  * against bytes actually consumed from the stream. Content-Length is used only
@@ -96,18 +189,11 @@ export async function readJsonBody<T = unknown>(
   options: ReadJsonBodyOptions,
 ): Promise<BoundedJsonBodyResult<T>> {
   const maxBytes = options.maxBytes;
-  if (
-    !Number.isSafeInteger(maxBytes) ||
-    maxBytes < 1 ||
-    maxBytes > MAX_GOVERNED_BODY_BYTES
-  ) {
-    return failure("invalid_body_limit", 500);
-  }
+  const invalidLimit = validateBodyLimit(maxBytes);
+  if (invalidLimit) return invalidLimit;
 
-  const contentEncoding = request.headers.get("content-encoding")?.trim().toLowerCase();
-  if (contentEncoding && contentEncoding !== "identity") {
-    return failure("unsupported_content_encoding", 415);
-  }
+  const invalidEncoding = validateContentEncoding(request);
+  if (invalidEncoding) return invalidEncoding;
 
   if (
     options.requireJsonContentType !== false &&

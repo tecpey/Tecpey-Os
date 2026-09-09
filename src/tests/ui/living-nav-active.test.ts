@@ -56,3 +56,25 @@ describe("living navigation active resolution", () => {
     assert.equal(isActivePath("/academy/certificates", account), true);
   });
 });
+
+describe("shared navigation route specificity", () => {
+  const items = [
+    { match: ["/en/academy"] },
+    { match: ["/en/academy/trading-arena", "/en/academy/simulator"] },
+    { match: ["/en"], exact: true },
+    { match: ["/en/markets"] },
+    { match: ["/en/academy/account", "/en/academy/profile"] },
+  ];
+  it("keeps Home centered and exact in the English route tree", () => {
+    assert.equal(resolveActiveIndex("/en", items), 2);
+    assert.equal(resolveActiveIndex("/en/academy/term-2", items), 0);
+    assert.equal(resolveActiveIndex("/en/academy/profile", items), 4);
+    assert.equal(resolveActiveIndex("/en/academy/trading-arena/replay", items), 1);
+    assert.equal(resolveActiveIndex("/en/markets", items), 3);
+    assert.equal(resolveActiveIndex("/en/contact-us", items), -1);
+  });
+  it("does not mistake a similarly named route for a child route", () => {
+    assert.equal(resolveActiveIndex("/en/academy/trading-arena-history", items), 0);
+    assert.equal(resolveActiveIndex("/en/academy/accounting", items), 0);
+  });
+});
