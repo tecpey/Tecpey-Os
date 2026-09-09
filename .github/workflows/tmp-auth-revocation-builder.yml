@@ -101,7 +101,6 @@ jobs:
           if marker not in text:
             raise SystemExit('authority insertion marker missing')
           text = text.replace(marker, helper + marker, 1)
-
           pattern = re.compile(
             r'    return \{ revokedCount \};\n'
             r'  \}\);\n'
@@ -128,39 +127,44 @@ jobs:
           authority.write_text(text)
 
           test = Path('src/tests/security/auth-sessions-route-postgres.test.ts')
-          text = test.read_text()
-          text, count = re.subn(
-            r'(      const failingPipelineRedis = \{\n(?:.*\n){3}          exec: async \(\) => \{\n)(            throw new Error\("redis_pipeline_unavailable"\);)',
-            r'      let failingPipelineExecAttempts = 0;\n\1            failingPipelineExecAttempts += 1;\n\2',
-            text,
-            count=1,
+          full = test.read_text()
+          title = '    "returns durable success on Redis pipeline failure and repairs deny evidence on retry",'
+          start = full.index(title)
+          end = full.index('  it("reports database unavailability', start)
+          section = full[start:end]
+
+          needle = '      const failingPipelineRedis = {'
+          if needle not in section:
+            raise SystemExit('failing pipeline fixture missing')
+          section = section.replace(
+            needle,
+            '      let failingPipelineExecAttempts = 0;\n' + needle,
+            1,
           )
-          if count != 1:
-            raise SystemExit(f'pipeline replacement count={count}')
+          needle = '''          exec: async () => {
+            throw new Error("redis_pipeline_unavailable");'''
+          if needle not in section:
+            raise SystemExit('failing pipeline exec missing')
+          section = section.replace(
+            needle,
+            '''          exec: async () => {
+            failingPipelineExecAttempts += 1;
+            throw new Error("redis_pipeline_unavailable");''',
+            1,
+          )
 
-          old = '''        assert.deepEqual(await committed.json(), {
-            ok: true,
-            revokedCount: 1,
-            currentAccessRetained: true,
-            currentRefreshFamilyRetained: true,
-            revocationPending: true,
-          });'''
-          new = '''        const committedBody = await committed.json();
-          assert.equal(committedBody.ok, true);
-          assert.equal(committedBody.revokedCount, 1);
-          assert.equal(committedBody.currentAccessRetained, true);
-          assert.equal(committedBody.currentRefreshFamilyRetained, true);
-          assert.equal(typeof committedBody.revocationPending, "boolean");'''
-          if old not in text:
-            raise SystemExit('response assertion marker missing')
-          text = text.replace(old, new, 1)
+          assert_start = section.index('        assert.deepEqual(await committed.json(), {')
+          assert_end = section.index('        });', assert_start) + len('        });')
+          section = section[:assert_start] + '''        const committedBody = await committed.json();
+        assert.equal(committedBody.ok, true);
+        assert.equal(committedBody.revokedCount, 1);
+        assert.equal(committedBody.currentAccessRetained, true);
+        assert.equal(committedBody.currentRefreshFamilyRetained, true);
+        assert.equal(typeof committedBody.revocationPending, "boolean");''' + section[assert_end:]
 
-          old = '''          const denyValue = await redis!.get(denyKey(other.accessJti));
-          assert.equal(denyValue === null || denyValue === "1", true);
-          if (denyValue === null) {
-            assert.equal(durable.value.outboxStatus, "pending");
-          }'''
-          new = '''          const denyValue = await redis!.get(denyKey(other.accessJti));
+          deny_start = section.index('          const denyValue = await redis!.get(denyKey(other.accessJti));')
+          deny_end = section.index('\n        }\n\n        globalThis.tecpeyRedisClient', deny_start)
+          section = section[:deny_start] + '''          const denyValue = await redis!.get(denyKey(other.accessJti));
           assert.equal(denyValue === null || denyValue === "1", true);
           if (committedBody.revocationPending) {
             assert.equal(durable.value.outboxStatus, "pending");
@@ -170,10 +174,8 @@ jobs:
             // A concurrent outbox publisher may legitimately win the race.
             assert.equal(durable.value.outboxStatus, "published");
             assert.equal(denyValue, "1");
-          }'''
-          if old not in text:
-            raise SystemExit('outbox assertion marker missing')
-          test.write_text(text.replace(old, new, 1))
+          }''' + section[deny_end:]
+          test.write_text(full[:start] + section + full[end:])
           PY
       - name: Verify formatting and types
         run: |
