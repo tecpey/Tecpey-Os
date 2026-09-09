@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, use, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -1161,19 +1161,49 @@ function TradingToolsKnowledgeCenter() {
   );
 }
 
-export default function TecpeyEnterpriseLanding({
-  growthRadar,
+/**
+ * Resolves the growth-radar promise the page starts but does not await, each
+ * inside its own Suspense boundary. Neither `getNewsImpactHistoryAuthoritySnapshot`
+ * (a real database read) nor anything above `<Hero />` should have to wait on
+ * the other: this is the difference between the landing page's first, most
+ * visible screen painting immediately and it waiting on a query most of the
+ * page never even uses radar data for.
+ */
+function HomeDiscoveryStripResolved({
+  radarPromise,
 }: {
-  growthRadar?: LandingGrowthRadarModel;
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const radar = use(radarPromise);
+  return <HomeDiscoveryStrip locale="fa" radar={radar} />;
+}
+
+function LandingGrowthRadarResolved({
+  radarPromise,
+}: {
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const radar = use(radarPromise);
+  return <LandingGrowthRadar locale="fa" radar={radar} />;
+}
+
+export default function TecpeyEnterpriseLanding({
+  growthRadarPromise,
+}: {
+  growthRadarPromise: Promise<LandingGrowthRadarModel>;
 }) {
   return (
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
       <Hero />
-      <HomeDiscoveryStrip locale="fa" radar={growthRadar} />
+      <Suspense fallback={<HomeDiscoveryStrip locale="fa" radar={undefined} />}>
+        <HomeDiscoveryStripResolved radarPromise={growthRadarPromise} />
+      </Suspense>
       <CryptoNewsCenter locale="fa" compact />
       <HomeAiMentorSpotlight locale="fa" />
       <HomeLearningJourney locale="fa" />
-      <LandingGrowthRadar locale="fa" radar={growthRadar} />
+      <Suspense fallback={<LandingGrowthRadar locale="fa" radar={undefined} />}>
+        <LandingGrowthRadarResolved radarPromise={growthRadarPromise} />
+      </Suspense>
       <GlobalUxMetrics />
       <SoftLaunchProductFocus />
       <ProofRail />

@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import EnglishLandingClient from "./EnglishLandingClient";
 import { StructuredData, organizationSchema, webSiteSchema, breadcrumbSchema } from "@/components/seo/StructuredData";
 import { getLandingGrowthRadarFromAuthority } from "@/lib/landing-growth-authority";
-import { buildLandingGrowthSchemasFromRadar } from "@/lib/landing-growth";
+import {
+  buildLandingGrowthSchemasFromRadar,
+  type LandingGrowthRadarModel,
+} from "@/lib/landing-growth";
 import { buildHomeAnswerEngineSchemas } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -46,20 +50,36 @@ export const metadata: Metadata = {
   },
 };
 
+/** Mirrors LandingGrowthSchemas in src/app/page.tsx — see its comment. */
+async function EnglishGrowthSchema({
+  radarPromise,
+}: {
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const growthRadar = await radarPromise;
+  return <StructuredData data={buildLandingGrowthSchemasFromRadar(growthRadar)} />;
+}
+
 export default async function EnglishLanding() {
-  const growthRadar = await getLandingGrowthRadarFromAuthority("en");
-  const landingGrowthSchemas = buildLandingGrowthSchemasFromRadar(growthRadar);
+  // Started here, not awaited — see the matching comment in src/app/page.tsx.
+  const growthRadarPromise = getLandingGrowthRadarFromAuthority("en");
   const answerEngineSchemas = buildHomeAnswerEngineSchemas("en");
   const schema = (
-    <StructuredData
-      data={[
-        organizationSchema,
-        webSiteSchema,
-        breadcrumbSchema([{ name: "Home", url: "https://tecpey.ir/en" }]),
-        ...landingGrowthSchemas,
-        ...answerEngineSchemas,
-      ]}
-    />
+    <>
+      <StructuredData
+        data={[
+          organizationSchema,
+          webSiteSchema,
+          breadcrumbSchema([{ name: "Home", url: "https://tecpey.ir/en" }]),
+          ...answerEngineSchemas,
+        ]}
+      />
+      <Suspense fallback={null}>
+        <EnglishGrowthSchema radarPromise={growthRadarPromise} />
+      </Suspense>
+    </>
   );
-  return <EnglishLandingClient schema={schema} growthRadar={growthRadar} />;
+  return (
+    <EnglishLandingClient schema={schema} growthRadarPromise={growthRadarPromise} />
+  );
 }
