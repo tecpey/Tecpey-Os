@@ -40,6 +40,28 @@ describe("news capture/enrichment authority contract", () => {
     assert.doesNotMatch(worker, /Promise\.all\([^)]*translateNewsFeedToPersian/);
   });
 
+  it("requires a durable cost reservation before every news provider network call", async () => {
+    const worker = await read("scripts/run-news-enrichment-worker.ts");
+    const costAuthority = await read("src/lib/ops/news-ai-cost-authority.ts");
+    assert.match(worker, /newsAiCostConfigFromEnv\(\)/);
+    assert.match(worker, /createNewsAiCostGovernedFetch\(\{/);
+    assert.match(worker, /translateNewsFeedToPersian\([\s\S]*fetchImpl: observedGovernedFetch/);
+    assert.match(worker, /providerNetworkCalls \+= 1/);
+    assert.match(costAuthority, /platform_news_ai_provider_attempts/);
+    assert.match(costAuthority, /status = 'egress_started'/);
+    assert.match(costAuthority, /reservation_fallback/);
+    assert.match(costAuthority, /x-tecpey-news-ai-authority/);
+  });
+
+  it("registers the forward-only 0102 cost ledger in database migration authority", async () => {
+    const registry = await read("src/lib/db-migration-registry.ts");
+    const newsGrowth = await read("src/lib/db-migrate-news-growth.ts");
+    assert.match(registry, /0102_news_ai_cost_authority\.sql/);
+    assert.match(registry, /NEWS_ARCHIVE_AND_COST_MIGRATIONS/);
+    assert.match(newsGrowth, /runNewsAiCostAuthorityMigrations/);
+    assert.match(newsGrowth, /0098 is already present/);
+  });
+
   it("uses separate five-minute capture and two-minute bounded enrichment timers", async () => {
     const captureTimer = await read("deploy/systemd/tecpey-news-capture.timer");
     const enrichmentTimer = await read("deploy/systemd/tecpey-news-enrichment.timer");
