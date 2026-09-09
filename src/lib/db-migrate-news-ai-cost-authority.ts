@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS platform_news_ai_provider_attempts (
   attempt_id UUID PRIMARY KEY,
   budget_day DATE NOT NULL REFERENCES platform_news_ai_budget_daily(budget_day) ON DELETE RESTRICT,
   archive_id UUID NOT NULL REFERENCES platform_news_archive_items(archive_id) ON DELETE RESTRICT,
-  locale TEXT NOT NULL CHECK (locale ~ '^[a-z]{2,3}(?:-[A-Z]{2})?$'),
+  locale TEXT NOT NULL CHECK (locale ~ '^[a-z]{2,3}(-[A-Z]{2})?$'),
   source_content_hash CHAR(64) NOT NULL CHECK (source_content_hash ~ '^[0-9a-f]{64}$'),
   translation_attempt SMALLINT NOT NULL CHECK (translation_attempt BETWEEN 1 AND 20),
   network_ordinal SMALLINT NOT NULL CHECK (network_ordinal BETWEEN 1 AND 20),
@@ -106,6 +106,21 @@ BEGIN
      OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
      OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
     RAISE EXCEPTION 'news AI provider attempt identity is immutable'
+      USING ERRCODE = '55000';
+  END IF;
+  IF OLD.status = 'settled' AND (
+       NEW.status IS DISTINCT FROM OLD.status
+       OR NEW.settled_usd_micros IS DISTINCT FROM OLD.settled_usd_micros
+       OR NEW.input_tokens IS DISTINCT FROM OLD.input_tokens
+       OR NEW.output_tokens IS DISTINCT FROM OLD.output_tokens
+       OR NEW.cost_source IS DISTINCT FROM OLD.cost_source
+       OR NEW.http_status IS DISTINCT FROM OLD.http_status
+       OR NEW.failure_reason IS DISTINCT FROM OLD.failure_reason
+       OR NEW.duration_ms IS DISTINCT FROM OLD.duration_ms
+       OR NEW.settled_at IS DISTINCT FROM OLD.settled_at
+       OR NEW.reconciliation_required IS DISTINCT FROM OLD.reconciliation_required
+     ) THEN
+    RAISE EXCEPTION 'settled news AI provider attempt evidence is immutable'
       USING ERRCODE = '55000';
   END IF;
   RETURN NEW;
