@@ -739,6 +739,73 @@ export async function revokeSessionAuthority(input: {
   return { ...result.value, revocationPending: !published };
 }
 
+async function areSessionRevocationsPublished(sessionJtis: string[]): Promise<boolean> {
+  const ids = [...new Set(sessionJtis.filter(Boolean))];
+  if (ids.length === 0) return true;
+  const status = await withDb(async (client) => {
+    const rows = await client.query<{ total: string; published: string }>(
+      `SELECT COUNT(*)::text AS total,
+              COUNT(*) FILTER (WHERE status = 'published')::text AS published
+         FROM session_revocation_outbox
+        WHERE session_jti = ANY($1::text[])`,
+      [ids],
+    );
+    return {
+      total: Number(rows.rows[0]?.total ?? "0"),
+      published: Number(rows.rows[0]?.published ?? "0"),
+    };
+  });
+  return Boolean(
+    status.enabled &&
+      status.value.total === ids.length &&
+      status.value.published === ids.length,
+  );
+}
+
+async function publishSessionRevocationsFor(sessionJtis: string[]): Promise<boolean> {
+  const ids = [...new Set(sessionJtis.filter(Boolean))];
+  if (ids.length === 0) return true;
+  const pending = await withDb(async (client) => {
+    const rows = await client.query<{ session_jti: string; expires_at: Date }>(
+      `SELECT session_jti, expires_at
+         FROM session_revocation_outbox
+        WHERE status = 'pending'
+          AND session_jti = ANY($1::text[])
+        ORDER BY updated_at, created_at
+        LIMIT $2`,
+      [ids, OUTBOX_BATCH_LIMIT],
+    );
+    return rows.rows;
+  });
+  if (!pending.enabled) return false;
+  if (pending.value.length > 0) {
+    const published = await revokeMultiple(
+      pending.value.map((row) => ({
+        jti: row.session_jti,
+        expiresAt: Math.floor(row.expires_at.getTime() / 1000),
+      })),
+    );
+    const updated = await withDb(async (client) => {
+      const pendingIds = pending.value.map((row) => row.session_jti);
+      await client.query(
+        published
+          ? `UPDATE session_revocation_outbox
+               SET status = 'published', attempt_count = attempt_count + 1,
+                   last_error = NULL, updated_at = NOW(), published_at = NOW()
+             WHERE session_jti = ANY($1::text[]) AND status = 'pending'`
+          : `UPDATE session_revocation_outbox
+               SET attempt_count = attempt_count + 1,
+                   last_error = 'redis_unavailable', updated_at = NOW()
+             WHERE session_jti = ANY($1::text[]) AND status = 'pending'`,
+        [pendingIds],
+      );
+      return true;
+    });
+    if (!updated.enabled) return false;
+  }
+  return areSessionRevocationsPublished(ids);
+}
+
 export async function revokeOtherSessionsAuthority(input: {
   userId: string;
   currentSessionJti: string;
@@ -826,11 +893,15 @@ export async function revokeOtherSessionsAuthority(input: {
         redisPublication: "pending",
       },
     });
-    return { revokedCount };
+    return {
+      revokedCount,
+      revokedSessionJtis: otherSessions.rows.map((row) => row.id),
+    };
   });
   if (!result.enabled) throw new Error("database_unavailable");
-  const published = await publishPendingSessionRevocations();
-  return { ...result.value, revocationPending: !published };
+  const { revokedSessionJtis, ...response } = result.value;
+  const published = await publishSessionRevocationsFor(revokedSessionJtis);
+  return { ...response, revocationPending: !published };
 }
 
 export async function logoutSessionAuthority(input: {

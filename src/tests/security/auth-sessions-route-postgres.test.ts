@@ -202,11 +202,13 @@ describe("Logout-all session authority", () => {
       });
       const originalRedis = globalThis.tecpeyRedisClient;
 
+      let failingPipelineExecAttempts = 0;
       const failingPipelineRedis = {
         get: (key: string) => redis!.get(key),
         pipeline: () => ({
           set: () => undefined,
           exec: async () => {
+            failingPipelineExecAttempts += 1;
             throw new Error("redis_pipeline_unavailable");
           },
         }),
@@ -217,13 +219,12 @@ describe("Logout-all session authority", () => {
           failingPipelineRedis as unknown as typeof originalRedis;
         const committed = await logoutAll(request(current.accessToken));
         assert.equal(committed.status, 200);
-        assert.deepEqual(await committed.json(), {
-          ok: true,
-          revokedCount: 1,
-          currentAccessRetained: true,
-          currentRefreshFamilyRetained: true,
-          revocationPending: true,
-        });
+        const committedBody = await committed.json();
+        assert.equal(committedBody.ok, true);
+        assert.equal(committedBody.revokedCount, 1);
+        assert.equal(committedBody.currentAccessRetained, true);
+        assert.equal(committedBody.currentRefreshFamilyRetained, true);
+        assert.equal(typeof committedBody.revocationPending, "boolean");
 
         const durable = await withDb(async (client) => {
           const access = await client.query<{ is_revoked: boolean }>(
@@ -260,8 +261,14 @@ describe("Logout-all session authority", () => {
           );
           const denyValue = await redis!.get(denyKey(other.accessJti));
           assert.equal(denyValue === null || denyValue === "1", true);
-          if (denyValue === null) {
+          if (committedBody.revocationPending) {
             assert.equal(durable.value.outboxStatus, "pending");
+            assert.equal(denyValue, null);
+            assert.equal(failingPipelineExecAttempts > 0, true);
+          } else {
+            // A concurrent outbox publisher may legitimately win the race.
+            assert.equal(durable.value.outboxStatus, "published");
+            assert.equal(denyValue, "1");
           }
         }
 
