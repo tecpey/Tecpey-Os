@@ -57,6 +57,30 @@ function boundedToken(value: string, field: string, max = 256): string {
   return normalized;
 }
 
+function safeScope(
+  value: string | null | undefined,
+  field: "tenant_id" | "workspace_id",
+): string | null {
+  if (value === null || value === undefined || value.trim() === "") return null;
+  return boundedToken(value, field, 160);
+}
+
+function assertScopePolicy(input: {
+  tenantId: string | null;
+  workspaceId: string | null;
+  dataClass: AiDataClass;
+}): void {
+  if ((input.tenantId === null) !== (input.workspaceId === null)) {
+    throw new Error("ai_intelligence_event_scope_partial");
+  }
+  if (
+    (input.dataClass === "private_user" || input.dataClass === "restricted_admin") &&
+    (input.tenantId === null || input.workspaceId === null)
+  ) {
+    throw new Error("ai_intelligence_event_sensitive_scope_required");
+  }
+}
+
 function safeLocale(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const normalized = value.trim().toLowerCase();
@@ -90,20 +114,29 @@ function hashPayload(payload: AiIntelligenceEventPayload): string {
 
 export function intelligenceEventIdempotencyKey(input: {
   eventType: AiIntelligenceEventType;
+  tenantId?: string | null;
+  workspaceId?: string | null;
   aggregateType: string;
   aggregateId: string;
   resourceVersion: string;
   status: string;
+  dataClass: AiDataClass;
 }): string {
+  const tenantId = safeScope(input.tenantId, "tenant_id");
+  const workspaceId = safeScope(input.workspaceId, "workspace_id");
+  assertScopePolicy({ tenantId, workspaceId, dataClass: input.dataClass });
   const canonical = [
     input.eventType,
+    input.dataClass,
+    tenantId ?? "global",
+    workspaceId ?? "global",
     boundedToken(input.aggregateType, "aggregate_type", 120),
     boundedToken(input.aggregateId, "aggregate_id", 256),
     boundedToken(input.resourceVersion, "resource_version", 256),
     boundedToken(input.status, "status", 120),
   ].join("\0");
   return createHash("sha256")
-    .update("tecpey-intelligence-event-idempotency:v1\0")
+    .update("tecpey-intelligence-event-idempotency:v2\0")
     .update(canonical)
     .digest("hex");
 }
@@ -125,6 +158,10 @@ export function createAiIntelligenceEventEnvelope(input: {
 }): AiIntelligenceEventEnvelope {
   const eventId = input.eventId ?? randomUUID();
   if (!UUID.test(eventId)) throw new Error("ai_intelligence_event_id_invalid");
+  const tenantId = safeScope(input.tenantId, "tenant_id");
+  const workspaceId = safeScope(input.workspaceId, "workspace_id");
+  assertScopePolicy({ tenantId, workspaceId, dataClass: input.dataClass });
+
   const correlationId = boundedToken(input.correlationId, "correlation_id", 256);
   const aggregateType = boundedToken(input.aggregateType, "aggregate_type", 120);
   const aggregateId = boundedToken(input.aggregateId, "aggregate_id", 256);
@@ -139,10 +176,13 @@ export function createAiIntelligenceEventEnvelope(input: {
   });
   const idempotencyKey = intelligenceEventIdempotencyKey({
     eventType: input.eventType,
+    tenantId,
+    workspaceId,
     aggregateType,
     aggregateId,
     resourceVersion,
     status,
+    dataClass: input.dataClass,
   });
   const causationId = input.causationId?.trim() || null;
   if (causationId !== null && !UUID.test(causationId) && !HEX_64.test(causationId)) {
@@ -155,8 +195,8 @@ export function createAiIntelligenceEventEnvelope(input: {
     schemaVersion: 1,
     occurredAt: validIso(input.occurredAt, "occurred_at"),
     recordedAt: validIso(input.recordedAt ?? new Date().toISOString(), "recorded_at"),
-    tenantId: input.tenantId?.trim() || null,
-    workspaceId: input.workspaceId?.trim() || null,
+    tenantId,
+    workspaceId,
     aggregateType,
     aggregateId,
     resourceVersion,
@@ -177,20 +217,67 @@ export function validateAiIntelligenceEventEnvelope(
   }
   if (event.schemaVersion !== 1) throw new Error("ai_intelligence_event_schema_version_invalid");
   if (!UUID.test(event.eventId)) throw new Error("ai_intelligence_event_id_invalid");
-  if (!HEX_64.test(event.idempotencyKey)) throw new Error("ai_intelligence_event_idempotency_invalid");
-  if (!HEX_64.test(event.payloadHash) || event.payloadHash !== hashPayload(event.payload)) {
+
+  const tenantId = safeScope(event.tenantId, "tenant_id");
+  const workspaceId = safeScope(event.workspaceId, "workspace_id");
+  if (tenantId !== event.tenantId || workspaceId !== event.workspaceId) {
+    throw new Error("ai_intelligence_event_scope_not_canonical");
+  }
+  assertScopePolicy({ tenantId, workspaceId, dataClass: event.dataClass });
+  if (boundedToken(event.aggregateType, "aggregate_type", 120) !== event.aggregateType) {
+    throw new Error("ai_intelligence_event_aggregate_type_not_canonical");
+  }
+  if (boundedToken(event.aggregateId, "aggregate_id", 256) !== event.aggregateId) {
+    throw new Error("ai_intelligence_event_aggregate_id_not_canonical");
+  }
+  if (boundedToken(event.resourceVersion, "resource_version", 256) !== event.resourceVersion) {
+    throw new Error("ai_intelligence_event_resource_version_not_canonical");
+  }
+  if (boundedToken(event.correlationId, "correlation_id", 256) !== event.correlationId) {
+    throw new Error("ai_intelligence_event_correlation_id_not_canonical");
+  }
+  if (
+    event.causationId !== null &&
+    !UUID.test(event.causationId) &&
+    !HEX_64.test(event.causationId)
+  ) {
+    throw new Error("ai_intelligence_event_causation_id_invalid");
+  }
+
+  const canonicalPayload: AiIntelligenceEventPayload = Object.freeze({
+    resourceRef: boundedToken(event.payload.resourceRef, "resource_ref", 256),
+    locale: safeLocale(event.payload.locale),
+    evidenceRefs: safeCodes(event.payload.evidenceRefs, "evidence_ref", 40),
+    status: boundedToken(event.payload.status, "status", 120),
+    reasonCodes: safeCodes(event.payload.reasonCodes, "reason_code", 40),
+  });
+  if (JSON.stringify(canonicalPayload) !== JSON.stringify(event.payload)) {
+    throw new Error("ai_intelligence_event_payload_not_canonical");
+  }
+  if (!HEX_64.test(event.payloadHash) || event.payloadHash !== hashPayload(canonicalPayload)) {
     throw new Error("ai_intelligence_event_payload_hash_invalid");
   }
+
   const expectedIdempotency = intelligenceEventIdempotencyKey({
     eventType: event.eventType,
+    tenantId,
+    workspaceId,
     aggregateType: event.aggregateType,
     aggregateId: event.aggregateId,
     resourceVersion: event.resourceVersion,
     status: event.payload.status,
+    dataClass: event.dataClass,
   });
-  if (expectedIdempotency !== event.idempotencyKey) {
+  if (!HEX_64.test(event.idempotencyKey) || expectedIdempotency !== event.idempotencyKey) {
     throw new Error("ai_intelligence_event_idempotency_mismatch");
   }
-  validIso(event.occurredAt, "occurred_at");
-  validIso(event.recordedAt, "recorded_at");
+
+  const occurredAt = validIso(event.occurredAt, "occurred_at");
+  const recordedAt = validIso(event.recordedAt, "recorded_at");
+  if (occurredAt !== event.occurredAt || recordedAt !== event.recordedAt) {
+    throw new Error("ai_intelligence_event_timestamp_not_canonical");
+  }
+  if (Date.parse(recordedAt) < Date.parse(occurredAt)) {
+    throw new Error("ai_intelligence_event_recorded_before_occurred");
+  }
 }
