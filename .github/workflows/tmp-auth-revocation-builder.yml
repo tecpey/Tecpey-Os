@@ -24,10 +24,10 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Apply scoped publication fix
         run: python scripts/tmp-build-auth-revocation-fix.py
-      - name: Verify formatting and types
+      - name: Verify types and lint without rewriting source
         run: |
-          npx prettier --write src/lib/security/session-authority.ts src/tests/security/auth-sessions-route-postgres.test.ts
           npm run typecheck
+          npx eslint src/lib/security/session-authority.ts src/tests/security/auth-sessions-route-postgres.test.ts
       - name: Commit generated fix
         run: |
           git config user.name "tecpey-ci-builder"
