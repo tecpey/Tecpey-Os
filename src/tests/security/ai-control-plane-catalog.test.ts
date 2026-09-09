@@ -13,6 +13,11 @@ import {
   aiIntelligenceTaskDefinition,
   validateAiIntelligenceTaskCatalog,
 } from "../../lib/ai/intelligence-task-catalog";
+import {
+  AI_INTELLIGENCE_EVAL_REQUIREMENTS,
+  evaluateAiIntelligenceModelEligibility,
+  type AiIntelligenceModelCapabilitySnapshot,
+} from "../../lib/ai/intelligence-model-policy";
 
 describe("AI control-plane catalog", () => {
   it("keeps publication, private data and knowledge promotion fail-closed", () => {
@@ -167,5 +172,103 @@ describe("AI intelligence task catalog", () => {
     assert.equal(translation.retry.maxExecutions, 3);
     assert.equal(translation.retry.maxProviderAttemptsPerExecution, 2);
     assert.equal(translation.output.mode, "json_schema");
+  });
+});
+
+describe("AI intelligence model eligibility", () => {
+  const nowMs = Date.parse("2026-09-09T12:00:00.000Z");
+  const baseCapability: AiIntelligenceModelCapabilitySnapshot = {
+    providerId: "openai",
+    requestedModel: "example-model-2026-09-01",
+    canonicalModel: "example-model-2026-09-01",
+    observedAt: "2026-09-08T12:00:00.000Z",
+    exactModelIdentity: true,
+    deprecated: false,
+    zeroDataRetention: true,
+    supportedDataClasses: ["public", "approved_platform_content", "private_user"],
+    capabilities: ["text", "structured_output"],
+    tools: [],
+    cacheMode: "implicit",
+  };
+
+  it("admits only a fresh exact model with matching task eval evidence", () => {
+    const requirement = AI_INTELLIGENCE_EVAL_REQUIREMENTS.news_translate;
+    const result = evaluateAiIntelligenceModelEligibility({
+      taskId: "news_translate",
+      capability: baseCapability,
+      evalEvidence: {
+        taskId: "news_translate",
+        evalSuiteId: "news_translation_fa_v1",
+        candidateProviderId: "openai",
+        candidateModel: baseCapability.canonicalModel,
+        measuredAt: "2026-09-08T12:00:00.000Z",
+        sampleSize: requirement.minimumSamples,
+        qualityBasisPoints: requirement.minimumQualityBasisPoints,
+      },
+      requireZeroDataRetention: true,
+      nowMs,
+    });
+    assert.equal(result.status, "eligible");
+  });
+
+  it("rejects aliases, stale evidence, insufficient evals and missing capabilities before routing", () => {
+    const result = evaluateAiIntelligenceModelEligibility({
+      taskId: "growth_scan",
+      capability: {
+        ...baseCapability,
+        requestedModel: "latest",
+        canonicalModel: "example-search-model",
+        observedAt: "2026-07-01T00:00:00.000Z",
+        exactModelIdentity: false,
+        zeroDataRetention: false,
+        supportedDataClasses: ["public"],
+        capabilities: ["text", "web_search"],
+        tools: [],
+      },
+      evalEvidence: {
+        taskId: "growth_scan",
+        evalSuiteId: "growth_signal_precision_v1",
+        candidateProviderId: "openai",
+        candidateModel: "different-model",
+        measuredAt: "2026-07-01T00:00:00.000Z",
+        sampleSize: 2,
+        qualityBasisPoints: 100,
+      },
+      requireZeroDataRetention: true,
+      nowMs,
+    });
+    assert.equal(result.status, "rejected");
+    if (result.status !== "rejected") return;
+    assert.ok(result.reasons.includes("model_identity_unpinned"));
+    assert.ok(result.reasons.includes("capability_snapshot_stale"));
+    assert.ok(result.reasons.includes("zero_retention_required"));
+    assert.ok(result.reasons.includes("capability_missing"));
+    assert.ok(result.reasons.includes("tool_missing"));
+    assert.ok(result.reasons.includes("eval_suite_mismatch"));
+    assert.ok(result.reasons.includes("eval_stale"));
+    assert.ok(result.reasons.includes("eval_sample_insufficient"));
+    assert.ok(result.reasons.includes("eval_threshold_not_met"));
+  });
+
+  it("rejects deprecated candidates even when their eval score is high", () => {
+    const requirement = AI_INTELLIGENCE_EVAL_REQUIREMENTS.news_translate;
+    const result = evaluateAiIntelligenceModelEligibility({
+      taskId: "news_translate",
+      capability: { ...baseCapability, deprecated: true },
+      evalEvidence: {
+        taskId: "news_translate",
+        evalSuiteId: "news_translation_fa_v1",
+        candidateProviderId: "openai",
+        candidateModel: baseCapability.canonicalModel,
+        measuredAt: "2026-09-08T12:00:00.000Z",
+        sampleSize: requirement.minimumSamples,
+        qualityBasisPoints: 10_000,
+      },
+      requireZeroDataRetention: true,
+      nowMs,
+    });
+    assert.equal(result.status, "rejected");
+    if (result.status !== "rejected") return;
+    assert.ok(result.reasons.includes("model_deprecated"));
   });
 });
