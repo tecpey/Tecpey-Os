@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
+import { runNewsAiCostAuthorityMigrations } from "./db-migrate-news-ai-cost-authority";
 
 const FILENAME = "0098_news_archive_and_growth_intelligence.sql";
 
@@ -200,16 +201,19 @@ export async function runNewsArchiveAndGrowthMigrations(client: PoolClient): Pro
     if (applied.rows[0].checksum !== cs) {
       throw new Error(`[db-migrate-news-growth] checksum mismatch for ${FILENAME}`);
     }
-    return;
+  } else {
+    await client.query("BEGIN");
+    try {
+      await client.query(NEWS_ARCHIVE_AND_GROWTH_SQL);
+      await client.query("INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)", [FILENAME, cs]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
   }
 
-  await client.query("BEGIN");
-  try {
-    await client.query(NEWS_ARCHIVE_AND_GROWTH_SQL);
-    await client.query("INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)", [FILENAME, cs]);
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  }
+  // 0102 is an independent, forward-only authority migration. It must run even
+  // on stores where 0098 is already present; changing 0098 itself is forbidden.
+  await runNewsAiCostAuthorityMigrations(client);
 }

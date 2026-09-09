@@ -1,0 +1,15 @@
+[Unit]
+Description=Run TecPey news locale enrichment on bounded retry cadence
+
+# Worker policy enforces per-version cooldown and a finite failure budget.
+# Timer cadence never grants permission for unbounded provider retries.
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Persistent=true
+RandomizedDelaySec=15
+AccuracySec=10s
+Unit=tecpey-news-enrichment.service
+
+[Install]
+WantedBy=timers.target

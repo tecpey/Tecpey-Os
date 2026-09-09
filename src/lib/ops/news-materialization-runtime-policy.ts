@@ -141,9 +141,12 @@ export function shouldDeferNewsTranslationRetry(input: {
 }): boolean {
   const failureReason = input.failureReason?.trim();
   if (!failureReason) return false;
-  if (failureReason === "translation_circuit_open") return false;
-  if (failureReason === "translation_timeout") return false;
 
+  // A persisted failure is proof that this exact article version already reached
+  // the translation path. Retrying timeout/circuit failures on every scheduler poll
+  // caused the September 2026 amplification incident. Apply the same bounded
+  // cooldown to every persisted translation failure; capture remains independent
+  // and can continue polling while enrichment waits.
   const generatedAtMs = Date.parse(input.generatedAt);
   if (!Number.isFinite(generatedAtMs)) return false;
 
