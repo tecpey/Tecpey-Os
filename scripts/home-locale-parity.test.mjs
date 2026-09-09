@@ -31,10 +31,12 @@ test("FA and EN homes share the governed core section order", async () => {
     "<LandingGrowthRadar",
   ];
 
-  assert.match(fa, /data-home-section="hero"/);
-  assert.match(en, /data-home-section="hero"/);
+  const hero = await source("src/components/home/CalmLandingHero.tsx");
+  assert.match(hero, /data-home-section="hero"/);
+  assert.match(fa, /<CalmLandingHero locale="fa"/);
+  assert.match(en, /<CalmLandingHero locale="en"/);
   assertInOrder(fa, ["<Hero />", "<HomeDiscoveryStrip"], "FA home top");
-  assertInOrder(en, ['data-home-section="hero"', "<HomeDiscoveryStrip"], "EN home top");
+  assertInOrder(en, ['<CalmLandingHero locale="en"', "<HomeDiscoveryStrip"], "EN home top");
   assertInOrder(fa, sharedOrder, "FA home");
   assertInOrder(en, sharedOrder, "EN home");
   assert.match(fa, /<HomeDiscoveryStrip locale="fa" radar=\{growthRadar\} \/>/);
@@ -47,10 +49,14 @@ test("FA academy conversion and market cards expose the corrected academy journe
 
   assert.match(fa, /const academyHref = "\/academy"/);
   assert.doesNotMatch(fa, /academyAuthHref/);
-  assert.match(fa, /href=\{academyHref\}[\s\S]*شروع آکادمی رایگان/);
-  assert.match(fa, /<GraduationCap className="h-5 w-5 transition group-hover:-translate-x-1"/);
-  assert.match(fa, /رنکینگ و لیگ‌های آموزشی/);
-  assert.match(fa, /جوایز برای برترین‌ها/);
+  const hero = await source("src/components/home/CalmLandingHero.tsx");
+  assert.ok(hero.includes('href={`${prefix}/academy`}'));
+  assert.ok(hero.includes('href={`${prefix}/academy/ai-guide`}'));
+  assert.match(hero, /شروع آکادمی رایگان/);
+  assert.match(hero, /Start Free Academy/);
+  assert.match(hero, /const prefix = fa \? "" : "\/en"/);
+  assert.match(hero, /aria-hidden="true"/);
+  assert.doesNotMatch(hero, /جوایز برای برترین‌ها/);
   assert.match(fa, /formatUsdPrice\(price\)/);
   assert.doesNotMatch(fa, /change\.toFixed\(2\).*٪/);
 });

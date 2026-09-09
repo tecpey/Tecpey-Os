@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CalmMentorSection, CalmLearningSection } from "./CalmProductSections";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -102,7 +103,11 @@ function formatTime(value: string, locale: Locale) {
   }).format(date);
 }
 
-export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
+export function HomeAiMentorSpotlight({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
+  return compact ? <CalmMentorSection locale={locale} /> : <FullMentorSpotlight locale={locale} />;
+}
+
+function FullMentorSpotlight({ locale }: { locale: Locale }) {
   const [question, answer] = useRotatingPair(locale);
   const isFa = locale === "fa";
   const steps = isFa
@@ -426,7 +431,11 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
   );
 }
 
-export function HomeLearningJourney({ locale }: { locale: Locale }) {
+export function HomeLearningJourney({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
+  return compact ? <CalmLearningSection locale={locale} /> : <FullLearningJourney locale={locale} />;
+}
+
+function FullLearningJourney({ locale }: { locale: Locale }) {
   const isFa = locale === "fa";
   const items = isFa
     ? [

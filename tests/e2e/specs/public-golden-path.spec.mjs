@@ -48,7 +48,7 @@ function projectContract(testInfo) {
         path: "/en",
         lang: "en-US",
         dir: "ltr",
-        heading: /TecPey.*Safe Entry Point/i,
+        heading: /Build your knowledge\. Practice with confidence\./i,
         knowledge: "Knowledge Center",
         arena: "Trading Arena",
         menu: "Open menu",
@@ -60,7 +60,7 @@ function projectContract(testInfo) {
         arenaPath: "/en/academy/trading-arena",
         arenaHeading: /Trading Arena/i,
         arenaRiskFree: /no real money, real profit or real trade/i,
-        primaryCtas: ["Enter Academy", "View trading tools"],
+        primaryCtas: ["Start Free Academy", "Talk to AI Mentor"],
         forbiddenCopy: [
           /Online Market Board/i,
           /Live market prices/i,
@@ -74,7 +74,7 @@ function projectContract(testInfo) {
         path: "/",
         lang: "fa-IR",
         dir: "rtl",
-        heading: /تک‌پی، نقطه امن ورود به بازار رمزارز/,
+        heading: /آگاهانه یاد بگیر\. با اطمینان تمرین کن\./,
         knowledge: "مرکز دانش",
         arena: "تریدینگ آرنا",
         menu: "باز کردن منو",
@@ -86,7 +86,7 @@ function projectContract(testInfo) {
         arenaPath: "/academy/trading-arena",
         arenaHeading: /تریدینگ آرنا/,
         arenaRiskFree: /هیچ پول واقعی، سود واقعی یا معاملهٔ واقعی/,
-        primaryCtas: ["آکادمی رایگان", "ورود به آکادمی رایگان تک‌پی", "مشاهده ابزارهای ترید"],
+        primaryCtas: ["شروع آکادمی رایگان", "گفتگو با منتور هوشمند"],
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
           /اولین معامله واقعی/,
@@ -336,8 +336,10 @@ function rectanglesOverlap(a, b) {
 }
 
 async function governedPrimaryCtas(page, contract) {
+  // Test the visible entry actions, not repeated links in the optional guide.
+  const hero = page.locator('[data-home-section="hero"]');
   const links = contract.primaryCtas.map((name) =>
-    page.getByRole("link", { name, exact: true }),
+    hero.getByRole("link", { name, exact: true }),
   );
   return links.reduce((all, locator) => all.or(locator));
 }
@@ -624,6 +626,16 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   for (const forbidden of contract.forbiddenCopy) {
     expect(bodyText, `unsupported public claim matched ${forbidden}`).not.toMatch(forbidden);
   }
+
+  // The shorter landing keeps its full guide behind a keyboard-operable
+  // disclosure. Verify that entry point before inspecting retained sections.
+  const guideSummary = page.locator("main > details > summary");
+  const guide = page.locator("main > details");
+  await expect(guideSummary).toBeVisible();
+  await expect(guide).not.toHaveAttribute("open", "");
+  await guideSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(guide).toHaveAttribute("open", "");
 
   // A dedicated Trading Arena section must be part of the public landing
   // narrative (#80 defect 3) — not merely a nav link — with the honest,

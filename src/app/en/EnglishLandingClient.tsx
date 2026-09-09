@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { CalmLandingHero } from "@/components/home/CalmLandingHero";
+import { CalmLandingClose, LandingDetails } from "@/components/home/CalmProductSections";
 import { ArrowRight, Award, BadgeCheck, BookOpen, ClipboardCheck, Gift, GraduationCap, LineChart, ShieldCheck, TrendingUp, WalletCards, Building2, MousePointerClick, HeartHandshake, TrendingDown, BookMarked, PenLine, ShieldAlert, PlayCircle, CheckCircle2 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { EnglishShell } from "./components/EnglishUI";
@@ -526,61 +528,25 @@ export default function EnglishLandingClient({
   return (
     <EnglishShell>
       {schema}
-      <section data-home-section="hero" className="relative isolate overflow-hidden bg-[color:var(--tp-bg)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.16),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(30,64,175,.10),transparent_32%)]" />
-        <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
-          <div className="text-left">
-            <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">Education, market knowledge and virtual practice in one clear path</div>
-            <h1 className="mt-6 text-4xl font-black leading-tight text-slate-950 dark:text-white sm:text-6xl">TecPey — Your Safe Entry Point to the Crypto Market</h1>
-            <p className="mt-6 max-w-3xl text-lg leading-9 text-slate-600 dark:text-slate-300">
-              TecPey is an education-first financial learning platform that brings structured education, evaluation, reference market information and virtual practice together for more informed participation in digital financial markets.
-            </p>
-            <div className="mt-5 inline-flex rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">
-              Free education for everyone; professional opportunities for ready learners
-            </div>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-start">
-              <Link href="/en/academy" className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400">
-                Start Free Academy
-                <GraduationCap className="h-5 w-5" />
-              </Link>
-              <Link href="/en/academy/ai-guide" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-900 transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-lg dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15">
-                Talk to AI Mentor
-                <ArrowRight className="h-5 w-5 text-cyan-500" />
-              </Link>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-slate-600 dark:text-slate-300 sm:text-xs lg:max-w-xl">
-              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />7 foundation terms + continuous growth</span>
-              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-300"><BookMarked className="h-4 w-4 shrink-0" />Important news and tools</span>
-              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-300"><ShieldCheck className="h-4 w-4 shrink-0" />Crypto research dossiers</span>
-              <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-300"><LineChart className="h-4 w-4 shrink-0" />Simulator + Learning Coach</span>
-            </div>
-          </div>
-
-          <div className="rounded-[34px] border border-cyan-200 bg-white dark:bg-white/[0.055] p-4 shadow-2xl shadow-cyan-500/10 sm:p-6">
-            <h2 className="text-2xl font-black text-slate-950 dark:text-white">TecPey Educational Market Overview</h2>
-            <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">Reference market data for learning and virtual practice · USD/USDT</p>
-            <div className="mt-4 space-y-2">
-              {rows.map((coin, index) => {
-                const symbol = normalizeMarketSymbol(coin?.symbol ?? coin?.priceData?.symbol);
-                const name = coin?.name ?? symbol;
-                const price = resolveUsdPrice(coin);
-                return (
-                  <div key={`${symbol}-${index}`} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 dark:border-white/10 p-3">
-                    <span className="truncate text-sm font-bold">{name || symbol} / USD</span>
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-700 sm:px-3 sm:text-xs">{usd(price)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
+      <CalmLandingHero locale="en" />
 
       <HomeDiscoveryStrip locale="en" radar={growthRadar} />
+      <section aria-label="Educational market overview" className="mx-auto max-w-3xl px-5 py-8">
+        <h2 className="text-2xl font-bold">Educational market overview</h2>
+        <p className="my-3 text-sm text-[color:var(--tp-muted)]">Reference prices for learning and virtual practice. USD/USDT.</p>
+        <dl className="grid gap-3 sm:grid-cols-2">
+          {rows.map((coin, index) => {
+            const symbol = normalizeMarketSymbol(coin?.symbol ?? coin?.priceData?.symbol);
+            return <div key={`${symbol}-${index}`} className="flex justify-between gap-3 rounded-2xl border border-[color:var(--tp-border)] p-4"><dt>{coin.name || symbol}</dt><dd dir="ltr">{usd(resolveUsdPrice(coin))}</dd></div>;
+          })}
+        </dl>
+        <Link href="/en/markets" className="mt-4 inline-flex min-h-11 items-center gap-2 text-[color:var(--tp-primary)]">Explore markets<ArrowRight size={16} aria-hidden="true" /></Link>
+      </section>
       <CryptoNewsCenter locale="en" compact />
-      <HomeAiMentorSpotlight locale="en" />
-      <HomeLearningJourney locale="en" />
+      <HomeAiMentorSpotlight locale="en" compact />
+      <HomeLearningJourney locale="en" compact />
       <LandingGrowthRadar locale="en" radar={growthRadar} />
+      <LandingDetails locale="en">
 
 
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
@@ -706,6 +672,9 @@ export default function EnglishLandingClient({
           ))}
         </div>
       </section>
+
+      </LandingDetails>
+      <CalmLandingClose locale="en" />
 
       {/* Mobile sticky CTA — two equal buttons, always visible on mobile */}
       <div className="sticky-cta-bar fixed inset-x-0 bottom-0 z-50 border-t border-cyan-300/20 bg-slate-950/92 px-3 pt-3 shadow-[0_-18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl lg:hidden">

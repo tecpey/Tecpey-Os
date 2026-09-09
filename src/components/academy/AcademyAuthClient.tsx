@@ -3,12 +3,14 @@
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import styles from "@/components/home/calm-entry.module.css";
 import { useRouter } from "next/navigation";
 import { FaApple, FaGoogle } from "react-icons/fa6";
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpenCheck,
+
   Eye,
   EyeOff,
   Loader2,
@@ -373,154 +375,23 @@ export function AcademyAuthClient({
     }
   }
 
-  const learningPoints = isFa
-    ? [
-        "حساب آکادمی از حساب صرافی جداست.",
-        "پروفایل آموزشی، منتور و ترم‌ها بعد از ورود فعال می‌شوند.",
-        "تمرین و یادگیری قبل از تصمیم مالی قرار می‌گیرد.",
-      ]
-    : [
-        "Academy identity is separate from exchange access.",
-        "Profile, mentor and terms activate after login.",
-        "Learning and practice come before financial action.",
-      ];
+
 
   return (
-    <main
-      className="tecpey-enterprise relative isolate min-h-[100dvh] overflow-hidden bg-[color:var(--tp-bg)] px-4 py-8 text-[color:var(--tp-text)] sm:px-6 lg:px-8"
-      dir={isFa ? "rtl" : "ltr"}
-    >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_14%_0%,rgba(8,217,214,.18),transparent_30%),radial-gradient(circle_at_86%_8%,rgba(7,94,171,.16),transparent_28%),linear-gradient(180deg,transparent,rgba(8,184,216,.08))]" />
-      <section className="mx-auto grid max-w-6xl items-center lg:min-h-[calc(100dvh-6rem)]">
-        <div
-          dir="ltr"
-          className="tecpey-glass grid overflow-hidden rounded-[30px] p-2 shadow-[0_28px_110px_rgba(7,94,171,.16)] lg:grid-cols-[minmax(0,.92fr)_minmax(390px,.72fr)]"
-        >
-          <aside
-            dir={isFa ? "rtl" : "ltr"}
-            className="tecpey-motion-reveal relative order-2 overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 p-6 text-white md:p-8 lg:order-1 lg:min-h-[680px] lg:p-10"
-          >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_14%,rgba(34,211,238,.34),transparent_28%),radial-gradient(circle_at_82%_16%,rgba(37,99,235,.28),transparent_25%),linear-gradient(145deg,rgba(2,6,23,.20),rgba(2,6,23,.86))]" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(160deg,transparent_18%,rgba(8,47,73,.72)_19%,rgba(15,23,42,.96)_62%),linear-gradient(20deg,transparent_28%,rgba(34,211,238,.18)_29%,transparent_58%)]" />
-            <div className="relative z-10 flex h-full flex-col">
-              <div className="flex flex-wrap items-center gap-4">
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-cyan-200/25 bg-white/[0.10] shadow-[0_18px_50px_rgba(34,211,238,.18)] backdrop-blur">
-                  <TecpeyMark
-                    alt="TecPey"
-                    width={48}
-                    height={48}
-                    priority
-                    className="h-12 w-12 object-contain"
-                  />
-                </span>
-                <div>
-                  <p className="text-xs font-black text-cyan-200">
-                    {isFa ? "حساب اختصاصی آکادمی" : "Dedicated Academy account"}
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-slate-300">
-                    {isFa
-                      ? "مسیر یادگیری، تمرین و منتور هوشمند"
-                      : "Learning, practice and AI mentor access"}
-                  </p>
-                </div>
-              </div>
-
-              <h1 className="mt-8 max-w-3xl text-3xl font-black leading-tight sm:text-5xl">
-                {isSignup
-                  ? isFa
-                    ? "ثبت‌نام در آکادمی تک‌پی"
-                    : "Create your TecPey Academy account"
-                  : isFa
-                    ? "ورود به آکادمی تک‌پی"
-                    : "Log in to TecPey Academy"}
-              </h1>
-              <p className="mt-5 max-w-2xl text-base font-bold leading-8 text-slate-300">
-                {isFa
-                  ? "این فرم فقط برای مسیر آموزشی است. برای حساب مالی و صرافی، ورود از دامنه رسمی my.tecpey.ir انجام می‌شود."
-                  : "This form is only for the learning path. Exchange and financial account access continue on the official my.tecpey.ir domain."}
-              </p>
-
-              <div className="relative mt-7 overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_18px_60px_rgba(0,0,0,.24)]">
-                <div
-                  className="pointer-events-none absolute inset-0 scale-105 bg-[url('/images/brand/academy-auth-crystal.jpeg')] bg-cover bg-[center_38%] opacity-90"
-                  aria-hidden="true"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,.94),rgba(2,6,23,.68)_46%,rgba(8,47,73,.28)),radial-gradient(circle_at_58%_34%,rgba(34,211,238,.20),transparent_28%)]" />
-                <div className="mb-14 flex gap-1.5 sm:mb-20" aria-hidden="true">
-                  <span className="h-3 w-3 rounded-full bg-rose-400" />
-                  <span className="h-3 w-3 rounded-full bg-amber-300" />
-                  <span className="h-3 w-3 rounded-full bg-emerald-400" />
-                </div>
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-[linear-gradient(155deg,transparent_12%,rgba(8,145,178,.38)_13%,rgba(15,23,42,.96)_58%),linear-gradient(25deg,transparent_28%,rgba(56,189,248,.30)_29%,transparent_60%)]" />
-                <div className="relative max-w-sm">
-                  <p className="text-2xl font-black leading-9">
-                    {isSignup
-                      ? isFa
-                        ? "شروع مسیر یادگیری"
-                        : "Begin your learning path"
-                      : isFa
-                        ? "خوش برگشتی"
-                        : "Welcome back"}
-                  </p>
-                  <p className="mt-2 text-sm font-bold leading-7 text-slate-300">
-                    {isSignup
-                      ? isFa
-                        ? "پروفایل آکادمی، تمرین و منتور از همین‌جا فعال می‌شود."
-                        : "Your academy profile, practice and mentor start here."
-                      : isFa
-                        ? "مسیرت را از آخرین درس، آزمون یا تمرین ادامه بده."
-                        : "Continue from your latest lesson, quiz or practice."}
-                  </p>
-                  <span className="mt-4 inline-flex min-h-10 items-center rounded-full border border-cyan-200/30 bg-white/[0.10] px-5 text-xs font-black text-cyan-100 backdrop-blur">
-                    {isSignup ? (isFa ? "ثبت‌نام" : "Sign up") : isFa ? "ورود" : "Login"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-3">
-                {learningPoints.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-4 text-sm font-bold leading-7 text-slate-300 backdrop-blur"
-                  >
-                    <BookOpenCheck
-                      className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200"
-                      aria-hidden="true"
-                    />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-auto pt-8">
-                <div className="rounded-3xl border border-cyan-200/20 bg-cyan-300/10 p-5 backdrop-blur">
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck
-                      className="mt-0.5 h-6 w-6 shrink-0 text-cyan-200"
-                      aria-hidden="true"
-                    />
-                    <p className="text-sm font-bold leading-7 text-slate-200">
-                      {isFa
-                        ? "تک‌پی هیچ تضمین سودی نمی‌دهد. آکادمی برای ساخت تصمیم آگاهانه و کنترل ریسک طراحی شده است."
-                        : "TecPey does not promise profit. Academy is designed for informed decisions and risk control."}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-black text-cyan-100">
-                  {(isFa ? ["آموزش", "تمرین", "منتور"] : ["Learn", "Practice", "Mentor"]).map((item) => (
-                    <span key={item} className="rounded-2xl border border-white/10 bg-white/[0.06] px-2 py-3">
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </aside>
+    <main className={styles.auth} dir={isFa ? "rtl" : "ltr"}>
+      <section className={styles.authShell}>
+        <aside className={styles.authIntro}>
+          <TecpeyMark alt="TecPey" width={48} height={48} priority className="h-12 w-12 object-contain" />
+          <h1>{isSignup ? (isFa ? "ثبت‌نام در آکادمی تک‌پی" : "Create your TecPey Academy account") : (isFa ? "ورود به آکادمی تک‌پی" : "Log in to TecPey Academy")}</h1>
+          <p>{isSignup ? (isFa ? "مسیر یادگیری‌ات را بساز. درس‌ها، تمرین‌ها و منتور آموزشی در یک حساب همراهت هستند." : "Your lessons, practice and educational mentor, together in one account.") : (isFa ? "خوش برگشتی. از آخرین درس یا تمرین، مسیرت را ادامه بده." : "Welcome back. Continue from your latest lesson or practice.")}</p>
+          <div className={styles.authArt}><Image src="/images/brand/academy-auth-crystal.jpeg" alt="" fill sizes="(max-width: 760px) 1px, 480px" /></div>
+          <p className="mt-5 text-sm">{isFa ? "حساب آموزشی از حساب صرافی جداست. تمرین‌ها با سرمایه مجازی انجام می‌شوند؛ تک‌پی تضمین سود نمی‌دهد." : "Your learning account is separate from the exchange. Practice uses virtual funds. TecPey does not promise profit."}</p>
+        </aside>
 
         <form
           dir={isFa ? "rtl" : "ltr"}
           onSubmit={submit}
-          className="tecpey-motion-reveal order-1 rounded-[24px] bg-white/[0.96] p-5 shadow-[0_18px_70px_rgba(6,17,31,.08)] dark:bg-[#07111f]/[0.94] md:p-6 lg:order-2 lg:self-center lg:p-7"
+          className={styles.authForm}
           noValidate
         >
           <div className="mb-5 flex items-center justify-between gap-4">
@@ -572,7 +443,8 @@ export function AcademyAuthClient({
             </Link>
           </div>
 
-          <div className="mb-5">
+          <details className={styles.otherMethods}>
+            <summary>{isFa ? "وضعیت ورود با گوگل و اپل" : "Google and Apple sign-in availability"}</summary>
             <div className="flex items-center justify-center gap-3">
               <SocialAuthButton
                 label="Google"
@@ -597,7 +469,7 @@ export function AcademyAuthClient({
                 ? "این دکمه‌ها فقط بعد از تکمیل OAuth واقعی و تست امنیتی فعال می‌شوند."
                 : "These buttons activate only after real OAuth and security testing are complete."}
             </p>
-          </div>
+          </details>
 
           <div className="space-y-3.5">
             {twoFactorToken ? (
@@ -853,7 +725,6 @@ export function AcademyAuthClient({
             </Link>
           </div>
         </form>
-        </div>
       </section>
     </main>
   );
