@@ -102,6 +102,7 @@ describe("AI provider usage telemetry", () => {
     assert.equal(telemetry.cacheReadInputTokens, 7_123);
     assert.equal(telemetry.cacheCreationInputTokens, 7_345);
     assert.equal(telemetry.cachedInputTokens, null);
+    assert.equal(telemetry.serverToolInvocations, 1);
     assert.equal(telemetry.costUsdMicros, null);
   });
 
