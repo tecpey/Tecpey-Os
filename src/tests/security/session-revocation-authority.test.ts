@@ -5,6 +5,7 @@ import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import {
   isJtiRevoked,
   isJtiRevokedStrict,
+  revokeMultiple,
 } from "../../lib/security/jti-store";
 import { revokeSessionStrict } from "../../lib/security/session-store";
 
@@ -46,6 +47,34 @@ function createFakeRedis(): FakeRedis {
     },
   };
 }
+
+test("batch revocation reports Redis pipeline execution failure deterministically", async () => {
+  const originalRedis = globalThis.tecpeyRedisClient;
+  let pipelineExecAttempts = 0;
+  const failingRedis = {
+    pipeline: () => ({
+      set: () => undefined,
+      exec: async () => {
+        pipelineExecAttempts += 1;
+        throw new Error("redis_pipeline_unavailable");
+      },
+    }),
+  };
+
+  try {
+    globalThis.tecpeyRedisClient = failingRedis as unknown as typeof originalRedis;
+    const published = await revokeMultiple([
+      {
+        jti: `revocation-pipeline-failure-${crypto.randomUUID()}`,
+        expiresAt: Math.floor(Date.now() / 1000) + 60,
+      },
+    ]);
+    assert.equal(published, false);
+    assert.equal(pipelineExecAttempts, 1);
+  } finally {
+    globalThis.tecpeyRedisClient = originalRedis;
+  }
+});
 
 test(
   "session revocation binds the owner and strict checks require Redis plus durable evidence",
