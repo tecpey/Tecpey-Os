@@ -14,6 +14,16 @@ describe("news capture/enrichment authority contract", () => {
     assert.match(capture, /aiCalls:\s*0/);
   });
 
+  it("does not silently claim zero-loss when feed continuity cannot be proven", async () => {
+    const capture = await read("scripts/run-news-capture-worker.ts");
+    assert.match(capture, /SELECT DISTINCT ON \(source_name\)/);
+    assert.match(capture, /replayedCount > 0/);
+    assert.match(capture, /continuity_unproven/);
+    assert.match(capture, /continuityRiskCount/);
+    assert.match(capture, /zeroLossClaim:[\s\S]*continuity_observed[\s\S]*not-proven|zeroLossClaim:[\s\S]*continuity_observed[\s\S]*not_proven/);
+    assert.match(capture, /status: failures\.length === 0 && continuityRiskCount === 0 \? "ok" : "degraded"/);
+  });
+
   it("fails closed when enrichment database authority is disabled", async () => {
     const authority = await read("src/lib/ops/news-enrichment-authority.ts");
     assert.match(authority, /if \(!result\.enabled\) throw new Error\("news_enrichment_authority_disabled"\)/);
@@ -38,6 +48,14 @@ describe("news capture/enrichment authority contract", () => {
     assert.match(worker, /NEWS_TRANSLATION_MAX_FAILURES_PER_VERSION", 3, 1, 5/);
     assert.match(worker, /translation_worker_exception/);
     assert.doesNotMatch(worker, /Promise\.all\([^)]*translateNewsFeedToPersian/);
+  });
+
+  it("keeps initial provider activation single-model with a deterministic two-call article ceiling", async () => {
+    const worker = await read("scripts/run-news-enrichment-worker.ts");
+    assert.match(worker, /NEWS_TRANSLATION_FALLBACK_MODEL/);
+    assert.match(worker, /news_enrichment_fallback_model_disabled_for_initial_activation/);
+    assert.match(worker, /news_enrichment_openrouter_requires_provider_call_ledger/);
+    assert.match(worker, /maximumProviderCallsPerRun: limit \* 2/);
   });
 
   it("requires a durable cost reservation before every news provider network call", async () => {
