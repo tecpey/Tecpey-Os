@@ -14,7 +14,6 @@ import { getProfileInfo } from "@/services/profile";
 import Footer from "@/components/footer/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import HtmlLangDir from "@/components/seo/HtmlLangDir";
-import { GlobalAiMentorWidget } from "@/components/academy/GlobalAiMentorWidget";
 import { PublicMentorEntry } from "@/components/academy/PublicMentorEntry";
 import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
 import { REQUEST_ROUTE_CONTEXT_HEADER } from "@/lib/request-route-context";
@@ -277,7 +276,6 @@ export default async function RootLayout({
               {children}
               <Footer />
               <PublicMentorEntry />
-              <GlobalAiMentorWidget />
               <Suspense fallback={null}><GlobalMobileNavigation /></Suspense>
             </Providers>
           </ThemeProvider>

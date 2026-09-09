@@ -89,6 +89,8 @@ import { runAiTenantRlsMigrations } from "./db-migrate-ai-tenant-rls";
 import { runSupportMessagesMigrations } from "./db-migrate-support-messages";
 import { runNewsArchiveAndGrowthMigrations } from "./db-migrate-news-growth";
 import { runIdentityProductLinkingMigrations } from "./db-migrate-identity-product-linking";
+import { runAcademyProfileDetailsMigrations } from "./db-migrate-academy-profile-details";
+import { runAcademyQuestionBankBaselineMigrations } from "./db-migrate-academy-question-bank-baseline";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -215,6 +217,8 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(82, "migration-step-082", CANONICAL_MIGRATION_CONTENT.supportMessages, "engagement-platform", "crm", runSupportMessagesMigrations),
   entry(83, "migration-step-083", CANONICAL_MIGRATION_CONTENT.newsArchiveAndGrowth, "growth-platform", "organic-growth", runNewsArchiveAndGrowthMigrations),
   entry(84, "migration-step-084", CANONICAL_MIGRATION_CONTENT.identityProductLinking, "security-platform", "identity-linking", runIdentityProductLinkingMigrations),
+  entry(85, "migration-step-085", CANONICAL_MIGRATION_CONTENT.academyProfileDetails, "academy-platform", "academy-profile", runAcademyProfileDetailsMigrations),
+  entry(86, "migration-step-086", CANONICAL_MIGRATION_CONTENT.academyQuestionBankBaseline, "academy-platform", "academy", runAcademyQuestionBankBaselineMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

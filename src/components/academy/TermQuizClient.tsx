@@ -39,11 +39,13 @@ export function TermQuizClient({
   const isFa = locale === "fa";
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [answerAttempts, setAnswerAttempts] = useState<Record<number, string[]>>({});
-  const [lead, setLead] = useState({ name: "", phone: "" });
-  const [leadSaved, setLeadSaved] = useState(termNumber > 1);
-  const [leadError, setLeadError] = useState("");
   const [canAccess, setCanAccess] = useState(termNumber <= 1);
   const [officialMessage, setOfficialMessage] = useState("");
+  const [officialResult, setOfficialResult] = useState<{
+    score: number;
+    percent: number;
+    passed: boolean;
+  } | null>(null);
   const assessmentCommandId = useRef<string | null>(null);
 
   const shuffledQuestions = useMemo(
@@ -62,24 +64,6 @@ export function TermQuizClient({
     let active = true;
     const checkAccess = async () => {
       try {
-        const profileResponse = await fetch("/api/academy-student-profile", {
-          cache: "no-store",
-          credentials: "include",
-        }).catch(() => null);
-        if (profileResponse?.ok) {
-          const profileData = await profileResponse.json().catch(() => ({}));
-          if (
-            profileData?.profile?.id
-            || profileData?.profile?.public_student_id
-          ) {
-            setLeadSaved(true);
-            setLead((previous) => ({
-              name: previous.name || profileData.profile.display_name || "",
-              phone: previous.phone || profileData.profile.phone || "",
-            }));
-          }
-        }
-
         const response = await fetch(
           `/api/academy-term-progress?locale=${locale}`,
           { cache: "no-store", credentials: "include" },
@@ -89,7 +73,7 @@ export function TermQuizClient({
           setCanAccess(termNumber <= 1);
           return;
         }
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         const terms = Array.isArray(data?.terms) ? data.terms : [];
         const previousPassed =
           termNumber <= 1
@@ -109,18 +93,13 @@ export function TermQuizClient({
     };
   }, [termNumber, locale]);
 
-  const [officialResult, setOfficialResult] = useState<{
-    score: number;
-    percent: number;
-    passed: boolean;
-  } | null>(null);
   const answeredCount = Object.keys(answers).length;
   const completed = answeredCount === shuffledQuestions.length;
   const score = officialResult?.score ?? answeredCount;
   const percent = officialResult?.percent
     ?? Math.round((answeredCount / Math.max(1, shuffledQuestions.length)) * 100);
   const passed = Boolean(officialResult?.passed);
-  const quizLocked = !leadSaved || !canAccess;
+  const quizLocked = !canAccess;
 
   useEffect(() => {
     if (!completed || quizLocked) return;
@@ -165,8 +144,8 @@ export function TermQuizClient({
         } else if (data?.error === "complete_account_required") {
           setOfficialMessage(
             locale === "fa"
-              ? "برای ثبت رسمی نتیجه، ابتدا حساب آکادمی را کامل کن."
-              : "Complete your academy account to save this result officially.",
+              ? "نشست آکادمی معتبر نیست؛ دوباره وارد حساب آکادمی شو و سپس نتیجه را ثبت کن."
+              : "Your Academy session is not valid. Sign in again before saving the result.",
           );
         } else {
           setOfficialMessage(
@@ -185,55 +164,6 @@ export function TermQuizClient({
       );
   }, [completed, quizLocked, termNumber, locale, answers, answerAttempts]);
 
-  const saveLead = async () => {
-    setLeadError("");
-    const cleanName = lead.name.trim();
-    const cleanPhone = lead.phone.trim();
-
-    if (cleanName.length < 2 || cleanPhone.length < 7) {
-      setLeadError(
-        isFa
-          ? "نام و شماره تماس را کامل وارد کنید."
-          : "Please enter a valid name and phone number.",
-      );
-      return;
-    }
-
-    const payload = {
-      displayName: cleanName,
-      phone: cleanPhone,
-      locale,
-      source: "academy-term-onboarding",
-    };
-
-    try {
-      const response = await fetch("/api/academy-student-profile", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        cache: "no-store",
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.ok === false) {
-        setLeadError(
-          isFa
-            ? "برای ثبت رسمی مسیر، تنظیمات حساب یا پایگاه داده را بررسی کنید."
-            : "Check account or database settings to save the official path.",
-        );
-        return;
-      }
-      setLeadSaved(true);
-      window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
-    } catch {
-      setLeadError(
-        isFa
-          ? "اتصال ثبت حساب برقرار نشد؛ دوباره تلاش کنید."
-          : "Account setup connection failed; try again.",
-      );
-    }
-  };
-
   const resetQuiz = () => {
     setAnswers({});
     setAnswerAttempts({});
@@ -247,57 +177,6 @@ export function TermQuizClient({
       id="term-quiz"
       className="mt-12 rounded-[30px] border border-cyan-300/25 bg-cyan-500/10 p-6"
     >
-      {termNumber === 1 && (
-        <div className="mb-6 rounded-3xl border border-cyan-300/20 bg-white/90 p-5 dark:bg-white/10">
-          <h2 className="text-xl font-black text-slate-950 dark:text-white">
-            {isFa ? "قبل از شروع آموزش" : "Before starting"}
-          </h2>
-          <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">
-            {isFa
-              ? "برای فعال شدن مرکز هوشمند، ساخت TecPey ID و ورود رسمی به ترم‌ها، حساب آکادمی را کامل کنید."
-              : "Complete your academy account to activate Smart Center, issue TecPey ID and officially enter the terms."}
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-            <input
-              value={lead.name}
-              onChange={(event) =>
-                setLead((previous) => ({
-                  ...previous,
-                  name: event.target.value,
-                }))
-              }
-              placeholder={isFa ? "نام و نام خانوادگی" : "Full name"}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-cyan-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
-            />
-            <input
-              value={lead.phone}
-              onChange={(event) =>
-                setLead((previous) => ({
-                  ...previous,
-                  phone: event.target.value,
-                }))
-              }
-              placeholder={isFa ? "شماره تماس / موبایل" : "Phone / mobile"}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-cyan-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
-            />
-            <button
-              type="button"
-              onClick={saveLead}
-              className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-400"
-            >
-              {leadSaved
-                ? isFa ? "ذخیره شد" : "Saved"
-                : isFa ? "تکمیل حساب و شروع" : "Complete account and start"}
-            </button>
-          </div>
-          {leadError && (
-            <p className="mt-2 text-sm font-black text-rose-500">
-              {leadError}
-            </p>
-          )}
-        </div>
-      )}
-
       {!canAccess && (
         <div className="rounded-3xl border border-amber-300/30 bg-amber-50 p-5 text-sm font-black leading-8 text-amber-900 dark:bg-amber-300/10 dark:text-amber-100">
           {isFa
@@ -313,7 +192,7 @@ export function TermQuizClient({
       )}
 
       <div
-        className={`${!leadSaved || !canAccess ? "pointer-events-none opacity-45" : ""}`}
+        className={`${!canAccess ? "pointer-events-none opacity-45" : ""}`}
         aria-disabled={quizLocked}
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
