@@ -1,14 +1,8 @@
 /* English public-shell parity corrections.
- * The root English landing previously exposed a duplicate Academy/Mentor hero
- * action row that is not part of the corresponding Persian mobile composition.
- * The journeys stay available through shared navigation and dedicated sections.
+ * FA and EN now share the same governed CalmLandingHero action model.
+ * Do not suppress Academy or Mentor entry actions in one locale: parity is
+ * enforced by the shared hero plus browser/source guards.
  */
-.shell :global([data-home-section="hero"] a[href="/en/academy"]),
-.shell :global([data-home-section="hero"] a[href="/en/academy/ai-guide"]) {
-  display: none;
-}
-
-.shell :global([data-home-section="hero"] div:has(> a[href="/en/academy"] + a[href="/en/academy/ai-guide"])) {
-  display: none;
-  margin-top: 0;
+.shell {
+  min-width: 0;
 }

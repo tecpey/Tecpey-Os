@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { CalmLandingHero } from "@/components/home/CalmLandingHero";
+import { CalmLandingClose, LandingDetails } from "@/components/home/CalmProductSections";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -117,13 +119,13 @@ function DeviceFrame() {
   const dynamicRows = (currencies.length ? currencies : getMarketFallback()).slice(0, 6);
   return (
     <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[620px]">
-      <div className="absolute -inset-6 rounded-[48px] bg-[radial-gradient(circle_at_30%_20%,rgba(12,217,222,.35),transparent_35%),radial-gradient(circle_at_80%_40%,rgba(37,99,235,.30),transparent_35%)] blur-2xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[48px] bg-[radial-gradient(circle_at_30%_20%,rgba(12,217,222,.35),transparent_35%),radial-gradient(circle_at_80%_40%,rgba(37,99,235,.30),transparent_35%)] blur-2xl" />
       <div className="tecpey-glass relative rounded-[30px] p-3">
         <div className="rounded-[24px] border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-4 sm:p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" loading="eager" />
-              <div>
+            <div className="flex min-w-0 items-center gap-3">
+              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 shrink-0 rounded-2xl object-contain" loading="eager" />
+              <div className="min-w-0">
                 <p className="text-sm font-extrabold text-[color:var(--tp-text)]">نمای آموزشی بازار تک‌پی</p>
                 <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">داده مرجع برای آموزش و تمرین مجازی · USD/USDT</p>
               </div>
@@ -178,43 +180,7 @@ function DeviceFrame() {
   );
 }
 
-function Hero() {
-  return (
-    <section data-home-section="hero" className="tecpey-section relative isolate overflow-hidden pt-20 sm:px-6 sm:pt-24 lg:px-8">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(11,217,222,.20),transparent_30%),radial-gradient(circle_at_10%_30%,rgba(30,64,175,.16),transparent_28%)]" />
-      <div className="tecpey-section-inner grid grid-cols-1 items-center gap-10 pb-14 pt-6 lg:grid-cols-[.95fr_1.05fr] lg:pb-20">
-        <div className="text-center lg:text-right">
-          <SectionLabel>مسیر امن آموزش و تمرین رمزارز</SectionLabel>
-          <h1 className="mt-6 text-balance text-4xl font-black leading-[1.18] tracking-tight text-[color:var(--tp-text)] sm:text-5xl lg:text-6xl">
-            تک‌پی، نقطه امن ورود به بازار رمزارز
-          </h1>
-          <p className="tecpey-copy mx-auto mt-5 max-w-xl text-pretty sm:text-lg lg:mx-0">
-            آموزش، قیمت‌های مرجع، تمرین مجازی و منتور آموزشی برای شروع آرام، امن و بدون سیگنال‌فروشی.
-          </p>
-          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
-            <Link href={academyHref} className="tecpey-action-primary group sm:text-base">
-              شروع آکادمی رایگان
-              <GraduationCap className="h-5 w-5 transition group-hover:-translate-x-1" />
-            </Link>
-            <Link href={mentorHref} className="tecpey-action-secondary sm:text-base">
-              گفتگو با منتور هوشمند
-              <Sparkles className="h-5 w-5 text-[color:var(--tp-primary)]" />
-            </Link>
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-2 text-[11px] font-black leading-5 text-[color:var(--tp-muted)] sm:text-xs lg:max-w-xl">
-            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-4 w-4 shrink-0" />۷ ترم پایه + رشد پیوسته</span>
-            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-400"><Clock3 className="h-4 w-4 shrink-0" />اخبار و ابزارهای مهم روز</span>
-            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-400"><ShieldCheck className="h-4 w-4 shrink-0" />پرونده تحلیلی رمزارزها</span>
-            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[color:var(--tp-primary-soft)] px-3 py-2 text-[color:var(--tp-primary)]"><BookOpen className="h-4 w-4 shrink-0" />شبیه‌ساز + مربی هوشمند</span>
-            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-violet-500/10 px-3 py-2 text-violet-700 dark:text-violet-300"><Trophy className="h-4 w-4 shrink-0" />رنکینگ و لیگ‌های آموزشی</span>
-            <span className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-300"><Gift className="h-4 w-4 shrink-0" />جوایز برای برترین‌ها</span>
-          </div>
-        </div>
-        <DeviceFrame />
-      </div>
-    </section>
-  );
-}
+function Hero() { return <CalmLandingHero locale="fa" />; }
 function GlobalUxMetrics() {
   const metrics = [
     {
@@ -1082,9 +1048,9 @@ function FinalCta() {
   );
 }
 
-function StickyMobileCta() {
+function MobileLearningCta() {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/92 px-4 py-3 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl sm:hidden">
+    <div data-mobile-learning-cta className="relative border-t border-white/10 bg-slate-950 px-4 py-3 sm:hidden">
       <div className="mx-auto grid max-w-md grid-cols-2 items-center gap-2">
         <Link href={academyHref} className="rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
           شروع آکادمی
@@ -1169,10 +1135,12 @@ export default function TecpeyEnterpriseLanding({
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
       <Hero />
       <HomeDiscoveryStrip locale="fa" radar={growthRadar} />
+      <section aria-label="نمای آموزشی بازار" className="px-5 py-8"><DeviceFrame /></section>
       <CryptoNewsCenter locale="fa" compact />
-      <HomeAiMentorSpotlight locale="fa" />
-      <HomeLearningJourney locale="fa" />
+      <HomeAiMentorSpotlight locale="fa" compact />
+      <HomeLearningJourney locale="fa" compact />
       <LandingGrowthRadar locale="fa" radar={growthRadar} />
+      <LandingDetails locale="fa">
       <GlobalUxMetrics />
       <SoftLaunchProductFocus />
       <ProofRail />
@@ -1196,7 +1164,9 @@ export default function TecpeyEnterpriseLanding({
       <GrowthLinks />
       <Faq />
       <FinalCta />
-      <StickyMobileCta />
+      </LandingDetails>
+      <CalmLandingClose locale="fa" />
+      <MobileLearningCta />
     </main>
   );
 }

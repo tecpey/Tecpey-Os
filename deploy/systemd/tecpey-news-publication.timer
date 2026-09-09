@@ -1,0 +1,13 @@
+[Unit]
+Description=Run TecPey validated news publication on bounded cadence
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+Persistent=true
+RandomizedDelaySec=10s
+AccuracySec=10s
+Unit=tecpey-news-publication.service
+
+[Install]
+WantedBy=timers.target

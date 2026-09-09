@@ -1,0 +1,46 @@
+[Unit]
+Description=TecPey Crypto News Capture Worker (AI-independent)
+Documentation=https://github.com/tecpey/Tecpey-Os
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=900
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=@@RUN_USER@@
+Group=@@RUN_GROUP@@
+WorkingDirectory=@@APP_DIR@@
+EnvironmentFile=@@ENV_FILE@@
+Environment=NODE_ENV=production
+Environment=NPM_CONFIG_UPDATE_NOTIFIER=false
+Environment=NPM_CONFIG_CACHE=/tmp/tecpey-npm-cache
+ExecStartPre=@@NPM_BIN@@ exec -- tsx scripts/check-news-capture-env.ts
+ExecStart=@@NPM_BIN@@ exec -- tsx scripts/run-news-capture-worker.ts
+TimeoutStartSec=2min
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tecpey-news-capture
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RemoveIPC=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadOnlyPaths=@@APP_DIR@@
+
+[Install]
+WantedBy=multi-user.target

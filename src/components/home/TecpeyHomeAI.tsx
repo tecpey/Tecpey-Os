@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CalmMentorSection, CalmLearningSection } from "./CalmProductSections";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -102,7 +103,12 @@ function formatTime(value: string, locale: Locale) {
   }).format(date);
 }
 
-export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
+export function HomeAiMentorSpotlight({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
+  if (compact) return <CalmMentorSection locale={locale} />;
+  return <FullMentorSpotlight locale={locale} />;
+}
+
+function FullMentorSpotlight({ locale }: { locale: Locale }) {
   const [question, answer] = useRotatingPair(locale);
   const isFa = locale === "fa";
   const steps = isFa
@@ -166,7 +172,7 @@ export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
                   <Brain className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-slate-950 dark:text-white">{isFa ? "TecPey AI Mentor" : "TecPey AI Mentor"}</p>
+                  <p className="text-sm font-black text-slate-950 dark:text-white">TecPey AI Mentor</p>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-300">{isFa ? "آموزش ۲۴ ساعته، بدون سیگنال‌فروشی" : "24/7 learning, no signal selling"}</p>
                 </div>
               </div>
@@ -227,7 +233,6 @@ export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
     </section>
   );
 }
-
 
 function isExternal(url: string) {
   return /^https?:\/\//i.test(url || "");
@@ -426,7 +431,12 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
   );
 }
 
-export function HomeLearningJourney({ locale }: { locale: Locale }) {
+export function HomeLearningJourney({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
+  if (compact) return <CalmLearningSection locale={locale} />;
+  return <FullLearningJourney locale={locale} />;
+}
+
+function FullLearningJourney({ locale }: { locale: Locale }) {
   const isFa = locale === "fa";
   const items = isFa
     ? [
