@@ -9,6 +9,7 @@ function read(path: string) {
 const contentUi = read("src/components/content/ContentUI.tsx");
 const englishUi = read("src/app/en/components/EnglishUI.tsx");
 const englishParityCss = read("src/app/en/components/english-mobile-parity.module.css");
+const calmHero = read("src/components/home/CalmLandingHero.tsx");
 const livingNav = read("src/components/tecpey/LivingMobileNavigation.tsx");
 
 describe("mobile Academy FA/EN parity", () => {
@@ -23,11 +24,13 @@ describe("mobile Academy FA/EN parity", () => {
     assert.match(englishUi, /academySurface \? "pb-10 pt-8 sm:pt-10" : "py-14"/);
   });
 
-  it("removes the duplicate English landing Academy and AI Mentor hero actions", () => {
+  it("keeps Academy and AI Mentor hero actions shared across FA and EN", () => {
     assert.match(englishUi, /english-mobile-parity\.module\.css/);
-    assert.match(englishParityCss, /a\[href="\/en\/academy"\]/);
-    assert.match(englishParityCss, /a\[href="\/en\/academy\/ai-guide"\]/);
-    assert.match(englishParityCss, /display:\s*none/);
+    assert.match(calmHero, /const prefix = fa \? "" : "\/en"/);
+    assert.match(calmHero, /href=\{`\$\{prefix\}\/academy`\}/);
+    assert.match(calmHero, /href=\{`\$\{prefix\}\/academy\/ai-guide`\}/);
+    assert.doesNotMatch(englishParityCss, /a\[href="\/en\/academy/);
+    assert.doesNotMatch(englishParityCss, /display:\s*none/);
   });
 });
 
