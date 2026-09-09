@@ -64,7 +64,15 @@ rejectText(
   "new migration applications must persist full SHA-256 checksums",
 );
 const sourceFilenames = new Set(migrationSources.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
-const registryFilenames = new Set(content.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
+// Most canonical migration content is declared in db-migration-content.ts. A
+// small number of forward-only incident migrations may be composed directly
+// into the canonical runtime registry while preserving full content/checksum
+// validation there. Audit both declarations so a valid composed migration is
+// never mistaken for an unregistered source.
+const registryFilenames = new Set([
+  ...(content.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []),
+  ...(registry.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []),
+]);
 for (const filename of sourceFilenames) {
   if (!registryFilenames.has(filename)) failures.push(`migration source is not registered: ${filename}`);
 }
