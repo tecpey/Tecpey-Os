@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { validatePersianNewsEditorialQuality } from "../../lib/news-editorial-quality";
+import { validatePersianNewsEditorialQuality } from "../../lib/ai/news-editorial-quality";
 
 describe("Persian news editorial quality authority", () => {
   it("accepts grounded Persian copy with preserved brands and ticker", () => {
