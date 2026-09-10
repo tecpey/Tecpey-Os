@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { validatePersianNewsEditorialQuality } from "../../lib/news-editorial-quality";
+import { validatePersianNewsEditorialQuality } from "../../lib/ai-news-editorial-quality";
 
 describe("Persian news editorial quality authority", () => {
   it("accepts grounded Persian copy with preserved brands and ticker", () => {
@@ -16,14 +16,14 @@ describe("Persian news editorial quality authority", () => {
     assert.equal(result.ok, true);
   });
 
-  it("rejects a hallucinated or mutated Latin entity such as USBDC", () => {
+  it("rejects a hallucinated or mutated Latin entity such as USBDC even when mutation is repeated consistently", () => {
     const result = validatePersianNewsEditorialQuality({
       sourceTitle: "Bank issues USDC on Stellar network",
       sourceLead: "The pilot uses USDC on Stellar.",
       sourceBody: "USDC transfers are being tested on Stellar.",
       translatedTitle: "بانک USBDC را روی شبکه Stellar عرضه کرد",
-      translatedLead: "این طرح از USDC روی Stellar استفاده می‌کند.",
-      translatedBody: "انتقال USDC روی Stellar آزمایش می‌شود.",
+      translatedLead: "این طرح از USBDC روی Stellar استفاده می‌کند.",
+      translatedBody: "انتقال USBDC روی Stellar آزمایش می‌شود.",
     });
     assert.equal(result.ok, false);
     if (result.ok) return;
