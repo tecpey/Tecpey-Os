@@ -2,7 +2,7 @@
 
 import { forwardRef, useMemo, useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getCurrencies } from "@/services/swap.services";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
@@ -12,6 +12,7 @@ type TabKey = "trending" | "gainers" | "newest";
 
 const OtherCoins = forwardRef<HTMLDivElement>((props, ref) => {
   const t = useTranslations("MarketTabs");
+  const locale = useLocale();
 
   const [activeTab, setActiveTab] = useState<TabKey>("trending");
 
@@ -64,9 +65,6 @@ const OtherCoins = forwardRef<HTMLDivElement>((props, ref) => {
         return allCoins;
     }
   }, [allCoins, activeTab]);
-
-  const locale =
-    typeof document !== "undefined" ? document.documentElement.lang : "en";
 
   return (
     <div

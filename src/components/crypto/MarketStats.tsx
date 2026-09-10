@@ -1,6 +1,6 @@
 import { MessageSquare } from "lucide-react";
 import { forwardRef } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { handleDecimal } from "@/utils/handleDecimal";
 import type { MarketCurrency } from "@/types/market";
 
@@ -15,6 +15,7 @@ const parseNum = (value: unknown) => {
 
 const MarketStats = forwardRef<HTMLDivElement, Props>(({ coin }, ref) => {
   const t = useTranslations("MarketTabs");
+  const locale = useLocale();
 
   if (!coin) return null;
 
@@ -42,12 +43,11 @@ const MarketStats = forwardRef<HTMLDivElement, Props>(({ coin }, ref) => {
   const maxSupply = parseNum(coin.maxSupply) || parseNum(coin.priceData?.maxSupply);
   const fdv = parseNum(coin.fdv) || parseNum(coin.priceData?.fdv) || parseNum(coin.fullyDilutedValuation) || parseNum(coin.priceData?.fullyDilutedValuation);
 
-  const isRTL =
-    typeof document !== "undefined"
-      ? document.documentElement.dir === "rtl"
-      : false;
-
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+  // Derived from the route locale rather than a `document`/`window` read:
+  // those reflect only the browser's state, so a client that hydrates a
+  // server-rendered "fa" page would compute isRTL/isMobile differently from
+  // the server (which has no document/window) — a hydration mismatch.
+  const isRTL = locale === "fa";
 
   return (
     <div ref={ref} className="stats-card rounded-2xl p-4 sm:p-6 mb-6 shadow-lg">
@@ -57,24 +57,24 @@ const MarketStats = forwardRef<HTMLDivElement, Props>(({ coin }, ref) => {
         </p>
 
         <div className="relative pt-2 sm:pt-16">
-          {/* Bubble */}
-          {!isMobile && (
-            <div
-              className="absolute top-0 z-10 transition-all duration-300"
-              style={{
-                left: `${percent}%`,
-                transform: "translateX(-50%)",
-              }}
-            >
-              <div className="relative w-full h-full sm:w-14 sm:h-14">
-                <MessageSquare className="stats-bubble-icon w-12 h-12" />
+          {/* Bubble — hidden below the sm breakpoint via CSS rather than a
+              window.innerWidth check, which would read differently on the
+              server (no window) than on the client. */}
+          <div
+            className="absolute top-0 z-10 hidden transition-all duration-300 sm:block"
+            style={{
+              left: `${percent}%`,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <div className="relative w-full h-full sm:w-14 sm:h-14">
+              <MessageSquare className="stats-bubble-icon w-12 h-12" />
 
-                <span className="stats-bubble-text text-fg absolute inset-0 flex items-center justify-center text-[9px] sm:text-[11px] font-bold">
-                  ${handleDecimal(currentPrice)}
-                </span>
-              </div>
+              <span className="stats-bubble-text text-fg absolute inset-0 flex items-center justify-center text-[9px] sm:text-[11px] font-bold">
+                ${handleDecimal(currentPrice)}
+              </span>
             </div>
-          )}
+          </div>
 
           {/* Range */}
           <div className="relative h-2 rounded-full overflow-hidden bg-white/10">
