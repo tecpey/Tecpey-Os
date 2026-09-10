@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense, use } from "react";
 import { CalmLandingHero } from "@/components/home/CalmLandingHero";
 import { CalmLandingClose, LandingDetails } from "@/components/home/CalmProductSections";
 import { ArrowRight, Award, BadgeCheck, BookOpen, ClipboardCheck, Gift, GraduationCap, LineChart, ShieldCheck, TrendingUp, WalletCards, Building2, MousePointerClick, HeartHandshake, TrendingDown, BookMarked, PenLine, ShieldAlert, PlayCircle, CheckCircle2 } from "lucide-react";
@@ -509,12 +510,30 @@ function LearningExperienceSystemEn() {
     </section>
   );
 }
+function HomeDiscoveryStripResolved({
+  radarPromise,
+}: {
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const radar = use(radarPromise);
+  return <HomeDiscoveryStrip locale="en" radar={radar} />;
+}
+
+function LandingGrowthRadarResolved({
+  radarPromise,
+}: {
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const radar = use(radarPromise);
+  return <LandingGrowthRadar locale="en" radar={radar} />;
+}
+
 export default function EnglishLandingClient({
   schema,
-  growthRadar,
+  growthRadarPromise,
 }: {
   schema: React.ReactNode;
-  growthRadar?: LandingGrowthRadarModel;
+  growthRadarPromise: Promise<LandingGrowthRadarModel>;
 }) {
   const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT", "USDTUSDT", "TONUSDT"]);
   const fallback: MarketCurrency[] = [
@@ -530,7 +549,9 @@ export default function EnglishLandingClient({
       {schema}
       <CalmLandingHero locale="en" />
 
-      <HomeDiscoveryStrip locale="en" radar={growthRadar} />
+      <Suspense fallback={<HomeDiscoveryStrip locale="en" radar={undefined} />}>
+        <HomeDiscoveryStripResolved radarPromise={growthRadarPromise} />
+      </Suspense>
       <section aria-label="Educational market overview" className="mx-auto max-w-3xl px-5 py-8">
         <h2 className="text-2xl font-bold">Educational market overview</h2>
         <p className="my-3 text-sm text-[color:var(--tp-muted)]">Reference prices for learning and virtual practice. USD/USDT.</p>
@@ -545,7 +566,9 @@ export default function EnglishLandingClient({
       <CryptoNewsCenter locale="en" compact />
       <HomeAiMentorSpotlight locale="en" compact />
       <HomeLearningJourney locale="en" compact />
-      <LandingGrowthRadar locale="en" radar={growthRadar} />
+      <Suspense fallback={<LandingGrowthRadar locale="en" radar={undefined} />}>
+        <LandingGrowthRadarResolved radarPromise={growthRadarPromise} />
+      </Suspense>
       <LandingDetails locale="en">
 
 
