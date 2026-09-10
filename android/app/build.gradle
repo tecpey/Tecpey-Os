@@ -2,12 +2,16 @@ apply plugin: "com.android.application"
 
 android {
     namespace "ir.tecpey.app"
-    compileSdk 34
+    // androidbrowserhelper:2.6.0 (below) pulls in androidx.browser
+    // 1.9.0-alpha02 transitively regardless of the version requested here,
+    // and that requires compileSdk 36 / AGP 8.9.1+ (see build.gradle) —
+    // confirmed by a real build failure at compileSdk 34 / AGP 8.6.0.
+    compileSdk 36
 
     defaultConfig {
         applicationId "ir.tecpey.app"
         minSdkVersion 21
-        targetSdkVersion 34
+        targetSdkVersion 36
         versionCode 1
         versionName "1.0.0-test"
     }
@@ -47,6 +51,9 @@ android {
 }
 
 dependencies {
-    implementation "androidx.browser:browser:1.8.0"
+    // androidbrowserhelper resolves this to 1.9.0-alpha02 transitively no
+    // matter what's declared here; kept explicit for clarity, not to pin a
+    // version.
+    implementation "androidx.browser:browser:1.9.0-alpha02"
     implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.6.0"
 }
