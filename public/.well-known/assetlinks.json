@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ir.tecpey.app",
+      "sha256_cert_fingerprints": [
+        "71:BB:A1:7F:16:6B:22:B5:AC:58:30:7D:5B:3D:AA:DE:F0:14:45:13:82:47:49:37:07:D7:AD:E2:62:D5:C7:D0"
+      ]
+    }
+  }
+]

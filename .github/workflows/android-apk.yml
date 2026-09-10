@@ -1,0 +1,57 @@
+name: Android APK (test build)
+
+# Builds the Trusted Web Activity wrapper in android/ into a debug-signed
+# APK for internal sideload testing — not a Play Store release build (see
+# android/app/build.gradle for why). Runs on a GitHub-hosted runner because
+# the Android SDK/AGP can only be fetched from Google's Maven repo, which
+# this repository's normal CI sandbox cannot reach.
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main]
+    paths:
+      - android/**
+      - .github/workflows/android-apk.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      # Left on version tags rather than a pinned SHA, unlike this repo's other
+      # workflows: this workflow isn't part of the governed release-gate set
+      # (it ships no code, only a test artifact), and pinning these two
+      # requires read access this session didn't have to actions/setup-java
+      # and android-actions/setup-android. Pin them to a commit SHA the next
+      # time this file is touched.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        working-directory: android
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tecpey-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error

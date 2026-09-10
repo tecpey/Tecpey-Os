@@ -1,0 +1,52 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "ir.tecpey.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "ir.tecpey.app"
+        minSdkVersion 21
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0.0-test"
+    }
+
+    signingConfigs {
+        debug {
+            // Test-only key, committed on purpose: this build is for
+            // internal sideload testing, not a Play Store release. Its
+            // fingerprint is mirrored in public/.well-known/assetlinks.json
+            // and android/app/src/main/res/values/strings.xml
+            // (asset_statements). Regenerate all three together if this
+            // key is ever rotated.
+            storeFile file("tecpey-debug.keystore")
+            storePassword "tecpey-debug-pass"
+            keyAlias "tecpey-debug"
+            keyPassword "tecpey-debug-pass"
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            debuggable true
+        }
+        release {
+            // No release signing config on purpose — this project only
+            // ships a debug-signed test build for now (see PR description).
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "androidx.browser:browser:1.8.0"
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.6.0"
+}
