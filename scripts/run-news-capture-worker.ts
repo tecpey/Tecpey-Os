@@ -10,7 +10,12 @@ import {
 } from "../src/lib/news-growth-authority";
 import {
   NEWS_SOURCE_REGISTRY,
+  captureContinuity,
   isApprovedNewsSourceHost,
+  isContinuityRisk,
+  participatesInContinuity,
+  type CaptureContinuity,
+  type NewsSourceContinuityMode,
   type NewsSourceRegistryEntry,
 } from "../src/lib/news-source-registry";
 import {
@@ -35,19 +40,14 @@ type CaptureArticle = {
   fetchedAt: string;
 };
 
-export type CaptureContinuity =
-  | "bootstrap"
-  | "proven_overlap"
-  | "continuity_unproven"
-  | "empty_feed"
-  | "source_failed";
-
 type SourceCaptureResult = {
   sourceName: string;
   fetchedCount: number;
   insertedCount: number;
   replayedCount: number;
   continuity: CaptureContinuity;
+  continuityMode: NewsSourceContinuityMode;
+  quarantineReason: string | null;
   previousLatestArticleUrl: string | null;
   previousLatestPublishedAt: string | null;
 };
@@ -201,19 +201,6 @@ export function dedupeCapturedArticles(items: readonly CaptureArticle[]): Captur
   return [...selected.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
 
-export function captureContinuity(input: {
-  sourceFailed: boolean;
-  previousHead: PreviousSourceHead | null;
-  fetchedCount: number;
-  replayedCount: number;
-}): CaptureContinuity {
-  if (input.sourceFailed) return "source_failed";
-  if (!input.previousHead) return "bootstrap";
-  if (input.fetchedCount === 0) return "empty_feed";
-  if (input.replayedCount > 0) return "proven_overlap";
-  return "continuity_unproven";
-}
-
 async function main(): Promise<void> {
   const fetchedAt = new Date(process.env.NEWS_CAPTURE_FETCHED_AT ?? Date.now()).toISOString();
   const limitPerSource = boundedIntegerEnv(
@@ -272,6 +259,8 @@ async function main(): Promise<void> {
       insertedCount: 0,
       replayedCount: 0,
       continuity: failedSources.has(source.name) ? "source_failed" : "bootstrap",
+      continuityMode: source.continuityMode ?? "required",
+      quarantineReason: source.quarantineReason ?? null,
       previousLatestArticleUrl: null,
       previousLatestPublishedAt: null,
     });
@@ -327,7 +316,7 @@ async function main(): Promise<void> {
       result.previousLatestPublishedAt = previousHead?.publishedAt ?? null;
       result.continuity = captureContinuity({
         sourceFailed: failedSources.has(source.name),
-        previousHead,
+        previousHeadExists: previousHead !== null,
         fetchedCount: result.fetchedCount,
         replayedCount: result.replayedCount,
       });
@@ -337,24 +326,34 @@ async function main(): Promise<void> {
   const results = [...sourceResults.values()];
   const insertedCount = results.reduce((sum, item) => sum + item.insertedCount, 0);
   const replayedCount = results.reduce((sum, item) => sum + item.replayedCount, 0);
+  const requiredSourceNames = new Set(
+    NEWS_SOURCE_REGISTRY
+      .filter((source) => participatesInContinuity(source.continuityMode))
+      .map((source) => source.name),
+  );
   const continuityRiskCount = results.filter((item) =>
-    item.continuity === "continuity_unproven" || item.continuity === "empty_feed"
+    requiredSourceNames.has(item.sourceName) && isContinuityRisk(item.continuity)
   ).length;
+  const blockingFailureCount = failures.filter((failure) => requiredSourceNames.has(failure.sourceName)).length;
+  const quarantinedSourceCount = NEWS_SOURCE_REGISTRY.length - requiredSourceNames.size;
+  const continuityObserved = continuityRiskCount === 0 && blockingFailureCount === 0;
 
   console.log(JSON.stringify({
-    status: failures.length === 0 && continuityRiskCount === 0 ? "ok" : "degraded",
+    status: continuityObserved ? "ok" : "degraded",
     mode: "capture_only",
     aiCalls: 0,
     fetchedAt,
     sourceCount: NEWS_SOURCE_REGISTRY.length,
+    requiredSourceCount: requiredSourceNames.size,
+    quarantinedSourceCount,
     successfulSourceCount: NEWS_SOURCE_REGISTRY.length - failures.length,
     fetchedArticleCount: articles.length,
     insertedCount,
     replayedCount,
     continuityRiskCount,
-    zeroLossClaim: continuityRiskCount === 0 && failures.length === 0
-      ? "continuity_observed"
-      : "not_proven",
+    blockingFailureCount,
+    continuityScope: "required_sources_only",
+    zeroLossClaim: continuityObserved ? "continuity_observed" : "not_proven",
     sourceResults: results,
     failures,
   }));
