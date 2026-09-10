@@ -21,12 +21,15 @@ describe("news capture/enrichment authority contract", () => {
 
   it("does not silently claim zero-loss when feed continuity cannot be proven", async () => {
     const capture = await read("scripts/run-news-capture-worker.ts");
+    const registry = await read("src/lib/news-source-registry.ts");
     assert.match(capture, /SELECT DISTINCT ON \(source_name\)/);
-    assert.match(capture, /replayedCount > 0/);
-    assert.match(capture, /continuity_unproven/);
+    assert.match(registry, /replayedCount > 0/);
+    assert.match(registry, /continuity_unproven/);
     assert.match(capture, /continuityRiskCount/);
-    assert.match(capture, /zeroLossClaim:[\s\S]*continuity_observed[\s\S]*not-proven|zeroLossClaim:[\s\S]*continuity_observed[\s\S]*not_proven/);
-    assert.match(capture, /status: failures\.length === 0 && continuityRiskCount === 0 \? "ok" : "degraded"/);
+    assert.match(capture, /blockingFailureCount/);
+    assert.match(capture, /continuityScope:\s*"required_sources_only"/);
+    assert.match(capture, /zeroLossClaim:\s*continuityObserved\s*\?\s*"continuity_observed"\s*:\s*"not_proven"/);
+    assert.match(capture, /status:\s*continuityObserved\s*\?\s*"ok"\s*:\s*"degraded"/);
   });
 
   it("fails closed when enrichment database authority is disabled", async () => {

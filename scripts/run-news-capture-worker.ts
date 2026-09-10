@@ -2,13 +2,6 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { withTx } from "../src/lib/db";
 import { readBoundedResponseText } from "../src/lib/bounded-http-body";
-import {
-  captureContinuity,
-  isContinuityRisk,
-  participatesInContinuity,
-  type CaptureContinuity,
-  type NewsSourceContinuityMode,
-} from "../src/lib/news-capture-source-health";
 import { extractNewsTaxonomy } from "../src/lib/news-taxonomy";
 import { validNewsPublishedAt } from "../src/lib/news-published-at";
 import {
@@ -17,7 +10,12 @@ import {
 } from "../src/lib/news-growth-authority";
 import {
   NEWS_SOURCE_REGISTRY,
+  captureContinuity,
   isApprovedNewsSourceHost,
+  isContinuityRisk,
+  participatesInContinuity,
+  type CaptureContinuity,
+  type NewsSourceContinuityMode,
   type NewsSourceRegistryEntry,
 } from "../src/lib/news-source-registry";
 import {

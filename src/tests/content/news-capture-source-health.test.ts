@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  NEWS_SOURCE_REGISTRY,
   captureContinuity,
   isContinuityRisk,
   participatesInContinuity,
-} from "../../lib/news-capture-source-health";
-import { NEWS_SOURCE_REGISTRY } from "../../lib/news-source-registry";
+} from "../../lib/news-source-registry";
 
 describe("news capture source health authority", () => {
   it("fails closed when a source has no previous head and yields zero accepted articles", () => {
