@@ -2,6 +2,7 @@ export type NewsEditorialQualityFailure =
   | "unsupported_latin_entity"
   | "ticker_integrity_failed"
   | "persian_field_quality_failed"
+  | "title_shape_failed"
   | "title_density_failed";
 
 export type NewsEditorialQualityResult =
@@ -15,6 +16,7 @@ export type NewsEditorialQualityResult =
         sourceTickers?: string[];
         translatedTickers?: string[];
         field?: "title" | "lead" | "body";
+        titleSentenceBreaks?: number;
         titleChars?: number;
       };
     };
@@ -64,6 +66,13 @@ function compact(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function countInternalPersianHeadlineSentenceBreaks(value: string): number {
+  // Count only punctuation that terminates Persian text and is followed by more
+  // headline content. Terminal punctuation is allowed, and Latin abbreviations
+  // such as U.S. are deliberately not interpreted as Persian sentence breaks.
+  return (value.match(/[آ-ی۰-۹][.!?؟]+(?:["'»”\)\]]*)\s+(?=\S)/gu) ?? []).length;
+}
+
 /**
  * Final fail-closed authority before a generated Persian news record is persisted.
  * This intentionally validates only deterministic properties that can be proven
@@ -92,6 +101,15 @@ export function validatePersianNewsEditorialQuality(input: {
   }
   if (!translatedBody || !hasPersian(translatedBody)) {
     return { ok: false, reason: "persian_field_quality_failed", evidence: { field: "body" } };
+  }
+
+  const titleSentenceBreaks = countInternalPersianHeadlineSentenceBreaks(translatedTitle);
+  if (titleSentenceBreaks > 0) {
+    return {
+      ok: false,
+      reason: "title_shape_failed",
+      evidence: { titleSentenceBreaks },
+    };
   }
 
   // Very long generated headlines degrade mobile scannability and are commonly a
