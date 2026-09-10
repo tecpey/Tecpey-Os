@@ -100,6 +100,32 @@ describe("Persian news editorial quality authority", () => {
     assert.equal(result.evidence.field, "body");
   });
 
+  it("rejects an internal second Persian headline sentence but permits terminal punctuation", () => {
+    const shared = {
+      sourceTitle: "Researcher built chatbot replicas and they began arguing",
+      sourceLead: "The researcher built chatbot replicas and the bots began arguing.",
+      sourceBody: "The bots began arguing after they were placed in one chat.",
+      translatedLead: "پژوهشگر نسخه‌های چت‌بات را ساخت و ربات‌ها شروع به بحث کردند.",
+      translatedBody: "ربات‌ها پس از قرار گرفتن در یک گفت‌وگو شروع به بحث کردند.",
+    };
+
+    const rejected = validatePersianNewsEditorialQuality({
+      ...shared,
+      translatedTitle: "پژوهشگر نسخه‌های چت‌بات را ساخت. ربات‌ها شروع به بحث کردند",
+    });
+    assert.equal(rejected.ok, false);
+    if (!rejected.ok) {
+      assert.equal(rejected.reason, "title_shape_failed");
+      assert.equal(rejected.evidence.titleSentenceBreaks, 1);
+    }
+
+    const accepted = validatePersianNewsEditorialQuality({
+      ...shared,
+      translatedTitle: "پژوهشگر نسخه‌های چت‌بات را ساخت و ربات‌ها شروع به بحث کردند.",
+    });
+    assert.equal(accepted.ok, true);
+  });
+
   it("fails closed on excessively long generated mobile headlines", () => {
     const result = validatePersianNewsEditorialQuality({
       sourceTitle: "Bitcoin outlook",
