@@ -13,6 +13,7 @@ import {
 } from "../src/lib/ops/news-enrichment-authority";
 import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import { persistNewsArchiveTranslationTx } from "../src/lib/news-growth-authority";
+import { validatePersianNewsEditorialQuality } from "../src/lib/news-editorial-quality";
 import {
   translateNewsFeedToPersian,
   type NewsTranslationProviderConfig,
@@ -201,6 +202,7 @@ async function main(): Promise<void> {
   let costBudgetDeferred = 0;
   let costReplayBlocked = 0;
   let costAuthorityUnavailable = 0;
+  let editorialQualityRejected = 0;
 
   for (const candidate of candidates) {
     const leased = await withNewsEnrichmentLease({
@@ -294,6 +296,34 @@ async function main(): Promise<void> {
             return { ok: false as const, reason: "translation_failed" as const };
           }
 
+          const editorialQuality = validatePersianNewsEditorialQuality({
+            sourceTitle: candidate.sourceTitle,
+            sourceLead: candidate.sourceLead,
+            sourceBody: candidate.sourceBody,
+            translatedTitle: translation.translation.title,
+            translatedLead: translation.translation.lead,
+            translatedBody: translation.translation.body,
+          });
+          if (!editorialQuality.ok) {
+            failed += 1;
+            editorialQualityRejected += 1;
+            await persistNewsEnrichmentFailure({
+              client,
+              candidate,
+              locale,
+              generatedAt,
+              providerId: translation.translation.providerId,
+              model: translation.translation.model,
+              reason: `editorial_quality_${editorialQuality.reason}`,
+              evidence: {
+                translationAttempt,
+                providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
+                editorialQuality: editorialQuality.evidence,
+              },
+            });
+            return { ok: false as const, reason: "editorial_quality_rejected" as const };
+          }
+
           const finalRoute = translation.route?.ok ? translation.route : null;
           await persistNewsArchiveTranslationTx(client, {
             archiveId: candidate.archiveId,
@@ -310,6 +340,7 @@ async function main(): Promise<void> {
               sourceCoverage: translation.translation.sourceCoverage,
               numericIntegrity: translation.translation.quality.numericIntegrity,
               noAddedAdvice: translation.translation.quality.noAddedAdvice,
+              editorialQuality: editorialQuality.evidence,
               translationAttempt,
               providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
               finalProviderCall: finalRoute
@@ -383,6 +414,7 @@ async function main(): Promise<void> {
     costBudgetDeferred,
     costReplayBlocked,
     costAuthorityUnavailable,
+    editorialQualityRejected,
     retryMinutes,
     maximumFailures,
     maximumProviderCallsPerRun: limit * 2,
