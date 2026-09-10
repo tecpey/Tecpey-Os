@@ -14,6 +14,9 @@ describe("Persian newsroom style authority", () => {
     assert.match(instructions, /Do not append a second sentence/i);
     assert.match(instructions, /source number, ticker, or reporting-period fact/i);
     assert.match(instructions, /vague clickbait references/i);
+    assert.match(instructions, /Field isolation: Persian title is bounded by source title, lead by source lead, and body by source body/i);
+    assert.match(instructions, /custody\/holding claim/i);
+    assert.match(instructions, /keep it broad but natural rather than inventing specificity/i);
     assert.match(instructions, /Avoid English clause order and long comma-chain syntax/i);
     assert.match(instructions, /intended meaning rather than literal word equivalents/i);
     assert.match(instructions, /never invent or mutate an entity/i);
