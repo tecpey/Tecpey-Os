@@ -5,8 +5,8 @@ import fs from "node:fs";
 const read = (path: string) => fs.readFileSync(path, "utf8");
 
 test("market board carries 30 rows, search-first layout, wide glass surface and governed motion", () => {
-  const fa = read("src/app/markets/page.tsx");
-  const en = read("src/app/en/markets/page.tsx");
+  const fa = read("src/app/markets/MarketsPageClient.tsx");
+  const en = read("src/app/en/markets/MarketsPageClient.tsx");
   const table = read("src/components/markets/MarketsTable.tsx");
   const routes = read("src/components/brand/tecpey-scroll-motion-routes.ts");
   assert.match(fa, /const LIMIT = 30/);
