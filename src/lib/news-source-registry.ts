@@ -1,3 +1,5 @@
+import type { NewsSourceContinuityMode } from "./news-capture-source-health";
+
 export type NewsSourceCategory =
   | "general_crypto"
   | "institutional"
@@ -22,6 +24,8 @@ export type NewsSourceRegistryEntry = {
   firstParty: boolean;
   allowFullArticleFetch: boolean;
   corroborationWeight: number;
+  continuityMode?: NewsSourceContinuityMode;
+  quarantineReason?: string;
 };
 
 export const NEWS_SOURCE_REGISTRY: readonly NewsSourceRegistryEntry[] = [
@@ -79,6 +83,8 @@ export const NEWS_SOURCE_REGISTRY: readonly NewsSourceRegistryEntry[] = [
     firstParty: false,
     allowFullArticleFetch: false,
     corroborationWeight: 0.9,
+    continuityMode: "quarantined",
+    quarantineReason: "upstream_feed_stale_newest_entry_2026-01-07_observed_2026-09-10",
   },
   {
     id: "the-defiant",
