@@ -70,7 +70,7 @@ describe("Persian news editorial quality authority", () => {
     assert.deepEqual(result.evidence.missingTickers, ["XLM"]);
   });
 
-  it("requires Persian editorial content in both title and lead", () => {
+  it("requires Persian editorial content in title and lead independently", () => {
     const result = validatePersianNewsEditorialQuality({
       sourceTitle: "Nasdaq invests in Payward",
       sourceLead: "Nasdaq Ventures agreed to invest in Payward.",
@@ -83,6 +83,21 @@ describe("Persian news editorial quality authority", () => {
     if (result.ok) return;
     assert.equal(result.reason, "persian_field_quality_failed");
     assert.equal(result.evidence.field, "title");
+  });
+
+  it("rejects an English-only body even when every Latin token is source-grounded", () => {
+    const result = validatePersianNewsEditorialQuality({
+      sourceTitle: "Bitcoin network activity rises",
+      sourceLead: "Bitcoin network activity increased this week.",
+      sourceBody: "Bitcoin network activity increased this week.",
+      translatedTitle: "فعالیت شبکه Bitcoin افزایش یافت",
+      translatedLead: "فعالیت شبکه Bitcoin این هفته افزایش یافت.",
+      translatedBody: "Bitcoin network activity increased this week.",
+    });
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "persian_field_quality_failed");
+    assert.equal(result.evidence.field, "body");
   });
 
   it("fails closed on excessively long generated mobile headlines", () => {
