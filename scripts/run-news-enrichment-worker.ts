@@ -13,7 +13,7 @@ import {
 } from "../src/lib/ops/news-enrichment-authority";
 import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import { persistNewsArchiveTranslationTx } from "../src/lib/news-growth-authority";
-import { validatePersianNewsEditorialQuality } from "../src/lib/news-editorial-quality";
+import { validatePersianNewsEditorialQuality } from "../src/lib/ai/news-editorial-quality";
 import {
   translateNewsFeedToPersian,
   type NewsTranslationProviderConfig,
