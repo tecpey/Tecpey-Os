@@ -14,7 +14,7 @@ export type NewsEditorialQualityResult =
         missingTickers?: string[];
         sourceTickers?: string[];
         translatedTickers?: string[];
-        field?: "title" | "lead";
+        field?: "title" | "lead" | "body";
         titleChars?: number;
       };
     };
@@ -81,13 +81,17 @@ export function validatePersianNewsEditorialQuality(input: {
   const sourceText = [input.sourceTitle, input.sourceLead, input.sourceBody].join(" ");
   const translatedTitle = compact(input.translatedTitle);
   const translatedLead = compact(input.translatedLead);
-  const translatedText = [translatedTitle, translatedLead, input.translatedBody].join(" ");
+  const translatedBody = compact(input.translatedBody);
+  const translatedText = [translatedTitle, translatedLead, translatedBody].join(" ");
 
   if (!translatedTitle || !hasPersian(translatedTitle)) {
     return { ok: false, reason: "persian_field_quality_failed", evidence: { field: "title" } };
   }
   if (!translatedLead || !hasPersian(translatedLead)) {
     return { ok: false, reason: "persian_field_quality_failed", evidence: { field: "lead" } };
+  }
+  if (!translatedBody || !hasPersian(translatedBody)) {
+    return { ok: false, reason: "persian_field_quality_failed", evidence: { field: "body" } };
   }
 
   // Very long generated headlines degrade mobile scannability and are commonly a
