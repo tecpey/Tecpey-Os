@@ -5,8 +5,8 @@ import { describe, it } from "node:test";
 describe("Bitycle market UI locale parity", () => {
   it("mounts shared Iran intelligence and provenance surfaces in both locales", async () => {
     const [faMarkets, enMarkets, intelligence, provenance] = await Promise.all([
-      readFile(new URL("../../app/markets/page.tsx", import.meta.url), "utf8"),
-      readFile(new URL("../../app/en/markets/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../../app/markets/MarketsPageClient.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../../app/en/markets/MarketsPageClient.tsx", import.meta.url), "utf8"),
       readFile(new URL("../../components/markets/IranMarketIntelligence.tsx", import.meta.url), "utf8"),
       readFile(new URL("../../components/markets/MarketDataProvenance.tsx", import.meta.url), "utf8"),
     ]);
@@ -15,7 +15,7 @@ describe("Bitycle market UI locale parity", () => {
       assert.match(source, /IranMarketIntelligence/);
       assert.match(source, /<IranMarketIntelligence\s*\/>/);
       assert.match(source, /MarketDataProvenance/);
-      assert.match(source, /provenance=\{data\?\.provenance\}/);
+      assert.match(source, /provenance=\{effectiveResult\?\.provenance\}/);
     }
 
     assert.match(faMarkets, /locale="fa"/);
