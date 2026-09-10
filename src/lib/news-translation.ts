@@ -551,12 +551,14 @@ export function validatePersianNewsTranslationIntegrity(input: {
   return { ok: true };
 }
 
-function routeConfig(): {
+export type NewsTranslationProviderConfig = {
   providerId: "openai" | "anthropic" | "openrouter";
   apiKey: string;
   model: string;
   fallbackModel?: string;
-} | null {
+};
+
+function routeConfig(): NewsTranslationProviderConfig | null {
   const requested = (process.env.NEWS_TRANSLATION_PROVIDER ?? "openai").trim().toLowerCase();
   if (requested === "openai") {
     const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
@@ -591,8 +593,10 @@ export async function translateNewsFeedToPersian(input: {
   sourceUrl: string;
   sourceCoverage: "feed_full" | "feed_summary" | "article_full";
   requestSignal?: AbortSignal;
-}, dependencies: AiProviderRouterDependencies = {}): Promise<NewsTranslationResult> {
-  const config = routeConfig();
+}, dependencies: AiProviderRouterDependencies & {
+  providerConfig?: NewsTranslationProviderConfig;
+} = {}): Promise<NewsTranslationResult> {
+  const config = dependencies.providerConfig ?? routeConfig();
   if (!config) return { ok: false, reason: "translation_provider_unavailable" };
   const title = compact(input.title, 500);
   const lead = compact(input.lead, 4_000);

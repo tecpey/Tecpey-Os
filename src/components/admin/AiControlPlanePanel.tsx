@@ -82,6 +82,7 @@ type WorkflowCatalog = {
 type ProviderSnapshot = {
   providerId: ProviderId;
   enabled: boolean;
+  newsTranslationEnabled: boolean;
   secretConfigured: boolean;
   keyFingerprint: string | null;
   revision: number;
@@ -190,7 +191,12 @@ type Catalog = {
 
 type OpenRouterQuotaStatus = NonNullable<Snapshot["openRouterQuota"]>["status"];
 
-type ProviderForm = { enabled: boolean; apiKey: string; testModel: string };
+type ProviderForm = {
+  enabled: boolean;
+  newsTranslationEnabled: boolean;
+  apiKey: string;
+  testModel: string;
+};
 type AgentForm = {
   enabled: boolean;
   providerId: ModelProviderId;
@@ -223,7 +229,12 @@ const inputClass = "min-h-11 w-full rounded-xl border border-white/10 bg-[#03091
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black outline-none transition-[background-color,border-color,transform] duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transform-none";
 
 function providerForm(snapshot?: ProviderSnapshot): ProviderForm {
-  return { enabled: snapshot?.enabled ?? false, apiKey: "", testModel: "" };
+  return {
+    enabled: snapshot?.enabled ?? false,
+    newsTranslationEnabled: snapshot?.newsTranslationEnabled ?? false,
+    apiKey: "",
+    testModel: "",
+  };
 }
 
 function agentForm(snapshot: AgentSnapshot | undefined, definition: AgentCatalog): AgentForm {
@@ -294,6 +305,7 @@ function errorMessage(code: unknown): string {
     ai_control_plane_unavailable: "دیتابیس کنترل‌پلین AI در دسترس نیست.",
     ai_tenant_isolation_unresolved: "فعال‌سازی AI مدیریت‌شده تا تکمیل شواهد محافظت‌شدهٔ نقش‌های محدود، RLS اجباری و context امضاشده در CI و staging به‌صورت fail-closed مسدود است.",
     ai_provider_secret_required: "ابتدا کلید معتبر Provider را ثبت کنید.",
+    ai_provider_news_translation_forbidden: "ترجمهٔ خبر در این مرحله فقط از OpenAI مجاز است.",
     ai_provider_test_failed: "تست Provider ناموفق بود؛ کلید، مدل و دسترسی حساب را بررسی کنید.",
     ai_provider_quota_evidence_unavailable: "تست انجام شد اما evidence سهمیه ثبت نشد؛ برای جلوگیری از تصمیم هزینه‌ای نامطمئن، نتیجه پذیرفته نشد.",
     ai_agent_provider_not_ready: "Provider باید فعال، دارای کلید و دارای تست موفق باشد.",
@@ -487,6 +499,8 @@ export function AiControlPlanePanel() {
           action: "update_provider",
           providerId: id,
           enabled: form.enabled,
+          newsTranslationEnabled:
+            id === "openai" ? form.newsTranslationEnabled : false,
           ...(form.apiKey ? { apiKey: form.apiKey } : {}),
         }),
       });
@@ -499,9 +513,11 @@ export function AiControlPlanePanel() {
       }
       const text = form.enabled
         ? "تنظیم Provider رمز‌شده ذخیره شد. پس از ثبت یا چرخش کلید، تست اتصال را دوباره اجرا کنید."
-        : form.apiKey
-          ? "Secret رمز‌شده در پیکربندی غیرفعال ذخیره شد؛ هیچ تست، اتصال یا egress اجرا نشد."
-          : "Provider به‌صورت غیرفعال ذخیره شد؛ هیچ تست، اتصال یا egress اجرا نشد.";
+        : id === "openai" && form.newsTranslationEnabled
+          ? "OpenAI برای ترجمهٔ کنترل‌شدهٔ اخبار مجاز شد؛ Managed AI همچنان غیرفعال است و این ذخیره به‌تنهایی هیچ egress اجرا نکرد."
+          : form.apiKey
+            ? "Secret رمز‌شده در پیکربندی غیرفعال ذخیره شد؛ هیچ تست، اتصال یا egress اجرا نشد."
+            : "Provider به‌صورت غیرفعال ذخیره شد؛ هیچ تست، اتصال یا egress اجرا نشد.";
       setNotice(text);
       setProviderMessages((current) => ({ ...current, [id]: { kind: "success", text } }));
       await load();
@@ -811,7 +827,28 @@ export function AiControlPlanePanel() {
                     )}
                     <label className="mt-4 block text-xs font-black text-slate-300">{definition.secretLabel}<input type="password" dir="ltr" autoComplete="new-password" spellCheck={false} value={form.apiKey} onChange={(event) => updateProviderForm(definition.id, { apiKey: event.target.value })} placeholder={current?.secretConfigured ? "برای حفظ کلید فعلی خالی بگذارید" : "کلید جدید"} className={`${inputClass} mt-2 text-left font-mono`} /></label>
                     {definition.kind === "model" && <label className="mt-3 block text-xs font-black text-slate-300">مدل برای تست اتصال<input dir="ltr" value={form.testModel} onChange={(event) => updateProviderForm(definition.id, { testModel: event.target.value })} placeholder="نام دقیق مدل حساب شما" className={`${inputClass} mt-2 text-left font-mono`} /></label>}
-                    <label className="mt-4 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs font-black"><span>فعال‌سازی Provider</span><input type="checkbox" checked={form.enabled} disabled={!snapshot?.managedLaunch.ready && !form.enabled} onChange={(event) => updateProviderForm(definition.id, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300 disabled:opacity-40" /></label>
+                    <label className="mt-4 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-white/[0.025] px-3 text-xs font-black"><span>فعال‌سازی Provider برای Managed AI</span><input type="checkbox" checked={form.enabled} disabled={!snapshot?.managedLaunch.ready && !form.enabled} onChange={(event) => updateProviderForm(definition.id, { enabled: event.target.checked })} className="h-5 w-5 accent-cyan-300 disabled:opacity-40" /></label>
+                    {definition.id === "openai" && (
+                      <div className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3">
+                        <label className="flex min-h-11 items-center justify-between gap-4 text-xs font-black text-cyan-50">
+                          <span>اجازه استفاده برای ترجمه اخبار</span>
+                          <input
+                            type="checkbox"
+                            checked={form.newsTranslationEnabled}
+                            disabled={!current?.secretConfigured && !form.apiKey}
+                            onChange={(event) =>
+                              updateProviderForm(definition.id, {
+                                newsTranslationEnabled: event.target.checked,
+                              })
+                            }
+                            className="h-5 w-5 accent-cyan-300 disabled:opacity-40"
+                          />
+                        </label>
+                        <p className="mt-2 text-[10px] font-bold leading-5 text-slate-500">
+                          این مجوز فقط برای pipeline ترجمه خبرهای عمومی است و Managed AI، Mentor و Agentها را فعال نمی‌کند. اجرای واقعی همچنان به kill-switch مستقل News و کنترل هزینه نیاز دارد.
+                        </p>
+                      </div>
+                    )}
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       <button type="button" onClick={() => void saveProvider(definition.id)} disabled={busy !== null || (form.enabled && !snapshot?.managedLaunch.ready)} className={`${buttonClass} bg-cyan-300 text-[#03101a] hover:bg-cyan-200`}>{busy === `provider:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} ذخیره</button>
                       <button type="button" onClick={() => void testProvider(definition.id)} disabled={busy !== null || !snapshot?.managedLaunch.ready || !current?.secretConfigured || (definition.kind === "model" && !form.testModel)} className={`${buttonClass} border border-white/10 bg-white/[0.06] text-white hover:bg-white/10`}>{busy === `test:${definition.id}` ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} تست</button>
