@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Platform Material theme rather than AppCompat: this project has no
+         custom Activities or layouts of its own (the TWA LauncherActivity
+         comes from androidbrowserhelper), so there's nothing that needs
+         AppCompat's backward-compat theming, and minSdk 21 already gets
+         Theme.Material natively. Pulling in AppCompat just for this theme
+         previously failed resource linking, since it was never added as a
+         dependency. -->
+    <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
+    </style>
+
+    <style name="Theme.App.Launcher" parent="Theme.App">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

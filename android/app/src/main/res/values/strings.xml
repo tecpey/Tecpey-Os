@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TecPey</string>
+    <!-- Full launch URL for the Trusted Web Activity. -->
+    <string name="launchUrl">https://tecpey.ir/</string>
+    <!-- Must match applicationId in app/build.gradle and the digital asset
+         link served from https://tecpey.ir/.well-known/assetlinks.json. -->
+    <string name="hostName">tecpey.ir</string>
+    <string name="providerAuthority">ir.tecpey.app.fileprovider</string>
+    <!-- Mirrors public/.well-known/assetlinks.json — keep both in sync if the
+         signing certificate ever changes. -->
+    <string name="asset_statements">
+        [{
+          \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+          \"target\": {
+            \"namespace\": \"android_app\",
+            \"package_name\": \"ir.tecpey.app\",
+            \"sha256_cert_fingerprints\": [\"71:BB:A1:7F:16:6B:22:B5:AC:58:30:7D:5B:3D:AA:DE:F0:14:45:13:82:47:49:37:07:D7:AD:E2:62:D5:C7:D0\"]
+          }
+        }]
+    </string>
+</resources>

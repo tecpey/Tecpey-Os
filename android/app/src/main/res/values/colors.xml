@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors public/site.webmanifest's theme_color / background_color. -->
+    <color name="colorPrimary">#06B6D4</color>
+    <color name="colorPrimaryDark">#06111F</color>
+    <color name="icon_background">#06111F</color>
+    <color name="splash_background">#06111F</color>
+</resources>
