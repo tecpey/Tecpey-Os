@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/admin/security-metrics",
+      "method": "DELETE",
+      "previousSourceHash": "8c8f36e9d095639468a9493e",
+      "issue": "#633",
+      "owner": "security-platform",
+      "reason": "Evidence-only manifest refresh for PR #633. The operation source and runtime security contract are unchanged; the generated manifest now associates the News admin provider authority security regression test with this existing admin operation. No classification, principal, tenant binding, CSRF, revocation, rate-limit, transaction, audit, redaction, no-store or fail-closed control is changed.",
+      "replacement": {
+        "route": "/api/admin/security-metrics",
+        "method": "DELETE",
+        "sourcePath": "src/app/api/admin/security-metrics/route.ts",
+        "sourceHash": "8c8f36e9d095639468a9493e",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "admin-security-metrics-reset",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "admin",
+        "testReferences": [
+          "src/tests/security/admin-control-plane.test.ts",
+          "src/tests/security/admin-passkey-backend.test.ts",
+          "src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/news-admin-provider-authority-source.test.ts",
+          "src/tests/security/withdrawal-admission-admin-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/admin/security-metrics/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/admin/withdrawals/[id]",
+      "method": "POST",
+      "previousSourceHash": "9457e191fba1a445f6c36deb",
+      "issue": "#633",
+      "owner": "security-platform",
+      "reason": "Evidence-only manifest refresh for PR #633. The operation source and runtime security contract are unchanged; the generated manifest now associates the News admin provider authority security regression test with this existing admin operation. No classification, principal, tenant binding, CSRF, revocation, rate-limit, transaction, audit, redaction, no-store or fail-closed control is changed.",
+      "replacement": {
+        "route": "/api/admin/withdrawals/[id]",
+        "method": "POST",
+        "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
+        "sourceHash": "9457e191fba1a445f6c36deb",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin",
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "admin-withdrawals-action",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": false,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "admin",
+        "testReferences": [
+          "src/tests/security/admin-control-plane.test.ts",
+          "src/tests/security/admin-passkey-backend.test.ts",
+          "src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/news-admin-provider-authority-source.test.ts",
+          "src/tests/security/withdrawal-admission-admin-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

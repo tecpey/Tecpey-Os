@@ -6,21 +6,23 @@
     {
       "route": "/api/command-center/ai-control-plane",
       "method": "POST",
-      "issue": "#84",
+      "issue": "#633",
       "owner": "ai-platform-security",
-      "reason": "Reviewed additive AI control-plane operation, including governed provider connectivity probes under the multi-provider routing policy: admin RBAC and recent step-up protect provider tests and human-gated research or knowledge review; requests are rate-limited, CSRF protected, bounded, tenant/workspace scoped, private no-store, source-required, audited and fail closed. Connectivity probes inherit provider/model allowlists, bounded reasoning limits, timeout/circuit controls and spend authority; provider circuit state remains isolated to the acting tenant/workspace.",
+      "reason": "Re-reviewed the existing AI control-plane operation after adding the purpose-bound OpenAI News translation authority to the shared route source. POST behavior and its security controls are unchanged: admin RBAC, recent step-up, CSRF protection, bounded request parsing, rate limiting, private no-store responses, audit, redaction and fail-closed behavior remain intact. The source hash and source-derived test evidence are refreshed for PR #633.",
       "replacement": {
         "route": "/api/command-center/ai-control-plane",
         "method": "POST",
         "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
-        "sourceHash": "db009522de6fd6c6752e19ee",
+        "sourceHash": "e3b71c0a522e531aceef7c57",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
         "classification": "admin",
         "principalSource": "authorizeAdminRequest",
         "tenantSource": null,
-        "risk": ["admin"],
+        "risk": [
+          "admin"
+        ],
         "controls": {
           "csrf": true,
           "strictRevocation": true,
@@ -47,7 +49,8 @@
         "domainOwner": "command-center",
         "testReferences": [
           "src/tests/security/ai-control-plane-source.test.ts",
-          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+          "src/tests/security/managed-ai-launch-containment-source.test.ts",
+          "src/tests/security/news-admin-provider-authority-source.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -72,21 +75,23 @@
     {
       "route": "/api/command-center/ai-control-plane",
       "method": "PUT",
-      "issue": "#84",
+      "issue": "#633",
       "owner": "ai-platform-security",
-      "reason": "Reviewed additive AI configuration operation after integrating governed multi-provider routing: admin RBAC plus recent step-up protects encrypted provider credential rotation, paid-provider spend authority, routing budgets and catalog-constrained agent bindings; requests are rate-limited, CSRF protected, bounded, tenant/workspace scoped, private no-store, audited and fail closed. Configuration cannot bypass provider/model allowlists, budget ceilings or circuit controls.",
+      "reason": "Re-reviewed the existing AI control-plane configuration operation for the purpose-bound OpenAI News translation authority. Admin RBAC, recent step-up, CSRF protection, bounded request parsing, rate limiting, verified tenant/workspace scope, private no-store responses, audit, redaction and fail-closed behavior remain intact. The new News authorization is independent from Managed AI provider activation and remains additionally gated by the News runtime kill switch and cost authority.",
       "replacement": {
         "route": "/api/command-center/ai-control-plane",
         "method": "PUT",
         "sourcePath": "src/app/api/command-center/ai-control-plane/route.ts",
-        "sourceHash": "db009522de6fd6c6752e19ee",
+        "sourceHash": "e3b71c0a522e531aceef7c57",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
         "classification": "admin",
         "principalSource": "authorizeAdminRequest",
         "tenantSource": null,
-        "risk": ["admin"],
+        "risk": [
+          "admin"
+        ],
         "controls": {
           "csrf": true,
           "strictRevocation": true,
@@ -113,7 +118,8 @@
         "domainOwner": "command-center",
         "testReferences": [
           "src/tests/security/ai-control-plane-source.test.ts",
-          "src/tests/security/managed-ai-launch-containment-source.test.ts"
+          "src/tests/security/managed-ai-launch-containment-source.test.ts",
+          "src/tests/security/news-admin-provider-authority-source.test.ts"
         ],
         "requirements": {
           "csrf": true,
@@ -152,7 +158,9 @@
         "classification": "authenticated",
         "principalSource": "getCanonicalSession",
         "tenantSource": null,
-        "risk": ["ai-memory"],
+        "risk": [
+          "ai-memory"
+        ],
         "controls": {
           "csrf": true,
           "strictRevocation": true,
@@ -218,7 +226,9 @@
         "classification": "authenticated",
         "principalSource": "getCanonicalSession",
         "tenantSource": null,
-        "risk": ["ai-memory"],
+        "risk": [
+          "ai-memory"
+        ],
         "controls": {
           "csrf": true,
           "strictRevocation": true,
