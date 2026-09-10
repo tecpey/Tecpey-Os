@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CalmLandingHero } from "@/components/home/CalmLandingHero";
 import { CalmLandingClose, LandingDetails } from "@/components/home/CalmProductSections";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, use, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -1126,20 +1126,42 @@ function TradingToolsKnowledgeCenter() {
   );
 }
 
-export default function TecpeyEnterpriseLanding({
-  growthRadar,
+function HomeDiscoveryStripResolved({
+  radarPromise,
 }: {
-  growthRadar?: LandingGrowthRadarModel;
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const radar = use(radarPromise);
+  return <HomeDiscoveryStrip locale="fa" radar={radar} />;
+}
+
+function LandingGrowthRadarResolved({
+  radarPromise,
+}: {
+  radarPromise: Promise<LandingGrowthRadarModel>;
+}) {
+  const radar = use(radarPromise);
+  return <LandingGrowthRadar locale="fa" radar={radar} />;
+}
+
+export default function TecpeyEnterpriseLanding({
+  growthRadarPromise,
+}: {
+  growthRadarPromise: Promise<LandingGrowthRadarModel>;
 }) {
   return (
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
       <Hero />
-      <HomeDiscoveryStrip locale="fa" radar={growthRadar} />
+      <Suspense fallback={<HomeDiscoveryStrip locale="fa" radar={undefined} />}>
+        <HomeDiscoveryStripResolved radarPromise={growthRadarPromise} />
+      </Suspense>
       <section aria-label="نمای آموزشی بازار" className="px-5 py-8"><DeviceFrame /></section>
       <CryptoNewsCenter locale="fa" compact />
       <HomeAiMentorSpotlight locale="fa" compact />
       <HomeLearningJourney locale="fa" compact />
-      <LandingGrowthRadar locale="fa" radar={growthRadar} />
+      <Suspense fallback={<LandingGrowthRadar locale="fa" radar={undefined} />}>
+        <LandingGrowthRadarResolved radarPromise={growthRadarPromise} />
+      </Suspense>
       <LandingDetails locale="fa">
       <GlobalUxMetrics />
       <SoftLaunchProductFocus />

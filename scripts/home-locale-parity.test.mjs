@@ -39,8 +39,14 @@ test("FA and EN homes share the governed core section order", async () => {
   assertInOrder(en, ['<CalmLandingHero locale="en"', "<HomeDiscoveryStrip"], "EN home top");
   assertInOrder(fa, sharedOrder, "FA home");
   assertInOrder(en, sharedOrder, "EN home");
-  assert.match(fa, /<HomeDiscoveryStrip locale="fa" radar=\{growthRadar\} \/>/);
-  assert.match(en, /<HomeDiscoveryStrip locale="en" radar=\{growthRadar\} \/>/);
+  // HomeDiscoveryStrip's data streams in via a Suspense-resolved promise
+  // rather than an already-awaited value (see src/app/page.tsx) — the mount
+  // point passes the promise down, and the resolver applies it to
+  // HomeDiscoveryStrip under the same locale.
+  assert.match(fa, /<HomeDiscoveryStripResolved radarPromise=\{growthRadarPromise\} \/>/);
+  assert.match(en, /<HomeDiscoveryStripResolved radarPromise=\{growthRadarPromise\} \/>/);
+  assert.match(fa, /function HomeDiscoveryStripResolved[\s\S]*?<HomeDiscoveryStrip locale="fa" radar=\{radar\} \/>/);
+  assert.match(en, /function HomeDiscoveryStripResolved[\s\S]*?<HomeDiscoveryStrip locale="en" radar=\{radar\} \/>/);
   assert.doesNotMatch(fa, /TopDiscoveryGateway/);
 });
 

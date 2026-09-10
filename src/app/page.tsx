@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
 import TecpeyEnterpriseLanding from "@/app/home/enterprise/TecpeyEnterpriseLanding";
 import { getLandingGrowthRadarFromAuthority } from "@/lib/landing-growth-authority";
-import { buildLandingGrowthSchemasFromRadar } from "@/lib/landing-growth";
+import {
+  buildLandingGrowthSchemasFromRadar,
+  type LandingGrowthRadarModel,
+} from "@/lib/landing-growth";
 import {
   SITE_URL,
   buildAnswerEntityProfileSchema,
@@ -166,10 +170,48 @@ const articleSchema = {
   mainEntityOfPage: "https://tecpey.ir",
 };
 
+/**
+ * The growth-radar JSON-LD depends on the same database read as the visible
+ * growth-radar sections further down the page. Awaiting it here rather than
+ * in `Home` keeps that dependency local to this one Suspense boundary — the
+ * rest of the page, including `<Hero />` and every static schema above,
+ * renders without waiting on it. Search-engine crawlers that need blocking
+ * metadata already get it resolved before streaming begins (Next resolves
+ * `generateMetadata` for them); this is markup in the body, not the head,
+ * so it can stream for everyone else.
+ */
+async function LandingGrowthSchemas({
+  radarPromise,
+  nonce,
+}: {
+  radarPromise: Promise<LandingGrowthRadarModel>;
+  nonce: string | undefined;
+}) {
+  const growthRadar = await radarPromise;
+  const landingGrowthSchemas = buildLandingGrowthSchemasFromRadar(growthRadar);
+  return (
+    <>
+      {landingGrowthSchemas.map((schema, index) => (
+        <script
+          key={`landing-growth-${index}`}
+          nonce={nonce}
+          suppressHydrationWarning
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }}
+        />
+      ))}
+    </>
+  );
+}
+
 export default async function Home() {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
-  const growthRadar = await getLandingGrowthRadarFromAuthority("fa");
-  const landingGrowthSchemas = buildLandingGrowthSchemasFromRadar(growthRadar);
+  // Started here, not awaited: this is a real database read
+  // (getNewsImpactHistoryAuthoritySnapshot), and nothing above <Hero /> in
+  // TecpeyEnterpriseLanding needs it. LandingGrowthSchemas and the two
+  // growth-radar sections each resolve it inside their own Suspense
+  // boundary below.
+  const growthRadarPromise = getLandingGrowthRadarFromAuthority("fa");
   const answerEngineSchemas = [
     buildWebPageSchema({
       name: "تک‌پی؛ آموزش رمزارز و تمرین معاملاتی بدون ریسک",
@@ -243,15 +285,9 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(articleSchema) }}
       />
-      {landingGrowthSchemas.map((schema, index) => (
-        <script
-          key={`landing-growth-${index}`}
-          nonce={nonce}
-          suppressHydrationWarning
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }}
-        />
-      ))}
+      <Suspense fallback={null}>
+        <LandingGrowthSchemas radarPromise={growthRadarPromise} nonce={nonce} />
+      </Suspense>
       {answerEngineSchemas.map((schema, index) => (
         <script
           key={`answer-engine-${index}`}
@@ -261,7 +297,7 @@ export default async function Home() {
           dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }}
         />
       ))}
-      <TecpeyEnterpriseLanding growthRadar={growthRadar} />
+      <TecpeyEnterpriseLanding growthRadarPromise={growthRadarPromise} />
     </>
   );
 }
