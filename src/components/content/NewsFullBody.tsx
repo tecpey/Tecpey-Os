@@ -8,15 +8,19 @@ export async function NewsFullBody({
   sourceUrl: string;
   locale: ContentLocale;
 }) {
+  // Full English publisher text is evidence, not TecPey-owned copy. Keep it
+  // off the public surface unless a separate publication-rights authority is
+  // introduced. Persian uses the governed TecPey editorial rendering.
+  if (locale === "en") return null;
+
   const authority = await getNewsDetailBodyFromAuthority(sourceUrl, locale);
   if (!authority) return null;
 
-  const isEn = locale === "en";
   const coverageLabel = authority.sourceCoverage === "article_full"
-    ? isEn ? "Full publisher article evidence" : "شواهد کامل مقاله ناشر"
+    ? "شواهد کامل مقاله ناشر"
     : authority.sourceCoverage === "feed_full"
-      ? isEn ? "Full publisher feed evidence" : "شواهد کامل فید ناشر"
-      : isEn ? "Publisher summary evidence" : "شواهد خلاصه ناشر";
+      ? "شواهد کامل فید ناشر"
+      : "شواهد خلاصه ناشر";
 
   return (
     <section
@@ -24,9 +28,7 @@ export async function NewsFullBody({
       data-news-body-coverage={authority.sourceCoverage}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-black text-[color:var(--tp-text)]">
-          {isEn ? "Full news context" : "متن و جزئیات خبر"}
-        </h2>
+        <h2 className="text-2xl font-black text-[color:var(--tp-text)]">متن و جزئیات خبر</h2>
         <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-700 dark:text-cyan-100">
           {coverageLabel}
         </span>
