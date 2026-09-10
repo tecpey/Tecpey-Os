@@ -1,4 +1,5 @@
 import { callAiProvider, type AiProviderCallResult, type AiProviderRouterDependencies } from "./ai/provider-router";
+import { PERSIAN_NEWSROOM_STYLE_INSTRUCTIONS } from "./ai/persian-newsroom-style";
 
 export type PersianNewsTranslation = {
   title: string;
@@ -608,6 +609,7 @@ export async function translateNewsFeedToPersian(input: {
   const baseInstructions = [
     "You are TecPey's governed Persian news editor and translator.",
     "Use only the publisher-provided evidence supplied in this request. Do not browse, add unsupported facts, predict prices, or give financial advice.",
+    ...PERSIAN_NEWSROOM_STYLE_INSTRUCTIONS,
     hasFullEvidence
       ? "For full publisher evidence, produce a complete, fluent Persian editorial rendering rather than a compressed summary. Preserve the factual scope and sequence of the source while using natural professional Persian prose."
       : "For summary-only publisher evidence, translate faithfully without artificially expanding the text or inventing context.",
