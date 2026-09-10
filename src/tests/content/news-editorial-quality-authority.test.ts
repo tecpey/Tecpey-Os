@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { validatePersianNewsEditorialQuality } from "../../lib/ai-news-editorial-quality";
+import { validatePersianNewsEditorialQuality } from "../../lib/news-editorial-quality";
 
 describe("Persian news editorial quality authority", () => {
   it("accepts grounded Persian copy with preserved brands and ticker", () => {
@@ -12,6 +12,30 @@ describe("Persian news editorial quality authority", () => {
       translatedTitle: "بانک، USDC را روی شبکه Stellar عرضه کرد",
       translatedLead: "این بانک انتقال USDC روی Stellar را آزمایش می‌کند و XLM نزدیک ۰.۱۸ دلار معامله می‌شود.",
       translatedBody: "این طرح آزمایشی شامل صدور، انتقال و بازخرید USDC روی Stellar است و XLM نزدیک ۰.۱۸ دلار معامله شد.",
+    });
+    assert.equal(result.ok, true);
+  });
+
+  it("accepts a grounded singular acronym when the English source uses its common plural form", () => {
+    const result = validatePersianNewsEditorialQuality({
+      sourceTitle: "Bitcoin ETFs draw fresh institutional demand",
+      sourceLead: "Spot Bitcoin ETFs recorded new inflows.",
+      sourceBody: "The report discussed ETF demand and Bitcoin market activity.",
+      translatedTitle: "تقاضای نهادی تازه برای ETFهای Bitcoin",
+      translatedLead: "ETFهای اسپات Bitcoin ورودی تازه ثبت کردند.",
+      translatedBody: "گزارش به تقاضا برای ETF و فعالیت بازار Bitcoin پرداخت.",
+    });
+    assert.equal(result.ok, true);
+  });
+
+  it("accepts a grounded base entity when the English source uses a possessive", () => {
+    const result = validatePersianNewsEditorialQuality({
+      sourceTitle: "Bitcoin's network activity rises",
+      sourceLead: "Bitcoin's network recorded higher activity.",
+      sourceBody: "The publisher attributed the increase to Bitcoin network usage.",
+      translatedTitle: "فعالیت شبکه Bitcoin افزایش یافت",
+      translatedLead: "شبکه Bitcoin فعالیت بیشتری ثبت کرد.",
+      translatedBody: "ناشر این افزایش را به استفاده از شبکه Bitcoin نسبت داد.",
     });
     assert.equal(result.ok, true);
   });
