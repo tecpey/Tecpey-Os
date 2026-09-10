@@ -13,7 +13,12 @@ import {
 } from "../src/lib/ops/news-enrichment-authority";
 import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import { persistNewsArchiveTranslationTx } from "../src/lib/news-growth-authority";
-import { translateNewsFeedToPersian } from "../src/lib/news-translation";
+import {
+  translateNewsFeedToPersian,
+  type NewsTranslationProviderConfig,
+} from "../src/lib/news-translation";
+import { resolveAiProviderSecretForNewsTranslation } from "../src/lib/ai/control-plane-store";
+import { PLATFORM } from "../src/lib/platform-config";
 
 function boundedIntegerEnv(name: string, fallback: number, minimum: number, maximum: number): number {
   const raw = process.env[name]?.trim();
@@ -35,13 +40,13 @@ function sourceCoverage(sourceLead: string, sourceBody: string): "feed_full" | "
   });
 }
 
-function assertProviderReady(): { provider: "openai" | "anthropic"; model: string } {
+async function resolveProviderReady(): Promise<NewsTranslationProviderConfig> {
   const provider = (process.env.NEWS_TRANSLATION_PROVIDER ?? "openai").trim().toLowerCase();
   const fallbackModel = process.env.NEWS_TRANSLATION_FALLBACK_MODEL?.trim() ?? "";
-  // Initial activation is deliberately single-model. Every article attempt can
-  // therefore perform at most one primary call plus one validation repair. A
-  // multi-model fallback is enabled only in a later, separately evidenced
-  // release with explicit routing/cost tests.
+  const secretSource = (process.env.NEWS_PROVIDER_SECRET_SOURCE ?? "environment")
+    .trim()
+    .toLowerCase();
+
   if (fallbackModel) {
     throw new Error("news_enrichment_fallback_model_disabled_for_initial_activation");
   }
@@ -50,22 +55,63 @@ function assertProviderReady(): { provider: "openai" | "anthropic"; model: strin
     throw new Error("news_enrichment_openrouter_requires_provider_call_ledger");
   }
 
-  if (provider === "openai") {
-    if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("news_enrichment_openai_key_missing");
+  if (provider !== "openai" && provider !== "anthropic") {
+    throw new Error("news_enrichment_provider_not_allowed");
+  }
+
+  const model =
+    provider === "openai"
+      ? process.env.NEWS_TRANSLATION_MODEL?.trim() || "gpt-4.1-mini"
+      : process.env.NEWS_TRANSLATION_MODEL?.trim() ?? "";
+
+  if (!model) {
+    throw new Error("news_enrichment_anthropic_model_missing");
+  }
+
+  if (secretSource === "control_plane") {
+    if (provider !== "openai") {
+      throw new Error("news_enrichment_control_plane_provider_not_allowed");
+    }
+
+    const secret = await resolveAiProviderSecretForNewsTranslation({
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      workspaceId: PLATFORM.DEFAULT_WORKSPACE_ID,
+      providerId: provider,
+    });
+
+    if (!secret?.apiKey) {
+      throw new Error("news_enrichment_control_plane_secret_unavailable");
+    }
+
     return {
-      provider: "openai",
-      model: process.env.NEWS_TRANSLATION_MODEL?.trim() || "gpt-4.1-mini",
+      providerId: provider,
+      apiKey: secret.apiKey,
+      model,
     };
   }
 
-  if (provider === "anthropic") {
-    if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error("news_enrichment_anthropic_key_missing");
-    const model = process.env.NEWS_TRANSLATION_MODEL?.trim() ?? "";
-    if (!model) throw new Error("news_enrichment_anthropic_model_missing");
-    return { provider: "anthropic", model };
+  if (secretSource !== "environment") {
+    throw new Error("news_enrichment_secret_source_invalid");
   }
 
-  throw new Error("news_enrichment_provider_not_allowed");
+  const apiKey =
+    provider === "openai"
+      ? process.env.OPENAI_API_KEY?.trim() ?? ""
+      : process.env.ANTHROPIC_API_KEY?.trim() ?? "";
+
+  if (!apiKey) {
+    throw new Error(
+      provider === "openai"
+        ? "news_enrichment_openai_key_missing"
+        : "news_enrichment_anthropic_key_missing",
+    );
+  }
+
+  return {
+    providerId: provider,
+    apiKey,
+    model,
+  };
 }
 
 type CostAuthorityBlockReason =
@@ -141,7 +187,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const provider = assertProviderReady();
+  const provider = await resolveProviderReady();
   const costConfig = newsAiCostConfigFromEnv();
 
   let processed = 0;
@@ -214,7 +260,10 @@ async function main(): Promise<void> {
               sourceUrl: candidate.articleUrl,
               sourceCoverage: sourceCoverage(candidate.sourceLead, candidate.sourceBody),
             },
-            { fetchImpl: observedGovernedFetch },
+            {
+              fetchImpl: observedGovernedFetch,
+              providerConfig: provider,
+            },
           );
 
           if (authorityBlock) {
@@ -320,7 +369,7 @@ async function main(): Promise<void> {
     status: "ok",
     host: hostname(),
     locale,
-    provider: provider.provider,
+    provider: provider.providerId,
     model: provider.model,
     candidates: candidates.length,
     processed,

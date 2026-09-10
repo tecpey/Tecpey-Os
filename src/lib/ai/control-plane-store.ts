@@ -37,6 +37,7 @@ import { withAiTenantTransaction } from "./database-authority";
 export type AiProviderSnapshot = {
   providerId: AiProviderId;
   enabled: boolean;
+  newsTranslationEnabled: boolean;
   secretConfigured: boolean;
   keyFingerprint: string | null;
   revision: number;
@@ -164,6 +165,7 @@ type ProviderRow = {
   enabled: boolean;
   encrypted_api_key: string | null;
   api_key_fingerprint: string | null;
+  settings: Record<string, unknown>;
   revision: string | number;
   rotated_at: string | Date | null;
   last_test_status: "passed" | "failed" | null;
@@ -314,6 +316,7 @@ function providerSnapshot(
   return {
     providerId,
     enabled: row?.enabled ?? false,
+    newsTranslationEnabled: row?.settings?.newsTranslationEnabled === true,
     secretConfigured: Boolean(row?.encrypted_api_key),
     keyFingerprint: row?.api_key_fingerprint ?? null,
     revision: Number(row?.revision ?? 0),
@@ -475,7 +478,7 @@ async function selectProvider(
 ): Promise<ProviderRow | null> {
   const result = await client.query<ProviderRow>(
     `SELECT provider_id, enabled, encrypted_api_key, api_key_fingerprint,
-            revision, rotated_at, last_test_status, last_tested_at, updated_at
+            settings, revision, rotated_at, last_test_status, last_tested_at, updated_at
        FROM ai_provider_configs
       WHERE tenant_id = $1 AND workspace_id = $2 AND provider_id = $3
       ${lock ? "FOR UPDATE" : ""}`,
@@ -559,7 +562,7 @@ export async function loadAiControlPlaneSnapshot(input: {
     const result = await withAiTenantTransaction(input, async (client) => {
       const providerRows = await client.query<ProviderRow>(
         `SELECT provider_id, enabled, encrypted_api_key, api_key_fingerprint,
-                revision, rotated_at, last_test_status, last_tested_at, updated_at
+                settings, revision, rotated_at, last_test_status, last_tested_at, updated_at
            FROM ai_provider_configs
           WHERE tenant_id = $1 AND workspace_id = $2`,
         [input.tenantId, input.workspaceId],
@@ -1683,16 +1686,21 @@ export async function updateAiProvider(
   input: AdminAiMutationContext & {
     providerId: AiProviderId;
     enabled: boolean;
+    newsTranslationEnabled?: boolean;
     apiKey?: string;
   },
 ): Promise<
   | AiProviderSnapshot
   | "secret_required"
+  | "news_translation_provider_forbidden"
   | "tenant_isolation_unresolved"
   | "unavailable"
 > {
   if (input.enabled && !managedAiLaunchStatus().ready) {
     return AI_TENANT_ISOLATION_BLOCK_REASON;
+  }
+  if (input.newsTranslationEnabled === true && input.providerId !== "openai") {
+    return "news_translation_provider_forbidden";
   }
   try {
     const result = await withAiTenantTransaction(input, async (client) => {
@@ -1715,7 +1723,20 @@ export async function updateAiProvider(
       const fingerprint = apiKey
         ? aiProviderSecretFingerprint(apiKey)
         : (before?.api_key_fingerprint ?? null);
-      if (input.enabled && !encrypted) return "secret_required" as const;
+      const newsTranslationEnabled =
+        input.newsTranslationEnabled ??
+        (before?.settings?.newsTranslationEnabled === true);
+
+      if ((input.enabled || newsTranslationEnabled) && !encrypted) {
+        return "secret_required" as const;
+      }
+
+      const settings = {
+        ...(before?.settings ?? {}),
+        newsTranslationEnabled:
+          input.providerId === "openai" ? newsTranslationEnabled : false,
+      };
+
       const revision = Number(before?.revision ?? 0) + 1;
       const rotatedAt = apiKey
         ? new Date().toISOString()
@@ -1724,12 +1745,12 @@ export async function updateAiProvider(
         `INSERT INTO ai_provider_configs
            (tenant_id, workspace_id, provider_id, enabled, encrypted_api_key,
             api_key_fingerprint, settings, revision, rotated_at, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, $7, $8::timestamptz, $9::uuid)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::timestamptz, $10::uuid)
          ON CONFLICT (tenant_id, workspace_id, provider_id) DO UPDATE SET
            enabled = EXCLUDED.enabled,
            encrypted_api_key = EXCLUDED.encrypted_api_key,
            api_key_fingerprint = EXCLUDED.api_key_fingerprint,
-           settings = '{}'::jsonb,
+           settings = EXCLUDED.settings,
            revision = EXCLUDED.revision,
            rotated_at = EXCLUDED.rotated_at,
            last_test_status = NULL,
@@ -1737,7 +1758,7 @@ export async function updateAiProvider(
            updated_by = EXCLUDED.updated_by,
            updated_at = NOW()
          RETURNING provider_id, enabled, encrypted_api_key, api_key_fingerprint,
-                   revision, rotated_at, last_test_status, last_tested_at, updated_at`,
+                   settings, revision, rotated_at, last_test_status, last_tested_at, updated_at`,
         [
           input.tenantId,
           input.workspaceId,
@@ -1745,6 +1766,7 @@ export async function updateAiProvider(
           input.enabled,
           encrypted,
           fingerprint,
+          JSON.stringify(settings),
           revision,
           rotatedAt,
           input.actorAdminId,
@@ -1764,7 +1786,7 @@ export async function updateAiProvider(
         `INSERT INTO ai_provider_config_events
            (tenant_id, workspace_id, provider_id, event_type, revision,
             api_key_fingerprint, settings_snapshot, actor_admin_id)
-         VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, $7::uuid)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::uuid)`,
         [
           input.tenantId,
           input.workspaceId,
@@ -1772,6 +1794,7 @@ export async function updateAiProvider(
           eventType,
           revision,
           fingerprint,
+          JSON.stringify(settings),
           input.actorAdminId,
         ],
       );
@@ -1800,6 +1823,44 @@ export async function updateAiProvider(
       error: error instanceof Error ? error.message : String(error),
     });
     return "unavailable";
+  }
+}
+
+export async function resolveAiProviderSecretForNewsTranslation(input: {
+  tenantId: string;
+  workspaceId: string;
+  providerId: "openai";
+}): Promise<{ apiKey: string } | null> {
+  try {
+    const result = await withAiTenantTransaction(input, (client) =>
+      selectProvider(
+        client,
+        input.tenantId,
+        input.workspaceId,
+        input.providerId,
+      ),
+    );
+
+    if (!result.enabled) return null;
+
+    const provider = result.value;
+    if (!provider?.encrypted_api_key) return null;
+    if (provider.settings?.newsTranslationEnabled !== true) return null;
+
+    /*
+     * Purpose-bound News authority:
+     * the Managed-AI provider may remain globally disabled while its configured
+     * secret is used only by the independently gated public news-translation
+     * worker. This does not change Managed-AI launch policy or provider state.
+     */
+    return {
+      apiKey: decryptAiProviderSecret(
+        provider.encrypted_api_key,
+        providerScope(input.tenantId, input.workspaceId, input.providerId),
+      ),
+    };
+  } catch {
+    return null;
   }
 }
 

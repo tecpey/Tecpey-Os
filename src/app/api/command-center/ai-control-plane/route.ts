@@ -269,14 +269,25 @@ export async function PUT(request: NextRequest) {
           ? body.apiKey.trim()
           : null;
       if (apiKey === null) return apiError("invalid_ai_provider_request", 400);
+      if (
+        body.newsTranslationEnabled !== undefined &&
+        typeof body.newsTranslationEnabled !== "boolean"
+      ) {
+        return apiError("invalid_ai_provider_request", 400);
+      }
+
       const result = await updateAiProvider({
         ...context,
         providerId: body.providerId,
         enabled: body.enabled,
+        newsTranslationEnabled: body.newsTranslationEnabled as boolean | undefined,
         apiKey,
       });
       if (result === "tenant_isolation_unresolved") return tenantIsolationError();
       if (result === "secret_required") return apiError("ai_provider_secret_required", 422);
+      if (result === "news_translation_provider_forbidden") {
+        return apiError("ai_provider_news_translation_forbidden", 422);
+      }
       if (result === "unavailable") return apiError("ai_provider_write_failed", 503);
       return apiOk({ provider: result }, 200, { "Cache-Control": "private, no-store", Vary: "Cookie" });
     }
