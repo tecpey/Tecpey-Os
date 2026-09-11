@@ -285,8 +285,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "e12320591445c217b3867880a556f4815d698980",
-      "sha256": "a4ac3081f48be0c4c39b958d98a5094a74c3f8dc4e933d118c6925056c14f936",
+      "gitObjectId": "513d240323e3f1ee14bab406300dff618a3e95a1",
+      "sha256": "eb0296363ce3b54eca4ad836eb31d0c306ad9cdab873fff588d9e96fe11b424a",
       "lines": 284,
       "reviewedRanges": [
         {
@@ -314,7 +314,8 @@
         "2026-08-31: re-reviewed after extending the existing mentor-ai classifier with the explicit living-mentor prefix. The change classifies the new Living Mentor presentation and Rive adapter source under the existing P2 Mentor AI batch; it does not broaden unrelated src/lib coverage, weaken fail-closed classification, change provenance, or alter audit workflow authority.",
         "2026-09-01: re-reviewed the complete policy after explicitly adding the Growth analytics, trend authority/intelligence, IndexNow, News growth authority, taxonomy and translation modules to the existing product-ui Batch 10 rule. The anchored alternation remains limited to named src/lib TypeScript modules, preserves rule ordering and fail-closed classification for unknown source paths, adds no runtime authority, and the focused policy tests cover the new classifications.",
         "2026-09-02: re-reviewed the complete policy after explicitly classifying src/lib/news-published-at.ts in the existing product-ui Batch 10 News rule. The helper only validates and normalizes publisher timestamps against the fetch time and archive-age boundary; the classification remains limited to the named module, preserves rule ordering and fail-closed handling of unknown src/lib paths, and introduces no runtime authority, persistence, credential access or financial activation surface.",
-        "2026-09-04: re-reviewed the complete policy after explicitly classifying src/lib/news-article-evidence.ts, src/lib/news-feed-evidence.ts and src/lib/news-source-registry.ts in the existing product-ui Batch 10 News rule. The three modules respectively extract bounded publisher article evidence, classify feed evidence coverage, and centralize governed public news-source metadata. The anchored rule remains limited to named src/lib TypeScript modules, preserves rule ordering and source-path fail-closed behavior, and introduces no financial execution authority, credential access or capability activation surface."
+        "2026-09-04: re-reviewed the complete policy after explicitly classifying src/lib/news-article-evidence.ts, src/lib/news-feed-evidence.ts and src/lib/news-source-registry.ts in the existing product-ui Batch 10 News rule. The three modules respectively extract bounded publisher article evidence, classify feed evidence coverage, and centralize governed public news-source metadata. The anchored rule remains limited to named src/lib TypeScript modules, preserves rule ordering and source-path fail-closed behavior, and introduces no financial execution authority, credential access or capability activation surface.",
+        "2026-09-11: re-reviewed the complete policy for Policy v23 after explicitly classifying src/lib/news-detail-body-authority.ts, src/lib/news-full-evidence-capture.ts and src/lib/news-publisher-evidence.ts in the existing product-ui Batch 10 News rule. The additions are exact named-module classifications rather than a broad News wildcard; existing rule ordering and fail-closed handling of unknown src paths remain intact. The reviewed authorities govern public News detail-body presentation, bounded full-evidence capture planning and governed publisher-evidence acquisition respectively; this policy change does not enable credentials, financial execution authority or an otherwise unclassified runtime surface."
       ],
       "findings": []
     },
