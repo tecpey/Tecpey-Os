@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canonicalPublisherUrl, isValidArchiveDay, newsArchiveContentHash, resolveNewsArchiveObservationTimes, tehranCalendarDay } from "../../lib/news-growth-authority";
+import {
+  canonicalPublisherUrl,
+  isValidArchiveDay,
+  newsArchiveContentHash,
+  persistNewsArchiveItemTx,
+  resolveNewsArchiveObservationTimes,
+  tehranCalendarDay,
+} from "../../lib/news-growth-authority";
+import { extractNewsTaxonomy } from "../../lib/news-taxonomy";
 import {
   findUnsupportedFeedSummaryLatinEntities,
   maxFeedSummaryTranslationBodyChars,
@@ -23,10 +31,36 @@ describe("daily news archive authority", () => {
     assert.equal(canonicalPublisherUrl("https://example.com/news/a?utm_source=x&fbclid=123&id=42#comments"), "https://example.com/news/a?id=42");
   });
 
-  it("hashes publisher-provided content deterministically", () => {
-    const input = { articleUrl: "https://example.com/a", sourceTitle: "Bitcoin update", sourceLead: "Lead", sourceBody: "Body" };
-    assert.equal(newsArchiveContentHash(input), newsArchiveContentHash(input));
-    assert.notEqual(newsArchiveContentHash(input), newsArchiveContentHash({ ...input, sourceBody: "Body changed" }));
+  it("preserves historical feed content hashes while namespacing article-full evidence", () => {
+    const input = {
+      articleUrl: "https://example.com/a",
+      sourceTitle: "Bitcoin update",
+      sourceLead: "Lead",
+      sourceBody: "Body",
+    };
+
+    const historicalFeedHash =
+      "d20f1ee6544aaecec0b12e6f460f7f7e5de7110abd1a7eac4f9bf983dce85e85";
+
+    assert.equal(newsArchiveContentHash(input), historicalFeedHash);
+    assert.equal(
+      newsArchiveContentHash({ ...input, sourceCoverage: "feed_summary" }),
+      historicalFeedHash,
+    );
+    assert.equal(
+      newsArchiveContentHash({ ...input, sourceCoverage: "feed_full" }),
+      historicalFeedHash,
+    );
+
+    assert.notEqual(
+      newsArchiveContentHash({ ...input, sourceCoverage: "article_full" }),
+      historicalFeedHash,
+    );
+
+    assert.notEqual(
+      newsArchiveContentHash(input),
+      newsArchiveContentHash({ ...input, sourceBody: "Body changed" }),
+    );
   });
 
   it("keeps historical first fetch separate from the current materialization observation", () => {
@@ -121,6 +155,69 @@ describe("daily news archive authority", () => {
     const rendered = compactNewsBodyAtSentenceBoundary(sentence.repeat(400), 600);
     assert.ok(rendered.length <= 600);
     assert.match(rendered, /[.!?؟؛]$/);
+  });
+
+  it("binds evidence character count to the normalized persisted archive body", async () => {
+    async function persistedValues(input: {
+      sourceBody: string;
+      evidenceCharacterCount?: number;
+    }): Promise<unknown[]> {
+      let values: unknown[] | undefined;
+
+      const client = {
+        query: async (_sql: string, parameters?: unknown[]) => {
+          values = parameters;
+          return {
+            rows: [{ archive_id: "00000000-0000-4000-8000-000000000001" }],
+          };
+        },
+      } as unknown as Parameters<typeof persistNewsArchiveItemTx>[0];
+
+      await persistNewsArchiveItemTx(client, {
+        sourceName: "Test Publisher",
+        feedUrl: "https://example.com/feed",
+        articleUrl: "https://example.com/article",
+        sourceLanguage: "en",
+        sourceTitle: "Evidence normalization test",
+        sourceLead: "Evidence lead",
+        sourceBody: input.sourceBody,
+        sourceCoverage: "article_full",
+        extractionMethod: "article_paragraphs",
+        evidenceCharacterCount: input.evidenceCharacterCount,
+        publishedAt: "2026-09-11T10:00:00.000Z",
+        fetchedAt: "2026-09-11T10:05:00.000Z",
+        taxonomy: extractNewsTaxonomy(input.sourceBody),
+      });
+
+      assert.ok(values);
+      return values;
+    }
+
+    const oversized = await persistedValues({
+      sourceBody: "x".repeat(25_000),
+      evidenceCharacterCount: 25_000,
+    });
+
+    assert.equal(String(oversized[8]).length, 20_000);
+    assert.equal(oversized[11], 20_000);
+
+    const normalized = await persistedValues({
+      sourceBody: "alpha   beta\n\n gamma",
+      evidenceCharacterCount: 999,
+    });
+
+    assert.equal(normalized[8], "alpha beta gamma");
+    assert.equal(
+      normalized[11],
+      "alpha beta gamma".length,
+    );
+
+    const legacy = await persistedValues({
+      sourceBody: "legacy archive evidence",
+    });
+
+    assert.equal(legacy[8], "legacy archive evidence");
+    assert.equal(legacy[11], null);
   });
 
 

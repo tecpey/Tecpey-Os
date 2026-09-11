@@ -17,6 +17,7 @@ export type NewsEnrichmentCandidate = {
   sourceBody: string;
   contentHash: string;
   publishedAt: string;
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full" | null;
 };
 
 export type NewsEnrichmentLeaseDecision =
@@ -45,19 +46,53 @@ function mapCandidateRows(rows: Record<string, unknown>[]): NewsEnrichmentCandid
     sourceBody: String(row.source_body),
     contentHash: String(row.content_hash),
     publishedAt: new Date(row.published_at as string | Date).toISOString(),
+    sourceCoverage:
+      row.source_coverage === "feed_full"
+      || row.source_coverage === "feed_summary"
+      || row.source_coverage === "article_full"
+        ? row.source_coverage
+        : null,
   }));
 }
 
-const CANDIDATE_SELECT = `SELECT archive.archive_id::text,
+const CANDIDATE_SELECT = `WITH authoritative AS (
+  SELECT archive.archive_id,
+         archive.source_name,
+         archive.article_url,
+         archive.source_title,
+         archive.source_lead,
+         archive.source_body,
+         archive.source_coverage,
+         archive.content_hash,
+         archive.published_at,
+         archive.fetched_at,
+         row_number() OVER (
+           PARTITION BY archive.article_url
+           ORDER BY
+             CASE archive.source_coverage
+               WHEN 'article_full' THEN 3
+               WHEN 'feed_full' THEN 2
+               WHEN 'feed_summary' THEN 1
+               ELSE 0
+             END DESC,
+             archive.fetched_at DESC,
+             archive.archive_id DESC
+         ) AS authority_rank
+    FROM platform_news_archive_items archive
+)
+SELECT archive.archive_id::text,
        archive.source_name,
        archive.article_url,
        archive.source_title,
        archive.source_lead,
        archive.source_body,
+       archive.source_coverage,
        archive.content_hash,
-       archive.published_at
-  FROM platform_news_archive_items archive
- WHERE NOT EXISTS (
+       archive.published_at,
+       archive.fetched_at
+  FROM authoritative archive
+ WHERE archive.authority_rank = 1
+   AND NOT EXISTS (
    SELECT 1
      FROM platform_news_archive_translations translation
     WHERE translation.archive_id = archive.archive_id

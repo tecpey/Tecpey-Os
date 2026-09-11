@@ -260,7 +260,9 @@ async function main(): Promise<void> {
               body: candidate.sourceBody,
               sourceName: candidate.sourceName,
               sourceUrl: candidate.articleUrl,
-              sourceCoverage: sourceCoverage(candidate.sourceLead, candidate.sourceBody),
+              sourceCoverage:
+                candidate.sourceCoverage
+                ?? sourceCoverage(candidate.sourceLead, candidate.sourceBody),
             },
             {
               fetchImpl: observedGovernedFetch,

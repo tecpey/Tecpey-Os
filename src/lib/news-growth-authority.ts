@@ -19,6 +19,15 @@ export type NewsArchiveRawInput = {
   sourceTitle: string;
   sourceLead: string;
   sourceBody: string;
+  sourceCoverage?: "feed_full" | "feed_summary" | "article_full" | null;
+  extractionMethod?:
+    | "feed_description"
+    | "feed_content"
+    | "json_ld_article_body"
+    | "article_paragraphs"
+    | "main_paragraphs"
+    | null;
+  evidenceCharacterCount?: number | null;
   publishedAt: string;
   fetchedAt: string;
   taxonomy: NewsTaxonomyMatch;
@@ -119,14 +128,25 @@ export function isValidArchiveDay(value: string): boolean {
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
 }
 
-export function newsArchiveContentHash(input: Pick<NewsArchiveRawInput, "articleUrl" | "sourceTitle" | "sourceLead" | "sourceBody">): string {
+export function newsArchiveContentHash(
+  input: Pick<
+    NewsArchiveRawInput,
+    "articleUrl" | "sourceTitle" | "sourceLead" | "sourceBody"
+  > & Pick<Partial<NewsArchiveRawInput>, "sourceCoverage">,
+): string {
+  const identity = [
+    canonicalPublisherUrl(input.articleUrl),
+    compact(input.sourceTitle, 500),
+    compact(input.sourceLead, 4_000),
+    compact(input.sourceBody, 20_000),
+  ];
+
+  if (input.sourceCoverage === "article_full") {
+    identity.push("tecpey:news-evidence:article-full:v1");
+  }
+
   return createHash("sha256")
-    .update([
-      canonicalPublisherUrl(input.articleUrl),
-      compact(input.sourceTitle, 500),
-      compact(input.sourceLead, 4_000),
-      compact(input.sourceBody, 20_000),
-    ].join("\0"))
+    .update(identity.join("\0"))
     .digest("hex");
 }
 
@@ -170,15 +190,25 @@ export async function persistNewsArchiveItemTx(
   const sourceTitle = compact(input.sourceTitle, 500);
   const sourceLead = compact(input.sourceLead || input.sourceBody || input.sourceTitle, 4_000);
   const sourceBody = compact(input.sourceBody || input.sourceLead || input.sourceTitle, 20_000);
+  const evidenceCharacterCount =
+    input.evidenceCharacterCount == null
+      ? null
+      : sourceBody.length;
+
+  if (evidenceCharacterCount !== null && evidenceCharacterCount < 1) {
+    throw new Error("news_archive_evidence_character_count_invalid");
+  }
+
   const publishedAt = new Date(input.publishedAt).toISOString();
   const fetchedAt = new Date(input.fetchedAt).toISOString();
   const inserted = await client.query<{ archive_id: string }>(
     `INSERT INTO platform_news_archive_items
        (archive_id, source_name, source_domain, feed_url, article_url, source_language,
-        source_title, source_lead, source_body, published_at, fetched_at, published_day_tehran,
+        source_title, source_lead, source_body, source_coverage, extraction_method,
+        evidence_character_count, published_at, fetched_at, published_day_tehran,
         content_hash, taxonomy)
-     VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, $11::timestamptz,
-        $12::date, $13, $14::jsonb)
+     VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+        $13::timestamptz, $14::timestamptz, $15::date, $16, $17::jsonb)
      ON CONFLICT (article_url, content_hash) DO NOTHING
      RETURNING archive_id::text`,
     [
@@ -191,6 +221,9 @@ export async function persistNewsArchiveItemTx(
       sourceTitle,
       sourceLead,
       sourceBody,
+      input.sourceCoverage ?? null,
+      input.extractionMethod ?? null,
+      evidenceCharacterCount,
       publishedAt,
       fetchedAt,
       tehranCalendarDay(publishedAt),
@@ -253,7 +286,12 @@ function reusableTranslationKey(articleUrl: string, contentHash: string): string
 
 export async function readReusableNewsArchiveTranslationsTx(
   client: PoolClient,
-  inputs: Array<Pick<NewsArchiveRawInput, "articleUrl" | "sourceTitle" | "sourceLead" | "sourceBody">>,
+  inputs: Array<
+    Pick<
+      NewsArchiveRawInput,
+      "articleUrl" | "sourceTitle" | "sourceLead" | "sourceBody"
+    > & Pick<Partial<NewsArchiveRawInput>, "sourceCoverage">
+  >,
 ): Promise<Map<string, ReusableNewsArchiveTranslation>> {
   if (inputs.length === 0) return new Map();
   const requested = inputs.map((input) => {
@@ -330,7 +368,12 @@ export async function readReusableNewsArchiveTranslationsTx(
 }
 
 export async function getReusableNewsArchiveTranslationsFromAuthority(
-  inputs: Array<Pick<NewsArchiveRawInput, "articleUrl" | "sourceTitle" | "sourceLead" | "sourceBody">>,
+  inputs: Array<
+    Pick<
+      NewsArchiveRawInput,
+      "articleUrl" | "sourceTitle" | "sourceLead" | "sourceBody"
+    > & Pick<Partial<NewsArchiveRawInput>, "sourceCoverage">
+  >,
 ): Promise<Map<string, ReusableNewsArchiveTranslation>> {
   try {
     const result = await withDb((client) => readReusableNewsArchiveTranslationsTx(client, inputs));

@@ -122,4 +122,102 @@ describe("publisher evidence authority", () => {
     assert.equal(result.reason, "article_content_type_rejected");
     assert.equal(result.body, "Short lead");
   });
+
+  it("follows a bounded same-publisher redirect and promotes the final HTML evidence", async () => {
+    const requestedUrls: string[] = [];
+    const articleBody =
+      `Verified material fact. ${"Detailed same-publisher evidence with attributable context. ".repeat(35)}`;
+
+    const html = `<html><head><script type="application/ld+json">${JSON.stringify({
+      "@type": "NewsArticle",
+      articleBody,
+    })}</script></head><body></body></html>`;
+
+    const result = await fetchNewsPublisherEvidence({
+      source: source(true),
+      articleUrl: "https://example.com/news/redirect-start",
+      lead: "Short lead",
+      body: "Short lead",
+      fetchImpl: async (input) => {
+        const url = String(input);
+        requestedUrls.push(url);
+
+        if (url === "https://example.com/news/redirect-start") {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: "/news/redirect-final",
+            },
+          });
+        }
+
+        assert.equal(url, "https://example.com/news/redirect-final");
+
+        return new Response(html, {
+          status: 200,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+          },
+        });
+      },
+    });
+
+    assert.deepEqual(requestedUrls, [
+      "https://example.com/news/redirect-start",
+      "https://example.com/news/redirect-final",
+    ]);
+    assert.equal(result.coverage, "article_full");
+    assert.equal(result.hydrationOutcome, "hydrated");
+    assert.equal(result.reason, "article_full");
+    assert.equal(result.extractionMethod, "json_ld_article_body");
+  });
+
+  it("fails closed after the bounded redirect limit", async () => {
+    let calls = 0;
+
+    const result = await fetchNewsPublisherEvidence({
+      source: source(true),
+      articleUrl: "https://example.com/news/redirect-0",
+      lead: "Short lead",
+      body: "Short lead",
+      fetchImpl: async () => {
+        calls += 1;
+
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location: `/news/redirect-${calls}`,
+          },
+        });
+      },
+    });
+
+    assert.equal(calls, 4);
+    assert.equal(result.coverage, "feed_summary");
+    assert.equal(result.hydrationOutcome, "redirect_limit");
+    assert.equal(result.reason, "article_redirect_or_host_rejected");
+    assert.equal(result.body, "Short lead");
+  });
+
+  it("classifies an oversized publisher response as too_large without replacing feed evidence", async () => {
+    const oversizedHtml = `<html><body>${"x".repeat(2_500_100)}</body></html>`;
+
+    const result = await fetchNewsPublisherEvidence({
+      source: source(true),
+      articleUrl: "https://example.com/news/oversized",
+      lead: "Short lead",
+      body: "Short lead",
+      fetchImpl: async () => new Response(oversizedHtml, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+        },
+      }),
+    });
+
+    assert.equal(result.coverage, "feed_summary");
+    assert.equal(result.hydrationOutcome, "too_large");
+    assert.equal(result.reason, "article_too_large");
+    assert.equal(result.body, "Short lead");
+  });
 });
