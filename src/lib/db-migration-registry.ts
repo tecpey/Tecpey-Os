@@ -89,6 +89,10 @@ import { runAiTenantRlsMigrations } from "./db-migrate-ai-tenant-rls";
 import { runSupportMessagesMigrations } from "./db-migrate-support-messages";
 import { runNewsArchiveAndGrowthMigrations } from "./db-migrate-news-growth";
 import { NEWS_AI_COST_AUTHORITY_SQL } from "./db-migrate-news-ai-cost-authority";
+import {
+  NEWS_FULL_EVIDENCE_CAPTURE_SQL,
+  runNewsFullEvidenceCaptureMigrations,
+} from "./db-migrate-news-full-evidence-capture";
 import { runIdentityProductLinkingMigrations } from "./db-migrate-identity-product-linking";
 import { runAcademyProfileDetailsMigrations } from "./db-migrate-academy-profile-details";
 import { runAcademyQuestionBankBaselineMigrations } from "./db-migrate-academy-question-bank-baseline";
@@ -150,6 +154,14 @@ const NEWS_ARCHIVE_AND_COST_MIGRATIONS = Object.freeze([
   ...CANONICAL_MIGRATION_CONTENT.newsArchiveAndGrowth,
   NEWS_AI_COST_MIGRATION,
 ]);
+
+const NEWS_FULL_EVIDENCE_CAPTURE_MIGRATION: CanonicalMigrationContent = Object.freeze({
+  identity: "0103_news_full_evidence_capture_authority.sql",
+  content: NEWS_FULL_EVIDENCE_CAPTURE_SQL,
+  checksum: canonicalMigrationChecksum(NEWS_FULL_EVIDENCE_CAPTURE_SQL),
+  acceptsHistoricalChecksumPrefix: false,
+  compatibleHistoricalChecksums: Object.freeze([]),
+});
 
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
@@ -238,6 +250,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(84, "migration-step-084", CANONICAL_MIGRATION_CONTENT.identityProductLinking, "security-platform", "identity-linking", runIdentityProductLinkingMigrations),
   entry(85, "migration-step-085", CANONICAL_MIGRATION_CONTENT.academyProfileDetails, "academy-platform", "academy-profile", runAcademyProfileDetailsMigrations),
   entry(86, "migration-step-086", CANONICAL_MIGRATION_CONTENT.academyQuestionBankBaseline, "academy-platform", "academy", runAcademyQuestionBankBaselineMigrations),
+  entry(
+    87,
+    "migration-step-087",
+    [NEWS_FULL_EVIDENCE_CAPTURE_MIGRATION],
+    "growth-platform",
+    "organic-growth",
+    runNewsFullEvidenceCaptureMigrations,
+  ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

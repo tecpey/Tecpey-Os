@@ -27,7 +27,7 @@ import {
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
 import { persistOperationalJobRunTx } from "../src/lib/ops/operational-job-evidence";
 import { readBoundedResponseText } from "../src/lib/bounded-http-body";
-import { extractNewsArticleEvidence } from "../src/lib/news-article-evidence";
+import { fetchNewsPublisherEvidence } from "../src/lib/news-publisher-evidence";
 import { extractNewsTaxonomy } from "../src/lib/news-taxonomy";
 import {
   canonicalPublisherUrl,
@@ -74,8 +74,6 @@ type PreparedArticle = FetchedArticle & {
 
 const NEWS_FEED_TIMEOUT_MS = 7_000;
 const MAX_NEWS_FEED_BYTES = 2_000_000;
-const NEWS_ARTICLE_TIMEOUT_MS = 6_000;
-const MAX_NEWS_ARTICLE_BYTES = 2_500_000;
 const NEWS_ARTICLE_FETCH_CONCURRENCY = 4;
 
 const INTERNATIONAL_FEED_SOURCES: readonly ApprovedFeedSource[] = NEWS_SOURCE_REGISTRY;
@@ -200,47 +198,32 @@ async function fetchSourceArticlesOnce(
   return articles;
 }
 
-async function enrichArticleWithPublisherEvidence(article: FetchedArticle): Promise<FetchedArticle> {
+async function enrichArticleWithPublisherEvidence(
+  article: FetchedArticle,
+): Promise<FetchedArticle> {
   if (article.sourceCoverage !== "feed_summary") return article;
   if (!article.source.allowFullArticleFetch) return article;
-  if (!article.source.allowFullArticleFetch) return article;
 
-  try {
-    const response = await fetch(article.articleUrl, {
-      headers: {
-        "user-agent": "TecPeyNewsBot/2.0 (+https://tecpey.ir/crypto-news)",
-        accept: "text/html,application/xhtml+xml",
-      },
-      redirect: "error",
-      signal: AbortSignal.timeout(NEWS_ARTICLE_TIMEOUT_MS),
-    });
+  const evidence = await fetchNewsPublisherEvidence({
+    source: article.source,
+    articleUrl: article.articleUrl,
+    lead: article.lead,
+    body: article.body,
+    sourceCoverage: "feed_summary",
+  });
 
-    if (!response.ok) return article;
-
-    const finalUrl = safeArticleUrl(response.url || article.articleUrl, article.source);
-    if (!finalUrl) return article;
-
-    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-    if (contentType && !contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
-      return article;
-    }
-
-    const html = await readBoundedResponseText(response, {
-      maxBytes: MAX_NEWS_ARTICLE_BYTES,
-      errorCode: `news_article_too_large:${article.source.name}`,
-    });
-
-    const evidence = extractNewsArticleEvidence(html);
-    if (!evidence) return article;
-
-    return {
-      ...article,
-      body: evidence.body,
-      sourceCoverage: "article_full",
-    };
-  } catch {
+  if (
+    evidence.coverage !== "article_full"
+    || evidence.hydrationOutcome !== "hydrated"
+  ) {
     return article;
   }
+
+  return {
+    ...article,
+    body: evidence.body,
+    sourceCoverage: "article_full",
+  };
 }
 
 function feedFailureHttpStatus(error: unknown): number | null {
@@ -469,6 +452,7 @@ async function main(): Promise<void> {
     sourceTitle: article.title,
     sourceLead: article.lead,
     sourceBody: article.body,
+    sourceCoverage: article.sourceCoverage,
   }));
   const reusableTranslations = await getReusableNewsArchiveTranslationsFromAuthority(archiveLookupInputs);
   const prepared = await mapWithConcurrency(articles, translationConcurrency, async (article): Promise<PreparedArticle> => {
@@ -477,6 +461,7 @@ async function main(): Promise<void> {
       sourceTitle: article.title,
       sourceLead: article.lead,
       sourceBody: article.body,
+      sourceCoverage: article.sourceCoverage,
     });
     const reusable = reusableTranslations.get(reusableNewsArchiveTranslationKey(article.articleUrl, contentHash));
     let translation: NewsTranslationResult;

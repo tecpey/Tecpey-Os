@@ -1,8 +1,16 @@
 import { setTimeout as delay } from "node:timers/promises";
+import type { PoolClient } from "pg";
 
 import { withTx } from "../src/lib/db";
 import { readBoundedResponseText } from "../src/lib/bounded-http-body";
 import { extractNewsTaxonomy } from "../src/lib/news-taxonomy";
+import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
+import {
+  executeNewsHydrationPlan,
+  newsHydrationNextRetryAt,
+  type NewsHydrationOutcome,
+} from "../src/lib/news-full-evidence-capture";
+import { fetchNewsPublisherEvidence } from "../src/lib/news-publisher-evidence";
 import { validNewsPublishedAt } from "../src/lib/news-published-at";
 import {
   canonicalPublisherUrl,
@@ -29,6 +37,7 @@ const NEWS_FEED_TIMEOUT_MS = 7_000;
 const MAX_NEWS_FEED_BYTES = 2_000_000;
 const DEFAULT_CAPTURE_LIMIT_PER_SOURCE = 300;
 const MAX_CAPTURE_LIMIT_PER_SOURCE = 300;
+const NEWS_ARTICLE_FETCH_CONCURRENCY = 4;
 
 type CaptureArticle = {
   source: NewsSourceRegistryEntry;
@@ -38,6 +47,14 @@ type CaptureArticle = {
   articleUrl: string;
   publishedAt: string;
   fetchedAt: string;
+  sourceCoverage: "feed_full" | "feed_summary" | "article_full";
+  extractionMethod:
+    | "feed_description"
+    | "feed_content"
+    | "json_ld_article_body"
+    | "article_paragraphs"
+    | "main_paragraphs";
+  evidenceCharacterCount: number;
 };
 
 type SourceCaptureResult = {
@@ -124,6 +141,11 @@ function parseFeed(
     const fullContent = pick(block, "content:encoded") || pick(block, "content");
     const body = fullContent || description || title;
     const lead = description || body.slice(0, 1_200) || title;
+    const sourceCoverage = classifyFeedSourceCoverage({
+      fullContent,
+      description,
+    });
+    const extractionMethod = fullContent ? "feed_content" : "feed_description";
     const hrefMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*>/i);
     const rawUrl = pick(block, "link") || clean(hrefMatch?.[1] ?? "");
     const articleUrl = safeArticleUrl(rawUrl, source);
@@ -143,6 +165,9 @@ function parseFeed(
       articleUrl,
       publishedAt,
       fetchedAt,
+      sourceCoverage,
+      extractionMethod,
+      evidenceCharacterCount: body.length,
     }];
   });
 }
@@ -189,6 +214,78 @@ async function fetchSource(
   throw lastError;
 }
 
+
+type HydrationResult = {
+  article: CaptureArticle;
+  outcome: NewsHydrationOutcome;
+};
+
+async function hydratePublisherEvidence(
+  article: CaptureArticle,
+): Promise<HydrationResult> {
+  const evidence = await fetchNewsPublisherEvidence({
+    source: article.source,
+    articleUrl: article.articleUrl,
+    lead: article.lead,
+    body: article.body,
+    sourceCoverage: article.sourceCoverage === "article_full"
+      ? "feed_full"
+      : article.sourceCoverage,
+  });
+
+  if (
+    evidence.coverage !== "article_full"
+    || evidence.hydrationOutcome !== "hydrated"
+    || evidence.extractionMethod === null
+  ) {
+    if (evidence.hydrationOutcome === null) {
+      throw new Error(
+        `news_hydration_planner_invariant:${article.source.name}`,
+      );
+    }
+
+    return {
+      article,
+      outcome: evidence.hydrationOutcome,
+    };
+  }
+
+  return {
+    article: {
+      ...article,
+      body: evidence.body,
+      sourceCoverage: "article_full",
+      extractionMethod: evidence.extractionMethod,
+      evidenceCharacterCount: evidence.sourceBodyCharacterCount,
+    },
+    outcome: "hydrated",
+  };
+}
+
+async function readAlreadyHydratedArticleUrls(
+  articleUrls: readonly string[],
+): Promise<Set<string>> {
+  if (articleUrls.length === 0) return new Set();
+
+  const transaction = await withTx(async (client) => {
+    const result = await client.query<{ article_url: string }>(
+      `SELECT DISTINCT article_url
+         FROM platform_news_archive_items
+        WHERE article_url = ANY($1::text[])
+          AND source_coverage = 'article_full'`,
+      [articleUrls],
+    );
+
+    return new Set(result.rows.map((row) => row.article_url));
+  });
+
+  if (!transaction.enabled) {
+    throw new Error("news_capture_hydration_database_unavailable");
+  }
+
+  return transaction.value;
+}
+
 export function dedupeCapturedArticles(items: readonly CaptureArticle[]): CaptureArticle[] {
   const selected = new Map<string, CaptureArticle>();
   for (const item of items) {
@@ -199,6 +296,103 @@ export function dedupeCapturedArticles(items: readonly CaptureArticle[]): Captur
     }
   }
   return [...selected.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+}
+
+
+async function readHydrationCooldownArticleUrls(
+  articleUrls: readonly string[],
+  now: string,
+): Promise<Set<string>> {
+  if (articleUrls.length === 0) return new Set();
+
+  const transaction = await withTx(async (client) => {
+    const result = await client.query<{ article_url: string }>(
+      `SELECT article_url
+         FROM platform_news_hydration_state
+        WHERE article_url = ANY($1::text[])
+          AND hydrated_at IS NULL
+          AND next_retry_at IS NOT NULL
+          AND next_retry_at > $2::timestamptz`,
+      [articleUrls, now],
+    );
+
+    return new Set(result.rows.map((row) => row.article_url));
+  });
+
+  if (!transaction.enabled) {
+    throw new Error("news_capture_hydration_database_unavailable");
+  }
+
+  return transaction.value;
+}
+
+async function persistHydrationAttemptTx(
+  client: PoolClient,
+  input: {
+    article: CaptureArticle;
+    outcome: NewsHydrationOutcome;
+    attemptedAt: string;
+  },
+): Promise<void> {
+  const state = await client.query<{ attempt_count: number }>(
+    `INSERT INTO platform_news_hydration_state
+       (article_url, source_name, attempt_count, last_outcome,
+        last_attempt_at, next_retry_at, hydrated_at, updated_at)
+     VALUES (
+       $1, $2, 1, $3, $4::timestamptz, NULL,
+       CASE WHEN $3 = 'hydrated' THEN $4::timestamptz ELSE NULL END,
+       NOW()
+     )
+     ON CONFLICT (article_url) DO UPDATE SET
+       source_name = EXCLUDED.source_name,
+       attempt_count = LEAST(
+         platform_news_hydration_state.attempt_count + 1,
+         1000
+       ),
+       last_outcome = EXCLUDED.last_outcome,
+       last_attempt_at = EXCLUDED.last_attempt_at,
+       next_retry_at = NULL,
+       hydrated_at = CASE
+         WHEN EXCLUDED.last_outcome = 'hydrated'
+           THEN EXCLUDED.last_attempt_at
+         ELSE platform_news_hydration_state.hydrated_at
+       END,
+       updated_at = NOW()
+     WHERE platform_news_hydration_state.hydrated_at IS NULL
+     RETURNING attempt_count`,
+    [
+      input.article.articleUrl,
+      input.article.source.name,
+      input.outcome,
+      input.attemptedAt,
+    ],
+  );
+
+  const persisted = state.rows[0];
+  if (!persisted) {
+    // A concurrent capture already committed terminal rich evidence.
+    return;
+  }
+
+  const attemptCount = Number(persisted.attempt_count);
+  if (!Number.isSafeInteger(attemptCount) || attemptCount < 1) {
+    throw new Error("news_hydration_attempt_count_persist_invalid");
+  }
+
+  const nextRetryAt = newsHydrationNextRetryAt({
+    outcome: input.outcome,
+    attemptCount,
+    attemptedAt: input.attemptedAt,
+  });
+
+  await client.query(
+    `UPDATE platform_news_hydration_state
+        SET next_retry_at = $2::timestamptz,
+            updated_at = NOW()
+      WHERE article_url = $1`,
+    [input.article.articleUrl, nextRetryAt],
+  );
+
 }
 
 async function main(): Promise<void> {
@@ -251,6 +445,98 @@ async function main(): Promise<void> {
     settled.flatMap((result) => result.status === "fulfilled" ? result.value : []),
   );
 
+  const hydrationEligibleArticles = articles.filter(
+    (article) =>
+      article.sourceCoverage === "feed_summary"
+      && article.source.allowFullArticleFetch,
+  );
+
+  const hydrationEligibleUrls = hydrationEligibleArticles.map(
+    (article) => article.articleUrl,
+  );
+
+  const alreadyHydrated = await readAlreadyHydratedArticleUrls(
+    hydrationEligibleUrls,
+  );
+
+  const cooldownBlocked = await readHydrationCooldownArticleUrls(
+    hydrationEligibleUrls,
+    fetchedAt,
+  );
+
+  const hydrationReadyCount = hydrationEligibleArticles.filter(
+    (article) =>
+      !alreadyHydrated.has(article.articleUrl)
+      && !cooldownBlocked.has(article.articleUrl),
+  ).length;
+
+  const hydrationResults = await executeNewsHydrationPlan({
+    articles: articles.map((article) => ({
+      article,
+      articleUrl: article.articleUrl,
+      sourceCoverage: article.sourceCoverage,
+      allowFullArticleFetch: article.source.allowFullArticleFetch,
+    })),
+    alreadyHydratedArticleUrls: alreadyHydrated,
+    cooldownBlockedArticleUrls: cooldownBlocked,
+    concurrency: NEWS_ARTICLE_FETCH_CONCURRENCY,
+    hydrate: async ({ article }) => hydratePublisherEvidence(article),
+  });
+
+  const hydrationResultByUrl = new Map(
+    hydrationResults.map(
+      (result) => [result.article.articleUrl, result] as const,
+    ),
+  );
+
+  const hydratedByUrl = new Map(
+    hydrationResults
+      .filter((result) => result.outcome === "hydrated")
+      .map(
+        (result) => [result.article.articleUrl, result.article] as const,
+      ),
+  );
+
+  const hydrationOutcomeCounts = hydrationResults.reduce<Record<NewsHydrationOutcome, number>>(
+    (counts, result) => {
+      counts[result.outcome] += 1;
+      return counts;
+    },
+    {
+      hydrated: 0,
+      host_rejected: 0,
+      redirect_rejected: 0,
+      redirect_limit: 0,
+      timeout: 0,
+      network_error: 0,
+      http_failure: 0,
+      content_type_rejected: 0,
+      too_large: 0,
+      extraction_empty: 0,
+      identity_collision: 0,
+    },
+  );
+
+  const hydrationAudit = {
+    eligibleCount: hydrationEligibleArticles.length,
+    readyCount: hydrationReadyCount,
+    attemptedCount: hydrationResults.length,
+    requestCeilingDeferredCount: Math.max(
+      0,
+      hydrationReadyCount - hydrationResults.length,
+    ),
+    skippedPolicyCount: articles.filter(
+      (article) =>
+        article.sourceCoverage === "feed_summary"
+        && !article.source.allowFullArticleFetch,
+    ).length,
+    skippedExistingRichCount: alreadyHydrated.size,
+    skippedCooldownCount: cooldownBlocked.size,
+    richVersionInsertedCount: 0,
+    richVersionReplayedCount: 0,
+    outcomes: hydrationOutcomeCounts,
+  };
+
   const sourceResults = new Map<string, SourceCaptureResult>();
   for (const source of NEWS_SOURCE_REGISTRY) {
     sourceResults.set(source.name, {
@@ -290,7 +576,7 @@ async function main(): Promise<void> {
     );
 
     for (const article of articles) {
-      const archive = await persistNewsArchiveItemTx(client, {
+      const feedArchive = await persistNewsArchiveItemTx(client, {
         sourceName: article.source.name,
         feedUrl: article.source.feedUrl,
         articleUrl: article.articleUrl,
@@ -298,14 +584,65 @@ async function main(): Promise<void> {
         sourceTitle: article.title,
         sourceLead: article.lead,
         sourceBody: article.body,
+        sourceCoverage: article.sourceCoverage,
+        extractionMethod: article.extractionMethod,
+        evidenceCharacterCount: article.evidenceCharacterCount,
         publishedAt: article.publishedAt,
         fetchedAt: article.fetchedAt,
-        taxonomy: extractNewsTaxonomy(`${article.title} ${article.lead} ${article.body}`),
+        taxonomy: extractNewsTaxonomy(
+          `${article.title} ${article.lead} ${article.body}`,
+        ),
       });
+
       const result = sourceResults.get(article.source.name);
-      if (!result) continue;
-      if (archive.inserted) result.insertedCount += 1;
-      else result.replayedCount += 1;
+      if (result) {
+        if (feedArchive.inserted) result.insertedCount += 1;
+        else result.replayedCount += 1;
+      }
+
+      const hydrationResult = hydrationResultByUrl.get(article.articleUrl);
+      const hydrated = hydratedByUrl.get(article.articleUrl);
+
+      if (!hydrated || hydrated.sourceCoverage !== "article_full") {
+        if (hydrationResult) {
+          await persistHydrationAttemptTx(client, {
+            article: hydrationResult.article,
+            outcome: hydrationResult.outcome,
+            attemptedAt: fetchedAt,
+          });
+        }
+        continue;
+      }
+
+      const richArchive = await persistNewsArchiveItemTx(client, {
+        sourceName: hydrated.source.name,
+        feedUrl: hydrated.source.feedUrl,
+        articleUrl: hydrated.articleUrl,
+        sourceLanguage: "en",
+        sourceTitle: hydrated.title,
+        sourceLead: hydrated.lead,
+        sourceBody: hydrated.body,
+        sourceCoverage: hydrated.sourceCoverage,
+        extractionMethod: hydrated.extractionMethod,
+        evidenceCharacterCount: hydrated.evidenceCharacterCount,
+        publishedAt: hydrated.publishedAt,
+        fetchedAt: hydrated.fetchedAt,
+        taxonomy: extractNewsTaxonomy(
+          `${hydrated.title} ${hydrated.lead} ${hydrated.body}`,
+        ),
+      });
+
+      if (richArchive.inserted) {
+        hydrationAudit.richVersionInsertedCount += 1;
+      } else {
+        hydrationAudit.richVersionReplayedCount += 1;
+      }
+
+      await persistHydrationAttemptTx(client, {
+        article: hydrated,
+        outcome: richArchive.inserted ? "hydrated" : "identity_collision",
+        attemptedAt: fetchedAt,
+      });
     }
 
     for (const source of NEWS_SOURCE_REGISTRY) {
@@ -348,6 +685,7 @@ async function main(): Promise<void> {
     quarantinedSourceCount,
     successfulSourceCount: NEWS_SOURCE_REGISTRY.length - failures.length,
     fetchedArticleCount: articles.length,
+    hydrationAudit,
     insertedCount,
     replayedCount,
     continuityRiskCount,

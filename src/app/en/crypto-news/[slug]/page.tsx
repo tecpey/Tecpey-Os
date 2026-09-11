@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, BookOpen, Clock3, ExternalLink, Newspaper, ShieldAlert, Sparkles } from "lucide-react";
 import { EnglishShell } from "../../components/EnglishUI";
+import { NewsFullBody } from "@/components/content/NewsFullBody";
 import { StructuredData } from "@/components/seo/StructuredData";
 import {
   buildNewsDetailSchemas,
@@ -84,6 +85,8 @@ export default async function EnglishCryptoNewsDetailPage({ params }: Props) {
                   <span className="mt-2 block">Priority {item.priority}/100 · impact {item.impactScore}/10</span>
                 </div>
               </div>
+
+              <NewsFullBody sourceUrl={item.sourceUrl} locale="en" />
 
               <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-cyan-500/[0.065] p-5">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-2 text-xs font-black text-cyan-700 dark:bg-white/5 dark:text-cyan-100">
