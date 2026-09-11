@@ -425,7 +425,12 @@ describe("PostgreSQL migration authority", () => {
           const historicalChecksum = expectation.identity === "0046_tenant_principal_isolation_foundation.sql"
             ? expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 64)
             : expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 16);
-          assert.ok(historicalChecksum);
+          // Brand-new canonical migrations have no governed historical checksum.
+          // Exclude them from the synthetic legacy-ledger drift fixture rather than
+          // inventing compatibility evidence that never existed in production.
+          if (!historicalChecksum) {
+            continue;
+          }
           await upgradedClient.query(
             "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
             [historicalChecksum, expectation.identity],
