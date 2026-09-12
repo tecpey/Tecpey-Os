@@ -152,7 +152,15 @@ export function materializeGovernedNewsAutomationDecisions(
     const entities = uniqueEntities(resolveNewsEntities(text, materialized.intelligence.entities));
     let reasons = [...materialized.intelligence.reasons];
 
-    if (authority.registryKnown) reasons = reasons.filter((reason) => reason !== "source_not_authorized");
+    if (authority.registryKnown) {
+      reasons = reasons.filter((reason) => reason !== "source_not_authorized");
+      if (
+        authority.publicationDisposition === "human_review" &&
+        !reasons.includes("provider_not_enterprise_ready")
+      ) {
+        reasons.push("provider_not_enterprise_ready");
+      }
+    }
     if (entities.length > 0) reasons = reasons.filter((reason) => reason !== "missing_entities");
     if (authority.publicationDisposition === "auto_publish_eligible") {
       reasons = reasons.filter((reason) => reason !== "provider_not_enterprise_ready");
