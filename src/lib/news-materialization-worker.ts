@@ -11,14 +11,9 @@ import { hostname as osHostname } from "node:os";
 import path from "node:path";
 import type { PoolClient } from "pg";
 import type { ContentLocale } from "./content-growth";
-import {
-  buildNewsAutomationBatch,
-  type RawNewsInput,
-} from "./news-automation";
-import {
-  materializeNewsAutomationDecisions,
-  type MaterializedNewsSnapshot,
-} from "./news-materialization";
+import type { RawNewsInput } from "./news-automation";
+import type { MaterializedNewsSnapshot } from "./news-materialization";
+import { buildGovernedNewsSnapshot } from "../services/news/governed-pipeline";
 import {
   persistMaterializedNewsSnapshotTx,
   type NewsMaterializationSourceMode,
@@ -119,8 +114,7 @@ export function buildNewsMaterializationWorkerSnapshot(
   input: NewsMaterializationWorkerInput,
 ): MaterializedNewsSnapshot | null {
   if (input.rawInputs.length === 0) return null;
-  const decisions = buildNewsAutomationBatch(input.rawInputs);
-  return materializeNewsAutomationDecisions(decisions, {
+  return buildGovernedNewsSnapshot(input.rawInputs, {
     locale: input.locale,
     generatedAt: input.fetchedAt,
     historyLimit: input.historyLimit ?? 24,

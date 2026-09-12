@@ -1,0 +1,165 @@
+import {
+  NEWS_SOURCE_REGISTRY,
+  type NewsSourceRegistryEntry,
+  type NewsSourceTrustTier,
+} from "../../lib/news-source-registry";
+import {
+  providerReadinessSummaryForDomain,
+  type NewsProviderReadinessDecision,
+} from "../../lib/news-provider-readiness";
+import type { ApprovedNewsSource } from "../../lib/news-automation";
+
+export const TECPEY_NEWS_SOURCE_AUTHORITY_VERSION = "tecpey-news-source-authority-v1";
+
+export type GovernedNewsSourceIdentity = {
+  authorityVersion: typeof TECPEY_NEWS_SOURCE_AUTHORITY_VERSION;
+  id: string;
+  name: string;
+  domain: string;
+  registryKnown: true;
+  category: NewsSourceRegistryEntry["category"];
+  trustTier: NewsSourceTrustTier;
+  firstParty: boolean;
+  allowFullArticleFetch: boolean;
+  corroborationWeight: number;
+  continuityMode: "required" | "quarantined";
+  providerReadiness: NewsProviderReadinessDecision;
+  publicationDisposition: "auto_publish_eligible" | "human_review" | "blocked";
+  reasons: string[];
+};
+
+export type UnknownNewsSourceIdentity = {
+  authorityVersion: typeof TECPEY_NEWS_SOURCE_AUTHORITY_VERSION;
+  id: "unknown";
+  name: "Unknown Source";
+  domain: string;
+  registryKnown: false;
+  publicationDisposition: "blocked";
+  reasons: ["source_not_in_registry"];
+  providerReadiness: NewsProviderReadinessDecision;
+};
+
+export type NewsSourceAuthorityDecision = GovernedNewsSourceIdentity | UnknownNewsSourceIdentity;
+
+function normalizeDomain(value: string): string {
+  const raw = value.trim().toLowerCase();
+  if (!raw) return "";
+  try {
+    return new URL(raw.includes("://") ? raw : `https://${raw}`).hostname.replace(/^www\./, "");
+  } catch {
+    return raw.replace(/^www\./, "").split("/")[0] ?? "";
+  }
+}
+
+function sourceDomain(source: NewsSourceRegistryEntry): string {
+  return normalizeDomain(source.canonicalDomains[0] ?? "");
+}
+
+function automationTier(source: NewsSourceRegistryEntry): ApprovedNewsSource["tier"] {
+  if (source.firstParty) return "official";
+  if (source.trustTier === "tier_1" || source.trustTier === "tier_2") return "trusted_media";
+  return "watchlist";
+}
+
+function automationTrustScore(source: NewsSourceRegistryEntry): number {
+  const tierFloor: Record<NewsSourceTrustTier, number> = {
+    tier_1: 0.94,
+    tier_2: 0.78,
+    tier_3: 0.62,
+  };
+  return Math.max(tierFloor[source.trustTier], Math.min(0.99, source.corroborationWeight));
+}
+
+export function findGovernedNewsSource(value: string): NewsSourceRegistryEntry | undefined {
+  const domain = normalizeDomain(value);
+  if (!domain) return undefined;
+  return NEWS_SOURCE_REGISTRY.find((source) =>
+    source.canonicalDomains.some((candidate) => {
+      const canonical = normalizeDomain(candidate);
+      return domain === canonical || domain.endsWith(`.${canonical}`);
+    }),
+  );
+}
+
+export function approvedNewsAutomationSources(): ApprovedNewsSource[] {
+  return NEWS_SOURCE_REGISTRY.map((source) => ({
+    name: source.name,
+    domain: sourceDomain(source),
+    tier: automationTier(source),
+    trustScore: automationTrustScore(source),
+  })).filter((source) => Boolean(source.domain));
+}
+
+export function resolveNewsSourceAuthority(value: string): NewsSourceAuthorityDecision {
+  const domain = normalizeDomain(value);
+  const source = findGovernedNewsSource(domain);
+  const providerReadiness = providerReadinessSummaryForDomain(domain);
+
+  if (!source) {
+    return {
+      authorityVersion: TECPEY_NEWS_SOURCE_AUTHORITY_VERSION,
+      id: "unknown",
+      name: "Unknown Source",
+      domain,
+      registryKnown: false,
+      publicationDisposition: "blocked",
+      reasons: ["source_not_in_registry"],
+      providerReadiness,
+    };
+  }
+
+  const reasons: string[] = [];
+  if ((source.continuityMode ?? "required") === "quarantined") reasons.push("source_quarantined");
+  if (providerReadiness.status === "blocked") reasons.push("provider_readiness_missing_or_blocked");
+  if (providerReadiness.status === "degraded") reasons.push("provider_readiness_degraded");
+  if (!providerReadiness.autoIngestionAllowed) reasons.push("auto_ingestion_not_allowed");
+
+  const publicationDisposition =
+    (source.continuityMode ?? "required") === "quarantined"
+      ? "blocked"
+      : providerReadiness.status === "ready" && providerReadiness.autoIngestionAllowed
+        ? "auto_publish_eligible"
+        : "human_review";
+
+  return {
+    authorityVersion: TECPEY_NEWS_SOURCE_AUTHORITY_VERSION,
+    id: source.id,
+    name: source.name,
+    domain: sourceDomain(source),
+    registryKnown: true,
+    category: source.category,
+    trustTier: source.trustTier,
+    firstParty: source.firstParty,
+    allowFullArticleFetch: source.allowFullArticleFetch,
+    corroborationWeight: source.corroborationWeight,
+    continuityMode: source.continuityMode ?? "required",
+    providerReadiness,
+    publicationDisposition,
+    reasons,
+  };
+}
+
+export function newsSourceAuthorityDrift(): Array<{
+  id: string;
+  domain: string;
+  publicationDisposition: GovernedNewsSourceIdentity["publicationDisposition"];
+  providerStatus: NewsProviderReadinessDecision["status"];
+}> {
+  return NEWS_SOURCE_REGISTRY.map((source) => {
+    const decision = resolveNewsSourceAuthority(sourceDomain(source));
+    if (!decision.registryKnown) {
+      return {
+        id: source.id,
+        domain: sourceDomain(source),
+        publicationDisposition: "blocked" as const,
+        providerStatus: decision.providerReadiness.status,
+      };
+    }
+    return {
+      id: source.id,
+      domain: decision.domain,
+      publicationDisposition: decision.publicationDisposition,
+      providerStatus: decision.providerReadiness.status,
+    };
+  });
+}
