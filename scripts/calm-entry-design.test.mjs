@@ -35,28 +35,13 @@ test("entry styling includes touch, keyboard, RTL and reduced motion safeguards"
   assert.doesNotMatch(css, /transition:\s*all|backdrop-filter|animation:.*infinite/);
 });
 
-test("both landing locales use the same compact story and accessible closing sections", async () => {
-  const files = [
-    ["fa", "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx"],
-    ["en", "src/app/en/EnglishLandingClient.tsx"],
-  ];
-  for (const [locale, path] of files) {
-    const page = await read(path);
-    for (const component of ["HomeAiMentorSpotlight", "HomeLearningJourney"]) {
-      assert.ok(page.includes(`<${component} locale="${locale}" compact />`));
-    }
-    assert.ok(page.includes(`<LandingDetails locale="${locale}">`));
-    assert.ok(page.includes(`<CalmLandingClose locale="${locale}" />`));
-    assert.ok(page.indexOf("</LandingDetails>") < page.indexOf("<CalmLandingClose"));
+test("both landing locales share the growth story and accessible details", async () => {
+  for (const [locale, path] of [["fa", "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx"], ["en", "src/app/en/EnglishLandingClient.tsx"]]) {
+    assert.ok((await read(path)).includes(`<TecpeyGrowthStory locale="${locale}"`));
   }
-  const sections = await read("src/components/home/CalmProductSections.tsx");
-  assert.match(sections, /<details key=\{question\}><summary>/);
-  assert.match(sections, /<details className=\{styles.extendedDetails\}/);
-  assert.match(sections, /aria-labelledby=/);
-  for (const route of ["/risk-disclosure", "/academy/signup", "/academy/login", "/academy/curriculum", "/academy/trading-arena"]) {
-    assert.ok(sections.includes(route), `Missing destination: ${route}`);
-  }
-  assert.match(sections, /Real-money services on this platform are not active/);
-  assert.match(sections, /خدمات پول واقعی این پلتفرم فعال نیست/);
-  assert.doesNotMatch(sections, /۳ ترم کامل|3 terms done|setInterval/);
+  const story = await read("src/components/home/TecpeyGrowthStory.tsx");
+  assert.match(story, /<details className=\{styles.details\}><summary>/);
+  assert.match(story, /aria-labelledby=/);
+  assert.match(story, /no real money involved/);
+  assert.match(story, /بدون پول واقعی/);
 });

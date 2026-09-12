@@ -4,7 +4,7 @@ const files = {
   layout: "src/app/layout.tsx",
   globals: "src/app/globals.css",
   tokens: "src/app/tecpey-brand-tokens.css",
-  landing: "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx",
+  landing: "src/components/home/growth-story.module.css",
   contentUi: "src/components/content/ContentUI.tsx",
   postcss: "postcss.config.mjs",
 };
@@ -24,12 +24,11 @@ requireText("layout", 'import "./globals.css";', "root layout must load global T
 requireText("layout", 'import "./tecpey-brand-tokens.css";', "root layout must load governed TecPey design tokens");
 requireText("globals", '@import "tailwindcss";', "Tailwind v4 entry import is required");
 requireText("postcss", '"@tailwindcss/postcss"', "Tailwind PostCSS plugin is required");
-requireText("landing", 'className="tecpey-enterprise', "active landing must expose the governed UI scope");
+requireText("landing", ".story {", "active landing must expose its scoped CSS module");
 
 const consumedLandingTokens = [
-  "--tp-bg",
   "--tp-surface",
-  "--tp-card",
+  "--tp-glass-bg",
   "--tp-text",
   "--tp-muted",
   "--tp-primary",
@@ -38,6 +37,8 @@ const consumedLandingTokens = [
 
 const colorModeTokens = [
   ...consumedLandingTokens,
+  "--tp-bg",
+  "--tp-card",
   "--tp-focus",
   "--tp-success",
   "--tp-danger",
