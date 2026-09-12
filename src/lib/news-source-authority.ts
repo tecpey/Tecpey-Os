@@ -7,6 +7,7 @@ import {
   providerReadinessSummaryForDomain,
   type NewsProviderReadinessDecision,
 } from "./news-provider-readiness";
+import type { ApprovedNewsSource } from "./news-automation";
 
 export const TECPEY_NEWS_SOURCE_AUTHORITY_VERSION = "tecpey-news-source-authority-v1";
 
@@ -54,6 +55,21 @@ function sourceDomain(source: NewsSourceRegistryEntry): string {
   return normalizeDomain(source.canonicalDomains[0] ?? "");
 }
 
+function automationTier(source: NewsSourceRegistryEntry): ApprovedNewsSource["tier"] {
+  if (source.firstParty) return "official";
+  if (source.trustTier === "tier_1" || source.trustTier === "tier_2") return "trusted_media";
+  return "watchlist";
+}
+
+function automationTrustScore(source: NewsSourceRegistryEntry): number {
+  const tierFloor: Record<NewsSourceTrustTier, number> = {
+    tier_1: 0.94,
+    tier_2: 0.78,
+    tier_3: 0.62,
+  };
+  return Math.max(tierFloor[source.trustTier], Math.min(0.99, source.corroborationWeight));
+}
+
 export function findGovernedNewsSource(value: string): NewsSourceRegistryEntry | undefined {
   const domain = normalizeDomain(value);
   if (!domain) return undefined;
@@ -63,6 +79,15 @@ export function findGovernedNewsSource(value: string): NewsSourceRegistryEntry |
       return domain === canonical || domain.endsWith(`.${canonical}`);
     }),
   );
+}
+
+export function approvedNewsAutomationSources(): ApprovedNewsSource[] {
+  return NEWS_SOURCE_REGISTRY.map((source) => ({
+    name: source.name,
+    domain: sourceDomain(source),
+    tier: automationTier(source),
+    trustScore: automationTrustScore(source),
+  })).filter((source) => Boolean(source.domain));
 }
 
 export function resolveNewsSourceAuthority(value: string): NewsSourceAuthorityDecision {
