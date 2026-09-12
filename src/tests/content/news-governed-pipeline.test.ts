@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildGovernedNewsAutomationBatch,
   buildGovernedNewsSnapshot,
-} from "../../lib/news-governed-pipeline";
+} from "../../services/news/governed-pipeline";
 import type { RawNewsInput } from "../../lib/news-automation";
 
 const fetchedAt = "2026-09-12T06:30:00.000Z";
