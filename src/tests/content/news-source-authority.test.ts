@@ -4,7 +4,7 @@ import {
   findGovernedNewsSource,
   newsSourceAuthorityDrift,
   resolveNewsSourceAuthority,
-} from "../../lib/news-source-authority";
+} from "../../services/news/source-authority";
 
 describe("news source authority convergence", () => {
   it("resolves capture-registry sources as known identities instead of unknown providers", () => {
@@ -30,9 +30,6 @@ describe("news source authority convergence", () => {
 
     assert.equal(defiant.registryKnown, true);
     assert.equal(chainalysis.registryKnown, true);
-
-    // Until provider-rights/readiness evidence is converged, known sources remain
-    // review-bound rather than being mislabeled as unknown/unauthorized.
     assert.equal(defiant.publicationDisposition, "human_review");
     assert.equal(chainalysis.publicationDisposition, "human_review");
     assert.ok(defiant.reasons.includes("provider_readiness_missing_or_blocked"));
