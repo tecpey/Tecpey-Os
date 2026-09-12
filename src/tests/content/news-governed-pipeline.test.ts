@@ -4,6 +4,7 @@ import {
   buildGovernedNewsAutomationBatch,
   buildGovernedNewsSnapshot,
 } from "../../services/news/governed-pipeline";
+import { buildNewsMaterializationWorkerSnapshot } from "../../lib/news-materialization-worker";
 import type { RawNewsInput } from "../../lib/news-automation";
 
 const fetchedAt = "2026-09-12T06:30:00.000Z";
@@ -124,5 +125,32 @@ describe("governed news pipeline convergence", () => {
     assert.equal(decision.organicGrowth.readiness.ready, true);
     assert.equal(decision.intelligence.status, "human_review");
     assert.ok(decision.intelligence.reasons.includes("missing_entities"));
+  });
+
+  it("routes the materialization worker through governed source authority", () => {
+    const snapshot = buildNewsMaterializationWorkerSnapshot({
+      snapshotId: "00000000-0000-4000-8000-000000000640",
+      locale: "fa",
+      fetchedAt,
+      sourceMode: "live",
+      rawInputs: [
+        input({
+          title: "Curve assigns risk management to Resupply developers on Base",
+          summary: "Curve DAO assigned risk work to Resupply developers while the Base ecosystem reviews protocol risk.",
+          sourceName: "The Defiant",
+          sourceUrl: "https://thedefiant.io/news/defi/curve-dao-yrisk-risk-provider-crvusd-llamalend",
+          url: "https://thedefiant.io/news/defi/curve-dao-yrisk-risk-provider-crvusd-llamalend",
+        }),
+      ],
+    });
+
+    assert.ok(snapshot);
+    assert.equal(snapshot.publishable, 0);
+    assert.equal(snapshot.needsReview, 1);
+    assert.equal(snapshot.rejected, 0);
+    assert.equal(snapshot.decisions[0]?.status, "needs_review");
+    assert.equal(snapshot.decisions[0]?.intelligence.status, "human_review");
+    assert.equal(snapshot.decisions[0]?.intelligence.reasons.includes("source_not_authorized"), false);
+    assert.ok(snapshot.decisions[0]?.intelligence.reasons.includes("provider_not_enterprise_ready"));
   });
 });
