@@ -139,7 +139,7 @@ const DOMAIN_RULES = [
     riskTier: "P2",
     reviewBatch: 10,
     patterns: [
-      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|growth-analytics-contract|growth-trend-authority|growth-trend-intelligence|indexnow|landing-growth|landing-growth-authority|news-article-evidence|news-automation|news-detail-pages|news-detail-body-authority|news-feed-evidence|news-full-evidence-capture|news-growth-authority|news-publisher-evidence|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|news-published-at|news-source-registry|news-taxonomy|news-translation|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
+      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|growth-analytics-contract|growth-trend-authority|growth-trend-intelligence|indexnow|landing-growth|landing-growth-authority|news-article-evidence|news-automation|news-detail-pages|news-detail-body-authority|news-entity-resolution|news-feed-evidence|news-full-evidence-capture|news-governed-pipeline|news-growth-authority|news-publisher-evidence|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|news-published-at|news-source-authority|news-source-registry|news-taxonomy|news-translation|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
     ],
   },
   {
