@@ -34,7 +34,7 @@ export type NewsDetailPageModel = {
   item: NewsImpactHistoryItem;
   slug: string;
   url: string;
-  counterpartUrl: string;
+  counterpartUrl: string | null;
   relatedCoins: CoinPage[];
   relatedTools: RankedTraderTool[];
 };
@@ -91,15 +91,12 @@ function buildNewsDetailPageModelFromItem(
   const relatedTools = item.relatedToolSlugs
     .map((toolSlug) => getTraderToolBySlug(toolSlug))
     .filter((tool): tool is RankedTraderTool => Boolean(tool));
-  const counterpartLocale: ContentLocale = locale === "en" ? "fa" : "en";
 
   return {
     item,
     slug,
     url: `${SITE_URL}${getNewsImpactDetailPath(item)}`,
-    counterpartUrl: counterpart
-      ? `${SITE_URL}${getNewsImpactDetailPath(counterpart)}`
-      : `${SITE_URL}${localePrefix(counterpartLocale)}/crypto-news/${slug}`,
+    counterpartUrl: counterpart ? `${SITE_URL}${getNewsImpactDetailPath(counterpart)}` : null,
     relatedCoins,
     relatedTools,
   };
@@ -222,16 +219,20 @@ export function buildNewsHubSchemas(model: NewsHubPageModel): Record<string, unk
 
 export function getNewsDetailMetadata(model: NewsDetailPageModel, locale: ContentLocale) {
   const isEn = locale === "en";
+  const counterpartLanguage = isEn ? "fa-IR" : "en-US";
+  const currentLanguage = isEn ? "en-US" : "fa-IR";
+  const languages: Record<string, string> = {
+    [currentLanguage]: model.url,
+    "x-default": model.counterpartUrl ?? model.url,
+  };
+  if (model.counterpartUrl) languages[counterpartLanguage] = model.counterpartUrl;
+
   return {
     title: isEn ? `${model.item.title} | TecPey Crypto News` : `${model.item.title} | اخبار رمزارز تک‌پی`,
     description: truncate(model.item.summary, 158),
     alternates: {
       canonical: model.url,
-      languages: {
-        "fa-IR": isEn ? model.counterpartUrl : model.url,
-        "en-US": isEn ? model.url : model.counterpartUrl,
-        "x-default": isEn ? model.counterpartUrl : model.url,
-      },
+      languages,
     },
     openGraph: {
       title: model.item.title,
@@ -239,7 +240,7 @@ export function getNewsDetailMetadata(model: NewsDetailPageModel, locale: Conten
       url: model.url,
       siteName: "TecPey",
       locale: isEn ? "en_US" : "fa_IR",
-      alternateLocale: [isEn ? "fa_IR" : "en_US"],
+      alternateLocale: model.counterpartUrl ? [isEn ? "fa_IR" : "en_US"] : [],
       type: "article",
       publishedTime: model.item.publishedAt,
       modifiedTime: model.item.recordedAt,
