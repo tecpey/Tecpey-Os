@@ -4,7 +4,7 @@ import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { DailyNewsArchive } from "@/components/news/DailyNewsArchive";
 import { buildNewsHubSchemas, getNewsHubMetadata, getNewsHubPageModelFromAuthority } from "@/lib/news-detail-pages";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
-import { getNewsArchiveDayForPresentation } from "@/lib/news-archive-presentation-authority";
+import { getNewsArchiveDayForPresentation } from "@/services/news/archive-presentation-authority";
 import { getNewsArchiveDaysFromAuthority, isValidArchiveDay, tehranCalendarDay } from "@/lib/news-growth-authority";
 
 export async function generateMetadata(): Promise<Metadata> {
