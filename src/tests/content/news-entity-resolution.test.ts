@@ -39,6 +39,17 @@ describe("governed news entity resolution", () => {
     assert.equal(resolved.some((key) => key.includes("regulation")), false);
   });
 
+  it("resolves the EURR rollout without falling back to a fake generic market entity", () => {
+    const resolved = keys(
+      "Revolut starts EURR rollout with Bridge as regulated issuer; EURR is issued by Bridge Building S.A.",
+    );
+
+    assert.ok(resolved.includes("project:revolut"));
+    assert.ok(resolved.includes("project:eurr"));
+    assert.ok(resolved.includes("project:bridge-building"));
+    assert.equal(resolved.some((key) => key.endsWith(":market")), false);
+  });
+
   it("does not convert generic market narratives into fake concrete entities", () => {
     assert.deepEqual(
       resolveNewsEntities("DeFi payments regulation liquidity derivatives and market context remain active."),
