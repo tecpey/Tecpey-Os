@@ -14,7 +14,7 @@ export function NewsArticleHeroMedia({
   locale: "fa" | "en";
 }) {
   const isFa = locale === "fa";
-  const thumbnailUrl = `/api/crypto-news/thumbnail?article=${encodeURIComponent(articleUrl)}`;
+  const thumbnailUrl = `/crypto-news/media?article=${encodeURIComponent(articleUrl)}`;
 
   return (
     <figure className="mt-7 overflow-hidden rounded-[28px] border border-cyan-300/15 bg-slate-950">
