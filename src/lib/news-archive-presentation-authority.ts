@@ -1,3 +1,5 @@
+import type { PoolClient } from "pg";
+
 import type { ContentLocale } from "./content-growth";
 import { withDb } from "./db";
 import { logger } from "./logger";
@@ -41,16 +43,12 @@ function thumbnailPresentation(articleUrl: string): {
   }
 
   const readiness = providerReadinessSummaryForDomain(source.canonicalDomains[0] ?? "");
-  if (readiness.thumbnailPolicy === "blocked") {
-    return {
-      url: null,
-      policy: readiness.thumbnailPolicy,
-      attributionRequired: readiness.attributionRequired,
-    };
-  }
-
+  const sourceMediaAllowed = readiness.thumbnailPolicy === "licensed"
+    || readiness.thumbnailPolicy === "official_attribution";
   return {
-    url: `/api/crypto-news/thumbnail?article=${encodeURIComponent(articleUrl)}`,
+    url: sourceMediaAllowed
+      ? `/api/crypto-news/thumbnail?article=${encodeURIComponent(articleUrl)}`
+      : null,
     policy: readiness.thumbnailPolicy,
     attributionRequired: readiness.attributionRequired,
   };
@@ -106,17 +104,16 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
 }
 
 /**
- * Public archive presentation intentionally differs from governed publication.
+ * Archive visibility is independent from governed publication.
  *
- * Every captured immutable article version remains discoverable in the daily
- * archive even while Persian enrichment is pending or has failed. This prevents
- * translation/provider incidents from becoming news-loss incidents. A failed or
- * pending Persian translation falls back to publisher text with a visible UI
- * state; it does not gain a governed TecPey detail URL, ranking authority or
- * indexing authority until the normal publication gates pass.
+ * Every captured immutable article remains discoverable even while Persian
+ * enrichment is pending or has failed. Pending Persian rows fall back to the
+ * publisher text with an explicit UI state; they do not gain a governed TecPey
+ * detail URL, ranking authority, sitemap entry or indexing authority until the
+ * normal publication gates pass.
  */
 export async function readNewsArchiveDayForPresentationTx(
-  client: import("pg").PoolClient,
+  client: PoolClient,
   day: string,
   locale: ContentLocale,
 ): Promise<NewsArchivePresentationItem[]> {
