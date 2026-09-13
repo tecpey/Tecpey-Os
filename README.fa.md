@@ -42,12 +42,12 @@ flowchart LR
 
 ## محصول واقعی، شواهد واقعی
 
-تصاویر زیر **اسکرین‌شات واقعی خود تک‌پی** هستند؛ نه ماکاپ، کانسپت یا بازسازی تبلیغاتی. منبع آن‌ها Public Browser Golden Path روی head دقیق PR #642 با SHA `c28ec91f397fb4f1580d2b6d2499d867c176fa77` است. منشأ کامل در [`docs/assets/screenshots/showcase/PROVENANCE.md`](./docs/assets/screenshots/showcase/PROVENANCE.md) ثبت شده است.
+تصاویر زیر **مشتق مستقیم از اسکرین‌شات‌های واقعی مرورگر تک‌پی** هستند؛ نه ماکاپ، کانسپت یا بازسازی تبلیغاتی. منبع آن‌ها Public Browser Golden Path روی head دقیق PR #642 با SHA `c28ec91f397fb4f1580d2b6d2499d867c176fa77` است. فایل‌های commit‌شده دارایی پایدار Showcase هستند؛ artifact اصلی GitHub Actions retention محدود دارد و به‌عنوان provenance تاریخی ثبت می‌شود، نه مرجع دائمی pixel-level. جزئیات در [`docs/assets/screenshots/showcase/PROVENANCE.md`](./docs/assets/screenshots/showcase/PROVENANCE.md) آمده است.
 
 ### تجربه ورود هدایت‌شده
 
 <p align="center">
-  <img src="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp" alt="اسکرین‌شات واقعی لندینگ فارسی تک‌پی ثبت‌شده در CI" width="760" />
+  <a href="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp"><img src="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp" alt="اسکرین‌شات واقعی لندینگ فارسی تک‌پی ثبت‌شده در CI" width="480" /></a>
 </p>
 
 لندینگ فعلی تک‌پی سفر رشد کاربر را نمایش می‌دهد، نه یک قیف صرافی‌محور. آکادمی، منتور، تمرین مجازی، زمینه بازار و مسیر یادگیری در یک پوسته دوزبانه کنار هم قرار گرفته‌اند.
@@ -55,12 +55,12 @@ flowchart LR
 ### تمرین جدی، بدون درگیر کردن دارایی واقعی کاربر
 
 <p align="center">
-  <img src="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp" alt="اسکرین‌شات واقعی تریدینگ ارنا تک‌پی ثبت‌شده در CI" width="760" />
+  <a href="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp"><img src="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp" alt="اسکرین‌شات واقعی تریدینگ ارنا تک‌پی ثبت‌شده در CI" width="320" /></a>
 </p>
 
 تریدینگ ارنا یک محیط شبیه‌سازی با حساب، موجودی، تلاش، پوزیشن، سفارش و اجرای مجازیِ server-authoritative است. موجودی و نتایج شبیه‌سازی‌شده شواهد آموزشی‌اند؛ نه دارایی مشتری، عملکرد واقعی یا وعده بازده.
 
-> artifact اصلی CI شامل captureهای باکیفیت Academy، Mentor، احراز هویت، موبایل/دسکتاپ، روشن/تیره و FA/EN نیز هست. README ریشه عمداً متمرکز نگه داشته شده و manifest منشأ، reviewer را به نسخه‌های اصلی هدایت می‌کند.
+> artifact اصلی CI شامل captureهای full-resolution آکادمی، Mentor، احراز هویت، موبایل/دسکتاپ، روشن/تیره و FA/EN نیز بوده است. چون retention در GitHub Actions محدود است، این اصل‌ها **پس از expiry به‌عنوان evidence پایدار ادامه‌دار معرفی نمی‌شوند**. مشتق‌های commit‌شده، مسیر capture، ابعاد و hashهای منبع برای traceability ثبت می‌مانند.
 
 ## برای سه گروه اصلی ساخته شده
 
