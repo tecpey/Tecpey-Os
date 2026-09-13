@@ -22,7 +22,7 @@ const ENTITY_DICTIONARY: readonly EntityDictionaryItem[] = [
   { type: "project", id: "resupply", label: "Resupply", aliases: ["resupply"], confidence: 0.91, officialUrl: "https://resupply.fi/" },
   { type: "project", id: "fogo", label: "Fogo", aliases: ["fogo", "fogo mainnet"], confidence: 0.91, officialUrl: "https://www.fogo.io/" },
   { type: "project", id: "revolut", label: "Revolut", aliases: ["revolut", "revolut x"], confidence: 0.97, officialUrl: "https://www.revolut.com/" },
-  { type: "project", id: "bridge-building", label: "Bridge Building", aliases: ["bridge building", "bridge building s.a.", "bridge building sa", "bridge"], confidence: 0.93, officialUrl: "https://www.bridge.xyz/" },
+  { type: "project", id: "bridge-building", label: "Bridge Building", aliases: ["bridge building", "bridge building s.a.", "bridge building sa", "bridge as regulated issuer", "issued by bridge", "bridge.xyz"], confidence: 0.93, officialUrl: "https://www.bridge.xyz/" },
   { type: "project", id: "eurr", label: "EURR", aliases: ["eurr", "revolut stablecoin", "revolut emt"], confidence: 0.96, officialUrl: "https://reserves.bridge.xyz/eurr" },
   { type: "exchange", id: "coinbase", label: "Coinbase", aliases: ["coinbase", "کوین بیس", "کوین‌بیس"], confidence: 0.96, officialUrl: "https://www.coinbase.com/" },
   { type: "exchange", id: "lighter", label: "Lighter", aliases: ["lighter", "lighter dex", "lighter perp"], confidence: 0.91, officialUrl: "https://lighter.xyz/" },
