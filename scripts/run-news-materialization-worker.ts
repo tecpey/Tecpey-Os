@@ -21,7 +21,6 @@ import {
   DEFAULT_NEWS_FEED_RETRY_BASE_DELAY_MS,
   evaluateNewsMaterializationRuntimeHealth,
   newsFeedRetryDelayMs,
-  shouldDeferNewsTranslationRetry,
   shouldRetryNewsFeedFailure,
 } from "../src/lib/ops/news-materialization-runtime-policy";
 import type { NewsMaterializationSourceMode } from "../src/lib/news-materialization-persistence";
@@ -35,14 +34,12 @@ import {
   newsArchiveContentHash,
   persistGrowthTrendSignalsTx,
   persistNewsArchiveItemTx,
-  persistNewsArchiveTranslationTx,
   resolveNewsArchiveObservationTimes,
   reusableNewsArchiveTranslationKey,
 } from "../src/lib/news-growth-authority";
 import {
+  buildReusedPersianNewsTranslation,
   isReusableNewsCoverageCompatible,
-  resolveReusableOrFreshPersianNewsTranslation,
-  translateNewsFeedToPersian,
   type NewsTranslationResult,
 } from "../src/lib/news-translation";
 import { submitIndexNowUrls } from "../src/lib/indexnow";
@@ -68,7 +65,7 @@ type FetchedArticle = {
 
 type PreparedArticle = FetchedArticle & {
   taxonomy: ReturnType<typeof extractNewsTaxonomy>;
-  translation: Awaited<ReturnType<typeof translateNewsFeedToPersian>>;
+  translation: NewsTranslationResult;
   translationReused: boolean;
 };
 
@@ -392,7 +389,7 @@ async function main(): Promise<void> {
   const sourceMode = parseSourceMode();
   const limitPerSource = boundedIntegerEnv("NEWS_MATERIALIZATION_LIMIT_PER_SOURCE", 100, 1, 250);
   const translationConcurrency = boundedIntegerEnv("NEWS_TRANSLATION_CONCURRENCY", 2, 1, 4);
-  const translationRetryMinutes = boundedIntegerEnv("NEWS_TRANSLATION_RETRY_MINUTES", 60, 15, 24 * 60);
+
   const minimumSuccessfulSources = boundedIntegerEnv(
     "NEWS_FEED_MIN_SUCCESSFUL_SOURCES",
     DEFAULT_NEWS_FEED_MIN_SUCCESSFUL_SOURCES,
@@ -471,52 +468,25 @@ async function main(): Promise<void> {
       isReusableNewsCoverageCompatible(reusable.sourceCoverage, article.sourceCoverage) &&
       reusable.translatedTitle && reusable.translatedLead && reusable.translatedBody
     ) {
-      translation = await resolveReusableOrFreshPersianNewsTranslation({
-        reused: {
-          title: reusable.translatedTitle,
-          lead: reusable.translatedLead,
-          body: reusable.translatedBody,
-          sourceTitle: article.title,
-          sourceLead: article.lead,
-          sourceBody: article.body,
-          providerId: reusable.providerId,
-          model: reusable.model,
-          sourceCoverage: article.sourceCoverage,
-        },
-        fresh: () => translateNewsFeedToPersian({
-          title: article.title,
-          lead: article.lead,
-          body: article.body,
-          sourceName: article.source.name,
-          sourceUrl: article.articleUrl,
-          sourceCoverage: article.sourceCoverage,
-        }),
-      });
-      translationReused = translation.ok && translation.reused === true;
-    } else if (
-      reusable?.status === "failed" &&
-      shouldDeferNewsTranslationRetry({
-        failureReason: reusable.failureReason,
-        generatedAt: reusable.generatedAt,
-        retryMinutes: translationRetryMinutes,
-      })
-    ) {
-      translation = {
-        ok: false,
-        reason: "translation_retry_deferred",
-        providerId: reusable.providerId ?? undefined,
-        model: reusable.model ?? undefined,
-        retryDeferredUntil: new Date(Date.parse(reusable.generatedAt) + translationRetryMinutes * 60_000).toISOString(),
-      };
-    } else {
-      translation = await translateNewsFeedToPersian({
-        title: article.title,
-        lead: article.lead,
-        body: article.body,
-        sourceName: article.source.name,
-        sourceUrl: article.articleUrl,
+      translation = buildReusedPersianNewsTranslation({
+        title: reusable.translatedTitle,
+        lead: reusable.translatedLead,
+        body: reusable.translatedBody,
+        sourceTitle: article.title,
+        sourceLead: article.lead,
+        sourceBody: article.body,
+        providerId: reusable.providerId,
+        model: reusable.model,
         sourceCoverage: article.sourceCoverage,
       });
+      translationReused = translation.ok;
+    } else {
+      translation = {
+        ok: false,
+        reason: "translation_pending_enrichment",
+        providerId: reusable?.providerId ?? undefined,
+        model: reusable?.model ?? undefined,
+      };
     }
     return {
       ...article,
@@ -532,7 +502,6 @@ async function main(): Promise<void> {
   let faDecisions: NewsAutomationDecision[] = [];
   let trendSignals: GrowthTrendSignal[] = [];
   let archiveTransactionCommitted = false;
-  const changedArticleUrls = new Set<string>();
   const freshArticleUrls = new Set<string>();
   const marketTrendSignals = await fetchCoinGeckoTrendSignals(fetchedAt);
 
@@ -553,48 +522,8 @@ async function main(): Promise<void> {
           taxonomy: item.taxonomy,
         });
         if (archive.inserted) {
-          changedArticleUrls.add(item.articleUrl);
           freshArticleUrls.add(item.articleUrl);
         }
-        let translationInserted = false;
-        if (item.translation.ok && !item.translationReused) {
-          translationInserted = await persistNewsArchiveTranslationTx(client, {
-            archiveId: archive.archiveId,
-            locale: "fa",
-            status: "completed",
-            providerId: item.translation.translation.providerId,
-            model: item.translation.translation.model,
-            translatedTitle: item.translation.translation.title,
-            translatedLead: item.translation.translation.lead,
-            translatedBody: item.translation.translation.body,
-            sourceContentHash: archive.contentHash,
-            generatedAt: fetchedAt,
-            evidence: {
-              sourceCoverage: item.translation.translation.sourceCoverage,
-              numericIntegrity: item.translation.translation.quality.numericIntegrity,
-              noAddedAdvice: item.translation.translation.quality.noAddedAdvice,
-            },
-          });
-        } else if (!item.translation.ok && item.translation.reason !== "translation_retry_deferred") {
-          await persistNewsArchiveTranslationTx(client, {
-            archiveId: archive.archiveId,
-            locale: "fa",
-            status: "failed",
-            providerId: item.translation.providerId ?? null,
-            model: item.translation.model ?? null,
-            sourceContentHash: archive.contentHash,
-            generatedAt: fetchedAt,
-            evidence: {
-              reason: item.translation.reason,
-              retryDeferredUntil: item.translation.retryDeferredUntil ?? null,
-              numericFailureKind: item.translation.numericFailureKind ?? null,
-              numericFailureFactKey: item.translation.numericFailureFactKey ?? null,
-              unsupportedLatinEntities:
-                item.translation.unsupportedLatinEntities?.slice(0, 12) ?? null,
-            },
-          });
-        }
-        if (translationInserted) changedArticleUrls.add(item.articleUrl);
         const observation = resolveNewsArchiveObservationTimes({
           firstFetchedAt: archive.firstFetchedAt,
           currentFetchedAt: item.fetchedAt,
@@ -636,14 +565,16 @@ async function main(): Promise<void> {
     failures.push({ reasonCode: error instanceof Error ? error.message : "news_materialization_transaction_failed" });
   }
 
-  const indexableUrls = archiveTransactionCommitted ? [...enDecisions, ...faDecisions]
-    .filter((decision) =>
-      changedArticleUrls.has(decision.article.canonicalUrl)
-      && decision.status === "publishable"
-      && decision.organicGrowth.readiness.ready
-    )
-    .map((decision) => decision.organicGrowth.canonicalUrl) : [];
-  const indexNow = await submitIndexNowUrls(indexableUrls);
+  const indexableUrls = archiveTransactionCommitted
+    ? [...new Set(
+        results
+          .flatMap((result) => result.persisted?.insertedHistoryPaths ?? [])
+          .map((path) => new URL(path, "https://tecpey.ir").toString()),
+      )]
+    : [];
+  const indexNow = await submitIndexNowUrls(indexableUrls, {
+    governedPublicationUrls: indexableUrls,
+  });
 
   const completedAt = new Date().toISOString();
   let run = buildNewsMaterializationRunEvidence({ runId, hostName: hostname(), startedAt, completedAt, results, failures });
@@ -701,8 +632,8 @@ async function main(): Promise<void> {
     translatedFaCount: faInputs.length,
     translationFailedCount: prepared.length - faInputs.length,
     translationReusedCount: prepared.filter((item) => item.translationReused).length,
-    translationRetryDeferredCount: prepared.filter(
-      (item) => !item.translation.ok && item.translation.reason === "translation_retry_deferred",
+    translationPendingEnrichmentCount: prepared.filter(
+      (item) => !item.translation.ok && item.translation.reason === "translation_pending_enrichment",
     ).length,
     trendSignalCount: trendSignals.length,
     indexNow,

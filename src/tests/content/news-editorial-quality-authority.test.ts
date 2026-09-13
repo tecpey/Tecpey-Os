@@ -55,6 +55,51 @@ describe("Persian news editorial quality authority", () => {
     assert.deepEqual(result.evidence.unsupportedLatinEntities, ["usbdc"]);
   });
 
+  it("preserves an unknown ticker only when explicit market context proves it", () => {
+    const result = validatePersianNewsEditorialQuality({
+      sourceTitle: "Revolut expands EURR stablecoin support",
+      sourceLead: "EURR stablecoin transfers are now available to more customers.",
+      sourceBody: "The EURR token is used for euro-denominated settlement.",
+      translatedTitle: "Revolut پشتیبانی از استیبل‌کوین EURR را گسترش داد",
+      translatedLead: "انتقال استیبل‌کوین EURR برای کاربران بیشتری فعال شده است.",
+      translatedBody: "توکن EURR برای تسویه مبتنی بر یورو استفاده می‌شود.",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.evidence.sourceTickers, ["EURR"]);
+    assert.deepEqual(result.evidence.translatedTickers, ["EURR"]);
+  });
+
+  it("does not classify unrelated uppercase acronyms as market tickers", () => {
+    const result = validatePersianNewsEditorialQuality({
+      sourceTitle: "DPRK-linked IT workers targeted US companies, NBC reported",
+      sourceLead: "The report referenced employee ID records and IBAN details.",
+      sourceBody: "NBC described DPRK-linked IT personnel and identity records.",
+      translatedTitle: "NBC از هدف قرار گرفتن شرکت‌های US توسط نیروهای مرتبط با DPRK خبر داد",
+      translatedLead: "گزارش به سوابق هویتی و جزئیات بانکی اشاره کرد.",
+      translatedBody: "NBC فعالیت نیروهای مرتبط با DPRK در حوزه فناوری اطلاعات را شرح داد.",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.evidence.sourceTickers, []);
+    assert.deepEqual(result.evidence.translatedTickers, []);
+  });
+
+  it("fails closed when an explicitly grounded unknown ticker is dropped", () => {
+    const result = validatePersianNewsEditorialQuality({
+      sourceTitle: "EURR stablecoin launches on new rails",
+      sourceLead: "The EURR token is available for settlement.",
+      sourceBody: "EURR is the stablecoin symbol cited by the publisher.",
+      translatedTitle: "استیبل‌کوین جدید روی زیرساخت تازه راه‌اندازی شد",
+      translatedLead: "این توکن برای تسویه در دسترس است.",
+      translatedBody: "ناشر به نماد استیبل‌کوین اشاره کرده است.",
+    });
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "ticker_integrity_failed");
+    assert.deepEqual(result.evidence.missingTickers, ["EURR"]);
+  });
+
   it("rejects dropping a source crypto ticker", () => {
     const result = validatePersianNewsEditorialQuality({
       sourceTitle: "XLM falls 3% during Stellar pilot",

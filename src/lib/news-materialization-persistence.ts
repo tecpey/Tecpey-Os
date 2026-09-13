@@ -27,6 +27,7 @@ export type PersistMaterializedNewsSnapshotResult = {
   snapshotId: string;
   snapshotHash: string;
   insertedHistoryItems: number;
+  insertedHistoryPaths: string[];
 };
 
 function canonicalJson(value: unknown): string {
@@ -221,7 +222,7 @@ export async function persistMaterializedNewsSnapshotTx(
 ): Promise<PersistMaterializedNewsSnapshotResult> {
   const valid = validateSnapshot(input);
   const replay = await assertExistingSnapshotReplay(client, valid.idempotencyKey, valid.snapshotHash);
-  if (replay) return { ...replay, insertedHistoryItems: 0 };
+  if (replay) return { ...replay, insertedHistoryItems: 0, insertedHistoryPaths: [] };
 
   await client.query(
     `INSERT INTO platform_news_materialization_snapshots
@@ -249,6 +250,7 @@ export async function persistMaterializedNewsSnapshotTx(
   );
 
   let insertedHistoryItems = 0;
+  const insertedHistoryPaths: string[] = [];
   for (const [index, item] of valid.historyItems.entries()) {
     const slug = getNewsImpactSlug(item);
     const payloadHash = hashNewsMaterializationHistoryPayload(item);
@@ -288,6 +290,7 @@ export async function persistMaterializedNewsSnapshotTx(
     let historyId = row?.history_id ?? item.id;
     if (row) {
       insertedHistoryItems += 1;
+      insertedHistoryPaths.push(item.newsUrl);
     } else {
       const existing = await client.query<{
         history_id: string;
@@ -360,5 +363,6 @@ export async function persistMaterializedNewsSnapshotTx(
     snapshotId: valid.snapshotId,
     snapshotHash: valid.snapshotHash,
     insertedHistoryItems,
+    insertedHistoryPaths,
   };
 }
