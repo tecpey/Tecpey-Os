@@ -10,6 +10,7 @@ const faLanding = read(
   "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx",
 );
 const enLanding = read("src/app/en/EnglishLandingClient.tsx");
+const story = read("src/components/home/TecpeyGrowthStory.tsx");
 
 test("public navbar is Academy-first and exposes Mentor before market discovery", () => {
   for (const [academy, mentor, market] of [
@@ -78,15 +79,11 @@ test("both public landings remain free of exchange execution CTAs", () => {
   for (const pattern of forbidden) {
     assert.doesNotMatch(faLanding, pattern);
     assert.doesNotMatch(enLanding, pattern);
+    assert.doesNotMatch(story, pattern);
   }
 });
 
-test("English landing preserves Academy-first and Mentor-second conversion", () => {
-  const academy = enLanding.indexOf('href="/en/academy"');
-  const mentor = enLanding.indexOf('href="/en/academy/ai-guide"');
-
-  assert.ok(academy >= 0);
-  assert.ok(mentor > academy);
-  assert.match(enLanding, /Academy/);
-  assert.match(enLanding, /Mentor/);
+test("English landing shares Academy conversion and mentor access", () => {
+  assert.match(enLanding, /<TecpeyGrowthStory locale="en"/);
+  assert.ok(story.indexOf('link("/academy")') < story.indexOf('link("/academy/ai-guide")'));
 });

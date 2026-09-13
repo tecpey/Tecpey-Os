@@ -184,9 +184,9 @@ try {
   console.log(`UI runtime: root returned ${html.length} HTML bytes.`);
 
   for (const required of [
-    "tecpey-enterprise",
-    "تک‌پی، نقطه امن ورود به بازار رمزارز",
-    "آکادمی رایگان",
+    'data-runtime-contract="landing-growth-v1"',
+    "شروع آکادمی رایگان",
+    "کشف مسیر رشد",
   ]) {
     if (!html.includes(required)) {
       throw new Error(`root HTML is missing required rendered marker: ${required}`);

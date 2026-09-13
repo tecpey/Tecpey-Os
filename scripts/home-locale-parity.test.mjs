@@ -21,50 +21,24 @@ function assertInOrder(value, needles, label) {
   }
 }
 
-test("FA and EN homes share the governed core section order", async () => {
-  const [fa, en] = await Promise.all([source(faPath), source(enPath)]);
-  const sharedOrder = [
-    "<HomeDiscoveryStrip",
-    "<CryptoNewsCenter",
-    "<HomeAiMentorSpotlight",
-    "<HomeLearningJourney",
-    "<LandingGrowthRadar",
-  ];
-
-  const hero = await source("src/components/home/CalmLandingHero.tsx");
-  assert.match(hero, /data-home-section="hero"/);
-  assert.match(fa, /<CalmLandingHero locale="fa"/);
-  assert.match(en, /<CalmLandingHero locale="en"/);
-  assertInOrder(fa, ["<Hero />", "<HomeDiscoveryStrip"], "FA home top");
-  assertInOrder(en, ['<CalmLandingHero locale="en"', "<HomeDiscoveryStrip"], "EN home top");
-  assertInOrder(fa, sharedOrder, "FA home");
-  assertInOrder(en, sharedOrder, "EN home");
-  // HomeDiscoveryStrip's data streams in via a Suspense-resolved promise
-  // rather than an already-awaited value (see src/app/page.tsx) — the mount
-  // point passes the promise down, and the resolver applies it to
-  // HomeDiscoveryStrip under the same locale.
-  assert.match(fa, /<HomeDiscoveryStripResolved radarPromise=\{growthRadarPromise\} \/>/);
-  assert.match(en, /<HomeDiscoveryStripResolved radarPromise=\{growthRadarPromise\} \/>/);
-  assert.match(fa, /function HomeDiscoveryStripResolved[\s\S]*?<HomeDiscoveryStrip locale="fa" radar=\{radar\} \/>/);
-  assert.match(en, /function HomeDiscoveryStripResolved[\s\S]*?<HomeDiscoveryStrip locale="en" radar=\{radar\} \/>/);
-  assert.doesNotMatch(fa, /TopDiscoveryGateway/);
+test("FA and EN homes use one localized story with news and markets before the growth journey", async () => {
+  const [fa, en, story] = await Promise.all([source(faPath), source(enPath), source("src/components/home/TecpeyGrowthStory.tsx")]);
+  assert.match(fa, /<TecpeyGrowthStory locale="fa"/);
+  assert.match(en, /<TecpeyGrowthStory locale="en"/);
+  assertInOrder(story, ['data-home-section="hero"', 'id="story-news"', 'id="story-market"', 'id="story-academy"', 'id="story-practice"', 'id="story-league"', 'data-home-section="pro-gift"', 'id="story-mastery"', 'id="story-exchange"', 'data-home-section="resume"'], "shared story");
+  assert.match(story, /<HomeDiscoveryStrip locale=\{locale\} radar=\{radar\}/);
+  assert.match(story, /<Suspense/);
+  assert.match(story, /<Discovery promise=\{growthRadarPromise\} locale=\{locale\}/);
 });
 
-test("FA academy conversion and market cards expose the corrected academy journey", async () => {
-  const fa = await source(faPath);
-
-  assert.match(fa, /const academyHref = "\/academy"/);
-  assert.doesNotMatch(fa, /academyAuthHref/);
-  const hero = await source("src/components/home/CalmLandingHero.tsx");
-  assert.ok(hero.includes('href={`${prefix}/academy`}'));
-  assert.ok(hero.includes('href={`${prefix}/academy/ai-guide`}'));
-  assert.match(hero, /شروع آکادمی رایگان/);
-  assert.match(hero, /Start Free Academy/);
-  assert.match(hero, /const prefix = fa \? "" : "\/en"/);
-  assert.match(hero, /aria-hidden="true"/);
-  assert.doesNotMatch(hero, /جوایز برای برترین‌ها/);
-  assert.match(fa, /formatUsdPrice\(price\)/);
-  assert.doesNotMatch(fa, /change\.toFixed\(2\).*٪/);
+test("shared conversion preserves localized Academy and mentor access", async () => {
+  const story = await source("src/components/home/TecpeyGrowthStory.tsx");
+  assert.ok(story.includes('link("/academy")'));
+  assert.ok(story.includes('link("/academy/ai-guide")'));
+  assert.match(story, /شروع آکادمی رایگان/);
+  assert.match(story, /Start Free Academy/);
+  assert.match(story, /const prefix = fa \? "" : "\/en"/);
+  assert.doesNotMatch(story, /my\.tecpey\.ir|ورود به صرافی|Enter Exchange/);
 });
 
 test("mobile discovery prioritizes readable controls without horizontal scrolling", async () => {
@@ -138,10 +112,9 @@ test("the detailed growth radar yields mobile space to discovery", async () => {
   assert.match(radar, /className="hidden[^\"]*md:block/);
 });
 
-test("interface language does not force an Iran-only market unit", async () => {
-  const [fa, en] = await Promise.all([source(faPath), source(enPath)]);
-
-  assert.doesNotMatch(fa, /USDT_IRT|\/ IRT/);
-  assert.match(fa, /USD\/USDT/);
-  assert.match(en, /USD\/USDT/);
+test("interface language uses source quote currency and preserves small-price precision", async () => {
+  const live = await source("src/components/home/StoryLiveData.tsx");
+  assert.doesNotMatch(live, /USDT_IRT|\/ IRT/);
+  assert.match(live, /provenance\?\.currency/);
+  assert.match(live, /formatMarketPrice\(row.price/);
 });
