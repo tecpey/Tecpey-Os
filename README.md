@@ -42,12 +42,12 @@ The product thesis is continuity: **learn → practice → reflect → understan
 
 ## Real Product, Real Evidence
 
-The screenshots below are **actual TecPey browser captures**, not mockups, concept art or reconstructed marketing screens. They come from the governed Public Browser Golden Path for the exact head of merged PR #642 (`c28ec91f397fb4f1580d2b6d2499d867c176fa77`). Full provenance is recorded in [`docs/assets/screenshots/showcase/PROVENANCE.md`](./docs/assets/screenshots/showcase/PROVENANCE.md).
+The screenshots below are **actual TecPey browser-derived captures**, not mockups, concept art or reconstructed marketing screens. They come from the governed Public Browser Golden Path for the exact head of merged PR #642 (`c28ec91f397fb4f1580d2b6d2499d867c176fa77`). The committed derivatives are the durable showcase assets; the source GitHub Actions artifact is retention-limited and is documented as historical provenance rather than permanent pixel-level review authority. See [`docs/assets/screenshots/showcase/PROVENANCE.md`](./docs/assets/screenshots/showcase/PROVENANCE.md).
 
 ### Guided entry experience
 
 <p align="center">
-  <img src="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp" alt="Real TecPey Persian landing page captured by CI" width="760" />
+  <a href="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp"><img src="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp" alt="Real TecPey Persian landing page captured by CI" width="480" /></a>
 </p>
 
 The current landing experience presents TecPey as a growth journey rather than an exchange-first funnel. Academy, Mentor, virtual practice, market context and the longer learning path live in one bilingual product shell.
@@ -55,12 +55,12 @@ The current landing experience presents TecPey as a growth journey rather than a
 ### Serious practice without customer-fund exposure
 
 <p align="center">
-  <img src="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp" alt="Real TecPey Trading Arena captured by CI" width="760" />
+  <a href="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp"><img src="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp" alt="Real TecPey Trading Arena captured by CI" width="320" /></a>
 </p>
 
 Trading Arena is a simulation environment with server-authoritative virtual accounts, balances, attempts, positions, orders and executions. Simulated balances and outcomes are educational evidence—not customer assets, real performance or promises of return.
 
-> The source CI artifact also contains full-resolution Academy, Mentor, authentication, responsive, light/dark and FA/EN captures. The root README stays intentionally focused while the provenance manifest points reviewers to the originals.
+> The source CI artifact also contained full-resolution Academy, Mentor, authentication, responsive, light/dark and FA/EN captures. GitHub Actions retention is finite, so those originals are **not presented as continuing durable evidence after artifact expiry**. The committed showcase derivatives, source paths, dimensions and hashes remain documented for traceability.
 
 ## Built for Three Audiences
 
