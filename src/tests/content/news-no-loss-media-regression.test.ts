@@ -54,6 +54,16 @@ describe("news no-loss archive and media authority", () => {
     assert.doesNotMatch(authority, /WHERE \(\$2 <> 'fa' OR translation\.status = 'completed'\)/);
   });
 
+  it("keeps publisher full bodies inside the evidence boundary", async () => {
+    const authority = await source("src/services/news/archive-presentation-authority.ts");
+    assert.match(authority, /Omit<NewsArchiveItem, "sourceBody">/);
+    assert.doesNotMatch(authority, /sourceBody: String\(row\.source_body\)/);
+    assert.doesNotMatch(authority, /source_title, source_lead, source_body, source_coverage/);
+    assert.match(authority, /readiness\.publicSummaryAllowed/);
+    assert.match(authority, /readiness\.persianEditorialAllowed/);
+    assert.match(authority, /displayBody: useTranslation \? String\(row\.translated_body\) : fallbackLead/);
+  });
+
   it("keeps pending Persian archive rows out of downstream quiz and automation authority", async () => {
     const api = await source("src/app/api/crypto-news/route.ts");
     assert.match(api, /archiveItems\.filter\(\(item\) => !item\.translationPending\)/);
@@ -68,7 +78,7 @@ describe("news no-loss archive and media authority", () => {
     assert.match(archive, /object-cover/);
     assert.match(archive, /referrerPolicy="no-referrer"/);
     assert.match(archive, /ترجمه در بازپردازش/);
-    assert.match(archive, /متن معتبر منبع نمایش داده می‌شود/);
+    assert.match(archive, /سیاست بازنشر منبع اجازه داده باشد/);
   });
 
   it("keeps governed media off the public API surface and verifies archive identity", async () => {
