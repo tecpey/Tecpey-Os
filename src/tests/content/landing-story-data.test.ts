@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { finiteMarketNumber, storyMarketRows, storyHeatmapRows, storySafeLink } from "@/lib/landing-story-data";
+import { finiteMarketNumber, storyMarketRows, storyHeatmapRows, storySafeLink } from "@/data/landing-story-data";
 import type { CurrencyListResponse } from "@/types/market";
 const now = Date.parse("2026-09-12T12:00:00Z");
 const row = (symbol: string, extra = {}) => ({ symbol, priceData: { last: 12, changePercent: null }, marketDataUpdatedAt: new Date(now).toISOString(), ...extra });
