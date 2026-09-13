@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Newspaper, RefreshCw, Table2, Grid2X2, Trophy } from "lucide-react";
 import MarketDataProvenance from "@/components/markets/MarketDataProvenance";
-import { storyMarketRows, storyHeatmapRows, storySafeLink } from "@/lib/landing-story-data";
+import { storyMarketRows, storyHeatmapRows, storySafeLink } from "@/data/landing-story-data";
 import type { CurrencyListResponse } from "@/types/market";
 import styles from "./growth-story.module.css";
 
