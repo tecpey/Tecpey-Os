@@ -7,25 +7,27 @@ TecPey must not convert an AI/provider outage, translation-quality rejection, en
 The operating model deliberately separates five authorities:
 
 1. **Capture authority** — preserve every valid item observed from a governed source.
-2. **Archive presentation authority** — make captured evidence discoverable by day even while enrichment is pending.
+2. **Archive presentation authority** — keep every captured item discoverable by day while respecting redistribution rights.
 3. **Enrichment authority** — produce Persian editorial rendering under factual, numeric, entity, cost and quality controls.
 4. **Publication authority** — decide whether a localized item may receive a TecPey detail URL, ranking influence and other public-product privileges.
 5. **Indexing authority** — IndexNow/search submission remains downstream of final governed publication and Organic Growth readiness.
 
-Archive visibility is therefore intentionally broader than publication authority.
+Archive discoverability is intentionally broader than publication authority, but it is not broader than provider rights authority.
 
 ## No-loss invariant
 
-A captured immutable source record is never hidden merely because Persian translation is pending or failed.
+A captured immutable source record is never deleted or omitted merely because Persian translation is pending or failed.
 
 For the Persian daily archive:
 
-- completed governed translation => Persian title/lead/body;
-- pending or failed translation => publisher title/lead/body with an explicit `translationPending` UI state;
+- completed governed translation + Persian editorial permission => Persian title/lead/body;
+- pending or failed translation + public-summary permission => publisher title and cleared excerpt with an explicit `translationPending` state;
+- no public-summary permission => metadata-only presentation plus the original publisher link;
+- publisher full bodies remain internal immutable evidence and are never exposed through the public archive/API merely to satisfy the no-loss requirement;
 - pending rows do **not** feed the Persian landing news list, Academy news quiz, automation preview, ranking, sitemap or IndexNow;
-- after a completed translation is persisted, the same archive surface automatically presents the governed Persian rendering.
+- after a completed permitted translation is persisted, the same archive surface automatically presents the governed Persian rendering.
 
-This makes provider incidents visible as enrichment backlog instead of silent content loss.
+This converts provider incidents into a visible enrichment backlog instead of silent content loss, without turning TecPey into a republication mirror of publisher copy.
 
 ## Translation reliability policy
 
@@ -36,11 +38,11 @@ Failure classes are intentionally different:
 - credential/provider availability failures such as rejected key, disabled provider or exhausted quota: recoverable configuration with slower exponential/capped backoff because credentials and account state can change without publisher evidence changing;
 - response-size and unknown failures: fail closed until explicitly understood.
 
-The safety validators remain intact. Retry policy is relaxed; factual acceptance policy is not.
+The safety validators remain intact. Retry policy can recover from changing provider conditions; factual acceptance policy is not weakened.
 
 ## Numeric integrity
 
-Persian newsroom instructions now require a pre-generation numeric inventory and field-by-field self-check. If a title contains `2%`, `$100 million`, `Q3`, `2026`, or another numeric fact, the same fact must remain in the corresponding Persian field with sign, percentage, currency and magnitude preserved.
+Persian newsroom instructions require a pre-generation numeric inventory and field-by-field self-check. If a title contains `2%`, `$100 million`, `Q3`, `2026`, or another numeric fact, the same fact must remain in the corresponding Persian field with sign, percentage, currency and magnitude preserved.
 
 The deterministic validator remains the final authority.
 
@@ -57,7 +59,7 @@ Media resolution order:
 5. publisher `og:image` / Twitter card only when full publisher-page fetch is allowed by source policy;
 6. TecPey visual fallback when no governed source media is available.
 
-Security boundaries:
+Security and performance boundaries:
 
 - requested article must already exist in TecPey's immutable archive;
 - publisher page fetch remains constrained to registry-approved hosts and manually validated redirects;
@@ -66,9 +68,10 @@ Security boundaries:
 - response bodies are bounded and time-limited;
 - user referrer is suppressed;
 - provider readiness must explicitly allow `licensed` or `official_attribution` media;
-- blocked, quarantined, unknown or `tecpey_generated` sources never receive a source-image request from the archive presentation model.
-
-The media redirect is cacheable and does not proxy or duplicate publisher image bytes.
+- blocked, quarantined, unknown or `tecpey_generated` sources never receive a source-image request from the archive presentation model;
+- feed media discovery is collapsed into a short-lived per-source catalog with in-flight request deduplication, preventing one card from becoming one upstream feed request;
+- the public media resource lives at `/crypto-news/media`, outside the `/api` control surface, and is rate-limited, archive-bound, noindex and cacheable;
+- the media resource redirects to approved source media and does not proxy or duplicate publisher image bytes.
 
 ## UX contract
 
@@ -77,16 +80,16 @@ Daily archive cards use a responsive 16:9 media frame with `object-cover`, lazy 
 Every card communicates:
 
 - publisher and publication time;
-- evidence coverage (`article_full`, `feed_full`, `feed_summary`);
-- translation state;
-- title and lead;
-- expandable archived/full translated body;
+- captured evidence coverage (`article_full`, `feed_full`, `feed_summary`);
+- translation/redistribution state;
+- title and permitted lead/excerpt or metadata-only notice;
+- governed Persian body only when permitted and completed;
 - taxonomy tags;
 - governed TecPey context URL only when one exists;
 - original publisher URL;
 - image attribution when source media is used.
 
-Pending Persian records explicitly explain that the source record is preserved but is not yet eligible for Persian auto-publication/ranking.
+Pending Persian records explicitly explain that the captured record is preserved but is not yet eligible for Persian auto-publication/ranking.
 
 ## Entity gap closed
 
@@ -105,9 +108,10 @@ Before enabling staging timers:
 - capture worker proves required-source continuity;
 - current OpenAI credential probe succeeds;
 - enrichment canary shows provider rejection regression removed;
-- Persian archive count equals captured archive count for the selected day even when some translations are pending;
+- Persian archive discoverability accounts for captured items even when some translations are pending;
+- provider-blocked summaries degrade to metadata-only rather than leaking publisher full copy;
 - pending Persian rows are absent from quiz/automation downstream authority;
-- completed Persian rows render governed full body;
+- completed permitted Persian rows render governed body;
 - representative allowed source thumbnail renders or falls back safely;
 - blocked/unready source thumbnail returns safe fallback;
 - IndexNow remains `submitted: 0` until explicit governed publication attestation is wired;
