@@ -499,7 +499,6 @@ async function main(): Promise<void> {
   let enInputs: RawNewsInput[] = [];
   let faInputs: RawNewsInput[] = [];
   let enDecisions: NewsAutomationDecision[] = [];
-  let faDecisions: NewsAutomationDecision[] = [];
   let trendSignals: GrowthTrendSignal[] = [];
   let archiveTransactionCommitted = false;
   const freshArticleUrls = new Set<string>();
@@ -535,7 +534,6 @@ async function main(): Promise<void> {
       enInputs = stablePrepared.map(toEnglishInput);
       faInputs = stablePrepared.map(toPersianInput).filter((item): item is RawNewsInput => Boolean(item));
       enDecisions = buildNewsAutomationBatch(enInputs);
-      faDecisions = buildNewsAutomationBatch(faInputs);
       trendSignals = [
         ...decisionTrendSignals(
           enDecisions.filter((decision) => freshArticleUrls.has(decision.article.canonicalUrl)),
