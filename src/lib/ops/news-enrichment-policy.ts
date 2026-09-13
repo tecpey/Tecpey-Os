@@ -1,14 +1,14 @@
 export type NewsEnrichmentFailureClass =
   | "transient"
-  | "configuration"
+  | "recoverable_configuration"
   | "terminal_quality"
   | "terminal_provider";
 
 export type NewsEnrichmentRetryDecision =
-  | { action: "process"; reason: "fresh" | "transient_retry" }
-  | { action: "defer"; until: string; failureClass: "transient" }
+  | { action: "process"; reason: "fresh" | "transient_retry" | "configuration_retry" }
+  | { action: "defer"; until: string; failureClass: "transient" | "recoverable_configuration" }
   | { action: "attempt_budget_exhausted"; failures: number; failureClass: "transient" }
-  | { action: "terminal_failure"; failureClass: Exclude<NewsEnrichmentFailureClass, "transient">; reason: string };
+  | { action: "terminal_failure"; failureClass: "terminal_quality" | "terminal_provider"; reason: string };
 
 const TRANSIENT_FAILURES = new Set([
   "translation_timeout",
@@ -16,17 +16,26 @@ const TRANSIENT_FAILURES = new Set([
   "translation_rate_limited",
   "translation_circuit_open",
   "translation_cancelled",
+  "translation_invalid_response",
+  "translation_numeric_integrity_failed",
+  "translation_language_or_shape_invalid",
+  "translation_summary_unsupported_entity",
+  "translation_summary_expansion_exceeded",
+  "editorial_quality_unsupported_latin_entity",
+  "editorial_quality_ticker_integrity_failed",
+  "editorial_quality_persian_field_quality_failed",
+  "editorial_quality_title_shape_failed",
+  "editorial_quality_title_density_failed",
 ]);
 
-const CONFIGURATION_FAILURES = new Set([
+const RECOVERABLE_CONFIGURATION_FAILURES = new Set([
   "translation_provider_unavailable",
   "translation_provider_disabled",
   "translation_quota_exhausted",
+  "translation_provider_rejected",
 ]);
 
 const TERMINAL_PROVIDER_FAILURES = new Set([
-  "translation_provider_rejected",
-  "translation_invalid_response",
   "translation_response_too_large",
 ]);
 
@@ -40,17 +49,28 @@ function boundedRetryMinutes(value: number): number {
   return Math.max(1, Math.min(24 * 60, Math.trunc(value)));
 }
 
+function recoverableConfigurationDelayMinutes(input: {
+  failureCount: number;
+  retryMinutes: number;
+}): number {
+  // Credentials, quotas and provider access can change without the immutable
+  // publisher evidence changing. Keep those failures retryable, but use a
+  // deliberately slower capped backoff so a bad key cannot create a paid-call
+  // storm. The archive remains public independently while enrichment waits.
+  const base = Math.max(15, boundedRetryMinutes(input.retryMinutes));
+  const exponent = Math.max(0, Math.min(5, Math.trunc(input.failureCount) - 1));
+  return Math.min(6 * 60, base * 2 ** exponent);
+}
+
 export function classifyNewsEnrichmentFailure(reason: string | null | undefined): NewsEnrichmentFailureClass {
   const normalized = reason?.trim() ?? "";
   if (TRANSIENT_FAILURES.has(normalized)) return "transient";
-  if (CONFIGURATION_FAILURES.has(normalized)) return "configuration";
+  if (RECOVERABLE_CONFIGURATION_FAILURES.has(normalized)) return "recoverable_configuration";
   if (TERMINAL_PROVIDER_FAILURES.has(normalized)) return "terminal_provider";
 
-  // Validation/quality failures have already consumed the translator's single
-  // governed repair pass when applicable. Retrying them on a scheduler cadence
-  // is both expensive and unlikely to change the outcome for immutable input.
-  // Unknown failures also fail closed into this class rather than silently
-  // becoming paid transient retries.
+  // Unknown or policy-only validation failures stay fail-closed. Archive
+  // preservation is a separate authority, so terminal enrichment never means
+  // deleting or hiding the captured source record.
   return "terminal_quality";
 }
 
@@ -67,6 +87,33 @@ export function decideNewsEnrichmentRetry(input: {
   }
 
   const failureClass = classifyNewsEnrichmentFailure(input.failureReason);
+  const generatedAtMs = Date.parse(input.generatedAt);
+  if (!Number.isFinite(generatedAtMs)) {
+    return {
+      action: "terminal_failure",
+      failureClass: "terminal_quality",
+      reason: "translation_failure_timestamp_invalid",
+    };
+  }
+
+  const nowMs = input.nowMs ?? Date.now();
+
+  if (failureClass === "recoverable_configuration") {
+    const delayMinutes = recoverableConfigurationDelayMinutes({
+      failureCount: input.failureCount,
+      retryMinutes: input.retryMinutes,
+    });
+    const retryAtMs = generatedAtMs + delayMinutes * 60_000;
+    if (nowMs < retryAtMs) {
+      return {
+        action: "defer",
+        until: new Date(retryAtMs).toISOString(),
+        failureClass,
+      };
+    }
+    return { action: "process", reason: "configuration_retry" };
+  }
+
   if (failureClass !== "transient") {
     return {
       action: "terminal_failure",
@@ -84,23 +131,13 @@ export function decideNewsEnrichmentRetry(input: {
     };
   }
 
-  const generatedAtMs = Date.parse(input.generatedAt);
-  if (!Number.isFinite(generatedAtMs)) {
-    return {
-      action: "terminal_failure",
-      failureClass: "terminal_quality",
-      reason: "translation_failure_timestamp_invalid",
-    };
-  }
-
   const retryMinutes = boundedRetryMinutes(input.retryMinutes);
   const retryAtMs = generatedAtMs + retryMinutes * 60_000;
-  const nowMs = input.nowMs ?? Date.now();
   if (nowMs < retryAtMs) {
     return {
       action: "defer",
       until: new Date(retryAtMs).toISOString(),
-      failureClass: "transient",
+      failureClass,
     };
   }
 

@@ -23,10 +23,10 @@ test("news pages read the database archive and never activate RSS ingestion on m
   const api = read("src/app/api/crypto-news/route.ts");
   const timer = read("deploy/systemd/tecpey-news-materialization.timer");
   const stagingGuard = read("scripts/check-news-materialization-staging-evidence-authority.mjs");
-  assert.match(fa, /getNewsArchiveDayFromAuthority/);
+  assert.match(fa, /getNewsArchiveDayForPresentation/);
   assert.doesNotMatch(fa, /CryptoNewsCenter/);
   assert.match(home, /fetch\(`\/api\/crypto-news/);
-  assert.match(api, /getNewsArchiveDayFromAuthority/);
+  assert.match(api, /getNewsArchiveDayForPresentation/);
   assert.doesNotMatch(api, /readSource|outboundfeeds|cointelegraph\.com\/rss|decrypt\.co\/feed/);
   assert.match(timer, /OnBootSec=2min/);
   assert.match(timer, /OnUnitActiveSec=10min/);
