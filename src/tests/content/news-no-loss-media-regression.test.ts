@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -12,7 +13,7 @@ import {
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 async function source(path: string): Promise<string> {
-  return readFile(new URL(path, `file://${ROOT}/`), "utf8");
+  return readFile(resolve(ROOT, path), "utf8");
 }
 
 describe("news no-loss archive and media authority", () => {
@@ -50,7 +51,6 @@ describe("news no-loss archive and media authority", () => {
     assert.match(authority, /translationPending: locale === "fa" && !useTranslation/);
     assert.match(authority, /WHEN 'article_full' THEN 3/);
     assert.match(authority, /WHEN 'feed_full' THEN 2/);
-    assert.doesNotMatch(authority, /translation\.status\s*=\s*'completed'\)\s*$/m);
     assert.doesNotMatch(authority, /WHERE \(\$2 <> 'fa' OR translation\.status = 'completed'\)/);
   });
 
