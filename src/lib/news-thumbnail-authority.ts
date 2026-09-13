@@ -271,7 +271,10 @@ async function archivedSource(articleUrl: string): Promise<{ sourceName: string;
         LIMIT 1`,
       [articleUrl],
     );
-    return row.rows[0] ?? null;
+    const archived = row.rows[0];
+    return archived
+      ? { sourceName: archived.source_name, articleUrl: archived.article_url }
+      : null;
   });
   return result.enabled ? result.value : null;
 }
