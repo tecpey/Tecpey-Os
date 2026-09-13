@@ -6,6 +6,7 @@ import { logger } from "../../lib/logger";
 import type { NewsArchiveItem } from "../../lib/news-growth-authority";
 import {
   providerReadinessSummaryForDomain,
+  type NewsProviderReadinessDecision,
   type NewsProviderThumbnailPolicy,
 } from "../../lib/news-provider-readiness";
 import {
@@ -14,9 +15,11 @@ import {
 } from "../../lib/news-source-registry";
 import type { NewsTaxonomyMatch } from "../../lib/news-taxonomy";
 
-export type NewsArchivePresentationItem = NewsArchiveItem & {
+export type NewsArchivePresentationItem = Omit<NewsArchiveItem, "sourceBody"> & {
   sourceCoverage: "feed_full" | "feed_summary" | "article_full" | null;
   translationPending: boolean;
+  publicSummaryAllowed: boolean;
+  persianEditorialAllowed: boolean;
   thumbnailUrl: string | null;
   thumbnailAlt: string;
   thumbnailPolicy: NewsProviderThumbnailPolicy;
@@ -32,7 +35,15 @@ function sourceForArticleUrl(articleUrl: string) {
   }
 }
 
-function thumbnailPresentation(articleUrl: string): {
+function readinessForArticle(articleUrl: string): NewsProviderReadinessDecision {
+  const source = sourceForArticleUrl(articleUrl);
+  return providerReadinessSummaryForDomain(source?.canonicalDomains[0] ?? articleUrl);
+}
+
+function thumbnailPresentation(
+  articleUrl: string,
+  readiness: NewsProviderReadinessDecision,
+): {
   url: string | null;
   policy: NewsProviderThumbnailPolicy;
   attributionRequired: boolean;
@@ -42,7 +53,6 @@ function thumbnailPresentation(articleUrl: string): {
     return { url: null, policy: "blocked", attributionRequired: true };
   }
 
-  const readiness = providerReadinessSummaryForDomain(source.canonicalDomains[0] ?? "");
   const sourceMediaAllowed = readiness.thumbnailPolicy === "licensed"
     || readiness.thumbnailPolicy === "official_attribution";
   return {
@@ -60,17 +70,31 @@ function coverage(value: unknown): NewsArchivePresentationItem["sourceCoverage"]
     : null;
 }
 
+function metadataOnlyLead(locale: ContentLocale, sourceName: string): string {
+  return locale === "fa"
+    ? `متن این خبر فعلاً برای بازنشر عمومی مجاز نیست؛ برای جزئیات، منبع اصلی ${sourceName} را بررسی کنید.`
+    : `Publisher text is not cleared for public redistribution here. Open the original ${sourceName} source for details.`;
+}
+
 function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchivePresentationItem {
   const taxonomy = typeof row.taxonomy === "string" ? JSON.parse(row.taxonomy) : row.taxonomy;
   const translationStatus = String(row.translation_status ?? "unavailable") as NewsArchiveItem["translationStatus"];
-  const useTranslation = locale === "fa"
-    && translationStatus === "completed"
+  const articleUrl = String(row.article_url);
+  const readiness = readinessForArticle(articleUrl);
+  const translationCompleted = translationStatus === "completed"
     && typeof row.translated_title === "string"
     && typeof row.translated_lead === "string"
     && typeof row.translated_body === "string";
-  const articleUrl = String(row.article_url);
+  const useTranslation = locale === "fa"
+    && translationCompleted
+    && readiness.persianEditorialAllowed;
+  const canShowPublisherSummary = readiness.publicSummaryAllowed;
   const displayTitle = useTranslation ? String(row.translated_title) : String(row.source_title);
-  const thumbnail = thumbnailPresentation(articleUrl);
+  const sourceLead = String(row.source_lead);
+  const fallbackLead = canShowPublisherSummary
+    ? sourceLead
+    : metadataOnlyLead(locale, String(row.source_name));
+  const thumbnail = thumbnailPresentation(articleUrl, readiness);
 
   return {
     archiveId: String(row.archive_id),
@@ -80,8 +104,7 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
     newsUrl: row.news_url ? String(row.news_url) : null,
     sourceLanguage: String(row.source_language),
     sourceTitle: String(row.source_title),
-    sourceLead: String(row.source_lead),
-    sourceBody: String(row.source_body),
+    sourceLead: canShowPublisherSummary ? sourceLead : "",
     publishedAt: new Date(row.published_at as string | Date).toISOString(),
     fetchedAt: new Date(row.fetched_at as string | Date).toISOString(),
     day: String(row.published_day_tehran),
@@ -89,13 +112,17 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
     taxonomy: taxonomy as NewsTaxonomyMatch,
     locale,
     displayTitle,
-    displayLead: useTranslation ? String(row.translated_lead) : String(row.source_lead),
-    displayBody: useTranslation ? String(row.translated_body) : String(row.source_body),
+    displayLead: useTranslation ? String(row.translated_lead) : fallbackLead,
+    // Full publisher bodies are internal evidence, not public copy. Only the
+    // governed Persian rendering may expose a full body on this surface.
+    displayBody: useTranslation ? String(row.translated_body) : fallbackLead,
     translationStatus,
     translationProvider: row.provider_id ? String(row.provider_id) : null,
     translationModel: row.model ? String(row.model) : null,
     sourceCoverage: coverage(row.source_coverage),
     translationPending: locale === "fa" && !useTranslation,
+    publicSummaryAllowed: readiness.publicSummaryAllowed,
+    persianEditorialAllowed: readiness.persianEditorialAllowed,
     thumbnailUrl: thumbnail.url,
     thumbnailAlt: displayTitle,
     thumbnailPolicy: thumbnail.policy,
@@ -107,10 +134,11 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
  * Archive visibility is independent from governed publication.
  *
  * Every captured immutable article remains discoverable even while Persian
- * enrichment is pending or has failed. Pending Persian rows fall back to the
- * publisher text with an explicit UI state; they do not gain a governed TecPey
- * detail URL, ranking authority, sitemap entry or indexing authority until the
- * normal publication gates pass.
+ * enrichment is pending or has failed. Public presentation is rights-aware:
+ * publisher full bodies never leave the evidence boundary, provider policy can
+ * reduce an item to metadata-only, and only a governed Persian rendering may
+ * expose a full localized body. None of these presentation states grants a
+ * detail URL, ranking, sitemap or indexing authority.
  */
 export async function readNewsArchiveDayForPresentationTx(
   client: PoolClient,
@@ -123,7 +151,7 @@ export async function readNewsArchiveDayForPresentationTx(
     `WITH latest_article AS (
        SELECT DISTINCT ON (article_url)
               archive_id, source_name, source_domain, article_url, source_language,
-              source_title, source_lead, source_body, source_coverage, published_at,
+              source_title, source_lead, source_coverage, published_at,
               fetched_at, published_day_tehran, content_hash, taxonomy, created_at
          FROM platform_news_archive_items
         WHERE published_day_tehran = $1::date
