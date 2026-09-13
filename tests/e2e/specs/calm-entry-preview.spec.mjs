@@ -35,7 +35,11 @@ for (const screen of ["landing", "login", "signup"]) {
       const widths = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
       expect(widths[0]).toBeLessThanOrEqual(widths[1] + 1);
       await page.evaluate(() => document.fonts.ready);
-      const artwork = page.locator('main img[src*="academy-auth-crystal"]');
+      const artwork = page.locator(
+        screen === "landing"
+          ? 'main img[src*="growth-mountain"]'
+          : 'main img[src*="academy-auth-crystal"]',
+      ).first();
       await artwork.scrollIntoViewIfNeeded();
       await expect.poll(() => artwork.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
       const resolution = await artwork.evaluate(img => ({

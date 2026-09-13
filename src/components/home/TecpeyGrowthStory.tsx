@@ -30,13 +30,13 @@ export function TecpeyGrowthStory({ locale, growthRadarPromise, schema }: { loca
   const link = (path: string) => `${prefix}${path}`;
   const curriculum = fa ? ["مبانی رمزارز", "امنیت حساب و کیف پول", "صرافی و معاملات اسپات", "تحلیل پروژه و توکنومیکس", "تحلیل تکنیکال", "مدیریت سرمایه و ریسک", "روان‌شناسی و آمادگی بازار"] : ["Crypto foundations", "Account & wallet security", "Exchange & spot trading", "Research & tokenomics", "Technical analysis", "Capital & risk management", "Psychology & readiness"];
   const feature = (Icon: typeof BookOpen, title: string, description: string, href: string) => <Link className={styles.feature} href={href}><Icon size={26} aria-hidden="true" /><h3>{title}</h3><p>{description}</p><ArrowUpRight size={18} aria-hidden="true" /></Link>;
-  return <main className={styles.story} lang={fa ? "fa" : "en"} dir={fa ? "rtl" : "ltr"}>
+  return <main className={styles.story} data-runtime-contract="landing-growth-v1" lang={fa ? "fa" : "en"} dir={fa ? "rtl" : "ltr"}>
     {schema}
     <section data-home-section="hero" className={styles.hero} aria-labelledby="growth-hero-title">
       <div className={styles.heroCopy}><span className={styles.eyebrow}><Mountain size={18} aria-hidden="true" />{t("تک‌پی · مسیر تو، با سرعت تو", "TecPey · Your path, at your pace")}</span>
         <h1 id="growth-hero-title">{t("از اولین قدم،", "From your first step,")}<br /><em>{t("تا کارنامهٔ مهارتی تو", "to a record of your skills")}</em></h1>
         <p>{t("خبر را بشناس، یاد بگیر و با سرمایهٔ مجازی تمرین کن. منتور تک‌پی در مسیر بازبینی تصمیم‌ها و ساختن عادت‌های بهتر همراه توست.", "Understand the news, build knowledge and practice with virtual capital. Your TecPey mentor helps you review decisions and develop better habits.")}</p>
-        <div className={styles.actions}><Link className={styles.primary} href={link("/academy")}>{t("شروع آکادمی رایگان", "Start Free Academy")}<ArrowUpRight size={20} aria-hidden="true" /></Link><a className={styles.secondary} href="#story-news">{t("کشف مسیر رشد", "Explore the journey")}</a></div>
+        <div className={styles.actions} data-mobile-learning-cta><Link className={styles.primary} href={link("/academy")}>{t("شروع آکادمی رایگان", "Start Free Academy")}<ArrowUpRight size={20} aria-hidden="true" /></Link><a className={styles.secondary} href="#story-news">{t("کشف مسیر رشد", "Explore the journey")}</a></div>
         <ul className={styles.heroProof}><li><BookOpen size={16} aria-hidden="true" />{t("آموزش مرحله‌ای", "Step-by-step learning")}</li><li><ShieldCheck size={16} aria-hidden="true" />{t("تمرین با سرمایه مجازی", "Virtual-capital practice")}</li><li><BrainCircuit size={16} aria-hidden="true" />{t("منتور همراه", "Mentor support")}</li></ul>
       </div>
       <figure className={styles.heroArt}><Image src="/images/landing/growth-mountain.webp" alt="" fill priority sizes="(max-width: 760px) 100vw, 58vw" /><figcaption>{t("هر قدم، فرصتی برای یادگیری", "Every step is a chance to learn")}</figcaption></figure>
