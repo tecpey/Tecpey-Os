@@ -6,11 +6,13 @@ import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
 import { buildNewsAutomationBatch, type RawNewsInput } from "@/lib/news-automation";
 import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
 import {
-  getNewsArchiveDayFromAuthority,
+  getNewsArchiveDayForPresentation,
+  type NewsArchivePresentationItem,
+} from "@/lib/news-archive-presentation-authority";
+import {
   getNewsArchiveDaysFromAuthority,
   isValidArchiveDay,
   tehranCalendarDay,
-  type NewsArchiveItem,
 } from "@/lib/news-growth-authority";
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
 
@@ -31,6 +33,8 @@ type NewsItem = {
   trendScore?: number;
   editorPick?: boolean;
   relatedLesson?: string;
+  thumbnailUrl?: string | null;
+  translationPending?: boolean;
 };
 
 function boundedInteger(raw: string | null, fallback: number, maximum: number): number {
@@ -45,14 +49,14 @@ function inferTone(value: string): NewsTone {
   return "neutral";
 }
 
-function impactFor(item: NewsArchiveItem): number {
+function impactFor(item: NewsArchivePresentationItem): number {
   const coinWeight = Math.min(3, item.taxonomy.coinSymbols.length);
   const topicWeight = Math.min(2, item.taxonomy.topicTags.length);
   const toolWeight = Math.min(1, item.taxonomy.toolSlugs.length);
   return Math.max(4, Math.min(10, 4 + coinWeight + topicWeight + toolWeight));
 }
 
-function relatedLesson(item: NewsArchiveItem, locale: "fa" | "en"): string {
+function relatedLesson(item: NewsArchivePresentationItem, locale: "fa" | "en"): string {
   const topics = new Set(item.taxonomy.topicTags);
   if (topics.has("security") || topics.has("wallets")) return locale === "fa" ? "ترم ۲ · امنیت حساب" : "Term 2 · Account security";
   if (topics.has("derivatives") || topics.has("liquidity")) return locale === "fa" ? "لابراتوار ریسک" : "Risk Lab";
@@ -62,7 +66,7 @@ function relatedLesson(item: NewsArchiveItem, locale: "fa" | "en"): string {
   return locale === "fa" ? "آکادمی تک‌پی" : "TecPey Academy";
 }
 
-function toNewsItem(item: NewsArchiveItem, locale: "fa" | "en", now: number): NewsItem {
+function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now: number): NewsItem {
   const text = `${item.displayTitle} ${item.displayLead} ${item.displayBody}`;
   const impact = impactFor(item);
   const categoryTag = item.taxonomy.topicTags[0]
@@ -86,6 +90,8 @@ function toNewsItem(item: NewsArchiveItem, locale: "fa" | "en", now: number): Ne
     trendScore: impact * 10 + Math.min(20, item.taxonomy.entityTags.length),
     editorPick: impact >= 8,
     relatedLesson: relatedLesson(item, locale),
+    thumbnailUrl: item.thumbnailUrl,
+    translationPending: item.translationPending,
   };
 }
 
@@ -95,7 +101,7 @@ function marketIntelligence(locale: "fa" | "en", items: NewsItem[]) {
     return {
       headline: top ? `مهم‌ترین زمینه خبری امروز: ${top.category}` : "بازار را با نظم، نه هیجان، دنبال کنید.",
       risk: top ? `اثر آموزشی این خبر ${top.impact}/10 است؛ منبع و سناریوی ریسک را قبل از هر تصمیم بررسی کنید.` : "خبر تازه باید با منبع و داده بازار بررسی شود.",
-      action: top ? `مسیر پیشنهادی مطالعه: ${top.relatedLesson}` : "در نبود خبر تازه، محتوای قدیمی را به‌عنوان خبر امروز نمایش نمی‌دهیم.",
+      action: top ? `مسیر پیشنهادی مطالعه: ${top.relatedLesson}` : "در نبود خبر ترجمه‌شده، محتوای قدیمی را به‌عنوان خبر امروز نمایش نمی‌دهیم.",
       tone: top?.tone ?? "neutral",
     };
   }
@@ -153,11 +159,19 @@ export async function GET(request: NextRequest) {
     const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
     const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
     const [archiveItems, historicalDays] = await Promise.all([
-      getNewsArchiveDayFromAuthority(requestedDay, locale),
+      getNewsArchiveDayForPresentation(requestedDay, locale),
       getNewsArchiveDaysFromAuthority(180),
     ]);
     const now = Date.now();
-    const allItems = archiveItems.map((item) => toNewsItem(item, locale, now));
+
+    // Archive visibility is intentionally broader than downstream authority.
+    // Pending Persian rows remain visible in archiveItems, but they cannot feed
+    // landing news, Academy quizzes or automation previews until a governed
+    // Persian translation exists.
+    const downstreamArchiveItems = locale === "fa"
+      ? archiveItems.filter((item) => !item.translationPending)
+      : archiveItems;
+    const allItems = downstreamArchiveItems.map((item) => toNewsItem(item, locale, now));
     const items = allItems.slice(0, limit);
     const updatedAt = new Date().toISOString();
     const availableDays = Array.from(new Set([today, requestedDay, ...historicalDays]))
@@ -170,7 +184,10 @@ export async function GET(request: NextRequest) {
       today,
       availableDays,
       updatedAt,
-      mode: allItems.length ? "live" : "fallback" as const,
+      mode: archiveItems.length ? "live" : "fallback" as const,
+      archiveItemCount: archiveItems.length,
+      localizedItemCount: downstreamArchiveItems.length,
+      pendingTranslationCount: archiveItems.filter((item) => item.translationPending).length,
       marketIntelligence: marketIntelligence(locale, items),
       archiveItems,
       items,
