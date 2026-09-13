@@ -99,7 +99,7 @@ function NewsCardMedia({ item, isFa }: { item: NewsArchivePresentationItem; isFa
       </div>
       {item.thumbnailUrl && (
         // The media path is a governed same-origin redirect to provider-approved source media.
-        // eslint-disable-next-line @next/next/no-img-element
+        // eslint-disable-next-line @next/next/no-img-element -- #643: governed same-origin source media requires native fallback handling.
         <img src={item.thumbnailUrl} alt={item.thumbnailAlt} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover object-center" onError={(event) => { event.currentTarget.style.display = "none"; }} />
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/80 to-transparent" />
