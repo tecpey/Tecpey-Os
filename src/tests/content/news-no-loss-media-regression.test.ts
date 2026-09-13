@@ -8,7 +8,7 @@ import {
   extractNewsThumbnailFromFeedBlock,
   extractNewsThumbnailFromHtml,
   safeNewsThumbnailUrl,
-} from "../../lib/news-thumbnail-authority";
+} from "../../services/news/thumbnail-authority";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -47,7 +47,7 @@ describe("news no-loss archive and media authority", () => {
   });
 
   it("keeps Persian archive visibility independent from translation completion", async () => {
-    const authority = await source("src/lib/news-archive-presentation-authority.ts");
+    const authority = await source("src/services/news/archive-presentation-authority.ts");
     assert.match(authority, /translationPending: locale === "fa" && !useTranslation/);
     assert.match(authority, /WHEN 'article_full' THEN 3/);
     assert.match(authority, /WHEN 'feed_full' THEN 2/);
@@ -71,11 +71,22 @@ describe("news no-loss archive and media authority", () => {
     assert.match(archive, /متن معتبر منبع نمایش داده می‌شود/);
   });
 
+  it("keeps governed media off the public API surface and verifies archive identity", async () => {
+    const presentation = await source("src/services/news/archive-presentation-authority.ts");
+    const mediaRoute = await source("src/app/crypto-news/media/route.ts");
+    const resolver = await source("src/services/news/thumbnail-authority.ts");
+    assert.match(presentation, /\/crypto-news\/media\?article=/);
+    assert.doesNotMatch(presentation, /\/api\/crypto-news\/thumbnail/);
+    assert.match(mediaRoute, /resolveNewsThumbnailRedirectTarget/);
+    assert.match(mediaRoute, /rateLimit/);
+    assert.match(resolver, /archivedSource\(articleUrl\)/);
+  });
+
   it("never lets thumbnail discovery bypass provider media-rights policy", async () => {
-    const resolver = await source("src/lib/news-thumbnail-authority.ts");
+    const resolver = await source("src/services/news/thumbnail-authority.ts");
     assert.match(resolver, /readiness\.thumbnailPolicy === "licensed"/);
     assert.match(resolver, /readiness\.thumbnailPolicy === "official_attribution"/);
-    assert.match(resolver, /archivedSource\(articleUrl\)/);
     assert.match(resolver, /isApprovedNewsSourceHost/);
+    assert.match(resolver, /feedCatalogInflight/);
   });
 });
