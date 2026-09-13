@@ -8,7 +8,7 @@ import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
 import {
   getNewsArchiveDayForPresentation,
   type NewsArchivePresentationItem,
-} from "@/lib/news-archive-presentation-authority";
+} from "@/services/news/archive-presentation-authority";
 import {
   getNewsArchiveDaysFromAuthority,
   isValidArchiveDay,
