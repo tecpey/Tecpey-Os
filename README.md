@@ -1,417 +1,284 @@
 <div align="center">
 
-<img src="./docs/assets/brand/tecpey-logo-official.webp" alt="TecPey official logo" width="144" />
+<img src="./docs/assets/brand/tecpey-logo-official.webp" alt="TecPey official logo" width="156" />
 
 # TecPey
 
-## Digital Financial Education & Trading Operating System
+### Digital Financial Education & Trading Operating System
+
+**Learn with context. Practice with discipline. Activate with evidence.**
 
 **«تک‌پی، نقطه امن ورود به بازار رمزارز»**
 
-**“TecPey — a safer entry point into the crypto market.”**
+[Website](https://tecpey.ir) · [Architecture](./docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md) · [Security](./SECURITY.md) · [Launch Governance](./docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md) · [فارسی](./README.fa.md)
 
-[Website](https://tecpey.ir) · [Project audit](./docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md) · [Architecture](./docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md) · [Security](./SECURITY.md)
-
-**English** · [فارسی](./README.fa.md)
+`Education-first` · `Virtual trading` · `AI-assisted learning` · `PostgreSQL authority` · `FA RTL + EN LTR` · `Evidence-gated activation`
 
 </div>
 
 > [!IMPORTANT]
-> TecPey is an education-first platform under controlled launch hardening. The repository includes virtual trading and gated financial infrastructure, but it is **not evidence that real-money Exchange, custody, deposits, or withdrawals are active**. Repository implementation, CI evidence, operational deployment, and product activation are separate decisions.
+> **TecPey is under controlled launch hardening.** Trading Arena uses simulated capital. Real-money Exchange, custody, deposits and withdrawals are separate gated capabilities and are **not represented here as active production services**. In TecPey, implementation ≠ CI proof ≠ staging proof ≠ operational approval ≠ production activation.
 
-## What TecPey Is
+## One Product Loop, Not a Collection of Crypto Features
 
-TecPey is being built as a **Digital Financial Education & Trading Operating System**: one governed platform connecting structured education, guided practice, behavioral intelligence, and—only after independent safety and operational gates—financial execution.
+Most crypto journeys are fragmented: people learn in one place, watch markets somewhere else, practice without structured feedback, and eventually reach high-risk execution with little continuity between knowledge, behavior and action.
 
-It is not simply a cryptocurrency exchange. Its central product relationship is the connection between:
+TecPey is being built around a different loop:
 
-- **TecPey Academy**, where a learner develops concepts and skills;
-- **Virtual Trading / Trading Arena**, where those skills can be practised with simulated capital;
-- **Mentor AI**, which can use authorized learning and practice evidence to support reflection and risk awareness;
-- **Exchange, wallet, and ledger infrastructure**, which is engineered behind separate activation gates;
-- **Community, notification, administration, and future enterprise services**, which extend the learning and operating environment without weakening privacy or financial controls.
+```mermaid
+flowchart LR
+    A[Learn\nAcademy] --> B[Practice\nTrading Arena]
+    B --> C[Reflect\nJournal + Mentor AI]
+    C --> D[Understand\nMarket + News Intelligence]
+    D --> A
+    C --> E{Independent\nactivation gates}
+    E -->|Not passed| F[Education + simulation]
+    E -->|Passed in future| G[Governed financial capabilities]
+```
 
-The initial direction is Iran-first and Persian-first, with a growing English experience and a multilingual architecture. The longer-term direction includes enterprise SaaS, multi-tenant and white-label operation, a developer ecosystem, and a governed TecPey AI operating layer. Those are ambitions and open engineering programs, not current production claims.
+Academy builds knowledge. Trading Arena turns knowledge into controlled practice. Mentor AI connects learning and practice context to reflection. Market and News surfaces add timely context. Higher-risk financial capabilities remain behind independent technical, operational, custody, compliance and jurisdictional gates.
 
-## Why TecPey Exists
+That continuity is the product thesis: **a financial learning system that can grow with the user without pretending that every future capability is already live.**
 
-Entering crypto markets is often fragmented. Education may be separated from the interface where users later act. Demo trading may offer simulated orders without a curriculum, reflection model, or explanation of risk. Behavioral patterns—overtrading, poor position sizing, inconsistent review, or decision-making under stress—are rarely connected to a learner’s progress.
+## Real Product, Real Evidence
 
-TecPey’s intended progression is different:
+The screenshots below are **actual TecPey browser captures**, not mockups, concept art or reconstructed marketing screens. They were captured by the governed Public Browser Golden Path for the exact head of merged PR #642 (`c28ec91f397fb4f1580d2b6d2499d867c176fa77`). The full-resolution CI artifact and provenance are documented in [`docs/assets/screenshots/showcase/PROVENANCE.md`](./docs/assets/screenshots/showcase/PROVENANCE.md).
 
-1. Learn concepts in a structured path.
-2. Practise without real-money exposure.
-3. Record and review decisions rather than only outcomes.
-4. Receive consent-aware educational and behavioral guidance.
-5. Activate higher-risk capabilities only after technical, operational, legal, custody, and jurisdictional gates pass.
+### The guided entry experience
 
-This progression is the reason Academy, Arena, and Mentor are designed as one product loop rather than unrelated applications.
+<p align="center">
+  <img src="./docs/assets/screenshots/showcase/landing-fa-dark-c28ec91.webp" alt="Real TecPey Persian landing page captured by CI" width="760" />
+</p>
 
-## Product Principles
+The current landing experience frames TecPey as a guided growth journey—not an exchange-first funnel. The bilingual experience connects Academy, Mentor, virtual practice, market context and the longer learning path while keeping real-money capabilities truthfully gated.
 
-- **Education first.** Learning context and risk literacy precede financial activation.
-- **Safety before activation.** A capability can exist in code while remaining deliberately unavailable to users.
-- **Truthful product claims.** Educational market information and simulation must never be presented as an active exchange or guaranteed outcome.
-- **Server-side persistence.** Critical user and financial state belongs to governed backend authorities, not browser storage.
-- **Fail-closed financial operations.** Missing authorization, persistence, price, provider, reconciliation, custody, or readiness evidence must not silently degrade into success.
-- **Privacy and consent.** Behavioral memory, community evidence, communications, and AI context must use authorized data for a defined purpose.
-- **Evidence-driven release governance.** Tests, exact-head CI, operational drills, and independent review define completion—not route count or visual polish.
-- **Multilingual and accessible UX.** Persian RTL, English LTR, keyboard access, responsive layouts, and WCAG-oriented checks are product requirements.
-- **Modular enterprise architecture.** Domains have explicit authorities and can evolve toward enterprise delivery without implying that multi-tenancy is complete today.
-- **Progressive capability activation.** Public education, virtual practice, real-money execution, custody, and enterprise operation have distinct release gates.
+### Practice without customer-fund exposure
 
-## Product Ecosystem
+<p align="center">
+  <img src="./docs/assets/screenshots/showcase/trading-arena-fa-dark-c28ec91.webp" alt="Real TecPey Trading Arena captured by CI" width="760" />
+</p>
 
-### TecPey Academy
+Trading Arena is a simulation environment backed by server-side authority for virtual accounts, balances, attempts, positions, orders and executions. Its job is to create a serious place to practice execution and review decisions—not to manufacture performance claims.
 
-Academy is the structured learning foundation. The repository includes term-based learning, lessons, quizzes, assessments, onboarding, progress tracking, achievements, certificates, flashcards, challenges, simulations, risk and psychology labs, and career-oriented experiences under [`src/app/academy`](./src/app/academy) and [`src/components/academy`](./src/components/academy).
+> The source CI artifact also contains full-resolution Academy, Mentor, authentication, responsive, light/dark and FA/EN captures. We intentionally keep the root README focused; the evidence manifest points reviewers to the exact originals.
 
-Canonical progress, assessments, and certificates have PostgreSQL-backed authorities in [`src/lib/academy-progress.ts`](./src/lib/academy-progress.ts), [`src/lib/academy-assessment.ts`](./src/lib/academy-assessment.ts), and [`src/lib/academy-certificates.ts`](./src/lib/academy-certificates.ts). Security and integration suites test those boundaries. Mentor memory can read authorized Academy progress to provide educational continuity.
+## Built for Three Audiences
 
-Not every Academy experience has equal maturity. Some engagement, lab, and presentation state is intentionally classified as disposable browser-local state, and some older experiences remain partial. English coverage does not mirror the full depth of the Persian route tree. Certificate issuance exists, but a complete enterprise certificate rotation and revocation program is not claimed.
+<table>
+<tr>
+<td width="33%" valign="top">
 
-### Virtual Trading / Trading Arena
+### For learners
 
-Trading Arena is simulated practice, not real-money trading. Its purpose is to let learners apply concepts, observe risk, and review behavior without transferring customer funds.
+A coherent path from **understanding → practice → reflection**.
 
-The official Arena core uses a server-authoritative PostgreSQL aggregate for virtual accounts, balances, attempts, positions, orders, executions, fees, and revisions. It uses decimal-string arithmetic, idempotency controls, and server-resolved market inputs. The governed model currently includes virtual capital and a three-attempt cycle, with server-owned reflections available to authorized learning and Community projections. See [`src/lib/trading-arena-account.ts`](./src/lib/trading-arena-account.ts), [`src/lib/trading-arena-execution-v2.ts`](./src/lib/trading-arena-execution-v2.ts), [`src/lib/trading-arena-reflections.ts`](./src/lib/trading-arena-reflections.ts), and [`docs/arena/TRADING_ARENA_UI_AUTHORITY.md`](./docs/arena/TRADING_ARENA_UI_AUTHORITY.md).
+- structured Academy progression
+- quizzes, assessments, challenges and certificates
+- virtual Trading Arena
+- Mentor AI with authorized learning/practice context
+- market and News intelligence designed to support understanding
+- security/account flows that belong to the same product journey
 
-Some historical replay, scenario, and journal experiences still use quarantined local simulation modules. Those paths are not canonical financial or reputation evidence. No simulated result, virtual balance, or historical outcome represents real performance or a promise of reward.
+</td>
+<td width="33%" valign="top">
 
-### Mentor AI
+### For partners & investors
 
-Mentor AI is TecPey’s educational and behavioral intelligence layer. The implemented foundation can store server-side profiles, conversations, memories, Academy progress context, and selected Arena signals. It can help a learner review concepts, reflect on authorized practice events, and notice risk-related patterns. Provider access is kept behind a server boundary with governed fallbacks and trust tests.
+A platform thesis with multiple expansion surfaces around one governed user journey.
 
-Mentor is not an autonomous financial adviser, signal provider, or prediction engine. It must not guarantee results, place trades, move funds, or use private behavioral evidence outside consent and authorization boundaries. Some event-delivery and interaction paths remain incomplete or non-durable, and the wider multi-provider “TecPey AI Operating System” remains an open program. Current evidence is in [`src/lib/mentor-memory.ts`](./src/lib/mentor-memory.ts), [`src/lib/ai/mentor-provider.ts`](./src/lib/ai/mentor-provider.ts), and [`docs/MENTOR_AI_MODEL.md`](./docs/MENTOR_AI_MODEL.md).
+- education and premium learning
+- AI-assisted mentorship
+- simulation and advanced practice
+- multilingual market intelligence
+- enterprise/white-label foundations
+- developer ecosystem direction
+- financial infrastructure only after independent activation gates
 
-### Exchange Core
+No revenue, market-share or regulatory-readiness claim is implied by this roadmap.
 
-The repository contains engineering for authenticated order admission, holds, matching, trades, fees, ledger records, audit evidence, idempotency, and decimal-safe arithmetic. These are important platform foundations, tested through Exchange authority suites and documented in [`docs/architecture/EXCHANGE_ORDER_ADMISSION_AUTHORITY.md`](./docs/architecture/EXCHANGE_ORDER_ADMISSION_AUTHORITY.md) and [`docs/financial/FINANCIAL_CORE_CERTIFICATION.md`](./docs/financial/FINANCIAL_CORE_CERTIFICATION.md).
+</td>
+<td width="33%" valign="top">
 
-A read-only ledger reconciliation authority ([`src/lib/trading/exchange-reconciliation.ts`](./src/lib/trading/exchange-reconciliation.ts), `npm run exchange:reconcile:check`) now re-derives wallet balance invariants from `wallet_ledger` and trades in PostgreSQL `NUMERIC` and fails closed on any divergence; the dead balance-clamping layer was removed.
+### For engineers
 
-This does not authorize real-money operation. Full production reconciliation, ambiguous-result recovery, distributed ownership, provider evidence, compliance, custody, and production recovery remain independently gated (Issue #30). The controlled Soft Launch must not imply that a live exchange is available.
+Named authorities and explicit failure boundaries instead of UI-only product claims.
 
-### Wallet and Ledger
+- PostgreSQL-backed critical state
+- server-authoritative simulation
+- idempotency and decimal-safe financial paths
+- tenant/RLS foundations
+- audit and sensitive-mutation controls
+- exact-head CI and browser evidence
+- progressive capability activation
 
-TecPey includes database-authoritative withdrawal admission, transaction persistence before broadcast, queue/worker foundations, confirmation processing, and ledger integration. These paths have dedicated authority and failure-mode tests.
+</td>
+</tr>
+</table>
 
-Production custody is explicitly disabled by policy. The repository does not contain an approved production HSM/MPC signing deployment, and raw private-key custody is rejected as a production solution. Deposit allocation, signing, broadcast, and withdrawal activation remain subject to custody, chain-provider, reconciliation, compliance, disaster-recovery, and operational gates. See [`docs/WALLET_ENGINE.md`](./docs/WALLET_ENGINE.md), [`docs/WITHDRAW_SECURITY.md`](./docs/WITHDRAW_SECURITY.md), and [`src/lib/wallet/custody-launch-policy.ts`](./src/lib/wallet/custody-launch-policy.ts).
+## Product Pillars
 
-### Community and Social Learning
+### 01 — TecPey Academy
 
-The governed Community foundation supports private/default-consent profiles, canonical Arena reflection projection, journal challenges, immutable reputation evidence, and a private discipline score. Public ranking, financial rewards, scholarships, and real Instructor authority remain disabled.
+Academy is the learning foundation: term-based education, lessons, quizzes, assessments, flashcards, challenges, simulations, achievements, certificates and progression. Canonical progress and assessment paths are backed by server-side persistence rather than browser storage as the source of truth.
 
-The broader professional learning network—social graph, rich publishing, moderation, search, lifecycle management, and public reputation—is not complete. The current boundary is documented in [`docs/academy/COMMUNITY_REPUTATION_EVIDENCE_AUTHORITY.md`](./docs/academy/COMMUNITY_REPUTATION_EVIDENCE_AUTHORITY.md) and [`docs/academy/COMMUNITY_INSTRUCTOR_ACCESS_BOUNDARY.md`](./docs/academy/COMMUNITY_INSTRUCTOR_ACCESS_BOUNDARY.md).
+The Academy is designed to do more than publish content. It creates structured evidence of learning that can inform Mentor context and future practice experiences. Not every route has equal maturity and broader language parity remains an active program; the repository does not hide that distinction.
 
-### Notification and CRM Platform
+### 02 — Trading Arena
 
-The repository has PostgreSQL-backed notification preferences and consent, durable outbox/domain foundations, in-app delivery workers, producer authority, and CRM lead handling with protected fields and delivery tests. These services are intended to connect Academy, Arena, Mentor, security, and operations without becoming an unrestricted engagement engine.
+Trading Arena is **virtual practice**, not real-money trading. The governed core owns virtual accounts, balances, attempts, positions, orders, executions, fees and revisions on the server. Simulated balances and outcomes are educational evidence, not customer assets or promises of return.
 
-A complete multichannel platform—email, SMS, push, governed cohorts, broad campaigns, fatigue policy, and full operational analytics—remains incomplete. Mandatory security messages must remain separate from marketing, and all audience expansion must be server-resolved and consent-aware.
+The longer-term Arena direction includes richer replay, scenario, journal, league and analytics experiences while preserving the distinction between simulation evidence and real financial performance. See [`docs/arena/TRADING_ARENA_UI_AUTHORITY.md`](./docs/arena/TRADING_ARENA_UI_AUTHORITY.md).
 
-### Admin and Security Control Plane
+### 03 — Mentor AI
 
-TecPey has individual administrator identities, server-side sessions, permission checks, passkey/step-up foundations, transaction-coupled audit evidence, and a command-center surface. These are meaningful controls, not a finished enterprise administration product.
+Mentor is the intelligence and reflection layer. Its role is to explain, continue a learning conversation and help users inspect authorized learning, practice and behavioral context. Provider access stays behind server boundaries and memory/context is subject to privacy and consent controls.
 
-Complete privileged-route inventory, dual control for high-impact financial actions, separation of duties, and full operational domain coverage remain open. The governing security standard is [`docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md`](./docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md).
+Mentor is **not** positioned as an autonomous financial adviser, signal seller, prediction engine or trade executor. The broader multi-provider TecPey AI operating layer remains an active engineering program, not a completed enterprise claim. See [`docs/MENTOR_AI_MODEL.md`](./docs/MENTOR_AI_MODEL.md).
 
-### Developer and Enterprise Platform
+### 04 — Market & News Intelligence
 
-TecPey’s long-term direction is API-first delivery through governed APIs, webhooks, SDKs, developer documentation, and reusable product modules. The platform is also intended to support independently configured tenants and white-label education, Arena, Mentor, and financial products.
+TecPey is evolving its public experience into a source-backed discovery layer for crypto market context, News, coins and tools. The governing direction preserves provenance, freshness, entities, canonical routes and internal learning connections rather than creating an opaque content feed.
 
-Today’s runtime is deliberately single tenant. Repository-wide tenant isolation, tenant configuration, billing, domain routing, tenant-specific keys, and an enterprise control plane are not complete. A tenant-scoped table coverage gate (`npm run tenant:isolation:check`, backed by [`docs/security/tenant-scoped-table-registry.json`](./docs/security/tenant-scoped-table-registry.json)) now enrolls every one of the 37 tenant-scoped tables and fails closed if a new one ships unregistered; 31 tables currently carry proven cross-tenant negative tests and 6 remain tracked as pending under #109. Note that some domains (for example risk and withdrawal) still pin the default tenant at the application layer, so their `tenant_id` column is not yet driven per request. Developer Platform, SaaS, multi-tenant, and white-label descriptions are roadmap direction only; see [`docs/WHITE_LABEL_PLATFORM.md`](./docs/WHITE_LABEL_PLATFORM.md) and GitHub Issues [#20](https://github.com/tecpey/Tecpey-Os/issues/20) and [#109](https://github.com/tecpey/Tecpey-Os/issues/109).
+Live-source quality, translation, media rights, publication authority and indexing behavior are operational concerns and must be evidenced independently in staging.
 
-### TecPey AI Operating System
+### 05 — Governed Financial Core
 
-The long-term TecPey AI Operating System is a governed intelligence layer for users, support, administration, content, QA, operations, and enterprise workflows. It would own model routing, tools, memory permissions, evaluations, audit, budgets, and human approvals across providers.
+The repository contains meaningful engineering for order admission, holds, matching, trades, fees, ledgers, withdrawal pipelines, reconciliation and audit evidence. Those foundations matter because they establish financial-domain boundaries early.
 
-That platform is not a completed subsystem. The current Mentor foundation is one bounded product capability; it should not be used to imply autonomous operations, complete enterprise AI governance, or permission to execute financial or administrative actions.
+They do **not** authorize customer-fund operation. Production Exchange, custody, deposits and withdrawals remain disabled until their own custody, compliance, provider, reconciliation, recovery and operational gates are approved. See [`docs/WALLET_ENGINE.md`](./docs/WALLET_ENGINE.md) and the controlled launch checklist.
 
-## Current Soft Launch Boundary
-
-| Capability | Intended Soft Launch state | Notes |
-|---|---|---|
-| Public landing | Included | Governed public Persian and English paths |
-| Persian/English experience | Controlled | Public parity is tested; full application parity remains incomplete |
-| Academy | Controlled | Canonical progress/assessment authority is server-backed; not every experience has equal maturity |
-| Mentor AI | Controlled | Educational assistance with authorized context; provider/configuration dependent |
-| Virtual Trading Arena | Controlled | Simulation with virtual capital; official execution authority is server-backed |
-| Real-money Exchange | Disabled | Core code exists, but financial and operational activation gates remain open |
-| Custody | Disabled | Production policy rejects activation without approved non-exportable signing infrastructure |
-| Withdrawals | Disabled | Pipeline engineering does not equal production broadcast authorization |
-| Community | Limited | Governed evidence/challenges only; public ranking and broad social network are gated |
-| Multi-tenant operation | Post-launch | Current runtime is single tenant |
-| White-label platform | Post-launch | Strategic direction, not current capability |
-| Developer Platform | Planned | APIs exist for the application; no complete public developer product is claimed |
-| AI Operating System | Planned | Mentor foundation exists; broader operating layer remains open |
-
-## Current Repository Status
-
-This README is synchronized with the enterprise QA and Red-Team report dated **2026-08-12** at GitHub `main` SHA **`fc5bb931428738cd6357b60bf3090918e7f49539`**. Read the current strict audit in [`docs/launch/ENTERPRISE_QA_REDTEAM_REPORT_20260812.md`](./docs/launch/ENTERPRISE_QA_REDTEAM_REPORT_20260812.md). The 2026-08-09 Go-readiness audit and the 2026-07-26 repository audit remain historical baselines in [`docs/launch/GO_READINESS_AUDIT_20260809.md`](./docs/launch/GO_READINESS_AUDIT_20260809.md) and [`docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md`](./docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md).
-
-At the 2026-07-26 baseline SHA, the GitHub `main` checks for quality, repository hygiene, API and sensitive-mutation authority, public browser Golden Path, container/SBOM/vulnerability enforcement, rollback/volume restore, and image provenance completed successfully. Deterministic migration/readiness work and production deployment hardening had been merged through PRs #258 and #259.
-
-**Since the 2026-08-09 audit**, controlled-launch hardening has continued to merge into `main`: immutable runtime image digest evidence for `NOG-03`, exact-head workflow evidence for `NOG-04`, rollback/volume-restore evidence for `NOG-06`, disabled-scope attestation for `NOG-10`/`NOG-11`/`NOG-12`, and a fail-closed accepted-risk owner-signoff guard for `NOG-08`. That progress tightens evidence quality but does not approve launch.
-
-**Current controlled-launch decision: NO-GO.** The repository is **not fully production-ready for the complete TecPey vision**, and the narrow controlled Soft Launch remains blocked until protected staging activation, production-like env proof, recovery reconciliation, incident readiness, owner risk sign-off and final approval evidence are attached under [`docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md`](./docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md). Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope and must stay disabled or truthfully gated.
-
-## Architecture Overview
-
-TecPey is a Next.js App Router application with TypeScript domain services and APIs in the same deployable runtime. PostgreSQL is the durable authority. Redis and BullMQ provide coordination and queue infrastructure for governed domains. A compiled custom server performs dependency and schema readiness before listening; production migrations are a separate operational action.
+## Why the Architecture Matters
 
 ```mermaid
 flowchart TB
-    UI[Persian and English web interfaces] --> APP[Next.js application and route handlers]
-    APP --> AUTH[Identity, authorization and mutation policy]
-    AUTH --> DOMAINS[Domain services]
+    UX[FA RTL + EN LTR product surfaces] --> APP[Next.js App Router]
+    APP --> IAM[Identity + authorization + mutation policy]
+    IAM --> DOMAIN[Governed domain services]
 
-    DOMAINS --> ACADEMY[Academy]
-    DOMAINS --> ARENA[Virtual Trading Arena]
-    DOMAINS --> EXCHANGE[Gated Exchange core]
-    DOMAINS --> WALLET[Gated wallet and withdrawal]
-    DOMAINS --> COMMUNITY[Community and notifications]
+    DOMAIN --> ACA[Academy]
+    DOMAIN --> ARENA[Trading Arena]
+    DOMAIN --> AI[Mentor AI]
+    DOMAIN --> NEWS[Market + News]
+    DOMAIN --> ADMIN[Admin + Notifications]
+    DOMAIN --> EX[Gated Exchange Core]
+    DOMAIN --> WALLET[Gated Wallet / Withdrawal]
 
-    ACADEMY --> PG[(PostgreSQL)]
+    ACA --> PG[(PostgreSQL)]
     ARENA --> PG
-    EXCHANGE --> PG
+    AI --> PG
+    NEWS --> PG
+    ADMIN --> PG
+    EX --> PG
     WALLET --> PG
-    COMMUNITY --> PG
-    DOMAINS --> REDIS[(Redis and BullMQ)]
-    DOMAINS --> STORAGE[Governed object/file storage]
-    DOMAINS --> PROVIDERS[Approved external providers]
+    DOMAIN --> REDIS[(Redis / BullMQ)]
 
-    ACADEMY --> MENTOR[Mentor AI and behavioral intelligence]
-    ARENA --> MENTOR
-    MENTOR --> PG
+    EX -. independent activation gate .-> REAL[Real-money capability]
+    WALLET -. custody gate .-> REAL
 ```
 
-The browser never receives direct database access. APIs and domain services are expected to authenticate the principal, validate input, enforce tenant/principal context where applicable, perform a transactional mutation, and record required evidence before reporting success.
+TecPey uses Next.js App Router and TypeScript domain services in the deployable runtime. PostgreSQL is the durable authority for critical state; Redis/BullMQ provides governed coordination and queues. Production migrations and runtime activation remain operationally separate actions.
 
-Key architecture contracts:
+### Engineering principles
 
+| Principle | What it means in TecPey |
+|---|---|
+| **Server-side source of truth** | Critical user, simulation and financial state belongs to governed backend authorities |
+| **Fail closed** | Missing authorization, persistence, pricing, provider, reconciliation or readiness evidence must not silently become success |
+| **Progressive activation** | Education, simulation, financial execution, custody and enterprise operation have separate gates |
+| **Evidence-driven delivery** | Exact-head CI, browser evidence, security manifests and operational drills define readiness |
+| **Privacy & consent** | AI memory, behavioral context, notifications and community evidence are purpose-bound and authorized |
+| **Tenant isolation direction** | Tenant-scoped data is enrolled in isolation policy; complete enterprise runtime authority is still an active program |
+| **Multilingual UX** | Persian RTL and English LTR are first-class product surfaces; broader localization is an active direction |
+| **Truthful claims** | Code existence is never used as proof of customer activation |
+
+## Investor & Strategic Partner View
+
+TecPey’s strategic value is not based on adding more unrelated crypto tabs. It comes from **compounding context across a governed lifecycle**: what a user learns can shape practice; practice can shape reflection; reflection can guide the next learning step; market context can connect back to the curriculum.
+
+That architecture creates several potential business surfaces without requiring a premature real-money launch: premium education, advanced Mentor experiences, richer simulation, market intelligence, enterprise delivery and—only where the independent requirements permit—regulated financial capabilities.
+
+The defensibility thesis is therefore operational as much as visual: persistent learning/practice state, consent-aware intelligence, release evidence, security boundaries and progressive activation are harder to reproduce responsibly than a collection of frontend features. This is a product and engineering thesis, **not a claim of present commercial scale, regulatory approval or future returns**.
+
+## Security, Governance & Operational Discipline
+
+TecPey treats financial capability as a security boundary. The repository includes session/auth foundations, CSRF controls, TOTP/passkey paths, privileged administration controls, audit logging, sensitive-mutation policy, tenant-isolation policy, secret scanning and dedicated financial authority tests.
+
+Just as importantly, the project records what is **not yet proven**. Production custody requires approved non-exportable signing infrastructure and operational evidence. Complete multi-tenant runtime isolation, full privileged-route separation of duties, enterprise control-plane depth and broader AI governance remain active programs rather than finished claims.
+
+Useful review paths:
+
+- [`SECURITY.md`](./SECURITY.md)
 - [`docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md`](./docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md)
-- [`docs/architecture/DATABASE_MIGRATION_RUNTIME_CONTRACT.md`](./docs/architecture/DATABASE_MIGRATION_RUNTIME_CONTRACT.md)
-- [`migrations/README.md`](./migrations/README.md)
-- [`docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md`](./docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md)
+- [`docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md`](./docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md)
+- [`docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md`](./docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md)
 
-## Data Persistence and Source of Truth
+## Controlled Launch Boundary
 
-The permanent rule is:
+| Capability | Current intended boundary |
+|---|---|
+| Public landing | **Included** |
+| Persian / English public experience | **Controlled** |
+| Academy | **Controlled** |
+| Mentor AI | **Controlled** — provider/configuration dependent |
+| Trading Arena | **Controlled simulation** — virtual capital |
+| Market & News | **Controlled** — runtime freshness/publication evidence required |
+| Real-money Exchange | **Disabled** |
+| Custody | **Disabled** |
+| Deposits / Withdrawals | **Disabled** |
+| Public financial rewards | **Gated** |
+| Community | **Limited governed scope** |
+| Multi-tenant / white-label | **Active post-launch engineering direction** |
+| Public Developer Platform | **Planned** |
+| Broader TecPey AI Operating System | **Active program, not a completed subsystem** |
 
-> Critical user, educational, behavioral, operational, and financial state must be authoritative in backend services and the platform database—not `localStorage` or `sessionStorage`.
+## Current Evidence Snapshot — 2026-09-13
 
-This supports cross-device continuity, account recovery, consistent Mentor context, auditability, concurrency control, privacy requests, and financial reconciliation. PostgreSQL-backed authorities currently exist for canonical Academy progress and assessments, certificates, Mentor memory, official Arena execution/reflections, Exchange activity, withdrawals, notifications, Community evidence, and sensitive audit history.
+The current repository baseline for this Showcase is `main@c4751708ae6c1d2f2877ed64e7de36e5b963a045`, which merged the bilingual growth-story landing in PR #642.
 
-The repository also contains browser storage. [`scripts/check-browser-persistence.mjs`](./scripts/check-browser-persistence.mjs) inventories and classifies it so new local authority cannot be introduced silently. Current exceptions include disposable presentation state and quarantined legacy simulation modules. Those exceptions must not influence canonical progress, financial balances, Mentor evidence, Community reputation, or durable user history. Production restore and full cross-device failure evidence remain under active governance.
+The source product head for the screenshots and final browser evidence is `c28ec91f397fb4f1580d2b6d2499d867c176fa77`. On that exact head, the following governed workflows completed successfully before merge:
 
-## Security Model
+- CI
+- Public Browser Golden Path
+- Full Suite Diagnostics
+- Repository Audit Manifest
+- API Security Manifest
+- Sensitive Mutation Audit
+- Full History Secret Scanning
+- AI Tenant RLS Runtime Evidence
 
-TecPey uses layered controls rather than a single “secure” flag:
+That is strong evidence for the accepted change; it is **not a substitute for current protected-staging evidence or final launch approval**. The canonical release decision remains [`docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md`](./docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md).
 
-- HttpOnly server sessions, JTI revocation, strict production secrets, and bounded session lifetimes;
-- Origin-based CSRF protection for state-changing browser requests;
-- TOTP and WebAuthn/passkey foundations, including stronger administrator authentication;
-- explicit backend permissions and principal/tenant context helpers;
-- request-body limits, validation, operation manifests, and idempotency/revision controls;
-- transaction-coupled audit evidence for governed sensitive mutations;
-- CSP nonces for governed scripts and security headers; a bounded production `connect-src` allowlist is enforced by [`src/lib/security/csp-connection-policy.ts`](./src/lib/security/csp-connection-policy.ts) (Issue #164 closed), while `style-src` still permits `'unsafe-inline'` because Next.js inlines critical CSS;
-- deterministic, checksummed database migrations executed outside request paths;
-- verify-only health/readiness and fail-closed pre-listen startup;
-- mandatory production credentials and authenticated Redis;
-- pinned Actions/images, SBOM generation, vulnerability thresholds, image provenance and signing workflow;
-- production custody and withdrawal activation gates.
-
-Repository presence of a capability does not imply production activation. In particular, wallet adapters, order APIs, workers, and schemas do not authorize custody or real-money trading. Security status and responsible disclosure instructions are in [`SECURITY.md`](./SECURITY.md).
-
-## Quality and Verification
-
-Install the locked dependency graph before running checks:
+## Explore the Engineering
 
 ```bash
 npm ci
 npm run lint
 npm run typecheck
-npm run build
-```
-
-Focused authority commands include:
-
-```bash
-npm run migrations:check
-npm run test:migrations
-npm run test:readiness
-npm run test:startup
-npm run ui:check
-npm run ui:public:check
-npm run auth:check
-npm run api:security:check
-npm run audit:sensitive:check
-npm run custody:check
-npm run withdrawals:check
-npm run exchange:check
-npm run tenant:isolation:check
-npm run test:e2e:public
-npm run audit:hygiene
-```
-
-`npm run release:check` aggregates many repository authority suites. Some PostgreSQL-, Redis-, browser-, container-, or production-environment checks require their corresponding services and configuration.
-
-CI is split by authority: the main quality workflow, API mutation security, sensitive-mutation audit, Exchange authority, public browser Golden Path, repository hygiene, staging evidence, and container supply-chain workflows. A green workflow proves its exact contract at its exact commit; it does not replace staging evidence, provider certification, manual review, or disaster-recovery drills.
-
-## Accessibility and Internationalization
-
-The public product supports Persian RTL and English LTR. The governed browser matrix covers:
-
-- Chromium Persian mobile;
-- Chromium English desktop;
-- Firefox Persian desktop;
-- Firefox English mobile.
-
-The public Golden Path uses zero retries, fails on flaky tests, checks keyboard navigation and responsive geometry, and applies axe/WCAG-oriented assertions. It verifies both public routes, mobile and desktop layouts, missing-animation-observer fallback, navigation targets, and fixed-control/CTA relationships.
-
-This is strong evidence for those paths, not comprehensive accessibility certification for every authenticated Academy, Arena, Admin, or legacy route. English content depth and application-wide RTL/LTR parity remain ongoing work.
-
-## Repository Structure
-
-```text
-src/app/                 Next.js pages, layouts, and API route handlers
-src/components/          Shared and product UI components
-src/lib/                 Domain services, persistence, security, and runtime authorities
-src/tests/               Unit, policy, PostgreSQL, Redis, concurrency, and security tests
-migrations/              Physical SQL and the migration operator contract
-scripts/                 Build, migration, worker, authority, and operational commands
-tests/e2e/               FA/EN public browser Golden Path and runtime harness
-config/                  Governed API security policy data
-public/                  Shipped static assets
-storage/                 Runtime storage mount; not a source-code authority
-deploy/                  Nginx and systemd deployment assets
-docs/architecture/       Current architecture and authority contracts
-docs/security/           Security standards and generated security authority data
-docs/operations/         Production deployment and operational contracts
-docs/                    Strategic, governance, operational, and historical references
-docs/audits/             Point-in-time, evidence-based repository audits
-.github/workflows/       Exact-head CI, security, browser, and supply-chain gates
-server.ts                Custom server, readiness, health, WebSocket, and shutdown entry
-Dockerfile               Multi-stage rootless production image
-docker-compose.production.yml  Digest-governed production composition
-```
-
-Historical reports under `docs/internal-qa` and older phase documents are point-in-time evidence, not automatically current authority. When documents disagree, verify the current implementation contract, tests, exact GitHub Issue, and latest audit.
-
-## Local Development
-
-### Prerequisites
-
-- Node.js `>=20.11.0`
-- npm `>=10.0.0 <11.0.0`
-- PostgreSQL for durable domain and migration work
-- Redis for queues, revocation, coordination, and production-like runtime work
-- Playwright browser dependencies only when running browser tests
-
-### Setup
-
-```bash
-git clone https://github.com/tecpey/Tecpey-Os.git
-cd Tecpey-Os
-npm ci
-```
-
-The repository intentionally does not provide a deployable production `.env` with default credentials. Create an untracked `.env.local` and configure the values required for the work you are running, including `DATABASE_URL`, `REDIS_URL`, and application session/authentication secrets. Generate local secrets with a cryptographically secure tool; never reuse them in production or commit the file. [`scripts/validate-env.mjs`](./scripts/validate-env.mjs) is the executable environment authority, and [`docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md`](./docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md) describes production requirements.
-
-Initialize the governed schema and start the custom development server:
-
-```bash
-npm run db:migrate
-npm run dev
-```
-
-Useful development commands:
-
-```bash
-npm run typecheck
-npm run lint
 npm test
 npm run build
 ```
 
-`npm run dev:next` runs the Next.js development server without the complete custom-server contract and is not production evidence. Production-like startup uses the compiled bootstrap and custom server:
+A green local build is not sufficient for a protected change. Review exact-head GitHub checks and the relevant staging/runtime evidence for the domain being changed.
 
-```bash
-npm run build
-npm run prod:start
-```
+Start here:
 
-Production migration is a separate operator action. HTTP requests and readiness probes never apply or repair schema.
+- [Server-side source of truth](./docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md)
+- [Trading Arena authority](./docs/arena/TRADING_ARENA_UI_AUTHORITY.md)
+- [Admin control-plane security](./docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md)
+- [Wallet engine](./docs/WALLET_ENGINE.md)
+- [Mentor AI model](./docs/MENTOR_AI_MODEL.md)
+- [Verified screenshot provenance](./docs/assets/screenshots/showcase/PROVENANCE.md)
 
-## Production and Deployment Model
+## Responsible Disclosure
 
-The current production contract uses:
+Please do not disclose vulnerabilities through public issues. Follow [`SECURITY.md`](./SECURITY.md) for the responsible disclosure path.
 
-- a multi-stage `Dockerfile` with a minimal, non-root runtime;
-- immutable image digests in `docker-compose.production.yml`;
-- mandatory PostgreSQL, Redis, session, and application credentials without deployable defaults;
-- authenticated private Redis and persistent PostgreSQL/Redis/application volumes;
-- a one-shot canonical migration action before the web service;
-- the compiled custom server and pre-listen database/schema/Redis readiness;
-- dependency-aware liveness and readiness endpoints;
-- bounded HTTP, WebSocket, worker, and Redis shutdown;
-- pinned GitHub Actions and service images;
-- SBOM generation, high/critical vulnerability enforcement, provenance, attestation, and keyless signing workflows;
-- candidate-to-previous-image rollback and volume-restore evidence in CI.
+---
 
-The canonical deployment contract is [`docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md`](./docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md). Migration operations are defined in [`migrations/README.md`](./migrations/README.md).
+<div align="center">
 
-These repository controls are implemented and CI-evidenced. Registry publication, post-merge provenance/signing, production secrets distribution, real host configuration, backup policy, RPO/RTO, and disaster-recovery execution are operational responsibilities. They must be independently verified before depending on a production deployment.
+### TecPey
 
-## Roadmap and Release Gates
+**Education first. Practice before exposure. Evidence before activation.**
 
-The roadmap is organized by risk boundary rather than feature volume:
-
-1. **Controlled Soft Launch:** public FA/EN experience, controlled Academy, educational Mentor, and official virtual Arena; complete recovery, staging, CSP, quality, and release evidence.
-2. **Beta hardening:** deeper cross-device/product parity, communications, Community lifecycle, public/discovery completeness, admin operations, and independent red-team evidence.
-3. **Real-money activation:** reconciliation, custody/HSM-MPC, chain providers, compliance, withdrawal safety, disaster recovery, segregation of duties, and production certification.
-4. **Enterprise and multi-tenant:** tenant isolation, configuration, white-label delivery, billing, support, and tenant operations.
-5. **Developer ecosystem:** public API contracts, keys, webhooks, SDKs, documentation, and partner governance.
-6. **AI operating layer:** governed provider routing, tools, evaluations, memory scopes, cost policy, audit, and human approvals.
-
-Current work is tracked in [GitHub Issues](https://github.com/tecpey/Tecpey-Os/issues). The dated [project-state audit](./docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md) maps the active critical path without treating every issue titled “P0” as a blocker for the narrower educational launch.
-
-## Documentation Map
-
-| Authority type | Documents | How to use them |
-|---|---|---|
-| Strategic authority | [`docs/TECPEY_MASTER_BLUEPRINT.md`](./docs/TECPEY_MASTER_BLUEPRINT.md), [`docs/TECPEY_CONSTITUTION.md`](./docs/TECPEY_CONSTITUTION.md) | Product direction and permanent principles; not implementation proof |
-| Release governance | [`docs/FINAL_IMPLEMENTATION_GATE.md`](./docs/FINAL_IMPLEMENTATION_GATE.md), current GitHub Issues | Gate intent and tracked work; verify date and current code |
-| Architecture contracts | [`docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md`](./docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md), [`docs/architecture/DATABASE_MIGRATION_RUNTIME_CONTRACT.md`](./docs/architecture/DATABASE_MIGRATION_RUNTIME_CONTRACT.md) | Current backend and migration invariants |
-| Security authority | [`SECURITY.md`](./SECURITY.md), [`docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md`](./docs/security/ADMIN_CONTROL_PLANE_SECURITY_STANDARD.md), [`docs/SECURITY.md`](./docs/SECURITY.md) | Disclosure policy and implementation standards |
-| Operational runbooks | [`migrations/README.md`](./migrations/README.md), [`docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md`](./docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md), [`docs/OPERATIONS_RUNBOOK.md`](./docs/OPERATIONS_RUNBOOK.md) | Migration, deployment, and incident operations |
-| Audits | [`docs/launch/ENTERPRISE_QA_REDTEAM_REPORT_20260812.md`](./docs/launch/ENTERPRISE_QA_REDTEAM_REPORT_20260812.md), [`docs/launch/GO_READINESS_AUDIT_20260809.md`](./docs/launch/GO_READINESS_AUDIT_20260809.md), [`docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md`](./docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md), [`docs/audits/REPOSITORY_HYGIENE_BASELINE_20260719.md`](./docs/audits/REPOSITORY_HYGIENE_BASELINE_20260719.md), [`docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`](./docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md), [`docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md`](./docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md) | Dated evidence, post-governance digests, and release decision checklists; never assume they describe a later SHA |
-| Living references | [`docs/PRODUCTION_DECISIONS.md`](./docs/PRODUCTION_DECISIONS.md), [`docs/LAUNCH_ACCEPTED_RISKS.md`](./docs/LAUNCH_ACCEPTED_RISKS.md) | Decision history; reconcile against current contracts when entries are superseded |
-
-AI coding agents and contributors must read [`AGENTS.md`](./AGENTS.md) plus the relevant current contract before editing. Older phase and internal QA reports preserve history but may contain superseded architecture or maturity claims.
-
-## Contribution and Engineering Governance
-
-TecPey uses a deliberately narrow delivery model:
-
-1. one Issue defines the contract;
-2. one dedicated branch contains that Issue only;
-3. one focused pull request carries the change;
-4. exact-head CI and relevant authority suites must pass;
-5. a separate independent audit attempts to falsify acceptance;
-6. approved work is merged without mixing unrelated scope.
-
-Contributors must keep commits logical, avoid unrelated cleanup, preserve fail-closed behavior, never weaken assertions for a green build, never commit secrets or generated diagnostics, and update documentation truthfully when a contract changes. See [`CONTRIBUTING.md`](./CONTRIBUTING.md).
-
-## Responsible Product and Financial Disclaimer
-
-TecPey’s educational content and Mentor interactions are general educational tools, not individualized financial, investment, legal, or tax advice. Virtual Trading Arena activity is simulation; virtual balances and simulated or historical performance do not represent customer assets and do not guarantee future results.
-
-Any real-money service remains subject to explicit product activation, applicable legal and jurisdictional review, identity/compliance requirements, approved custody and providers, reconciliation, security, disaster recovery, and operational evidence. Availability in source code or documentation does not mean a service is offered in a particular jurisdiction.
-
-## License, Security, and Contact
-
-TecPey is distributed under the repository’s [proprietary license](./LICENSE). Authorized contribution requirements are described in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
-
-Do not report vulnerabilities through a public Issue. Follow [`SECURITY.md`](./SECURITY.md) and contact `security@tecpey.ir` or `support@tecpey.ir`. General repository contact details published by the project are `info@tecpey.ir`, [tecpey.ir](https://tecpey.ir), and [@tecpeyco](https://t.me/tecpeyco).
+</div>
