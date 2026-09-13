@@ -26,7 +26,7 @@ describe("public market visual integrity", () => {
 
   it("uses the shared symbol authority on every governed market surface", () => {
     const surfaces = [
-      "src/lib/landing-story-data.ts",
+      "src/data/landing-story-data.ts",
       "src/app/en/markets/MarketsPageClient.tsx",
       "src/components/charts/chart.tsx",
       "src/components/crypto/SwapPanel.tsx",
