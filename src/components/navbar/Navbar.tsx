@@ -302,7 +302,7 @@ export default function Navbar({
             />
           </Link>
 
-          <ul className="hidden items-center gap-3 text-[13px] font-bold lg:flex xl:gap-4">
+          <ul className="hidden items-center gap-3 text-[13px] font-bold xl:flex xl:gap-4">
             {activePrimaryLinks.map((item) => (
               <li key={item.href}>
                 <Link
@@ -368,7 +368,7 @@ export default function Navbar({
           </ul>
         </div>
 
-        <div className="hidden items-center gap-3 lg:flex xl:gap-4">
+        <div className="hidden items-center gap-3 xl:flex xl:gap-4">
           {loggedIn || academyAuthReady || academyProfileReady ? (
             <>
               {academyProfileReady ? (
@@ -484,7 +484,7 @@ export default function Navbar({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 lg:hidden">
+        <div className="flex items-center gap-2 sm:gap-3 xl:hidden">
           <div className="flex items-center gap-1 rounded-full border border-slate-200/70 bg-white/65 p-1 text-xs font-black shadow-sm dark:border-white/10 dark:bg-white/5">
             <Globe2 className="mx-1 h-4 w-4 text-blue-800 dark:text-primary sm:mx-2" />
             <Link
@@ -517,7 +517,7 @@ export default function Navbar({
       {isOpen && (
         <div
           id={mobileMenuId}
-          className="tecpey-motion-reveal fixed inset-x-0 top-16 z-[110] h-[calc(100dvh-4rem)] overflow-y-auto bg-navbar-bg px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden"
+          className="tecpey-motion-reveal fixed inset-x-0 top-16 z-[110] h-[calc(100dvh-4rem)] overflow-y-auto bg-navbar-bg px-5 pb-20 pt-4 text-fg shadow-2xl xl:hidden"
         >
           <div className="flex flex-col gap-2">
             {activePrimaryLinks.map((item) => (

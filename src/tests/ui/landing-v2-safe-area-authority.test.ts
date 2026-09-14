@@ -7,6 +7,7 @@ const root = process.cwd();
 const v2CssPath = path.join(root, "src/app/landing-experience-v2.css");
 const navbarFocusPath = path.join(root, "src/app/navbar-focus.css");
 const growthStoryPath = path.join(root, "src/components/home/TecpeyGrowthStory.tsx");
+const navbarPath = path.join(root, "src/components/navbar/Navbar.tsx");
 
 function balancedBlock(source: string, marker: string) {
   const start = source.indexOf(marker);
@@ -28,6 +29,7 @@ describe("landing V2 visual safety authority", () => {
   const css = fs.readFileSync(v2CssPath, "utf8");
   const navbarFocus = fs.readFileSync(navbarFocusPath, "utf8");
   const growthStory = fs.readFileSync(growthStoryPath, "utf8");
+  const navbar = fs.readFileSync(navbarPath, "utf8");
   const compactComposition = balancedBlock(css, "@media (max-width: 820px)");
   const phoneDecisionPoint = balancedBlock(css, "@media (max-width: 480px)");
   const smallestPhoneComposition = balancedBlock(css, "@media (max-width: 360px)");
@@ -96,6 +98,13 @@ describe("landing V2 visual safety authority", () => {
       assert.match(rule, new RegExp(`top:\\s*${top}% !important`));
       assert.match(rule, /bottom:\s*auto !important/);
     }
+  });
+
+  it("keeps the complete English navigation compact at the 1024px boundary", () => {
+    assert.match(navbar, /hidden items-center gap-3 text-\[13px\] font-bold xl:flex/);
+    assert.match(navbar, /hidden items-center gap-3 xl:flex/);
+    assert.match(navbar, /flex items-center gap-2 sm:gap-3 xl:hidden/);
+    assert.doesNotMatch(navbar, /font-bold lg:flex/);
   });
 
   it("keeps static hero assurances in a readable non-scroll grid", () => {
