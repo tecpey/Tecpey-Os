@@ -12,7 +12,8 @@ test("landing introduces the exchange without offering execution", () => {
 test("conversion retains Academy, Mentor, virtual Arena and skill record paths", () => {
   for (const route of ["/academy", "/academy/ai-guide", "/academy/trading-arena", "/academy/profile", "/academy/term-8"]) assert.ok(story.includes(`link("${route}")`));
   assert.match(story, /virtual capital/);
-  assert.match(story, /Start Academy free/);
+  assert.match(story, /Start Free Academy/);
+  assert.match(story, /شروع آکادمی رایگان/);
 });
 test("the learning story has exactly eight governed stages and keeps the exchange outside it", () => {
   for (let stage = 1; stage <= 8; stage += 1) {
