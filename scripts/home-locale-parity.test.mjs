@@ -36,8 +36,8 @@ test("shared conversion preserves localized Academy and mentor access", async ()
   const story = await source("src/components/home/TecpeyGrowthStory.tsx");
   assert.ok(story.includes('link("/academy")'));
   assert.ok(story.includes('link("/academy/ai-guide")'));
-  assert.match(story, /شروع رایگان آکادمی/);
-  assert.match(story, /Start Academy free/);
+  assert.match(story, /شروع آکادمی رایگان/);
+  assert.match(story, /Start Free Academy/);
   assert.match(story, /const prefix = fa \? "" : "\/en"/);
   assert.doesNotMatch(story, /my\.tecpey\.ir|ورود به صرافی|Enter Exchange/);
 });
