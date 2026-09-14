@@ -71,15 +71,15 @@ export function TecpeyGrowthStory({ locale, growthRadarPromise, schema }: {
   return <main className={styles.story} data-runtime-contract="landing-growth-v1" lang={fa ? "fa" : "en"} dir={fa ? "rtl" : "ltr"}>
     {schema}
     <section data-home-section="hero" className={styles.hero} aria-labelledby="growth-hero-title">
-      <Image className={styles.heroImage} src="/images/landing/growth-mountain.webp" alt="" fill priority sizes="100vw" />
-      <div className={styles.heroShade} aria-hidden="true" />
-      <div className={styles.heroRoute} aria-hidden="true">
-        <span className={`${styles.routeNode} ${styles.routeStart}`}><BookOpen size={15} /><b>{t("شروع", "Start")}</b></span>
-        <span className={`${styles.routeNode} ${styles.routePractice}`}><LineChart size={15} /><b>{t("تمرین", "Practice")}</b></span>
-        <span className={`${styles.routeNode} ${styles.routeSkill}`}><BrainCircuit size={15} /><b>{t("مهارت", "Skill")}</b></span>
-        <span className={`${styles.routeNode} ${styles.routeFuture}`}><Mountain size={15} /><b>{t("آینده روشن", "A brighter future")}</b></span>
+      <Image data-hero-image className={styles.heroImage} src="/images/landing/growth-mountain.webp" alt="" fill priority sizes="100vw" />
+      <div data-hero-shade className={styles.heroShade} aria-hidden="true" />
+      <div data-hero-route className={styles.heroRoute} aria-hidden="true">
+        <span data-route-node="start" className={`${styles.routeNode} ${styles.routeStart}`}><BookOpen size={15} /><b>{t("شروع", "Start")}</b></span>
+        <span data-route-node="practice" className={`${styles.routeNode} ${styles.routePractice}`}><LineChart size={15} /><b>{t("تمرین", "Practice")}</b></span>
+        <span data-route-node="skill" className={`${styles.routeNode} ${styles.routeSkill}`}><BrainCircuit size={15} /><b>{t("مهارت", "Skill")}</b></span>
+        <span data-route-node="future" className={`${styles.routeNode} ${styles.routeFuture}`}><Mountain size={15} /><b>{t("آینده روشن", "A brighter future")}</b></span>
       </div>
-      <div className={styles.heroInner}><div className={styles.heroCopy}>
+      <div data-hero-content className={styles.heroInner}><div className={styles.heroCopy}>
         <span className={styles.heroBrand}><TecpeyMark alt="" width={34} height={34} /><span>TecPey</span></span>
         <h1 id="growth-hero-title">{t("از اولین قدم،", "From your first step,")}<br /><em>{t("تا کارنامه مهارتی تو", "to your skills portfolio")}</em></h1>
         <p>{t("خبر را بفهم، بازار را با داده بخوان، یاد بگیر و با سرمایه مجازی تمرین کن. منتور تک‌پی کمک می‌کند هر تصمیم به یک مهارت قابل اثبات تبدیل شود.", "Understand the news, read the market through data, learn and practice with virtual capital. TecPey Mentor helps turn every decision into demonstrable skill.")}</p>
@@ -88,8 +88,8 @@ export function TecpeyGrowthStory({ locale, growthRadarPromise, schema }: {
           <a className={styles.heroSecondary} href="#story-news">{t("کشف مسیر رشد", "Explore the journey")}<ArrowUpRight size={18} aria-hidden="true" /></a>
         </div>
       </div></div>
-      <div className={styles.heroSignals}>
-        <span><Newspaper size={17} />{t("خبر معتبر", "Trusted news")}</span><span><BarChart3 size={17} />{t("داده زنده بازار", "Live market data")}</span><span><BrainCircuit size={17} />{t("منتور آموزشی", "Learning mentor")}</span><span><ShieldCheck size={17} />{t("تمرین بدون پول واقعی", "No-real-money practice")}</span>
+      <div data-hero-signals className={styles.heroSignals} role="list" aria-label={t("ویژگی‌های مسیر یادگیری تک‌پی", "TecPey learning journey assurances")}>
+        <span role="listitem"><Newspaper size={17} />{t("خبر معتبر", "Trusted news")}</span><span role="listitem"><BarChart3 size={17} />{t("داده زنده بازار", "Live market data")}</span><span role="listitem"><BrainCircuit size={17} />{t("منتور آموزشی", "Learning mentor")}</span><span role="listitem"><ShieldCheck size={17} />{t("تمرین بدون پول واقعی", "No-real-money practice")}</span>
       </div>
     </section>
 
@@ -139,7 +139,7 @@ export function TecpeyGrowthStory({ locale, growthRadarPromise, schema }: {
       <div className={styles.masteryContent}><SectionHeader icon={InfinityIcon} kicker={t("پایان دوره، آغاز رشد", "The course ends. Growth continues.")} id="story-mastery-title" title={t("ترم ۸؛ مسیر بی‌نهایت تو", "Term 8: your lifelong growth loop")} description={t("بعد از هفت ترم، تک‌پی از شواهد واقعی یادگیری و تمرین تو برای ساختن فصل‌های شخصی رشد استفاده می‌کند؛ ضعف را پیدا کن، تمرین کن، بازبینی کن و قوی‌تر برگرد.", "After seven terms, TecPey uses your learning and practice evidence to shape personal growth seasons: find a gap, practice, review and return stronger.")} /><div className={styles.masteryGrid}>{mastery.map(([Icon, title, description]) => <article key={title}><Icon size={23} /><h3>{title}</h3><p>{description}</p></article>)}</div><div className={styles.actions}><Link href={link("/academy/term-8")} className={styles.primary}>{t("کشف ترم ۸", "Explore Term 8")}<ArrowUpRight size={18} /></Link><Link href={link("/academy/profile")} className={styles.darkSecondary}>{t("دیدن مسیر شخصی من", "View my personal path")}</Link></div></div>
     </Chapter>
 
-    <section data-home-section="exchange-preview" className={styles.exchangePreview} aria-labelledby="exchange-preview-title"><div><span><LockKeyhole size={17} />{t("محصول آینده؛ خارج از مسیر آموزشی", "Future product, outside the learning path")}</span><h2 id="exchange-preview-title">{t("در حال ساخت و توسعه صرافی اختصاصی و پیشرفته تک‌پی هستیم", "We are building TecPey’s dedicated advanced exchange")}</h2><p>{t("هدف محصول آینده، اتصال امن معامله واقعی به ژورنال و تحلیل آموزشی منتور است. این قابلیت اکنون در دسترس نیست و هیچ مسیر ورود یا اجرای معامله‌ای از این صفحه ندارد.", "The future product aims to connect real trades safely to the journal and mentor-led educational analysis. It is not currently available, and this page provides no sign-in or trade execution path.")}</p></div><span className={styles.developmentBadge}>{t("در حال توسعه", "In development")}</span></section>
+    <section data-home-section="exchange-preview" className={styles.exchangePreview} aria-labelledby="exchange-preview-title"><div><span data-exchange-kicker><LockKeyhole size={17} />{t("محصول آینده؛ خارج از مسیر آموزشی", "Future product, outside the learning path")}</span><h2 id="exchange-preview-title">{t("در حال ساخت و توسعه صرافی اختصاصی و پیشرفته تک‌پی هستیم", "We are building TecPey’s dedicated advanced exchange")}</h2><p>{t("هدف محصول آینده، اتصال امن معامله واقعی به ژورنال و تحلیل آموزشی منتور است. این قابلیت اکنون در دسترس نیست و هیچ مسیر ورود یا اجرای معامله‌ای از این صفحه ندارد.", "The future product aims to connect real trades safely to the journal and mentor-led educational analysis. It is not currently available, and this page provides no sign-in or trade execution path.")}</p></div><span className={styles.developmentBadge}>{t("در حال توسعه", "In development")}</span></section>
 
     <section data-home-section="resume" data-journey-stage="8" className={styles.close} aria-labelledby="resume-title"><div className={styles.finalStage} aria-label={t("ایستگاه ۸ از ۸؛ مقصد مسیر", "Stage 8 of 8: destination")}><span aria-hidden="true"><bdi>{t("۰۸", "08")}</bdi><small>{t("/۰۸", "/08")}</small></span><strong>{t("مقصد مسیر", "Destination")}</strong></div><div className={styles.resumeMark}><FileCheck2 size={32} /></div><span className={styles.kicker}><Sparkles size={17} />{t("کارنامه قابل ارائه", "A presentable skills record")}</span><h2 id="resume-title">{t("کارنامه مهارتی تو؛ ساخته‌شده از شواهد، نه ادعا", "Your skills portfolio, built from evidence, not claims")}</h2><p>{t("درس‌ها، ارزیابی‌ها، تصمیم‌های آرنا، ژورنال و فصل‌های رشد کنار هم قرار می‌گیرند تا پیشرفتت را قابل مشاهده و قابل ارائه کنند.", "Lessons, assessments, Arena decisions, journal reflections and growth seasons come together to make your progress visible and presentable.")}</p><ul><li><Check size={17} />{t("پیشرفت آموزشی", "Learning progress")}</li><li><Check size={17} />{t("نمونه‌کار تمرینی", "Practice evidence")}</li><li><Check size={17} />{t("نشان‌های مهارتی", "Skill credentials")}</li><li><Check size={17} />{t("گواهی قابل استعلام", "Verifiable certificates")}</li></ul><div className={styles.actions}><Link href={link("/academy")} className={styles.primary}>{t("اولین قدم را بردار", "Take the first step")}<ArrowUpRight size={18} /></Link><Link href={link("/academy/profile")} className={styles.secondary}>{t("مشاهده کارنامه من", "View my skills record")}</Link></div></section>
   </main>;
