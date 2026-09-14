@@ -92,6 +92,19 @@ describe("news no-loss archive and media authority", () => {
     assert.match(resolver, /archivedSource\(articleUrl\)/);
   });
 
+  it("overrides the global referrer policy for governed cross-origin media", async () => {
+    const config = await source("next.config.ts");
+    const globalRuleIndex = config.indexOf('source: "/:path*"');
+    const mediaRuleIndex = config.indexOf('source: "/crypto-news/media"');
+
+    assert.ok(globalRuleIndex >= 0);
+    assert.ok(mediaRuleIndex > globalRuleIndex);
+    assert.match(
+      config,
+      /source: "\/crypto-news\/media"[\s\S]*?key: "Referrer-Policy"[\s\S]*?value: "no-referrer"/,
+    );
+  });
+
   it("never lets thumbnail discovery bypass provider media-rights policy", async () => {
     const resolver = await source("src/services/news/thumbnail-authority.ts");
     assert.match(resolver, /readiness\.thumbnailPolicy === "licensed"/);
