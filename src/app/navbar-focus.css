@@ -5,16 +5,79 @@
  *
  * The primary navigation already uses :focus-visible rings. Firefox can briefly
  * lose the focus-visible heuristic while the Academy navbar hydrates and async
- * auth/profile state resolves, leaving a genuinely focused link with no rendered
- * indicator. A real :focus outline is the fail-safe: keyboard focus remains
- * visible through hydration/re-render transitions instead of depending on a
- * transient browser heuristic.
+ * auth/profile state resolves, leaving a genuinely focused control with no
+ * rendered indicator. A real :focus outline is the cross-engine fail-safe:
+ * keyboard focus remains visible through hydration/re-render transitions instead
+ * of depending on a transient browser heuristic.
  */
-nav[dir] a:focus {
-  outline: 2px solid rgb(30 64 175);
+nav[dir] :is(a, button):focus {
+  outline: 3px solid rgb(30 64 175);
   outline-offset: 3px;
 }
 
-.dark nav[dir] a:focus {
-  outline-color: var(--tp-primary);
+.dark nav[dir] :is(a, button):focus {
+  outline-color: var(--tp-primary-2);
+}
+
+/* Landing V2 browser-evidence hardening.
+ * Keep these rules presentation-only: no News, market or financial semantics.
+ */
+main[data-runtime-contract="landing-growth-v1"]
+  > section[data-home-section="hero"]
+  > img[src*="growth-mountain"] {
+  /* Continuous image transforms prevent actionability/stability in real browser
+   * automation and add motion without conveying product state. The route nodes
+   * carry the journey motion instead; the mountain remains a stable map. */
+  animation: none !important;
+  will-change: auto;
+}
+
+main[data-runtime-contract="landing-growth-v1"] [data-mobile-learning-cta] {
+  position: relative;
+  z-index: 5;
+}
+
+/* The chapter navigator sits below the global header rather than competing with
+ * it. Focused anchors also get a matching scroll clearance. */
+main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
+  top: calc(env(safe-area-inset-top, 0px) + 5.55rem);
+}
+
+main[data-runtime-contract="landing-growth-v1"] :is(a, button, summary, select, input) {
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 6.4rem);
+}
+
+@media (max-width: 767px) {
+  main[data-runtime-contract="landing-growth-v1"] {
+    /* growth-story.module.css already reserves the fixed-nav corridor. Only add
+     * the hardware safe area here; do not double the page-bottom whitespace. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  main[data-runtime-contract="landing-growth-v1"]
+    > section[data-home-section="hero"] {
+    min-height: max(820px, calc(100svh + 3.5rem));
+  }
+
+  /* heroInner is the third div child (shade, route, inner, proof rail). Reserve
+   * real room for both CTAs and the proof rail above the fixed mobile navbar. */
+  main[data-runtime-contract="landing-growth-v1"]
+    > section[data-home-section="hero"]
+    > div:nth-of-type(3) {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14.5rem);
+  }
+
+  main[data-runtime-contract="landing-growth-v1"]
+    > section[data-home-section="hero"]
+    > div:nth-of-type(4) {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6.35rem);
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
+    top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] :is(a, button, summary, select, input) {
+    scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 5.45rem);
+  }
 }
