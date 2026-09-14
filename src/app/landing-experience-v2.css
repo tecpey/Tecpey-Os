@@ -300,6 +300,18 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
 }
 
 @media (max-width: 360px) {
+  /* At the smallest supported phone widths the copy must move into the unused
+   * visual gap below the route rather than forcing the learning decision under
+   * fixed navigation. This preserves both the mountain narrative and the
+   * 44px+ interaction corridor without hiding content. */
+  main[data-runtime-contract="landing-growth-v1"] [data-hero-content] {
+    padding-top: 4rem !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] [data-mobile-learning-cta] {
+    margin-top: .75rem !important;
+  }
+
   main[data-runtime-contract="landing-growth-v1"] [data-hero-route] {
     opacity: .9;
   }
