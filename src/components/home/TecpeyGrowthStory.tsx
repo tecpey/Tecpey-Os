@@ -84,12 +84,12 @@ export function TecpeyGrowthStory({ locale, growthRadarPromise, schema }: {
         <h1 id="growth-hero-title">{t("از اولین قدم،", "From your first step,")}<br /><em>{t("تا کارنامه مهارتی تو", "to your skills portfolio")}</em></h1>
         <p>{t("خبر را بفهم، بازار را با داده بخوان، یاد بگیر و با سرمایه مجازی تمرین کن. منتور تک‌پی کمک می‌کند هر تصمیم به یک مهارت قابل اثبات تبدیل شود.", "Understand the news, read the market through data, learn and practice with virtual capital. TecPey Mentor helps turn every decision into demonstrable skill.")}</p>
         <div className={styles.actions} data-mobile-learning-cta>
-          <Link className={styles.primary} href={link("/academy")}>{t("شروع رایگان آکادمی", "Start Academy free")}<BookOpen size={19} aria-hidden="true" /></Link>
+          <Link className={styles.primary} href={link("/academy")}>{t("شروع آکادمی رایگان", "Start Free Academy")}<BookOpen size={19} aria-hidden="true" /></Link>
           <a className={styles.heroSecondary} href="#story-news">{t("کشف مسیر رشد", "Explore the journey")}<ArrowUpRight size={18} aria-hidden="true" /></a>
         </div>
       </div></div>
       <div data-hero-signals className={styles.heroSignals} role="list" aria-label={t("ویژگی‌های مسیر یادگیری تک‌پی", "TecPey learning journey assurances")}>
-        <span role="listitem"><Newspaper size={17} />{t("خبر معتبر", "Trusted news")}</span><span role="listitem"><BarChart3 size={17} />{t("داده زنده بازار", "Live market data")}</span><span role="listitem"><BrainCircuit size={17} />{t("منتور آموزشی", "Learning mentor")}</span><span role="listitem"><ShieldCheck size={17} />{t("تمرین بدون پول واقعی", "No-real-money practice")}</span>
+        <span role="listitem"><Newspaper size={17} />{t("خبر با منبع", "Sourced news")}</span><span role="listitem"><BarChart3 size={17} />{t("داده بازار با منبع", "Sourced market data")}</span><span role="listitem"><BrainCircuit size={17} />{t("منتور آموزشی", "Learning mentor")}</span><span role="listitem"><ShieldCheck size={17} />{t("تمرین بدون پول واقعی", "No-real-money practice")}</span>
       </div>
     </section>
 
@@ -98,7 +98,7 @@ export function TecpeyGrowthStory({ locale, growthRadarPromise, schema }: {
     </nav>
 
     <Chapter id="story-news" stage={1} locale={locale} labelledBy="story-news-title">
-      <SectionHeader icon={Newspaper} kicker={t("زمینه قبل از تصمیم", "Context before decisions")} id="story-news-title" title={t("خبر را بخوان؛ اثرش را بشناس", "Read the news. Understand its impact.")} description={t("خبرهای لحظه‌ای منابع معتبر، ترجمه فارسی و خلاصه آموزشی تک‌پی کنار منبع و زمان انتشار قرار می‌گیرند تا تیتر را با زمینه بازار بخوانی.", "Timely reporting from trusted sources, translated context and TecPey learning summaries stay beside source and publication time so every headline has market context.")} />
+      <SectionHeader icon={Newspaper} kicker={t("زمینه قبل از تصمیم", "Context before decisions")} id="story-news-title" title={t("خبر را بخوان؛ اثرش را بشناس", "Read the news. Understand its impact.")} description={t("خبرهای تازه از منابع معتبر، ترجمه فارسی و خلاصه آموزشی تک‌پی کنار منبع و زمان انتشار قرار می‌گیرند تا تیتر را با زمینه بازار بخوانی.", "Fresh reporting from trusted sources, translated context and TecPey learning summaries stay beside source and publication time so every headline has market context.")} />
       <div className={styles.valueRail}><span><Globe2 size={18} />{t("منبع شفاف", "Clear source")}</span><span><Newspaper size={18} />{t("ترجمه و خلاصه", "Translation and summary")}</span><span><LineChart size={18} />{t("اثر بر بازار", "Market impact")}</span></div>
       <StoryNews locale={locale} />
     </Chapter>
