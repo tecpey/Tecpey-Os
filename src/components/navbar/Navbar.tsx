@@ -302,7 +302,7 @@ export default function Navbar({
             />
           </Link>
 
-          <ul className="hidden items-center gap-3 text-[13px] font-bold xl:flex xl:gap-4">
+          <ul className="hidden items-center gap-3 text-[13px] font-bold xl:flex 2xl:gap-4">
             {activePrimaryLinks.map((item) => (
               <li key={item.href}>
                 <Link
@@ -368,7 +368,7 @@ export default function Navbar({
           </ul>
         </div>
 
-        <div className="hidden items-center gap-3 xl:flex xl:gap-4">
+        <div className="hidden items-center gap-3 xl:flex 2xl:gap-4">
           {loggedIn || academyAuthReady || academyProfileReady ? (
             <>
               {academyProfileReady ? (

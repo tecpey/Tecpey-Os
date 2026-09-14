@@ -103,6 +103,8 @@ describe("landing V2 visual safety authority", () => {
   it("keeps the complete English navigation compact at the 1024px boundary", () => {
     assert.match(navbar, /hidden items-center gap-3 text-\[13px\] font-bold xl:flex/);
     assert.match(navbar, /hidden items-center gap-3 xl:flex/);
+    assert.match(navbar, /xl:flex 2xl:gap-4/);
+    assert.doesNotMatch(navbar, /xl:flex xl:gap-4/);
     assert.match(navbar, /flex items-center gap-2 sm:gap-3 xl:hidden/);
     assert.doesNotMatch(navbar, /font-bold lg:flex/);
   });
