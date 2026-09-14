@@ -1,3 +1,6 @@
+import { CORE_COIN_SYMBOL_SET } from "@/data/coreCoinSymbols";
+import { extractNewsTaxonomy } from "@/lib/news-taxonomy";
+
 export type NewsEditorialQualityFailure =
   | "unsupported_latin_entity"
   | "ticker_integrity_failed"
@@ -51,11 +54,64 @@ function latinTokens(value: string): Set<string> {
   );
 }
 
-function marketTickerTokens(value: string): Set<string> {
-  const matches = value.match(/\b[A-Z][A-Z0-9]{1,7}\b/g) ?? [];
-  return new Set(
-    matches.filter((token) => !NON_TICKER_ACRONYMS.has(token)),
+function uppercaseTickerCandidates(value: string): Set<string> {
+  return new Set(value.match(/\b[A-Z][A-Z0-9]{1,7}\b/g) ?? []);
+}
+
+function hasExplicitMarketTickerContext(value: string, token: string): boolean {
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const marketWord = "(?:stablecoin|token|coin|cryptocurrency|cryptoasset|ticker|symbol)";
+
+  const tokenBeforeMarket = new RegExp(
+    `\\b${escaped}\\b\\s+(?:is\\s+|as\\s+|the\\s+)?${marketWord}\\b`,
+    "i",
   );
+
+  const marketBeforeToken = new RegExp(
+    `\\b${marketWord}\\b\\s+(?:called\\s+|named\\s+|ticker\\s+|symbol\\s+|of\\s+)?${escaped}\\b`,
+    "i",
+  );
+
+  const explicitAssignment = new RegExp(
+    `\\b(?:ticker|symbol)\\s*[:=]\\s*${escaped}\\b`,
+    "i",
+  );
+
+  return (
+    value.includes("$" + token)
+    || tokenBeforeMarket.test(value)
+    || marketBeforeToken.test(value)
+    || explicitAssignment.test(value)
+  );
+}
+
+function sourceMarketTickerTokens(value: string): Set<string> {
+  const uppercaseCandidates = uppercaseTickerCandidates(value);
+
+  const knownSymbols = new Set(
+    extractNewsTaxonomy(value).coinSymbols.map((symbol) => symbol.toUpperCase()),
+  );
+
+  const tickers = new Set<string>();
+
+  for (const token of uppercaseCandidates) {
+    if (NON_TICKER_ACRONYMS.has(token)) continue;
+
+    if (
+      CORE_COIN_SYMBOL_SET.has(token)
+      || knownSymbols.has(token)
+      || hasExplicitMarketTickerContext(value, token)
+    ) {
+      tickers.add(token);
+    }
+  }
+
+  return tickers;
+}
+
+function preservedSourceTickers(sourceTickers: readonly string[], translatedText: string): string[] {
+  const translatedUppercase = uppercaseTickerCandidates(translatedText);
+  return sourceTickers.filter((ticker) => translatedUppercase.has(ticker));
 }
 
 function hasPersian(value: string): boolean {
@@ -136,8 +192,8 @@ export function validatePersianNewsEditorialQuality(input: {
     };
   }
 
-  const sourceTickers = [...marketTickerTokens(sourceText)].sort();
-  const translatedTickers = [...marketTickerTokens(translatedText)].sort();
+  const sourceTickers = [...sourceMarketTickerTokens(sourceText)].sort();
+  const translatedTickers = preservedSourceTickers(sourceTickers, translatedText).sort();
   const translatedTickerSet = new Set(translatedTickers);
   const missingTickers = sourceTickers.filter((ticker) => !translatedTickerSet.has(ticker));
   if (missingTickers.length > 0) {

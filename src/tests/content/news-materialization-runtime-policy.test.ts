@@ -47,6 +47,7 @@ function localeResult(locale: "en" | "fa"): NewsMaterializationWorkerResult {
         : "11111111-1111-4111-8111-111111111113",
       snapshotHash: "a".repeat(64),
       insertedHistoryItems: 0,
+      insertedHistoryPaths: [],
     },
   };
 }

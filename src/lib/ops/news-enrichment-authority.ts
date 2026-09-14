@@ -177,7 +177,11 @@ async function translationState(
      SELECT latest.status,
             latest.generated_at,
             latest.evidence,
-            (SELECT count(*)::int FROM scoped WHERE status = 'failed') AS failure_count
+            (SELECT count(*)::int
+               FROM scoped
+              WHERE status = 'failed'
+                AND (evidence->>'translationAttempt') ~ '^[1-9][0-9]*$'
+                AND (evidence->>'translationAttempt')::int BETWEEN 1 AND 20) AS failure_count
        FROM latest`,
     [archiveId, locale, contentHash],
   );
