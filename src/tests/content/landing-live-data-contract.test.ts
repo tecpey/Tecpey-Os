@@ -6,7 +6,7 @@ const component = readFileSync(new URL("../../components/home/StoryLiveData.tsx"
 const newsRoute = readFileSync(new URL("../../app/api/crypto-news/route.ts", import.meta.url), "utf8");
 
 test("landing news consumes the governed thumbnailUrl response contract", () => {
-  assert.match(newsRoute, /thumbnailUrl:\s*item\.thumbnailUrl/);
+  assert.match(newsRoute, /thumbnailUrl:\s*localizedThumbnailUrl/);
   assert.match(component, /thumbnailUrl\?: string \| null/);
   assert.match(component, /storySafeLink\(item\.thumbnailUrl\)/);
   assert.doesNotMatch(component, /item\.thumbnail\?\.(?:src|alt)/);
