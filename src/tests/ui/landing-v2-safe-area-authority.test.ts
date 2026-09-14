@@ -59,7 +59,7 @@ describe("landing V2 visual safety authority", () => {
     assert.doesNotMatch(smallestPhoneComposition, /display:\s*none|visibility:\s*hidden/);
   });
 
-  it("uses semantic hero hooks instead of incidental child order", () => {
+  it("uses semantic hero hooks instead of incidental child order across every visual authority", () => {
     for (const hook of [
       "data-hero-image",
       "data-hero-shade",
@@ -75,7 +75,10 @@ describe("landing V2 visual safety authority", () => {
     }
     assert.match(css, /\[data-hero-route\]::after/);
     assert.match(css, /\[data-route-node="future"\]/);
+    assert.match(navbarFocus, /\[data-hero-image\]/);
     assert.doesNotMatch(css, /nth-(?:child|of-type)/);
+    assert.doesNotMatch(navbarFocus, /nth-(?:child|of-type)/);
+    assert.doesNotMatch(navbarFocus, />\s*img\[src\*=/);
   });
 
   it("keeps the full mobile and tablet journey route above hero copy through 820px", () => {
