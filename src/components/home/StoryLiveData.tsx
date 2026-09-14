@@ -70,7 +70,9 @@ export function StoryNews({ locale }: { locale: Locale }) {
   }, [items.length]);
   const goTo = useCallback((index: number) => {
     const target = Math.max(0, Math.min(index, items.length - 1));
-    cardRefs.current[target]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    // `auto` delegates animation to CSS `scroll-behavior`, so the normal rail
+    // stays smooth while `prefers-reduced-motion` can disable scrolling motion.
+    cardRefs.current[target]?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
     setActive(target);
   }, [items.length]);
   return <div>
