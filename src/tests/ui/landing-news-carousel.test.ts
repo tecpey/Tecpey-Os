@@ -4,7 +4,6 @@ import test from "node:test";
 
 const live = readFileSync("src/components/home/StoryLiveData.tsx", "utf8");
 const css = readFileSync("src/components/home/growth-story.module.css", "utf8");
-const route = readFileSync("src/app/api/crypto-news/route.ts", "utf8");
 
 test("landing news is a user-controlled centered carousel with adjacent context", () => {
   assert.match(live, /limit=7/);
@@ -18,11 +17,11 @@ test("landing news is a user-controlled centered carousel with adjacent context"
   assert.match(css, /--news-card-width: 78vw/);
 });
 
-test("news cards use governed TecPey editorial thumbnails and disclose their origin", () => {
-  assert.match(route, /storyNewsThumbnail/);
-  assert.match(route, /kind: "tecpey_editorial"/);
+test("news cards keep editorial imagery presentation-owned without widening News authority", () => {
+  assert.match(live, /fallbackNewsCovers/);
   assert.match(live, /TecPey editorial topic image/);
   assert.match(live, /item\.thumbnail\?\.src/);
+  assert.doesNotMatch(live, /storyNewsThumbnail/);
 });
 
 test("carousel motion stays bounded and accessible", () => {
