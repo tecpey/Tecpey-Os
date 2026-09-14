@@ -13,7 +13,6 @@ import {
   type NewsArchiveItem,
 } from "@/lib/news-growth-authority";
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
-import { storyNewsThumbnail } from "@/data/landing-story-data";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -32,11 +31,6 @@ type NewsItem = {
   trendScore?: number;
   editorPick?: boolean;
   relatedLesson?: string;
-  thumbnail: {
-    src: string;
-    alt: string;
-    kind: "tecpey_editorial";
-  };
 };
 
 function boundedInteger(raw: string | null, fallback: number, maximum: number): number {
@@ -77,11 +71,6 @@ function toNewsItem(item: NewsArchiveItem, locale: "fa" | "en", now: number): Ne
       ? `coin:${item.taxonomy.coinSymbols[0].toLowerCase()}`
       : null;
   const sourceUrl = item.articleUrl;
-  const thumbnail = storyNewsThumbnail({
-    id: item.archiveId,
-    coinSymbols: item.taxonomy.coinSymbols,
-    topicTags: item.taxonomy.topicTags,
-  });
   return {
     id: item.archiveId,
     title: item.displayTitle,
@@ -97,13 +86,6 @@ function toNewsItem(item: NewsArchiveItem, locale: "fa" | "en", now: number): Ne
     trendScore: impact * 10 + Math.min(20, item.taxonomy.entityTags.length),
     editorPick: impact >= 8,
     relatedLesson: relatedLesson(item, locale),
-    thumbnail: {
-      src: thumbnail.src,
-      alt: locale === "fa"
-        ? `تصویر تحریریه تک‌پی برای خبر ${thumbnail.subject}`
-        : `TecPey editorial image for ${thumbnail.subject} news`,
-      kind: thumbnail.kind,
-    },
   };
 }
 
