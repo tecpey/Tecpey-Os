@@ -60,10 +60,11 @@ function projectContract(testInfo) {
         arenaPath: "/en/academy/trading-arena",
         arenaHeading: /Turn knowledge into reviewable decisions/i,
         arenaRiskFree: /(?:without|no) real money/i,
-        primaryCtas: ["Start Academy free", "Explore the journey"],
+        primaryCtas: ["Start Free Academy", "Explore the journey"],
         forbiddenCopy: [
           /Online Market Board/i,
           /Live market prices/i,
+          /Live market data/i,
           /brings buying, selling and digital asset management together/i,
           /Buy, sell and review live markets/i,
         ],
@@ -86,11 +87,12 @@ function projectContract(testInfo) {
         arenaPath: "/academy/trading-arena",
         arenaHeading: /دانش را به تصمیم قابل بازبینی تبدیل کن/,
         arenaRiskFree: /بدون پول واقعی/,
-        primaryCtas: ["شروع رایگان آکادمی", "کشف مسیر رشد"],
+        primaryCtas: ["شروع آکادمی رایگان", "کشف مسیر رشد"],
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
           /اولین معامله واقعی/,
           /بازارها\s+زنده/,
+          /داده زنده بازار/,
           /\bOnline\b/,
         ],
       };
