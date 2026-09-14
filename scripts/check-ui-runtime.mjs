@@ -185,7 +185,7 @@ try {
 
   for (const required of [
     'data-runtime-contract="landing-growth-v1"',
-    "شروع رایگان آکادمی",
+    "شروع آکادمی رایگان",
     "کشف مسیر رشد",
   ]) {
     if (!html.includes(required)) {
