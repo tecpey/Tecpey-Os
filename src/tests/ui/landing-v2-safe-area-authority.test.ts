@@ -23,6 +23,14 @@ describe("landing V2 visual safety authority", () => {
     assert.match(css, /scroll-margin-bottom:\s*var\(--tp-landing-safe-bottom\)/);
   });
 
+  it("keeps both compact-phone hero actions above the fixed navigation corridor", () => {
+    assert.match(growthStory, /data-mobile-learning-cta/);
+    assert.match(css, /@media \(max-width:\s*480px\)[\s\S]*\[data-hero-content\][\s\S]*safe-area-inset-bottom/);
+    assert.match(css, /\[data-mobile-learning-cta\][\s\S]*display:\s*grid !important/);
+    assert.match(css, /\[data-mobile-learning-cta\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.2fr\)\s*minmax\(0,\s*\.8fr\)/);
+    assert.match(css, /\[data-mobile-learning-cta\][\s\S]*min-height:\s*52px/);
+  });
+
   it("uses semantic hero hooks instead of incidental child order", () => {
     for (const hook of [
       "data-hero-image",
