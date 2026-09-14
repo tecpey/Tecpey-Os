@@ -53,6 +53,7 @@ export type NewsMaterializationWorkerResult = {
     snapshotId: string;
     snapshotHash: string;
     insertedHistoryItems: number;
+    insertedHistoryPaths: string[];
   };
 };
 

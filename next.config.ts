@@ -76,6 +76,18 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      // Governed news thumbnails redirect to approved publisher/CDN media. This
+      // route-specific rule intentionally comes after the global security rule
+      // so no source article URL is disclosed through the Referer header.
+      {
+        source: "/crypto-news/media",
+        headers: [
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+        ],
+      },
       {
         source: "/sw.js",
         headers: [

@@ -129,11 +129,16 @@ function costAuthorityBlockReason(response: Response): CostAuthorityBlockReason 
     : null;
 }
 
+// The immutable provider-attempt ledger allocates translation_attempt identities
+// from 1..20. This sequence capacity is accounting identity, not retry policy:
+// transient retry eligibility remains bounded by maximumFailures in the lease,
+// while recoverable provider/key incidents may resume after their cooldown.
+const NEWS_AI_TRANSLATION_ATTEMPT_SEQUENCE_MAX = 20;
+
 async function nextTranslationAttempt(input: {
   client: PoolClient;
   candidate: NewsEnrichmentCandidate;
   locale: "fa";
-  maximumAttempts: number;
 }): Promise<number | null> {
   const result = await input.client.query<{ previous_attempt: string | number }>(
     `SELECT COALESCE(MAX(translation_attempt), 0)::int AS previous_attempt
@@ -144,10 +149,14 @@ async function nextTranslationAttempt(input: {
     [input.candidate.archiveId, input.locale, input.candidate.contentHash],
   );
   const previousAttempt = Number(result.rows[0]?.previous_attempt ?? 0);
-  if (!Number.isSafeInteger(previousAttempt) || previousAttempt < 0 || previousAttempt > 20) {
+  if (
+    !Number.isSafeInteger(previousAttempt)
+    || previousAttempt < 0
+    || previousAttempt > NEWS_AI_TRANSLATION_ATTEMPT_SEQUENCE_MAX
+  ) {
     throw new Error("news_ai_translation_attempt_state_invalid");
   }
-  if (previousAttempt >= input.maximumAttempts) return null;
+  if (previousAttempt >= NEWS_AI_TRANSLATION_ATTEMPT_SEQUENCE_MAX) return null;
   return previousAttempt + 1;
 }
 
@@ -218,7 +227,6 @@ async function main(): Promise<void> {
             client,
             candidate,
             locale,
-            maximumAttempts: maximumFailures,
           });
         } catch {
           costAuthorityUnavailable += 1;
@@ -226,7 +234,7 @@ async function main(): Promise<void> {
         }
         if (translationAttempt === null) {
           exhausted += 1;
-          return { ok: false as const, reason: "cost_attempt_budget_exhausted" as const };
+          return { ok: false as const, reason: "cost_attempt_sequence_exhausted" as const };
         }
 
         processed += 1;
@@ -419,6 +427,7 @@ async function main(): Promise<void> {
     editorialQualityRejected,
     retryMinutes,
     maximumFailures,
+    translationAttemptSequenceMax: NEWS_AI_TRANSLATION_ATTEMPT_SEQUENCE_MAX,
     maximumProviderCallsPerRun: limit * 2,
     startedAt,
     finishedAt: new Date().toISOString(),

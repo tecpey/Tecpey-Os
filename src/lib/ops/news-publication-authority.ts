@@ -2,6 +2,34 @@ import { withDb } from "../db";
 import type { ApprovedNewsSource } from "../news-automation";
 import { NEWS_SOURCE_REGISTRY } from "../news-source-registry";
 
+export const NEWS_PUBLICATION_POLICY_VERSION = "v2" as const;
+
+const NEWS_PUBLICATION_POLICY_VERSION_RE = /^[a-z0-9][a-z0-9._-]{0,31}$/;
+
+function normalizePublicationWatermark(value: string): string {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) throw new Error("news_publication_watermark_invalid");
+  return new Date(timestamp).toISOString().replace(".000Z", "Z");
+}
+
+/**
+ * Publication idempotency is scoped to policy version + locale + validated
+ * translation watermark. Historical snapshots stay immutable while an
+ * explicit policy-version bump can re-evaluate the same archive set after a
+ * semantic publication-policy change without deleting or relabelling evidence.
+ */
+export function buildNewsPublicationIdempotencyKey(input: {
+  locale: "fa" | "en";
+  fetchedAt: string;
+  policyVersion?: string;
+}): string {
+  const policyVersion = (input.policyVersion ?? NEWS_PUBLICATION_POLICY_VERSION).trim().toLowerCase();
+  if (!NEWS_PUBLICATION_POLICY_VERSION_RE.test(policyVersion)) {
+    throw new Error("news_publication_policy_version_invalid");
+  }
+  return `crypto-news:publish:archive:${policyVersion}:${input.locale}:${normalizePublicationWatermark(input.fetchedAt)}`;
+}
+
 export type NewsPublicationCandidate = {
   archiveId: string;
   sourceName: string;

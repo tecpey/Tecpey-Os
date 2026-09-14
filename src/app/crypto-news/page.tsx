@@ -4,7 +4,8 @@ import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { DailyNewsArchive } from "@/components/news/DailyNewsArchive";
 import { buildNewsHubSchemas, getNewsHubMetadata, getNewsHubPageModelFromAuthority } from "@/lib/news-detail-pages";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
-import { getNewsArchiveDayFromAuthority, getNewsArchiveDaysFromAuthority, isValidArchiveDay, tehranCalendarDay } from "@/lib/news-growth-authority";
+import { getNewsArchiveDayForPresentation } from "@/services/news/archive-presentation-authority";
+import { getNewsArchiveDaysFromAuthority, isValidArchiveDay, tehranCalendarDay } from "@/lib/news-growth-authority";
 
 export async function generateMetadata(): Promise<Metadata> {
   return getNewsHubMetadata(await getNewsHubPageModelFromAuthority("fa"));
@@ -30,7 +31,7 @@ export default async function CryptoNewsPage({ searchParams }: PageProps) {
   const [newsHub, trendRadar, items, historicalDays] = await Promise.all([
     getNewsHubPageModelFromAuthority("fa"),
     getGrowthTrendRadarFromAuthority("fa"),
-    getNewsArchiveDayFromAuthority(selectedDay, "fa"),
+    getNewsArchiveDayForPresentation(selectedDay, "fa"),
     getNewsArchiveDaysFromAuthority(180),
   ]);
   const availableDays = Array.from(new Set([today, selectedDay, ...historicalDays]))
