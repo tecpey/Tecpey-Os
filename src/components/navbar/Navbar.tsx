@@ -88,7 +88,7 @@ function isNavActive(pathname: string, href: string) {
 }
 
 function navLinkClass(active: boolean) {
-  return `relative transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 dark:focus-visible:ring-primary ${active ? "text-blue-800 after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-blue-800 dark:text-primary dark:after:bg-primary" : "hover:text-blue-800 dark:hover:text-primary"}`;
+  return `tecpey-pressable relative inline-flex min-h-11 items-center rounded-xl px-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 dark:focus-visible:ring-primary ${active ? "text-blue-800 after:absolute after:bottom-0 after:left-1.5 after:right-1.5 after:h-0.5 after:rounded-full after:bg-blue-800 dark:text-primary dark:after:bg-primary" : "hover:text-blue-800 dark:hover:text-primary"}`;
 }
 
 export default function Navbar({
@@ -284,13 +284,13 @@ export default function Navbar({
   return (
     <nav
       dir={isEnglish ? "ltr" : "rtl"}
-      className="sticky left-0 top-0 z-[100] w-full border-b border-black/5 bg-navbar-bg/95 text-fg backdrop-blur-xl dark:border-white/10"
+      className="tecpey-site-nav sticky left-0 top-0 z-[100] w-full border-b border-black/5 bg-navbar-bg/95 text-fg backdrop-blur-xl dark:border-white/10"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 lg:px-5 lg:py-3">
         <div className="flex items-center gap-5">
           <Link
             href={homeHref}
-            className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="tecpey-pressable flex min-h-11 items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="TecPey Home"
           >
             <TecpeyMark
@@ -330,7 +330,7 @@ export default function Navbar({
                     }, 0);
                   }
                 }}
-                className="flex items-center gap-1 rounded-full px-2 py-1 transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="tecpey-pressable flex min-h-11 items-center gap-1 rounded-xl px-2 py-1 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-haspopup="menu"
                 aria-expanded={knowledgeOpen}
                 aria-controls={knowledgeMenuId}
@@ -347,7 +347,7 @@ export default function Navbar({
                   id={knowledgeMenuId}
                   role="menu"
                   aria-label={knowledgeLabel}
-                  className="absolute end-0 top-full z-[120] mt-3 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] text-[color:var(--tp-text)] shadow-[0_24px_80px_rgba(2,8,23,.28)]"
+                  className="tecpey-motion-reveal absolute end-0 top-full z-[120] mt-3 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] text-[color:var(--tp-text)] shadow-[0_24px_80px_rgba(2,8,23,.28)]"
                 >
                   <div className="max-h-[min(70vh,520px)] overflow-y-auto p-2">
                     {activeKnowledgeLinks.map((item) => (
@@ -374,14 +374,14 @@ export default function Navbar({
               {academyProfileReady ? (
                 <Link
                   href={smartCenterHref}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-cyan-500 to-blue-700 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition-[transform,filter,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                  className="tecpey-pressable inline-flex min-h-11 items-center gap-2 rounded-[var(--tp-radius-control)] bg-gradient-to-l from-cyan-500 to-blue-700 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                 >
                   <BrainCircuit className="h-4 w-4" /> {smartCenterLabel}
                 </Link>
               ) : academyAuthReady && isAcademyArea ? (
                 <Link
                   href={academyOnboardingHref}
-                  className="inline-flex items-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-sm font-black text-cyan-700 transition hover:bg-cyan-400/15 dark:text-cyan-100"
+                  className="tecpey-pressable inline-flex min-h-11 items-center gap-2 rounded-[var(--tp-radius-control)] border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-sm font-black text-cyan-700 hover:bg-cyan-400/15 dark:text-cyan-100"
                 >
                   <UserIcon className="h-4 w-4" /> {completeAccountLabel}
                 </Link>
@@ -389,7 +389,7 @@ export default function Navbar({
               {loggedIn ? (
                 <a
                   href={appLink()}
-                  className="rounded-full bg-primary px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:brightness-110"
+                  className="tecpey-pressable inline-flex min-h-11 items-center rounded-[var(--tp-radius-control)] bg-primary px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 hover:brightness-110"
                 >
                   {accountLabel}
                 </a>
@@ -399,11 +399,11 @@ export default function Navbar({
                   <button
                     type="button"
                     onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center justify-center"
+                    className="tecpey-icon-button tecpey-pressable"
                     aria-expanded={profileOpen}
                     aria-label={profileLabel}
                   >
-                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/20 transition hover:border-primary/60">
+                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-[11px] border border-[color:var(--tp-border)] bg-[color:var(--tp-icon-bg)]">
                       {user?.avatar ? (
                         // eslint-disable-next-line @next/next/no-img-element -- #162: the authenticated avatar URL is runtime-controlled and intentionally rendered without optimizer proxying.
                         <img
@@ -417,7 +417,7 @@ export default function Navbar({
                     </div>
                   </button>
                   {profileOpen && (
-                    <div className="absolute left-0 z-[120] mt-3 w-56 overflow-hidden rounded-xl border border-white/10 bg-bg shadow-2xl">
+                    <div className="tecpey-motion-reveal absolute left-0 z-[120] mt-3 w-56 overflow-hidden rounded-xl border border-white/10 bg-bg shadow-2xl">
                       <div className="border-b border-white/10 px-4 py-3 text-sm">
                         <p className="font-bold text-fg">
                           {user?.name} {user?.family}
@@ -452,13 +452,13 @@ export default function Navbar({
             <>
               <a
                 href={resolvedLoginHref}
-                className="text-sm font-bold transition hover:text-blue-800 dark:hover:text-primary"
+                className="tecpey-pressable inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-bold hover:text-blue-800 dark:hover:text-primary"
               >
                 {loginLabel}
               </a>
               <a
                 href={resolvedSignupHref}
-                className="rounded-full bg-blue-800 px-4 py-2 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-blue-900 dark:bg-blue-900 dark:hover:bg-blue-950"
+                className="tecpey-pressable inline-flex min-h-11 items-center rounded-[var(--tp-radius-control)] bg-blue-800 px-4 py-2 text-sm font-black text-white shadow-lg shadow-primary/20 hover:bg-blue-900 dark:bg-blue-900 dark:hover:bg-blue-950"
               >
                 {signupLabel}
               </a>
@@ -468,13 +468,13 @@ export default function Navbar({
             <Globe2 className="mx-2 h-4 w-4 text-blue-800 dark:text-primary" />
             <Link
               href={faHref}
-              className={`rounded-full px-3 py-2 transition ${!isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`tecpey-pressable inline-flex min-h-10 items-center rounded-full px-3 py-2 ${!isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               FA
             </Link>
             <Link
               href={enHref}
-              className={`rounded-full px-3 py-2 transition ${isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`tecpey-pressable inline-flex min-h-10 items-center rounded-full px-3 py-2 ${isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               EN
             </Link>
@@ -489,13 +489,13 @@ export default function Navbar({
             <Globe2 className="mx-1 h-4 w-4 text-blue-800 dark:text-primary sm:mx-2" />
             <Link
               href={faHref}
-              className={`rounded-full px-2 py-2 transition sm:px-3 ${!isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`tecpey-pressable inline-flex min-h-10 items-center rounded-full px-2 py-2 sm:px-3 ${!isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               FA
             </Link>
             <Link
               href={enHref}
-              className={`rounded-full px-2 py-2 transition sm:px-3 ${isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`tecpey-pressable inline-flex min-h-10 items-center rounded-full px-2 py-2 sm:px-3 ${isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               EN
             </Link>
@@ -504,7 +504,7 @@ export default function Navbar({
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="tecpey-icon-button tecpey-pressable focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={menuAriaLabel}
             aria-expanded={isOpen}
             aria-controls={mobileMenuId}
@@ -517,7 +517,7 @@ export default function Navbar({
       {isOpen && (
         <div
           id={mobileMenuId}
-          className="fixed inset-x-0 top-16 z-[110] h-[calc(100dvh-4rem)] overflow-y-auto bg-navbar-bg px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden"
+          className="tecpey-motion-reveal fixed inset-x-0 top-16 z-[110] h-[calc(100dvh-4rem)] overflow-y-auto bg-navbar-bg px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden"
         >
           <div className="flex flex-col gap-2">
             {activePrimaryLinks.map((item) => (
@@ -525,7 +525,7 @@ export default function Navbar({
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsOpen(false)}
-                className={`rounded-2xl p-4 font-bold transition ${isNavActive(pathname, item.href) ? "bg-primary/10 text-primary" : "hover:bg-white/5"}`}
+                className={`tecpey-pressable rounded-2xl p-4 font-bold ${isNavActive(pathname, item.href) ? "bg-primary/10 text-primary" : "hover:bg-white/5"}`}
               >
                 {item.label}
               </Link>
@@ -642,7 +642,7 @@ export default function Navbar({
                   disabled={academyLogoutPending}
                   aria-label={academyLogoutError ? (isEnglish ? "Logout failed. Retry" : "خروج انجام نشد؛ تلاش دوباره") : logoutLabel}
                   title={academyLogoutError ? (isEnglish ? "Logout failed. Retry" : "خروج انجام نشد؛ دوباره تلاش کنید") : logoutLabel}
-                  className={`grid h-11 w-11 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-60 ${academyLogoutError ? "text-rose-500 hover:bg-rose-500/10" : "hover:bg-fg/5"}`}
+                  className={`tecpey-icon-button tecpey-pressable disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${academyLogoutError ? "text-rose-500 hover:bg-rose-500/10" : "hover:bg-fg/5"}`}
                 >
                   <LogOut className="h-5 w-5" aria-hidden="true" />
                 </button>

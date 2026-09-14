@@ -63,7 +63,7 @@ export default function Footer() {
         </nav>
 
         <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs leading-6 text-white/45 md:flex-row md:items-center md:justify-between">
-          <p>© 2025–{year} TecPey. {isEnglish ? "All rights reserved." : "تمامی حقوق محفوظ است."}</p>
+          <p>© 2025-{year} TecPey. {isEnglish ? "All rights reserved." : "تمامی حقوق محفوظ است."}</p>
           <p>{isEnglish ? "Official site: tecpey.ir" : "نشانی رسمی: tecpey.ir"}</p>
         </div>
       </div>

@@ -9,4 +9,7 @@ test("market layout retains constrained columns and an accessible list alternati
   assert.match(live, /minWidth=\{0\}/);
   assert.match(live, /aria-pressed=\{list\}/);
   assert.match(live, /styles.marketList/);
+  assert.match(live, /<CryptoAssetIcon symbol=\{row\.symbol\}/);
+  assert.match(live, /colorPanel=\{tiles\.map\(row => heatmapColor\(row\.change\)\)\}/);
+  assert.doesNotMatch(live, /#dfe8ef|#b8ead2|#fac9c5/);
 });
