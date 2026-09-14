@@ -8,27 +8,48 @@ const v2CssPath = path.join(root, "src/app/landing-experience-v2.css");
 const navbarFocusPath = path.join(root, "src/app/navbar-focus.css");
 const growthStoryPath = path.join(root, "src/components/home/TecpeyGrowthStory.tsx");
 
+function balancedBlock(source: string, marker: string) {
+  const start = source.indexOf(marker);
+  assert.notEqual(start, -1, `missing governed CSS block: ${marker}`);
+  const open = source.indexOf("{", start);
+  assert.notEqual(open, -1, `missing opening brace for: ${marker}`);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  assert.fail(`unterminated governed CSS block: ${marker}`);
+}
+
 describe("landing V2 visual safety authority", () => {
   const css = fs.readFileSync(v2CssPath, "utf8");
   const navbarFocus = fs.readFileSync(navbarFocusPath, "utf8");
   const growthStory = fs.readFileSync(growthStoryPath, "utf8");
+  const compactComposition = balancedBlock(css, "@media (max-width: 820px)");
+  const phoneDecisionPoint = balancedBlock(css, "@media (max-width: 480px)");
 
   it("loads the V2 authority from the governed global shell", () => {
     assert.match(navbarFocus, /@import "\.\/landing-experience-v2\.css";/);
   });
 
-  it("reserves the mobile fixed-navigation safe area", () => {
-    assert.match(css, /--tp-landing-safe-bottom:\s*calc\(env\(safe-area-inset-bottom, 0px\) \+ 8\.5rem\)/);
-    assert.match(css, /\.tecpey-living-mobile-nav[\s\S]*safe-area-inset-bottom/);
-    assert.match(css, /scroll-margin-bottom:\s*var\(--tp-landing-safe-bottom\)/);
+  it("reserves the fixed-navigation corridor and hardware safe area", () => {
+    assert.match(compactComposition, /--tp-landing-safe-bottom:\s*calc\(env\(safe-area-inset-bottom, 0px\) \+ 8\.5rem\)/);
+    assert.match(css, /\.tecpey-living-mobile-nav[\s\S]*bottom:\s*calc\(env\(safe-area-inset-bottom, 0px\) \+ \.75rem\) !important/);
+    assert.match(compactComposition, /scroll-margin-bottom:\s*var\(--tp-landing-safe-bottom\)/);
   });
 
-  it("keeps both compact-phone hero actions above the fixed navigation corridor", () => {
+  it("keeps compact-phone decisions tappable while proof metadata stays out of the overlay corridor", () => {
     assert.match(growthStory, /data-mobile-learning-cta/);
-    assert.match(css, /@media \(max-width:\s*480px\)[\s\S]*\[data-hero-content\][\s\S]*safe-area-inset-bottom/);
-    assert.match(css, /\[data-mobile-learning-cta\][\s\S]*display:\s*grid !important/);
-    assert.match(css, /\[data-mobile-learning-cta\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.2fr\)\s*minmax\(0,\s*\.8fr\)/);
-    assert.match(css, /\[data-mobile-learning-cta\][\s\S]*min-height:\s*52px/);
+    assert.match(phoneDecisionPoint, /\[data-hero-content\][\s\S]*padding-bottom:\s*1\.25rem !important/);
+    assert.match(phoneDecisionPoint, /\[data-mobile-learning-cta\][\s\S]*display:\s*grid !important/);
+    assert.match(phoneDecisionPoint, /grid-template-columns:\s*minmax\(0,\s*1\.2fr\)\s*minmax\(0,\s*\.8fr\)/);
+    assert.match(phoneDecisionPoint, /\[data-mobile-learning-cta\] > \*[\s\S]*min-height:\s*52px/);
+    assert.match(compactComposition, /\[data-hero-signals\][\s\S]*position:\s*relative !important/);
+    assert.match(compactComposition, /\[data-hero-signals\][\s\S]*inset:\s*auto !important/);
+    assert.match(compactComposition, /\[data-hero-signals\][\s\S]*overflow:\s*clip !important/);
   });
 
   it("uses semantic hero hooks instead of incidental child order", () => {
@@ -50,19 +71,30 @@ describe("landing V2 visual safety authority", () => {
     assert.doesNotMatch(css, /nth-(?:child|of-type)/);
   });
 
-  it("keeps the full mobile journey route above hero copy", () => {
-    assert.match(css, /@media \(max-width:\s*767px\)[\s\S]*\[data-hero-route\]::before[\s\S]*top:\s*7%/);
-    for (const node of ["start", "practice", "skill", "future"]) {
-      const selector = `\\[data-route-node=\\"${node}\\"\\]`;
-      assert.match(css, new RegExp(`${selector}[\\s\\S]{0,180}top:\\s*\\d+% !important;[\\s\\S]{0,80}bottom:\\s*auto !important;`));
+  it("keeps the full mobile and tablet journey route above hero copy through 820px", () => {
+    assert.match(compactComposition, /\[data-hero-route\]::before[\s\S]*top:\s*7%/);
+    const expectedTop = { start: "30", practice: "23", skill: "16", future: "9" } as const;
+    for (const [node, top] of Object.entries(expectedTop)) {
+      const rule = balancedBlock(compactComposition, `[data-route-node="${node}"]`);
+      assert.match(rule, new RegExp(`top:\\s*${top}% !important`));
+      assert.match(rule, /bottom:\s*auto !important/);
     }
   });
 
-  it("keeps static hero assurances out of inaccessible horizontal scrolling", () => {
+  it("keeps static hero assurances in a readable non-scroll grid", () => {
     assert.match(growthStory, /data-hero-signals[\s\S]*role="list"/);
-    assert.match(css, /\[data-hero-signals\][\s\S]*display:\s*grid !important/);
-    assert.match(css, /\[data-hero-signals\][\s\S]*overflow:\s*clip !important/);
-    assert.match(css, /\[data-hero-signals\][\s\S]*white-space:\s*normal !important/);
+    const signals = balancedBlock(compactComposition, "[data-hero-signals]");
+    assert.match(signals, /display:\s*grid !important/);
+    assert.match(signals, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+    assert.match(signals, /overflow:\s*clip !important/);
+    assert.doesNotMatch(signals, /overflow-x:\s*auto/);
+    assert.match(compactComposition, /\[data-hero-signals\] > \[role="listitem"\][\s\S]*white-space:\s*normal !important/);
+  });
+
+  it("enforces the 44px TecPey interaction floor independently of WCAG exceptions", () => {
+    assert.match(css, /button,[\s\S]*select,[\s\S]*summary[\s\S]*min-width:\s*44px;[\s\S]*min-height:\s*44px/);
+    assert.match(css, /> nav\[aria-label\] > a[\s\S]*min-height:\s*44px/);
+    assert.match(css, /#story-academy aside a[\s\S]*min-width:\s*44px;[\s\S]*min-height:\s*44px/);
   });
 
   it("pins the future-product kicker to an explicit contrast-safe surface", () => {
