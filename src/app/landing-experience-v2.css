@@ -134,7 +134,30 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
   main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] {
     min-height: max(690px, calc(100svh - 3rem));
     max-height: none;
-    align-content: end;
+    align-content: start;
+  }
+
+  /* Reserve one deliberate route band, then let the decision content start in
+   * normal flow. Aligning the whole Hero to the block end made its CTAs depend
+   * on proof-rail height and pushed them under the fixed mobile navigation. */
+  main[data-runtime-contract="landing-growth-v1"] [data-hero-content] {
+    padding-top: clamp(13.75rem, 31vw, 15rem) !important;
+    padding-bottom: 1rem !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] [data-hero-content] h1 {
+    font-size: clamp(2.2rem, 7vw, 3.2rem) !important;
+    line-height: 1.16 !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] [data-hero-content] h1 + p {
+    max-width: 42rem;
+    margin-top: .85rem !important;
+    line-height: 1.75 !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] [data-mobile-learning-cta] {
+    margin-top: 1rem !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-hero-image] {
@@ -239,7 +262,7 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
  * fixed navigation or Home Indicator. */
 @media (max-width: 480px) {
   main[data-runtime-contract="landing-growth-v1"] [data-hero-content] {
-    padding-top: 11.25rem !important;
+    padding-top: 13.25rem !important;
     padding-bottom: 1.25rem !important;
   }
 
@@ -305,7 +328,7 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
    * fixed navigation. This preserves both the mountain narrative and the
    * 44px+ interaction corridor without hiding content. */
   main[data-runtime-contract="landing-growth-v1"] [data-hero-content] {
-    padding-top: 4rem !important;
+    padding-top: 12.75rem !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-mobile-learning-cta] {

@@ -53,8 +53,15 @@ describe("landing V2 visual safety authority", () => {
     assert.match(compactComposition, /\[data-hero-signals\][\s\S]*overflow:\s*clip !important/);
   });
 
+  it("keeps Hero composition under one authority and starts the decision content below the route", () => {
+    assert.match(compactComposition, /align-content:\s*start/);
+    assert.match(compactComposition, /\[data-hero-content\][\s\S]*padding-top:\s*clamp\(13\.75rem,\s*31vw,\s*15rem\) !important/);
+    assert.match(compactComposition, /\[data-hero-content\][\s\S]*padding-bottom:\s*1rem !important/);
+    assert.doesNotMatch(navbarFocus, /section\[data-home-section="hero"\][\s\S]*min-height/);
+  });
+
   it("compacts the 320–360px decision point instead of pushing it under fixed navigation", () => {
-    assert.match(smallestPhoneComposition, /\[data-hero-content\][\s\S]*padding-top:\s*4rem !important/);
+    assert.match(smallestPhoneComposition, /\[data-hero-content\][\s\S]*padding-top:\s*12\.75rem !important/);
     assert.match(smallestPhoneComposition, /\[data-mobile-learning-cta\][\s\S]*margin-top:\s*\.75rem !important/);
     assert.doesNotMatch(smallestPhoneComposition, /display:\s*none|visibility:\s*hidden/);
   });

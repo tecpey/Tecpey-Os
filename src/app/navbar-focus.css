@@ -54,11 +54,6 @@ main[data-runtime-contract="landing-growth-v1"] :is(a, button, summary, select, 
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  main[data-runtime-contract="landing-growth-v1"]
-    > section[data-home-section="hero"] {
-    min-height: max(820px, calc(100svh + 3.5rem));
-  }
-
   main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
     top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
   }
