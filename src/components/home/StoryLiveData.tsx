@@ -92,7 +92,7 @@ export function StoryNews({ locale }: { locale: Locale }) {
           return <article key={item.id} ref={node => { cardRefs.current[index] = node; }} data-news-index={index} data-active={active === index ? "true" : "false"} className={styles.newsCard} role="group" aria-roledescription={fa ? "کارت خبر" : "slide"} aria-label={`${number(index + 1, locale, 0)} ${fa ? "از" : "of"} ${number(items.length, locale, 0)}`} dir={fa ? "rtl" : "ltr"}>
             <div className={styles.newsMedia}>
               {sourceThumbnail ? <>
-                {/* eslint-disable-next-line @next/next/no-img-element -- governed news media may be remote and needs native failure handling. */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- #643: governed source media may be remote and requires native fallback handling. */}
                 <img src={thumbnailSrc} alt={thumbnailAlt} loading="lazy" decoding="async" referrerPolicy="no-referrer" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} onError={event => { event.currentTarget.style.display = "none"; }} />
               </> : <Image src={thumbnailSrc} alt={thumbnailAlt} fill sizes="(max-width: 480px) 78vw, (max-width: 820px) 72vw, 680px" />}
             </div>
