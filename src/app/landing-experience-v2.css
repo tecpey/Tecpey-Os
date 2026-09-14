@@ -163,21 +163,22 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
     transform: scale(1.035);
   }
 
-  /* Keep the route on the visible ridge and away from copy. */
+  /* On phones, the full four-node route lives in the visual half above the
+   * headline. Nothing in the route relies on being hidden underneath copy. */
   main[data-runtime-contract="landing-growth-v1"] [data-hero-route]::before {
     inset-inline-end: 1%;
-    top: 12%;
-    width: 66vw;
-    height: 48%;
-    opacity: .58;
+    top: 7%;
+    width: 72vw;
+    height: 27%;
+    opacity: .6;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-hero-route]::after {
-    inset-inline-end: 4%;
-    top: 17%;
-    width: 61vw;
-    height: 42%;
-    opacity: .65;
+    inset-inline-end: 3%;
+    top: 9%;
+    width: 68vw;
+    height: 25%;
+    opacity: .68;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node] {
@@ -185,23 +186,27 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="start"] {
-    inset-inline-end: 52% !important;
-    bottom: 28% !important;
+    inset-inline-end: 54% !important;
+    top: 30% !important;
+    bottom: auto !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="practice"] {
-    inset-inline-end: 34% !important;
-    bottom: 43% !important;
+    inset-inline-end: 36% !important;
+    top: 23% !important;
+    bottom: auto !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="skill"] {
-    inset-inline-end: 18% !important;
-    bottom: 57% !important;
+    inset-inline-end: 19% !important;
+    top: 16% !important;
+    bottom: auto !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="future"] {
-    inset-inline-end: 4% !important;
-    top: 15% !important;
+    inset-inline-end: 3% !important;
+    top: 9% !important;
+    bottom: auto !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
@@ -259,23 +264,23 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="start"] {
-    inset-inline-end: 50% !important;
-    bottom: 31% !important;
+    inset-inline-end: 55% !important;
+    top: 29% !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="practice"] {
-    inset-inline-end: 30% !important;
-    bottom: 45% !important;
+    inset-inline-end: 36% !important;
+    top: 22% !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="skill"] {
-    inset-inline-end: 13% !important;
-    bottom: 58% !important;
+    inset-inline-end: 17% !important;
+    top: 15% !important;
   }
 
   main[data-runtime-contract="landing-growth-v1"] [data-route-node="future"] {
     inset-inline-end: 1% !important;
-    top: 14% !important;
+    top: 8% !important;
   }
 }
 
