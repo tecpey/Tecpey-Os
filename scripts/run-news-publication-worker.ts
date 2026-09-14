@@ -10,10 +10,8 @@ import { materializeNewsAutomationDecisions } from "../src/lib/news-materializat
 import { persistMaterializedNewsSnapshotTx } from "../src/lib/news-materialization-persistence";
 import {
   NEWS_PUBLICATION_POLICY_VERSION,
-  buildNewsPublicationIdempotencyKey,
-} from "../src/lib/news-publication-idempotency";
-import {
   approvedNewsPublicationSources,
+  buildNewsPublicationIdempotencyKey,
   readValidatedNewsPublicationCandidatesFromAuthority,
   type NewsPublicationCandidate,
 } from "../src/lib/ops/news-publication-authority";

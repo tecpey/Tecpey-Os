@@ -9,7 +9,7 @@ import { persistMaterializedNewsSnapshotTx } from "../../lib/news-materializatio
 import {
   NEWS_PUBLICATION_POLICY_VERSION,
   buildNewsPublicationIdempotencyKey,
-} from "../../lib/news-publication-idempotency";
+} from "../../lib/ops/news-publication-authority";
 
 const SOURCES: ApprovedNewsSource[] = [
   {
