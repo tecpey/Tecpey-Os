@@ -21,10 +21,10 @@ nav[dir] :is(a, button):focus {
 
 /* Landing V2 browser-evidence hardening.
  * Keep these rules presentation-only: no News, market or financial semantics.
+ * Hero composition itself belongs to landing-experience-v2.css; this file only
+ * adds cross-engine focus/scroll behavior and the stable-image browser contract.
  */
-main[data-runtime-contract="landing-growth-v1"]
-  > section[data-home-section="hero"]
-  > img[src*="growth-mountain"] {
+main[data-runtime-contract="landing-growth-v1"] [data-hero-image] {
   /* Continuous image transforms prevent actionability/stability in real browser
    * automation and add motion without conveying product state. The route nodes
    * carry the journey motion instead; the mountain remains a stable map. */
@@ -57,20 +57,6 @@ main[data-runtime-contract="landing-growth-v1"] :is(a, button, summary, select, 
   main[data-runtime-contract="landing-growth-v1"]
     > section[data-home-section="hero"] {
     min-height: max(820px, calc(100svh + 3.5rem));
-  }
-
-  /* heroInner is the third div child (shade, route, inner, proof rail). Reserve
-   * real room for both CTAs and the proof rail above the fixed mobile navbar. */
-  main[data-runtime-contract="landing-growth-v1"]
-    > section[data-home-section="hero"]
-    > div:nth-of-type(3) {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14.5rem);
-  }
-
-  main[data-runtime-contract="landing-growth-v1"]
-    > section[data-home-section="hero"]
-    > div:nth-of-type(4) {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 6.35rem);
   }
 
   main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
