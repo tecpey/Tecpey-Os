@@ -50,6 +50,14 @@ describe("landing V2 visual safety authority", () => {
     assert.doesNotMatch(css, /nth-(?:child|of-type)/);
   });
 
+  it("keeps the full mobile journey route above hero copy", () => {
+    assert.match(css, /@media \(max-width:\s*767px\)[\s\S]*\[data-hero-route\]::before[\s\S]*top:\s*7%/);
+    for (const node of ["start", "practice", "skill", "future"]) {
+      const selector = `\\[data-route-node=\\"${node}\\"\\]`;
+      assert.match(css, new RegExp(`${selector}[\\s\\S]{0,180}top:\\s*\\d+% !important;[\\s\\S]{0,80}bottom:\\s*auto !important;`));
+    }
+  });
+
   it("keeps static hero assurances out of inaccessible horizontal scrolling", () => {
     assert.match(growthStory, /data-hero-signals[\s\S]*role="list"/);
     assert.match(css, /\[data-hero-signals\][\s\S]*display:\s*grid !important/);
