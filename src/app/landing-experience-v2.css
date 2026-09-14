@@ -1,0 +1,237 @@
+/*
+ * TecPey Landing Experience V2 — visual safety layer.
+ *
+ * Scope is intentionally presentation-only. This file must not define News,
+ * market, publication or financial semantics. It exists to make the landing
+ * journey resilient across real mobile safe areas and desktop crops while the
+ * component-level V2 work is iterated behind exact-head visual evidence.
+ */
+
+main[data-runtime-contract="landing-growth-v1"] {
+  --tp-landing-safe-bottom: calc(env(safe-area-inset-bottom, 0px) + 7.75rem);
+  --tp-landing-safe-inline: max(1rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+  isolation: isolate;
+  padding-bottom: var(--tp-landing-safe-bottom);
+}
+
+/* The mountain is a product map, not a decorative card. */
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] {
+  min-height: clamp(640px, calc(100svh - 3.5rem), 860px);
+  max-height: 960px;
+  background: #041427;
+  overflow: clip;
+}
+
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > img {
+  object-position: 58% 48% !important;
+  transform: scale(1.012);
+}
+
+/* Route overlay is the second DIV child after shade. Keep labels tied to one
+ * coherent mountain path instead of visually floating across arbitrary crops. */
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2)::before {
+  content: "";
+  position: absolute;
+  inset-inline-end: 7%;
+  top: 17%;
+  width: min(46vw, 620px);
+  height: 58%;
+  opacity: .72;
+  background:
+    radial-gradient(circle at 11% 84%, rgba(150,255,255,.95) 0 3px, transparent 4px),
+    radial-gradient(circle at 42% 61%, rgba(150,255,255,.95) 0 3px, transparent 4px),
+    radial-gradient(circle at 67% 36%, rgba(150,255,255,.95) 0 3px, transparent 4px),
+    radial-gradient(circle at 91% 10%, rgba(150,255,255,.95) 0 3px, transparent 4px);
+  filter: drop-shadow(0 0 14px rgba(32,239,245,.45));
+}
+
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2)::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 9%;
+  top: 22%;
+  width: min(42vw, 560px);
+  height: 50%;
+  border: 2px solid rgba(80,239,242,.52);
+  border-inline-start-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 52% 48% 38% 62% / 62% 38% 62% 38%;
+  transform: rotate(-18deg) skewX(-8deg);
+  filter: drop-shadow(0 0 16px rgba(32,239,245,.28));
+}
+
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span {
+  min-height: 38px;
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+}
+
+/* Proof rail must never collide with the mobile learning CTA or bottom nav. */
+main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(4) {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* The chapter navigator is secondary chrome. Keep it visible, compact and out
+ * of the primary reading line. */
+main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
+  top: calc(env(safe-area-inset-top, 0px) + .55rem);
+  max-width: min(920px, calc(100% - 1.5rem));
+  scroll-padding-inline: .45rem;
+}
+
+main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
+  min-width: max-content;
+  min-height: 44px;
+}
+
+/* Global mobile navigation is always a protected overlay region. */
+.tecpey-living-mobile-nav {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + .75rem) !important;
+  margin-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+}
+
+@media (max-width: 767px) {
+  main[data-runtime-contract="landing-growth-v1"] {
+    --tp-landing-safe-bottom: calc(env(safe-area-inset-bottom, 0px) + 8.5rem);
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] {
+    min-height: max(690px, calc(100svh - 3rem));
+    max-height: none;
+    align-content: end;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > img {
+    object-position: 64% 42% !important;
+    transform: scale(1.035);
+  }
+
+  /* Keep the route on the visible ridge and away from copy. */
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2)::before {
+    inset-inline-end: 1%;
+    top: 12%;
+    width: 66vw;
+    height: 48%;
+    opacity: .58;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2)::after {
+    inset-inline-end: 4%;
+    top: 17%;
+    width: 61vw;
+    height: 42%;
+    opacity: .65;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span {
+    scale: .88;
+    transform-origin: center;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(1) {
+    inset-inline-end: 52% !important;
+    bottom: 28% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(2) {
+    inset-inline-end: 34% !important;
+    bottom: 43% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(3) {
+    inset-inline-end: 18% !important;
+    bottom: 57% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(4) {
+    inset-inline-end: 4% !important;
+    top: 15% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
+    top: calc(env(safe-area-inset-top, 0px) + .35rem);
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
+    margin-top: -.9rem;
+    justify-content: flex-start;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > nav[aria-label]::after {
+    content: "";
+    flex: 0 0 .2rem;
+  }
+
+  /* Fixed mobile navigation gets a reserved interaction corridor. */
+  main[data-runtime-contract="landing-growth-v1"] :is(button, a, summary, select, input) {
+    scroll-margin-bottom: var(--tp-landing-safe-bottom);
+  }
+}
+
+@media (max-width: 430px) {
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span {
+    scale: .78;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(1) {
+    inset-inline-end: 50% !important;
+    bottom: 31% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(2) {
+    inset-inline-end: 30% !important;
+    bottom: 45% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(3) {
+    inset-inline-end: 13% !important;
+    bottom: 58% !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span:nth-child(4) {
+    inset-inline-end: 1% !important;
+    top: 14% !important;
+  }
+}
+
+@media (max-width: 360px) {
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) {
+    opacity: .9;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span {
+    scale: .72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main[data-runtime-contract="landing-growth-v1"] *,
+  main[data-runtime-contract="landing-growth-v1"] *::before,
+  main[data-runtime-contract="landing-growth-v1"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  main[data-runtime-contract="landing-growth-v1"] > nav[aria-label],
+  main[data-runtime-contract="landing-growth-v1"] > section[data-home-section="hero"] > div:nth-of-type(2) > span,
+  .tecpey-living-mobile-nav__bar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] {
+    background: var(--tp-bg) !important;
+  }
+}
