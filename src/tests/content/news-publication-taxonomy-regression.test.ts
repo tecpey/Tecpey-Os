@@ -84,7 +84,7 @@ describe("news publication taxonomy regression", () => {
         locale: "en",
         title: "Company announces a routine office furniture refresh",
         summary:
-          "The company replaced desks and chairs at one office as part of a routine facilities update with no market, security, payments, regulatory or digital-asset relevance.",
+          "The organization replaced desks and chairs at one office during a routine facilities update unrelated to the subject matter covered by this regression test.",
         sourceName: "Cointelegraph",
         sourceUrl: "https://cointelegraph.com/news/routine-office-furniture-refresh",
         url: "https://cointelegraph.com/news/routine-office-furniture-refresh",
