@@ -6,10 +6,12 @@ import { describe, it } from "node:test";
 const root = process.cwd();
 const v2CssPath = path.join(root, "src/app/landing-experience-v2.css");
 const navbarFocusPath = path.join(root, "src/app/navbar-focus.css");
+const growthStoryPath = path.join(root, "src/components/home/TecpeyGrowthStory.tsx");
 
 describe("landing V2 visual safety authority", () => {
   const css = fs.readFileSync(v2CssPath, "utf8");
   const navbarFocus = fs.readFileSync(navbarFocusPath, "utf8");
+  const growthStory = fs.readFileSync(growthStoryPath, "utf8");
 
   it("loads the V2 authority from the governed global shell", () => {
     assert.match(navbarFocus, /@import "\.\/landing-experience-v2\.css";/);
@@ -21,10 +23,36 @@ describe("landing V2 visual safety authority", () => {
     assert.match(css, /scroll-margin-bottom:\s*var\(--tp-landing-safe-bottom\)/);
   });
 
-  it("keeps the mountain route tied to the hero presentation contract", () => {
-    assert.match(css, /section\[data-home-section="hero"\]/);
-    assert.match(css, /div:nth-of-type\(2\)::after/);
-    assert.match(css, /span:nth-child\(4\)/);
+  it("uses semantic hero hooks instead of incidental child order", () => {
+    for (const hook of [
+      "data-hero-image",
+      "data-hero-shade",
+      "data-hero-route",
+      "data-hero-content",
+      "data-hero-signals",
+      'data-route-node="start"',
+      'data-route-node="practice"',
+      'data-route-node="skill"',
+      'data-route-node="future"',
+    ]) {
+      assert.match(growthStory, new RegExp(hook));
+    }
+    assert.match(css, /\[data-hero-route\]::after/);
+    assert.match(css, /\[data-route-node="future"\]/);
+    assert.doesNotMatch(css, /nth-(?:child|of-type)/);
+  });
+
+  it("keeps static hero assurances out of inaccessible horizontal scrolling", () => {
+    assert.match(growthStory, /data-hero-signals[\s\S]*role="list"/);
+    assert.match(css, /\[data-hero-signals\][\s\S]*display:\s*grid !important/);
+    assert.match(css, /\[data-hero-signals\][\s\S]*overflow:\s*clip !important/);
+    assert.match(css, /\[data-hero-signals\][\s\S]*white-space:\s*normal !important/);
+  });
+
+  it("pins the future-product kicker to an explicit contrast-safe surface", () => {
+    assert.match(growthStory, /data-exchange-kicker/);
+    assert.match(css, /\[data-exchange-kicker\][\s\S]*color:\s*#064c55 !important/);
+    assert.match(css, /\[data-exchange-kicker\][\s\S]*background:\s*#d8fbfa/);
   });
 
   it("keeps reduced-motion and reduced-transparency fallbacks", () => {
