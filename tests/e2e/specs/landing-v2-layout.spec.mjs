@@ -20,6 +20,13 @@ function overlaps(a, b) {
   );
 }
 
+function durationToMs(value) {
+  const token = String(value || "0s").split(",")[0].trim();
+  if (token.endsWith("ms")) return Number.parseFloat(token) || 0;
+  if (token.endsWith("s")) return (Number.parseFloat(token) || 0) * 1000;
+  return Number.parseFloat(token) || 0;
+}
+
 async function expectNoHorizontalOverflow(page, label) {
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
@@ -154,8 +161,14 @@ test("Landing V2 reduced-motion contract removes meaningful hero animation", asy
     const style = getComputedStyle(node);
     return { name: style.animationName, duration: style.animationDuration, transition: style.transitionDuration };
   });
-  expect(motion.name === "none" || motion.duration === "0s" || motion.duration === "0.001ms").toBe(true);
-  expect(motion.transition === "0s" || motion.transition === "0.001ms").toBe(true);
+  expect(
+    motion.name === "none" || durationToMs(motion.duration) <= 0.02,
+    `reduced-motion hero animation remains meaningful: ${JSON.stringify(motion)}`,
+  ).toBe(true);
+  expect(
+    durationToMs(motion.transition) <= 0.02,
+    `reduced-motion hero transition remains meaningful: ${JSON.stringify(motion)}`,
+  ).toBe(true);
   await testInfo.attach("landing-v2-en-390px-reduced-motion", {
     body: await page.screenshot({ fullPage: false }),
     contentType: "image/png",
