@@ -352,6 +352,15 @@ main[data-runtime-contract="landing-growth-v1"] > nav[aria-label] > a {
   }
 }
 
+/* At the lg hand-off the mobile bar disappears but the desktop route still
+ * inherits a center-biased start node. Keep the route on the mountain side so
+ * the governed CTA pair stays collision-free in both LTR and RTL layouts. */
+@media (min-width: 821px) and (max-width: 1100px) {
+  main[data-runtime-contract="landing-growth-v1"] [data-route-node="start"] {
+    inset-inline-end: 38% !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   main[data-runtime-contract="landing-growth-v1"] *,
   main[data-runtime-contract="landing-growth-v1"] *::before,
