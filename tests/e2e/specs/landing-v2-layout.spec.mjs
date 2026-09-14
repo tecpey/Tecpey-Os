@@ -49,7 +49,14 @@ async function expectRouteClearOfCopy(page, label) {
   const hero = page.locator('[data-home-section="hero"]');
   const heading = await hero.locator("#growth-hero-title").boundingBox();
   const description = await hero.locator("#growth-hero-title + p").boundingBox();
-  const actions = await hero.locator("[data-mobile-learning-cta]").boundingBox();
+  const actionLinks = hero.locator("[data-mobile-learning-cta] > a");
+  await expect(actionLinks, `${label}: hero must render both governed actions`).toHaveCount(2);
+  const actionBoxes = [];
+  for (let index = 0; index < 2; index += 1) {
+    const actionBox = await actionLinks.nth(index).boundingBox();
+    expect(actionBox, `${label}: hero action ${index + 1} has no rendered box`).not.toBeNull();
+    actionBoxes.push(actionBox);
+  }
   const heroBox = await hero.boundingBox();
   expect(heroBox, `${label}: hero has no layout box`).not.toBeNull();
 
@@ -66,7 +73,12 @@ async function expectRouteClearOfCopy(page, label) {
     expect(box.y + box.height, `${label}: ${name} escapes hero bottom`).toBeLessThanOrEqual(heroBox.y + heroBox.height + 1);
     expect(overlaps(box, heading), `${label}: ${name} overlaps the hero heading`).toBe(false);
     expect(overlaps(box, description), `${label}: ${name} overlaps the hero description`).toBe(false);
-    expect(overlaps(box, actions), `${label}: ${name} overlaps the hero actions`).toBe(false);
+    for (let actionIndex = 0; actionIndex < actionBoxes.length; actionIndex += 1) {
+      expect(
+        overlaps(box, actionBoxes[actionIndex]),
+        `${label}: ${name} overlaps hero action ${actionIndex + 1}`,
+      ).toBe(false);
+    }
     boxes.push(box);
   }
 
