@@ -30,6 +30,7 @@ describe("landing V2 visual safety authority", () => {
   const growthStory = fs.readFileSync(growthStoryPath, "utf8");
   const compactComposition = balancedBlock(css, "@media (max-width: 820px)");
   const phoneDecisionPoint = balancedBlock(css, "@media (max-width: 480px)");
+  const smallestPhoneComposition = balancedBlock(css, "@media (max-width: 360px)");
 
   it("loads the V2 authority from the governed global shell", () => {
     assert.match(navbarFocus, /@import "\.\/landing-experience-v2\.css";/);
@@ -50,6 +51,12 @@ describe("landing V2 visual safety authority", () => {
     assert.match(compactComposition, /\[data-hero-signals\][\s\S]*position:\s*relative !important/);
     assert.match(compactComposition, /\[data-hero-signals\][\s\S]*inset:\s*auto !important/);
     assert.match(compactComposition, /\[data-hero-signals\][\s\S]*overflow:\s*clip !important/);
+  });
+
+  it("compacts the 320–360px decision point instead of pushing it under fixed navigation", () => {
+    assert.match(smallestPhoneComposition, /\[data-hero-content\][\s\S]*padding-top:\s*4rem !important/);
+    assert.match(smallestPhoneComposition, /\[data-mobile-learning-cta\][\s\S]*margin-top:\s*\.75rem !important/);
+    assert.doesNotMatch(smallestPhoneComposition, /display:\s*none|visibility:\s*hidden/);
   });
 
   it("uses semantic hero hooks instead of incidental child order", () => {
