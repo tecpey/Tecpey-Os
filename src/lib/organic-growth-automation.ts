@@ -149,7 +149,7 @@ function scoreReadiness(input: Omit<OrganicGrowthProfile, "readiness" | "policyV
   geoScore += input.sourceAttributions.length >= 2 ? 18 : input.sourceAttributions.length === 1 ? 12 : 0;
   geoScore += input.keyFacts.length >= 3 ? 16 : input.keyFacts.length > 0 ? 8 : 0;
   geoScore += input.entityTags.length >= 4 ? 12 : 6;
-  geoScore += input.searchIntents.length >= 3 ? 8 : 4;
+  geoScore += input.searchIntents.length >= 3 ? 8 : input.searchIntents.length > 0 ? 4 : 0;
   geoScore += input.contentValue.length >= 80 ? 10 : 5;
 
   seoScore = Math.min(100, seoScore);
@@ -162,6 +162,7 @@ function scoreReadiness(input: Omit<OrganicGrowthProfile, "readiness" | "policyV
   if (geoScore < 70) blockers.push("geo_readiness_below_70");
   if (input.schemaTypes.length < 2) blockers.push("structured_data_incomplete");
   if (input.internalLinks.length < 2) blockers.push("internal_link_graph_incomplete");
+  if (input.searchIntents.length < 1) blockers.push("search_intent_missing");
   if (input.sourceAttributions.length < 1) blockers.push("source_attribution_missing");
   if (input.questionIntents.length < 1) blockers.push("answer_intent_missing");
   if (input.keyFacts.length < 1) blockers.push("extractable_facts_missing");
