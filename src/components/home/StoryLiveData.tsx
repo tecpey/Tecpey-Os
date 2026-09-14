@@ -47,8 +47,8 @@ function heatmapColor(change: number | null) {
   return "#e7868b";
 }
 
-type NewsFeed = { mode?: string; updatedAt?: string; items?: { id: string; title: string; summary: string; source: string; url: string; sourceUrl: string; publishedAt: string; category: string; tone?: string; impact?: number; isBreaking?: boolean; relatedLesson?: string; thumbnail?: { src: string; alt: string; kind: "tecpey_editorial" } }[] };
-const fallbackNewsCovers = ["what-is-bitcoin.jpg", "technical-analysis-basics.jpg", "risk-management-in-crypto.jpg"] as const;
+type NewsFeed = { mode?: string; updatedAt?: string; items?: { id: string; title: string; summary: string; source: string; url: string; sourceUrl: string; publishedAt: string; category: string; tone?: string; impact?: number; isBreaking?: boolean; relatedLesson?: string; thumbnailUrl?: string | null }[] };
+const neutralNewsCover = "/images/tecpey/covers/live-crypto-price-guide.jpg";
 export function StoryNews({ locale }: { locale: Locale }) {
   const fa = locale === "fa";
   const railRef = useRef<HTMLDivElement>(null);
@@ -86,10 +86,11 @@ export function StoryNews({ locale }: { locale: Locale }) {
       </div>
       <div ref={railRef} className={styles.newsRail} tabIndex={0} onKeyDown={event => { if (event.key === "ArrowLeft") { event.preventDefault(); goTo(active - 1); } if (event.key === "ArrowRight") { event.preventDefault(); goTo(active + 1); } }}>
         {items.map((item, index) => {
-          const thumbnailSrc = storySafeLink(item.thumbnail?.src) || `/images/tecpey/covers/${fallbackNewsCovers[index % fallbackNewsCovers.length]}`;
-          const thumbnailAlt = item.thumbnail?.alt || (fa ? `تصویر تحریریه برای ${item.title}` : `Editorial image for ${item.title}`);
+          const sourceThumbnail = storySafeLink(item.thumbnailUrl);
+          const thumbnailSrc = sourceThumbnail || neutralNewsCover;
+          const thumbnailAlt = sourceThumbnail ? (fa ? `تصویر خبر ${item.title}` : `News image for ${item.title}`) : (fa ? `تصویر عمومی بازار برای ${item.title}` : `General market image for ${item.title}`);
           return <article key={item.id} ref={node => { cardRefs.current[index] = node; }} data-news-index={index} data-active={active === index ? "true" : "false"} className={styles.newsCard} role="group" aria-roledescription={fa ? "کارت خبر" : "slide"} aria-label={`${number(index + 1, locale, 0)} ${fa ? "از" : "of"} ${number(items.length, locale, 0)}`} dir={fa ? "rtl" : "ltr"}>
-            <div className={styles.newsMedia}><Image src={thumbnailSrc} alt={thumbnailAlt} fill sizes="(max-width: 480px) 78vw, (max-width: 820px) 72vw, 680px" /></div>
+            <div className={styles.newsMedia}>{sourceThumbnail ? <>{/* eslint-disable-next-line @next/next/no-img-element -- governed news media may be remote and needs native failure handling. */}<img src={thumbnailSrc} alt={thumbnailAlt} loading="lazy" decoding="async" referrerPolicy="no-referrer" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} onError={event => { event.currentTarget.style.display = "none"; }} /></> : <Image src={thumbnailSrc} alt={thumbnailAlt} fill sizes="(max-width: 480px) 78vw, (max-width: 820px) 72vw, 680px" />}</div>
             <div className={styles.newsContent}>
               <div className={styles.newsTopline}><span className={styles.kicker}><Newspaper size={16} aria-hidden="true" />{item.category}</span>{item.isBreaking ? <span className={styles.breaking}>{fa ? "تازه" : "Fresh"}</span> : null}</div>
               <h3><Link href={storySafeLink(item.url)!}>{item.title}</Link></h3><p>{item.summary}</p>
@@ -98,7 +99,7 @@ export function StoryNews({ locale }: { locale: Locale }) {
                 <time dateTime={item.publishedAt}><Clock3 size={14} aria-hidden="true" />{date(item.publishedAt, locale)}</time>
               </div>
               <div className={styles.newsEvidence}><span>{item.relatedLesson || (fa ? "زمینه آموزشی تک‌پی" : "TecPey learning context")}</span>{Number.isFinite(item.impact) ? <span>{fa ? "اثر آموزشی" : "Learning impact"} <bdi>{number(item.impact!, locale, 0)}/{number(10, locale, 0)}</bdi></span> : null}</div>
-              <small className={styles.editorialMediaLabel}>{fa ? "تصویر موضوعی تحریریه تک‌پی" : "TecPey editorial topic image"}</small>
+              {!sourceThumbnail && <small className={styles.editorialMediaLabel}>{fa ? "تصویر عمومی تحریریه تک‌پی" : "TecPey editorial market image"}</small>}
             </div>
           </article>;
         })}
@@ -131,8 +132,10 @@ export function StoryMarketBoard({ locale }: { locale: Locale }) {
   const visibleVolume = rows.reduce((sum, row) => sum + (row.volume || 0), 0);
   const btc = rows.find(row => row.symbol === "BTC");
   const btcShare = visibleCap > 0 && btc?.marketCap ? btc.marketCap / visibleCap * 100 : null;
+  const marketState = query.isFetching ? "syncing" : query.isSuccess && !query.isError && rows.length > 0 ? "live" : "unavailable";
+  const marketStateLabel = marketState === "syncing" ? (fa ? "در حال همگام‌سازی" : "Syncing") : marketState === "live" ? (fa ? "داده زنده" : "Live data") : (fa ? "داده در دسترس نیست" : "Data unavailable");
   return <div className={styles.marketBoard}>
-    <div className={styles.marketTop}><span className={styles.liveState}>{query.isFetching ? (fa ? "در حال همگام‌سازی" : "Syncing") : (fa ? "داده زنده" : "Live data")}</span><span className={styles.caption}>{fa ? "بدون عدد تخمینی" : "No estimated values"}</span></div>
+    <div className={styles.marketTop}><span className={styles.liveState} data-state={marketState}>{marketStateLabel}</span><span className={styles.caption}>{fa ? "بدون عدد تخمینی" : "No estimated values"}</span></div>
     <div className={styles.quotes}>{rows.slice(0, 4).map(row => <Link href={`${prefix}/markets?search=${encodeURIComponent(row.symbol)}`} key={row.symbol}>
       <div className={styles.quoteHeading}><CryptoAssetIcon symbol={row.symbol} size="sm" className={styles.quoteIcon} /><strong>{row.symbol}</strong>{row.rank === null ? null : <small>#{number(row.rank, locale, 0)}</small>}<span className={row.change !== null && row.change > 0 ? styles.positive : row.change !== null && row.change < 0 ? styles.negative : styles.caption} dir="ltr">{row.change === null ? (fa ? "ناموجود" : "N/A") : `${row.change > 0 ? "+" : ""}${number(row.change, locale)}%`}</span></div>
       <bdi className={styles.quotePrice}>{formatMarketPrice(row.price, fa ? "fa-IR" : "en-US")} <small>{query.data?.provenance?.currency || "USD"}</small></bdi>
