@@ -9,6 +9,10 @@ import {
 import { materializeNewsAutomationDecisions } from "../src/lib/news-materialization";
 import { persistMaterializedNewsSnapshotTx } from "../src/lib/news-materialization-persistence";
 import {
+  NEWS_PUBLICATION_POLICY_VERSION,
+  buildNewsPublicationIdempotencyKey,
+} from "../src/lib/news-publication-idempotency";
+import {
   approvedNewsPublicationSources,
   readValidatedNewsPublicationCandidatesFromAuthority,
   type NewsPublicationCandidate,
@@ -59,10 +63,6 @@ function toPersianInput(candidate: NewsPublicationCandidate, fetchedAt: string):
   };
 }
 
-function idempotencyKey(locale: "fa" | "en", fetchedAt: string): string {
-  return `crypto-news:publish:archive:${locale}:${fetchedAt.replace(".000Z", "Z")}`;
-}
-
 async function main(): Promise<void> {
   const startedAt = new Date().toISOString();
   const limit = boundedIntegerEnv("NEWS_PUBLICATION_LIMIT", 500, 1, 1_000);
@@ -72,6 +72,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       status: "no_validated_work",
       host: hostname(),
+      publicationPolicyVersion: NEWS_PUBLICATION_POLICY_VERSION,
       candidates: 0,
       publishedFaFromUntranslated: 0,
       aiCalls: 0,
@@ -103,13 +104,21 @@ async function main(): Promise<void> {
   const persisted = await withTx(async (client) => {
     const en = await persistMaterializedNewsSnapshotTx(client, {
       snapshotId: randomUUID(),
-      idempotencyKey: idempotencyKey("en", fetchedAt),
+      idempotencyKey: buildNewsPublicationIdempotencyKey({
+        locale: "en",
+        fetchedAt,
+        policyVersion: NEWS_PUBLICATION_POLICY_VERSION,
+      }),
       sourceMode: "live",
       snapshot: enSnapshot,
     });
     const fa = await persistMaterializedNewsSnapshotTx(client, {
       snapshotId: randomUUID(),
-      idempotencyKey: idempotencyKey("fa", fetchedAt),
+      idempotencyKey: buildNewsPublicationIdempotencyKey({
+        locale: "fa",
+        fetchedAt,
+        policyVersion: NEWS_PUBLICATION_POLICY_VERSION,
+      }),
       sourceMode: "live",
       snapshot: faSnapshot,
     });
@@ -120,6 +129,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     status: "ok",
     host: hostname(),
+    publicationPolicyVersion: NEWS_PUBLICATION_POLICY_VERSION,
     candidates: candidates.length,
     validatedFaInputs: faInputs.length,
     publishedFaFromUntranslated: 0,
@@ -149,6 +159,7 @@ main().catch((error) => {
   console.error(JSON.stringify({
     status: "failed_closed",
     mode: "validated_publication_only",
+    publicationPolicyVersion: NEWS_PUBLICATION_POLICY_VERSION,
     aiCalls: 0,
     reason: error instanceof Error ? error.message : String(error),
   }));
