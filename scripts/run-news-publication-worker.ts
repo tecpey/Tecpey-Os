@@ -7,6 +7,7 @@ import { persistMaterializedNewsSnapshotTx } from "../src/lib/news-materializati
 import {
   NEWS_PUBLICATION_POLICY_VERSION,
   approvedNewsPublicationSources,
+  buildNewsPublicationBatchFingerprint,
   buildNewsPublicationIdempotencyKey,
   readValidatedNewsPublicationCandidatesFromAuthority,
   type NewsPublicationCandidate,
@@ -79,6 +80,7 @@ async function main(): Promise<void> {
   }
 
   const fetchedAt = publicationWatermark(candidates);
+  const batchFingerprint = buildNewsPublicationBatchFingerprint(candidates);
   const sources = approvedNewsPublicationSources();
   const enInputs = candidates.map((candidate) => toEnglishInput(candidate, fetchedAt));
   const faInputs = candidates.map((candidate) => toPersianInput(candidate, fetchedAt));
@@ -101,6 +103,7 @@ async function main(): Promise<void> {
       idempotencyKey: buildNewsPublicationIdempotencyKey({
         locale: "en",
         fetchedAt,
+        batchFingerprint,
         policyVersion: NEWS_PUBLICATION_POLICY_VERSION,
       }),
       sourceMode: "live",
@@ -111,6 +114,7 @@ async function main(): Promise<void> {
       idempotencyKey: buildNewsPublicationIdempotencyKey({
         locale: "fa",
         fetchedAt,
+        batchFingerprint,
         policyVersion: NEWS_PUBLICATION_POLICY_VERSION,
       }),
       sourceMode: "live",
@@ -130,6 +134,7 @@ async function main(): Promise<void> {
     publishedFaFromUntranslated: 0,
     sourceAuthorityCount: sources.length,
     watermark: fetchedAt,
+    batchFingerprint,
     en: {
       publishable: enSnapshot.publishable,
       needsReview: enSnapshot.needsReview,
