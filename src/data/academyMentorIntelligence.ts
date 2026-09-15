@@ -23,6 +23,20 @@ export type MentorWeaknessRule = {
   hrefEn: string;
 };
 
+/**
+ * Maps the weak-area codes emitted by /api/academy/mentor-memory (shared
+ * vocabulary with behavioral-engine.ts / coaching-engine.ts) to the
+ * mentorWeaknessRules id they correspond to. A code with no entry here has
+ * no topic-specific rule (e.g. "academy_review" is a general low-quiz-score
+ * signal, not a single topic) and correctly produces no card rather than a
+ * guessed one.
+ */
+export const MENTOR_WEAK_AREA_RULE_IDS: Record<string, string> = {
+  risk_management: "risk",
+  trading_discipline: "risk",
+  trading_psychology: "psychology",
+};
+
 export const mentorProfiles: MentorProfile[] = [
   {
     id: "beginner",
