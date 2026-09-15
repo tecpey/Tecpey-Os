@@ -9,7 +9,10 @@ import {
   type NewsImpactHistoryItem,
   type NewsImpactTone,
 } from "./news-impact-history";
-import { resolveNewsSourceAuthority } from "../services/news/source-authority";
+import {
+  approvedNewsPublicationSources,
+  isNewsPublicationSourceEligible,
+} from "./ops/news-publication-authority";
 
 type NewsImpactHistoryRow = {
   history_id: string;
@@ -48,10 +51,12 @@ export type NewsImpactHistoryAuthoritySnapshot = Readonly<{
 
 export const LIVE_NEWS_IMPACT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
 
+function eligiblePublicationSourceNames(): string[] {
+  return Array.from(new Set(approvedNewsPublicationSources().map((source) => source.name)));
+}
+
 export function isCurrentlyPublishableNewsImpactItem(item: NewsImpactHistoryItem): boolean {
-  const authority = resolveNewsSourceAuthority(item.sourceUrl);
-  return authority.registryKnown
-    && authority.publicationDisposition === "auto_publish_eligible";
+  return isNewsPublicationSourceEligible(item.sourceUrl);
 }
 
 export function filterGovernedNewsImpactItems(items: NewsImpactHistoryItem[]): NewsImpactHistoryItem[] {
@@ -102,8 +107,15 @@ export async function readNewsImpactHistoryItemsTx(
   client: PoolClient,
   locale?: ContentLocale,
 ): Promise<NewsImpactHistoryItem[]> {
-  const params = locale ? [locale] : [];
-  const where = locale ? "WHERE locale = $1" : "";
+  const eligibleSourceNames = eligiblePublicationSourceNames();
+  if (eligibleSourceNames.length === 0) return [];
+
+  const params: Array<string | string[]> = locale
+    ? [locale, eligibleSourceNames]
+    : [eligibleSourceNames];
+  const where = locale
+    ? "WHERE locale = $1 AND source_name = ANY($2::text[])"
+    : "WHERE source_name = ANY($1::text[])";
   const result = await client.query<NewsImpactHistoryRow>(
     `SELECT history_id, locale, slug, news_url, title, summary, source_name, source_url,
             published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
@@ -124,10 +136,17 @@ export async function readNewsImpactHistoryArchiveItemsTx(
   locale?: ContentLocale,
   limit = 10_000,
 ): Promise<NewsImpactHistoryItem[]> {
+  const eligibleSourceNames = eligiblePublicationSourceNames();
+  if (eligibleSourceNames.length === 0) return [];
+
   const boundedLimit = Math.max(1, Math.min(50_000, Math.trunc(limit)));
-  const params: Array<string | number> = locale ? [locale, boundedLimit] : [boundedLimit];
-  const where = locale ? "WHERE locale = $1" : "";
-  const limitParam = locale ? "$2" : "$1";
+  const params: Array<string | number | string[]> = locale
+    ? [locale, eligibleSourceNames, boundedLimit]
+    : [eligibleSourceNames, boundedLimit];
+  const where = locale
+    ? "WHERE locale = $1 AND source_name = ANY($2::text[])"
+    : "WHERE source_name = ANY($1::text[])";
+  const limitParam = locale ? "$3" : "$2";
   const result = await client.query<NewsImpactHistoryRow>(
     `SELECT history_id, locale, slug, news_url, title, summary, source_name, source_url,
             published_at, recorded_at, priority, impact_score, tone, reason_fa, reason_en,
