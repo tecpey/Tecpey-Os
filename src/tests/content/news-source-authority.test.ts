@@ -23,6 +23,7 @@ describe("news source authority convergence", () => {
 
     assert.equal(source?.id, "tecpey-editorial");
     assert.equal(decision.registryKnown, true);
+    if (!decision.registryKnown) assert.fail("TecPey editorial must resolve as governed");
     assert.equal(decision.firstParty, true);
     assert.equal(decision.providerReadiness.status, "ready");
     assert.equal(decision.providerReadiness.persianEditorialAllowed, true);
