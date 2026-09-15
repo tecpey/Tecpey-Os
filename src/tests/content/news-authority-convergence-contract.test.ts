@@ -22,18 +22,23 @@ describe("news authority convergence contract", () => {
     assert.doesNotMatch(worker, /enDecisions = buildNewsAutomationBatch/);
   });
 
-  it("uses governed publication history rather than raw archive as public trend-highlight authority", () => {
+  it("uses canonical publication eligibility before public trend-history limits", () => {
     const authority = source("src/lib/growth-trend-authority.ts");
     assert.match(authority, /FROM platform_news_impact_history_items/);
-    assert.match(authority, /resolveNewsSourceAuthority\(articleUrl\)/);
+    assert.match(authority, /approvedNewsPublicationSources\(\)/);
+    assert.match(authority, /source_name = ANY\(\$3::text\[\]\)/);
+    assert.match(authority, /isNewsPublicationSourceEligible\(articleUrl\)/);
+    assert.doesNotMatch(authority, /resolveNewsSourceAuthority\(articleUrl\)/);
     assert.doesNotMatch(authority, /FROM platform_news_archive_items/);
   });
 
-  it("revalidates public history and detail body reads against current source authority", () => {
+  it("revalidates public history and detail body reads through one publication authority", () => {
     const history = source("src/lib/news-impact-history-authority.ts");
     const body = source("src/lib/news-detail-body-authority.ts");
-    assert.match(history, /isCurrentlyPublishableNewsImpactItem/);
-    assert.match(history, /resolveNewsSourceAuthority\(item\.sourceUrl\)/);
+    assert.match(history, /approvedNewsPublicationSources\(\)/);
+    assert.match(history, /source_name = ANY/);
+    assert.match(history, /isNewsPublicationSourceEligible\(item\.sourceUrl\)/);
+    assert.doesNotMatch(history, /resolveNewsSourceAuthority\(item\.sourceUrl\)/);
     assert.match(body, /isNewsPublicationSourceEligible\(articleUrl\)/);
   });
 });
