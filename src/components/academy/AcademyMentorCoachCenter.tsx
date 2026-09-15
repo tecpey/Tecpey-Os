@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, CheckCircle2, Compass, GraduationCap, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
-import { mentorProfiles, mentorRoadmapSteps, mentorWeaknessRules } from "@/data/academyMentorIntelligence";
+import {
+  MENTOR_WEAK_AREA_RULE_IDS,
+  mentorProfiles,
+  mentorRoadmapSteps,
+  mentorWeaknessRules,
+} from "@/data/academyMentorIntelligence";
 import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
 import { useMentorInsights } from "@/hooks/useMentorInsights";
 import { selectLivingMentorAct } from "@/lib/living-mentor-presentation";
@@ -53,52 +58,60 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
   }), [officialProgress.termProgress]);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([
-      fetch("/api/academy/mentor-memory", { cache: "no-store" }).then((response) => response.json()),
-      fetch("/api/mentor-conversations?limit=12", { cache: "no-store" }).then((response) => response.json()),
-    ])
-      .then(([memoryData, conversationData]) => {
-        if (!active) return;
-        const memorySnapshot = memoryData?.ok ? memoryData.memory : null;
-        const conversations = conversationData?.ok && Array.isArray(conversationData.conversations)
-          ? conversationData.conversations
-          : [];
-        const rawConfidence =
-          memorySnapshot?.confidence === null || memorySnapshot?.confidence === undefined
-            ? Number.NaN
-            : Number(memorySnapshot.confidence);
-        setMemory({
-          weakAreas: Array.isArray(memorySnapshot?.weakAreas) ? memorySnapshot.weakAreas.slice(0, 6) : [],
-          questions: conversations
-            .filter((item: { role?: unknown; content?: unknown }) => item.role === "user" && typeof item.content === "string")
-            .map((item: { content: string }) => item.content)
-            .slice(0, 5),
-          confidence: Number.isFinite(rawConfidence)
-            ? Math.max(0, Math.min(100, rawConfidence))
-            : null,
-          state: memoryData?.ok || conversationData?.ok ? "ready" : "unavailable",
-        });
-      })
-      .catch(() => {
-        if (!active) return;
-        setMemory({ weakAreas: [], questions: [], confidence: null, state: "unavailable" });
+    const controller = new AbortController();
+    Promise.allSettled([
+      fetch("/api/academy/mentor-memory", { cache: "no-store", signal: controller.signal }).then((response) => response.json()),
+      fetch("/api/mentor-conversations?limit=12", { cache: "no-store", signal: controller.signal }).then((response) => response.json()),
+    ]).then(([memoryResult, conversationResult]) => {
+      if (controller.signal.aborted) return;
+      const memoryData = memoryResult.status === "fulfilled" ? memoryResult.value : null;
+      const conversationData = conversationResult.status === "fulfilled" ? conversationResult.value : null;
+      const memorySnapshot = memoryData?.ok ? memoryData.memory : null;
+      const conversations = conversationData?.ok && Array.isArray(conversationData.conversations)
+        ? conversationData.conversations
+        : [];
+      const rawConfidence =
+        memorySnapshot?.confidence === null || memorySnapshot?.confidence === undefined
+          ? Number.NaN
+          : Number(memorySnapshot.confidence);
+      setMemory({
+        weakAreas: Array.isArray(memorySnapshot?.weakAreas) ? memorySnapshot.weakAreas.slice(0, 6) : [],
+        questions: conversations
+          .filter((item: { role?: unknown; content?: unknown }) => item.role === "user" && typeof item.content === "string")
+          .map((item: { content: string }) => item.content)
+          .slice(0, 5),
+        confidence: Number.isFinite(rawConfidence)
+          ? Math.max(0, Math.min(100, rawConfidence))
+          : null,
+        state: memoryData?.ok || conversationData?.ok ? "ready" : "unavailable",
       });
-    return () => { active = false; };
+    });
+    return () => controller.abort();
   }, [locale]);
 
   const totalXp = officialProgress.totalXp;
   const completedTerms = useMemo(() => progress.filter((item) => item.passed).length, [progress]);
   const weakRules = useMemo(() => {
-    const text = [...memory.weakAreas, ...memory.questions].join(" ").toLowerCase();
-    const matches = mentorWeaknessRules.filter((rule) => new RegExp(rule.pattern, "i").test(text));
-    return matches.slice(0, 4);
+    const codeMatchedIds = memory.weakAreas
+      .map((code) => MENTOR_WEAK_AREA_RULE_IDS[code])
+      .filter((id): id is string => Boolean(id));
+    const questionText = memory.questions.join(" ").toLowerCase();
+    const questionMatchedIds = mentorWeaknessRules
+      .filter((rule) => new RegExp(rule.pattern, "i").test(questionText))
+      .map((rule) => rule.id);
+    const matchedIds = Array.from(new Set([...codeMatchedIds, ...questionMatchedIds]));
+    return matchedIds
+      .map((id) => mentorWeaknessRules.find((rule) => rule.id === id))
+      .filter((rule): rule is (typeof mentorWeaknessRules)[number] => Boolean(rule))
+      .slice(0, 4);
   }, [memory]);
   const progressEvidenceReady = officialProgress.loaded && !officialProgress.error;
   const memoryEvidenceReady =
     memory.state === "ready" &&
     (memory.weakAreas.length > 0 || memory.questions.length > 0 || memory.confidence !== null);
   const evidenceReady = progressEvidenceReady || memoryEvidenceReady;
+  const evidenceStillLoading = !officialProgress.loaded || memory.state === "loading";
+  const evidenceLoading = !evidenceReady && evidenceStillLoading;
   const profileId = recommendedProfile(progress, memory.weakAreas, evidenceReady);
   const profile = profileId
     ? mentorProfiles.find((item) => item.id === profileId) ?? null
@@ -155,13 +168,17 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
                       : "The mentor will not guess your level or weak areas before verified evidence is available."}
                 </p>
                 <p className="mt-3 inline-flex rounded-full border border-cyan-200/20 bg-slate-950/35 px-3 py-1 text-[11px] font-black text-cyan-100">
-                  {evidenceReady
+                  {evidenceLoading
                     ? isFa
-                      ? "متکی بر رکوردهای سرور"
-                      : "Backed by server records"
-                    : isFa
-                      ? "داده در دسترس نیست"
-                      : "Evidence unavailable"}
+                      ? "در حال دریافت شواهد…"
+                      : "Loading evidence…"
+                    : evidenceReady
+                      ? isFa
+                        ? "متکی بر رکوردهای سرور"
+                        : "Backed by server records"
+                      : isFa
+                        ? "داده در دسترس نیست"
+                        : "Evidence unavailable"}
                 </p>
               </div>
             </div>

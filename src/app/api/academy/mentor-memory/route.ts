@@ -46,10 +46,12 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
 
 function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
   const completedTerms = terms.filter((item) => item.status === "passed").length;
-  const avgQuiz = terms.length ? Math.round(terms.reduce((sum, item) => sum + Number(item.percent || 0), 0) / terms.length) : 0;
+  const hasQuizData = terms.length > 0;
+  const avgQuiz = hasQuizData ? Math.round(terms.reduce((sum, item) => sum + Number(item.percent || 0), 0) / terms.length) : 0;
   const tradeCount = trades.length;
-  const avgRisk = tradeCount ? Number((trades.reduce((sum, item) => sum + Number(item.risk || 0), 0) / tradeCount).toFixed(2)) : 0;
-  const avgDiscipline = tradeCount ? Math.round(trades.reduce((sum, item) => sum + Number(item.disciplineScore || 0), 0) / tradeCount) : 0;
+  const hasTradeData = tradeCount > 0;
+  const avgRisk = hasTradeData ? Number((trades.reduce((sum, item) => sum + Number(item.risk || 0), 0) / tradeCount).toFixed(2)) : 0;
+  const avgDiscipline = hasTradeData ? Math.round(trades.reduce((sum, item) => sum + Number(item.disciplineScore || 0), 0) / tradeCount) : 0;
   const riskFlags = trades.filter((item) => item.riskFlag).length;
   const emotionText = trades.map((item) => item.emotion || "").join(" ").toLowerCase();
   const weakAreas = [
@@ -70,7 +72,13 @@ function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
       : tradeCount === 0
         ? "/academy/simulator"
         : "/academy/daily-challenge";
-  const confidence = Math.max(0, Math.min(100, Math.round((avgQuiz || 40) * 0.45 + (avgDiscipline || 40) * 0.45 + Math.min(10, completedTerms * 3))));
+  // Never fabricate a confidence score from thin air: a learner with no quiz
+  // history and no logged trades gets `null` (no claim), not a guessed
+  // baseline — the UI's own copy promises the mentor "will not guess".
+  const hasEvidence = hasQuizData || hasTradeData;
+  const confidence = hasEvidence
+    ? Math.max(0, Math.min(100, Math.round(avgQuiz * 0.45 + avgDiscipline * 0.45 + Math.min(10, completedTerms * 3))))
+    : null;
   return {
     completedTerms,
     avgQuiz,
