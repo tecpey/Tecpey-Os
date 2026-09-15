@@ -181,13 +181,18 @@ export async function readNewsImpactHistoryItemBySourceUrlTx(
   return item && isCurrentlyPublishableNewsImpactItem(item) ? item : undefined;
 }
 
+/**
+ * Pure deterministic merge primitive. Publication policy belongs at authority
+ * boundaries, not inside this helper, so callers can reason about collision
+ * semantics independently from mutable source/readiness policy.
+ */
 export function mergeNewsImpactHistoryItems(
   persisted: NewsImpactHistoryItem[],
   seeded: NewsImpactHistoryItem[],
 ): NewsImpactHistoryItem[] {
   const bySlug = new Map<string, NewsImpactHistoryItem>();
-  for (const item of filterGovernedNewsImpactItems(seeded)) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
-  for (const item of filterGovernedNewsImpactItems(persisted)) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
+  for (const item of seeded) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
+  for (const item of persisted) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
   return Array.from(bySlug.values()).sort(sortNewsImpactHistoryItems);
 }
 
@@ -214,7 +219,9 @@ export async function getNewsImpactHistoryArchiveItemsFromAuthority(
   try {
     const result = await withDb((client) => readNewsImpactHistoryArchiveItemsTx(client, locale, limit));
     const persisted = result.enabled ? result.value : [];
-    return persisted.length > 0 ? mergeNewsImpactHistoryItems(persisted, seeded) : seeded;
+    return persisted.length > 0
+      ? filterGovernedNewsImpactItems(mergeNewsImpactHistoryItems(persisted, seeded))
+      : seeded;
   } catch (error) {
     logger.warn("[news-impact-history] archive authority read failed; using seed fallback", {
       locale: locale ?? "all",
@@ -286,7 +293,7 @@ export async function getNewsImpactHistoryAuthoritySnapshot(
     .sort((left, right) => right - left)[0];
 
   return {
-    items: mergeNewsImpactHistoryItems(persisted, seeded),
+    items: filterGovernedNewsImpactItems(mergeNewsImpactHistoryItems(persisted, seeded)),
     sourceAuthority: persisted.length >= seeded.length
       ? "news-impact-history:materialized"
       : "news-impact-history:partial-seed-merged",
