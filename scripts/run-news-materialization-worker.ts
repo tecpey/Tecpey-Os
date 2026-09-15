@@ -3,8 +3,7 @@ import { hostname } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { withTx } from "../src/lib/db";
 import type { ContentLocale } from "../src/lib/content-growth";
-import type { RawNewsInput, NewsAutomationDecision } from "../src/lib/news-automation";
-import { buildNewsAutomationBatch } from "../src/lib/news-automation";
+import type { RawNewsInput } from "../src/lib/news-automation";
 import { MAX_NEWS_ARCHIVE_AGE_MS, validNewsPublishedAt } from "../src/lib/news-published-at";
 import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import {
@@ -49,6 +48,10 @@ import {
   isApprovedNewsSourceHost,
   type NewsSourceRegistryEntry,
 } from "../src/lib/news-source-registry";
+import {
+  buildGovernedNewsAutomationBatch,
+  type GovernedNewsAutomationDecision,
+} from "../src/services/news/governed-pipeline";
 
 type ApprovedFeedSource = NewsSourceRegistryEntry;
 
@@ -307,11 +310,15 @@ function toPersianInput(item: PreparedArticle): RawNewsInput | null {
   };
 }
 
-function decisionTrendSignals(decisions: NewsAutomationDecision[], observedAt: string): GrowthTrendSignal[] {
+function decisionTrendSignals(decisions: GovernedNewsAutomationDecision[], observedAt: string): GrowthTrendSignal[] {
   const signals: GrowthTrendSignal[] = [];
   for (const decision of decisions) {
+    if (
+      decision.status !== "publishable"
+      || decision.sourceAuthority.publicationDisposition !== "auto_publish_eligible"
+    ) continue;
+
     const article = decision.article;
-    const statusConfidence = decision.status === "publishable" ? 1 : decision.status === "needs_review" ? 0.72 : 0.45;
     const manipulationRisk = article.topicTags.includes("memecoins") ? 0.28 : article.tone === "risk" ? 0.14 : 0.04;
     const common = {
       locale: article.locale as ContentLocale,
@@ -322,10 +329,10 @@ function decisionTrendSignals(decisions: NewsAutomationDecision[], observedAt: s
       window: "24h" as const,
       magnitude: Math.min(1, article.impactScore),
       velocity: article.priority / 100,
-      confidence: Math.min(1, article.sourceTrust * statusConfidence),
+      confidence: Math.min(1, article.sourceTrust),
       authority: article.sourceTrust,
       manipulationRisk,
-      evidenceLabel: `${article.title} · ${decision.status}`,
+      evidenceLabel: `${article.title} · governed-publishable`,
     };
     for (const symbol of article.detectedCoins) {
       signals.push({ id: `news:${article.id}:coin:${symbol}`, entityType: "coin", entityId: symbol.toLowerCase(), label: symbol, ...common });
@@ -498,7 +505,7 @@ async function main(): Promise<void> {
 
   let enInputs: RawNewsInput[] = [];
   let faInputs: RawNewsInput[] = [];
-  let enDecisions: NewsAutomationDecision[] = [];
+  let enDecisions: GovernedNewsAutomationDecision[] = [];
   let trendSignals: GrowthTrendSignal[] = [];
   let archiveTransactionCommitted = false;
   const freshArticleUrls = new Set<string>();
@@ -533,7 +540,7 @@ async function main(): Promise<void> {
 
       enInputs = stablePrepared.map(toEnglishInput);
       faInputs = stablePrepared.map(toPersianInput).filter((item): item is RawNewsInput => Boolean(item));
-      enDecisions = buildNewsAutomationBatch(enInputs);
+      enDecisions = buildGovernedNewsAutomationBatch(enInputs);
       trendSignals = [
         ...decisionTrendSignals(
           enDecisions.filter((decision) => freshArticleUrls.has(decision.article.canonicalUrl)),
