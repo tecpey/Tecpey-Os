@@ -17,7 +17,7 @@ export function TextOnlyCard({
   meta?: string;
 }) {
   const body = (
-    <article className="group h-full rounded-[28px] border border-cyan-300/15 bg-white/[0.035] p-6 shadow-[0_18px_55px_rgba(0,0,0,.20)] backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)]">
+    <article className="tecpey-pressable group h-full rounded-[28px] border border-cyan-300/15 bg-white/[0.035] p-6 shadow-[0_18px_55px_rgba(0,0,0,.20)] backdrop-blur hover:border-cyan-300/40 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)]">
       <div className="flex items-start justify-between gap-4">
         <NeonIcon icon={icon} size="md" />
         {meta ? <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-200">{meta}</span> : null}
@@ -27,7 +27,7 @@ export function TextOnlyCard({
       {href ? (
         <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-cyan-300">
           مطالعه
-          <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-1" />
+          <ArrowLeft className="h-4 w-4 transition-transform duration-150 ease-out group-hover:-translate-x-1" />
         </div>
       ) : null}
     </article>
