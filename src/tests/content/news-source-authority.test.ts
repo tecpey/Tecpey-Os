@@ -10,11 +10,23 @@ describe("news source authority convergence", () => {
   it("resolves capture-registry sources as known identities instead of unknown providers", () => {
     for (const domain of ["thedefiant.io", "chainalysis.com", "sec.gov", "coindesk.com"]) {
       const source = findGovernedNewsSource(domain);
-      assert.ok(source, `${domain} must be governed by NEWS_SOURCE_REGISTRY`);
+      assert.ok(source, `${domain} must be governed by news source authority`);
       const decision = resolveNewsSourceAuthority(domain);
       assert.equal(decision.registryKnown, true);
       assert.notEqual(decision.reasons[0], "source_not_in_registry");
     }
+  });
+
+  it("treats TecPey editorial as an explicit governed first-party source", () => {
+    const source = findGovernedNewsSource("https://tecpey.ir/crypto-news");
+    const decision = resolveNewsSourceAuthority("https://tecpey.ir/academy/term-2");
+
+    assert.equal(source?.id, "tecpey-editorial");
+    assert.equal(decision.registryKnown, true);
+    assert.equal(decision.firstParty, true);
+    assert.equal(decision.providerReadiness.status, "ready");
+    assert.equal(decision.providerReadiness.persianEditorialAllowed, true);
+    assert.equal(decision.publicationDisposition, "auto_publish_eligible");
   });
 
   it("keeps unknown sources fail-closed", () => {
@@ -40,6 +52,7 @@ describe("news source authority convergence", () => {
     const drift = newsSourceAuthorityDrift();
     const byDomain = new Map(drift.map((entry) => [entry.domain, entry]));
 
+    assert.equal(byDomain.get("tecpey.ir")?.publicationDisposition, "auto_publish_eligible");
     assert.equal(byDomain.get("thedefiant.io")?.providerStatus, "blocked");
     assert.equal(byDomain.get("chainalysis.com")?.providerStatus, "blocked");
     assert.equal(byDomain.get("coindesk.com")?.providerStatus, "ready");
