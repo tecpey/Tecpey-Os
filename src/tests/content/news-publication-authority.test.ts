@@ -3,18 +3,39 @@ import { describe, it } from "node:test";
 
 import { approvedNewsPublicationSources } from "../../lib/ops/news-publication-authority";
 import { NEWS_SOURCE_REGISTRY } from "../../lib/news-source-registry";
+import { resolveNewsSourceAuthority } from "../../services/news/source-authority";
 
 describe("news publication source authority", () => {
-  it("covers every registered source domain with publishable trust", () => {
+  it("exposes only sources that are currently auto-publish eligible", () => {
     const publicationSources = approvedNewsPublicationSources();
 
-    for (const registered of NEWS_SOURCE_REGISTRY) {
-      const approved = publicationSources.find((source) =>
-        registered.canonicalDomains.some((domain) => source.domain === domain),
-      );
-      assert.ok(approved, `${registered.id} missing from publication authority`);
-      assert.ok(approved.trustScore >= 0.7, `${registered.id} trust below publication floor`);
+    for (const approved of publicationSources) {
+      const authority = resolveNewsSourceAuthority(approved.domain);
+      assert.equal(authority.registryKnown, true, `${approved.domain} must remain registry-known`);
+      assert.equal(authority.publicationDisposition, "auto_publish_eligible", `${approved.domain} must fail closed when publication readiness changes`);
+      assert.equal(authority.providerReadiness.persianEditorialAllowed, true, `${approved.domain} must retain Persian editorial rights`);
     }
+  });
+
+  it("never upgrades registered-but-nonpublishable sources merely because they are in the capture registry", () => {
+    const approvedDomains = new Set(approvedNewsPublicationSources().map((source) => source.domain));
+
+    for (const registered of NEWS_SOURCE_REGISTRY) {
+      const domain = registered.canonicalDomains[0] ?? "";
+      const authority = resolveNewsSourceAuthority(domain);
+      if (authority.publicationDisposition === "auto_publish_eligible") {
+        assert.equal(approvedDomains.has(domain), true, `${registered.id} should be present while auto-publish eligible`);
+      } else {
+        assert.equal(approvedDomains.has(domain), false, `${registered.id} must not be promoted from ${authority.publicationDisposition}`);
+      }
+    }
+  });
+
+  it("keeps known quarantine/readiness drift fixtures out of automated publication", () => {
+    const domains = new Set(approvedNewsPublicationSources().map((source) => source.domain));
+    assert.equal(domains.has("blockworks.com"), false);
+    assert.equal(domains.has("thedefiant.io"), false);
+    assert.equal(domains.has("chainalysis.com"), false);
   });
 
   it("does not create duplicate domain authorities", () => {
