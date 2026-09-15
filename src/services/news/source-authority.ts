@@ -159,11 +159,18 @@ export function resolveNewsSourceAuthority(value: string): NewsSourceAuthorityDe
   if (providerReadiness.status === "blocked") reasons.push("provider_readiness_missing_or_blocked");
   if (providerReadiness.status === "degraded") reasons.push("provider_readiness_degraded");
   if (!providerReadiness.autoIngestionAllowed) reasons.push("auto_ingestion_not_allowed");
+  if (!providerReadiness.publicSummaryAllowed) reasons.push("public_summary_not_allowed");
+  if (!providerReadiness.persianEditorialAllowed) reasons.push("persian_editorial_not_allowed");
 
+  const publicationRightsReady =
+    providerReadiness.publicSummaryAllowed
+    && providerReadiness.persianEditorialAllowed;
   const publicationDisposition =
     (source.continuityMode ?? "required") === "quarantined"
       ? "blocked"
-      : providerReadiness.status === "ready" && providerReadiness.autoIngestionAllowed
+      : providerReadiness.status === "ready"
+        && providerReadiness.autoIngestionAllowed
+        && publicationRightsReady
         ? "auto_publish_eligible"
         : "human_review";
 
