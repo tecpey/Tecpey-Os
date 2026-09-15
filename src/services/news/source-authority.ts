@@ -4,12 +4,31 @@ import {
   type NewsSourceTrustTier,
 } from "../../lib/news-source-registry";
 import {
+  TECPEY_NEWS_PROVIDER_READINESS_POLICY_VERSION,
   providerReadinessSummaryForDomain,
   type NewsProviderReadinessDecision,
 } from "../../lib/news-provider-readiness";
 import type { ApprovedNewsSource } from "../../lib/news-automation";
 
 export const TECPEY_NEWS_SOURCE_AUTHORITY_VERSION = "tecpey-news-source-authority-v1";
+
+const TECPEY_EDITORIAL_SOURCE: NewsSourceRegistryEntry = {
+  id: "tecpey-editorial",
+  name: "TecPey Editorial",
+  feedUrl: "https://tecpey.ir/crypto-news",
+  canonicalDomains: ["tecpey.ir"],
+  category: "general_crypto",
+  trustTier: "tier_1",
+  firstParty: true,
+  allowFullArticleFetch: false,
+  corroborationWeight: 1,
+  continuityMode: "required",
+};
+
+const GOVERNED_NEWS_SOURCES: readonly NewsSourceRegistryEntry[] = [
+  TECPEY_EDITORIAL_SOURCE,
+  ...NEWS_SOURCE_REGISTRY,
+];
 
 export type GovernedNewsSourceIdentity = {
   authorityVersion: typeof TECPEY_NEWS_SOURCE_AUTHORITY_VERSION;
@@ -56,6 +75,7 @@ function sourceDomain(source: NewsSourceRegistryEntry): string {
 }
 
 function automationTier(source: NewsSourceRegistryEntry): ApprovedNewsSource["tier"] {
+  if (source.id === TECPEY_EDITORIAL_SOURCE.id) return "tecpey_editorial";
   if (source.firstParty) return "official";
   if (source.trustTier === "tier_1" || source.trustTier === "tier_2") return "trusted_media";
   return "watchlist";
@@ -70,10 +90,36 @@ function automationTrustScore(source: NewsSourceRegistryEntry): number {
   return Math.max(tierFloor[source.trustTier], Math.min(0.99, source.corroborationWeight));
 }
 
+function tecpeyEditorialReadiness(): NewsProviderReadinessDecision {
+  return {
+    policyVersion: TECPEY_NEWS_PROVIDER_READINESS_POLICY_VERSION,
+    providerId: "tecpey-editorial",
+    name: "TecPey Editorial",
+    domain: "tecpey.ir",
+    status: "ready",
+    score: 1,
+    criticality: "important",
+    autoIngestionAllowed: true,
+    publicSummaryAllowed: true,
+    persianEditorialAllowed: true,
+    thumbnailPolicy: "tecpey_generated",
+    attributionRequired: false,
+    fallbackProviderIds: [],
+    issues: [],
+    reviewedAt: "2026-09-15",
+  };
+}
+
+function providerReadinessForDomain(domain: string): NewsProviderReadinessDecision {
+  return domain === "tecpey.ir"
+    ? tecpeyEditorialReadiness()
+    : providerReadinessSummaryForDomain(domain);
+}
+
 export function findGovernedNewsSource(value: string): NewsSourceRegistryEntry | undefined {
   const domain = normalizeDomain(value);
   if (!domain) return undefined;
-  return NEWS_SOURCE_REGISTRY.find((source) =>
+  return GOVERNED_NEWS_SOURCES.find((source) =>
     source.canonicalDomains.some((candidate) => {
       const canonical = normalizeDomain(candidate);
       return domain === canonical || domain.endsWith(`.${canonical}`);
@@ -82,7 +128,7 @@ export function findGovernedNewsSource(value: string): NewsSourceRegistryEntry |
 }
 
 export function approvedNewsAutomationSources(): ApprovedNewsSource[] {
-  return NEWS_SOURCE_REGISTRY.map((source) => ({
+  return GOVERNED_NEWS_SOURCES.map((source) => ({
     name: source.name,
     domain: sourceDomain(source),
     tier: automationTier(source),
@@ -93,7 +139,7 @@ export function approvedNewsAutomationSources(): ApprovedNewsSource[] {
 export function resolveNewsSourceAuthority(value: string): NewsSourceAuthorityDecision {
   const domain = normalizeDomain(value);
   const source = findGovernedNewsSource(domain);
-  const providerReadiness = providerReadinessSummaryForDomain(domain);
+  const providerReadiness = providerReadinessForDomain(domain);
 
   if (!source) {
     return {
@@ -145,7 +191,7 @@ export function newsSourceAuthorityDrift(): Array<{
   publicationDisposition: GovernedNewsSourceIdentity["publicationDisposition"];
   providerStatus: NewsProviderReadinessDecision["status"];
 }> {
-  return NEWS_SOURCE_REGISTRY.map((source) => {
+  return GOVERNED_NEWS_SOURCES.map((source) => {
     const decision = resolveNewsSourceAuthority(sourceDomain(source));
     if (!decision.registryKnown) {
       return {
