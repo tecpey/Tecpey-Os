@@ -3,7 +3,10 @@ import { buildGrowthTrendRadarSnapshot, type GrowthTrendRadarSnapshot, type Tren
 import { readGrowthTrendSignalsFromAuthority } from "./news-growth-authority";
 import { withDb } from "./db";
 import { logger } from "./logger";
-import { resolveNewsSourceAuthority } from "../services/news/source-authority";
+import {
+  approvedNewsPublicationSources,
+  isNewsPublicationSourceEligible,
+} from "./ops/news-publication-authority";
 
 export type GrowthTrendNewsHighlight = {
   id: string;
@@ -42,7 +45,13 @@ async function readHighlights(locale: ContentLocale, window: TrendWindow): Promi
     const result = await withDb(async (client) => {
       // Public trend highlights are downstream of governed publication. Raw
       // archive capture is immutable evidence but is never a public ranking
-      // authority by itself.
+      // authority by itself. Pre-filter currently eligible source identities
+      // before LIMIT so quarantined history cannot starve valid highlights.
+      const eligibleSourceNames = Array.from(new Set(
+        approvedNewsPublicationSources().map((source) => source.name),
+      ));
+      if (eligibleSourceNames.length === 0) return [];
+
       const rows = await client.query<Record<string, unknown>>(
         `SELECT history_id::text,
                 title,
@@ -57,18 +66,15 @@ async function readHighlights(locale: ContentLocale, window: TrendWindow): Promi
            FROM platform_news_impact_history_items
           WHERE locale = $2
             AND published_at >= NOW() - $1::interval
+            AND source_name = ANY($3::text[])
           ORDER BY priority DESC, impact_score DESC, published_at DESC, recorded_at DESC
           LIMIT 40`,
-        [WINDOW_INTERVAL[window], locale],
+        [WINDOW_INTERVAL[window], locale, eligibleSourceNames],
       );
 
       return rows.rows.flatMap((row): GrowthTrendNewsHighlight[] => {
         const articleUrl = String(row.source_url ?? "");
-        const sourceAuthority = resolveNewsSourceAuthority(articleUrl);
-        if (
-          !sourceAuthority.registryKnown
-          || sourceAuthority.publicationDisposition !== "auto_publish_eligible"
-        ) return [];
+        if (!isNewsPublicationSourceEligible(articleUrl)) return [];
 
         const impactScore = Math.max(0, Math.min(10, Number(row.impact_score) || 0));
         const priority = Math.max(0, Math.min(100, Number(row.priority) || 0));
