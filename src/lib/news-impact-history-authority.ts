@@ -9,6 +9,7 @@ import {
   type NewsImpactHistoryItem,
   type NewsImpactTone,
 } from "./news-impact-history";
+import { resolveNewsSourceAuthority } from "../services/news/source-authority";
 
 type NewsImpactHistoryRow = {
   history_id: string;
@@ -46,6 +47,16 @@ export type NewsImpactHistoryAuthoritySnapshot = Readonly<{
 }>;
 
 export const LIVE_NEWS_IMPACT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
+
+export function isCurrentlyPublishableNewsImpactItem(item: NewsImpactHistoryItem): boolean {
+  const authority = resolveNewsSourceAuthority(item.sourceUrl);
+  return authority.registryKnown
+    && authority.publicationDisposition === "auto_publish_eligible";
+}
+
+export function filterGovernedNewsImpactItems(items: NewsImpactHistoryItem[]): NewsImpactHistoryItem[] {
+  return items.filter(isCurrentlyPublishableNewsImpactItem);
+}
 
 export function filterCurrentNewsImpactItems(
   items: NewsImpactHistoryItem[],
@@ -104,7 +115,8 @@ export async function readNewsImpactHistoryItemsTx(
     params,
   );
 
-  return result.rows.map(mapNewsImpactHistoryRow).sort(sortNewsImpactHistoryItems);
+  return filterGovernedNewsImpactItems(result.rows.map(mapNewsImpactHistoryRow))
+    .sort(sortNewsImpactHistoryItems);
 }
 
 export async function readNewsImpactHistoryArchiveItemsTx(
@@ -126,7 +138,7 @@ export async function readNewsImpactHistoryArchiveItemsTx(
       LIMIT ${limitParam}`,
     params,
   );
-  return result.rows.map(mapNewsImpactHistoryRow);
+  return filterGovernedNewsImpactItems(result.rows.map(mapNewsImpactHistoryRow));
 }
 
 export async function readNewsImpactHistoryItemBySlugTx(
@@ -145,7 +157,8 @@ export async function readNewsImpactHistoryItemBySlugTx(
       LIMIT 1`,
     [locale, slug],
   );
-  return result.rows[0] ? mapNewsImpactHistoryRow(result.rows[0]) : undefined;
+  const item = result.rows[0] ? mapNewsImpactHistoryRow(result.rows[0]) : undefined;
+  return item && isCurrentlyPublishableNewsImpactItem(item) ? item : undefined;
 }
 
 export async function readNewsImpactHistoryItemBySourceUrlTx(
@@ -164,7 +177,8 @@ export async function readNewsImpactHistoryItemBySourceUrlTx(
       LIMIT 1`,
     [locale, sourceUrl],
   );
-  return result.rows[0] ? mapNewsImpactHistoryRow(result.rows[0]) : undefined;
+  const item = result.rows[0] ? mapNewsImpactHistoryRow(result.rows[0]) : undefined;
+  return item && isCurrentlyPublishableNewsImpactItem(item) ? item : undefined;
 }
 
 export function mergeNewsImpactHistoryItems(
@@ -172,8 +186,8 @@ export function mergeNewsImpactHistoryItems(
   seeded: NewsImpactHistoryItem[],
 ): NewsImpactHistoryItem[] {
   const bySlug = new Map<string, NewsImpactHistoryItem>();
-  for (const item of seeded) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
-  for (const item of persisted) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
+  for (const item of filterGovernedNewsImpactItems(seeded)) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
+  for (const item of filterGovernedNewsImpactItems(persisted)) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
   return Array.from(bySlug.values()).sort(sortNewsImpactHistoryItems);
 }
 
@@ -196,7 +210,7 @@ export async function getNewsImpactHistoryArchiveItemsFromAuthority(
   locale?: ContentLocale,
   limit = 10_000,
 ): Promise<NewsImpactHistoryItem[]> {
-  const seeded = getNewsImpactHistoryItems(locale);
+  const seeded = filterGovernedNewsImpactItems(getNewsImpactHistoryItems(locale));
   try {
     const result = await withDb((client) => readNewsImpactHistoryArchiveItemsTx(client, locale, limit));
     const persisted = result.enabled ? result.value : [];
@@ -220,7 +234,8 @@ export async function getNewsImpactHistoryItemBySlugFromAuthority(
   } catch (error) {
     logger.warn("[news-impact-history] slug authority read failed; using seed fallback", { slug, locale, error: error instanceof Error ? error.message : String(error) });
   }
-  return getNewsImpactHistoryItems(locale).find((item) => getNewsImpactSlug(item) === slug);
+  return filterGovernedNewsImpactItems(getNewsImpactHistoryItems(locale))
+    .find((item) => getNewsImpactSlug(item) === slug);
 }
 
 export async function getNewsImpactHistoryItemBySourceUrlFromAuthority(
@@ -233,7 +248,8 @@ export async function getNewsImpactHistoryItemBySourceUrlFromAuthority(
   } catch (error) {
     logger.warn("[news-impact-history] counterpart authority read failed; using seed fallback", { locale, error: error instanceof Error ? error.message : String(error) });
   }
-  return getNewsImpactHistoryItems(locale).find((item) => item.sourceUrl === sourceUrl);
+  return filterGovernedNewsImpactItems(getNewsImpactHistoryItems(locale))
+    .find((item) => item.sourceUrl === sourceUrl);
 }
 
 export async function getNewsImpactHistoryItemsFromAuthority(
@@ -246,9 +262,12 @@ export async function getNewsImpactHistoryItemsFromAuthority(
 export async function getNewsImpactHistoryAuthoritySnapshot(
   locale?: ContentLocale,
 ): Promise<NewsImpactHistoryAuthoritySnapshot> {
-  // This authority powers "live" cards and rankings. Historical editorial
-  // records remain stored, but cannot silently influence current rankings.
-  const seeded = filterCurrentNewsImpactItems(getNewsImpactHistoryItems(locale));
+  // This authority powers public live cards, rankings and sitemap/detail reads.
+  // Stored history is immutable, but current source/provider policy is evaluated
+  // again so a quarantine or rights downgrade cannot remain publicly visible.
+  const seeded = filterCurrentNewsImpactItems(
+    filterGovernedNewsImpactItems(getNewsImpactHistoryItems(locale)),
+  );
   const persisted = filterCurrentNewsImpactItems(await getPostgresNewsImpactHistoryItems(locale));
   if (persisted.length === 0) {
     return {
