@@ -88,7 +88,14 @@ jobs:
           systemctl cat tecpey-news-materialization.timer > "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
           grep -F "news:materialization:env-check" "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
           grep -F "news:materialization:worker" "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
-          grep -F "OnCalendar=hourly" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+          grep -F "OnBootSec=2min" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+          grep -F "OnUnitActiveSec=10min" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+          grep -F "Persistent=true" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+          grep -F "Unit=tecpey-news-materialization.service" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+          if grep -Fq "OnCalendar=" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"; then
+            echo "unexpected calendar-based news materialization cadence" >&2
+            exit 1
+          fi
 
       - name: Run one governed news materialization pass
         shell: bash
@@ -137,6 +144,7 @@ jobs:
             echo "- Protected environment: \`staging\`"
             echo "- Service: \`tecpey-news-materialization.service\`"
             echo "- Timer: \`tecpey-news-materialization.timer\`"
+            echo "- Cadence: \`OnUnitActiveSec=10min\`"
             echo "- Expected locales: \`$EXPECTED_LOCALES\`"
             echo "- Last-run verifier: passed"
             echo "- Artifact: \`tecpey-staging-news-materialization-$RELEASE_SHA\`"
