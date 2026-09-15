@@ -96,7 +96,10 @@ Under the product layer, TecPey is built around explicit authorities: Next.js Ap
 
 ## Controlled-launch boundary
 
-TecPey is currently being hardened for a controlled educational launch. The public experience, Academy, AI Mentor, Trading Arena simulation, and market/news surfaces are the focus of this phase. **Real-money Exchange, custody, deposits and withdrawals are not implied by this repository and remain gated.**
+TecPey is currently being hardened for a controlled educational launch. The public experience, Academy, AI Mentor, Trading Arena simulation, and market/news surfaces are the focus of this phase.
+
+> [!IMPORTANT]
+> Repository presence of a capability does not imply production activation. This repository is not evidence that real-money Exchange, custody, deposits, or withdrawals are active. Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope.
 
 We are building and developing TecPey's proprietary advanced exchange; production financial activation is a separate program with its own custody, compliance, provider, reconciliation, recovery and operational requirements.
 
