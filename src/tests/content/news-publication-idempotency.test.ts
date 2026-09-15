@@ -23,6 +23,7 @@ const SOURCES: ApprovedNewsSource[] = [
 const publishedAt = "2026-09-14T00:54:08.000Z";
 const watermark = "2026-09-14T03:30:45.319Z";
 const sourceUrl = "https://cointelegraph.com/news/revolut-attackers-threaten-daily-customer-data-leaks";
+const batchFingerprint = "a".repeat(24);
 
 class FakePublicationPersistenceClient {
   snapshots = new Map<string, { snapshot_id: string; snapshot_hash: string }>();
@@ -173,28 +174,53 @@ function legacyReviewSnapshot() {
 }
 
 describe("versioned news publication idempotency", () => {
-  it("scopes publication keys by explicit policy version without rewriting the historical keyspace", () => {
+  it("scopes publication keys by policy, locale, watermark and candidate-set fingerprint", () => {
     const legacyKey = `crypto-news:publish:archive:en:${watermark}`;
-    const current = buildNewsPublicationIdempotencyKey({ locale: "en", fetchedAt: watermark });
+    const current = buildNewsPublicationIdempotencyKey({
+      locale: "en",
+      fetchedAt: watermark,
+      batchFingerprint,
+    });
     const explicitCurrent = buildNewsPublicationIdempotencyKey({
       locale: "en",
       fetchedAt: watermark,
+      batchFingerprint,
       policyVersion: NEWS_PUBLICATION_POLICY_VERSION,
     });
     const future = buildNewsPublicationIdempotencyKey({
       locale: "en",
       fetchedAt: watermark,
-      policyVersion: "v3",
+      batchFingerprint,
+      policyVersion: "v4",
+    });
+    const changedMembership = buildNewsPublicationIdempotencyKey({
+      locale: "en",
+      fetchedAt: watermark,
+      batchFingerprint: "b".repeat(24),
     });
 
-    assert.equal(NEWS_PUBLICATION_POLICY_VERSION, "v2");
-    assert.equal(current, `crypto-news:publish:archive:v2:en:${watermark}`);
+    assert.equal(NEWS_PUBLICATION_POLICY_VERSION, "v3");
+    assert.equal(current, `crypto-news:publish:archive:v3:en:${watermark}:${batchFingerprint}`);
     assert.equal(explicitCurrent, current);
     assert.notEqual(current, legacyKey);
     assert.notEqual(future, current);
+    assert.notEqual(changedMembership, current);
     assert.throws(
-      () => buildNewsPublicationIdempotencyKey({ locale: "en", fetchedAt: watermark, policyVersion: "V2!" }),
+      () => buildNewsPublicationIdempotencyKey({
+        locale: "en",
+        fetchedAt: watermark,
+        batchFingerprint,
+        policyVersion: "V2!",
+      }),
       /news_publication_policy_version_invalid/,
+    );
+    assert.throws(
+      () => buildNewsPublicationIdempotencyKey({
+        locale: "en",
+        fetchedAt: watermark,
+        batchFingerprint: "not-a-fingerprint",
+      }),
+      /news_publication_batch_fingerprint_invalid/,
     );
   });
 
@@ -224,7 +250,11 @@ describe("versioned news publication idempotency", () => {
       /news_materialization_idempotency_conflict/,
     );
 
-    const enKey = buildNewsPublicationIdempotencyKey({ locale: "en", fetchedAt: watermark });
+    const enKey = buildNewsPublicationIdempotencyKey({
+      locale: "en",
+      fetchedAt: watermark,
+      batchFingerprint,
+    });
     const enInput = {
       snapshotId: "00000000-0000-4000-8000-000000000103",
       idempotencyKey: enKey,
@@ -247,7 +277,11 @@ describe("versioned news publication idempotency", () => {
 
     const firstFa = await persistMaterializedNewsSnapshotTx(client, {
       snapshotId: "00000000-0000-4000-8000-000000000104",
-      idempotencyKey: buildNewsPublicationIdempotencyKey({ locale: "fa", fetchedAt: watermark }),
+      idempotencyKey: buildNewsPublicationIdempotencyKey({
+        locale: "fa",
+        fetchedAt: watermark,
+        batchFingerprint,
+      }),
       sourceMode: "test",
       snapshot: faSnapshot,
     });

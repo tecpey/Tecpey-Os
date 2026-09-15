@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  approvedNewsAutomationSources,
   findGovernedNewsSource,
   newsSourceAuthorityDrift,
   resolveNewsSourceAuthority,
@@ -10,10 +11,41 @@ describe("news source authority convergence", () => {
   it("resolves capture-registry sources as known identities instead of unknown providers", () => {
     for (const domain of ["thedefiant.io", "chainalysis.com", "sec.gov", "coindesk.com"]) {
       const source = findGovernedNewsSource(domain);
-      assert.ok(source, `${domain} must be governed by NEWS_SOURCE_REGISTRY`);
+      assert.ok(source, `${domain} must be governed by news source authority`);
       const decision = resolveNewsSourceAuthority(domain);
       assert.equal(decision.registryKnown, true);
       assert.notEqual(decision.reasons[0], "source_not_in_registry");
+    }
+  });
+
+  it("treats TecPey editorial as an explicit governed first-party source", () => {
+    const source = findGovernedNewsSource("https://tecpey.ir/crypto-news");
+    const decision = resolveNewsSourceAuthority("https://tecpey.ir/academy/term-2");
+
+    assert.equal(source?.id, "tecpey-editorial");
+    assert.equal(decision.registryKnown, true);
+    if (!decision.registryKnown) assert.fail("TecPey editorial must resolve as governed");
+    assert.equal(decision.firstParty, true);
+    assert.equal(decision.providerReadiness.status, "ready");
+    assert.equal(decision.providerReadiness.persianEditorialAllowed, true);
+    assert.equal(decision.publicationDisposition, "auto_publish_eligible");
+  });
+
+  it("never emits auto-publish eligibility without explicit public and Persian editorial rights", () => {
+    for (const source of approvedNewsAutomationSources()) {
+      const decision = resolveNewsSourceAuthority(source.domain);
+      if (!decision.registryKnown || decision.publicationDisposition !== "auto_publish_eligible") continue;
+
+      assert.equal(
+        decision.providerReadiness.publicSummaryAllowed,
+        true,
+        `${source.domain} cannot auto-publish without public summary rights`,
+      );
+      assert.equal(
+        decision.providerReadiness.persianEditorialAllowed,
+        true,
+        `${source.domain} cannot auto-publish without Persian editorial rights`,
+      );
     }
   });
 
@@ -40,6 +72,7 @@ describe("news source authority convergence", () => {
     const drift = newsSourceAuthorityDrift();
     const byDomain = new Map(drift.map((entry) => [entry.domain, entry]));
 
+    assert.equal(byDomain.get("tecpey.ir")?.publicationDisposition, "auto_publish_eligible");
     assert.equal(byDomain.get("thedefiant.io")?.providerStatus, "blocked");
     assert.equal(byDomain.get("chainalysis.com")?.providerStatus, "blocked");
     assert.equal(byDomain.get("coindesk.com")?.providerStatus, "ready");
