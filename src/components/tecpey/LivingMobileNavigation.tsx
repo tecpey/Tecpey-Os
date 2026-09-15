@@ -77,7 +77,7 @@ export function LivingMobileNavigation({
                 data-active={active ? "true" : "false"}
               >
                 <span className="tecpey-living-mobile-nav__icon">
-                  <Icon className="h-[1.2rem] w-[1.2rem]" aria-hidden />
+                  <Icon className="h-[1.2rem] w-[1.2rem] stroke-[2.25]" aria-hidden />
                 </span>
                 <span className="tecpey-living-mobile-nav__label">
                   {item.label}

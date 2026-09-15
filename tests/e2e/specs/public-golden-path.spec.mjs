@@ -48,7 +48,7 @@ function projectContract(testInfo) {
         path: "/en",
         lang: "en-US",
         dir: "ltr",
-        heading: /From your first step,\s*to a record of your skills/i,
+        heading: /From your first step,\s*to your skills portfolio/i,
         knowledge: "Knowledge Center",
         arena: "Trading Arena",
         menu: "Open menu",
@@ -58,12 +58,13 @@ function projectContract(testInfo) {
         themeToDark: "Switch to dark mode",
         academyPath: "/en/academy",
         arenaPath: "/en/academy/trading-arena",
-        arenaHeading: /Trading Arena/i,
-        arenaRiskFree: /no real money involved/i,
+        arenaHeading: /Turn knowledge into reviewable decisions/i,
+        arenaRiskFree: /(?:without|no) real money/i,
         primaryCtas: ["Start Free Academy", "Explore the journey"],
         forbiddenCopy: [
           /Online Market Board/i,
           /Live market prices/i,
+          /Live market data/i,
           /brings buying, selling and digital asset management together/i,
           /Buy, sell and review live markets/i,
         ],
@@ -74,7 +75,7 @@ function projectContract(testInfo) {
         path: "/",
         lang: "fa-IR",
         dir: "rtl",
-        heading: /از اولین قدم،\s*تا کارنامهٔ مهارتی تو/,
+        heading: /از اولین قدم،\s*تا کارنامه مهارتی تو/,
         knowledge: "مرکز دانش",
         arena: "تریدینگ آرنا",
         menu: "باز کردن منو",
@@ -84,13 +85,14 @@ function projectContract(testInfo) {
         themeToDark: "تغییر به حالت تیره",
         academyPath: "/academy",
         arenaPath: "/academy/trading-arena",
-        arenaHeading: /تریدینگ آرنا/,
+        arenaHeading: /دانش را به تصمیم قابل بازبینی تبدیل کن/,
         arenaRiskFree: /بدون پول واقعی/,
         primaryCtas: ["شروع آکادمی رایگان", "کشف مسیر رشد"],
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
           /اولین معامله واقعی/,
           /بازارها\s+زنده/,
+          /داده زنده بازار/,
           /\bOnline\b/,
         ],
       };
@@ -636,7 +638,6 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     "story-practice",
     "story-league",
     "story-mastery",
-    "story-exchange",
   ];
   for (const id of chapterIds) {
     const section = page.locator(`#${id}`);
@@ -653,9 +654,24 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     arenaSection,
     "Arena section must state it is fully educational with no real money",
   ).toContainText(contract.arenaRiskFree);
+  const arenaRoute = arenaSection.locator(`a[href="${contract.arenaPath}"]`).first();
+  await expect(arenaRoute, "Arena chapter must expose its governed practice route").toBeVisible();
+
+  // Stage 8 is the journey destination. The future exchange teaser is deliberately
+  // outside the numbered journey and must not expose a sign-in or trade action.
+  const finalStage = page.locator('[data-home-section="resume"][data-journey-stage="8"]');
+  await finalStage.scrollIntoViewIfNeeded();
+  await expect(finalStage).toBeVisible();
+  await expect(finalStage.getByRole("heading").first()).toBeVisible();
+
+  const exchangePreview = page.locator('[data-home-section="exchange-preview"]');
+  await exchangePreview.scrollIntoViewIfNeeded();
+  await expect(exchangePreview).toBeVisible();
+  await expect(exchangePreview.getByRole("heading").first()).toBeVisible();
   await expect(
-    arenaSection.getByRole("link", { name: contract.arena }).first(),
-  ).toHaveAttribute("href", new RegExp(`${contract.arenaPath.replace(/[/]/g, "\\/")}$`));
+    exchangePreview.locator('a[href], button'),
+    "future exchange teaser must remain non-transactional and CTA-free",
+  ).toHaveCount(0);
 
   if (testInfo.project.name.startsWith("chromium")) {
     await expectSuccessfulLocalRoute(page, contract.academyPath);
