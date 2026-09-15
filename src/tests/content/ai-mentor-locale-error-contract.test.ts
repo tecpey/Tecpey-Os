@@ -11,7 +11,7 @@ test("AI Mentor local fallback keeps English curriculum and links locale-pure", 
   assert.match(mentorRoute, /academyPathTermsEn/);
   assert.match(mentorRoute, /const terms = locale === "en" \? academyPathTermsEn : academyPathTerms/);
   assert.match(mentorRoute, /const hrefPrefix = locale === "en" \? "\/en" : ""/);
-  assert.match(mentorRoute, /suggestedQuestions\(termNumber, locale\)/);
+  assert.match(mentorRoute, /suggestedQuestions\(knowledge\.term\.number, locale\)/);
   assert.match(mentorRoute, /termKnowledge\(termNumber, lessonNumber, locale\)/);
   assert.match(mentorRoute, /locale === "en" \? \[\] : caseStudiesForTerm\(termNumber\)/);
 });
