@@ -1,8 +1,11 @@
 import { withDb } from "../db";
 import type { ApprovedNewsSource } from "../news-automation";
-import { NEWS_SOURCE_REGISTRY } from "../news-source-registry";
+import {
+  approvedNewsAutomationSources,
+  resolveNewsSourceAuthority,
+} from "../../services/news/source-authority";
 
-export const NEWS_PUBLICATION_POLICY_VERSION = "v2" as const;
+export const NEWS_PUBLICATION_POLICY_VERSION = "v3" as const;
 
 const NEWS_PUBLICATION_POLICY_VERSION_RE = /^[a-z0-9][a-z0-9._-]{0,31}$/;
 
@@ -49,27 +52,27 @@ function boundedLimit(value: number): number {
 }
 
 export function approvedNewsPublicationSources(): ApprovedNewsSource[] {
-  const trustByTier = {
-    tier_1: 0.98,
-    tier_2: 0.84,
-    tier_3: 0.72,
-  } as const;
+  return approvedNewsAutomationSources().filter((source) => {
+    const authority = resolveNewsSourceAuthority(source.domain);
+    return authority.registryKnown
+      && authority.publicationDisposition === "auto_publish_eligible"
+      && authority.providerReadiness.persianEditorialAllowed;
+  });
+}
 
-  return [
-    { name: "TecPey Editorial", domain: "tecpey.ir", tier: "tecpey_editorial", trustScore: 0.96 },
-    ...NEWS_SOURCE_REGISTRY.map((source): ApprovedNewsSource => ({
-      name: source.name,
-      domain: source.canonicalDomains[0],
-      tier: source.firstParty ? "official" : "trusted_media",
-      trustScore: Math.min(0.99, Math.max(0.7, trustByTier[source.trustTier] * source.corroborationWeight)),
-    })),
-  ];
+export function isNewsPublicationSourceEligible(articleUrl: string): boolean {
+  const authority = resolveNewsSourceAuthority(articleUrl);
+  return authority.registryKnown
+    && authority.publicationDisposition === "auto_publish_eligible"
+    && authority.providerReadiness.persianEditorialAllowed;
 }
 
 /**
  * Publication authority consumes only immutable archive versions that have a
  * completed Persian translation for the exact content hash and explicit local
  * validation evidence. Untranslated/failed/pending rows are invisible here.
+ * Source/provider authority is re-evaluated at read time so registry quarantine,
+ * rights or readiness changes fail closed even for previously enriched rows.
  */
 export async function readValidatedNewsPublicationCandidatesFromAuthority(input: {
   limit?: number;
@@ -142,7 +145,7 @@ export async function readValidatedNewsPublicationCandidatesFromAuthority(input:
       contentHash: String(row.content_hash),
       publishedAt: new Date(row.published_at as string | Date).toISOString(),
       translationGeneratedAt: new Date(row.translation_generated_at as string | Date).toISOString(),
-    }));
+    })).filter((candidate) => isNewsPublicationSourceEligible(candidate.articleUrl));
   });
 
   if (!result.enabled) throw new Error("news_publication_authority_disabled");
