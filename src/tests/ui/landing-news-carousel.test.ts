@@ -17,10 +17,15 @@ test("landing news is a user-controlled centered carousel with adjacent context"
   assert.match(css, /--news-card-width: 78vw/);
 });
 
-test("news cards keep editorial imagery presentation-owned without widening News authority", () => {
-  assert.match(live, /fallbackNewsCovers/);
-  assert.match(live, /TecPey editorial topic image/);
-  assert.match(live, /item\.thumbnail\?\.src/);
+test("news cards consume governed source media without inventing News authority", () => {
+  // Source media is accepted only through the shared safe-link boundary. When
+  // absent, the landing owns one neutral editorial fallback; it must not infer
+  // per-story imagery or revive the legacy presentation-only thumbnail shape.
+  assert.match(live, /const sourceThumbnail = storySafeLink\(item\.thumbnailUrl\)/);
+  assert.match(live, /const thumbnailSrc = sourceThumbnail \|\| neutralNewsCover/);
+  assert.match(live, /TecPey editorial market image/);
+  assert.doesNotMatch(live, /fallbackNewsCovers/);
+  assert.doesNotMatch(live, /item\.thumbnail\?\.src/);
   assert.doesNotMatch(live, /storyNewsThumbnail/);
 });
 
