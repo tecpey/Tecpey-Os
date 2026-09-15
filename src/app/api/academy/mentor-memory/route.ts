@@ -44,7 +44,7 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
   }
 }
 
-function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
+export function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
   const completedTerms = terms.filter((item) => item.status === "passed").length;
   const hasQuizData = terms.length > 0;
   const avgQuiz = hasQuizData ? Math.round(terms.reduce((sum, item) => sum + Number(item.percent || 0), 0) / terms.length) : 0;
@@ -55,7 +55,7 @@ function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
   const riskFlags = trades.filter((item) => item.riskFlag).length;
   const emotionText = trades.map((item) => item.emotion || "").join(" ").toLowerCase();
   const weakAreas = [
-    avgQuiz && avgQuiz < 80 ? "academy_review" : null,
+    hasQuizData && avgQuiz < 80 ? "academy_review" : null,
     avgRisk > 3 ? "risk_management" : null,
     riskFlags >= 2 ? "trading_discipline" : null,
     /انتقام|revenge|fear|ترس|هیجان|excited/.test(emotionText) ? "trading_psychology" : null,
