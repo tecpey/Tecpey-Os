@@ -117,12 +117,13 @@ export function MentorChallengeBox({ locale = "fa", termNumber = 1, lessonSlug =
             <Sparkles className="mt-1 h-5 w-5 shrink-0 text-violet-500" />
             <p className="text-base font-black leading-8 text-slate-950 dark:text-white">{question.question}</p>
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid gap-3 md:grid-cols-2" role="group" aria-label={isFa ? "گزینه‌های پاسخ" : "Answer options"}>
             {entries.map(([key, value]) => (
               <button
                 key={key}
                 type="button"
                 disabled={status === "sent" || status === "loading"}
+                aria-pressed={selected === key}
                 onClick={() => setSelected(key)}
                 className={`rounded-2xl border p-4 text-start text-sm font-black leading-7 transition disabled:cursor-not-allowed ${selected === key ? "border-violet-400 bg-violet-500/15 text-violet-800 dark:text-violet-100" : "border-slate-200 bg-white text-slate-800 hover:border-violet-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"}`}
               >
@@ -132,14 +133,16 @@ export function MentorChallengeBox({ locale = "fa", termNumber = 1, lessonSlug =
             ))}
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <label className="text-xs font-black text-slate-600 dark:text-slate-300">{isFa ? "اعتماد به پاسخ" : "Confidence"}</label>
-            {[
-              ["low", isFa ? "کم" : "Low"],
-              ["medium", isFa ? "متوسط" : "Medium"],
-              ["high", isFa ? "زیاد" : "High"],
-            ].map(([value, label]) => (
-              <button key={value} type="button" disabled={status === "loading" || status === "sent"} onClick={() => setConfidence(value)} className={`rounded-xl px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${confidence === value ? "bg-violet-500 text-white" : "border border-slate-200 text-slate-700 dark:border-white/10 dark:text-slate-300"}`}>{label}</button>
-            ))}
+            <span id="mentor-challenge-confidence-label" className="text-xs font-black text-slate-600 dark:text-slate-300">{isFa ? "اعتماد به پاسخ" : "Confidence"}</span>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-labelledby="mentor-challenge-confidence-label">
+              {[
+                ["low", isFa ? "کم" : "Low"],
+                ["medium", isFa ? "متوسط" : "Medium"],
+                ["high", isFa ? "زیاد" : "High"],
+              ].map(([value, label]) => (
+                <button key={value} type="button" disabled={status === "loading" || status === "sent"} aria-pressed={confidence === value} onClick={() => setConfidence(value)} className={`rounded-xl px-3 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${confidence === value ? "bg-violet-500 text-white" : "border border-slate-200 text-slate-700 dark:border-white/10 dark:text-slate-300"}`}>{label}</button>
+              ))}
+            </div>
             <button type="button" disabled={!selected || status === "loading" || status === "sent"} onClick={submit} className="ms-auto inline-flex items-center gap-2 rounded-2xl bg-violet-500 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
               <Send className="h-4 w-4" /> {status === "loading" && selected ? (isFa ? "در حال ثبت..." : "Saving...") : (isFa ? "ثبت پاسخ" : "Submit")}
             </button>

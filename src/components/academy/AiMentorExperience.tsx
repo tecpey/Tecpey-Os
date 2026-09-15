@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  AlertTriangle,
   BookOpenCheck,
   BrainCircuit,
   ChartNoAxesCombined,
@@ -116,6 +117,16 @@ const COPY = {
     newsLabel: "آماده‌سازی مرور منبع‌دار خبر",
     newsPremium: "مرور خبر منبع‌دار در نسخه پرمیوم فعال است",
     newsPrompt: "مهم‌ترین اخبار امروز بازار رمزارز را فقط با منابع عمومی معتبر، زمان انتشار، سطح اطمینان و اثر احتمالی بر ریسک تمرین خلاصه کن؛ اگر داده تازه در دسترس نیست، صریح بگو.",
+    errorLogin: "نشست شما منقضی شده است؛ برای ادامه دوباره وارد شوید.",
+    errorLoginAction: "ورود دوباره",
+    errorRateLimited: "تعداد درخواست‌ها زیاد بوده؛ چند لحظه دیگر دوباره امتحان کنید.",
+    errorThreadGone: "این گفت‌وگو دیگر در دسترس نیست. یک گفت‌وگوی جدید شروع کنید.",
+    errorNetwork: "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی و دوباره تلاش کنید.",
+    errorGeneric: "پاسخ زنده در دسترس نبود؛ پاسخ زیر راهنمای آموزشی از‌پیش‌آماده است، نه پاسخ زنده هوش مصنوعی.",
+    errorDismiss: "متوجه شدم",
+    liveAnswer: "پاسخ زنده هوش مصنوعی",
+    preparedAnswer: "راهنمای آموزشی آماده",
+    notSaved: "این گفت‌وگو ذخیره نشد",
   },
   en: {
     eyebrow: "Your personal workspace",
@@ -163,6 +174,16 @@ const COPY = {
     newsLabel: "Prepare a source-backed news brief",
     newsPremium: "Source-backed news brief is available on Premium",
     newsPrompt: "Summarize today's most important crypto-market news using only credible public sources. Include publication time, confidence and possible implications for practice risk; say clearly when fresh data is unavailable.",
+    errorLogin: "Your session has expired; sign in again to continue.",
+    errorLoginAction: "Sign in again",
+    errorRateLimited: "Too many requests. Please try again in a moment.",
+    errorThreadGone: "This conversation is no longer available. Start a new one.",
+    errorNetwork: "Could not reach the server. Check your connection and try again.",
+    errorGeneric: "A live answer was not available; the reply below is prepared academy guidance, not a live AI answer.",
+    errorDismiss: "Got it",
+    liveAnswer: "Live AI answer",
+    preparedAnswer: "Prepared academy guidance",
+    notSaved: "This reply was not saved",
   },
 } as const;
 
@@ -193,6 +214,7 @@ export function AiMentorExperience({
   const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
   const [arenaPanel, setArenaPanel] = useState<MentorArenaPanelState>("closed");
   const [scenarioCue, setScenarioCue] = useState<"news" | null>(null);
@@ -388,6 +410,7 @@ export function AiMentorExperience({
     setIsExplaining(false);
     setHistoryLoading(false);
     setHistoryUnavailable(false);
+    setRequestError(null);
     setActiveThreadId(null);
     setMessages([]);
     setQuestion("");
@@ -406,6 +429,7 @@ export function AiMentorExperience({
       setIsExplaining(false);
       setHistoryLoading(true);
       setHistoryUnavailable(false);
+      setRequestError(null);
       setMessages([]);
       setActiveThreadId(threadId);
       closeHistory();
@@ -454,7 +478,10 @@ export function AiMentorExperience({
           researchMode: publicResearch ? "public" : undefined,
         }),
       });
-      const data = (await response.json()) as Partial<MentorReply>;
+      const data = (await response.json()) as Partial<MentorReply> & { error?: string };
+      if (conversationEpochRef.current === requestConversationEpoch) {
+        setRequestError(response.ok ? null : typeof data.error === "string" ? data.error : `http_${response.status}`);
+      }
       const nextReply: MentorReply =
         response.ok && typeof data.answer === "string"
           ? { ...local, ...data, answer: data.answer }
@@ -480,6 +507,7 @@ export function AiMentorExperience({
       void loadThreads();
     } catch {
       if (conversationEpochRef.current === requestConversationEpoch) {
+        setRequestError("network_error");
         setMessages((current) => [
           ...current,
           {
@@ -491,6 +519,7 @@ export function AiMentorExperience({
           },
         ]);
         setIsExplaining(true);
+        if (explainTimerRef.current) window.clearTimeout(explainTimerRef.current);
         explainTimerRef.current = window.setTimeout(
           () => setIsExplaining(false),
           1_200,
@@ -516,6 +545,23 @@ export function AiMentorExperience({
     event.preventDefault();
     void ask();
   };
+
+  const errorNotice = (() => {
+    if (!requestError) return null;
+    if (requestError === "academy_login_required") {
+      return { message: copy.errorLogin, action: "login" as const };
+    }
+    if (requestError === "rate_limited") {
+      return { message: copy.errorRateLimited, action: "dismiss" as const };
+    }
+    if (requestError === "mentor_thread_not_found" || requestError === "invalid_mentor_thread") {
+      return { message: copy.errorThreadGone, action: "new" as const };
+    }
+    if (requestError === "network_error") {
+      return { message: copy.errorNetwork, action: "dismiss" as const };
+    }
+    return { message: copy.errorGeneric, action: "dismiss" as const };
+  })();
 
   const stageEvent = mentorStageEventForWorkspaceActivity({
     arenaPanel,
@@ -680,6 +726,16 @@ export function AiMentorExperience({
                       </div>
                       <p className={styles.messageText}>{message.content}</p>
 
+                      {message.role === "assistant" && message.reply ? (
+                        <span
+                          className={styles.answerBadge}
+                          data-source={message.reply.externalProviderUsed ? "live" : "prepared"}
+                        >
+                          {message.reply.externalProviderUsed ? copy.liveAnswer : copy.preparedAnswer}
+                          {message.reply.memoryMode === "ephemeral" ? ` · ${copy.notSaved}` : ""}
+                        </span>
+                      ) : null}
+
                       {message.reply?.checklist?.length ? (
                         <div className={styles.replyBlock}>
                           <strong><CheckCircle2 aria-hidden="true" />{copy.checklist}</strong>
@@ -735,7 +791,23 @@ export function AiMentorExperience({
                 <div ref={messageEndRef} />
               </div>
 
-              <div className={styles.composer}>
+              {errorNotice ? (
+                <div className={styles.requestError} role="alert">
+                  <AlertTriangle aria-hidden="true" />
+                  <p>{errorNotice.message}</p>
+                  <div>
+                    {errorNotice.action === "login" ? (
+                      <Link href={isFa ? "/academy" : "/en/academy"}>{copy.errorLoginAction}</Link>
+                    ) : null}
+                    {errorNotice.action === "new" ? (
+                      <button type="button" onClick={newConversation}>{copy.newConversation}</button>
+                    ) : null}
+                    <button type="button" onClick={() => setRequestError(null)}>{copy.errorDismiss}</button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={styles.composer} id="mentor-chat">
                 <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
                 <div className={styles.composerInput}>
                   <textarea
