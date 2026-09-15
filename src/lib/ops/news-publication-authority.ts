@@ -77,6 +77,12 @@ export function isNewsPublicationSourceEligible(articleUrl: string): boolean {
 export async function readValidatedNewsPublicationCandidatesFromAuthority(input: {
   limit?: number;
 } = {}): Promise<NewsPublicationCandidate[]> {
+  const requestedLimit = boundedLimit(input.limit ?? 500);
+  const eligibleSourceNames = Array.from(new Set(
+    approvedNewsPublicationSources().map((source) => source.name),
+  ));
+  if (eligibleSourceNames.length === 0) return [];
+
   const result = await withDb(async (client) => {
     const rows = await client.query<Record<string, unknown>>(
       `WITH eligible AS (
@@ -112,6 +118,7 @@ export async function readValidatedNewsPublicationCandidatesFromAuthority(input:
               LIMIT 1
            ) translation ON TRUE
           WHERE archive.source_language = 'en'
+            AND archive.source_name = ANY($2::text[])
             AND archive.published_at >= now() - interval '7 days'
        ), latest_article AS (
          SELECT DISTINCT ON (article_url) *
@@ -131,7 +138,7 @@ export async function readValidatedNewsPublicationCandidatesFromAuthority(input:
          FROM latest_article
         ORDER BY published_at DESC, translation_generated_at DESC
         LIMIT $1`,
-      [boundedLimit(input.limit ?? 500)],
+      [requestedLimit, eligibleSourceNames],
     );
 
     return rows.rows.map((row) => ({
