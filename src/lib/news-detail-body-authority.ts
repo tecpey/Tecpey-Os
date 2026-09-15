@@ -110,7 +110,6 @@ export async function getNewsDetailBodyFromAuthority(
       );
 
       for (const row of selected.rows) {
-        const sourceLead = compact(String(row.source_lead ?? ""));
         const sourceBody = compact(String(row.source_body ?? ""));
         const translatedLead = compact(String(row.translated_lead ?? ""));
         const translatedBody = compact(String(row.translated_body ?? ""));
