@@ -184,11 +184,11 @@ describe("versioned news publication idempotency", () => {
     const future = buildNewsPublicationIdempotencyKey({
       locale: "en",
       fetchedAt: watermark,
-      policyVersion: "v3",
+      policyVersion: "v4",
     });
 
-    assert.equal(NEWS_PUBLICATION_POLICY_VERSION, "v2");
-    assert.equal(current, `crypto-news:publish:archive:v2:en:${watermark}`);
+    assert.equal(NEWS_PUBLICATION_POLICY_VERSION, "v3");
+    assert.equal(current, `crypto-news:publish:archive:v3:en:${watermark}`);
     assert.equal(explicitCurrent, current);
     assert.notEqual(current, legacyKey);
     assert.notEqual(future, current);
