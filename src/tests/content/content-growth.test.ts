@@ -1032,7 +1032,9 @@ describe("Content growth entity contract", () => {
 
     assert.equal(first.replayed, false);
     assert.equal(first.insertedHistoryItems, 1);
+    assert.deepEqual(first.insertedHistoryPaths, snapshot.historyItems.map((item) => item.newsUrl));
     assert.equal(replay.replayed, true);
+    assert.deepEqual(replay.insertedHistoryPaths, []);
     assert.equal(replay.snapshotHash, first.snapshotHash);
     assert.equal(client.snapshotItems.length, 1);
 
@@ -1190,6 +1192,7 @@ describe("Content growth entity contract", () => {
           snapshotId: "00000000-0000-4000-8000-000000000061",
           snapshotHash: "a".repeat(64),
           insertedHistoryItems: 1,
+          insertedHistoryPaths: ["/en/crypto-news/example"],
         },
       },
       {

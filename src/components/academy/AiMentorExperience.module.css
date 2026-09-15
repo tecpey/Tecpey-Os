@@ -271,7 +271,7 @@
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid rgb(148 163 184 / 0.12);
+  border-inline-end: 1px solid rgb(148 163 184 / 0.12);
   background: rgb(2 8 23 / 0.28);
   padding: 14px 10px;
 }
@@ -447,6 +447,43 @@
   font-weight: 900;
 }
 
+.requestError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 18px 10px;
+  border: 1px solid rgb(248 113 113 / 0.28);
+  border-radius: 14px;
+  background: rgb(127 29 29 / 0.2);
+  padding: 10px 12px;
+  color: #fecaca;
+}
+
+.requestError p {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 750;
+  line-height: 1.7;
+}
+
+.requestError > div {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.requestError button,
+.requestError a {
+  min-height: 30px;
+  border-radius: 9px;
+  background: rgb(248 113 113 / 0.14);
+  padding: 5px 8px;
+  font-size: 8px;
+  font-weight: 900;
+  color: #fecaca;
+}
+
 .conversation {
   display: flex;
   min-width: 0;
@@ -525,6 +562,30 @@
   line-height: 2;
   white-space: pre-wrap;
   color: #e2e8f0;
+}
+
+.answerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.answerBadge[data-source="live"] {
+  border: 1px solid rgb(52 211 153 / 0.28);
+  background: rgb(6 78 59 / 0.24);
+  color: #6ee7b7;
+}
+
+.answerBadge[data-source="prepared"] {
+  border: 1px solid rgb(148 163 184 / 0.22);
+  background: rgb(30 41 59 / 0.5);
+  color: #cbd5e1;
 }
 
 .replyBlock,

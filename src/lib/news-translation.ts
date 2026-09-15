@@ -385,17 +385,26 @@ function canonicalNumericFacts(value: string): CanonicalNumericFact[] {
     });
   }
 
-  const quarterMatches = Array.from(normalized.matchAll(/\bq([1-4])\b|(?:سه[\s\u200c-]*ماهه|فصل|ربع)\s+(اول|نخست|دوم|سوم|چهارم)(?=\s|$|[،؛,.!?؟])/gi));
+  const quarterMatches = Array.from(normalized.matchAll(/\bq([1-4])\b|\b(first|second|third|fourth)\s+quarter\b|(?:سه[\s\u200c-]*ماهه|فصل|ربع)\s+(اول|نخست|دوم|سوم|چهارم)(?=\s|$|[،؛,.!?؟])/gi));
   for (const match of quarterMatches.slice(0, 20)) {
-    const persianOrdinal = match[2];
+    const englishOrdinal = match[2]?.toLowerCase();
+    const persianOrdinal = match[3];
     const value = match[1]
-      ?? (persianOrdinal === "اول" || persianOrdinal === "نخست"
+      ?? (englishOrdinal === "first"
         ? "1"
-        : persianOrdinal === "دوم"
+        : englishOrdinal === "second"
           ? "2"
-          : persianOrdinal === "سوم"
+          : englishOrdinal === "third"
             ? "3"
-            : "4");
+            : englishOrdinal === "fourth"
+              ? "4"
+              : persianOrdinal === "اول" || persianOrdinal === "نخست"
+                ? "1"
+                : persianOrdinal === "دوم"
+                  ? "2"
+                  : persianOrdinal === "سوم"
+                    ? "3"
+                    : "4");
     facts.push({
       value,
       sign: "unsigned",

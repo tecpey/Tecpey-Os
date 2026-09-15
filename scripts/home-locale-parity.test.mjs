@@ -25,7 +25,8 @@ test("FA and EN homes use one localized story with news and markets before the g
   const [fa, en, story] = await Promise.all([source(faPath), source(enPath), source("src/components/home/TecpeyGrowthStory.tsx")]);
   assert.match(fa, /<TecpeyGrowthStory locale="fa"/);
   assert.match(en, /<TecpeyGrowthStory locale="en"/);
-  assertInOrder(story, ['data-home-section="hero"', 'id="story-news"', 'id="story-market"', 'id="story-academy"', 'id="story-practice"', 'id="story-league"', 'data-home-section="pro-gift"', 'id="story-mastery"', 'id="story-exchange"', 'data-home-section="resume"'], "shared story");
+  assertInOrder(story, ['data-home-section="hero"', 'id="story-news"', 'id="story-market"', 'id="story-academy"', 'id="story-practice"', 'id="story-league"', 'data-home-section="pro-gift"', 'id="story-mastery"', 'data-home-section="exchange-preview"', 'data-home-section="resume"'], "shared story");
+  assert.doesNotMatch(story, /id="story-exchange"|step="09"|قدم ۹/);
   assert.match(story, /<HomeDiscoveryStrip locale=\{locale\} radar=\{radar\}/);
   assert.match(story, /<Suspense/);
   assert.match(story, /<Discovery promise=\{growthRadarPromise\} locale=\{locale\}/);

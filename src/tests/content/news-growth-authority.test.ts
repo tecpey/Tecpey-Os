@@ -563,6 +563,17 @@ it("matches reporting-period quarter markers across English and Persian forms", 
   }), { ok: true });
 });
 
+it("matches spelled-out English quarter markers to Persian reporting periods", () => {
+  assert.deepEqual(validatePersianNewsTranslationIntegrity({
+    sourceTitle: "Securitize reports results",
+    sourceLead: "Assets reached $4.3 billion in the second quarter.",
+    sourceBody: "Average tokenized assets under management were $4.3 billion for the second quarter.",
+    translatedTitle: "Securitize نتایج خود را منتشر کرد",
+    translatedLead: "دارایی‌ها در سه‌ماهه دوم به ۴.۳ میلیارد دلار رسید.",
+    translatedBody: "میانگین دارایی‌های توکنیزه‌شده تحت مدیریت در سه‌ماهه دوم ۴.۳ میلیارد دلار بود.",
+  }), { ok: true });
+});
+
 it("repairs one invented numeric fact once and still fails closed if the repair remains invalid", async () => {
   const previousProvider = process.env.NEWS_TRANSLATION_PROVIDER;
   const previousKey = process.env.OPENAI_API_KEY;

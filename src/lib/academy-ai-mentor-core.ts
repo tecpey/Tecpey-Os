@@ -28,6 +28,10 @@ export type MentorReply = {
   sources?: { title: string | null; url: string }[];
   researchMode?: "off" | "public" | "public_blocked";
   threadId?: string | null;
+  /** Present when the reply came from the live `/api/ai-mentor` envelope. */
+  source?: string;
+  externalProviderUsed?: boolean;
+  memoryMode?: "durable" | "ephemeral" | "not_recorded";
 };
 
 /** One mode's curated coaching. All copy is education-first and hype-free. */
