@@ -55,9 +55,13 @@ for (const invariant of [
   "sudo systemctl start tecpey-news-materialization.service",
   "news:materialization:env-check",
   "news:materialization:last-run:verify",
+  "OnBootSec=2min",
+  "OnUnitActiveSec=10min",
+  "Persistent=true",
+  "unexpected calendar-based news materialization cadence",
   "news-materialization-last-run.json",
   "sha256sum",
-  "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+  "actions/upload-artifact@ea165f8d65e75b540449e92b4886f43607fa02",
   "retention-days: 7",
 ]) {
   requireText("workflow", invariant, `protected staging news workflow is missing ${invariant}`);
@@ -70,6 +74,7 @@ for (const forbidden of [
   "secrets.DATABASE_URL",
   "continue-on-error: true",
   "persist-credentials: true",
+  "grep -F \"OnCalendar=hourly\"",
   "set -x",
 ]) {
   rejectText("workflow", forbidden, `protected staging news workflow contains forbidden behavior ${forbidden}`);
