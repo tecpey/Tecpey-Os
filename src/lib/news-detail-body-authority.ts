@@ -3,6 +3,7 @@ import { withDb } from "./db";
 import { logger } from "./logger";
 import { classifyFeedSourceCoverage } from "./news-feed-evidence";
 import { canonicalPublisherUrl } from "./news-growth-authority";
+import { isNewsPublicationSourceEligible } from "./ops/news-publication-authority";
 
 export type NewsDetailBodyAuthority = Readonly<{
   body: string;
@@ -60,12 +61,22 @@ export async function getNewsDetailBodyFromAuthority(
   sourceUrl: string,
   locale: ContentLocale,
 ): Promise<NewsDetailBodyAuthority | null> {
+  // English publisher bodies are immutable evidence, not public TecPey copy.
+  // Keep this authority deliberately Persian-only until explicit redistribution
+  // rights are modelled for English full-body publication.
+  if (locale !== "fa") return null;
+
   let articleUrl: string;
   try {
     articleUrl = canonicalPublisherUrl(sourceUrl);
   } catch {
     return null;
   }
+
+  // Re-evaluate current source/provider policy at read time. A source becoming
+  // quarantined, blocked or losing editorial rights must immediately stop
+  // serving a public localized body even when an older translation is complete.
+  if (!isNewsPublicationSourceEligible(articleUrl)) return null;
 
   try {
     const result = await withDb(async (client) => {
@@ -77,13 +88,17 @@ export async function getNewsDetailBodyFromAuthority(
                 translation.translated_body,
                 translation.evidence AS translation_evidence
            FROM platform_news_archive_items archive
-           LEFT JOIN LATERAL (
+           JOIN LATERAL (
              SELECT translated_lead, translated_body, evidence
                FROM platform_news_archive_translations
               WHERE archive_id = archive.archive_id
                 AND locale = $2
                 AND source_content_hash = archive.content_hash
                 AND status = 'completed'
+                AND translated_lead IS NOT NULL
+                AND translated_body IS NOT NULL
+                AND evidence->>'numericIntegrity' = 'true'
+                AND evidence->>'noAddedAdvice' = 'true'
               ORDER BY generated_at DESC, created_at DESC
               LIMIT 1
            ) translation ON TRUE
@@ -99,8 +114,8 @@ export async function getNewsDetailBodyFromAuthority(
         const sourceBody = compact(String(row.source_body ?? ""));
         const translatedLead = compact(String(row.translated_lead ?? ""));
         const translatedBody = compact(String(row.translated_body ?? ""));
-        const body = locale === "fa" ? translatedBody : sourceBody;
-        const lead = locale === "fa" ? translatedLead : sourceLead;
+        const body = translatedBody;
+        const lead = translatedLead;
         if (!body || body === lead) continue;
         const paragraphs = newsBodyParagraphs(body);
         if (paragraphs.length === 0) continue;
@@ -110,7 +125,7 @@ export async function getNewsDetailBodyFromAuthority(
           sourceCoverage: coverageFromRow(row),
           bodyCharacterCount: body.length,
           sourceBodyCharacterCount: sourceBody.length,
-          translated: locale === "fa",
+          translated: true,
         } satisfies NewsDetailBodyAuthority;
       }
 
