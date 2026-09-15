@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  approvedNewsAutomationSources,
   findGovernedNewsSource,
   newsSourceAuthorityDrift,
   resolveNewsSourceAuthority,
@@ -28,6 +29,24 @@ describe("news source authority convergence", () => {
     assert.equal(decision.providerReadiness.status, "ready");
     assert.equal(decision.providerReadiness.persianEditorialAllowed, true);
     assert.equal(decision.publicationDisposition, "auto_publish_eligible");
+  });
+
+  it("never emits auto-publish eligibility without explicit public and Persian editorial rights", () => {
+    for (const source of approvedNewsAutomationSources()) {
+      const decision = resolveNewsSourceAuthority(source.domain);
+      if (!decision.registryKnown || decision.publicationDisposition !== "auto_publish_eligible") continue;
+
+      assert.equal(
+        decision.providerReadiness.publicSummaryAllowed,
+        true,
+        `${source.domain} cannot auto-publish without public summary rights`,
+      );
+      assert.equal(
+        decision.providerReadiness.persianEditorialAllowed,
+        true,
+        `${source.domain} cannot auto-publish without Persian editorial rights`,
+      );
+    }
   });
 
   it("keeps unknown sources fail-closed", () => {
