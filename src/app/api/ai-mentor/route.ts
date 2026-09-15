@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { academyPathTerms } from "@/data/academyPath";
+import { academyPathTermsEn } from "@/data/academyPathEn";
 import { caseStudiesForTerm } from "@/data/academyCaseStudies";
 import { getCanonicalSession } from "@/lib/auth-session";
 import {
@@ -126,26 +127,63 @@ function detectTerm(question: string, requestedTerm?: number): number {
   return 1;
 }
 
-function termKnowledge(termNumber: number, lessonNumber?: number) {
-  const term =
-    academyPathTerms.find((item) => item.number === termNumber) ||
-    academyPathTerms[0];
-  const selectedCaseStudies = caseStudiesForTerm(termNumber);
+const TERM_KNOWLEDGE_LABELS = {
+  fa: {
+    lesson: "درس",
+    concept: "مفهوم",
+    example: "مثال",
+    mistake: "اشتباه رایج",
+    checklist: "چک‌لیست",
+    proTip: "نکته حرفه‌ای",
+    term: "ترم",
+    level: "سطح",
+    outcome: "هدف",
+    readiness: "معیار آمادگی",
+    caseStudies: "پرونده‌های عملی این ترم",
+    practice: "تمرین",
+  },
+  en: {
+    lesson: "Lesson",
+    concept: "Concept",
+    example: "Example",
+    mistake: "Common mistake",
+    checklist: "Checklist",
+    proTip: "Pro tip",
+    term: "Term",
+    level: "Level",
+    outcome: "Outcome",
+    readiness: "Readiness criteria",
+    caseStudies: "Case studies for this term",
+    practice: "Practice",
+  },
+} as const;
+
+function termKnowledge(
+  termNumber: number,
+  lessonNumber: number | undefined,
+  locale: "fa" | "en",
+) {
+  const terms = locale === "en" ? academyPathTermsEn : academyPathTerms;
+  const term = terms.find((item) => item.number === termNumber) || terms[0];
+  // No English case-study dataset exists yet; omit rather than mixing languages.
+  const selectedCaseStudies = locale === "en" ? [] : caseStudiesForTerm(termNumber);
   const selectedLessons =
     lessonNumber && term.lessons[lessonNumber - 1]
       ? [term.lessons[lessonNumber - 1]]
       : term.lessons.slice(0, 6);
+  const labels = TERM_KNOWLEDGE_LABELS[locale];
+  const hrefPrefix = locale === "en" ? "/en" : "";
 
   const lessons = selectedLessons
     .map((lesson, index) => {
       const [title, concept, example, mistake, checklist, proTip] = lesson;
       return [
-        `درس ${lessonNumber || index + 1}: ${title}`,
-        `مفهوم: ${concept}`,
-        `مثال: ${example}`,
-        `اشتباه رایج: ${mistake}`,
-        `چک‌لیست: ${checklist}`,
-        `نکته حرفه‌ای: ${proTip}`,
+        `${labels.lesson} ${lessonNumber || index + 1}: ${title}`,
+        `${labels.concept}: ${concept}`,
+        `${labels.example}: ${example}`,
+        `${labels.mistake}: ${mistake}`,
+        `${labels.checklist}: ${checklist}`,
+        `${labels.proTip}: ${proTip}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -153,16 +191,16 @@ function termKnowledge(termNumber: number, lessonNumber?: number) {
   return {
     term,
     text: [
-      `ترم: ${term.title}`,
-      `سطح: ${term.level}`,
-      `هدف: ${term.outcome}`,
-      `معیار آمادگی: ${term.readiness.join(" | ")}`,
+      `${labels.term}: ${term.title}`,
+      `${labels.level}: ${term.level}`,
+      `${labels.outcome}: ${term.outcome}`,
+      `${labels.readiness}: ${term.readiness.join(" | ")}`,
       lessons,
       selectedCaseStudies.length
-        ? `پرونده‌های عملی این ترم:\n${selectedCaseStudies
+        ? `${labels.caseStudies}:\n${selectedCaseStudies
             .map(
               (item) =>
-                `- ${item.title}: ${item.summary} | تمرین: ${item.learnerTask}`,
+                `- ${item.title}: ${item.summary} | ${labels.practice}: ${item.learnerTask}`,
             )
             .join("\n")}`
         : "",
@@ -171,13 +209,13 @@ function termKnowledge(termNumber: number, lessonNumber?: number) {
       .join("\n\n"),
     sourceLessons: selectedLessons.map((lesson, index) => ({
       title: lesson[0],
-      href: `/academy/${term.slug}#lesson-${lessonNumber || index + 1}`,
+      href: `${hrefPrefix}/academy/${term.slug}#lesson-${lessonNumber || index + 1}`,
     })),
   };
 }
 
-function suggestedQuestions(termNumber: number): string[] {
-  const bank: Record<number, string[]> = {
+const SUGGESTED_QUESTIONS_BANK: Record<"fa" | "en", Record<number, string[]>> = {
+  fa: {
     1: [
       "فرق قیمت پایین و ارزش بازار چیست؟",
       "چرا بیت‌کوین کمیاب است اما سود تضمینی ندارد؟",
@@ -200,52 +238,127 @@ function suggestedQuestions(termNumber: number): string[] {
       "وقتی FOMO دارم چه کنم؟",
       "ژورنال معاملاتی چه چیزهایی باید داشته باشد؟",
     ],
-  };
+  },
+  en: {
+    1: [
+      "What's the difference between a low price and market cap?",
+      "Why is Bitcoin scarce without guaranteeing profit?",
+    ],
+    2: [
+      "Where should I safely store my Seed Phrase?",
+      "How do I spot a phishing link?",
+    ],
+    3: [
+      "When does a Market Order become risky?",
+      "What should I check before withdrawing USDT?",
+    ],
+    4: [
+      "What risks do FDV and vesting carry?",
+      "How do I spot a project's red flags?",
+    ],
+    5: [
+      "Does a high RSI always mean sell?",
+      "How do I combine support/resistance with risk management?",
+    ],
+    6: [
+      "How do I size a position with a hypothetical budget?",
+      "How do I control drawdown?",
+    ],
+    7: [
+      "What should I do when I feel FOMO?",
+      "What should a trading journal include?",
+    ],
+  },
+};
+
+function suggestedQuestions(termNumber: number, locale: "fa" | "en"): string[] {
+  const bank = SUGGESTED_QUESTIONS_BANK[locale];
   return bank[termNumber] || bank[1];
 }
+
+const LOCAL_FALLBACK_FOCUS: Record<
+  "fa" | "en",
+  Record<"default" | "technical" | "security" | "risk" | "project", string>
+> = {
+  fa: {
+    default:
+      "اول مفهوم را از تصمیم مالی جدا کن. پاسخ آموزشی تک‌پی جایگزین تحقیق شخصی یا توصیه خرید و فروش نیست؛ هدف این است که قبل از اقدام، سؤال درست‌تری بپرسی.",
+    technical:
+      "تحلیل تکنیکال ابزار احتمالات است، نه دستور خرید یا فروش. RSI، MACD، حمایت و مقاومت فقط وقتی ارزش دارند که کنار روند، حجم، نقطه ابطال و مدیریت ریسک دیده شوند.",
+    security:
+      "در امنیت رمزارز، بعضی خطاها برگشت‌پذیر نیستند. اطلاعات محرمانه را آنلاین ذخیره نکن، دامنه رسمی را بررسی کن، 2FA را فعال کن و قبل از هر انتقال شبکه و آدرس را دوباره چک کن.",
+    risk: "قبل از فکر کردن به سود، باید بدانی اگر اشتباه کنی چقدر از کل سرمایه آسیب می‌بیند. اندازه موقعیت، حد ضرر و قانون توقف باید قبل از ورود مشخص باشد.",
+    project:
+      "برای بررسی پروژه فقط قیمت یا تبلیغ کافی نیست. کاربرد واقعی، تیم، وایت‌پیپر، توکنومیکس، FDV، Vesting، نقدشوندگی و Red Flagها را کنار هم ببین.",
+  },
+  en: {
+    default:
+      "First separate the concept from the money decision. TecPey's educational answer never replaces your own research or a buy/sell recommendation; the goal is to help you ask a better question before you act.",
+    technical:
+      "Technical analysis is a probability tool, not a buy/sell command. RSI, MACD, support and resistance only matter together with trend, volume, the invalidation point and risk management.",
+    security:
+      "In crypto security, some mistakes are not reversible. Never store secrets online, verify the official domain yourself, enable 2FA, and re-check the network and address before every transfer.",
+    risk: "Before thinking about the upside, know how much of your total capital is hurt if you are wrong. Position size, a stop loss and a stop rule must be set before you enter.",
+    project:
+      "Reviewing a project takes more than price or marketing. Look at real utility, the team, the whitepaper, tokenomics, FDV, vesting, liquidity and red flags together.",
+  },
+};
+
+const LOCAL_FALLBACK_CHECKLIST = {
+  fa: [
+    "مفهوم را با زبان ساده برای خودت توضیح بده.",
+    "ریسک اصلی و اشتباه رایج را بنویس.",
+    "قبل از هر تصمیم، سناریوی اشتباه بودن تحلیل را مشخص کن.",
+    "اگر سؤال مالی شخصی داری، آن را به چک‌لیست مدیریت ریسک تبدیل کن؛ نه دستور خرید یا فروش.",
+  ],
+  en: [
+    "Explain the concept in plain language to yourself.",
+    "Write down the main risk and the common mistake.",
+    "Before any decision, define the scenario where your analysis is wrong.",
+    "Turn a personal financial question into a risk-management checklist, not a buy/sell order.",
+  ],
+} as const;
 
 function localFallback(
   question: string,
   termNumber: number,
-  lessonNumber?: number,
+  lessonNumber: number | undefined,
+  locale: "fa" | "en",
 ) {
-  const knowledge = termKnowledge(termNumber, lessonNumber);
+  const knowledge = termKnowledge(termNumber, lessonNumber, locale);
+  const focusCopy = LOCAL_FALLBACK_FOCUS[locale];
   const q = question.toLowerCase();
-  let focus =
-    "اول مفهوم را از تصمیم مالی جدا کن. پاسخ آموزشی تک‌پی جایگزین تحقیق شخصی یا توصیه خرید و فروش نیست؛ هدف این است که قبل از اقدام، سؤال درست‌تری بپرسی.";
-  if (/rsi|macd|کندل|حمایت|مقاومت|نمودار/.test(q)) {
-    focus =
-      "تحلیل تکنیکال ابزار احتمالات است، نه دستور خرید یا فروش. RSI، MACD، حمایت و مقاومت فقط وقتی ارزش دارند که کنار روند، حجم، نقطه ابطال و مدیریت ریسک دیده شوند.";
+  let focus = focusCopy.default;
+  if (/rsi|macd|کندل|حمایت|مقاومت|نمودار|support|resistance|chart|candle/.test(q)) {
+    focus = focusCopy.technical;
   }
-  if (/seed|phrase|کیف پول|فیشینگ|امنیت|هک/.test(q)) {
-    focus =
-      "در امنیت رمزارز، بعضی خطاها برگشت‌پذیر نیستند. اطلاعات محرمانه را آنلاین ذخیره نکن، دامنه رسمی را بررسی کن، 2FA را فعال کن و قبل از هر انتقال شبکه و آدرس را دوباره چک کن.";
+  if (/seed|phrase|کیف پول|فیشینگ|امنیت|هک|wallet|phishing|security|hack|2fa/.test(q)) {
+    focus = focusCopy.security;
   }
-  if (/risk|ریسک|سرمایه|حد ضرر|position|ضرر/.test(q)) {
-    focus =
-      "قبل از فکر کردن به سود، باید بدانی اگر اشتباه کنی چقدر از کل سرمایه آسیب می‌بیند. اندازه موقعیت، حد ضرر و قانون توقف باید قبل از ورود مشخص باشد.";
+  if (/risk|ریسک|سرمایه|حد ضرر|position|ضرر|capital|stop.?loss|drawdown/.test(q)) {
+    focus = focusCopy.risk;
   }
-  if (/fdv|market cap|توکنومیکس|پروژه|vesting|whitepaper/.test(q)) {
-    focus =
-      "برای بررسی پروژه فقط قیمت یا تبلیغ کافی نیست. کاربرد واقعی، تیم، وایت‌پیپر، توکنومیکس، FDV، Vesting، نقدشوندگی و Red Flagها را کنار هم ببین.";
+  if (/fdv|market ?cap|توکنومیکس|پروژه|vesting|whitepaper|tokenomics|project/.test(q)) {
+    focus = focusCopy.project;
   }
 
+  const hrefPrefix = locale === "en" ? "/en" : "";
+  const answer =
+    locale === "en"
+      ? `${focus}\n\nRelated lesson: ${knowledge.term.title}\n\nNext step: write a real example from your own question and ask yourself what you would lose if this analysis turned out to be wrong.`
+      : `${focus}\n\nدرس مرتبط: ${knowledge.term.title}\n\nقدم بعدی: یک مثال واقعی از سؤال خودت بنویس و از خودت بپرس اگر تحلیل من اشتباه باشد، چه چیزی از دست می‌دهم؟`;
+
   return {
-    answer: `${focus}\n\nدرس مرتبط: ${knowledge.term.title}\n\nقدم بعدی: یک مثال واقعی از سؤال خودت بنویس و از خودت بپرس اگر تحلیل من اشتباه باشد، چه چیزی از دست می‌دهم؟`,
+    answer,
     mode: "fallback",
     relatedTerm: {
       number: knowledge.term.number,
       title: knowledge.term.title,
-      href: `/academy/${knowledge.term.slug}`,
+      href: `${hrefPrefix}/academy/${knowledge.term.slug}`,
     },
     sourceLessons: knowledge.sourceLessons,
-    suggestedQuestions: suggestedQuestions(knowledge.term.number),
-    checklist: [
-      "مفهوم را با زبان ساده برای خودت توضیح بده.",
-      "ریسک اصلی و اشتباه رایج را بنویس.",
-      "قبل از هر تصمیم، سناریوی اشتباه بودن تحلیل را مشخص کن.",
-      "اگر سؤال مالی شخصی داری، آن را به چک‌لیست مدیریت ریسک تبدیل کن؛ نه دستور خرید یا فروش.",
-    ],
+    suggestedQuestions: suggestedQuestions(knowledge.term.number, locale),
+    checklist: [...LOCAL_FALLBACK_CHECKLIST[locale]],
   };
 }
 
@@ -414,7 +527,7 @@ export async function POST(request: NextRequest) {
       Number.isInteger(lessonNumber) && lessonNumber > 0
         ? lessonNumber
         : undefined;
-    const fallback = localFallback(question, termNumber, normalizedLesson);
+    const fallback = localFallback(question, termNumber, normalizedLesson, locale);
     const requestId = randomUUID();
     const studentId = session.studentId;
     const clientHistoryPresent =
@@ -573,7 +686,7 @@ export async function POST(request: NextRequest) {
     const behavioralSnapshot = behavioralInputs
       ? computeBehavioralSnapshot(behavioralInputs)
       : null;
-    const knowledge = termKnowledge(termNumber, normalizedLesson);
+    const knowledge = termKnowledge(termNumber, normalizedLesson, locale);
     const egress = prepareMentorEgress({
       question,
       locale,

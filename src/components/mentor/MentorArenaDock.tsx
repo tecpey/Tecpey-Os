@@ -29,10 +29,13 @@ const TradingArenaExecutionClient = dynamic(
     ),
   {
     ssr: false,
+    // Only ever rendered on the Persian surface: TradingArenaExecutionClient
+    // is mounted exclusively behind the `isFa` branch below (the Arena has no
+    // English parity yet — see the `unavailableTitle`/`unavailableText` gate).
     loading: () => (
       <div className={styles.executionLoading} role="status">
         <span aria-hidden="true" />
-        <p>Loading the authenticated Arena…</p>
+        <p>در حال بارگذاری آرنای معتبرشده…</p>
       </div>
     ),
   },

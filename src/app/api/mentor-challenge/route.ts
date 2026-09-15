@@ -212,28 +212,44 @@ export async function POST(req: NextRequest) {
       const first = await client.query(`SELECT selected_option FROM mentor_challenge_attempts WHERE student_id = $1::uuid AND question_id = $2 ORDER BY id ASC LIMIT 1`, [studentId, questionId]);
       const firstAnswer = first.rows[0]?.selected_option || selectedOption;
       const isCorrect = selectedOption === row.correct_option;
+      const locale = cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa";
+      const localePrefix = locale === "en" ? "/en" : "";
       await client.query(
         `INSERT INTO mentor_challenge_attempts
          (student_id, question_id, term_number, lesson_slug, locale, selected_option, is_correct, attempt_number, first_answer, response_time_ms, confidence)
          VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [studentId, questionId, row.term_number, row.lesson_slug, cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa", selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
+        [studentId, questionId, row.term_number, row.lesson_slug, locale, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
       );
       if (isCorrect) await client.query(`UPDATE academy_question_bank SET success_count = success_count + 1 WHERE id = $1`, [questionId]);
       await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId,
           workspaceId: tenantContext.workspaceId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
       if (attemptNumber === 1) await maybeAwardAchievement(client, studentId, "first-quiz", { questionId }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
       if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, studentId, "risk-master", { questionId }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
+      const notificationCopy =
+        locale === "en"
+          ? {
+              title: isCorrect ? "Mentor challenge recorded" : "Mentor suggests another practice",
+              body: isCorrect
+                ? "Your answer was recorded in your learning profile."
+                : "A wrong answer is valuable too; the mentor uses it to analyse your learning path.",
+            }
+          : {
+              title: isCorrect ? "چالش منتور ثبت شد" : "منتور یک تمرین بهتر پیشنهاد می‌کند",
+              body: isCorrect
+                ? "پاسخ تو در پروفایل یادگیری ثبت شد."
+                : "پاسخ اشتباه هم ارزشمند است؛ منتور از همین رفتار برای تحلیل مسیر یادگیری استفاده می‌کند.",
+            };
       await createSmartNotification(client, {
         studentId,
         scope: { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId },
         type: isCorrect ? "achievement" : "mentor",
-        title: isCorrect ? "چالش منتور ثبت شد" : "منتور یک تمرین بهتر پیشنهاد می‌کند",
-        body: isCorrect ? "پاسخ تو در پروفایل یادگیری ثبت شد." : "پاسخ اشتباه هم ارزشمند است؛ منتور از همین رفتار برای تحلیل مسیر یادگیری استفاده می‌کند.",
-        actionUrl: isCorrect ? "/academy/profile" : "/academy/mentor-coach",
+        title: notificationCopy.title,
+        body: notificationCopy.body,
+        actionUrl: `${localePrefix}${isCorrect ? "/academy/profile" : "/academy/mentor-coach"}`,
         priority: isCorrect ? 2 : 3,
         metadata: { questionId, isCorrect, attemptNumber },
       });
-      return { accepted: true, isCorrect, attemptNumber, firstAnswer, topic: row.topic, explanation: isCorrect ? row.explanation : null };
+      return { accepted: true, isCorrect, attemptNumber, firstAnswer, topic: row.topic, explanation: row.explanation };
     });
     if (!result.enabled) return apiError("mentor_challenge_not_configured", 503);
     if (!result.value?.accepted) return apiError(result.value?.error || "not_accepted", 404);
