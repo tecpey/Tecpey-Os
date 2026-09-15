@@ -2,11 +2,7 @@ import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 
 import { withTx } from "../src/lib/db";
-import {
-  buildNewsAutomationBatch,
-  type RawNewsInput,
-} from "../src/lib/news-automation";
-import { materializeNewsAutomationDecisions } from "../src/lib/news-materialization";
+import type { RawNewsInput } from "../src/lib/news-automation";
 import { persistMaterializedNewsSnapshotTx } from "../src/lib/news-materialization-persistence";
 import {
   NEWS_PUBLICATION_POLICY_VERSION,
@@ -15,6 +11,7 @@ import {
   readValidatedNewsPublicationCandidatesFromAuthority,
   type NewsPublicationCandidate,
 } from "../src/lib/ops/news-publication-authority";
+import { buildGovernedNewsSnapshot } from "../src/services/news/governed-pipeline";
 
 function boundedIntegerEnv(name: string, fallback: number, minimum: number, maximum: number): number {
   const raw = process.env[name]?.trim();
@@ -71,6 +68,7 @@ async function main(): Promise<void> {
       status: "no_validated_work",
       host: hostname(),
       publicationPolicyVersion: NEWS_PUBLICATION_POLICY_VERSION,
+      governedPipeline: true,
       candidates: 0,
       publishedFaFromUntranslated: 0,
       aiCalls: 0,
@@ -84,15 +82,13 @@ async function main(): Promise<void> {
   const sources = approvedNewsPublicationSources();
   const enInputs = candidates.map((candidate) => toEnglishInput(candidate, fetchedAt));
   const faInputs = candidates.map((candidate) => toPersianInput(candidate, fetchedAt));
-  const enDecisions = buildNewsAutomationBatch(enInputs, sources);
-  const faDecisions = buildNewsAutomationBatch(faInputs, sources);
-  const enSnapshot = materializeNewsAutomationDecisions(enDecisions, {
+  const enSnapshot = buildGovernedNewsSnapshot(enInputs, {
     locale: "en",
     generatedAt: fetchedAt,
     historyLimit: 1_000,
     topCoinLimit: 12,
   });
-  const faSnapshot = materializeNewsAutomationDecisions(faDecisions, {
+  const faSnapshot = buildGovernedNewsSnapshot(faInputs, {
     locale: "fa",
     generatedAt: fetchedAt,
     historyLimit: 1_000,
@@ -128,6 +124,7 @@ async function main(): Promise<void> {
     status: "ok",
     host: hostname(),
     publicationPolicyVersion: NEWS_PUBLICATION_POLICY_VERSION,
+    governedPipeline: true,
     candidates: candidates.length,
     validatedFaInputs: faInputs.length,
     publishedFaFromUntranslated: 0,
@@ -156,7 +153,7 @@ async function main(): Promise<void> {
 main().catch((error) => {
   console.error(JSON.stringify({
     status: "failed_closed",
-    mode: "validated_publication_only",
+    mode: "validated_governed_publication_only",
     publicationPolicyVersion: NEWS_PUBLICATION_POLICY_VERSION,
     aiCalls: 0,
     reason: error instanceof Error ? error.message : String(error),
