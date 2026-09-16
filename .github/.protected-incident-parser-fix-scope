@@ -1,2 +1,0 @@
-Protected incident parser patch scope: workflow parser + fail-closed authority tests + evidence documentation only.
-No deploy, runtime mutation, environment mutation, database change, systemd change, or production change.
