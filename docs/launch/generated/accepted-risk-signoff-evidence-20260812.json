@@ -22,47 +22,18 @@
     "staleDecision": "launch:accepted-risk-evidence:check fails after a closure-row review date passes until the risk register is refreshed"
   },
   "acceptedForBlockers": [],
-  "notAcceptedForBlockers": [
-    "NOG-01",
-    "NOG-02",
-    "NOG-05",
-    "NOG-07",
-    "NOG-08",
-    "NOG-09"
-  ],
+  "notAcceptedForBlockers": ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"],
   "observedVia": {
     "provider": "repository-local-authority",
     "riskRegister": "docs/LAUNCH_ACCEPTED_RISKS.md",
     "authorityPolicy": "scripts/accepted-risk-register-authority-policy.mjs",
     "guardCommands": [
-      {
-        "name": "launch:accepted-risk-evidence:check",
-        "command": "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
-        "disposition": "pass_no_acceptance_without_owner_approval"
-      },
-      {
-        "name": "ops:accepted-risk:evidence:verify",
-        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc",
-        "disposition": "required_for_final_artifact"
-      },
-      {
-        "name": "test:accepted-risk-signoff-evidence",
-        "command": "node --test scripts/accepted-risk-signoff-evidence.test.mjs",
-        "disposition": "pass"
-      }
+      {"name":"launch:accepted-risk-evidence:check","command":"node scripts/check-accepted-risk-signoff-evidence-authority.mjs","disposition":"pass_no_acceptance_without_owner_approval"},
+      {"name":"ops:accepted-risk:evidence:verify","command":"node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc","disposition":"required_for_final_artifact"},
+      {"name":"test:accepted-risk-signoff-evidence","command":"node --test scripts/accepted-risk-signoff-evidence.test.mjs","disposition":"pass"}
     ]
   },
-  "riskRegisterCoverage": [
-    "R-01",
-    "R-02",
-    "R-04",
-    "R-05",
-    "R-06",
-    "R-07",
-    "R-08",
-    "R-09",
-    "R-10"
-  ],
+  "riskRegisterCoverage": ["R-01","R-02","R-04","R-05","R-06","R-07","R-08","R-09","R-10"],
   "requiredArtifact": {
     "schemaVersion": 2,
     "authority": "tecpey-accepted-risk-owner-signoff-v1",
@@ -73,92 +44,33 @@
     "releaseScope": {
       "candidateSha": "5e65ec55e003986187083a71a84272676dc09ccc",
       "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
-      "allowedSurfaces": [
-        "public-fa-en",
-        "academy",
-        "mentor",
-        "virtual-trading-arena"
-      ],
-      "disabledSurfaces": [
-        "real-money-exchange",
-        "custody-deposits-withdrawals",
-        "public-financial-rewards",
-        "enterprise-white-label"
-      ],
+      "allowedSurfaces": ["public-fa-en","academy","mentor","virtual-trading-arena"],
+      "disabledSurfaces": ["real-money-exchange","custody-deposits-withdrawals","public-financial-rewards","enterprise-white-label"],
       "status": "controlled-soft-launch-only"
     },
     "riskRegister": {
       "path": "docs/LAUNCH_ACCEPTED_RISKS.md",
-      "digest": "sha256:8787015215263211e5159b1d58ca583b88b0c3e5c6c693d37cdb7525789dc45c",
+      "digest": "sha256:941a0b6178e81bb1600b9d7b80071c99e6dfb96b057e03a6450a249a4d5b4a50",
       "candidateSha": "5e65ec55e003986187083a71a84272676dc09ccc",
       "referenceDate": "2026-08-30",
       "minimumReviewDate": "2026-09-06",
-      "coveredRisks": [
-        "R-01",
-        "R-02",
-        "R-04",
-        "R-05",
-        "R-06",
-        "R-07",
-        "R-08",
-        "R-09",
-        "R-10"
-      ],
-      "supersededRisks": [
-        "R-03"
-      ],
+      "coveredRisks": ["R-01","R-02","R-04","R-05","R-06","R-07","R-08","R-09","R-10"],
+      "supersededRisks": ["R-03"],
       "freshnessPolicy": "fail-closed-if-any-review-date-is-stale-before-go"
     },
     "riskOwnerSignoffs": {},
-    "requiredRiskOwnerSignoffRisks": [
-      "R-01",
-      "R-02",
-      "R-04",
-      "R-05",
-      "R-06",
-      "R-07",
-      "R-08",
-      "R-09",
-      "R-10"
-    ],
+    "requiredRiskOwnerSignoffRisks": ["R-01","R-02","R-04","R-05","R-06","R-07","R-08","R-09","R-10"],
     "collectionState": "missing_current_candidate_owner_approvals",
-    "releaseOwner": {
-      "role": "Release Owner",
-      "externalIdentity": "github:tecpey"
-    },
-    "operator": {
-      "role": "Accepted-Risk Evidence Preparer",
-      "externalIdentity": "codex-agent:nog08-evidence-preparer"
-    },
-    "reviewer": {
-      "role": "Independent Accepted-Risk Reviewer",
-      "externalIdentity": "github:xrayman6zfm-ux"
-    },
-    "privacyBoundary": [
-      "redacted-evidence-only",
-      "no-secrets-or-connection-urls",
-      "no-host-ips",
-      "no-raw-logs",
-      "no-customer-data"
-    ],
+    "releaseOwner": {"role":"Release Owner","externalIdentity":"github:tecpey"},
+    "operator": {"role":"Accepted-Risk Evidence Preparer","externalIdentity":"codex-agent:nog08-evidence-preparer"},
+    "reviewer": {"role":"Independent Accepted-Risk Reviewer","externalIdentity":"github:xrayman6zfm-ux"},
+    "privacyBoundary": ["redacted-evidence-only","no-secrets-or-connection-urls","no-host-ips","no-raw-logs","no-customer-data"],
     "finalDisposition": "accepted"
   },
   "guardCommands": [
-    {
-      "name": "launch:accepted-risk-evidence:check",
-      "command": "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
-      "disposition": "pass_no_acceptance_without_owner_approval"
-    },
-    {
-      "name": "ops:accepted-risk:evidence:verify",
-      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc",
-      "disposition": "required_for_final_artifact"
-    },
-    {
-      "name": "test:accepted-risk-signoff-evidence",
-      "command": "node --test scripts/accepted-risk-signoff-evidence.test.mjs",
-      "disposition": "pass"
-    }
+    {"name":"launch:accepted-risk-evidence:check","command":"node scripts/check-accepted-risk-signoff-evidence-authority.mjs","disposition":"pass_no_acceptance_without_owner_approval"},
+    {"name":"ops:accepted-risk:evidence:verify","command":"node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5e65ec55e003986187083a71a84272676dc09ccc","disposition":"required_for_final_artifact"},
+    {"name":"test:accepted-risk-signoff-evidence","command":"node --test scripts/accepted-risk-signoff-evidence.test.mjs","disposition":"pass"}
   ],
   "acceptanceBoundary": [
     "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing.",
@@ -167,40 +79,14 @@
     "This evidence does not approve a Go decision and does not substitute protected staging activation, production-like env evidence, recovery reconciliation, incident readiness or the Go approval matrix.",
     "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO or launch-disabled under their separate gates."
   ],
-  "notAcceptedAs": [
-    "protected staging evidence",
-    "production-like environment evidence",
-    "recovery reconciliation evidence",
-    "incident readiness evidence",
-    "Go approval matrix",
-    "real-money Exchange activation",
-    "custody or withdrawal activation",
-    "enterprise or white-label activation",
-    "accepted-risk owner sign-off",
-    "NOG-08 closure evidence"
-  ],
-  "remainingFinalManifestGaps": [
-    "protected staging evidence URL and digest",
-    "redacted protected staging env:check evidence",
-    "protected staging recovery reconciliation evidence and digest",
-    "incident readiness evidence and digest",
-    "accepted-risk owner sign-off evidence URL",
-    "Go approval matrix URL"
-  ],
-  "privacyBoundary": [
-    "evidence contains release identifiers, risk IDs, paths, owner-role coverage and dispositions only",
-    "no secrets, database URLs, host IPs, raw logs, raw customer data, private keys, provider payloads or prompt transcripts are recorded"
-  ],
+  "notAcceptedAs": ["protected staging evidence","production-like environment evidence","recovery reconciliation evidence","incident readiness evidence","Go approval matrix","real-money Exchange activation","custody or withdrawal activation","enterprise or white-label activation","accepted-risk owner sign-off","NOG-08 closure evidence"],
+  "remainingFinalManifestGaps": ["protected staging evidence URL and digest","redacted protected staging env:check evidence","protected staging recovery reconciliation evidence and digest","incident readiness evidence and digest","accepted-risk owner sign-off evidence URL","Go approval matrix URL"],
+  "privacyBoundary": ["evidence contains release identifiers, risk IDs, paths, owner-role coverage and dispositions only","no secrets, database URLs, host IPs, raw logs, raw customer data, private keys, provider payloads or prompt transcripts are recorded"],
   "requiredOwnerApprovalEvidence": {
     "blocker": "NOG-08",
     "required": true,
     "requiredBeforeStatus": "accepted",
-    "allowedEvidence": [
-      "immutable GitHub issue #409 comment permalink plus its positive numeric comment ID",
-      "GitHub-authored approval body matching the accountable owner, exact candidate, launch scope, risk-register digest, covered risks, review dates, roles, decision, attestation and conditions",
-      "SHA-256 digest of the exact remote GitHub comment body",
-      "schema-v2 owner sign-off artifact that passes scripts/verify-accepted-risk-signoff-evidence.mjs and live origin verification"
-    ],
+    "allowedEvidence": ["immutable GitHub issue #409 comment permalink plus its positive numeric comment ID","GitHub-authored approval body matching the accountable owner, exact candidate, launch scope, risk-register digest, covered risks, review dates, roles, decision, attestation and conditions","SHA-256 digest of the exact remote GitHub comment body","schema-v2 owner sign-off artifact that passes scripts/verify-accepted-risk-signoff-evidence.mjs and live origin verification"],
     "currentEvidenceUrl": null,
     "currentState": "missing"
   },
@@ -208,18 +94,8 @@
     "provider": "github-rest-api",
     "endpointTemplate": "https://api.github.com/repos/tecpey/Tecpey-Os/issues/comments/{acceptanceEvidenceCommentId}",
     "requiredCredentialEnvironment": "GITHUB_TOKEN",
-    "requiredBindings": [
-      "remote-comment-id-matches-acceptanceEvidenceCommentId",
-      "remote-html-url-matches-acceptanceEvidenceUrl",
-      "remote-issue-is-409",
-      "remote-author-matches-approvalOwnerExternalIdentity",
-      "sha256-exact-remote-body-matches-evidenceDigest",
-      "body-attests-exact-candidate-scope-register-risks-review-dates-roles-decision-attestation-and-conditions"
-    ],
+    "requiredBindings": ["remote-comment-id-matches-acceptanceEvidenceCommentId","remote-html-url-matches-acceptanceEvidenceUrl","remote-issue-is-409","remote-author-matches-approvalOwnerExternalIdentity","sha256-exact-remote-body-matches-evidenceDigest","body-attests-exact-candidate-scope-register-risks-review-dates-roles-decision-attestation-and-conditions"],
     "failureMode": "fail-closed"
   },
-  "historicalAcceptedEvidence": {
-    "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
-    "disposition": "historical_only_not_accepted_for_current_candidate"
-  }
+  "historicalAcceptedEvidence": {"selectedSha":"79c48a16cb685a88315a44e103b3758cf7845d65","disposition":"historical_only_not_accepted_for_current_candidate"}
 }
