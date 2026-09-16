@@ -41,10 +41,6 @@ const persistencePolicy = new Map(
       expected: 2,
       classification: "disposable-ui-cache",
     },
-    "src/components/academy/GlobalAiMentorWidget.tsx": {
-      expected: 9,
-      classification: "one-shot-legacy-migration",
-    },
     "src/components/offline/OfflineSyncManager.tsx": {
       expected: 1,
       classification: "repairable-offline-projection",
