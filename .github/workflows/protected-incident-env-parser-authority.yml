@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - '.github/workflows/protected-staging-incident-readiness-evidence.yml'
+      - '.github/workflows/protected-incident-env-parser-authority.yml'
       - 'scripts/check-protected-incident-env-parser-authority.mjs'
+      - 'scripts/test-protected-incident-env-parser.mjs'
   workflow_dispatch:
 
 permissions:
@@ -22,3 +24,4 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/check-protected-incident-env-parser-authority.mjs
+      - run: node scripts/test-protected-incident-env-parser.mjs
