@@ -30,6 +30,57 @@ test("server-only CLI entrypoints pin the isolated Node server runtime", async (
   }
 });
 
+test("news materialization scheduler pins the isolated server-only runtime to its release", async () => {
+  const template = await readFile(
+    path.join(root, "deploy", "systemd", "tecpey-news-materialization.service.in"),
+    "utf8",
+  );
+  assert.match(template, /^Environment=NODE_PATH=@@APP_DIR@@\/scripts\/runtime-stubs$/m);
+});
+
+test("news history payload identity follows locale+slug content rather than transient row ids", () => {
+  const env = { ...process.env, NODE_PATH: runtimeNodePath };
+  delete env.NODE_OPTIONS;
+  const source = String.raw`
+    const assert = require("node:assert/strict");
+    const { hashNewsMaterializationHistoryPayload } = require("./src/lib/news-materialization-persistence.ts");
+    const base = {
+      id: "capture-history-id",
+      locale: "en",
+      newsUrl: "/en/crypto-news/canonical-event",
+      title: "Canonical event title",
+      summary: "A sufficiently long news summary for canonical history identity testing.",
+      sourceName: "CoinDesk",
+      sourceUrl: "https://example.com/canonical-event",
+      publishedAt: "2026-09-16T10:00:00.000Z",
+      recordedAt: "2026-09-16T10:05:00.000Z",
+      priority: 80,
+      impactScore: 8,
+      tone: "neutral",
+      reasonFa: "این خبر برای آزمون هویت پایدار استفاده می‌شود.",
+      reasonEn: "This news is used to verify stable canonical identity.",
+      relatedToolSlugs: [],
+      relatedCoinSymbols: ["BTC"],
+      relatedLessonHref: "/en/academy/market-intelligence",
+    };
+    assert.equal(
+      hashNewsMaterializationHistoryPayload(base),
+      hashNewsMaterializationHistoryPayload({ ...base, id: "publication-history-id" }),
+    );
+    assert.notEqual(
+      hashNewsMaterializationHistoryPayload(base),
+      hashNewsMaterializationHistoryPayload({ ...base, title: "Materially different canonical event title" }),
+    );
+  `;
+  const result = spawnSync(process.execPath, ["--import", "tsx", "-e", source], {
+    cwd: root,
+    env,
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  assert.equal(result.status, 0, `${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+});
+
 test("staging collector resolves every server-only import before validating input", () => {
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([name]) => !name.startsWith("TECPEY_")),

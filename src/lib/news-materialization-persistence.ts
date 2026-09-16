@@ -50,6 +50,7 @@ export function hashNewsMaterializationEvidence(value: unknown): string {
 
 export function hashNewsMaterializationHistoryPayload(item: NewsImpactHistoryItem): string {
   const {
+    id: _id,
     recordedAt: _recordedAt,
     priority: _priority,
     summary: _summary,
