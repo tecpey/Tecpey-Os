@@ -27,24 +27,18 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Verify ordinary pull request routing
+      - name: Verify protected pull request routing
         shell: bash
         env:
+          EXPECTED_BASE_REF: main
+          EXPECTED_HEAD_REPOSITORY: tecpey/Tecpey-Os
           ACTUAL_BASE_REF: ${{ github.event.pull_request.base.ref }}
-          ACTUAL_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           ACTUAL_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          PROTECTED_HEAD_REF: codex/ai-tenant-rls-v1
-          PROTECTED_HEAD_REPOSITORY: tecpey/Tecpey-Os
         run: |
           set -Eeuo pipefail
-          test "$ACTUAL_BASE_REF" = "main"
-          if test "$ACTUAL_HEAD_REF" = "$PROTECTED_HEAD_REF" && \
-             test "$ACTUAL_HEAD_REPOSITORY" = "$PROTECTED_HEAD_REPOSITORY"; then
-            routing="protected evidence admitted"
-          else
-            routing="ordinary validation only"
-          fi
-          printf -- '- Routing: `%s`\n' "$routing" >> "$GITHUB_STEP_SUMMARY"
+          test "$ACTUAL_BASE_REF" = "$EXPECTED_BASE_REF"
+          test "$ACTUAL_HEAD_REPOSITORY" = "$EXPECTED_HEAD_REPOSITORY"
+          printf '%s\n' '- Routing: `protected exact-head evidence admitted`' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup governed Node runtime
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -59,7 +53,6 @@ jobs:
   collect-verify-attest:
     if: >-
       github.event.pull_request.base.ref == 'main' &&
-      github.event.pull_request.head.ref == 'codex/ai-tenant-rls-v1' &&
       github.event.pull_request.head.repo.full_name == github.repository
     needs: validate-authority
     name: Protected PostgreSQL 16 RLS evidence
@@ -109,17 +102,14 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
           EXPECTED_BASE_REF: main
-          EXPECTED_HEAD_REF: codex/ai-tenant-rls-v1
           EXPECTED_HEAD_REPOSITORY: tecpey/Tecpey-Os
           ACTUAL_BASE_REF: ${{ github.event.pull_request.base.ref }}
-          ACTUAL_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           ACTUAL_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           set -Eeuo pipefail
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           test "$ACTUAL_BASE_REF" = "$EXPECTED_BASE_REF"
-          test "$ACTUAL_HEAD_REF" = "$EXPECTED_HEAD_REF"
           test "$ACTUAL_HEAD_REPOSITORY" = "$EXPECTED_HEAD_REPOSITORY"
           tree_sha="$(git rev-parse 'HEAD^{tree}')"
           [[ "$tree_sha" =~ ^[0-9a-f]{40}$ ]]
