@@ -162,14 +162,27 @@ jobs:
             throw new Error("protected_incident_environment_file_unsafe");
           }
           const values = new Map();
+          const parseValue = (rawValue) => {
+            const value = rawValue.trim();
+            if (!value) return null;
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+              return value.slice(1, -1);
+            }
+            if (/\s/.test(value)) return null;
+            return value;
+          };
           for (const rawLine of readFileSync(environmentFile, "utf8").split(/\r?\n/)) {
             const line = rawLine.trim();
             if (!line || line.startsWith("#")) continue;
-            const match = /^([A-Z][A-Z0-9_]*)=([^\s]*)$/.exec(line);
-            if (!match || match[2] === "" || values.has(match[1])) {
+            const match = /^(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*)$/.exec(line);
+            if (!match || values.has(match[1])) {
               throw new Error("protected_incident_environment_file_format_invalid");
             }
-            values.set(match[1], match[2]);
+            const parsedValue = parseValue(match[2]);
+            if (parsedValue === null) {
+              throw new Error("protected_incident_environment_file_format_invalid");
+            }
+            values.set(match[1], parsedValue);
           }
           for (const required of ["DATABASE_URL", "TECPEY_OPS_ALERT_WEBHOOK_URL"]) {
             if (!values.has(required)) throw new Error(`protected_incident_${required.toLowerCase()}_missing`);
