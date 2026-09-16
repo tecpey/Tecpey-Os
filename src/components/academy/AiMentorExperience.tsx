@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   BookOpenCheck,
@@ -19,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -191,6 +193,31 @@ function safeMessageId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+type DeepLinkParams = { term?: number; lesson?: number; q?: string };
+
+/**
+ * Reads ?term=/?lesson=/?q= once. Isolated in its own component so only this
+ * leaf opts out of static rendering (useSearchParams requires a Suspense
+ * boundary) rather than the whole workspace.
+ */
+function MentorDeepLinkParams({ onResolved }: { onResolved: (params: DeepLinkParams) => void }) {
+  const searchParams = useSearchParams();
+  const consumedRef = useRef(false);
+  useEffect(() => {
+    if (consumedRef.current) return;
+    consumedRef.current = true;
+    const term = Number(searchParams.get("term"));
+    const lesson = Number(searchParams.get("lesson"));
+    const q = searchParams.get("q");
+    onResolved({
+      term: Number.isInteger(term) && term >= 1 && term <= 7 ? term : undefined,
+      lesson: Number.isInteger(lesson) && lesson > 0 ? lesson : undefined,
+      q: q || undefined,
+    });
+  }, [searchParams, onResolved]);
+  return null;
+}
+
 export function AiMentorExperience({
   locale = "fa-IR",
   plan = "free",
@@ -228,6 +255,18 @@ export function AiMentorExperience({
   const historySheetRef = useRef<HTMLDivElement | null>(null);
   const explainTimerRef = useRef<number | null>(null);
   const conversationEpochRef = useRef(0);
+  const deepLinkContextRef = useRef<{ term?: number; lesson?: number } | null>(null);
+
+  const handleDeepLinkParams = useCallback((params: { term?: number; lesson?: number; q?: string }) => {
+    if (params.term || params.lesson) {
+      deepLinkContextRef.current = { term: params.term, lesson: params.lesson };
+    }
+    if (params.q) {
+      const prefill = params.q.slice(0, 900);
+      setQuestion((current) => (current ? current : prefill));
+      window.setTimeout(() => textareaRef.current?.focus(), 0);
+    }
+  }, []);
 
   const completedTerms = useMemo(
     () =>
@@ -465,6 +504,8 @@ export function AiMentorExperience({
     setLoading(true);
     setIsExplaining(false);
 
+    const deepLinkContext = deepLinkContextRef.current;
+    deepLinkContextRef.current = null;
     const local = toLocalReply(clean, mentorLocale);
     try {
       const response = await fetch("/api/ai-mentor", {
@@ -476,6 +517,8 @@ export function AiMentorExperience({
           mentorMode: askedMode,
           threadId: activeThreadId,
           researchMode: publicResearch ? "public" : undefined,
+          term: deepLinkContext?.term,
+          lesson: deepLinkContext?.lesson,
         }),
       });
       const data = (await response.json()) as Partial<MentorReply> & { error?: string };
@@ -629,6 +672,9 @@ export function AiMentorExperience({
       data-arena-panel={arenaPanel}
       aria-labelledby="mentor-workspace-title"
     >
+      <Suspense fallback={null}>
+        <MentorDeepLinkParams onResolved={handleDeepLinkParams} />
+      </Suspense>
       <header className={styles.workspaceHeader}>
         <div className={styles.workspaceIdentity}>
           <LivingMentorAvatar act={mentorAct} locale={locale} size="header" />

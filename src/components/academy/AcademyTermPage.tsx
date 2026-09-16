@@ -276,7 +276,7 @@ export function AcademyTermPage({ slug }: { slug: string }) {
                         <ul className="mt-2 space-y-2">{study.checkpoints.map((item) => <li key={item} className="text-xs font-bold leading-6 text-slate-300">• {item}</li>)}</ul>
                       </div>
                     </div>
-                    <Link href={`/academy/ai-guide?term=${term.number}`} className="mt-4 inline-flex rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-3 text-xs font-black text-violet-100 transition hover:bg-violet-400/20">{study.mentorQuestion}</Link>
+                    <Link href={`/academy/ai-guide?term=${term.number}&q=${encodeURIComponent(study.mentorQuestion)}`} className="mt-4 inline-flex rounded-2xl border border-violet-300/20 bg-violet-400/10 px-4 py-3 text-xs font-black text-violet-100 transition hover:bg-violet-400/20">{study.mentorQuestion}</Link>
                   </article>
                 ))}
               </div>

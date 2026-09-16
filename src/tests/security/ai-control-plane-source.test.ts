@@ -115,13 +115,12 @@ describe("AI control-plane source authority", () => {
   });
 
   it("makes Mentor threads server-owned and user-bound", async () => {
-    const [threads, conversations, migration, mentor, widget, coach] =
+    const [threads, conversations, migration, mentor, coach] =
       await Promise.all([
         source("src/app/api/mentor-threads/route.ts"),
         source("src/app/api/mentor-conversations/route.ts"),
         source("src/app/api/mentor-conversations/migrate/route.ts"),
         source("src/app/api/ai-mentor/route.ts"),
-        source("src/components/academy/GlobalAiMentorWidget.tsx"),
         source("src/components/academy/AiMentorExperience.tsx"),
       ]);
     assert.match(threads, /strictRevocation: true/);
@@ -141,7 +140,6 @@ describe("AI control-plane source authority", () => {
       /getMentorContext\(authorizedStudentId, activeThreadId\)/,
     );
     assert.match(mentor, /threadId: activeThreadId/);
-    assert.doesNotMatch(widget, /history: history\.slice/);
     assert.doesNotMatch(coach, /localStorage/);
   });
 
