@@ -18,11 +18,6 @@ type ProfileStatus = "checking" | "absent" | "ready" | "unavailable";
 export function PublicMentorEntry() {
   const pathname = usePathname() || "/";
   const isEnglish = pathname.startsWith("/en");
-  const isAcademyArea =
-    pathname === "/academy" ||
-    pathname.startsWith("/academy/") ||
-    pathname === "/en/academy" ||
-    pathname.startsWith("/en/academy/");
   const isAcademyAuthRoute =
     /^\/(?:en\/)?academy\/(?:login|signup|onboarding)\/?$/.test(pathname);
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>("checking");
@@ -35,7 +30,7 @@ export function PublicMentorEntry() {
     let active = true;
 
     const checkProfile = async () => {
-      if (!isAcademyArea || isAcademyAuthRoute) {
+      if (isAcademyAuthRoute) {
         setProfileStatus("absent");
         return;
       }
@@ -62,7 +57,7 @@ export function PublicMentorEntry() {
       window.removeEventListener("tecpey-academy-profile-ready", checkProfile);
       window.removeEventListener("focus", checkProfile);
     };
-  }, [isAcademyArea, isAcademyAuthRoute]);
+  }, [isAcademyAuthRoute]);
 
   useEffect(() => {
     if (!open) return;

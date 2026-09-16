@@ -9,10 +9,6 @@ const publicMentorPath = path.join(
   root,
   "src/components/academy/PublicMentorEntry.tsx",
 );
-const globalMentorPath = path.join(
-  root,
-  "src/components/academy/GlobalAiMentorWidget.tsx",
-);
 
 describe("mobile overlay safety", () => {
   it("covers the viewport directly below the 64px mobile navbar", () => {
@@ -36,7 +32,6 @@ describe("mobile overlay safety", () => {
 
   it("keeps mentor triggers clear of mobile CTAs and auth forms", () => {
     const publicMentor = fs.readFileSync(publicMentorPath, "utf8");
-    const globalMentor = fs.readFileSync(globalMentorPath, "utf8");
 
     assert.match(
       publicMentor,
@@ -49,11 +44,6 @@ describe("mobile overlay safety", () => {
     assert.match(publicMentor, /inline-flex h-12 w-12/);
     assert.match(publicMentor, /sr-only sm:not-sr-only sm:truncate/);
     assert.match(publicMentor, /isAcademyAuthRoute \|\| profileStatus/);
-    assert.match(globalMentor, /isNewsQuiz \|\|\s*isAcademyAuthRoute/);
-    assert.match(
-      globalMentor,
-      /!isAcademyAuthRoute && \(open \|\| isAcademyArea\)/,
-    );
   });
 
   it("retains the selected navigation ring when motion is reduced", () => {
