@@ -32,7 +32,7 @@ const REQUIRED_PUBLIC_BOUNDARIES = [
     ],
   },
   {
-    file: "src/components/home/TecpeyGrowthStory.tsx",
+    file: "src/app/en/EnglishLandingClient.tsx",
     tokens: [
       "no real money involved",
       "no real money, real profit or real trade takes place in it",
