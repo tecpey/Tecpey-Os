@@ -3,7 +3,7 @@ Description=Run TecPey Crypto News Materialization Continuously
 Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
 
 [Timer]
-OnBootSec=2min
+OnActiveSec=2min
 OnUnitActiveSec=10min
 Persistent=true
 RandomizedDelaySec=45

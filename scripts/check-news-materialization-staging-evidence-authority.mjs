@@ -6,6 +6,7 @@ const files = {
   envCheck: "scripts/check-news-materialization-env.ts",
   worker: "scripts/run-news-materialization-worker.ts",
   installer: "scripts/install-news-materialization-scheduler.sh",
+  timerVerifier: "scripts/check-systemd-timer-scheduled.sh",
   service: "deploy/systemd/tecpey-news-materialization.service.in",
   timer: "deploy/systemd/tecpey-news-materialization.timer",
   contract: "docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md",
@@ -55,7 +56,7 @@ for (const invariant of [
   "sudo systemctl start tecpey-news-materialization.service",
   "news:materialization:env-check",
   "news:materialization:last-run:verify",
-  "OnBootSec=2min",
+  "OnActiveSec=2min",
   "OnUnitActiveSec=10min",
   "Persistent=true",
   "unexpected calendar-based news materialization cadence",
@@ -66,6 +67,17 @@ for (const invariant of [
 ]) {
   requireText("workflow", invariant, `protected staging news workflow is missing ${invariant}`);
 }
+for (const invariant of [
+  "SubState",
+  "waiting",
+  "NextElapseUSecMonotonic",
+  "infinity",
+  "timer_not_waiting",
+  "timer_next_elapse_missing",
+]) {
+  requireText("timerVerifier", invariant, `timer verifier is missing ${invariant}`);
+}
+
 for (const forbidden of [
   "pull_request:",
   "push:",
@@ -133,6 +145,7 @@ for (const invariant of [
   "TECPEY_DRY_RUN",
   "tecpey-news-materialization.service",
   "systemctl enable --now tecpey-news-materialization.timer",
+  "check-systemd-timer-scheduled.sh",
 ]) {
   requireText("installer", invariant, `installer is missing ${invariant}`);
 }
@@ -156,7 +169,7 @@ for (const invariant of [
   requireText("service", invariant, `systemd service is missing ${invariant}`);
 }
 for (const invariant of [
-  "OnBootSec=2min",
+  "OnActiveSec=2min",
   "OnUnitActiveSec=10min",
   "Persistent=true",
   "RandomizedDelaySec=45",
@@ -166,6 +179,7 @@ for (const invariant of [
   requireText("timer", invariant, `systemd timer is missing ${invariant}`);
 }
 rejectText("timer", "OnCalendar=", "systemd timer must use the governed activation-relative cadence");
+rejectText("timer", "OnBootSec=", "systemd timer must remain schedulable when installed after boot");
 for (const invariant of [
   "staging-news-materialization-evidence.yml",
   "news-materialization-last-run.json",
@@ -193,6 +207,7 @@ for (const invariant of [
 }
 for (const invariant of [
   "scripts/install-news-materialization-scheduler.sh",
+  "scripts/check-systemd-timer-scheduled.sh",
   "deploy/systemd/tecpey-news-materialization.service.in",
   "docs/assets/brand/brand-assets.json",
   "support:bundle:verify",
@@ -203,6 +218,7 @@ for (const invariant of [
   "SUPPORT_BUNDLE_MANIFEST.txt",
   "deploy/systemd/tecpey-news-materialization.service.in",
   "scripts/install-news-materialization-scheduler.sh",
+  "scripts/check-systemd-timer-scheduled.sh",
   "docs/assets/brand/brand-assets.json",
   "Never add .env.production",
 ]) {

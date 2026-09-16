@@ -124,6 +124,8 @@ systemctl enable --now tecpey-news-materialization.timer
 systemctl is-enabled --quiet tecpey-news-materialization.timer
 systemctl is-active --quiet tecpey-news-materialization.timer
 
+bash "$APP_DIR/scripts/check-systemd-timer-scheduled.sh" tecpey-news-materialization.timer
+
 printf 'installed=1\n'
 printf 'news_materialization_timer=active\n'
 printf 'state_directory=%s\n' "$STATE_DIR"
