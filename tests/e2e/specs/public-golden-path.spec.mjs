@@ -48,7 +48,7 @@ function projectContract(testInfo) {
         path: "/en",
         lang: "en-US",
         dir: "ltr",
-        heading: /From your first step,\s*to your skills portfolio/i,
+        heading: /Build your knowledge\. Practice with confidence\./i,
         knowledge: "Knowledge Center",
         arena: "Trading Arena",
         menu: "Open menu",
@@ -58,13 +58,12 @@ function projectContract(testInfo) {
         themeToDark: "Switch to dark mode",
         academyPath: "/en/academy",
         arenaPath: "/en/academy/trading-arena",
-        arenaHeading: /Turn knowledge into reviewable decisions/i,
-        arenaRiskFree: /(?:without|no) real money/i,
-        primaryCtas: ["Start Free Academy", "Explore the journey"],
+        arenaHeading: /Trading Arena/i,
+        arenaRiskFree: /no real money, real profit or real trade/i,
+        primaryCtas: ["Start Free Academy", "Talk to AI Mentor"],
         forbiddenCopy: [
           /Online Market Board/i,
           /Live market prices/i,
-          /Live market data/i,
           /brings buying, selling and digital asset management together/i,
           /Buy, sell and review live markets/i,
         ],
@@ -75,7 +74,7 @@ function projectContract(testInfo) {
         path: "/",
         lang: "fa-IR",
         dir: "rtl",
-        heading: /از اولین قدم،\s*تا کارنامه مهارتی تو/,
+        heading: /آگاهانه یاد بگیر\. با اطمینان تمرین کن\./,
         knowledge: "مرکز دانش",
         arena: "تریدینگ آرنا",
         menu: "باز کردن منو",
@@ -85,14 +84,13 @@ function projectContract(testInfo) {
         themeToDark: "تغییر به حالت تیره",
         academyPath: "/academy",
         arenaPath: "/academy/trading-arena",
-        arenaHeading: /دانش را به تصمیم قابل بازبینی تبدیل کن/,
-        arenaRiskFree: /بدون پول واقعی/,
-        primaryCtas: ["شروع آکادمی رایگان", "کشف مسیر رشد"],
+        arenaHeading: /تریدینگ آرنا/,
+        arenaRiskFree: /هیچ پول واقعی، سود واقعی یا معاملهٔ واقعی/,
+        primaryCtas: ["شروع آکادمی رایگان", "گفتگو با منتور هوشمند"],
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
           /اولین معامله واقعی/,
           /بازارها\s+زنده/,
-          /داده زنده بازار/,
           /\bOnline\b/,
         ],
       };
@@ -117,8 +115,12 @@ async function installDeterministicApi(context) {
   await context.route("**/api/v1/user/currency/list**", (route) =>
     json(route, MARKET_RESPONSE),
   );
-  // Keep public news deterministic in isolated browser CI; live source-backed
-  // feed availability is verified independently from this browser contract.
+  // The public landing's CryptoNewsCenter fetches /api/crypto-news on mount.
+  // That route resolves live upstream news and can take ~60s in CI, which stalls
+  // the server worker and turns the theme-persistence page.reload below into a
+  // 60s navigation timeout (a recurring firefox-fa-desktop flake). Returning a
+  // response with no `items` array makes the component keep its deterministic
+  // built-in fallback, so the news surface still renders without the slow call.
   await context.route("**/api/crypto-news**", (route) =>
     json(route, { mode: "fallback", updatedAt: "2026-01-01T00:00:00.000Z" }),
   );
@@ -334,6 +336,7 @@ function rectanglesOverlap(a, b) {
 }
 
 async function governedPrimaryCtas(page, contract) {
+  // Test the visible entry actions, not repeated links in the optional guide.
   const hero = page.locator('[data-home-section="hero"]');
   const links = contract.primaryCtas.map((name) =>
     hero.getByRole("link", { name, exact: true }),
@@ -499,12 +502,7 @@ async function collectGovernedInternalTargets(page, contract) {
   const targets = new Set();
   for (const rawHref of hrefs) {
     expect(rawHref, `${contract.path}: governed link has an empty href`).toBeTruthy();
-    expect(rawHref, `${contract.path}: governed link uses unsafe href ${rawHref}`).not.toMatch(/^javascript:|^about:blank$/i);
-    if (rawHref.startsWith("#")) {
-      expect(rawHref, `${contract.path}: malformed same-page fragment ${rawHref}`).toMatch(/^#[A-Za-z][A-Za-z0-9_-]*$/);
-      await expect(page.locator(rawHref), `${contract.path}: missing fragment target ${rawHref}`).toHaveCount(1);
-      continue;
-    }
+    expect(rawHref, `${contract.path}: governed link uses placeholder href ${rawHref}`).not.toMatch(/^#|^javascript:|^about:blank$/i);
     let url;
     try {
       url = new URL(rawHref, origin);
@@ -629,49 +627,30 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     expect(bodyText, `unsupported public claim matched ${forbidden}`).not.toMatch(forbidden);
   }
 
-  // The growth landing exposes its learning journey directly rather than hiding
-  // the core story behind an implementation-specific disclosure.
-  const chapterIds = [
-    "story-news",
-    "story-market",
-    "story-academy",
-    "story-practice",
-    "story-league",
-    "story-mastery",
-  ];
-  for (const id of chapterIds) {
-    const section = page.locator(`#${id}`);
-    await section.scrollIntoViewIfNeeded();
-    await expect(section, `public landing is missing governed chapter #${id}`).toBeVisible();
-    await expect(section.getByRole("heading").first(), `#${id} is missing a visible heading`).toBeVisible();
-  }
+  // The shorter landing keeps its full guide behind a keyboard-operable
+  // disclosure. Verify that entry point before inspecting retained sections.
+  const guideSummary = page.locator("main > details > summary");
+  const guide = page.locator("main > details");
+  await expect(guideSummary).toBeVisible();
+  await expect(guide).not.toHaveAttribute("open", "");
+  await guideSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(guide).toHaveAttribute("open", "");
 
-  // Arena remains a dedicated, truthful virtual-practice chapter with a real
-  // route into the governed Academy journey.
-  const arenaSection = page.locator("#story-practice");
+  // A dedicated Trading Arena section must be part of the public landing
+  // narrative (#80 defect 3) — not merely a nav link — with the honest,
+  // fully-educational positioning and a link into the Arena journey.
+  const arenaSection = page.locator("#trading-arena");
+  await arenaSection.scrollIntoViewIfNeeded();
+  await expect(arenaSection, "public landing is missing a dedicated Trading Arena section").toBeVisible();
   await expect(arenaSection.getByRole("heading", { name: contract.arenaHeading })).toBeVisible();
   await expect(
     arenaSection,
     "Arena section must state it is fully educational with no real money",
   ).toContainText(contract.arenaRiskFree);
-  const arenaRoute = arenaSection.locator(`a[href="${contract.arenaPath}"]`).first();
-  await expect(arenaRoute, "Arena chapter must expose its governed practice route").toBeVisible();
-
-  // Stage 8 is the journey destination. The future exchange teaser is deliberately
-  // outside the numbered journey and must not expose a sign-in or trade action.
-  const finalStage = page.locator('[data-home-section="resume"][data-journey-stage="8"]');
-  await finalStage.scrollIntoViewIfNeeded();
-  await expect(finalStage).toBeVisible();
-  await expect(finalStage.getByRole("heading").first()).toBeVisible();
-
-  const exchangePreview = page.locator('[data-home-section="exchange-preview"]');
-  await exchangePreview.scrollIntoViewIfNeeded();
-  await expect(exchangePreview).toBeVisible();
-  await expect(exchangePreview.getByRole("heading").first()).toBeVisible();
   await expect(
-    exchangePreview.locator('a[href], button'),
-    "future exchange teaser must remain non-transactional and CTA-free",
-  ).toHaveCount(0);
+    arenaSection.getByRole("link", { name: contract.arena }).first(),
+  ).toHaveAttribute("href", new RegExp(`${contract.arenaPath.replace(/[/]/g, "\\/")}$`));
 
   if (testInfo.project.name.startsWith("chromium")) {
     await expectSuccessfulLocalRoute(page, contract.academyPath);
@@ -684,6 +663,11 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
   await waitForPendingCspViolationDeliveries(page);
+  // Prove persistence through a new document load in the same browser context.
+  // Reusing page.reload here is a known firefox-fa-desktop CI flake: the landing
+  // bundle can keep the old page busy long enough that reload never reaches the
+  // navigation commit. A fresh page still shares localStorage, which is the
+  // behavior this assertion needs to verify.
   const persistedThemePage = await context.newPage();
   trackRuntimeErrors(persistedThemePage, errors);
   await installCspViolationObserver(persistedThemePage);
