@@ -468,6 +468,30 @@ function numericFactsEquivalent(left: CanonicalNumericFact, right: CanonicalNume
   );
 }
 
+function missingFieldNumericFactKeys(input: {
+  sourceTitle: string;
+  sourceLead: string;
+  translatedTitle: string;
+  translatedLead: string;
+}): { title: string[]; lead: string[] } {
+  const missing = (source: string, translated: string): string[] => {
+    const sourceFacts = canonicalNumericFacts(source);
+    const translatedFacts = canonicalNumericFacts(translated);
+    return sourceFacts
+      .filter(
+        (fact) => !translatedFacts.some(
+          (translatedFact) => numericFactsEquivalent(fact, translatedFact),
+        ),
+      )
+      .map(numericFactKey);
+  };
+
+  return {
+    title: missing(input.sourceTitle, input.translatedTitle),
+    lead: missing(input.sourceLead, input.translatedLead),
+  };
+}
+
 function hasPersian(value: string): boolean {
   return /[آ-ی]/.test(value);
 }
@@ -638,7 +662,18 @@ export async function translateNewsFeedToPersian(input: {
     `Absolute body limit: ${MAX_PERSIAN_NEWS_BODY_CHARS} characters. Prefer complete sentences and preserve the most material factual information, dates, quantities and uncertainty.`,
   ];
 
+  type TranslationCandidate = {
+    title: string;
+    lead: string;
+    body: string;
+    providerId: string;
+    model: string;
+  };
+
+  let lastInvalidCandidate: TranslationCandidate | null = null;
+
   const runTranslation = async (extraInstructions: string[] = []): Promise<NewsTranslationResult> => {
+    lastInvalidCandidate = null;
     const routed = await callAiProvider({
       providerId: config.providerId,
       agentId: "content_reviewer",
@@ -692,6 +727,13 @@ export async function translateNewsFeedToPersian(input: {
     });
 
     if (!integrity.ok) {
+      lastInvalidCandidate = {
+        title: translatedTitle,
+        lead: translatedLead,
+        body: translatedBody,
+        providerId: routed.providerId,
+        model: routed.model,
+      };
       return {
         ok: false,
         reason: `translation_${integrity.reason}`,
@@ -735,6 +777,171 @@ export async function translateNewsFeedToPersian(input: {
         providerId: routed.providerId,
         model: routed.model,
       };
+    }
+
+    return {
+      ok: true,
+      translation: {
+        title: translatedTitle,
+        lead: translatedLead,
+        body: translatedBody,
+        providerId: routed.providerId as "openai" | "anthropic" | "openrouter",
+        model: routed.model,
+        sourceCoverage: input.sourceCoverage,
+        quality: { persian: true, numericIntegrity: true, noAddedAdvice: true },
+      },
+      route: routed,
+    };
+  };
+
+  const runFieldScopedNumericRepair = async (
+    candidate: TranslationCandidate,
+  ): Promise<NewsTranslationResult> => {
+    const missingFacts = missingFieldNumericFactKeys({
+      sourceTitle: title,
+      sourceLead: lead,
+      translatedTitle: candidate.title,
+      translatedLead: candidate.lead,
+    });
+
+    const repairTitle = missingFacts.title.length > 0;
+    const repairLead = missingFacts.lead.length > 0;
+    const repairFields = [
+      ...(repairTitle ? ["title"] : []),
+      ...(repairLead ? ["lead"] : []),
+    ];
+
+    if (repairFields.length === 0) {
+      return {
+        ok: false,
+        reason: "translation_numeric_integrity_failed",
+        providerId: candidate.providerId,
+        model: candidate.model,
+      };
+    }
+
+    const routed = await callAiProvider({
+      providerId: config.providerId,
+      agentId: "content_reviewer",
+      apiKey: config.apiKey,
+      model: config.model,
+      fallbackModel: config.fallbackModel,
+      instructions: [
+        "Field-scoped numeric repair pass.",
+        `Repair only these Persian fields: ${repairFields.join(", ")}. Do not regenerate fields outside this list.`,
+        repairTitle
+          ? `The authoritative source title is exactly: ${JSON.stringify(title)}. Required canonical numeric facts missing from the current Persian title: ${missingFacts.title.join(", ")}.`
+          : "The Persian title is already numerically valid; do not return or regenerate it.",
+        repairLead
+          ? `The authoritative source lead is exactly: ${JSON.stringify(lead)}. Required canonical numeric facts missing from the current Persian lead: ${missingFacts.lead.join(", ")}.`
+          : "The Persian lead is already numerically valid; do not return or regenerate it.",
+        "For each repaired field, preserve every numeric fact from its source field, including value, sign, percentage, currency and magnitude.",
+        "Preserve the publisher's meaning. Do not add commentary, predictions, advice, unsupported entities or replacement numbers.",
+        `Return strict JSON only with these keys: ${repairFields.join(", ")}.`,
+      ].join(" "),
+      input: JSON.stringify({
+        source: input.sourceName,
+        sourceUrl: input.sourceUrl,
+        sourceCoverage: input.sourceCoverage,
+        repairFields,
+        title: repairTitle
+          ? {
+              sourceText: title,
+              currentPersianText: candidate.title,
+              requiredNumericFacts: missingFacts.title,
+            }
+          : undefined,
+        lead: repairLead
+          ? {
+              sourceText: lead,
+              currentPersianText: candidate.lead,
+              requiredNumericFacts: missingFacts.lead,
+            }
+          : undefined,
+      }),
+      timeoutMs: 20_000,
+      maxOutputTokens: repairTitle && repairLead ? 1_500 : repairTitle ? 500 : 1_200,
+      dataClass: "public",
+      circuitScope: `news-translation:public:${input.sourceName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "unknown"}`,
+      toolsEnabled: false,
+      requireZeroDataRetention: true,
+      requestSignal: input.requestSignal,
+    }, dependencies);
+
+    if (!routed.ok) {
+      return {
+        ok: false,
+        reason: `translation_${routed.reason}`,
+        providerId: config.providerId,
+        model: routed.model ?? config.model,
+      };
+    }
+
+    const parsed = safeJsonObject(routed.text);
+
+    const repairedTitle = repairTitle && typeof parsed?.title === "string"
+      ? compact(parsed.title, 500)
+      : candidate.title;
+
+    const repairedLead = repairLead && typeof parsed?.lead === "string"
+      ? compact(parsed.lead, 4_000)
+      : candidate.lead;
+
+    const translatedTitle = repairedTitle;
+    const translatedLead = repairedLead;
+    const translatedBody = candidate.body;
+
+    const integrity = validatePersianNewsTranslationIntegrity({
+      sourceTitle: title,
+      sourceLead: lead,
+      sourceBody: body,
+      translatedTitle,
+      translatedLead,
+      translatedBody,
+    });
+
+    if (!integrity.ok) {
+      return {
+        ok: false,
+        reason: `translation_${integrity.reason}`,
+        providerId: routed.providerId,
+        model: routed.model,
+        numericFailureKind: integrity.numericFailureKind,
+        numericFailureFactKey: integrity.numericFailureFactKey,
+      };
+    }
+
+    if (input.sourceCoverage === "feed_summary") {
+      const unsupportedLatinEntities = findUnsupportedFeedSummaryLatinEntities({
+        sourceTitle: title,
+        sourceLead: lead,
+        sourceBody: body,
+        translatedTitle,
+        translatedLead,
+        translatedBody,
+      });
+
+      if (unsupportedLatinEntities.length > 0) {
+        return {
+          ok: false,
+          reason: "translation_summary_unsupported_entity",
+          providerId: routed.providerId,
+          model: routed.model,
+          unsupportedLatinEntities,
+        };
+      }
+
+      if (!isFeedSummaryTranslationBodyLengthAcceptable({
+        sourceBody: body,
+        translatedBody,
+      })) {
+        return {
+          ok: false,
+          reason: "translation_summary_expansion_exceeded",
+          providerId: routed.providerId,
+          model: routed.model,
+        };
+      }
     }
 
     return {
@@ -799,6 +1006,13 @@ export async function translateNewsFeedToPersian(input: {
               "Do not add commentary, do not invent replacement numbers, and do not change meaning.",
             ];
           })();
+
+    if (
+      first.numericFailureKind !== "invented_numeric_fact"
+      && lastInvalidCandidate
+    ) {
+      return runFieldScopedNumericRepair(lastInvalidCandidate);
+    }
 
     return runTranslation(repairInstructions);
   }
