@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 
 import type { ContentLocale } from "../content-growth";
 import type { NewsEnrichmentCandidate } from "./news-enrichment-authority";
+import { withNewsAiProviderCallCeiling } from "./news-ai-provider-call-ceiling";
 
 export type NewsAiCostConfig = Readonly<{
   dailyBudgetUsdMicros: number;
@@ -433,7 +434,7 @@ async function settleProviderAttempt(input: {
     );
     if (updated.rowCount !== 1) throw new Error("news_ai_attempt_settlement_invariant");
 
-    const budget = await input.client.query(
+    const budgetUpdated = await input.client.query(
       `UPDATE platform_news_ai_budget_daily
           SET active_reserved_usd_micros = active_reserved_usd_micros - $2,
               settled_usd_micros = settled_usd_micros + $3,
@@ -442,37 +443,60 @@ async function settleProviderAttempt(input: {
           AND active_reserved_usd_micros >= $2`,
       [budgetDay, reserved, charged],
     );
-    if (budget.rowCount !== 1) throw new Error("news_ai_budget_settlement_invariant");
+    if (budgetUpdated.rowCount !== 1) throw new Error("news_ai_budget_settlement_invariant");
   });
 }
 
-function providerUsage(value: unknown): ProviderUsage {
-  const root = value as {
-    usage?: {
-      input_tokens?: unknown;
-      output_tokens?: unknown;
-      inputTokens?: unknown;
-      outputTokens?: unknown;
-      prompt_tokens?: unknown;
-      completion_tokens?: unknown;
-      cost?: unknown;
-    };
-  };
-  const inputTokens = Number(
-    root?.usage?.input_tokens ?? root?.usage?.inputTokens ?? root?.usage?.prompt_tokens,
+function usageNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.trunc(parsed) : null;
+}
+
+function usageCostUsdMicros(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.ceil(parsed * 1_000_000);
+}
+
+function usageFromJson(body: unknown): ProviderUsage {
+  if (!body || typeof body !== "object") {
+    return { inputTokens: null, outputTokens: null, providerCostUsdMicros: null };
+  }
+  const record = body as Record<string, unknown>;
+  const usage = record.usage && typeof record.usage === "object"
+    ? record.usage as Record<string, unknown>
+    : {};
+  const inputTokens = usageNumber(
+    usage.input_tokens ?? usage.prompt_tokens ?? usage.inputTokens ?? usage.promptTokens,
   );
-  const outputTokens = Number(
-    root?.usage?.output_tokens ?? root?.usage?.outputTokens ?? root?.usage?.completion_tokens,
+  const outputTokens = usageNumber(
+    usage.output_tokens ?? usage.completion_tokens ?? usage.outputTokens ?? usage.completionTokens,
   );
-  const providerCost = Number(root?.usage?.cost);
-  return {
-    inputTokens: Number.isFinite(inputTokens) ? Math.max(0, Math.trunc(inputTokens)) : null,
-    outputTokens: Number.isFinite(outputTokens) ? Math.max(0, Math.trunc(outputTokens)) : null,
-    providerCostUsdMicros:
-      Number.isFinite(providerCost) && providerCost >= 0
-        ? Math.max(0, Math.round(providerCost * 1_000_000))
-        : null,
-  };
+  const providerCostUsdMicros = usageCostUsdMicros(
+    usage.cost_usd ?? usage.total_cost_usd ?? usage.cost ?? usage.total_cost,
+  );
+  return { inputTokens, outputTokens, providerCostUsdMicros };
+}
+
+async function boundedUsageFromResponse(response: Response): Promise<ProviderUsage> {
+  const lengthHeader = response.headers.get("content-length");
+  const length = lengthHeader ? Number(lengthHeader) : Number.NaN;
+  if (Number.isFinite(length) && length > 256_000) {
+    return { inputTokens: null, outputTokens: null, providerCostUsdMicros: null };
+  }
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    return { inputTokens: null, outputTokens: null, providerCostUsdMicros: null };
+  }
+  try {
+    const text = await response.clone().text();
+    if (text.length > 256_000) {
+      return { inputTokens: null, outputTokens: null, providerCostUsdMicros: null };
+    }
+    return usageFromJson(JSON.parse(text));
+  } catch {
+    return { inputTokens: null, outputTokens: null, providerCostUsdMicros: null };
+  }
 }
 
 function settlementFromUsage(
@@ -486,21 +510,22 @@ function settlementFromUsage(
 } {
   if (usage.providerCostUsdMicros !== null) {
     return {
-      chargedUsdMicros: usage.providerCostUsdMicros,
+      chargedUsdMicros: Math.min(usage.providerCostUsdMicros, reservedUsdMicros),
       costSource: "provider",
-      reconciliationRequired: false,
+      reconciliationRequired: usage.providerCostUsdMicros > reservedUsdMicros,
     };
   }
   if (usage.inputTokens !== null && usage.outputTokens !== null) {
+    const estimated = estimateConfiguredCostUsdMicros(
+      usage.inputTokens,
+      usage.outputTokens,
+      config.inputCostUsdMicrosPerMillionTokens,
+      config.outputCostUsdMicrosPerMillionTokens,
+    );
     return {
-      chargedUsdMicros: estimateConfiguredCostUsdMicros(
-        usage.inputTokens,
-        usage.outputTokens,
-        config.inputCostUsdMicrosPerMillionTokens,
-        config.outputCostUsdMicrosPerMillionTokens,
-      ),
+      chargedUsdMicros: Math.min(estimated, reservedUsdMicros),
       costSource: "configured_estimate",
-      reconciliationRequired: false,
+      reconciliationRequired: estimated > reservedUsdMicros,
     };
   }
   return {
@@ -508,22 +533,6 @@ function settlementFromUsage(
     costSource: "reservation_fallback",
     reconciliationRequired: true,
   };
-}
-
-async function boundedUsageFromResponse(response: Response): Promise<ProviderUsage> {
-  try {
-    const clone = response.clone();
-    const text = await Promise.race([
-      clone.text(),
-      new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error("news_ai_usage_read_timeout")), 1_500),
-      ),
-    ]);
-    if (text.length > 256_000) return providerUsage(null);
-    return providerUsage(JSON.parse(text));
-  } catch {
-    return providerUsage(null);
-  }
 }
 
 function blockedResponse(reason: AdmissionFailureReason): Response {
@@ -534,6 +543,44 @@ function blockedResponse(reason: AdmissionFailureReason): Response {
       "x-tecpey-news-ai-authority": reason,
     },
   });
+}
+
+export async function reconcileExpiredNewsAiProviderAttempts(
+  client: PoolClient,
+): Promise<{ budgetDays: number; reconciledAttempts: number; reconciledUsdMicros: number }> {
+  const days = await client.query<{ budget_day: string | Date }>(
+    `SELECT DISTINCT budget_day
+       FROM platform_news_ai_provider_attempts
+      WHERE status = 'egress_started'
+        AND expires_at <= NOW()
+      ORDER BY budget_day`,
+  );
+  let reconciledAttempts = 0;
+  let reconciledUsdMicros = 0;
+  for (const row of days.rows) {
+    const budgetDay = row.budget_day instanceof Date
+      ? row.budget_day.toISOString().slice(0, 10)
+      : String(row.budget_day).slice(0, 10);
+    const before = await client.query<{ count: string; reserved: string }>(
+      `SELECT COUNT(*)::text AS count,
+              COALESCE(SUM(reserved_usd_micros), 0)::text AS reserved
+         FROM platform_news_ai_provider_attempts
+        WHERE budget_day = $1::date
+          AND status = 'egress_started'
+          AND expires_at <= NOW()`,
+      [budgetDay],
+    );
+    await transaction(client, async () => {
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        [`news-ai-budget:${budgetDay}`],
+      );
+      await reconcileExpiredAttempts(client, budgetDay);
+    });
+    reconciledAttempts += Number(before.rows[0]?.count ?? 0);
+    reconciledUsdMicros += Number(before.rows[0]?.reserved ?? 0);
+  }
+  return { budgetDays: days.rows.length, reconciledAttempts, reconciledUsdMicros };
 }
 
 /**
@@ -555,7 +602,7 @@ export function createNewsAiCostGovernedFetch(input: {
   const fetchImpl = input.fetchImpl ?? fetch;
   let networkOrdinal = 0;
 
-  return async (request: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const governedFetch: typeof fetch = async (request: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     networkOrdinal += 1;
     const requestedModel = requestedModelFromRequest(init, input.primaryModel);
     const providerId = providerFromUrl(request);
@@ -626,4 +673,6 @@ export function createNewsAiCostGovernedFetch(input: {
       throw error;
     }
   };
+
+  return withNewsAiProviderCallCeiling(governedFetch);
 }
