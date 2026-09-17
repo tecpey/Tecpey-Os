@@ -14,6 +14,7 @@ import {
 import { classifyFeedSourceCoverage } from "../src/lib/news-feed-evidence";
 import { persistNewsArchiveTranslationTx } from "../src/lib/news-growth-authority";
 import { validatePersianNewsEditorialQuality } from "../src/lib/ai/news-editorial-quality";
+import { repairMissingNewsTickers } from "../src/lib/ai/news-ticker-repair";
 import {
   translateNewsFeedToPersian,
   type NewsTranslationProviderConfig,
@@ -129,10 +130,6 @@ function costAuthorityBlockReason(response: Response): CostAuthorityBlockReason 
     : null;
 }
 
-// The immutable provider-attempt ledger allocates translation_attempt identities
-// from 1..20. This sequence capacity is accounting identity, not retry policy:
-// transient retry eligibility remains bounded by maximumFailures in the lease,
-// while recoverable provider/key incidents may resume after their cooldown.
 const NEWS_AI_TRANSLATION_ATTEMPT_SEQUENCE_MAX = 20;
 
 async function nextTranslationAttempt(input: {
@@ -212,6 +209,9 @@ async function main(): Promise<void> {
   let costReplayBlocked = 0;
   let costAuthorityUnavailable = 0;
   let editorialQualityRejected = 0;
+  let tickerRepairAttempted = 0;
+  let tickerRepairCompleted = 0;
+  let tickerRepairFailed = 0;
 
   for (const candidate of candidates) {
     const leased = await withNewsEnrichmentLease({
@@ -223,11 +223,7 @@ async function main(): Promise<void> {
         const generatedAt = new Date().toISOString();
         let translationAttempt: number | null;
         try {
-          translationAttempt = await nextTranslationAttempt({
-            client,
-            candidate,
-            locale,
-          });
+          translationAttempt = await nextTranslationAttempt({ client, candidate, locale });
         } catch {
           costAuthorityUnavailable += 1;
           return { ok: false as const, reason: "cost_authority_unavailable" as const };
@@ -268,14 +264,9 @@ async function main(): Promise<void> {
               body: candidate.sourceBody,
               sourceName: candidate.sourceName,
               sourceUrl: candidate.articleUrl,
-              sourceCoverage:
-                candidate.sourceCoverage
-                ?? sourceCoverage(candidate.sourceLead, candidate.sourceBody),
+              sourceCoverage: candidate.sourceCoverage ?? sourceCoverage(candidate.sourceLead, candidate.sourceBody),
             },
-            {
-              fetchImpl: observedGovernedFetch,
-              providerConfig: provider,
-            },
+            { fetchImpl: observedGovernedFetch, providerConfig: provider },
           );
 
           if (authorityBlock) {
@@ -306,14 +297,62 @@ async function main(): Promise<void> {
             return { ok: false as const, reason: "translation_failed" as const };
           }
 
-          const editorialQuality = validatePersianNewsEditorialQuality({
+          let finalTranslation = translation.translation;
+          let tickerRepairApplied = false;
+          let tickerRepairReason: string | null = null;
+          let editorialQuality = validatePersianNewsEditorialQuality({
             sourceTitle: candidate.sourceTitle,
             sourceLead: candidate.sourceLead,
             sourceBody: candidate.sourceBody,
-            translatedTitle: translation.translation.title,
-            translatedLead: translation.translation.lead,
-            translatedBody: translation.translation.body,
+            translatedTitle: finalTranslation.title,
+            translatedLead: finalTranslation.lead,
+            translatedBody: finalTranslation.body,
           });
+
+          if (
+            !editorialQuality.ok
+            && editorialQuality.reason === "ticker_integrity_failed"
+            && (editorialQuality.evidence.missingTickers?.length ?? 0) > 0
+          ) {
+            tickerRepairAttempted += 1;
+            const repair = await repairMissingNewsTickers({
+              sourceTitle: candidate.sourceTitle,
+              sourceLead: candidate.sourceLead,
+              sourceBody: candidate.sourceBody,
+              sourceName: candidate.sourceName,
+              sourceUrl: candidate.articleUrl,
+              missingTickers: editorialQuality.evidence.missingTickers ?? [],
+              translation: finalTranslation,
+            }, {
+              fetchImpl: observedGovernedFetch,
+              providerConfig: provider,
+            });
+
+            if (authorityBlock) {
+              if (authorityBlock === "budget_exhausted") costBudgetDeferred += 1;
+              else if (authorityBlock === "duplicate_attempt") costReplayBlocked += 1;
+              else costAuthorityUnavailable += 1;
+              return { ok: false as const, reason: `cost_${authorityBlock}` as const };
+            }
+
+            if (repair.ok) {
+              tickerRepairCompleted += 1;
+              tickerRepairApplied = true;
+              finalTranslation = repair.translation;
+              editorialQuality = validatePersianNewsEditorialQuality({
+                sourceTitle: candidate.sourceTitle,
+                sourceLead: candidate.sourceLead,
+                sourceBody: candidate.sourceBody,
+                translatedTitle: finalTranslation.title,
+                translatedLead: finalTranslation.lead,
+                translatedBody: finalTranslation.body,
+              });
+            } else {
+              tickerRepairFailed += 1;
+              tickerRepairReason = repair.reason;
+            }
+          }
+
           if (!editorialQuality.ok) {
             failed += 1;
             editorialQualityRejected += 1;
@@ -322,37 +361,41 @@ async function main(): Promise<void> {
               candidate,
               locale,
               generatedAt,
-              providerId: translation.translation.providerId,
-              model: translation.translation.model,
+              providerId: finalTranslation.providerId,
+              model: finalTranslation.model,
               reason: `editorial_quality_${editorialQuality.reason}`,
               evidence: {
                 translationAttempt,
                 providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
                 editorialQuality: editorialQuality.evidence,
+                tickerRepairAttempted: tickerRepairReason !== null || tickerRepairApplied,
+                tickerRepairApplied,
+                tickerRepairReason,
               },
             });
             return { ok: false as const, reason: "editorial_quality_rejected" as const };
           }
 
-          const finalRoute = translation.route?.ok ? translation.route : null;
+          const finalRoute = !tickerRepairApplied && translation.route?.ok ? translation.route : null;
           await persistNewsArchiveTranslationTx(client, {
             archiveId: candidate.archiveId,
             locale,
             status: "completed",
-            providerId: translation.translation.providerId,
-            model: translation.translation.model,
-            translatedTitle: translation.translation.title,
-            translatedLead: translation.translation.lead,
-            translatedBody: translation.translation.body,
+            providerId: finalTranslation.providerId,
+            model: finalTranslation.model,
+            translatedTitle: finalTranslation.title,
+            translatedLead: finalTranslation.lead,
+            translatedBody: finalTranslation.body,
             sourceContentHash: candidate.contentHash,
             generatedAt,
             evidence: {
-              sourceCoverage: translation.translation.sourceCoverage,
-              numericIntegrity: translation.translation.quality.numericIntegrity,
-              noAddedAdvice: translation.translation.quality.noAddedAdvice,
+              sourceCoverage: finalTranslation.sourceCoverage,
+              numericIntegrity: finalTranslation.quality.numericIntegrity,
+              noAddedAdvice: finalTranslation.quality.noAddedAdvice,
               editorialQuality: editorialQuality.evidence,
               translationAttempt,
               providerNetworkCalls: providerNetworkCalls - networkCallsBefore,
+              tickerRepairApplied,
               finalProviderCall: finalRoute
                 ? {
                     requestedModel: finalRoute.requestedModel,
@@ -389,20 +432,11 @@ async function main(): Promise<void> {
     });
 
     switch (leased.decision.action) {
-      case "defer":
-        deferred += 1;
-        break;
-      case "attempt_budget_exhausted":
-        exhausted += 1;
-        break;
-      case "terminal_failure":
-        terminal += 1;
-        break;
-      case "skip_completed":
-        skippedCompleted += 1;
-        break;
-      case "process":
-        break;
+      case "defer": deferred += 1; break;
+      case "attempt_budget_exhausted": exhausted += 1; break;
+      case "terminal_failure": terminal += 1; break;
+      case "skip_completed": skippedCompleted += 1; break;
+      case "process": break;
     }
   }
 
@@ -425,6 +459,9 @@ async function main(): Promise<void> {
     costReplayBlocked,
     costAuthorityUnavailable,
     editorialQualityRejected,
+    tickerRepairAttempted,
+    tickerRepairCompleted,
+    tickerRepairFailed,
     retryMinutes,
     maximumFailures,
     translationAttemptSequenceMax: NEWS_AI_TRANSLATION_ATTEMPT_SEQUENCE_MAX,
