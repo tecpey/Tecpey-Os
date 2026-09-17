@@ -574,6 +574,133 @@ it("matches spelled-out English quarter markers to Persian reporting periods", (
   }), { ok: true });
 });
 
+it("uses a field-scoped repair for a real headline numeric omission", async () => {
+  const previousProvider = process.env.NEWS_TRANSLATION_PROVIDER;
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousModel = process.env.NEWS_TRANSLATION_MODEL;
+
+  process.env.NEWS_TRANSLATION_PROVIDER = "openai";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.NEWS_TRANSLATION_MODEL = "gpt-test";
+
+  try {
+    let calls = 0;
+
+    const result = await translateNewsFeedToPersian({
+      title: "Live updates: Zcash jumps 17% as $345 million of liquidations hit crypto traders",
+      lead: "Short sellers took the bulk of the damage, with zcash alone accounting for $56 million of forced closures.",
+      body: "Short sellers took the bulk of the damage, with zcash alone accounting for $56 million of forced closures.",
+      sourceName: "CoinDesk",
+      sourceUrl: "https://www.coindesk.com/tech/2026/09/17/live-updates-zcash-jumps-17-as-usd345-million-of-liquidations-hit-crypto-traders",
+      sourceCoverage: "feed_full",
+    }, {
+      fetchImpl: async (_url, init) => {
+        calls += 1;
+        const request = JSON.parse(String(init?.body ?? "{}"));
+        const instructions = String(request.instructions ?? "");
+
+        if (calls === 1) {
+          return new Response(JSON.stringify({
+            model: "gpt-test",
+            output_text: JSON.stringify({
+              title: "به‌روزرسانی زنده: لیکوییدیشن ۳۴۵ میلیون دلاری معامله‌گران رمزارز",
+              lead: "فروشندگان استقراضی بیشترین زیان را متحمل شدند و زی‌کش به‌تنهایی ۵۶ میلیون دلار از بسته‌شدن‌های اجباری را به خود اختصاص داد.",
+              body: "فروشندگان استقراضی بیشترین زیان را متحمل شدند و زی‌کش به‌تنهایی ۵۶ میلیون دلار از بسته‌شدن‌های اجباری را به خود اختصاص داد.",
+            }),
+            usage: { input_tokens: 10, output_tokens: 10 },
+          }), { status: 200 });
+        }
+
+        assert.match(instructions, /field-scoped/i);
+
+        return new Response(JSON.stringify({
+          model: "gpt-test",
+          output_text: JSON.stringify({
+            title: "به‌روزرسانی زنده: زی‌کش ۱۷ درصد جهش کرد؛ لیکوییدیشن معامله‌گران رمزارز به ۳۴۵ میلیون دلار رسید",
+          }),
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }), { status: 200 });
+      },
+    });
+
+    assert.equal(calls, 2);
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.match(result.translation.title, /۱۷\s*درصد/);
+      assert.match(result.translation.title, /۳۴۵\s*میلیون\s*دلار/);
+      assert.match(result.translation.lead, /۵۶\s*میلیون\s*دلار/);
+    }
+  } finally {
+    if (previousProvider === undefined) delete process.env.NEWS_TRANSLATION_PROVIDER;
+    else process.env.NEWS_TRANSLATION_PROVIDER = previousProvider;
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+    if (previousModel === undefined) delete process.env.NEWS_TRANSLATION_MODEL;
+    else process.env.NEWS_TRANSLATION_MODEL = previousModel;
+  }
+});
+
+it("fails closed after one field-scoped numeric repair without a third provider call", async () => {
+  const previousProvider = process.env.NEWS_TRANSLATION_PROVIDER;
+  const previousKey = process.env.OPENAI_API_KEY;
+  const previousModel = process.env.NEWS_TRANSLATION_MODEL;
+
+  process.env.NEWS_TRANSLATION_PROVIDER = "openai";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.NEWS_TRANSLATION_MODEL = "gpt-test";
+
+  try {
+    let calls = 0;
+
+    const result = await translateNewsFeedToPersian({
+      title: "Live updates: Zcash jumps 17% as $345 million of liquidations hit crypto traders",
+      lead: "Short sellers took the bulk of the damage, with zcash alone accounting for $56 million of forced closures.",
+      body: "Short sellers took the bulk of the damage, with zcash alone accounting for $56 million of forced closures.",
+      sourceName: "CoinDesk Invalid Repair",
+      sourceUrl: "https://example.com/coindesk-invalid-field-repair",
+      sourceCoverage: "feed_full",
+    }, {
+      fetchImpl: async () => {
+        calls += 1;
+
+        const text = calls === 1
+          ? JSON.stringify({
+              title: "به‌روزرسانی زنده: لیکوییدیشن ۳۴۵ میلیون دلاری معامله‌گران رمزارز",
+              lead: "فروشندگان استقراضی بیشترین زیان را متحمل شدند و زی‌کش به‌تنهایی ۵۶ میلیون دلار از بسته‌شدن‌های اجباری را به خود اختصاص داد.",
+              body: "فروشندگان استقراضی بیشترین زیان را متحمل شدند و زی‌کش به‌تنهایی ۵۶ میلیون دلار از بسته‌شدن‌های اجباری را به خود اختصاص داد.",
+            })
+          : JSON.stringify({
+              title: "به‌روزرسانی زنده: لیکوییدیشن معامله‌گران رمزارز به ۳۴۵ میلیون دلار رسید",
+            });
+
+        return new Response(JSON.stringify({
+          model: "gpt-test",
+          output_text: text,
+          usage: { input_tokens: 10, output_tokens: 10 },
+        }), { status: 200 });
+      },
+    });
+
+    assert.equal(calls, 2);
+    assert.equal(result.ok, false);
+    assert.equal(!result.ok && result.reason, "translation_numeric_integrity_failed");
+    assert.equal(!result.ok && result.numericFailureKind, "missing_title_fact");
+    assert.equal(
+      !result.ok && result.numericFailureFactKey,
+      "17|unsigned|percent|-|-",
+    );
+  } finally {
+    if (previousProvider === undefined) delete process.env.NEWS_TRANSLATION_PROVIDER;
+    else process.env.NEWS_TRANSLATION_PROVIDER = previousProvider;
+
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+
+    if (previousModel === undefined) delete process.env.NEWS_TRANSLATION_MODEL;
+    else process.env.NEWS_TRANSLATION_MODEL = previousModel;
+  }
+});
+
 it("repairs one invented numeric fact once and still fails closed if the repair remains invalid", async () => {
   const previousProvider = process.env.NEWS_TRANSLATION_PROVIDER;
   const previousKey = process.env.OPENAI_API_KEY;
