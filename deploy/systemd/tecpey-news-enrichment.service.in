@@ -3,7 +3,7 @@ Description=TecPey News Locale Enrichment Worker
 Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
 Wants=network-online.target
 After=network-online.target
-StartLimitIntervalSec=900
+StartLimitIntervalSec=60
 StartLimitBurst=3
 
 [Service]
