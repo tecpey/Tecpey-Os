@@ -6,6 +6,18 @@ async function read(path: string): Promise<string> {
   return readFile(path, "utf8");
 }
 
+function seconds(value: string): number {
+  const match = /^(\d+)(s|min)$/.exec(value);
+  assert.ok(match, `unsupported systemd duration: ${value}`);
+  return Number(match[1]) * (match[2] === "min" ? 60 : 1);
+}
+
+function setting(unit: string, name: string): string {
+  const match = new RegExp(`^${name}=(.+)$`, "m").exec(unit);
+  assert.ok(match, `missing ${name}`);
+  return match[1].trim();
+}
+
 describe("news capture/enrichment authority contract", () => {
   it("keeps capture independent from paid AI and allows 300 items per source", async () => {
     const capture = await read("scripts/run-news-capture-worker.ts");
@@ -119,5 +131,26 @@ describe("news capture/enrichment authority contract", () => {
     assert.doesNotMatch(enrichmentTimer, /OnBootSec=/);
     assert.doesNotMatch(enrichmentTimer, /OnUnitActiveSec=/);
     assert.match(enrichmentTimer, /RandomizedDelaySec=15/);
+  });
+
+  it("keeps fast news timers outside their service start-limit windows", async () => {
+    const pairs = [
+      ["capture", "OnUnitActiveSec"],
+      ["enrichment", "OnUnitInactiveSec"],
+      ["publication", "OnUnitActiveSec"],
+    ] as const;
+
+    for (const [name, cadenceSetting] of pairs) {
+      const service = await read(`deploy/systemd/tecpey-news-${name}.service.in`);
+      const timer = await read(`deploy/systemd/tecpey-news-${name}.timer`);
+      const interval = seconds(`${setting(service, "StartLimitIntervalSec")}s`);
+      const burst = Number(setting(service, "StartLimitBurst"));
+      const cadence = seconds(setting(timer, cadenceSetting));
+      assert.ok(Number.isInteger(burst) && burst > 0, `${name}: invalid StartLimitBurst`);
+      assert.ok(
+        interval < cadence * burst,
+        `${name}: healthy timer cadence can exhaust StartLimitBurst inside StartLimitIntervalSec`,
+      );
+    }
   });
 });

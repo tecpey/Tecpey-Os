@@ -3,7 +3,7 @@ Description=TecPey Crypto News Capture Worker (AI-independent)
 Documentation=https://github.com/tecpey/Tecpey-Os
 Wants=network-online.target
 After=network-online.target
-StartLimitIntervalSec=900
+StartLimitIntervalSec=60
 StartLimitBurst=3
 
 [Service]
