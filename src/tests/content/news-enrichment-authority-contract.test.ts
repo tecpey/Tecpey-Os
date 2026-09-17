@@ -114,7 +114,10 @@ describe("news capture/enrichment authority contract", () => {
     const captureTimer = await read("deploy/systemd/tecpey-news-capture.timer");
     const enrichmentTimer = await read("deploy/systemd/tecpey-news-enrichment.timer");
     assert.match(captureTimer, /OnUnitActiveSec=5min/);
-    assert.match(enrichmentTimer, /OnUnitActiveSec=2min/);
+    assert.match(enrichmentTimer, /OnActiveSec=2min/);
+    assert.match(enrichmentTimer, /OnUnitInactiveSec=2min/);
+    assert.doesNotMatch(enrichmentTimer, /OnBootSec=/);
+    assert.doesNotMatch(enrichmentTimer, /OnUnitActiveSec=/);
     assert.match(enrichmentTimer, /RandomizedDelaySec=15/);
   });
 });
