@@ -100,6 +100,7 @@ Operational workers included:
 deploy/systemd/tecpey-news-materialization.service.in
 deploy/systemd/tecpey-news-materialization.timer
 scripts/install-news-materialization-scheduler.sh
+scripts/check-systemd-timer-scheduled.sh
 scripts/check-news-materialization-env.ts
 deploy/systemd/tecpey-organic-growth-trend.service.in
 deploy/systemd/tecpey-organic-growth-trend.timer

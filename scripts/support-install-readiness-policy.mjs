@@ -118,6 +118,7 @@ export function supportInstallReadinessFindings({
     "scripts/rehearse-support-deployment-install.mjs",
     "scripts/check-support-install-readiness-authority.mjs",
     "scripts/support-install-readiness-policy.mjs",
+    "scripts/check-systemd-timer-scheduled.sh",
     "support:install:rehearse",
   ]) {
     requireText(

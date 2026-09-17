@@ -28,7 +28,7 @@ test("news pages read the database archive and never activate RSS ingestion on m
   assert.match(home, /fetch\(`\/api\/crypto-news/);
   assert.match(api, /getNewsArchiveDayForPresentation/);
   assert.doesNotMatch(api, /readSource|outboundfeeds|cointelegraph\.com\/rss|decrypt\.co\/feed/);
-  assert.match(timer, /OnBootSec=2min/);
+  assert.match(timer, /OnActiveSec=2min/);
   assert.match(timer, /OnUnitActiveSec=10min/);
   assert.match(timer, /Persistent=true/);
   assert.doesNotMatch(timer, /OnCalendar=/);
