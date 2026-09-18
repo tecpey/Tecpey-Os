@@ -16,6 +16,7 @@ import {
 import path from "node:path";
 import { withTx } from "@/lib/db";
 import {
+  hashOperationalSignalEvidence,
   persistOperationalSignalDeliveryAttemptTx,
   persistOperationalSignalTx,
   validateOperationalSignalDeliveryAttempt,
@@ -395,6 +396,32 @@ async function findExistingSignalFile(
   return null;
 }
 
+function assertSignalReplayCompatible(
+  existing: OperationalSignalEvidence,
+  incoming: OperationalSignalEvidence,
+): void {
+  if (
+    existing.signalId !== incoming.signalId ||
+    existing.incidentKey !== incoming.incidentKey ||
+    existing.lifecycle !== incoming.lifecycle ||
+    existing.dedupeWindowStart !== incoming.dedupeWindowStart ||
+    existing.dedupeWindowSeconds !== incoming.dedupeWindowSeconds
+  ) {
+    throw new Error("operational_signal_spool_identity_conflict");
+  }
+  if (incoming.schemaVersion === 2) {
+    if (
+      existing.schemaVersion !== 2 ||
+      existing.episodeId !== incoming.episodeId ||
+      existing.episodeSequence !== incoming.episodeSequence ||
+      hashOperationalSignalEvidence(existing) !==
+        hashOperationalSignalEvidence(incoming)
+    ) {
+      throw new Error("operational_signal_spool_payload_identity_conflict");
+    }
+  }
+}
+
 export async function enqueueOperationalSignal(
   stateDirectory: string,
   raw: OperationalSignalEvidence,
@@ -410,15 +437,7 @@ export async function enqueueOperationalSignal(
     } catch {
       throw new Error("operational_signal_spool_archive_corrupt");
     }
-    if (
-      existing.signal.signalId !== signal.signalId ||
-      existing.signal.incidentKey !== signal.incidentKey ||
-      existing.signal.lifecycle !== signal.lifecycle ||
-      existing.signal.dedupeWindowStart !== signal.dedupeWindowStart ||
-      existing.signal.dedupeWindowSeconds !== signal.dedupeWindowSeconds
-    ) {
-      throw new Error("operational_signal_spool_identity_conflict");
-    }
+    assertSignalReplayCompatible(existing.signal, signal);
     return { replayed: true, filePath: existingPath };
   }
 
@@ -444,15 +463,7 @@ export async function enqueueOperationalSignal(
   } catch {
     throw new Error("operational_signal_spool_archive_corrupt");
   }
-  if (
-    raced.signal.signalId !== signal.signalId ||
-    raced.signal.incidentKey !== signal.incidentKey ||
-    raced.signal.lifecycle !== signal.lifecycle ||
-    raced.signal.dedupeWindowStart !== signal.dedupeWindowStart ||
-    raced.signal.dedupeWindowSeconds !== signal.dedupeWindowSeconds
-  ) {
-    throw new Error("operational_signal_spool_identity_conflict");
-  }
+  assertSignalReplayCompatible(raced.signal, signal);
   return { replayed: true, filePath };
 }
 
