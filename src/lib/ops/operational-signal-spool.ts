@@ -9,6 +9,7 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
 } from "node:fs/promises";
@@ -171,6 +172,10 @@ export async function ensureOperationalSignalSpoolDirectories(
 ): Promise<ManagedDirectories> {
   const managed = directories(stateDirectory);
   await assertManagedDirectory(managed.root);
+  const resolvedRoot = await realpath(managed.root);
+  if (resolvedRoot !== managed.root) {
+    throw new Error("operational_signal_state_directory_alias_forbidden");
+  }
   await assertManagedDirectory(path.dirname(managed.pending));
   await assertManagedDirectory(managed.pending);
   await assertManagedDirectory(managed.delivered);
