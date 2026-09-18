@@ -58,6 +58,8 @@ export type OperationalSignalDeliverySummary = Readonly<{
   quarantined: number;
   skippedUntilLater: number;
   deferredDueToBatchLimit: number;
+  recoveredDeliveredArchives: number;
+  recoveredQuarantinedArchives: number;
 }>;
 
 function normalizedAbsoluteDirectory(value: string): string {
@@ -568,6 +570,8 @@ export async function deliverOperationalSignals(
     quarantined: 0,
     skippedUntilLater: 0,
     deferredDueToBatchLimit: 0,
+    recoveredDeliveredArchives: 0,
+    recoveredQuarantinedArchives: 0,
   };
   const due: Array<{
     filePath: string;
@@ -601,6 +605,28 @@ export async function deliverOperationalSignals(
       summary.quarantined += 1;
       continue;
     }
+    const lastAttempt = item.attempts.at(-1);
+    if (lastAttempt?.deliveryResult === "delivered") {
+      await bestEffortPersistSignal(item.signal);
+      await bestEffortPersistAttempt(lastAttempt);
+      await moveFile(filePath, managed.delivered);
+      summary.recoveredDeliveredArchives += 1;
+      continue;
+    }
+    if (
+      lastAttempt?.deliveryResult === "terminal_failure" ||
+      (
+        lastAttempt?.deliveryResult === "retryable_failure" &&
+        item.delivery.attemptCount >= maxAttempts
+      )
+    ) {
+      await bestEffortPersistSignal(item.signal);
+      await bestEffortPersistAttempt(lastAttempt);
+      await moveFile(filePath, managed.quarantine);
+      summary.recoveredQuarantinedArchives += 1;
+      continue;
+    }
+
     const nextAttemptAtMs = Date.parse(item.delivery.nextAttemptAt);
     if (nextAttemptAtMs > now.getTime()) {
       summary.skippedUntilLater += 1;
