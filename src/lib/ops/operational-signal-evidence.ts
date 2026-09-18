@@ -405,15 +405,28 @@ export async function persistOperationalSignalTx(
   if ((inserted.rowCount ?? 0) === 1) {
     return { replayed: false, payloadHash };
   }
-  const existing = await client.query<{ payload_hash: string }>(
-    "SELECT payload_hash FROM platform_operational_signals WHERE signal_id = $1 LIMIT 1",
+  const existing = await client.query<{
+    payload_hash: string;
+    signal_type: string;
+    dedupe_bucket_at: Date;
+    fingerprint: string;
+  }>(
+    `SELECT payload_hash, signal_type, dedupe_bucket_at, fingerprint
+       FROM platform_operational_signals
+      WHERE signal_id = $1
+      LIMIT 1`,
     [signal.signalId],
   );
-  if (!existing.rows[0]) throw new Error("operational_signal_conflict_missing");
-  if (existing.rows[0].payload_hash !== payloadHash) {
+  const row = existing.rows[0];
+  if (!row) throw new Error("operational_signal_conflict_missing");
+  if (
+    row.signal_type !== signal.signalType ||
+    row.dedupe_bucket_at.toISOString() !== signal.dedupeBucketAt ||
+    row.fingerprint !== signal.fingerprint
+  ) {
     throw new Error("operational_signal_identity_conflict");
   }
-  return { replayed: true, payloadHash };
+  return { replayed: true, payloadHash: row.payload_hash };
 }
 
 export async function persistOperationalSignalDeliveryAttemptTx(
