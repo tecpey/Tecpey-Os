@@ -13,6 +13,8 @@ const healthy: MentorProfileHealthSnapshot = {
   failedRetryable: 0,
   unresolvedTerminalFailures: 0,
   unresolvedDeadLetters: 0,
+  resolvedDeadLetters: 0,
+  deadLettersTotal: 0,
   readyBacklog: 0,
   overdueLeases: 0,
   oldestReadyAgeSeconds: null,
@@ -68,6 +70,7 @@ test("alert metadata contains only aggregate operational values", () => {
   const evaluation = evaluateMentorProfileHealth(healthy);
   const metadata = mentorProfileHealthAlertMetadata(healthy, evaluation);
   assert.deepEqual(Object.keys(metadata).sort(), [
+    "deadLettersTotal",
     "failedRetryable",
     "maxLeaseOverdueSeconds",
     "oldestReadyAgeSeconds",
@@ -77,6 +80,7 @@ test("alert metadata contains only aggregate operational values", () => {
     "processing",
     "readyBacklog",
     "reasonCodes",
+    "resolvedDeadLetters",
     "status",
     "unresolvedDeadLetters",
     "unresolvedTerminalFailures",
