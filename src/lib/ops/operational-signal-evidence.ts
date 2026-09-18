@@ -295,7 +295,7 @@ export function validateOperationalSignalEvidence(
   return rebuilt;
 }
 
-function signalIdentityHash(
+export function hashOperationalSignalIdentity(
   signal: OperationalSignalEvidence,
 ): string {
   return hashOperationalEvidence({
@@ -317,7 +317,7 @@ export async function persistOperationalSignalTx(
 ): Promise<{ replayed: boolean; payloadHash: string }> {
   const signal = validateOperationalSignalEvidence(raw);
   const payloadHash = hashOperationalEvidence(signal);
-  const identityHash = signalIdentityHash(signal);
+  const identityHash = hashOperationalSignalIdentity(signal);
   const inserted = await client.query(
     `INSERT INTO platform_operational_signals
        (signal_id, dedupe_key, event_name, source_component, source_unit,
