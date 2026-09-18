@@ -489,6 +489,28 @@ export function operationalSignalRetryDelayMs(
   return Math.min(60 * 60_000, Math.max(15_000, jittered));
 }
 
+export function operationalSignalRetryAfterDelayMs(
+  value: string | null,
+  now: Date,
+): number | null {
+  if (value === null) return null;
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 128 || !Number.isFinite(now.getTime())) {
+    return null;
+  }
+
+  let delayMs: number;
+  if (/^\d{1,10}$/.test(normalized)) {
+    delayMs = Number.parseInt(normalized, 10) * 1_000;
+  } else {
+    const retryAt = Date.parse(normalized);
+    if (!Number.isFinite(retryAt)) return null;
+    delayMs = retryAt - now.getTime();
+  }
+  if (!Number.isFinite(delayMs) || delayMs < 0) return null;
+  return Math.min(60 * 60_000, Math.round(delayMs));
+}
+
 async function moveFile(
   source: string,
   destinationDirectory: string,
@@ -695,6 +717,7 @@ export async function deliverOperationalSignals(
       | "terminal_failure";
     let httpStatus: number | null = null;
     let errorCode: string | null = null;
+    let retryAfterMs: number | null = null;
     try {
       const response = await fetchImpl(webhookUrl, {
         method: "POST",
@@ -721,6 +744,10 @@ export async function deliverOperationalSignals(
       ) {
         deliveryResult = "retryable_failure";
         errorCode = `webhook_http_${response.status}`;
+        retryAfterMs = operationalSignalRetryAfterDelayMs(
+          response.headers.get("retry-after"),
+          now,
+        );
       } else {
         deliveryResult = "terminal_failure";
         errorCode = `webhook_http_${response.status}`;
@@ -753,9 +780,12 @@ export async function deliverOperationalSignals(
       deliveryResult === "retryable_failure" && !terminal
         ? new Date(
             now.getTime() +
-              operationalSignalRetryDelayMs(
-                attemptNumber,
-                item.signal.signalId,
+              Math.max(
+                operationalSignalRetryDelayMs(
+                  attemptNumber,
+                  item.signal.signalId,
+                ),
+                retryAfterMs ?? 0,
               ),
           ).toISOString()
         : attemptedAt;
