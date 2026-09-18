@@ -12,6 +12,10 @@ import {
   prepareMentorPublicResearchEgress,
 } from "../../lib/ai/mentor-trust-boundary";
 import {
+  classifyMentorProfileEvidence,
+  projectMentorProfileEvidence,
+} from "../../lib/ai/mentor-evidence-policy";
+import {
   MENTOR_ADVERSARIAL_EVAL_CASES,
   MENTOR_EVAL_RELEASE_GATES,
   mentorEvalReleaseDecision,
@@ -241,6 +245,74 @@ describe("AI Mentor trust boundary", () => {
     );
     assert.equal(prepared.redactionCount, 1);
     assert.equal(prepared.contextClasses.includes("public"), true);
+  });
+
+  it("does not turn sparse learner evidence into neutral profile facts", () => {
+    const prepared = egress("یک برنامه آموزشی مرحله‌ای بده");
+    const parsed = JSON.parse(prepared.input) as {
+      serverContext: {
+        profile: {
+          level: string | null;
+          levelEvidenceState: string;
+          riskProfile: string | null;
+          riskEvidenceState: string;
+          confidenceScore: number | null;
+          confidenceEvidenceState: string;
+          disciplineScore: number | null;
+          disciplineEvidenceState: string;
+          learningStyle: string | null;
+          learningStyleEvidenceState: string;
+        };
+      };
+    };
+    assert.equal(parsed.serverContext.profile.level, null);
+    assert.equal(parsed.serverContext.profile.levelEvidenceState, "provisional");
+    assert.equal(parsed.serverContext.profile.riskProfile, null);
+    assert.equal(parsed.serverContext.profile.riskEvidenceState, "unknown");
+    assert.equal(parsed.serverContext.profile.confidenceScore, null);
+    assert.equal(parsed.serverContext.profile.confidenceEvidenceState, "provisional");
+    assert.equal(parsed.serverContext.profile.disciplineScore, null);
+    assert.equal(parsed.serverContext.profile.disciplineEvidenceState, "unknown");
+    assert.equal(parsed.serverContext.profile.learningStyle, null);
+    assert.equal(parsed.serverContext.profile.learningStyleEvidenceState, "unknown");
+  });
+
+  it("exposes each profile value only after its own evidence threshold", () => {
+    const states = classifyMentorProfileEvidence({
+      termProgressCount: 2,
+      tradingSampleCount: 5,
+      challengeSampleCount: 10,
+    });
+    assert.deepEqual(states, {
+      level: "observed",
+      risk: "observed",
+      confidence: "observed",
+      discipline: "observed",
+      learningStyle: "observed",
+    });
+
+    const projection = projectMentorProfileEvidence({
+      profile: {
+        level: "intermediate",
+        riskProfile: "high",
+        primaryGoal: "safe_spot_trading",
+        weakAreas: ["risk_control"],
+        strongAreas: ["learning_consistency"],
+        confidenceScore: 73,
+        disciplineScore: 68,
+        learningStyle: "practical",
+      },
+      evidence: {
+        termProgressCount: 2,
+        tradingSampleCount: 5,
+        challengeSampleCount: 10,
+      },
+    });
+    assert.equal(projection.level, "intermediate");
+    assert.equal(projection.riskProfile, "high");
+    assert.equal(projection.confidenceScore, 73);
+    assert.equal(projection.disciplineScore, 68);
+    assert.equal(projection.learningStyle, "practical");
   });
 
   it("does not egress behavioral context without explicit server consent", () => {
