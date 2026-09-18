@@ -97,8 +97,28 @@ for (const needle of [
   "await syncDirectory(destinationDirectory)",
   "if (summary.selected >= limit) break",
   "summary.skippedUntilLater += 1",
+  "attemptHistory",
+  "databaseMirrorComplete",
+  "mirrorSpoolItemToDatabase",
+  "reconcileArchiveDirectory",
+  "Journal the webhook outcome before any archive move",
 ]) {
   requireText("spool", spool, needle, `missing backward-compatible spool invariant: ${needle}`);
+}
+
+const journalIndex = spool.indexOf("await atomicWriteJson(filePath, journaled)");
+const deliveredMoveIndex = spool.indexOf("await moveFile(filePath, managed.delivered)");
+const quarantineMoveIndex = spool.indexOf("await moveFile(filePath, managed.quarantine)", journalIndex);
+if (
+  journalIndex < 0 ||
+  deliveredMoveIndex < 0 ||
+  quarantineMoveIndex < 0 ||
+  journalIndex > deliveredMoveIndex ||
+  journalIndex > quarantineMoveIndex
+) {
+  failures.push(
+    "spool: delivery outcome must be crash-durably journaled before delivered/quarantine archival",
+  );
 }
 
 const health = await source("scripts/check-mentor-profile-health.ts");
@@ -243,6 +263,9 @@ for (const needle of [
   "[false, true]",
   "future-backoff files starve a due signal",
   "summary.skippedUntilLater",
+  "attemptHistory",
+  'deliveryResult: "delivered"',
+  'deliveryResult: "retryable_failure"',
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
