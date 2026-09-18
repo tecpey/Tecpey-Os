@@ -12,7 +12,7 @@ import {
 import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
-import { ensureMentorThreadTx } from "@/lib/mentor-threads";
+import { ensureLegacyMentorThreadTx } from "@/lib/mentor-threads";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
@@ -107,8 +107,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await withTx(async (client) => {
+      await client.query(
+        `SELECT pg_advisory_xact_lock(
+           hashtext('mentor_conversations_migrate'),
+           hashtext($1)
+         )`,
+        [`${studentId}:${requestHash}`],
+      );
       const thread = messages.length > 0
-        ? await ensureMentorThreadTx(client, {
+        ? await ensureLegacyMentorThreadTx(client, {
             studentId,
             locale: "fa",
             titleHint: "گفت‌وگوی پیشین",
@@ -120,8 +127,16 @@ export async function POST(req: NextRequest) {
         const inserted = await client.query(
           `INSERT INTO mentor_conversations
              (student_id, thread_id, role, content, locale, created_at)
-           VALUES ($1::uuid, $2::uuid, $3, $4, 'fa', $5)
-           ON CONFLICT DO NOTHING
+           SELECT $1::uuid, $2::uuid, $3, $4, 'fa', $5
+            WHERE NOT EXISTS (
+              SELECT 1
+                FROM mentor_conversations
+               WHERE student_id = $1::uuid
+                 AND role = $3
+                 AND content = $4
+                 AND locale = 'fa'
+                 AND created_at = $5
+            )
            RETURNING id`,
           [studentId, thread!.thread.id, role, content, ts],
         );
