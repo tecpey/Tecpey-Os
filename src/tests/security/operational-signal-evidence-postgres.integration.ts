@@ -68,6 +68,31 @@ test(
         payloadHash: inserted.payloadHash,
       });
 
+      const laterSameBucket = createOperationalSignalEvidence({
+        signalType: "mentor.profile.projection_stalled",
+        component: "mentor-profile",
+        detector: "mentor-profile-health-probe",
+        severity: "critical",
+        statusClassification: "active",
+        occurredAt: "2026-09-18T12:14:59.000Z",
+        reasonCodes: ["dead_letter_present"],
+        attributes: {
+          policyVersion: "2026-09-18.3",
+          criticalReadyAgeSeconds: 300,
+        },
+        dedupeWindowSeconds: 900,
+      });
+      assert.equal(laterSameBucket.signalId, evidence.signalId);
+      assert.notEqual(laterSameBucket.occurredAt, evidence.occurredAt);
+      const distributedReplay = await persistOperationalSignalTx(
+        client,
+        laterSameBucket,
+      );
+      assert.deepEqual(distributedReplay, {
+        replayed: true,
+        payloadHash: inserted.payloadHash,
+      });
+
       const attempt = {
         signalId: evidence.signalId,
         attemptNumber: 1,
