@@ -756,7 +756,7 @@ export async function deliverOperationalAlerts(
     };
     const retryable =
       deliveryResult === "retryable_failure" && attemptNumber < maxAttempts;
-    let journaled: OperationalSpoolItem = {
+    const journaled: OperationalSpoolItem = {
       ...item,
       delivery: {
         attemptCount: attemptNumber,
