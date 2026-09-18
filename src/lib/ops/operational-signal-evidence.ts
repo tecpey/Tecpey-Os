@@ -6,7 +6,41 @@ import { hashOperationalEvidence } from "@/lib/ops/operational-job-evidence";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
-const KEY_RE = /^[a-z][a-z0-9._:-]{1,63}$/;
+const KEY_RE = /^[a-z][A-Za-z0-9._:-]{1,63}$/;
+const FORBIDDEN_DETAIL_TOKENS = new Set([
+  "id",
+  "student",
+  "tenant",
+  "workspace",
+  "principal",
+  "user",
+  "account",
+  "wallet",
+  "order",
+  "trade",
+  "request",
+  "session",
+  "device",
+  "email",
+  "phone",
+  "name",
+  "address",
+  "passport",
+  "national",
+  "kyc",
+  "conversation",
+  "prompt",
+  "portfolio",
+  "secret",
+  "token",
+  "password",
+  "seed",
+  "private",
+  "key",
+  "ip",
+  "trace",
+]);
+
 const HASH_RE = /^[0-9a-f]{64}$/;
 
 export type OperationalSignalSeverity = "info" | "warning" | "critical";
@@ -132,6 +166,13 @@ function validateDetails(
   )) {
     if (!KEY_RE.test(key)) {
       throw new Error("operational_signal_detail_key_invalid");
+    }
+    const normalizedKey = key
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .toLowerCase();
+    const keyTokens = normalizedKey.split(/[._:-]+/).filter(Boolean);
+    if (keyTokens.some((token) => FORBIDDEN_DETAIL_TOKENS.has(token))) {
+      throw new Error("operational_signal_detail_key_forbidden");
     }
     if (value === null || typeof value === "boolean") {
       output[key] = value;
