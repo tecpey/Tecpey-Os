@@ -10,10 +10,9 @@ import {
 const healthy: MentorProfileHealthSnapshot = {
   pending: 0,
   processing: 0,
-  processed: 100,
   failedRetryable: 0,
-  failedTerminal: 0,
-  deadLetters: 0,
+  unresolvedTerminalFailures: 0,
+  unresolvedDeadLetters: 0,
   readyBacklog: 0,
   overdueLeases: 0,
   oldestReadyAgeSeconds: null,
@@ -46,8 +45,8 @@ test("retryable failures and bounded backlog age are warnings", () => {
 test("terminal evidence, stale backlog and expired leases are critical", () => {
   const result = evaluateMentorProfileHealth({
     ...healthy,
-    failedTerminal: 1,
-    deadLetters: 1,
+    unresolvedTerminalFailures: 1,
+    unresolvedDeadLetters: 1,
     readyBacklog: DEFAULT_MENTOR_PROFILE_HEALTH_POLICY.criticalBacklogDepth,
     overdueLeases: 2,
     oldestReadyAgeSeconds:
@@ -69,9 +68,7 @@ test("alert metadata contains only aggregate operational values", () => {
   const evaluation = evaluateMentorProfileHealth(healthy);
   const metadata = mentorProfileHealthAlertMetadata(healthy, evaluation);
   assert.deepEqual(Object.keys(metadata).sort(), [
-    "deadLetters",
     "failedRetryable",
-    "failedTerminal",
     "maxLeaseOverdueSeconds",
     "oldestReadyAgeSeconds",
     "overdueLeases",
@@ -81,7 +78,9 @@ test("alert metadata contains only aggregate operational values", () => {
     "readyBacklog",
     "reasonCodes",
     "status",
-  ]);
+    "unresolvedDeadLetters",
+    "unresolvedTerminalFailures",
+  ].sort());
   assert.doesNotMatch(JSON.stringify(metadata), /student|tenant|workspace|message|prompt/i);
 });
 
