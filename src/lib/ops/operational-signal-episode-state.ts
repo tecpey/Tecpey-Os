@@ -246,7 +246,8 @@ function validatePending(value: unknown): PendingTransition | null {
       nextActive.episodeId !== signal.episodeId ||
       nextActive.episodeSequence !== signal.episodeSequence ||
       nextActive.incidentKey !== signal.incidentKey ||
-      nextActive.severity !== signal.severity
+      nextActive.severity !== signal.severity ||
+      nextActive.reasonCodes.join("\n") !== signal.reasonCodes.join("\n")
     ) {
       throw new Error("operational_signal_episode_pending_invalid");
     }
