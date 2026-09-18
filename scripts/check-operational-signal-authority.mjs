@@ -86,8 +86,12 @@ for (const needle of [
 ]) {
   requireText("health", health, needle, `health-to-signal wiring missing: ${needle}`);
 }
-if (/evaluation\.status === "warning"[\s\S]{0,500}enqueueCriticalSignal/.test(health)) {
-  failures.push("health: warning state must not enter the durable critical signal rail");
+if (
+  /if\s*\(evaluation\.status === "warning"\)\s*\{[\s\S]*?enqueueCriticalSignal/.test(
+    health,
+  )
+) {
+  failures.push("health: explicit warning branch must not enter the durable critical signal rail");
 }
 
 const delivery = await source("scripts/deliver-operational-alerts.ts");
