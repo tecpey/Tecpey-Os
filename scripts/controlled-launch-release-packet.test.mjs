@@ -926,7 +926,7 @@ test("Full Suite Diagnostics workflow produces exact-head main evidence for NOG-
   assert.match(workflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(workflow, /EXPECTED_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(workflow, /run: test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
-  assert.match(workflow, /actions\/checkout@[0-9a-f]{40} # v4/);
-  assert.match(workflow, /actions\/setup-node@[0-9a-f]{40} # v4/);
-  assert.match(workflow, /actions\/upload-artifact@[0-9a-f]{40} # v4/);
+  assert.match(workflow, /actions\/checkout@[0-9a-f]{40} # v5\.0\.1/);
+  assert.match(workflow, /actions\/setup-node@[0-9a-f]{40} # v5\.0\.0/);
+  assert.match(workflow, /actions\/upload-artifact@[0-9a-f]{40} # v6\.0\.0/);
 });
