@@ -8,7 +8,9 @@ export type AlertType =
   | "EMAIL_SEND_FAILED"
   | "API_ERROR_SPIKE"
   | "PRICE_FEED_DOWN"
-  | "MIGRATION_FAILED";
+  | "MIGRATION_FAILED"
+  | "MENTOR_PROFILE_BACKLOG"
+  | "MENTOR_PROFILE_PROJECTION_STALLED";
 
 export type AlertSeverity = "critical" | "warning" | "info";
 
@@ -20,6 +22,8 @@ const SEVERITY: Record<AlertType, AlertSeverity> = {
   API_ERROR_SPIKE:       "critical",
   PRICE_FEED_DOWN:       "warning",
   MIGRATION_FAILED:      "critical",
+  MENTOR_PROFILE_BACKLOG: "warning",
+  MENTOR_PROFILE_PROJECTION_STALLED: "critical",
 };
 
 export type AlertWebhookStatus = "configured" | "unconfigured" | "misconfigured";
