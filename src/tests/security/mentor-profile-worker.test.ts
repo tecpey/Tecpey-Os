@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createMentorProfileEventId,
+  mentorProfileRetryDelaySeconds,
 } from "@/lib/mentor-profile-update-outbox";
 import {
   isTerminalMentorProfileWorkerError,
@@ -45,5 +46,23 @@ test("Mentor profile worker emits bounded secret-free error codes", () => {
   assert.equal(
     isTerminalMentorProfileWorkerError("mentor_profile_database_unavailable"),
     false,
+  );
+});
+
+
+test("Mentor profile retry jitter is deterministic, bounded and event-spread", () => {
+  const firstId = "11111111-1111-4111-8111-111111111111";
+  const secondId = "22222222-2222-4222-8222-222222222222";
+
+  const first = mentorProfileRetryDelaySeconds(3, firstId);
+  assert.equal(first, mentorProfileRetryDelaySeconds(3, firstId));
+  assert.equal(first >= 48 && first <= 72, true);
+  assert.notEqual(first, mentorProfileRetryDelaySeconds(3, secondId));
+
+  assert.equal(mentorProfileRetryDelaySeconds(1, firstId) >= 15, true);
+  assert.equal(mentorProfileRetryDelaySeconds(10, firstId) <= 3_600, true);
+  assert.throws(
+    () => mentorProfileRetryDelaySeconds(0, firstId),
+    /mentor_profile_retry_attempt_invalid/,
   );
 });
