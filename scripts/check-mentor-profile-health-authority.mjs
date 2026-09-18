@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 const failures = [];
@@ -178,6 +179,13 @@ for (const needle of [
 }
 
 const installer = await source("scripts/install-mentor-profile-worker.sh");
+try {
+  execFileSync("bash", ["-n", "scripts/install-mentor-profile-worker.sh"], {
+    stdio: "pipe",
+  });
+} catch {
+  failures.push("installer: bash syntax validation failed");
+}
 for (const needle of [
   "mentor_profile_health_bundle_missing",
   "tecpey-mentor-profile-health.service",
