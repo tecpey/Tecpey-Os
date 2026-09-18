@@ -56,20 +56,26 @@ afterEach(async () => {
 });
 
 describe("Operational signal spool", () => {
-  it("atomically deduplicates one incident per window and preserves first observation", async () => {
+  it("accepts exact replay and rejects same-id payload drift", async () => {
     const root = await tempRoot();
     const firstSignal = signal("2026-09-18T12:05:00.000Z");
-    const laterObservation = signal("2026-09-18T12:55:00.000Z", {
+    const driftedObservation = signal("2026-09-18T12:55:00.000Z", {
       unresolved_dead_letters: 4,
       ready_backlog: 900,
     });
+    assert.equal(firstSignal.signalId, driftedObservation.signalId);
 
     const first = await enqueueOperationalSignal(root, firstSignal);
-    const replay = await enqueueOperationalSignal(root, laterObservation);
+    const replay = await enqueueOperationalSignal(root, firstSignal);
     assert.equal(first.replayed, false);
     assert.equal(replay.replayed, true);
     assert.equal(first.filePath, replay.filePath);
     assert.equal((await stat(first.filePath)).mode & 0o777, 0o600);
+
+    await assert.rejects(
+      enqueueOperationalSignal(root, driftedObservation),
+      /operational_signal_spool_payload_conflict/,
+    );
 
     const stored = JSON.parse(await readFile(first.filePath, "utf8")) as {
       signal: {
@@ -82,21 +88,16 @@ describe("Operational signal spool", () => {
     assert.equal(JSON.stringify(stored).includes("student"), false);
   });
 
-  it("publishes exactly one first observation under concurrent enqueue", async () => {
+  it("publishes exactly one immutable payload under concurrent exact replay", async () => {
     const root = await tempRoot();
-    const left = signal("2026-09-18T12:05:00.000Z", {
+    const shared = signal("2026-09-18T12:05:00.000Z", {
       unresolved_dead_letters: 1,
       ready_backlog: 500,
     });
-    const right = signal("2026-09-18T12:45:00.000Z", {
-      unresolved_dead_letters: 9,
-      ready_backlog: 999,
-    });
-    assert.equal(left.signalId, right.signalId);
 
     const results = await Promise.all([
-      enqueueOperationalSignal(root, left),
-      enqueueOperationalSignal(root, right),
+      enqueueOperationalSignal(root, shared),
+      enqueueOperationalSignal(root, shared),
     ]);
     assert.equal(results.filter((result) => result.replayed === false).length, 1);
     assert.equal(results.filter((result) => result.replayed === true).length, 1);
@@ -110,11 +111,10 @@ describe("Operational signal spool", () => {
         measurements: { unresolved_dead_letters: number };
       };
     };
-    const winner = results[0].replayed === false ? left : right;
-    assert.equal(stored.signal.occurredAt, winner.occurredAt);
+    assert.equal(stored.signal.occurredAt, shared.occurredAt);
     assert.equal(
       stored.signal.measurements.unresolved_dead_letters,
-      winner.measurements.unresolved_dead_letters,
+      shared.measurements.unresolved_dead_letters,
     );
   });
 
@@ -181,7 +181,7 @@ describe("Operational signal spool", () => {
 
     const replay = await enqueueOperationalSignal(
       root,
-      signal("2026-09-18T12:30:00.000Z"),
+      queued,
     );
     assert.equal(replay.replayed, true);
     assert.equal(path.dirname(replay.filePath), dirs.delivered);
