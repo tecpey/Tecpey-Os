@@ -172,19 +172,25 @@ test(
         sourceReference: randomUUID(),
       });
 
+      await client.query(
+        "UPDATE mentor_profile_update_outbox SET available_at = TIMESTAMPTZ '2000-01-01T00:00:00Z' WHERE id = $1",
+        [queued.outboxId],
+      );
       const first = await claimMentorProfileUpdates(client, {
         workerId: "mentor-worker-a",
-        limit: 10,
-        leaseSeconds: 120,
-      });
-      const second = await claimMentorProfileUpdates(client, {
-        workerId: "mentor-worker-b",
-        limit: 10,
+        limit: 1,
         leaseSeconds: 120,
       });
       assert.equal(first.length, 1);
       assert.equal(first[0]?.outboxId, queued.outboxId);
-      assert.equal(second.length, 0);
+      assert.equal(
+        await count(
+          client,
+          "SELECT COUNT(*)::text AS count FROM mentor_profile_update_attempts WHERE outbox_id = $1 AND attempt_number = 1 AND status = 'claimed'",
+          [queued.outboxId],
+        ),
+        1,
+      );
 
       const processed = await processMentorProfileUpdateClaimTx(
         client,
@@ -262,7 +268,7 @@ test(
         sourceReference: randomUUID(),
       });
       await client.query(
-        "UPDATE mentor_profile_update_outbox SET max_attempts = 1 WHERE id = $1",
+        "UPDATE mentor_profile_update_outbox SET max_attempts = 1, available_at = TIMESTAMPTZ '2000-01-01T00:00:00Z' WHERE id = $1",
         [queued.outboxId],
       );
 
@@ -337,11 +343,16 @@ test(
         reason: "mentor_challenge_answered",
         sourceReference: randomUUID(),
       });
+      await client.query(
+        "UPDATE mentor_profile_update_outbox SET available_at = TIMESTAMPTZ '2000-01-01T00:00:00Z' WHERE id = $1",
+        [queued.outboxId],
+      );
       const first = await claimMentorProfileUpdates(client, {
         workerId: "mentor-lease-a",
         limit: 1,
         leaseSeconds: 60,
       });
+      assert.equal(first[0]?.outboxId, queued.outboxId);
       await client.query(
         `UPDATE mentor_profile_update_outbox
             SET lease_expires_at = NOW() - INTERVAL '1 second'
