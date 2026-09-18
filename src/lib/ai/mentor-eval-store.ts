@@ -145,6 +145,42 @@ function metricPassed(
   return true;
 }
 
+export function mentorEvalPromotionSummary(
+  inputMetrics: readonly MentorEvalRecordedMetric[],
+): Readonly<{
+  releaseDecision: "pass" | "block";
+  hardGateFailureCount: number;
+  metrics: readonly (ReturnType<typeof canonicalMetric> & Readonly<{
+    hardGate: boolean;
+    minimumPassRate: number | null;
+    passed: boolean;
+    resultHash: string;
+  }>)[];
+}> {
+  const metrics = validateMetricSet(inputMetrics);
+  const decision = mentorEvalReleaseDecision(releaseMetrics(metrics));
+  const releaseDecision = decision.pass ? "pass" : "block";
+  const hardGateFailureCount = metrics.filter((metric) => {
+    const gate = gateFor(metric.metric);
+    return gate.hardGate && !metricPassed(metric);
+  }).length;
+  const canonicalMetrics = metrics.map((metric) => {
+    const gate = gateFor(metric.metric);
+    const result = {
+      ...metric,
+      hardGate: gate.hardGate,
+      minimumPassRate: gate.minimumPassRate ?? null,
+      passed: metricPassed(metric),
+    };
+    return { ...result, resultHash: sha256(result) };
+  });
+  return {
+    releaseDecision,
+    hardGateFailureCount,
+    metrics: canonicalMetrics,
+  };
+}
+
 export async function recordMentorEvalPromotionEvidence(
   input: MentorEvalPromotionEvidenceInput,
 ): Promise<{ enabled: false; value: null } | {
@@ -158,20 +194,19 @@ export async function recordMentorEvalPromotionEvidence(
     throw new Error("mentor_eval_content_hash_invalid");
   }
 
-  const metrics = validateMetricSet(input.metrics);
-  const requiresBaseline = metrics.some((metric) => {
+  const summary = mentorEvalPromotionSummary(input.metrics);
+  const requiresBaseline = summary.metrics.some((metric) => {
     const gate = gateFor(metric.metric);
     return gate.requiresMeasuredBaseline && metric.baselineMeasured === true;
   });
   if (requiresBaseline && !input.baselineRunId) {
     throw new Error("mentor_eval_baseline_run_required");
   }
-  const decision = mentorEvalReleaseDecision(releaseMetrics(metrics));
-  const releaseDecision = decision.pass ? "pass" : "block";
-  const hardGateFailureCount = metrics.filter((metric) => {
-    const gate = gateFor(metric.metric);
-    return gate.hardGate && !metricPassed(metric);
-  }).length;
+  const {
+    releaseDecision,
+    hardGateFailureCount,
+    metrics: canonicalMetrics,
+  } = summary;
 
   const requestedModel = assertBoundedText(input.requestedModel, "requested_model", 160);
   const actualModel = assertBoundedText(input.actualModel, "actual_model", 160);
@@ -187,17 +222,6 @@ export async function recordMentorEvalPromotionEvidence(
     120,
   );
   const runId = randomUUID();
-
-  const canonicalMetrics = metrics.map((metric) => {
-    const gate = gateFor(metric.metric);
-    const result = {
-      ...metric,
-      hardGate: gate.hardGate,
-      minimumPassRate: gate.minimumPassRate ?? null,
-      passed: metricPassed(metric),
-    };
-    return { ...result, resultHash: sha256(result) };
-  });
 
   const evidencePayload = {
     runId,
