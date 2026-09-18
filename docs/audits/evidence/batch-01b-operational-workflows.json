@@ -30,8 +30,8 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "d85efcb44a2df5087c0c5e7b29cfcfb64983ebd7",
-      "sha256": "4a60671815edda66d95e6a88c022fd6c69e90e3225a0c117df7eab957093e7d8",
+      "gitObjectId": "204c49eb262e69bb703586298ef3e870f4db44ad",
+      "sha256": "6ec774708bd9166e5807f4ce29e654c8b650bfadb6b35b1faa2e319df297c7be",
       "lines": 302,
       "reviewedRanges": [
         {
@@ -44,7 +44,8 @@
         "Triggers, read-only default permissions, exact-head checkout, governed policy tests, Compose input validation, immutable build identity, rootless runtime inspection, SBOM generation, vulnerability gating, recovery jobs, publication permissions, digest signing and evidence retention were reviewed as one release sequence.",
         "Publication now requires both the verification and recovery jobs, and the Trivy gate rejects HIGH or CRITICAL findings even when no upstream fix is currently available.",
         "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
-        "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged."
+        "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
       ],
       "findings": [
         {
@@ -79,8 +80,8 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "b74fd64ccba2917ef64f204473c8df82c188cba9",
-      "sha256": "b6d2f9d3f90cce64cae4dd45dfd35a173c294cba962d1d1e61a49b57210e9d18",
+      "gitObjectId": "91507335e7ee61bff248b43220a096c2c66dffce",
+      "sha256": "ba14dd923124c0f9d77f636c609f9fca4cf4b2f3865a9187fce8d4f4a8b50aed",
       "lines": 101,
       "reviewedRanges": [
         {
@@ -96,14 +97,15 @@
         "2026-08-12: re-reviewed after adding scripts/verify-protected-recovery-reconciliation-evidence.mjs and scripts/protected-recovery-reconciliation-evidence.test.mjs to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, exact migration-image identity, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
         "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries.",
         "2026-08-23: re-reviewed after adding the protected staging recovery collector, collector policy/test and governed workflow to pull-request trigger coverage. Trigger-only change; exact-head checkout, pinned actions, read-only permissions, synthetic restore, RPO/RTO checks and artifact boundary remain unchanged. The file now has 99 lines.",
-        "2026-09-06: re-reviewed after adding both fixed tenant-scoped registry fragments to pull-request trigger coverage. This is a trigger-only change ensuring registry-authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, pinned actions, recovery authority command, isolated PostgreSQL/Redis restore, RPO/RTO enforcement, evidence upload and production activation boundaries are unchanged. The file now has 101 lines."
+        "2026-09-06: re-reviewed after adding both fixed tenant-scoped registry fragments to pull-request trigger coverage. This is a trigger-only change ensuring registry-authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, pinned actions, recovery authority command, isolated PostgreSQL/Redis restore, RPO/RTO enforcement, evidence upload and production activation boundaries are unchanged. The file now has 101 lines.",
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
       ],
       "findings": []
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "873c32e2a2ee5eb9f583b56e17d4142c1f65e6c7",
-      "sha256": "e45bd6ae97b5999884ab2c7c865ee8756bdb55ee0daea57368a55dd6b9e35532",
+      "gitObjectId": "6f5a625348891a2f071062b44a49daa6f71b9f38",
+      "sha256": "9f2a156ba2e0c2f901f8c9824295cfd4c3bcd494ed339b5710afc0f60c0a7ce7",
       "lines": 184,
       "reviewedRanges": [
         {
@@ -119,7 +121,8 @@
         "2026-08-21: re-reviewed after adding explicit low-entropy synthetic EMAIL_PROVIDER=resend and RESEND_API_KEY fixtures to the production environment contract. The values are non-secret test fixtures used only to exercise the fail-closed email readiness validator; unconditional triggers, read-only permissions, exact-head checkout, pinned actions, browser execution and bounded evidence upload remain unchanged.",
         "2026-08-25: re-reviewed after adding synthetic GitHub Actions-only values for the administrator session, TOTP, bootstrap, phone identity, phone OTP encryption, communication-provider encryption and Limoo SMS environment contract. Job-scoped expressions and deterministic non-secret base64 fixtures satisfy production validation without granting provider or deployment authority; exact-head binding, build, database, browser scenarios and artifact handling are unchanged.",
         "2026-08-26: re-reviewed after adding the non-secret numeric LIMOO_SMS_PATTERN_ID fixture required by the Pattern OTP environment contract. The value is job-scoped test configuration only; pull-request and main triggers, read-only permissions, exact-head checkout, production build, browser scenarios, failure evidence and deployment boundaries are unchanged.",
-        "2026-08-30: re-reviewed after adding deterministic non-production tenant-role and HMAC fixtures and provisioning the disposable least-privilege AI tenant login immediately after canonical migrations. The browser build and scenarios now exercise the same signed tenant database configuration contract without receiving a worker or migration credential. The values are bounded GitHub Actions fixtures, role provisioning is CI-only and collision-checked, and unconditional triggers, read-only permissions, exact-head checkout, pinned actions, unchanged-checkout verification, failure evidence and deployment boundaries remain unchanged."
+        "2026-08-30: re-reviewed after adding deterministic non-production tenant-role and HMAC fixtures and provisioning the disposable least-privilege AI tenant login immediately after canonical migrations. The browser build and scenarios now exercise the same signed tenant database configuration contract without receiving a worker or migration credential. The values are bounded GitHub Actions fixtures, role provisioning is CI-only and collision-checked, and unconditional triggers, read-only permissions, exact-head checkout, pinned actions, unchanged-checkout verification, failure evidence and deployment boundaries remain unchanged.",
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
       ],
       "findings": [
         {
@@ -140,8 +143,8 @@
     },
     {
       "path": ".github/workflows/secret-scanning.yml",
-      "gitObjectId": "2f59b2ee6c97e0bad0061ab0a25581a1ef59d517",
-      "sha256": "4492537ff9de6c2fc8862f1f5005a47f49554085039837271b659f358ec2b358",
+      "gitObjectId": "e67aa817b31c82f8636c69bcdfadf0958372e01e",
+      "sha256": "7c493bb3e53cbdb86a50f4afb1a571c525037d9ed6bd80426405aeea1c9336f6",
       "lines": 62,
       "reviewedRanges": [
         {
@@ -152,7 +155,8 @@
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Main, pull-request, daily and manual triggers; read-only permissions; exact-head full-history checkout; disabled credential persistence; pinned actions; permanent secret authority and tests; exact evidence SHA propagation; and always-uploaded redacted evidence were reviewed.",
-        "No confirmed defect was found in this file; baseline identity correctness and scanner implementation remain governed by their own pending semantic-review paths."
+        "No confirmed defect was found in this file; baseline identity correctness and scanner implementation remain governed by their own pending semantic-review paths.",
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
       ],
       "findings": []
     },
