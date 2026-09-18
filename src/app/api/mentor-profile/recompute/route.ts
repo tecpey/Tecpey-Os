@@ -7,8 +7,9 @@ import {
   computeMentorProfileForStudent,
   upsertMentorProfileUpdateTx,
 } from "@/lib/mentor-profile-recompute-authority";
-import { PLATFORM } from "@/lib/platform-config";
 import { rateLimit } from "@/lib/rate-limit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import {
   hashSensitiveAuditRequest,
   resolveSensitiveAuditCorrelation,
@@ -22,23 +23,41 @@ export async function POST(req: NextRequest) {
 
   const session = await getCanonicalSession(req, { strictRevocation: true });
   if (!session.studentId) return apiError("academy_profile_required", 401);
-  const studentId = session.studentId;
+
+  const correlationId = resolveSensitiveAuditCorrelation(
+    req.headers.get("x-tecpey-request-id"),
+  );
+  const tenantContext = await resolveTenantPrincipalContext({
+    session,
+    request: req,
+    requiredPrincipalType: "student",
+    scopes: ["academy:learning-events:write"],
+    requestId: correlationId,
+  });
+  if (!tenantContext.available) {
+    return apiError(
+      tenantContext.reason === "binding_storage_unavailable"
+        ? "mentor_profile_recompute_unavailable"
+        : "forbidden",
+      tenantContext.reason === "binding_storage_unavailable" ? 503 : 403,
+    );
+  }
+  const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+  if (productGate) return productGate;
+  const studentId = tenantContext.principalId;
 
   const limit = await rateLimit(req, {
     namespace: "mentor-profile-recompute",
-    identity: studentId,
+    identity: `${tenantContext.tenantId}:${studentId}`,
     limit: 6,
     windowMs: 60_000,
   });
   if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-  const correlationId = resolveSensitiveAuditCorrelation(
-    req.headers.get("x-tecpey-request-id"),
-  );
-
   try {
     const updated = await computeMentorProfileForStudent(studentId);
     const requestHash = hashSensitiveAuditRequest({
+      tenantId: tenantContext.tenantId,
       studentId,
       level: updated.level,
       riskProfile: updated.riskProfile,
@@ -53,7 +72,7 @@ export async function POST(req: NextRequest) {
     const stored = await withTx(async (client) => {
       await upsertMentorProfileUpdateTx(client, studentId, updated);
       await writeSensitiveMutationAuditTx(client, {
-        tenantId: PLATFORM.DEFAULT_TENANT_ID,
+        tenantId: tenantContext.tenantId,
         actorType: "student",
         actorId: studentId,
         action: "mentor_profile.recompute",

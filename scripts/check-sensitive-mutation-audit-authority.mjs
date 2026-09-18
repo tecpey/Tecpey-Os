@@ -101,6 +101,13 @@ if (containsStoredKey(auditMetadataBlock("conversations"), ["content", "messages
   failures.push(`${files.conversations}: raw conversation fields are forbidden in audit metadata`);
 }
 
+requireText("profile", "resolveTenantPrincipalContext({", "profile mutation must resolve the acting tenant");
+requireText("profile", 'requiredPrincipalType: "student"', "profile mutation must require a student tenant principal");
+requireText("profile", 'scopes: ["academy:learning-events:write"]', "profile mutation must require the write scope");
+requireText("profile", 'requireTenantProduct(tenantContext.tenantId, "mentor")', "profile mutation must gate the acting tenant's Mentor product");
+requireText("profile", "const studentId = tenantContext.principalId", "profile mutation must act on the tenant-bound student principal");
+requireText("profile", "tenantId: tenantContext.tenantId", "profile audit must use the resolved acting tenant");
+rejectText("profile", "PLATFORM.DEFAULT_TENANT_ID", "profile mutation cannot stamp the platform default tenant");
 requireText("profile", "upsertMentorProfileUpdateTx(client, studentId, updated)", "profile write must use the injected transaction client");
 for (const field of ["confidenceScore", "disciplineScore", "weakAreaCount", "strongAreaCount"]) {
   requireText("profile", field, `profile audit needs safe derived metadata: ${field}`);

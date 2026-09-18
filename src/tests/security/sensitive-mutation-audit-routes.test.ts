@@ -109,7 +109,13 @@ describe("Sensitive mutation route audit boundaries", () => {
     const metadata = auditMetadataBlock(route);
 
     assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
-    assert.match(route, /const studentId = session\.studentId/);
+    assert.match(route, /resolveTenantPrincipalContext\(\{/);
+    assert.match(route, /requiredPrincipalType: "student"/);
+    assert.match(route, /scopes: \["academy:learning-events:write"\]/);
+    assert.match(route, /requireTenantProduct\(tenantContext\.tenantId, "mentor"\)/);
+    assert.match(route, /const studentId = tenantContext\.principalId/);
+    assert.match(route, /tenantId: tenantContext\.tenantId/);
+    assert.doesNotMatch(route, /PLATFORM\.DEFAULT_TENANT_ID/);
     assert.doesNotMatch(route, /body\.studentId|body\.userId|body\.actorId/);
     assert.match(route, /withTx\(async \(client\)/);
     assert.match(route, /upsertMentorProfileUpdateTx\(client, studentId, updated\)/);
