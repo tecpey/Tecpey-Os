@@ -78,6 +78,14 @@ export async function GET(req: NextRequest) {
            WHERE student_id = $1::uuid`,
         [studentId],
       );
+      const tradeEvidenceRow = await client.query(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM academy_trading_arena_trades
+            WHERE student_id = $1::uuid
+         ) AS has_trade_evidence`,
+        [studentId],
+      );
 
       const insights = insightRows.rows.map((r) => ({
         id: r.id,
@@ -86,10 +94,17 @@ export async function GET(req: NextRequest) {
         generatedAt: new Date(r.generated_at).toISOString(),
       }));
 
+      const hasTradeEvidence =
+        tradeEvidenceRow.rows[0]?.has_trade_evidence === true;
       const profile = profileRow.rows[0]
         ? {
             level: profileRow.rows[0].level,
-            riskProfile: profileRow.rows[0].risk_profile,
+            riskProfile: hasTradeEvidence
+              ? profileRow.rows[0].risk_profile
+              : null,
+            riskEvidence: hasTradeEvidence
+              ? "observed_simulation"
+              : "unknown",
             primaryGoal: profileRow.rows[0].primary_goal,
             weakAreas: profileRow.rows[0].weak_areas ?? [],
             strongAreas: profileRow.rows[0].strong_areas ?? [],

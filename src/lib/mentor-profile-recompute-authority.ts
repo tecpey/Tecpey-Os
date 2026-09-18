@@ -4,6 +4,7 @@ import {
   collectConversationSignals,
   collectTradingSignals,
   computeMentorProfileUpdate,
+  mentorSignalAuthorityAvailable,
   type MentorProfileUpdate,
 } from "./mentor-signals";
 
@@ -15,6 +16,9 @@ export async function computeMentorProfileForStudent(
     collectTradingSignals(studentId),
     collectConversationSignals(studentId),
   ]);
+  if (!mentorSignalAuthorityAvailable(academy, trading, conversation)) {
+    throw new Error("mentor_profile_signal_authority_unavailable");
+  }
   return computeMentorProfileUpdate(academy, trading, conversation);
 }
 

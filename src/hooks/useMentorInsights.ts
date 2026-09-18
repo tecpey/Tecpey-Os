@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type MentorInsightsProfile = {
   level: "beginner" | "intermediate" | "advanced";
-  riskProfile: "low" | "medium" | "high";
+  riskProfile: "low" | "medium" | "high" | null;
+  riskEvidence: "observed_simulation" | "unknown";
   primaryGoal: string;
   weakAreas: string[];
   strongAreas: string[];

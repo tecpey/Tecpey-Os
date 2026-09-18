@@ -7,6 +7,7 @@ import { cleanText } from "@/lib/student-cartax";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type AcademySignals = {
+  authorityAvailable: boolean;
   completedTerms: number;
   avgPassedPercent: number;     // average quiz score across passed terms
   failedTermNumbers: number[];  // term numbers attempted but not yet passed
@@ -16,6 +17,7 @@ export type AcademySignals = {
 };
 
 export type TradingSignals = {
+  authorityAvailable: boolean;
   tradeCount: number;
   avgRisk: number;              // average risk_percent
   avgDiscipline: number;        // average discipline_score (0-100)
@@ -26,6 +28,7 @@ export type TradingSignals = {
 };
 
 export type ConversationSignals = {
+  authorityAvailable: boolean;
   primaryGoal: string;
   psychologyFlags: string[];    // "fomo" | "fear" | "greed" | "revenge"
   careerIntent: boolean;
@@ -50,6 +53,7 @@ export type MentorProfileUpdate = {
 /** Read and summarize academy quiz + challenge attempt data. */
 export async function collectAcademySignals(studentId: string): Promise<AcademySignals> {
   const empty: AcademySignals = {
+    authorityAvailable: false,
     completedTerms: 0,
     avgPassedPercent: 0,
     failedTermNumbers: [],
@@ -102,15 +106,24 @@ export async function collectAcademySignals(studentId: string): Promise<AcademyS
     const totalCorrect = challengeRes.rows.filter((r) => r.is_correct).length;
     const challengeAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
-    return { completedTerms, avgPassedPercent, failedTermNumbers, weakTopics, challengeAccuracy, totalChallengeAttempts: totalAttempts };
+    return {
+      authorityAvailable: true,
+      completedTerms,
+      avgPassedPercent,
+      failedTermNumbers,
+      weakTopics,
+      challengeAccuracy,
+      totalChallengeAttempts: totalAttempts,
+    };
   });
 
-  return result.enabled ? (result.value ?? empty) : empty;
+  return result.enabled ? (result.value ?? { ...empty, authorityAvailable: true }) : empty;
 }
 
 /** Read and summarize trading arena activity. */
 export async function collectTradingSignals(studentId: string): Promise<TradingSignals> {
   const empty: TradingSignals = {
+    authorityAvailable: false,
     tradeCount: 0,
     avgRisk: 0,
     avgDiscipline: 0,
@@ -129,7 +142,7 @@ export async function collectTradingSignals(studentId: string): Promise<TradingS
     );
 
     const trades = res.rows;
-    if (!trades.length) return empty;
+    if (!trades.length) return { ...empty, authorityAvailable: true };
 
     const count = trades.length;
     const avgRisk = Number((trades.reduce((s, r) => s + Number(r.risk_percent || 0), 0) / count).toFixed(2));
@@ -157,15 +170,25 @@ export async function collectTradingSignals(studentId: string): Promise<TradingS
     if (emotionFlags.includes("revenge") || emotionFlags.includes("greed")) repeatedMistakes.push("emotional_entry");
     if (riskFlagRate > 0.4) repeatedMistakes.push("discipline_breach");
 
-    return { tradeCount: count, avgRisk, avgDiscipline, riskFlagRate, emotionFlags, journalQuality, repeatedMistakes };
+    return {
+      authorityAvailable: true,
+      tradeCount: count,
+      avgRisk,
+      avgDiscipline,
+      riskFlagRate,
+      emotionFlags,
+      journalQuality,
+      repeatedMistakes,
+    };
   });
 
-  return result.enabled ? (result.value ?? empty) : empty;
+  return result.enabled ? (result.value ?? { ...empty, authorityAvailable: true }) : empty;
 }
 
 /** Scan stored mentor conversations for goal, psychology, and style signals. */
 export async function collectConversationSignals(studentId: string): Promise<ConversationSignals> {
   const empty: ConversationSignals = {
+    authorityAvailable: false,
     primaryGoal: "",
     psychologyFlags: [],
     careerIntent: false,
@@ -183,7 +206,7 @@ export async function collectConversationSignals(studentId: string): Promise<Con
     );
 
     const messages = res.rows;
-    if (!messages.length) return empty;
+    if (!messages.length) return { ...empty, authorityAvailable: true };
 
     const fullText = messages.map((r) => String(r.content || "").toLowerCase()).join(" ");
     const messageCount = messages.length;
@@ -221,13 +244,33 @@ export async function collectConversationSignals(studentId: string): Promise<Con
       .filter(([, re]) => re.test(fullText))
       .map(([theme]) => theme);
 
-    return { primaryGoal, psychologyFlags, careerIntent, repeatedThemes, messageCount, avgUserMessageLength };
+    return {
+      authorityAvailable: true,
+      primaryGoal,
+      psychologyFlags,
+      careerIntent,
+      repeatedThemes,
+      messageCount,
+      avgUserMessageLength,
+    };
   });
 
-  return result.enabled ? (result.value ?? empty) : empty;
+  return result.enabled ? (result.value ?? { ...empty, authorityAvailable: true }) : empty;
 }
 
 // ── Profile computation ───────────────────────────────────────────────────────
+
+export function mentorSignalAuthorityAvailable(
+  academy: AcademySignals,
+  trading: TradingSignals,
+  conversation: ConversationSignals,
+): boolean {
+  return (
+    academy.authorityAvailable &&
+    trading.authorityAvailable &&
+    conversation.authorityAvailable
+  );
+}
 
 /** Derive a MentorProfileUpdate from all collected signals. Pure function — no DB writes. */
 export function computeMentorProfileUpdate(
@@ -248,7 +291,9 @@ export function computeMentorProfileUpdate(
   // ── Risk profile ──────────────────────────────────────────────────────────
   let riskProfile: "low" | "medium" | "high";
   if (trading.tradeCount === 0) {
-    riskProfile = "medium"; // no data — use neutral default
+    // Storage remains backward-compatible, but consumers must treat this as
+    // provisional unless actual Arena evidence exists.
+    riskProfile = "medium";
   } else if (trading.avgRisk > 5 || trading.riskFlagRate > 0.35) {
     riskProfile = "high";
   } else if (trading.avgRisk < 2 && trading.riskFlagRate < 0.1) {
@@ -257,12 +302,38 @@ export function computeMentorProfileUpdate(
     riskProfile = "medium";
   }
 
-  // ── Confidence score: 40% academy + 40% trading discipline + 20% completion bonus ──
-  const academyComponent = Math.round(academy.avgPassedPercent * 0.4);
-  const tradingComponent =
-    trading.tradeCount > 0 ? Math.round(trading.avgDiscipline * 0.4) : 16; // neutral default
-  const completionBonus = Math.min(20, academy.completedTerms * 4);
-  const confidenceScore = clamp(academyComponent + tradingComponent + completionBonus);
+  // ── Confidence score from observed evidence only ────────────────────────────
+  // No-data is not a neutral score. If one evidence domain is absent, the
+  // available domain is normalized rather than padded with a fabricated value.
+  const academyEvidence =
+    academy.completedTerms > 0 || academy.totalChallengeAttempts > 0;
+  const academyScore =
+    academy.completedTerms > 0
+      ? academy.avgPassedPercent
+      : academy.totalChallengeAttempts > 0
+        ? academy.challengeAccuracy
+        : null;
+  const tradingScore =
+    trading.tradeCount > 0 ? clamp(trading.avgDiscipline) : null;
+
+  const weightedScores: Array<{ score: number; weight: number }> = [];
+  if (academyEvidence && academyScore !== null) {
+    weightedScores.push({ score: academyScore, weight: 0.6 });
+  }
+  if (tradingScore !== null) {
+    weightedScores.push({ score: tradingScore, weight: 0.4 });
+  }
+  const totalWeight = weightedScores.reduce((sum, item) => sum + item.weight, 0);
+  const evidenceAverage =
+    totalWeight > 0
+      ? weightedScores.reduce(
+          (sum, item) => sum + item.score * item.weight,
+          0,
+        ) / totalWeight
+      : 0;
+  const completionBonus =
+    academyEvidence ? Math.min(10, academy.completedTerms * 2) : 0;
+  const confidenceScore = clamp(evidenceAverage + completionBonus);
 
   // ── Discipline score: from trading if available, else from challenge accuracy ──
   const disciplineScore =
@@ -304,7 +375,8 @@ export function computeMentorProfileUpdate(
 
   // ── Primary goal ──────────────────────────────────────────────────────────
   const primaryGoal = cleanText(
-    conversation.primaryGoal || (conversation.careerIntent ? "professional_trading" : "safe_spot_trading"),
+    conversation.primaryGoal ||
+      (conversation.careerIntent ? "professional_trading" : ""),
     120,
   );
 
@@ -330,6 +402,10 @@ export async function applyMentorProfileUpdate(
     collectTradingSignals(studentId),
     collectConversationSignals(studentId),
   ]);
+
+  if (!mentorSignalAuthorityAvailable(academy, trading, conversation)) {
+    return null;
+  }
 
   const update = computeMentorProfileUpdate(academy, trading, conversation);
 

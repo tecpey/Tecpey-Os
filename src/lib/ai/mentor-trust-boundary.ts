@@ -435,8 +435,10 @@ function safeProfileContext(
   if (!ctx.profile) return null;
   return {
     level: ctx.profile.level,
-    riskProfile: ctx.profile.riskProfile,
-    primaryGoal: normalizeMentorText(ctx.profile.primaryGoal, 120),
+    riskProfile: ctx.tradingSignals ? ctx.profile.riskProfile : "unknown",
+    riskEvidence: ctx.tradingSignals ? "observed_simulation" : "unknown",
+    primaryGoal:
+      normalizeMentorText(ctx.profile.primaryGoal, 120) || "unknown",
     weakAreas: safeStringList(ctx.profile.weakAreas, 6, 80),
     strongAreas: safeStringList(ctx.profile.strongAreas, 6, 80),
     confidenceScore: Math.max(

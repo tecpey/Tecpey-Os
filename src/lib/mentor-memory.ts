@@ -249,14 +249,12 @@ export async function getMentorContext(
          ORDER BY term_number ASC`,
       [studentId],
     );
-    const tradeRes = await client
-      .query(
-        `SELECT risk_percent, risk_flag, discipline_score, emotion
-           FROM academy_trading_arena_trades
-           WHERE student_id = $1::uuid ORDER BY created_at DESC LIMIT 20`,
-        [studentId],
-      )
-      .catch(() => ({ rows: [] }));
+    const tradeRes = await client.query(
+      `SELECT risk_percent, risk_flag, discipline_score, emotion
+         FROM academy_trading_arena_trades
+         WHERE student_id = $1::uuid ORDER BY created_at DESC LIMIT 20`,
+      [studentId],
+    );
 
     const profile: MentorProfile | null = profileRes.rows[0]
       ? {
@@ -368,6 +366,14 @@ export async function generateMentorInsights(studentId: string): Promise<string 
          FROM mentor_profiles WHERE student_id = $1::uuid`,
       [studentId],
     );
+    const tradeEvidenceRes = await client.query(
+      `SELECT EXISTS (
+         SELECT 1
+           FROM academy_trading_arena_trades
+          WHERE student_id = $1::uuid
+       ) AS has_trade_evidence`,
+      [studentId],
+    );
 
     if (!memRes.rows.length) return null;
 
@@ -382,11 +388,15 @@ export async function generateMentorInsights(studentId: string): Promise<string 
       grouped[m.category].push(m.content);
     }
 
+    const hasTradeEvidence =
+      tradeEvidenceRes.rows[0]?.has_trade_evidence === true;
     const lines: string[] = [
       `سطح: ${prof?.level ?? "نامشخص"}`,
-      `پروفایل ریسک: ${prof?.risk_profile ?? "متوسط"}`,
-      `هدف: ${prof?.primary_goal || "ورود امن"}`,
-      `امتیاز اطمینان: ${prof?.confidence_score ?? 0}/100`,
+      `پروفایل ریسک: ${hasTradeEvidence ? (prof?.risk_profile ?? "نامشخص") : "نامشخص — شواهد Arena ثبت نشده"}`,
+      `هدف: ${prof?.primary_goal || "نامشخص"}`,
+      ...(prof
+        ? [`امتیاز اطمینانِ آموزشیِ مبتنی بر شواهد: ${prof.confidence_score}/100`]
+        : []),
     ];
 
     if (prof?.weak_areas?.length)
@@ -431,9 +441,9 @@ export function buildContextPrompt(ctx: MentorContext): string {
       [
         `پروفایل منتور:`,
         `  سطح: ${p.level}`,
-        `  پروفایل ریسک: ${p.riskProfile}`,
-        `  هدف: ${p.primaryGoal || "ورود امن"}`,
-        `  امتیاز اطمینان: ${p.confidenceScore}/100`,
+        `  پروفایل ریسک: ${ctx.tradingSignals ? p.riskProfile : "unknown (no Arena evidence)"}`,
+        `  هدف: ${p.primaryGoal || "unknown"}`,
+        `  امتیاز اطمینان آموزشی: ${p.confidenceScore}/100`,
         `  امتیاز انضباط: ${p.disciplineScore}/100`,
         `  سبک یادگیری: ${p.learningStyle}`,
         p.weakAreas.length ? `  نقاط ضعف: ${p.weakAreas.join("، ")}` : null,
