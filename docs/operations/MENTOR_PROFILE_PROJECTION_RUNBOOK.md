@@ -92,7 +92,9 @@ Do not manually rewrite event identity fields, payload hashes, terminal evidence
 
 A worker crash leaves a lease. A later claim cycle automatically recovers expired leases. Retryable failures use bounded exponential backoff; after the configured maximum attempts they become terminal and an append-only dead-letter row is recorded.
 
-A terminal event is evidence that automatic projection did not converge. Repair the underlying authority first. Do not edit the dead letter. After the defect is fixed, use a separately reviewed replay/repair operation that creates a new authoritative source reference or recomputes the profile under explicit operator evidence.
+A terminal event is evidence that automatic projection did not converge. Repair the underlying authority first. Do not edit the dead letter. After the defect is fixed, use a separately reviewed replay/repair operation that creates a new authoritative source reference and reaches a successful projection.
+
+Operational health treats a terminal/dead-letter event as unresolved until a later event for the same student reaches `processed`. Because each successful projection reloads current PostgreSQL source-of-truth signals, that newer success is the recovery proof while the original terminal/dead-letter evidence remains immutable for forensics. A manual profile edit that bypasses this projection authority does not clear the incident.
 
 ## Deployment gate
 
