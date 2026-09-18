@@ -264,7 +264,7 @@ export function createOperationalSignalEvidence(
     detector,
     severity: input.severity,
     statusClassification: input.statusClassification,
-    occurredAt: dedupeBucketAt,
+    occurredAt,
     dedupeBucketAt,
     fingerprint,
     reasonCodes,
@@ -319,7 +319,7 @@ export function validateOperationalSignalEvidence(
     raw.dedupeBucketAt,
     "operational_signal_dedupe_bucket_invalid",
   );
-  if (occurredAt !== dedupeBucketAt) {
+  if (Date.parse(dedupeBucketAt) > Date.parse(occurredAt)) {
     throw new Error("operational_signal_time_not_canonical");
   }
   if (!HASH_RE.test(raw.fingerprint)) {
