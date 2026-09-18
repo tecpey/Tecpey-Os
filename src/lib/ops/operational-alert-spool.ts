@@ -610,7 +610,7 @@ export async function deliverOperationalAlerts(
       continue;
     }
 
-    await bestEffortPersistAlert(item.alert);
+    await bestEffortPersistSpoolItem(item);
     const attemptNumber = item.delivery.attemptCount + 1;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
