@@ -104,8 +104,8 @@ export async function validateOperationalInstallEnvironmentFile(
     !stat.isFile() ||
     stat.size < 1 ||
     stat.size > MAX_ENV_FILE_BYTES ||
-    (stat.mode & 0o002) !== 0 ||
-    (stat.mode & 0o020) !== 0
+    (stat.mode & 0o007) !== 0 ||
+    (stat.mode & 0o030) !== 0
   ) {
     throw new Error("operational_install_environment_file_unsafe");
   }
