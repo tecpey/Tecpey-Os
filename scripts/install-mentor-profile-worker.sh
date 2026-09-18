@@ -45,6 +45,8 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 [[ -f "$HEALTH_TIMER" && ! -L "$HEALTH_TIMER" ]] || fail "mentor_profile_health_timer_missing"
 [[ -f "$ALERT_SERVICE_TEMPLATE" && ! -L "$ALERT_SERVICE_TEMPLATE" ]] || fail "ops_alert_delivery_service_missing"
 [[ -f "$ALERT_TIMER" && ! -L "$ALERT_TIMER" ]] || fail "ops_alert_delivery_timer_missing"
+[[ -f "$APP_DIR/scripts/deliver-operational-alerts.ts" && ! -L "$APP_DIR/scripts/deliver-operational-alerts.ts" ]] \
+  || fail "ops_alert_delivery_script_missing"
 [[ -x "$NPM_BIN" ]] || fail "npm_binary_missing"
 [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || fail "environment_file_unsafe"
 grep -Eq '^DATABASE_URL=[^[:space:]]+' "$ENV_FILE" || fail "database_url_missing"
@@ -107,7 +109,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'npm_binary=%s\n' "$NPM_BIN"
   printf 'unit_verification=passed\n'
   printf 'health_watchdog=verified\n'
-  printf 'durable_alert_delivery=verified\n'
+  printf 'durable_alert_delivery_units=verified\n'
   exit 0
 fi
 
