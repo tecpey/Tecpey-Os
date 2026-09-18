@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/mentor-profile/recompute",
+      "method": "POST",
+      "previousSourceHash": "a65b691e04524aca47471fca",
+      "issue": "#670",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the Mentor profile recompute mutation after replacing the hard-coded platform tenant with the verified acting student tenant/workspace binding. The route now resolves a live student principal with Academy write scope, gates the acting tenant's Mentor product, rate-limits on tenant plus principal, binds request evidence to the resolved tenant, and writes the transactional audit under tenantContext.tenantId. Existing session, CSRF, transaction, redaction and fail-closed controls remain unchanged. Student-global Mentor profile storage is not claimed tenant-scoped by this delta.",
+      "replacement": {
+        "route": "/api/mentor-profile/recompute",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+        "sourceHash": "0796b94729cd8214306cf007",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": ["ai-memory", "privacy"],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-profile-recompute",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "mentor-profile",
+        "testReferences": ["src/tests/security/sensitive-mutation-audit-routes.test.ts"],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}
