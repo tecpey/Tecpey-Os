@@ -468,6 +468,30 @@ async function moveFile(
   }
 }
 
+async function quarantineUnsafeEntry(
+  source: string,
+  destinationDirectory: string,
+  reason: "invalid_name" | "unsafe_or_corrupt_item",
+  now: Date,
+): Promise<void> {
+  const sourceName = path.basename(source);
+  const digest = createHash("sha256")
+    .update(`tecpey-operational-signal-quarantine-v1:${reason}:${sourceName}`)
+    .digest("hex");
+  const destination = path.join(
+    destinationDirectory,
+    `unsafe-${digest}.json`,
+  );
+  await atomicCreateJson(destination, {
+    schemaVersion: 1,
+    quarantineReason: reason,
+    originalNameHash: createHash("sha256").update(sourceName).digest("hex"),
+    quarantinedAt: now.toISOString(),
+  });
+  await rm(source, { force: true });
+  await syncDirectory(path.dirname(source));
+}
+
 async function bestEffortPersistSignal(
   signal: OperationalSignalEvidence,
 ): Promise<void> {
@@ -533,20 +557,30 @@ export async function deliverOperationalSignals(
   const fetchImpl = config.fetchImpl ?? fetch;
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .slice(0, limit);
+    .sort((left, right) => left.name.localeCompare(right.name));
   const summary = {
-    selected: entries.length,
+    selected: 0,
     delivered: 0,
     retryable: 0,
     quarantined: 0,
     skippedUntilLater: 0,
+    deferredDueToBatchLimit: 0,
   };
+  const due: Array<{
+    filePath: string;
+    item: OperationalSignalSpoolItem;
+    nextAttemptAtMs: number;
+  }> = [];
 
   for (const entry of entries) {
     const filePath = path.join(managed.pending, entry.name);
     if (!SAFE_FILE_RE.test(entry.name)) {
-      await moveFile(filePath, managed.quarantine);
+      await quarantineUnsafeEntry(
+        filePath,
+        managed.quarantine,
+        "invalid_name",
+        now,
+      );
       summary.quarantined += 1;
       continue;
     }
@@ -555,14 +589,34 @@ export async function deliverOperationalSignals(
     try {
       item = validateSpoolItem(await safeReadJson(filePath));
     } catch {
-      await moveFile(filePath, managed.quarantine);
+      await quarantineUnsafeEntry(
+        filePath,
+        managed.quarantine,
+        "unsafe_or_corrupt_item",
+        now,
+      );
       summary.quarantined += 1;
       continue;
     }
-    if (Date.parse(item.delivery.nextAttemptAt) > now.getTime()) {
+    const nextAttemptAtMs = Date.parse(item.delivery.nextAttemptAt);
+    if (nextAttemptAtMs > now.getTime()) {
       summary.skippedUntilLater += 1;
       continue;
     }
+    due.push({ filePath, item, nextAttemptAtMs });
+  }
+
+  due.sort(
+    (left, right) =>
+      left.nextAttemptAtMs - right.nextAttemptAtMs ||
+      left.filePath.localeCompare(right.filePath),
+  );
+  const selected = due.slice(0, limit);
+  summary.selected = selected.length;
+  summary.deferredDueToBatchLimit = Math.max(0, due.length - selected.length);
+
+  for (const candidate of selected) {
+    const { filePath, item } = candidate;
 
     await bestEffortPersistSignal(item.signal);
     const attemptNumber = item.delivery.attemptCount + 1;
@@ -612,7 +666,7 @@ export async function deliverOperationalSignals(
     }
 
     const attemptedAt = now.toISOString();
-    await bestEffortPersistAttempt({
+    const attempt = validateOperationalSignalDeliveryAttempt({
       signalId: item.signal.signalId,
       attemptNumber,
       deliveryResult,
@@ -624,36 +678,46 @@ export async function deliverOperationalSignals(
         responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
       },
     });
+    const terminal =
+      deliveryResult === "delivered" ||
+      deliveryResult === "terminal_failure" ||
+      attemptNumber >= maxAttempts;
+    const nextAttemptAt =
+      deliveryResult === "retryable_failure" && !terminal
+        ? new Date(
+            now.getTime() +
+              operationalSignalRetryDelayMs(
+                attemptNumber,
+                item.signal.signalId,
+              ),
+          ).toISOString()
+        : attemptedAt;
+    const updated: OperationalSignalSpoolItem = Object.freeze({
+      ...item,
+      delivery: Object.freeze({
+        attemptCount: attemptNumber,
+        nextAttemptAt,
+        lastErrorCode: errorCode,
+      }),
+      attempts: Object.freeze([...item.attempts, attempt]),
+    });
+
+    // The local archive is the outage-safe authority. Persist the exact
+    // delivery result locally and fsync it before any terminal move.
+    await atomicReplaceJson(filePath, updated);
+    await bestEffortPersistAttempt(attempt);
 
     if (deliveryResult === "delivered") {
       await moveFile(filePath, managed.delivered);
       summary.delivered += 1;
       continue;
     }
-    if (
-      deliveryResult === "terminal_failure" ||
-      attemptNumber >= maxAttempts
-    ) {
+    if (terminal) {
       await moveFile(filePath, managed.quarantine);
       summary.quarantined += 1;
       continue;
     }
 
-    const updated: OperationalSignalSpoolItem = Object.freeze({
-      ...item,
-      delivery: Object.freeze({
-        attemptCount: attemptNumber,
-        nextAttemptAt: new Date(
-          now.getTime() +
-            operationalSignalRetryDelayMs(
-              attemptNumber,
-              item.signal.signalId,
-            ),
-        ).toISOString(),
-        lastErrorCode: errorCode,
-      }),
-    });
-    await atomicReplaceJson(filePath, updated);
     summary.retryable += 1;
   }
 
