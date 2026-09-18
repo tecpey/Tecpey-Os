@@ -125,8 +125,32 @@ for (const [label, pattern] of [
   ["output signal rejection", /direct_signal/],
   ["acute safety detector", /MENTOR_ACUTE_SAFETY_PATTERN/],
   ["acute safety response", /mentorAcuteSafetyResponse/],
+  [
+    "evidence-aware profile projection",
+    /projectMentorProfileEvidence\(\{/,
+  ],
+  ["unknown risk withheld", /riskEvidenceState/],
+  ["unknown confidence withheld", /confidenceEvidenceState/],
 ]) {
   if (!pattern.test(trust)) failures.push(`trust boundary: missing ${label}`);
+}
+
+const evidencePolicy = await source("src/lib/ai/mentor-evidence-policy.ts");
+for (const [label, pattern] of [
+  ["unknown evidence state", /"unknown"/],
+  ["provisional evidence state", /"provisional"/],
+  ["observed evidence state", /"observed"/],
+  [
+    "risk requires observed samples",
+    /const risk = tier\(tradingSampleCount, 5\)/,
+  ],
+  [
+    "profile values masked before observed evidence",
+    /states\.risk === "observed"[\s\S]*states\.confidence === "observed"/,
+  ],
+]) {
+  if (!pattern.test(evidencePolicy))
+    failures.push(`mentor evidence policy: missing ${label}`);
 }
 
 const provider = await source("src/lib/ai/provider-router.ts");
@@ -208,6 +232,22 @@ for (const [label, pattern] of [
 const migrationPlan = await source("src/lib/db-migration-registry.ts");
 if (!/runAiMentorTrustMigrations/.test(migrationPlan)) {
   failures.push("migration plan: AI Mentor trust migration is not governed");
+}
+
+const insights = await source("src/app/api/mentor-insights/route.ts");
+for (const forbidden of [
+  "generateMentorInsights",
+  "applyMentorProfileUpdate",
+  'searchParams.get("generate")',
+]) {
+  if (insights.includes(forbidden)) {
+    failures.push(
+      `mentor insights: GET route must remain read-only; found ${forbidden}`,
+    );
+  }
+}
+if (!/projectMentorProfileEvidence\(\{/.test(insights)) {
+  failures.push("mentor insights: evidence-aware profile projection is required");
 }
 
 const preferences = await source("src/app/api/mentor-preferences/route.ts");
