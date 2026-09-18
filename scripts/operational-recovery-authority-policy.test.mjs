@@ -103,7 +103,7 @@ test("rejects omission of protected recovery authority from pull-request trigger
 test("rejects a mutable action and a non-failing drill", () => {
   const workflow = valid.workflow
     .replace(
-      "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
       "actions/checkout@v4",
     )
     .replace("timeout-minutes: 25", "timeout-minutes: 25\n    continue-on-error: true");
@@ -148,7 +148,7 @@ test("rejects weakening protected recovery reconciliation evidence verification"
 test("rejects a mutable action or dependent-review bypass in protected staging recovery", () => {
   const protectedWorkflow = valid.protectedWorkflow
     .replace(
-      "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
       "actions/checkout@v4",
     )
     .replace("independent_review_confirmed:", "review_optional:");
