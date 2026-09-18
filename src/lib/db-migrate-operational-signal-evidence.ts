@@ -36,7 +36,26 @@ CREATE TABLE IF NOT EXISTS platform_operational_signals (
   CONSTRAINT platform_operational_signal_payload_hash_check
     CHECK (payload_hash ~ '^[0-9a-f]{64}$'),
   CONSTRAINT platform_operational_signal_payload_check
-    CHECK (jsonb_typeof(payload) = 'object')
+    CHECK (
+      jsonb_typeof(payload) = 'object'
+      AND octet_length(payload::text) <= 8192
+      AND payload->>'schemaVersion' = '1'
+      AND payload->>'signalId' = signal_id
+      AND payload->>'signalType' = signal_type
+      AND payload->>'component' = component
+      AND payload->>'detector' = detector
+      AND payload->>'severity' = severity
+      AND payload->>'statusClassification' = status_classification
+      AND payload->>'fingerprint' = fingerprint
+      AND payload->>'occurredAt' IS NOT NULL
+      AND (payload->>'occurredAt')::timestamptz = occurred_at
+      AND payload->>'dedupeBucketAt' IS NOT NULL
+      AND (payload->>'dedupeBucketAt')::timestamptz = dedupe_bucket_at
+      AND jsonb_typeof(payload->'reasonCodes') = 'array'
+      AND jsonb_typeof(payload->'attributes') = 'object'
+    ),
+  CONSTRAINT platform_operational_signal_semantic_identity_key
+    UNIQUE (signal_type, dedupe_bucket_at, fingerprint)
 );
 
 CREATE INDEX IF NOT EXISTS platform_operational_signals_lookup_idx
@@ -66,7 +85,73 @@ CREATE TABLE IF NOT EXISTS platform_operational_signal_delivery_attempts (
       )
     ),
   CONSTRAINT platform_operational_signal_attempt_evidence_check
-    CHECK (jsonb_typeof(evidence) = 'object')
+    CHECK (
+      jsonb_typeof(evidence) = 'object'
+      AND octet_length(evidence::text) <= 2048
+      AND evidence->>'provider' = 'webhook'
+      AND jsonb_typeof(evidence->'responseBodyBytes') = 'number'
+      AND (evidence->>'responseBodyBytes')::numeric >= 0
+      AND evidence->>'attemptHash' ~ '^[0-9a-f]{64}
+
+CREATE OR REPLACE FUNCTION tecpey_reject_operational_signal_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'operational signal evidence is append-only'
+    USING ERRCODE = '55000';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS platform_operational_signals_immutable
+  ON platform_operational_signals;
+CREATE TRIGGER platform_operational_signals_immutable
+BEFORE UPDATE OR DELETE ON platform_operational_signals
+FOR EACH ROW EXECUTE FUNCTION tecpey_reject_operational_signal_mutation();
+
+DROP TRIGGER IF EXISTS platform_operational_signal_delivery_attempts_immutable
+  ON platform_operational_signal_delivery_attempts;
+CREATE TRIGGER platform_operational_signal_delivery_attempts_immutable
+BEFORE UPDATE OR DELETE ON platform_operational_signal_delivery_attempts
+FOR EACH ROW EXECUTE FUNCTION tecpey_reject_operational_signal_mutation();
+`;
+
+function checksum(sql: string): string {
+  return createHash("sha256")
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
+}
+
+export async function runOperationalSignalEvidenceMigrations(
+  client: PoolClient,
+): Promise<void> {
+  const cs = checksum(OPERATIONAL_SIGNAL_EVIDENCE_SQL);
+  const applied = await client.query<{ checksum: string }>(
+    "SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1",
+    [FILENAME],
+  );
+  if (applied.rows[0]) {
+    if (applied.rows[0].checksum !== cs) {
+      throw new Error(
+        `[db-migrate-operational-signal-evidence] checksum mismatch for ${FILENAME}`,
+      );
+    }
+    return;
+  }
+
+  await client.query("BEGIN");
+  try {
+    await client.query(OPERATIONAL_SIGNAL_EVIDENCE_SQL);
+    await client.query(
+      "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
+      [FILENAME, cs],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
+}
+
+    )
 );
 
 CREATE OR REPLACE FUNCTION tecpey_reject_operational_signal_mutation()
