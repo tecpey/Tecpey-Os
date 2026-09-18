@@ -63,9 +63,19 @@ for (const needle of [
   "resolvedDeadLetters",
   "mentorProfileRepairBoundary",
   "clock_timestamp() AS now",
+  "needsMentorProfileRepair",
+  "OR COALESCE(MAX(u.unresolved_dead_letters)::integer, 0) > 0",
+  "unresolvedDeadLetters: Number.parseInt(row.unresolved_dead_letters, 10)",
 ]) {
   requireText("reconciliation", reconciliation, needle, `repair integration missing: ${needle}`);
 }
+
+requirePattern(
+  "reconciliation",
+  reconciliation,
+  /needsMentorProfileRepair\(\{[\s\S]*unresolvedDeadLetters:[\s\S]*needsMentorProfileRefresh/,
+  "unresolved dead letters must independently keep a learner in the repair set",
+);
 
 const recomputeIndex = reconciliation.indexOf("await applyMentorProfileUpdate");
 const resolutionIndex = reconciliation.indexOf(
