@@ -120,6 +120,10 @@ import {
   OPERATIONAL_SIGNAL_ENVELOPE_SQL,
   runOperationalSignalEnvelopeMigrations,
 } from "./db-migrate-operational-signal-envelope";
+import {
+  OPERATIONAL_SIGNAL_EPISODES_SQL,
+  runOperationalSignalEpisodeMigrations,
+} from "./db-migrate-operational-signal-episodes";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -240,6 +244,15 @@ const OPERATIONAL_SIGNAL_ENVELOPE_MIGRATION: CanonicalMigrationContent =
     identity: "0109_operational_signal_envelope.sql",
     content: OPERATIONAL_SIGNAL_ENVELOPE_SQL,
     checksum: canonicalMigrationChecksum(OPERATIONAL_SIGNAL_ENVELOPE_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const OPERATIONAL_SIGNAL_EPISODE_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0110_operational_signal_episodes.sql",
+    content: OPERATIONAL_SIGNAL_EPISODES_SQL,
+    checksum: canonicalMigrationChecksum(OPERATIONAL_SIGNAL_EPISODES_SQL),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
   });
@@ -386,6 +399,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "platform-infrastructure",
     "operations",
     runOperationalSignalEnvelopeMigrations,
+  ),
+  entry(
+    94,
+    "migration-step-094",
+    [OPERATIONAL_SIGNAL_EPISODE_MIGRATION],
+    "platform-infrastructure",
+    "operations",
+    runOperationalSignalEpisodeMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
