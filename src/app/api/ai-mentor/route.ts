@@ -810,10 +810,10 @@ export async function POST(request: NextRequest) {
       const memoryPersisted =
         authorizedStudentId && activeTenantId && activeWorkspaceId
           ? await persistMentorConversationPair({
-            requestId,
-            tenantId: activeTenantId,
-            workspaceId: activeWorkspaceId,
-            studentId: authorizedStudentId,
+              requestId,
+              tenantId: activeTenantId,
+              workspaceId: activeWorkspaceId,
+              studentId: authorizedStudentId,
             question,
             answer,
             locale,
@@ -1383,10 +1383,10 @@ export async function POST(request: NextRequest) {
       const memoryPersisted =
         authorizedStudentId && activeTenantId && activeWorkspaceId
           ? await persistMentorConversationPair({
-            requestId,
-            tenantId: activeTenantId,
-            workspaceId: activeWorkspaceId,
-            studentId: authorizedStudentId,
+              requestId,
+              tenantId: activeTenantId,
+              workspaceId: activeWorkspaceId,
+              studentId: authorizedStudentId,
             question,
             answer: memoryAnswer,
             locale,
@@ -1736,10 +1736,10 @@ export async function POST(request: NextRequest) {
     const memoryPersisted =
       authorizedStudentId && activeTenantId && activeWorkspaceId
         ? await persistMentorConversationPair({
-          requestId,
-          tenantId: activeTenantId,
-          workspaceId: activeWorkspaceId,
-          studentId: authorizedStudentId,
+            requestId,
+            tenantId: activeTenantId,
+            workspaceId: activeWorkspaceId,
+            studentId: authorizedStudentId,
           question,
           answer,
           locale,
