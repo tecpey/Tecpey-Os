@@ -143,6 +143,7 @@
     "ops:alerts:deliver": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/deliver-operational-alerts.ts",
     "ops:alerts:deliver:prod": "node dist/deliver-operational-alerts.cjs",
     "ops:delivery:env-check": "node dist/check-operational-delivery-env.cjs",
+    "ops:installer:env-check": "node dist/check-operational-installer-env.cjs",
     "ops:scheduler:env-check": "tsx scripts/check-community-challenge-scheduler-env.ts",
     "ops:scheduler:install": "bash scripts/install-community-challenge-scheduler.sh",
     "ops:scheduler:check": "node scripts/check-community-challenge-scheduler-authority.mjs && npm run ops:signals:check",
