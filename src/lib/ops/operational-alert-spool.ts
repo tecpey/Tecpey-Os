@@ -49,6 +49,7 @@ type OperationalSpoolDelivery = {
   nextAttemptAt: string;
   lastErrorCode: string | null;
   attemptHistory: OperationalSpoolAttempt[];
+  databaseMirrorComplete: boolean;
 };
 
 export type OperationalAlertSpoolItem = {
@@ -354,6 +355,7 @@ function validatedDelivery(
     ),
     lastErrorCode: raw.lastErrorCode as string | null,
     attemptHistory,
+    databaseMirrorComplete: raw.databaseMirrorComplete === true,
   };
 }
 
@@ -447,6 +449,7 @@ export async function enqueueOperationalAlert(
       nextAttemptAt: alert.occurredAt,
       lastErrorCode: null,
       attemptHistory: [],
+      databaseMirrorComplete: false,
     },
   };
   const created = await atomicCreateJson(filePath, item);
@@ -490,6 +493,7 @@ export async function enqueueOperationalSignal(
       nextAttemptAt: signal.occurredAt,
       lastErrorCode: null,
       attemptHistory: [],
+      databaseMirrorComplete: false,
     },
   };
   const created = await atomicCreateJson(filePath, item);
