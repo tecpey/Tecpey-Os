@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "6ca27f9e6e44ad9a853797905ff0caea2bd3b710",
-      "sha256": "20b268acf929623c7e17cb469ed32066bc6349fb5e9e88f61f836dbdc30b2d47",
+      "gitObjectId": "ea9527f62cf48ff76d6357cde81fc03fc5e138f2",
+      "sha256": "54220450ed2e3fc8cddeeca780adddecde74b18d5003af435330b3b7bdf021c6",
       "lines": 294,
       "reviewedRanges": [
         {
@@ -139,7 +139,8 @@
         "2026-09-18: re-reviewed the complete 285-line package after adding the bundled Mentor profile health probe, health authority/test commands, and PostgreSQL-backed health evidence to the existing profile projection suite. The delta adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch action; the probe is read-only, emits aggregate queue health only, and keeps the existing AI trust path fail-closed through mentor:profiles:authority:check.",
         "2026-09-18: re-reviewed the complete 289-line package after adding the production-bundled Mentor profile freshness calibration collector, freshness source-authority command and focused unit/PostgreSQL calibration tests, then composing the read-only calibration authority into mentor:profiles:authority:check. The collector reads aggregate create-to-processed latency evidence only, declares observed/insufficient/invalid calibration states rather than an SLO pass, adds no dependency, engine or override, opens no new product/provider/spend/exchange/custody authority, and does not merge, deploy, page or activate production.",
         "2026-09-18: re-reviewed the complete 293-line package after adding the production-bundled shared operational delivery runtime and database-independent delivery preflight, plus permanent operational-signal source/installer/PostgreSQL/spool tests composed into both scheduler and Mentor profile authorities. No dependency, engine, provider, financial, exchange, custody or production activation authority changed; the new commands only package and gate the durable low-cardinality operational signal rail, and no merge or deployment is authorized.",
-        "2026-09-18: re-reviewed the complete 294-line package after adding the production-bundled ops:installer:env-check entrypoint and wiring its focused EnvironmentFile authority test into test:ops-signals. The new preflight reuses the governed parser in strict duplicate-key mode, validates only deployment configuration without printing values, adds no dependency, engine or override, opens no provider/financial/exchange/custody authority, and does not merge, deploy or activate production."
+        "2026-09-18: re-reviewed the complete 294-line package after adding the production-bundled ops:installer:env-check entrypoint and wiring its focused EnvironmentFile authority test into test:ops-signals. The new preflight reuses the governed parser in strict duplicate-key mode, validates only deployment configuration without printing values, adds no dependency, engine or override, opens no provider/financial/exchange/custody authority, and does not merge, deploy or activate production.",
+        "2026-09-18: re-reviewed the complete 294-line package after extending test:ops-signals with the crash-safe operational-condition-signal-v2 authority test. No dependency, engine, override, build entrypoint, provider, financial, exchange, custody, paging-policy or production activation authority changed; the package delta only makes the existing operational-signal suite execute the new firing/resolved write-ahead lifecycle proof, and no merge or deployment is authorized."
       ],
       "findings": [
         {
