@@ -216,17 +216,23 @@ for (const needle of [
 
 const healthTimer = await source("deploy/systemd/tecpey-mentor-profile-health.timer");
 for (const needle of [
-  "OnActiveSec=1min",
+  "OnBootSec=30s",
   "OnUnitActiveSec=1min",
-  "Persistent=true",
-  "RandomizedDelaySec=10",
-  "AccuracySec=5s",
+  "RandomizedDelaySec=5s",
+  "FixedRandomDelay=true",
+  "AccuracySec=1s",
   "Unit=tecpey-mentor-profile-health.service",
 ]) {
   requireText("health-timer", healthTimer, needle, `health timer invariant missing: ${needle}`);
 }
-if (healthTimer.includes("OnCalendar=") || healthTimer.includes("OnBootSec=")) {
-  failures.push("health-timer: activation-relative cadence must remain independent of boot/calendar alignment");
+for (const forbidden of [
+  "Persistent=true",
+  "OnCalendar=",
+  "OnActiveSec=",
+]) {
+  if (healthTimer.includes(forbidden)) {
+    failures.push(`health-timer: unsupported or redundant timer semantics forbidden: ${forbidden}`);
+  }
 }
 
 const runbook = await source("docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md");
