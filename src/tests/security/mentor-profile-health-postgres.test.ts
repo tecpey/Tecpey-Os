@@ -192,6 +192,7 @@ test(
         [terminalId],
       );
       const source = deadLetter.rows[0]!;
+      await client.query("SAVEPOINT mentor_health_wrong_fingerprint");
       await assert.rejects(
         client.query(
           `INSERT INTO mentor_profile_dead_letter_resolutions
@@ -212,6 +213,7 @@ test(
         ),
         /foreign key/i,
       );
+      await client.query("ROLLBACK TO SAVEPOINT mentor_health_wrong_fingerprint");
 
       const clock = await client.query<{ now: Date }>("SELECT NOW() AS now");
       const dbNow = clock.rows[0]!.now.getTime();
