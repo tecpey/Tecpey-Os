@@ -88,7 +88,8 @@ async function transitionCondition(input: {
 async function main(): Promise<void> {
   const observedAt = new Date().toISOString();
   let snapshot:
-    | Awaited<ReturnType<typeof withTx<MentorProfileHealthSnapshot>>>
+    | { enabled: true; value: MentorProfileHealthSnapshot }
+    | { enabled: false; value: null }
     | null = null;
   let databaseFailureCode: string | null = null;
   try {
