@@ -17,6 +17,7 @@ export type OperationalSignalEvidence = Readonly<{
   signalType: string;
   component: string;
   sourceUnit: string;
+  instanceFingerprint: string;
   severity: OperationalSignalSeverity;
   lifecycle: OperationalSignalLifecycle;
   occurredAt: string;
@@ -43,6 +44,7 @@ export type OperationalSignalDeliveryAttempt = Readonly<{
 type SignalIdentityRow = {
   signal_type: string;
   component: string;
+  instance_fingerprint: string;
   severity: OperationalSignalSeverity;
   lifecycle: OperationalSignalLifecycle;
   dedupe_window_start: Date;
@@ -167,6 +169,7 @@ function expectedIncidentKey(input: {
   signalType: string;
   component: string;
   sourceUnit: string;
+  instanceFingerprint: string;
   severity: OperationalSignalSeverity;
   reasonCodes: readonly string[];
 }): string {
@@ -175,6 +178,7 @@ function expectedIncidentKey(input: {
     signalType: input.signalType,
     component: input.component,
     sourceUnit: input.sourceUnit,
+    instanceFingerprint: input.instanceFingerprint,
     severity: input.severity,
     reasonCodes: [...input.reasonCodes],
   });
@@ -200,6 +204,7 @@ export function createOperationalSignalEvidence(input: {
   signalType: string;
   component: string;
   sourceUnit: string;
+  instanceFingerprint: string;
   severity: OperationalSignalSeverity;
   lifecycle?: OperationalSignalLifecycle;
   occurredAt: string;
@@ -230,6 +235,16 @@ export function createOperationalSignalEvidence(input: {
   if (!sourceUnit.endsWith(".service")) {
     throw new Error("operational_signal_source_unit_invalid");
   }
+  const instanceFingerprint = boundedToken(
+    input.instanceFingerprint,
+    24,
+    24,
+    "operational_signal_instance_fingerprint_invalid",
+    true,
+  );
+  if (!/^[0-9a-f]{24}$/.test(instanceFingerprint)) {
+    throw new Error("operational_signal_instance_fingerprint_invalid");
+  }
   if (input.severity !== "warning" && input.severity !== "critical") {
     throw new Error("operational_signal_severity_invalid");
   }
@@ -255,6 +270,7 @@ export function createOperationalSignalEvidence(input: {
     signalType,
     component,
     sourceUnit,
+    instanceFingerprint,
     severity: input.severity,
     reasonCodes,
   });
@@ -270,6 +286,7 @@ export function createOperationalSignalEvidence(input: {
     signalType,
     component,
     sourceUnit,
+    instanceFingerprint,
     severity: input.severity,
     lifecycle,
     occurredAt,
@@ -310,6 +327,16 @@ export function validateOperationalSignalEvidence(
   if (!sourceUnit.endsWith(".service")) {
     throw new Error("operational_signal_source_unit_invalid");
   }
+  const instanceFingerprint = boundedToken(
+    raw.instanceFingerprint,
+    24,
+    24,
+    "operational_signal_instance_fingerprint_invalid",
+    true,
+  );
+  if (!/^[0-9a-f]{24}$/.test(instanceFingerprint)) {
+    throw new Error("operational_signal_instance_fingerprint_invalid");
+  }
   if (raw.severity !== "warning" && raw.severity !== "critical") {
     throw new Error("operational_signal_severity_invalid");
   }
@@ -339,6 +366,7 @@ export function validateOperationalSignalEvidence(
     signalType,
     component,
     sourceUnit,
+    instanceFingerprint,
     severity: raw.severity,
     reasonCodes,
   });
@@ -360,6 +388,7 @@ export function validateOperationalSignalEvidence(
     signalType,
     component,
     sourceUnit,
+    instanceFingerprint,
     severity: raw.severity,
     lifecycle: raw.lifecycle,
     occurredAt,
@@ -378,6 +407,7 @@ function sameIdentity(
   return (
     row.signal_type === signal.signalType &&
     row.component === signal.component &&
+    row.instance_fingerprint === signal.instanceFingerprint &&
     row.severity === signal.severity &&
     row.lifecycle === signal.lifecycle &&
     row.dedupe_window_start.toISOString() === signal.dedupeWindowStart &&
@@ -397,18 +427,19 @@ export async function persistOperationalSignalTx(
   }
   const inserted = await client.query(
     `INSERT INTO platform_operational_signals
-       (signal_id, signal_type, component, source_unit, severity, lifecycle,
+       (signal_id, signal_type, component, source_unit, instance_fingerprint, severity, lifecycle,
         occurred_at, dedupe_window_start, dedupe_window_seconds, incident_key,
         payload_hash, payload)
      VALUES
-       ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10, $11,
-        $12::jsonb)
+       ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, $10, $11, $12,
+        $13::jsonb)
      ON CONFLICT (signal_id) DO NOTHING`,
     [
       signal.signalId,
       signal.signalType,
       signal.component,
       signal.sourceUnit,
+      signal.instanceFingerprint,
       signal.severity,
       signal.lifecycle,
       signal.occurredAt,
@@ -424,7 +455,7 @@ export async function persistOperationalSignalTx(
   }
 
   const existing = await client.query<SignalIdentityRow>(
-    `SELECT signal_type, component, severity, lifecycle,
+    `SELECT signal_type, component, instance_fingerprint, severity, lifecycle,
             dedupe_window_start, dedupe_window_seconds, incident_key,
             payload_hash
        FROM platform_operational_signals
