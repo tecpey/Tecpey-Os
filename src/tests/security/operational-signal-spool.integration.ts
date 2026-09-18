@@ -142,6 +142,8 @@ describe("Operational signal spool", () => {
       quarantined: 0,
       skippedUntilLater: 0,
       deferredDueToBatchLimit: 0,
+      recoveredDeliveredArchives: 0,
+      recoveredQuarantinedArchives: 0,
     });
     assert.equal(requests.length, 1);
     const headers = new Headers(requests[0].headers);
@@ -287,6 +289,57 @@ describe("Operational signal spool", () => {
       quarantineNames.filter((name) => name.startsWith("unsafe-")).length >= 3,
       true,
     );
+  });
+
+  it("finishes a fsync-recorded delivered archive after crash without redelivering", async () => {
+    const root = await tempRoot();
+    const queued = signal("2026-09-18T12:05:00.000Z");
+    await enqueueOperationalSignal(root, queued);
+    const dirs = await ensureOperationalSignalSpoolDirectories(root);
+    const [pendingName] = await readdir(dirs.pending);
+    const pendingPath = path.join(dirs.pending, pendingName);
+    const raw = JSON.parse(await readFile(pendingPath, "utf8")) as {
+      signal: { signalId: string };
+      delivery: {
+        attemptCount: number;
+        nextAttemptAt: string;
+        lastErrorCode: string | null;
+      };
+      attempts: unknown[];
+    };
+    raw.delivery = {
+      attemptCount: 1,
+      nextAttemptAt: "2026-09-18T12:06:00.000Z",
+      lastErrorCode: null,
+    };
+    raw.attempts = [{
+      signalId: raw.signal.signalId,
+      attemptNumber: 1,
+      deliveryResult: "delivered",
+      httpStatus: 204,
+      errorCode: null,
+      attemptedAt: "2026-09-18T12:06:00.000Z",
+      evidence: { provider: "webhook", responseBodyBytes: 0 },
+    }];
+    await writeFile(pendingPath, `${JSON.stringify(raw)}\n`, { mode: 0o600 });
+
+    let networkCalls = 0;
+    const summary = await deliverOperationalSignals({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-signal",
+      now: new Date("2026-09-18T12:10:00.000Z"),
+      fetchImpl: async () => {
+        networkCalls += 1;
+        throw new Error("network must not be called for terminal recovery");
+      },
+    });
+
+    assert.equal(networkCalls, 0);
+    assert.equal(summary.selected, 0);
+    assert.equal(summary.recoveredDeliveredArchives, 1);
+    assert.equal(summary.recoveredQuarantinedArchives, 0);
+    assert.equal((await readdir(dirs.pending)).length, 0);
+    assert.equal((await readdir(dirs.delivered)).length, 1);
   });
 
   it("selects due signals before future retries so hashed filenames cannot starve delivery", async () => {
