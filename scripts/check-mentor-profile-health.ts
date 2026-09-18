@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import os from "node:os";
 import path from "node:path";
 import { withTx } from "../src/lib/db";
 import {
@@ -41,6 +43,27 @@ function operationalStateDirectory(): string | null {
   return path.normalize(value);
 }
 
+function operationalInstanceFingerprint(stateDirectory: string): string {
+  const host = os.hostname().trim().toLowerCase();
+  if (
+    host.length < 1 ||
+    host.length > 255 ||
+    /[\u0000-\u001f\u007f]/.test(host)
+  ) {
+    throw new Error("mentor_profile_ops_instance_invalid");
+  }
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        authority: "tecpey-operational-instance-v1",
+        host,
+        stateDirectory,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 24);
+}
+
 function healthMeasurements(
   snapshot: MentorProfileHealthSnapshot,
 ): Record<string, number | boolean | null> {
@@ -81,6 +104,7 @@ async function enqueueCriticalSignal(input: {
     signalType: SIGNAL_TYPE,
     component: COMPONENT,
     sourceUnit: SOURCE_UNIT,
+    instanceFingerprint: operationalInstanceFingerprint(stateDirectory),
     severity: "critical",
     lifecycle: "firing",
     occurredAt: input.occurredAt,
