@@ -102,6 +102,8 @@ function releaseMetrics(
     metric: metric.metric,
     ...(metric.passRate === null ? {} : { passRate: metric.passRate }),
     baselineMeasured: metric.baselineMeasured,
+    ...(metric.candidateValue === null ? {} : { candidateValue: metric.candidateValue }),
+    ...(metric.baselineValue === null ? {} : { baselineValue: metric.baselineValue }),
   }));
 }
 
@@ -139,8 +141,26 @@ function metricPassed(
   metric: ReturnType<typeof canonicalMetric>,
 ): boolean {
   const gate = gateFor(metric.metric);
-  if (gate.requiresMeasuredBaseline && metric.baselineMeasured !== true) {
-    return false;
+  if (gate.requiresMeasuredBaseline) {
+    if (
+      metric.baselineMeasured !== true ||
+      metric.candidateValue === null ||
+      metric.baselineValue === null
+    ) {
+      return false;
+    }
+    if (
+      gate.baselineComparison === "at_least" &&
+      metric.candidateValue < metric.baselineValue
+    ) {
+      return false;
+    }
+    if (
+      gate.baselineComparison === "at_most" &&
+      metric.candidateValue > metric.baselineValue
+    ) {
+      return false;
+    }
   }
   if (
     gate.minimumPassRate !== undefined &&
