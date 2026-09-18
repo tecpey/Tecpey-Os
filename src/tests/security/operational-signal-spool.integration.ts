@@ -80,6 +80,42 @@ describe("Operational signal spool", () => {
     assert.equal(JSON.stringify(stored).includes("student"), false);
   });
 
+  it("publishes exactly one first observation under concurrent enqueue", async () => {
+    const root = await tempRoot();
+    const left = signal("2026-09-18T12:05:00.000Z", {
+      unresolved_dead_letters: 1,
+      ready_backlog: 500,
+    });
+    const right = signal("2026-09-18T12:45:00.000Z", {
+      unresolved_dead_letters: 9,
+      ready_backlog: 999,
+    });
+    assert.equal(left.signalId, right.signalId);
+
+    const results = await Promise.all([
+      enqueueOperationalSignal(root, left),
+      enqueueOperationalSignal(root, right),
+    ]);
+    assert.equal(results.filter((result) => result.replayed === false).length, 1);
+    assert.equal(results.filter((result) => result.replayed === true).length, 1);
+    assert.equal(results[0].filePath, results[1].filePath);
+
+    const stored = JSON.parse(
+      await readFile(results[0].filePath, "utf8"),
+    ) as {
+      signal: {
+        occurredAt: string;
+        measurements: { unresolved_dead_letters: number };
+      };
+    };
+    const winner = results[0].replayed === false ? left : right;
+    assert.equal(stored.signal.occurredAt, winner.occurredAt);
+    assert.equal(
+      stored.signal.measurements.unresolved_dead_letters,
+      winner.measurements.unresolved_dead_letters,
+    );
+  });
+
   it("delivers once with webhook idempotency and never redelivers archived signal", async () => {
     const root = await tempRoot();
     const queued = signal("2026-09-18T12:05:00.000Z");
