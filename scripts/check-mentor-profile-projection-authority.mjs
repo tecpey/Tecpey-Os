@@ -71,6 +71,20 @@ for (const path of producerPaths) {
   requireText(path, producer, "enqueueMentorProfileUpdateTx(client", "producer mutation must durably enqueue inside its transaction");
 }
 
+const migrationRoute = await source("src/app/api/mentor-conversations/migrate/route.ts");
+for (const needle of [
+  "pg_advisory_xact_lock",
+  "ensureLegacyMentorThreadTx",
+  "WHERE NOT EXISTS",
+]) {
+  requireText(
+    "mentor-conversation-migration",
+    migrationRoute,
+    needle,
+    `legacy migration must remain replay-safe: ${needle}`,
+  );
+}
+
 const trustStore = await source("src/lib/ai/mentor-trust-store.ts");
 for (const needle of [
   "withTx(async (client)",
