@@ -49,6 +49,7 @@ for (const needle of [
   "dl.created_at <= $2::timestamptz",
   "ON CONFLICT (dead_letter_id) DO NOTHING",
   "recomputed_current_state",
+  "clock_timestamp() AS now",
 ]) {
   requireText("resolution", resolution, needle, `incident resolution invariant missing: ${needle}`);
 }
@@ -60,6 +61,8 @@ for (const needle of [
   "repairRunId",
   "repairStartedAt",
   "resolvedDeadLetters",
+  "mentorProfileRepairBoundary",
+  "clock_timestamp() AS now",
 ]) {
   requireText("reconciliation", reconciliation, needle, `repair integration missing: ${needle}`);
 }
