@@ -103,6 +103,9 @@ deploy/systemd/tecpey-mentor-profile-health.timer
 deploy/systemd/tecpey-ops-alert-delivery.service.in
 deploy/systemd/tecpey-ops-alert-delivery.timer
 scripts/check-operational-alert-delivery-env.mjs
+scripts/check-operational-installer-env.ts
+src/lib/ops/operational-install-environment.ts
+src/lib/ops/systemd-environment-file.ts
 scripts/deliver-operational-alerts.ts
 scripts/install-mentor-profile-worker.sh
 docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md
