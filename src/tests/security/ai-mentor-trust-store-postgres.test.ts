@@ -458,6 +458,8 @@ describe("AI Mentor durable trust store", () => {
         assert.equal(
           await persistMentorConversationPair({
             requestId,
+            tenantId: "tecpey",
+            workspaceId: "main",
             studentId,
             question: "چطور ریسک را محدود کنم؟",
             answer: "قبل از ورود، حداکثر زیان و نقطه ابطال را مشخص کن.",
@@ -520,6 +522,8 @@ describe("AI Mentor durable trust store", () => {
         assert.equal(
           await persistMentorConversationPair({
             requestId: randomUUID(),
+            tenantId: "tecpey",
+            workspaceId: "main",
             studentId: otherId,
             threadId: owned.thread.id,
             question: "نباید ثبت شود",
@@ -775,6 +779,8 @@ describe("AI Mentor durable trust store", () => {
         assert.equal(
           await persistMentorConversationPair({
             requestId,
+            tenantId: "tecpey",
+            workspaceId: "main",
             studentId,
             question: "user turn",
             answer: "assistant turn",
