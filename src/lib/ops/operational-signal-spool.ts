@@ -393,6 +393,61 @@ async function findExistingSignalFile(
   return null;
 }
 
+export async function listOpenOperationalSignalIncidents(
+  stateDirectory: string,
+  filter: Readonly<{
+    signalType: string;
+    component: string;
+    sourceUnit: string;
+    severity?: "warning" | "critical";
+  }>,
+): Promise<readonly OperationalSignalEvidence[]> {
+  const managed = await ensureOperationalSignalSpoolDirectories(stateDirectory);
+  const latest = new Map<string, OperationalSignalEvidence>();
+
+  for (const directory of [
+    managed.pending,
+    managed.delivered,
+    managed.quarantine,
+  ]) {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !SAFE_FILE_RE.test(entry.name)) continue;
+      const filePath = path.join(directory, entry.name);
+      const item = validateSpoolItem(await safeReadJson(filePath));
+      const signal = item.signal;
+      if (
+        signal.signalType !== filter.signalType ||
+        signal.component !== filter.component ||
+        signal.sourceUnit !== filter.sourceUnit ||
+        (filter.severity !== undefined && signal.severity !== filter.severity)
+      ) {
+        continue;
+      }
+      const existing = latest.get(signal.incidentKey);
+      if (
+        !existing ||
+        Date.parse(signal.occurredAt) > Date.parse(existing.occurredAt) ||
+        (signal.occurredAt === existing.occurredAt &&
+          signal.lifecycle === "resolved" &&
+          existing.lifecycle === "firing")
+      ) {
+        latest.set(signal.incidentKey, signal);
+      }
+    }
+  }
+
+  return Object.freeze(
+    [...latest.values()]
+      .filter((signal) => signal.lifecycle === "firing")
+      .sort(
+        (left, right) =>
+          left.occurredAt.localeCompare(right.occurredAt) ||
+          left.incidentKey.localeCompare(right.incidentKey),
+      ),
+  );
+}
+
 export async function enqueueOperationalSignal(
   stateDirectory: string,
   raw: OperationalSignalEvidence,
