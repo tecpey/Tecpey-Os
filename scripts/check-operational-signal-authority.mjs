@@ -187,6 +187,21 @@ for (const needle of [
   requireText("installer", installer, needle, `Mentor durable delivery install invariant missing: ${needle}`);
 }
 
+const recoveryPolicy = await source(
+  "scripts/protected-recovery-reconciliation-collector-policy.mjs",
+);
+for (const table of [
+  '"platform_operational_signals"',
+  '"platform_operational_signal_delivery_attempts"',
+]) {
+  requireText(
+    "recovery-policy",
+    recoveryPolicy,
+    table,
+    `protected recovery must fingerprint ${table}`,
+  );
+}
+
 const packageJson = JSON.parse(await source("package.json"));
 const scripts = packageJson.scripts ?? {};
 for (const [name, needle] of [
