@@ -201,6 +201,37 @@ describe("Operational signal evidence and durable spool", () => {
     assert.equal((await readdir(dirs.delivered)).length, 1);
   });
 
+  it("does not clobber the first durable signal under concurrent same-bucket enqueue", async () => {
+    const root = await tempRoot();
+    const first = signal("2026-09-18T12:00:30.000Z");
+    const second = signal("2026-09-18T12:14:59.000Z");
+    assert.equal(first.signalId, second.signalId);
+    assert.notEqual(first.occurredAt, second.occurredAt);
+
+    const results = await Promise.all([
+      enqueueOperationalSignal(root, first),
+      enqueueOperationalSignal(root, second),
+    ]);
+    assert.deepEqual(
+      results.map((result) => result.replayed).sort(),
+      [false, true],
+    );
+    assert.equal(results[0]!.filePath, results[1]!.filePath);
+
+    const stored = JSON.parse(
+      await readFile(results[0]!.filePath, "utf8"),
+    ) as { schemaVersion: number; signal: { occurredAt: string; signalId: string } };
+    assert.equal(stored.schemaVersion, 2);
+    assert.equal(stored.signal.signalId, first.signalId);
+    assert.equal(
+      [first.occurredAt, second.occurredAt].includes(stored.signal.occurredAt),
+      true,
+    );
+
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    assert.equal((await readdir(dirs.pending)).length, 1);
+  });
+
   it("keeps transient signal delivery pending with deterministic bounded jitter", async () => {
     const root = await tempRoot();
     const evidence = signal();
