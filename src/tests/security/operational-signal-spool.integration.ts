@@ -141,6 +141,7 @@ describe("Operational signal spool", () => {
       retryable: 0,
       quarantined: 0,
       skippedUntilLater: 0,
+      deferredDueToBatchLimit: 0,
     });
     assert.equal(requests.length, 1);
     const headers = new Headers(requests[0].headers);
@@ -150,6 +151,29 @@ describe("Operational signal spool", () => {
     const dirs = await ensureOperationalSignalSpoolDirectories(root);
     assert.equal((await readdir(dirs.pending)).length, 0);
     assert.equal((await readdir(dirs.delivered)).length, 1);
+    const [deliveredName] = await readdir(dirs.delivered);
+    const archived = JSON.parse(
+      await readFile(path.join(dirs.delivered, deliveredName), "utf8"),
+    ) as {
+      delivery: { attemptCount: number };
+      attempts: Array<{
+        attemptNumber: number;
+        deliveryResult: string;
+        httpStatus: number | null;
+      }>;
+    };
+    assert.equal(archived.delivery.attemptCount, 1);
+    assert.deepEqual(archived.attempts, [
+      {
+        signalId: queued.signalId,
+        attemptNumber: 1,
+        deliveryResult: "delivered",
+        httpStatus: 204,
+        errorCode: null,
+        attemptedAt: "2026-09-18T12:06:00.000Z",
+        evidence: { provider: "webhook", responseBodyBytes: 0 },
+      },
+    ]);
 
     const replay = await enqueueOperationalSignal(
       root,
@@ -200,6 +224,17 @@ describe("Operational signal spool", () => {
     };
     assert.equal(item.delivery.attemptCount, 1);
     assert.equal(item.delivery.lastErrorCode, "webhook_http_503");
+    const retried = item as typeof item & {
+      attempts: Array<{
+        attemptNumber: number;
+        deliveryResult: string;
+        httpStatus: number | null;
+      }>;
+    };
+    assert.equal(retried.attempts.length, 1);
+    assert.equal(retried.attempts[0]?.attemptNumber, 1);
+    assert.equal(retried.attempts[0]?.deliveryResult, "retryable_failure");
+    assert.equal(retried.attempts[0]?.httpStatus, 503);
     assert.equal(
       Date.parse(item.delivery.nextAttemptAt),
       now.getTime() + firstDelay,
@@ -227,7 +262,7 @@ describe("Operational signal spool", () => {
 
     const dirs = await ensureOperationalSignalSpoolDirectories(root);
     const target = path.join(root, "outside.json");
-    await writeFile(target, "{}", { mode: 0o600 });
+    await writeFile(target, "{}", { mode: 0o644 });
     await symlink(target, path.join(dirs.pending, `${"a".repeat(64)}.json`));
     await writeFile(
       path.join(dirs.pending, `${"b".repeat(64)}.json`),
@@ -246,5 +281,64 @@ describe("Operational signal spool", () => {
     });
     assert.equal(unsafe.quarantined, 3);
     assert.equal((await readdir(dirs.pending)).length, 0);
+    assert.equal((await stat(target)).mode & 0o777, 0o644);
+    const quarantineNames = await readdir(dirs.quarantine);
+    assert.equal(
+      quarantineNames.filter((name) => name.startsWith("unsafe-")).length >= 3,
+      true,
+    );
+  });
+
+  it("selects due signals before future retries so hashed filenames cannot starve delivery", async () => {
+    const root = await tempRoot();
+    const first = signal("2026-09-18T12:05:00.000Z");
+    const second = createOperationalSignalEvidence({
+      signalType: "mentor_profile_projection_health",
+      component: "mentor_profile_projection",
+      sourceUnit: "tecpey-mentor-profile-health.service",
+      severity: "critical",
+      lifecycle: "firing",
+      occurredAt: "2026-09-18T12:05:00.000Z",
+      dedupeWindowSeconds: 3_600,
+      reasonCodes: ["lease_overdue_critical"],
+      measurements: { overdue_leases: 1 },
+    });
+    await enqueueOperationalSignal(root, first);
+    await enqueueOperationalSignal(root, second);
+    const dirs = await ensureOperationalSignalSpoolDirectories(root);
+    const names = (await readdir(dirs.pending)).sort();
+    assert.equal(names.length, 2);
+
+    const firstPath = path.join(dirs.pending, names[0]!);
+    const firstItem = JSON.parse(await readFile(firstPath, "utf8")) as {
+      delivery: {
+        attemptCount: number;
+        nextAttemptAt: string;
+        lastErrorCode: string | null;
+      };
+    };
+    firstItem.delivery.nextAttemptAt = "2026-09-18T13:00:00.000Z";
+    await writeFile(firstPath, `${JSON.stringify(firstItem)}\n`, {
+      mode: 0o600,
+    });
+
+    const deliveredIds: string[] = [];
+    const summary = await deliverOperationalSignals({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-signal",
+      limit: 1,
+      now: new Date("2026-09-18T12:10:00.000Z"),
+      fetchImpl: async (_input, init) => {
+        const body = JSON.parse(String(init?.body)) as { signalId: string };
+        deliveredIds.push(body.signalId);
+        return new Response(null, { status: 204 });
+      },
+    });
+    assert.equal(summary.selected, 1);
+    assert.equal(summary.delivered, 1);
+    assert.equal(summary.skippedUntilLater, 1);
+    assert.equal(summary.deferredDueToBatchLimit, 0);
+    assert.equal(deliveredIds.length, 1);
+    assert.equal((await readdir(dirs.pending)).length, 1);
   });
 });
