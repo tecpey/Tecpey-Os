@@ -364,6 +364,10 @@ test(
         recovered: 1,
         terminal: 0,
       });
+      await client.query(
+        "UPDATE mentor_profile_update_outbox SET available_at = TIMESTAMPTZ '2000-01-01T00:00:00Z' WHERE id = $1",
+        [queued.outboxId],
+      );
       const second = await claimMentorProfileUpdates(client, {
         workerId: "mentor-lease-b",
         limit: 1,
