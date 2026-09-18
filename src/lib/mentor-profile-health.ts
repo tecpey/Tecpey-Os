@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 
-export const MENTOR_PROFILE_HEALTH_POLICY_VERSION = "2026-09-18.2" as const;
+export const MENTOR_PROFILE_HEALTH_POLICY_VERSION = "2026-09-18.3" as const;
 
 export type MentorProfileHealthPolicy = Readonly<{
   warningReadyAgeSeconds: number;
@@ -25,8 +25,6 @@ export type MentorProfileHealthSnapshot = Readonly<{
   failedRetryable: number;
   unresolvedTerminalFailures: number;
   unresolvedDeadLetters: number;
-  resolvedDeadLetters: number;
-  deadLettersTotal: number;
   readyBacklog: number;
   overdueLeases: number;
   oldestReadyAgeSeconds: number | null;
@@ -44,8 +42,6 @@ type HealthRow = {
   failed_retryable: string;
   unresolved_terminal_failures: string;
   unresolved_dead_letters: string;
-  resolved_dead_letters: string;
-  dead_letters_total: string;
   ready_backlog: string;
   overdue_leases: string;
   oldest_ready_age_seconds: string | null;
@@ -119,14 +115,6 @@ export async function loadMentorProfileHealthSnapshot(
        ) AS unresolved_dead_letters,
        (
          SELECT COUNT(*)::text
-           FROM mentor_profile_dead_letter_resolutions
-       ) AS resolved_dead_letters,
-       (
-         SELECT COUNT(*)::text
-           FROM mentor_profile_update_dead_letters
-       ) AS dead_letters_total,
-       (
-         SELECT COUNT(*)::text
            FROM mentor_profile_update_outbox
           WHERE status IN ('pending', 'failed_retryable')
             AND available_at <= NOW()
@@ -166,14 +154,6 @@ export async function loadMentorProfileHealthSnapshot(
     unresolvedDeadLetters: count(
       row.unresolved_dead_letters,
       "mentor_profile_health_unresolved_dead_letter_invalid",
-    ),
-    resolvedDeadLetters: count(
-      row.resolved_dead_letters,
-      "mentor_profile_health_resolved_dead_letter_invalid",
-    ),
-    deadLettersTotal: count(
-      row.dead_letters_total,
-      "mentor_profile_health_dead_letter_total_invalid",
     ),
     readyBacklog: count(
       row.ready_backlog,
@@ -254,8 +234,6 @@ export function mentorProfileHealthAlertMetadata(
     failedRetryable: snapshot.failedRetryable,
     unresolvedTerminalFailures: snapshot.unresolvedTerminalFailures,
     unresolvedDeadLetters: snapshot.unresolvedDeadLetters,
-    resolvedDeadLetters: snapshot.resolvedDeadLetters,
-    deadLettersTotal: snapshot.deadLettersTotal,
     readyBacklog: snapshot.readyBacklog,
     overdueLeases: snapshot.overdueLeases,
     oldestReadyAgeSeconds: snapshot.oldestReadyAgeSeconds,
