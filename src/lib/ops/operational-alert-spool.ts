@@ -335,13 +335,16 @@ export async function enqueueOperationalAlert(
   const fileName = spoolFileName(alert.alertId);
   const existingPath = await findExistingSpoolFile(managed, fileName);
   if (existingPath) {
-    let parsed: OperationalAlertSpoolItem;
+    let parsed: OperationalSpoolItem;
     try {
       parsed = validateSpoolItem(await safeReadJson(existingPath));
     } catch {
       throw new Error("operational_spool_archive_corrupt");
     }
-    if (hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)) {
+    if (
+      parsed.schemaVersion !== 1 ||
+      hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)
+    ) {
       throw new Error("operational_spool_identity_conflict");
     }
     return { replayed: true, filePath: existingPath };
@@ -509,7 +512,7 @@ async function bestEffortPersistSpoolItem(
   item: OperationalSpoolItem,
 ): Promise<void> {
   if (item.schemaVersion === 1) {
-    await bestEffortPersistSpoolItem(item);
+    await bestEffortPersistAlert(item.alert);
     return;
   }
   await bestEffortPersistSignal(item.signal);
