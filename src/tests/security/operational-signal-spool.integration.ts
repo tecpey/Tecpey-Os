@@ -17,6 +17,7 @@ import {
   deliverOperationalSignals,
   enqueueOperationalSignal,
   ensureOperationalSignalSpoolDirectories,
+  listOpenOperationalSignalIncidents,
   operationalSignalRetryDelayMs,
 } from "../../lib/ops/operational-signal-spool";
 
@@ -358,6 +359,39 @@ describe("Operational signal spool", () => {
     assert.equal(summary.recoveredQuarantinedArchives, 0);
     assert.equal((await readdir(dirs.pending)).length, 0);
     assert.equal((await readdir(dirs.delivered)).length, 1);
+  });
+
+  it("tracks firing and resolved lifecycle across durable archives", async () => {
+    const root = await tempRoot();
+    const firing = signal("2026-09-18T12:05:00.000Z");
+    await enqueueOperationalSignal(root, firing);
+
+    const filter = {
+      signalType: "mentor_profile_projection_health",
+      component: "mentor_profile_projection",
+      sourceUnit: "tecpey-mentor-profile-health.service",
+      severity: "critical" as const,
+    };
+    const openBefore = await listOpenOperationalSignalIncidents(root, filter);
+    assert.equal(openBefore.length, 1);
+    assert.equal(openBefore[0]?.incidentKey, firing.incidentKey);
+
+    const resolved = createOperationalSignalEvidence({
+      signalType: firing.signalType,
+      component: firing.component,
+      sourceUnit: firing.sourceUnit,
+      severity: firing.severity,
+      lifecycle: "resolved",
+      occurredAt: "2026-09-18T12:10:00.000Z",
+      dedupeWindowSeconds: firing.dedupeWindowSeconds,
+      reasonCodes: firing.reasonCodes,
+      measurements: {},
+    });
+    assert.equal(resolved.incidentKey, firing.incidentKey);
+    await enqueueOperationalSignal(root, resolved);
+
+    const openAfter = await listOpenOperationalSignalIncidents(root, filter);
+    assert.deepEqual(openAfter, []);
   });
 
   it("selects due signals before future retries so hashed filenames cannot starve delivery", async () => {
