@@ -273,7 +273,11 @@ export function createOperationalSignalEvidence(input: {
     input.conditionFingerprint === undefined
       ? computedConditionFingerprint
       : input.conditionFingerprint;
-  if (!HASH_RE.test(conditionFingerprint)) {
+  if (
+    !HASH_RE.test(conditionFingerprint) ||
+    (lifecycle === "firing" &&
+      conditionFingerprint !== computedConditionFingerprint)
+  ) {
     throw new Error("operational_signal_condition_fingerprint_invalid");
   }
   const incidentId =
@@ -377,7 +381,15 @@ export function validateOperationalSignalEvidence(
   if (!HASH_RE.test(raw.incidentId)) {
     throw new Error("operational_signal_incident_id_invalid");
   }
-  if (!HASH_RE.test(raw.conditionFingerprint)) {
+  const computedConditionFingerprint = expectedConditionFingerprint({
+    severity: raw.severity,
+    reasonCodes,
+  });
+  if (
+    !HASH_RE.test(raw.conditionFingerprint) ||
+    (raw.lifecycle === "firing" &&
+      raw.conditionFingerprint !== computedConditionFingerprint)
+  ) {
     throw new Error("operational_signal_condition_fingerprint_invalid");
   }
   const signalId = expectedSignalId({
@@ -478,6 +490,9 @@ export async function persistOperationalSignalTx(
   }
   if (!HASH_RE.test(row.payload_hash)) {
     throw new Error("operational_signal_stored_payload_hash_invalid");
+  }
+  if (row.payload_hash !== payloadHash) {
+    throw new Error("operational_signal_payload_conflict");
   }
   return { replayed: true, payloadHash: row.payload_hash };
 }
