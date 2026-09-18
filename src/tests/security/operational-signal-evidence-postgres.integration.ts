@@ -89,6 +89,33 @@ test(
         { replayed: true },
       );
 
+      await assert.rejects(
+        persistOperationalSignalDeliveryAttemptTx(client, {
+          ...attempt,
+          attemptNumber: 2,
+          deliveryResult: "delivered",
+          httpStatus: 500,
+          errorCode: "webhook_http_500",
+        }),
+        /operational_signal_attempt_semantics_invalid/,
+      );
+
+      await client.query("SAVEPOINT invalid_attempt_semantics");
+      await assert.rejects(
+        client.query(
+          `INSERT INTO platform_operational_signal_delivery_attempts
+             (signal_id, attempt_number, delivery_result, http_status,
+              error_code, attempted_at, evidence)
+           VALUES ($1, 2, 'delivered', 500, 'webhook_http_500',
+                   $2::timestamptz,
+                   '{"provider":"webhook","responseBodyBytes":0,
+                     "attemptHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'::jsonb)`,
+          [evidence.signalId, "2026-09-18T12:02:00.000Z"],
+        ),
+        /platform_operational_signal_attempt_semantics_check|check constraint/i,
+      );
+      await client.query("ROLLBACK TO SAVEPOINT invalid_attempt_semantics");
+
       await client.query("SAVEPOINT signal_mutation");
       await assert.rejects(
         client.query(
