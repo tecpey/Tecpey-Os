@@ -70,13 +70,13 @@ async function insertProcessed(
     `INSERT INTO mentor_profile_update_outbox
        (id, tenant_id, workspace_id, student_id, event_type, event_version,
         event_id, source_reference, reason, payload_hash, occurred_at, status,
-        available_at, attempt_count, processed_at, profile_result_hash,
-        created_at, updated_at)
+        available_at, attempt_count, processed_at, terminal_at,
+        profile_result_hash, created_at, updated_at)
      VALUES
        ($1::uuid, $2, $3, $4::uuid, 'mentor.conversation', 1, $5, $6,
         'mentor_conversation_saved', $7, $8::timestamptz, 'processed',
-        $8::timestamptz, 1, $9::timestamptz, $10, $8::timestamptz,
-        $9::timestamptz)`,
+        $8::timestamptz, 1, $9::timestamptz, $9::timestamptz, $10,
+        $8::timestamptz, $9::timestamptz)`,
     [
       randomUUID(),
       scope.tenantId,
