@@ -457,6 +457,35 @@ export async function persistOperationalSignalDeliveryAttemptTx(
         "operational_signal_error_code_invalid",
         true,
       );
+  const httpStatus = raw.httpStatus;
+  const deliveredValid =
+    raw.deliveryResult === "delivered" &&
+    httpStatus !== null &&
+    httpStatus >= 200 &&
+    httpStatus < 300 &&
+    errorCode === null;
+  const retryableValid =
+    raw.deliveryResult === "retryable_failure" &&
+    errorCode !== null &&
+    (
+      httpStatus === null ||
+      httpStatus === 408 ||
+      httpStatus === 425 ||
+      httpStatus === 429 ||
+      httpStatus >= 500
+    );
+  const terminalValid =
+    raw.deliveryResult === "terminal_failure" &&
+    errorCode !== null &&
+    httpStatus !== null &&
+    !(httpStatus >= 200 && httpStatus < 300) &&
+    httpStatus !== 408 &&
+    httpStatus !== 425 &&
+    httpStatus !== 429 &&
+    httpStatus < 500;
+  if (!deliveredValid && !retryableValid && !terminalValid) {
+    throw new Error("operational_signal_attempt_semantics_invalid");
+  }
   const attemptedAt = iso(
     raw.attemptedAt,
     "operational_signal_attempted_at_invalid",
@@ -476,7 +505,7 @@ export async function persistOperationalSignalDeliveryAttemptTx(
     signalId,
     attemptNumber,
     deliveryResult: raw.deliveryResult,
-    httpStatus: raw.httpStatus,
+    httpStatus,
     errorCode,
     attemptedAt,
     evidence,
@@ -491,7 +520,7 @@ export async function persistOperationalSignalDeliveryAttemptTx(
       signalId,
       attemptNumber,
       raw.deliveryResult,
-      raw.httpStatus,
+      httpStatus,
       errorCode,
       attemptedAt,
       JSON.stringify({ ...evidence, attemptHash }),
