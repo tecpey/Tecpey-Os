@@ -196,8 +196,11 @@ for (const needle of [
   "systemctl is-enabled --quiet tecpey-mentor-profile-health.timer",
   "systemctl is-active --quiet tecpey-mentor-profile-health.timer",
   "operational_alert_delivery_bundle_missing",
+  "operational_installer_env_bundle_missing",
   "state_directory_symlink_forbidden",
-  "ops_alert_https_webhook_missing",
+  "TECPEY_INSTALL_ENV_FILE",
+  "ops:installer:env-check",
+  "operational_install_environment_invalid",
   "tecpey-ops-alert-delivery.service",
   "tecpey-ops-alert-delivery.timer",
   'install -d -m 0700 -o "$RUN_USER" -g "$RUN_GROUP" "$STATE_DIR"',
@@ -206,6 +209,23 @@ for (const needle of [
 ]) {
   requireText("installer", installer, needle, `Mentor watchdog installer invariant missing: ${needle}`);
 }
+const installEnvironment = await source(
+  "src/lib/ops/operational-install-environment.ts",
+);
+for (const needle of [
+  'requiredValue(values, "TECPEY_OPS_ALERT_WEBHOOK_URL")',
+  "validateWebhook(webhook)",
+  "operational_install_webhook_invalid",
+  "rejectDuplicateKeys: true",
+]) {
+  requireText(
+    "installer-env",
+    installEnvironment,
+    needle,
+    `governed Mentor watchdog delivery authority missing: ${needle}`,
+  );
+}
+
 for (const forbidden of [
   'RUN_USER="root"',
   "chmod 777",
