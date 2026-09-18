@@ -7,7 +7,10 @@ import {
   type MentorProfileHealthSnapshot,
 } from "../src/lib/mentor-profile-health";
 import { createOperationalSignalEvidence } from "../src/lib/ops/operational-signal-evidence";
-import { enqueueOperationalSignal } from "../src/lib/ops/operational-signal-spool";
+import {
+  enqueueOperationalSignal,
+  listOpenOperationalSignalIncidents,
+} from "../src/lib/ops/operational-signal-spool";
 
 const SOURCE_UNIT = "tecpey-mentor-profile-health.service";
 const SIGNAL_TYPE = "mentor_profile_projection_health";
@@ -96,6 +99,58 @@ async function enqueueCriticalSignal(input: {
   };
 }
 
+async function resolveRecoveredCriticalSignals(
+  occurredAt: string,
+): Promise<Readonly<{
+  enabled: boolean;
+  discovered: number;
+  enqueued: number;
+  replayed: number;
+}>> {
+  const stateDirectory = operationalStateDirectory();
+  if (!stateDirectory) {
+    return Object.freeze({
+      enabled: false,
+      discovered: 0,
+      enqueued: 0,
+      replayed: 0,
+    });
+  }
+  const open = await listOpenOperationalSignalIncidents(stateDirectory, {
+    signalType: SIGNAL_TYPE,
+    component: COMPONENT,
+    sourceUnit: SOURCE_UNIT,
+    severity: "critical",
+  });
+  let enqueued = 0;
+  let replayed = 0;
+  for (const firing of open) {
+    const resolved = createOperationalSignalEvidence({
+      signalType: firing.signalType,
+      component: firing.component,
+      sourceUnit: firing.sourceUnit,
+      severity: firing.severity,
+      lifecycle: "resolved",
+      occurredAt,
+      dedupeWindowSeconds: firing.dedupeWindowSeconds,
+      reasonCodes: firing.reasonCodes,
+      measurements: {},
+    });
+    if (resolved.incidentKey !== firing.incidentKey) {
+      throw new Error("mentor_profile_signal_resolution_identity_mismatch");
+    }
+    const queued = await enqueueOperationalSignal(stateDirectory, resolved);
+    if (queued.replayed) replayed += 1;
+    else enqueued += 1;
+  }
+  return Object.freeze({
+    enabled: true,
+    discovered: open.length,
+    enqueued,
+    replayed,
+  });
+}
+
 async function main(): Promise<void> {
   const occurredAt = new Date().toISOString();
   const snapshot = await withTx((client) =>
@@ -140,6 +195,9 @@ async function main(): Promise<void> {
   let criticalSignal:
     | Awaited<ReturnType<typeof enqueueCriticalSignal>>
     | null = null;
+  let recoverySignals:
+    | Awaited<ReturnType<typeof resolveRecoveredCriticalSignals>>
+    | null = null;
   if (evaluation.status === "critical") {
     try {
       criticalSignal = await enqueueCriticalSignal({
@@ -161,6 +219,24 @@ async function main(): Promise<void> {
         }),
       );
     }
+  } else {
+    try {
+      recoverySignals = await resolveRecoveredCriticalSignals(occurredAt);
+    } catch (error) {
+      recoverySignals = {
+        enabled: false,
+        discovered: 0,
+        enqueued: 0,
+        replayed: 0,
+      };
+      console.error(
+        JSON.stringify({
+          ok: false,
+          status: "signal_resolution_error",
+          error: safeReasonCode(error),
+        }),
+      );
+    }
   }
 
   console.log(
@@ -168,6 +244,7 @@ async function main(): Promise<void> {
       ok: evaluation.status === "healthy",
       ...evidence,
       criticalSignal,
+      recoverySignals,
     }),
   );
 
