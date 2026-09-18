@@ -1,6 +1,7 @@
 // Mentor signal collection and profile computation — server-only, no cookies.
 // Reads live DB data and derives a MentorProfileUpdate from real user behavior.
 
+import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { cleanText } from "@/lib/student-cartax";
 
@@ -51,7 +52,10 @@ export type MentorProfileUpdate = {
 // ── Signal collectors ─────────────────────────────────────────────────────────
 
 /** Read and summarize academy quiz + challenge attempt data. */
-export async function collectAcademySignals(studentId: string): Promise<AcademySignals> {
+export async function collectAcademySignals(
+  studentId: string,
+  dbClient?: PoolClient,
+): Promise<AcademySignals> {
   const empty: AcademySignals = {
     authorityAvailable: false,
     completedTerms: 0,
@@ -62,7 +66,7 @@ export async function collectAcademySignals(studentId: string): Promise<AcademyS
     totalChallengeAttempts: 0,
   };
 
-  const result = await withDb(async (client) => {
+  const collect = async (client: PoolClient): Promise<AcademySignals> => {
     // One pooled client serializes both reads regardless.
     const termRes = await client.query(
       `SELECT term_number, status, percent
@@ -115,13 +119,18 @@ export async function collectAcademySignals(studentId: string): Promise<AcademyS
       challengeAccuracy,
       totalChallengeAttempts: totalAttempts,
     };
-  });
+  };
 
+  if (dbClient) return collect(dbClient);
+  const result = await withDb(collect);
   return result.enabled ? (result.value ?? { ...empty, authorityAvailable: true }) : empty;
 }
 
 /** Read and summarize trading arena activity. */
-export async function collectTradingSignals(studentId: string): Promise<TradingSignals> {
+export async function collectTradingSignals(
+  studentId: string,
+  dbClient?: PoolClient,
+): Promise<TradingSignals> {
   const empty: TradingSignals = {
     authorityAvailable: false,
     tradeCount: 0,
@@ -133,7 +142,7 @@ export async function collectTradingSignals(studentId: string): Promise<TradingS
     repeatedMistakes: [],
   };
 
-  const result = await withDb(async (client) => {
+  const collect = async (client: PoolClient): Promise<TradingSignals> => {
     const res = await client.query(
       `SELECT risk_percent, discipline_score, risk_flag, emotion, entry_reason, risk_plan
        FROM academy_trading_arena_trades
@@ -180,13 +189,18 @@ export async function collectTradingSignals(studentId: string): Promise<TradingS
       journalQuality,
       repeatedMistakes,
     };
-  });
+  };
 
+  if (dbClient) return collect(dbClient);
+  const result = await withDb(collect);
   return result.enabled ? (result.value ?? { ...empty, authorityAvailable: true }) : empty;
 }
 
 /** Scan stored mentor conversations for goal, psychology, and style signals. */
-export async function collectConversationSignals(studentId: string): Promise<ConversationSignals> {
+export async function collectConversationSignals(
+  studentId: string,
+  dbClient?: PoolClient,
+): Promise<ConversationSignals> {
   const empty: ConversationSignals = {
     authorityAvailable: false,
     primaryGoal: "",
@@ -197,7 +211,7 @@ export async function collectConversationSignals(studentId: string): Promise<Con
     avgUserMessageLength: 0,
   };
 
-  const result = await withDb(async (client) => {
+  const collect = async (client: PoolClient): Promise<ConversationSignals> => {
     const res = await client.query(
       `SELECT role, content FROM mentor_conversations
        WHERE student_id = $1::uuid AND role = 'user'
@@ -253,8 +267,10 @@ export async function collectConversationSignals(studentId: string): Promise<Con
       messageCount,
       avgUserMessageLength,
     };
-  });
+  };
 
+  if (dbClient) return collect(dbClient);
+  const result = await withDb(collect);
   return result.enabled ? (result.value ?? { ...empty, authorityAvailable: true }) : empty;
 }
 
