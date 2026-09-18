@@ -292,11 +292,15 @@ async function safeReadJson(filePath: string): Promise<unknown> {
   return JSON.parse(content) as unknown;
 }
 
-function validatedAttemptHistory(raw: unknown): OperationalSpoolAttempt[] {
+function validatedAttemptHistory(
+  raw: unknown,
+  attemptCount: number,
+): OperationalSpoolAttempt[] {
   if (raw === undefined) return [];
-  if (!Array.isArray(raw) || raw.length > 100) {
+  if (!Array.isArray(raw) || raw.length > attemptCount || raw.length > 100) {
     throw new Error("operational_spool_attempt_history_invalid");
   }
+  const firstRecordedAttempt = attemptCount - raw.length + 1;
   return raw.map((entry, index) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       throw new Error("operational_spool_attempt_history_invalid");
@@ -305,7 +309,7 @@ function validatedAttemptHistory(raw: unknown): OperationalSpoolAttempt[] {
     const attemptNumber = Number(attempt.attemptNumber);
     if (
       !Number.isSafeInteger(attemptNumber) ||
-      attemptNumber !== index + 1 ||
+      attemptNumber !== firstRecordedAttempt + index ||
       (attempt.deliveryResult !== "delivered" &&
         attempt.deliveryResult !== "retryable_failure" &&
         attempt.deliveryResult !== "terminal_failure") ||
@@ -335,20 +339,20 @@ function validatedAttemptHistory(raw: unknown): OperationalSpoolAttempt[] {
 function validatedDelivery(
   raw: Record<string, unknown>,
 ): OperationalAlertSpoolItem["delivery"] {
-  const attemptHistory = validatedAttemptHistory(raw.attemptHistory);
   if (
     !Number.isSafeInteger(raw.attemptCount) ||
     Number(raw.attemptCount) < 0 ||
     Number(raw.attemptCount) > 100 ||
-    Number(raw.attemptCount) !== attemptHistory.length ||
     (raw.lastErrorCode !== null &&
       (typeof raw.lastErrorCode !== "string" ||
        !/^[a-z0-9._:-]{1,100}$/.test(raw.lastErrorCode)))
   ) {
     throw new Error("operational_spool_delivery_invalid");
   }
+  const attemptCount = Number(raw.attemptCount);
+  const attemptHistory = validatedAttemptHistory(raw.attemptHistory, attemptCount);
   return {
-    attemptCount: Number(raw.attemptCount),
+    attemptCount,
     nextAttemptAt: iso(
       String(raw.nextAttemptAt),
       "operational_next_attempt_invalid",
