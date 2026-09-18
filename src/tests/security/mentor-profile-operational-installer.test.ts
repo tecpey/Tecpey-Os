@@ -42,7 +42,6 @@ async function fixture() {
     "run-mentor-profile-worker.cjs",
     "check-mentor-profile-health.cjs",
     "deliver-operational-alerts.cjs",
-    "check-operational-delivery-env.cjs",
     "check-operational-installer-env.cjs",
   ]) {
     await writeFile(path.join(app, "dist", name), "// test bundle\n", {
@@ -115,7 +114,7 @@ describe("Mentor profile operational installer", () => {
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     assert.match(result.stdout, /unit_verification=passed/);
     assert.match(result.stdout, /health_watchdog=verified/);
-    assert.match(result.stdout, /durable_signal_delivery=verified/);
+    assert.match(result.stdout, /alert_delivery=verified/);
     assert.match(result.stdout, /state_directory=/);
     assert.equal(result.stdout.includes("test-token"), false);
     assert.equal(result.stdout.includes("postgres://"), false);
@@ -123,10 +122,10 @@ describe("Mentor profile operational installer", () => {
 
   it("fails closed when any operational runtime bundle is missing", async () => {
     const setup = await fixture();
-    await rm(path.join(setup.app, "dist", "check-operational-delivery-env.cjs"));
+    await rm(path.join(setup.app, "dist", "check-operational-installer-env.cjs"));
     const result = runInstall(setup);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /mentor_operational_bundle_missing/);
+    assert.match(result.stderr, /operational_installer_env_bundle_missing/);
   });
 
   it("rejects root identity, unsafe state path and state symlink", async () => {
