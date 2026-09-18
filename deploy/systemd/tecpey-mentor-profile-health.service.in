@@ -3,6 +3,7 @@ Description=TecPey Mentor Profile Independent Health Probe
 Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md
 Wants=network-online.target
 After=network-online.target
+OnFailure=tecpey-ops-alert-delivery.service
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
