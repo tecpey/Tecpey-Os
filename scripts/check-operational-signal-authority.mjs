@@ -59,6 +59,11 @@ for (const needle of [
   "operational_signal_webhook_https_required",
   "bestEffortPersistSignal",
   "bestEffortPersistAttempt",
+  "syncDirectory",
+  "attempts: Object.freeze([...item.attempts, attempt])",
+  "deferredDueToBatchLimit",
+  "due.sort(",
+  "quarantineUnsafeEntry",
 ]) {
   requireText("spool", spool, needle, `signal spool invariant missing: ${needle}`);
 }
@@ -74,6 +79,30 @@ requirePattern(
   /deliveryResult === "terminal_failure"[\s\S]*moveFile\(filePath, managed\.quarantine\)/,
   "terminal delivery failures must quarantine",
 );
+requirePattern(
+  "spool",
+  spool,
+  /atomicReplaceJson\(filePath, updated\)[\s\S]*bestEffortPersistAttempt\(attempt\)[\s\S]*moveFile\(filePath, managed\.(delivered|quarantine)\)/,
+  "local attempt evidence must be fsync-persisted before terminal archive movement",
+);
+requirePattern(
+  "spool",
+  spool,
+  /due\.sort\([\s\S]*due\.slice\(0, limit\)/,
+  "delivery batching must select due work before applying the batch limit",
+);
+
+const spoolTest = await source(
+  "src/tests/security/operational-signal-spool.integration.ts",
+);
+for (const needle of [
+  "due signals before future retries",
+  "archived.attempts",
+  "retried.attempts",
+  "stat(target)",
+]) {
+  requireText("spool-test", spoolTest, needle, `durability/fairness proof missing: ${needle}`);
+}
 
 const health = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
