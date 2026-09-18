@@ -610,7 +610,7 @@ function withDatabaseMirrorState(
   } as OperationalSpoolItem;
 }
 
-async function reconcileArchiveDirectory(
+async function reconcileSpoolDirectory(
   directory: string,
   limit: number,
 ): Promise<boolean> {
@@ -776,36 +776,32 @@ export async function deliverOperationalAlerts(
     // unavailable, this file remains sufficient to backfill immutable evidence.
     await atomicWriteJson(filePath, journaled);
 
-    let mirrorPath = filePath;
     if (deliveryResult === "delivered") {
-      mirrorPath = await moveFile(filePath, managed.delivered);
+      await moveFile(filePath, managed.delivered);
       summary.delivered += 1;
     } else if (
       deliveryResult === "terminal_failure" ||
       attemptNumber >= maxAttempts
     ) {
-      mirrorPath = await moveFile(filePath, managed.quarantine);
+      await moveFile(filePath, managed.quarantine);
       summary.quarantined += 1;
     } else {
       summary.retryable += 1;
     }
-
-    // Database mirroring is deliberately after the outage-safe local state
-    // transition so PostgreSQL can never block webhook delivery or archival.
-    if (await mirrorSpoolItemToDatabase(journaled)) {
-      journaled = withDatabaseMirrorState(journaled, true);
-      await atomicWriteJson(mirrorPath, journaled);
-    }
   }
 
-  // Historical archive reconciliation is lower priority than live delivery.
-  // It runs only after all due pending work for this cycle has been handled.
-  const deliveredMirrorAvailable = await reconcileArchiveDirectory(
-    managed.delivered,
+  // Database mirroring is a lower-priority reconciliation phase. All due
+  // webhook work above completes first, so a DB outage cannot serialize or
+  // delay critical signal delivery.
+  const pendingMirrorAvailable = await reconcileSpoolDirectory(
+    managed.pending,
     limit,
   );
+  const deliveredMirrorAvailable = pendingMirrorAvailable
+    ? await reconcileSpoolDirectory(managed.delivered, limit)
+    : false;
   if (deliveredMirrorAvailable) {
-    await reconcileArchiveDirectory(managed.quarantine, limit);
+    await reconcileSpoolDirectory(managed.quarantine, limit);
   }
 
   return summary;
