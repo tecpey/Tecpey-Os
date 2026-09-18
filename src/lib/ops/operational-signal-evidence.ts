@@ -9,6 +9,9 @@ const HASH_RE = /^[0-9a-f]{64}$/;
 const ATTRIBUTE_KEY_RE = /^[a-z][A-Za-z0-9._:-]{0,63}$/;
 const FORBIDDEN_ATTRIBUTE_KEY_RE =
   /(tenant|workspace|student|user|account|conversation|prompt|email|phone|address|token|secret|cookie|authorization|portfolio|kyc|passport)/i;
+const ALLOWED_STRING_ATTRIBUTE_KEYS = new Set(["policyVersion", "sourceVersion"]);
+const FORBIDDEN_REASON_CODE_RE =
+  /(tenant|workspace|student|user|account|conversation|prompt|email|phone|address|token|secret|cookie|authorization|portfolio|kyc|passport)/i;
 
 export type OperationalSignalSeverity = "warning" | "critical";
 export type OperationalSignalStatus = "active" | "authority_unavailable";
@@ -120,8 +123,10 @@ function validatedAttributes(
     }
     if (typeof value === "string") {
       if (
-        value.length > 160 ||
-        (value.length > 0 && !TOKEN_RE.test(value))
+        !ALLOWED_STRING_ATTRIBUTE_KEYS.has(key) ||
+        value.length < 1 ||
+        value.length > 80 ||
+        !TOKEN_RE.test(value)
       ) {
         throw new Error("operational_signal_attribute_value_invalid");
       }
@@ -148,15 +153,19 @@ function normalizedReasonCodes(raw: readonly string[]): string[] {
     throw new Error("operational_signal_reason_codes_invalid");
   }
   const normalized = [...new Set(
-    raw.map((reason) =>
-      boundedToken(
+    raw.map((reason) => {
+      const normalized = boundedToken(
         reason,
         1,
-        100,
+        80,
         "operational_signal_reason_code_invalid",
         true,
-      )
-    ),
+      );
+      if (FORBIDDEN_REASON_CODE_RE.test(normalized)) {
+        throw new Error("operational_signal_reason_code_invalid");
+      }
+      return normalized;
+    }),
   )].sort();
   if (normalized.length !== raw.length) {
     throw new Error("operational_signal_reason_codes_duplicate");
