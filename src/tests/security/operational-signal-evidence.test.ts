@@ -148,6 +148,20 @@ test("operational signal labels reject user-scoped and high-cardinality dimensio
     () =>
       createOperationalSignalEvidence({
         signalType: "mentor_profile_projection_health",
+        component: "student_123456",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        severity: "critical",
+        occurredAt: "2026-09-18T12:05:00.000Z",
+        reasonCodes: ["dead_letter_present"],
+        measurements: {},
+      }),
+    /operational_signal_component_cardinality_forbidden/,
+  );
+
+  assert.throws(
+    () =>
+      createOperationalSignalEvidence({
+        signalType: "mentor_profile_projection_health",
         component: "mentor_profile_projection",
         sourceUnit: "tecpey-mentor-profile-health.service",
         severity: "critical",
