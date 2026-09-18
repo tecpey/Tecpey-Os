@@ -6,6 +6,30 @@ import type { PoolClient } from "pg";
 const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
 const LOWER_TOKEN_RE = /^[a-z0-9][a-z0-9._:-]*$/;
 const HASH_RE = /^[0-9a-f]{64}$/;
+const FORBIDDEN_CARDINALITY_SEGMENTS = new Set([
+  "tenant",
+  "workspace",
+  "student",
+  "learner",
+  "user",
+  "account",
+  "customer",
+  "email",
+  "phone",
+  "contact",
+  "conversation",
+  "prompt",
+  "message",
+  "kyc",
+  "passport",
+  "national",
+  "address",
+  "wallet",
+  "portfolio",
+  "credential",
+  "secret",
+]);
+const LONG_IDENTIFIER_RE = /(?:\d{6,}|[0-9a-f]{16,})/i;
 
 export type OperationalSignalSeverity = "warning" | "critical";
 export type OperationalSignalLifecycle = "firing" | "resolved";
@@ -114,17 +138,32 @@ function boundedInteger(
   return value;
 }
 
+function assertLowCardinalityLabel(value: string, code: string): string {
+  const normalized = value.toLowerCase();
+  const segments = normalized.split(/[._:-]+/).filter(Boolean);
+  if (
+    segments.some((segment) => FORBIDDEN_CARDINALITY_SEGMENTS.has(segment)) ||
+    LONG_IDENTIFIER_RE.test(normalized)
+  ) {
+    throw new Error(code);
+  }
+  return value;
+}
+
 function normalizeReasonCodes(values: readonly string[]): string[] {
   if (!Array.isArray(values) || values.length < 1 || values.length > 32) {
     throw new Error("operational_signal_reason_codes_invalid");
   }
   const output = values.map((value) =>
-    boundedToken(
-      value,
-      3,
-      100,
-      "operational_signal_reason_codes_invalid",
-      true,
+    assertLowCardinalityLabel(
+      boundedToken(
+        value,
+        3,
+        100,
+        "operational_signal_reason_codes_invalid",
+        true,
+      ),
+      "operational_signal_reason_cardinality_forbidden",
     ));
   const unique = [...new Set(output)].sort();
   if (unique.length !== output.length) {
@@ -146,12 +185,15 @@ function normalizeMeasurements(
   const output: Record<string, OperationalSignalMeasurement> = {};
   for (const [rawKey, value] of entries.sort(([left], [right]) =>
     left.localeCompare(right))) {
-    const key = boundedToken(
-      rawKey,
-      1,
-      64,
-      "operational_signal_measurement_key_invalid",
-      true,
+    const key = assertLowCardinalityLabel(
+      boundedToken(
+        rawKey,
+        1,
+        64,
+        "operational_signal_measurement_key_invalid",
+        true,
+      ),
+      "operational_signal_measurement_cardinality_forbidden",
     );
     if (
       value !== null &&
