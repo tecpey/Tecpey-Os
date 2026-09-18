@@ -96,6 +96,10 @@ import {
 import { runIdentityProductLinkingMigrations } from "./db-migrate-identity-product-linking";
 import { runAcademyProfileDetailsMigrations } from "./db-migrate-academy-profile-details";
 import { runAcademyQuestionBankBaselineMigrations } from "./db-migrate-academy-question-bank-baseline";
+import {
+  MENTOR_PRIVACY_RETENTION_SQL,
+  runMentorPrivacyRetentionMigrations,
+} from "./db-migrate-mentor-privacy-retention";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -159,6 +163,14 @@ const NEWS_FULL_EVIDENCE_CAPTURE_MIGRATION: CanonicalMigrationContent = Object.f
   identity: "0103_news_full_evidence_capture_authority.sql",
   content: NEWS_FULL_EVIDENCE_CAPTURE_SQL,
   checksum: canonicalMigrationChecksum(NEWS_FULL_EVIDENCE_CAPTURE_SQL),
+  acceptsHistoricalChecksumPrefix: false,
+  compatibleHistoricalChecksums: Object.freeze([]),
+});
+
+const MENTOR_PRIVACY_RETENTION_MIGRATION: CanonicalMigrationContent = Object.freeze({
+  identity: "0104_mentor_privacy_retention_authority.sql",
+  content: MENTOR_PRIVACY_RETENTION_SQL,
+  checksum: canonicalMigrationChecksum(MENTOR_PRIVACY_RETENTION_SQL),
   acceptsHistoricalChecksumPrefix: false,
   compatibleHistoricalChecksums: Object.freeze([]),
 });
@@ -257,6 +269,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "growth-platform",
     "organic-growth",
     runNewsFullEvidenceCaptureMigrations,
+  ),
+  entry(
+    88,
+    "migration-step-088",
+    [MENTOR_PRIVACY_RETENTION_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorPrivacyRetentionMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 

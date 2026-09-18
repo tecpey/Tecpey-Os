@@ -1,0 +1,13 @@
+[Unit]
+Description=Run TecPey Mentor Retention Cleanup Daily
+Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/mentor/MENTOR_RETENTION_OPERATIONS_V1.md
+
+[Timer]
+OnCalendar=*-*-* 03:35:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+AccuracySec=60s
+Unit=tecpey-mentor-retention.service
+
+[Install]
+WantedBy=timers.target
