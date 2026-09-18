@@ -69,6 +69,21 @@ export type MentorProfileRepairResult = {
   failed: number;
 };
 
+async function mentorProfileRepairBoundary(): Promise<string> {
+  const boundary = await withDb(async (client) => {
+    const clock = await client.query<{ now: Date }>(
+      "SELECT clock_timestamp() AS now",
+    );
+    const value = clock.rows[0]?.now.toISOString();
+    if (!value) throw new Error("mentor_profile_repair_clock_unavailable");
+    return value;
+  });
+  if (!boundary.enabled) {
+    throw new Error("mentor_profile_repair_database_unavailable");
+  }
+  return boundary.value;
+}
+
 /**
  * Recompute every mentor profile whose learning signals are newer than the stored
  * profile. Bounded by `limit` so one sweep cannot monopolise the database.
@@ -175,7 +190,6 @@ export async function reconcileMentorProfiles(options: {
   );
 
   const repairRunId = randomUUID();
-  const clock = options.now ?? Date.now;
   let repaired = 0;
   let resolvedDeadLetters = 0;
   let failed = 0;
@@ -185,14 +199,13 @@ export async function reconcileMentorProfiles(options: {
       .update(row.student_id)
       .digest("hex");
     try {
-      const repairStartedAt = new Date(clock()).toISOString();
+      const repairStartedAt = await mentorProfileRepairBoundary();
       const update = await applyMentorProfileUpdate(row.student_id);
       if (!update) throw new Error("mentor_profile_signal_authority_unavailable");
       const resolution = await resolveMentorProfileDeadLettersAfterRepair({
         studentId: row.student_id,
         repairRunId,
         repairStartedAt,
-        resolvedAt: new Date(clock()).toISOString(),
       });
       if (!resolution.enabled) {
         throw new Error("mentor_profile_resolution_authority_unavailable");
