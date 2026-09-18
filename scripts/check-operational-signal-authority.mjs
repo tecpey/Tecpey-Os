@@ -16,6 +16,9 @@ for (const needle of [
   "platform_operational_signals",
   "platform_operational_signal_delivery_attempts",
   "incident_key CHAR(64)",
+  "incident_id CHAR(64)",
+  "condition_fingerprint CHAR(64)",
+  "platform_operational_signals_incident_lifecycle_idx",
   "dedupe_window_start",
   "dedupe_window_seconds",
   "platform_operational_signals_immutable",
@@ -27,13 +30,16 @@ for (const needle of [
 
 const evidence = await source("src/lib/ops/operational-signal-evidence.ts");
 for (const needle of [
-  "tecpey-operational-signal-incident-v1",
-  "tecpey-operational-signal-dedupe-v1",
+  "tecpey-operational-condition-key-v2",
+  "tecpey-operational-condition-fingerprint-v2",
+  "tecpey-operational-signal-id-v2",
+  "tecpey-operational-incident-generation-v2",
   "sourceUnit: input.sourceUnit",
   "reasonCodes",
   "measurements",
   "operational_signal_measurement_value_invalid",
   "persistOperationalSignalTx",
+  "operational_signal_payload_conflict",
   "persistOperationalSignalDeliveryAttemptTx",
 ]) {
   requireText("evidence", evidence, needle, `signal evidence invariant missing: ${needle}`);
@@ -119,23 +125,60 @@ for (const needle of [
   requireText("spool-test", spoolTest, needle, `durability/fairness proof missing: ${needle}`);
 }
 
+const lifecycle = await source(
+  "src/lib/ops/operational-condition-signal.ts",
+);
+for (const needle of [
+  "tecpey-operational-condition-state-v2",
+  "pending: Object.freeze",
+  "await atomicWriteState(input.filePath, pendingState)",
+  "const queued = await enqueue(input.stateDirectory, input.signal)",
+  "await atomicWriteState(input.filePath, committed)",
+  "recoverPending",
+  '"condition_changed"',
+  '"condition_recovered"',
+  "randomBytes(32)",
+]) {
+  requireText("lifecycle", lifecycle, needle, `incident lifecycle invariant missing: ${needle}`);
+}
+requirePattern(
+  "lifecycle",
+  lifecycle,
+  /await atomicWriteState\(input\.filePath, pendingState\)[\s\S]*await enqueue\(input\.stateDirectory, input\.signal\)[\s\S]*await atomicWriteState\(input\.filePath, committed\)/,
+  "transition intent must be fsync-persisted before spool enqueue and committed afterward",
+);
+
+const lifecycleTest = await source(
+  "src/tests/security/operational-condition-signal-v2.test.ts",
+);
+for (const needle of [
+  "same-hour recurrence",
+  "write-ahead pending transition replays the exact signal",
+  "seenDuringRecovery[0], seenBeforeCrash[0]",
+  "warning or healthy observation never opens",
+]) {
+  requireText("lifecycle-test", lifecycleTest, needle, `incident lifecycle proof missing: ${needle}`);
+}
+
 const health = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
-  "enqueueOperationalSignal",
-  "createOperationalSignalEvidence",
+  "transitionOperationalConditionSignal",
   "mentor_profile_database_unavailable",
-  'evaluation.status === "critical"',
+  '"mentor_profile_projection"',
+  '"mentor_profile_database_authority"',
+  '"mentor_profile_health_probe"',
   "TECPEY_OPS_STATE_DIR",
-  "MENTOR_PROFILE_CRITICAL_SIGNAL_WINDOW_SECONDS",
+  "status: evaluation.status",
 ]) {
-  requireText("health", health, needle, `health-to-signal wiring missing: ${needle}`);
+  requireText("health", health, needle, `health-to-signal lifecycle wiring missing: ${needle}`);
 }
 if (
-  /if\s*\(evaluation\.status === "warning"\)\s*\{[\s\S]*?enqueueCriticalSignal/.test(
-    health,
-  )
+  health.includes("enqueueOperationalSignal(") ||
+  health.includes("createOperationalSignalEvidence(")
 ) {
-  failures.push("health: explicit warning branch must not enter the durable critical signal rail");
+  failures.push(
+    "health: independent probe must delegate incident identity/lifecycle to operational-condition-signal",
+  );
 }
 
 const delivery = await source("scripts/deliver-operational-alerts.ts");
@@ -297,6 +340,7 @@ for (const [name, needle] of [
   ["ops:alerts:deliver:prod", "dist/deliver-operational-alerts.cjs"],
   ["ops:delivery:env-check", "dist/check-operational-delivery-env.cjs"],
   ["test:ops-signals", "operational-signal"],
+  ["test:ops-signals", "operational-condition-signal-v2.test.ts"],
   ["test:ops-signals", "mentor-profile-operational-installer.test.ts"],
   ["test:ops-signals", "operational-install-environment.test.ts"],
 ]) {
