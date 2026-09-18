@@ -103,6 +103,64 @@ describe("Operational signal PostgreSQL authority", () => {
   );
 
   it(
+    "keeps simultaneous incidents from different instances distinct",
+    { skip: !configured },
+    async () => {
+      const uniqueReason = `instance_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
+      const first = createOperationalSignalEvidence({
+        signalType: "mentor_profile_projection_health",
+        component: "mentor_profile_projection",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        instanceFingerprint: "111111111111111111111111",
+        severity: "critical",
+        lifecycle: "firing",
+        occurredAt: "2026-09-18T12:05:00.000Z",
+        dedupeWindowSeconds: 3_600,
+        reasonCodes: ["dead_letter_present", uniqueReason],
+        measurements: { unresolved_dead_letters: 1 },
+      });
+      const second = createOperationalSignalEvidence({
+        ...first,
+        signalId: "",
+        incidentKey: "",
+        instanceFingerprint: "222222222222222222222222",
+      } as never);
+
+      // Re-create through the authority rather than trusting mutated derived IDs.
+      const secondAuthoritative = createOperationalSignalEvidence({
+        signalType: first.signalType,
+        component: first.component,
+        sourceUnit: first.sourceUnit,
+        instanceFingerprint: "222222222222222222222222",
+        severity: first.severity,
+        lifecycle: first.lifecycle,
+        occurredAt: first.occurredAt,
+        dedupeWindowSeconds: first.dedupeWindowSeconds,
+        reasonCodes: first.reasonCodes,
+        measurements: first.measurements,
+      });
+      assert.notEqual(first.incidentKey, secondAuthoritative.incidentKey);
+      assert.notEqual(first.signalId, secondAuthoritative.signalId);
+      assert.throws(
+        () => second,
+        /operational_signal_incident_key_invalid|operational_signal_identity_invalid/,
+      );
+
+      await withClient((client) => persistOperationalSignalTx(client, first));
+      await withClient((client) =>
+        persistOperationalSignalTx(client, secondAuthoritative),
+      );
+      const stored = await withClient((client) =>
+        client.query<{ count: string }>(
+          "SELECT COUNT(*)::text AS count FROM platform_operational_signals WHERE signal_id = ANY($1::text[])",
+          [[first.signalId, secondAuthoritative.signalId]],
+        ),
+      );
+      assert.equal(Number(stored.rows[0]?.count ?? "0"), 2);
+    },
+  );
+
+  it(
     "stores append-only delivery attempts with exact replay",
     { skip: !configured },
     async () => {
