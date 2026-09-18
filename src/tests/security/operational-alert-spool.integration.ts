@@ -8,6 +8,7 @@ import {
   deliverOperationalAlerts,
   enqueueOperationalAlert,
   ensureOperationalSpoolDirectories,
+  operationalDeliveryRetryDelayMs,
   writeOperationalLastRun,
 } from "../../lib/ops/operational-alert-spool";
 import type {
@@ -140,11 +141,23 @@ describe("Operational alert spool", () => {
     };
     assert.equal(item.delivery.attemptCount, 1);
     assert.equal(item.delivery.lastErrorCode, "webhook_http_503");
-    assert.equal(item.delivery.nextAttemptAt, "2026-07-21T08:01:15.000Z");
+    const retryDelay = operationalDeliveryRetryDelayMs(
+      1,
+      alert("authority_unavailable").alertId,
+    );
+    assert.equal(
+      item.delivery.nextAttemptAt,
+      new Date(
+        Date.parse("2026-07-21T08:01:00.000Z") + retryDelay,
+      ).toISOString(),
+    );
+    assert.equal(retryDelay >= 12_000 && retryDelay <= 18_000, true);
     const early = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
-      now: new Date("2026-07-21T08:01:10.000Z"),
+      now: new Date(
+        Date.parse("2026-07-21T08:01:00.000Z") + retryDelay - 1,
+      ),
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
