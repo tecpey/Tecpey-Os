@@ -36,24 +36,31 @@ const DEFAULT_MAX_ATTEMPTS = 10;
 const MAX_RESPONSE_BODY_BYTES = 0;
 const SAFE_FILE_RE = /^[0-9a-f]{64}\.json$/;
 
+type OperationalSpoolAttempt = {
+  attemptNumber: number;
+  deliveryResult: "delivered" | "retryable_failure" | "terminal_failure";
+  httpStatus: number | null;
+  errorCode: string | null;
+  attemptedAt: string;
+};
+
+type OperationalSpoolDelivery = {
+  attemptCount: number;
+  nextAttemptAt: string;
+  lastErrorCode: string | null;
+  attemptHistory: OperationalSpoolAttempt[];
+};
+
 export type OperationalAlertSpoolItem = {
   schemaVersion: 1;
   alert: OperationalAlertEvidence;
-  delivery: {
-    attemptCount: number;
-    nextAttemptAt: string;
-    lastErrorCode: string | null;
-  };
+  delivery: OperationalSpoolDelivery;
 };
 
 export type OperationalSignalSpoolItem = {
   schemaVersion: 2;
   signal: OperationalSignalEvidence;
-  delivery: {
-    attemptCount: number;
-    nextAttemptAt: string;
-    lastErrorCode: string | null;
-  };
+  delivery: OperationalSpoolDelivery;
 };
 
 type OperationalSpoolItem =
@@ -284,13 +291,55 @@ async function safeReadJson(filePath: string): Promise<unknown> {
   return JSON.parse(content) as unknown;
 }
 
+function validatedAttemptHistory(raw: unknown): OperationalSpoolAttempt[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > 100) {
+    throw new Error("operational_spool_attempt_history_invalid");
+  }
+  return raw.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error("operational_spool_attempt_history_invalid");
+    }
+    const attempt = entry as Record<string, unknown>;
+    const attemptNumber = Number(attempt.attemptNumber);
+    if (
+      !Number.isSafeInteger(attemptNumber) ||
+      attemptNumber !== index + 1 ||
+      (attempt.deliveryResult !== "delivered" &&
+        attempt.deliveryResult !== "retryable_failure" &&
+        attempt.deliveryResult !== "terminal_failure") ||
+      (attempt.httpStatus !== null &&
+        (!Number.isSafeInteger(attempt.httpStatus) ||
+          Number(attempt.httpStatus) < 100 ||
+          Number(attempt.httpStatus) > 599)) ||
+      (attempt.errorCode !== null &&
+        (typeof attempt.errorCode !== "string" ||
+          !/^[a-z0-9._:-]{1,100}$/.test(attempt.errorCode)))
+    ) {
+      throw new Error("operational_spool_attempt_history_invalid");
+    }
+    return {
+      attemptNumber,
+      deliveryResult: attempt.deliveryResult,
+      httpStatus: attempt.httpStatus === null ? null : Number(attempt.httpStatus),
+      errorCode: attempt.errorCode as string | null,
+      attemptedAt: iso(
+        String(attempt.attemptedAt),
+        "operational_spool_attempted_at_invalid",
+      ),
+    };
+  });
+}
+
 function validatedDelivery(
   raw: Record<string, unknown>,
 ): OperationalAlertSpoolItem["delivery"] {
+  const attemptHistory = validatedAttemptHistory(raw.attemptHistory);
   if (
     !Number.isSafeInteger(raw.attemptCount) ||
     Number(raw.attemptCount) < 0 ||
     Number(raw.attemptCount) > 100 ||
+    Number(raw.attemptCount) !== attemptHistory.length ||
     (raw.lastErrorCode !== null &&
       (typeof raw.lastErrorCode !== "string" ||
        !/^[a-z0-9._:-]{1,100}$/.test(raw.lastErrorCode)))
@@ -304,6 +353,7 @@ function validatedDelivery(
       "operational_next_attempt_invalid",
     ),
     lastErrorCode: raw.lastErrorCode as string | null,
+    attemptHistory,
   };
 }
 
@@ -396,6 +446,7 @@ export async function enqueueOperationalAlert(
       attemptCount: 0,
       nextAttemptAt: alert.occurredAt,
       lastErrorCode: null,
+      attemptHistory: [],
     },
   };
   const created = await atomicCreateJson(filePath, item);
@@ -438,6 +489,7 @@ export async function enqueueOperationalSignal(
       attemptCount: 0,
       nextAttemptAt: signal.occurredAt,
       lastErrorCode: null,
+      attemptHistory: [],
     },
   };
   const created = await atomicCreateJson(filePath, item);
