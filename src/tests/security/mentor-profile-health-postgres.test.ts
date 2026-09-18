@@ -215,39 +215,89 @@ test(
       );
       await client.query("ROLLBACK TO SAVEPOINT mentor_health_wrong_fingerprint");
 
-      const clock = await client.query<{ now: Date }>("SELECT NOW() AS now");
-      const dbNow = clock.rows[0]!.now.getTime();
-      const tooEarlyStartedAt = new Date(dbNow - 1).toISOString();
-      const tooEarly = await resolveMentorProfileDeadLettersAfterRepairTx(
-        client,
-        {
-          studentId: scope.studentId,
-          repairRunId: randomUUID(),
-          repairStartedAt: tooEarlyStartedAt,
-          resolvedAt: tooEarlyStartedAt,
-        },
-      );
-      assert.deepEqual(tooEarly, { selected: 0, resolved: 0, replayed: 0 });
+      const repairStartedAt = new Date().toISOString();
+      const exactPreRepairSnapshot = [source.id];
 
-      const repairStartedAt = new Date(dbNow).toISOString();
-      const resolvedAt = new Date(dbNow + 1).toISOString();
+      // A new terminal incident created after the snapshot must not be resolved
+      // by this repair, even if it lands within the same millisecond.
+      const concurrentTerminalId = await insertEvent(
+        client,
+        scope,
+        12,
+        "failed_terminal",
+      );
+      await client.query(
+        `INSERT INTO mentor_profile_update_dead_letters
+           (tenant_id, workspace_id, outbox_id, terminal_reason, event_id,
+            student_fingerprint, payload_hash)
+         SELECT tenant_id, workspace_id, id, 'health_test_concurrent', event_id,
+                $2, payload_hash
+           FROM mentor_profile_update_outbox
+          WHERE id = $1::uuid`,
+        [concurrentTerminalId, "f".repeat(64)],
+      );
+      const concurrentDeadLetter = await client.query<{ id: string }>(
+        `SELECT id::text
+           FROM mentor_profile_update_dead_letters
+          WHERE outbox_id = $1::uuid`,
+        [concurrentTerminalId],
+      );
+
+      const resolvedAt = new Date(
+        Date.parse(repairStartedAt) + 1,
+      ).toISOString();
       const resolution = await resolveMentorProfileDeadLettersAfterRepairTx(
         client,
         {
           studentId: scope.studentId,
           repairRunId: randomUUID(),
           repairStartedAt,
+          deadLetterIds: exactPreRepairSnapshot,
           resolvedAt,
         },
       );
       assert.deepEqual(resolution, { selected: 1, resolved: 1, replayed: 0 });
 
+      const midRepair = await loadMentorProfileHealthSnapshot(client);
+      assert.equal(midRepair.unresolvedTerminalFailures, 1);
+      assert.equal(midRepair.unresolvedDeadLetters, 1);
+      assert.equal(midRepair.resolvedDeadLetters, 1);
+      assert.equal(midRepair.deadLettersTotal, 2);
+      assert.equal(evaluateMentorProfileHealth(midRepair).status, "critical");
+
+      const secondResolution = await resolveMentorProfileDeadLettersAfterRepairTx(
+        client,
+        {
+          studentId: scope.studentId,
+          repairRunId: randomUUID(),
+          repairStartedAt: resolvedAt,
+          deadLetterIds: [concurrentDeadLetter.rows[0]!.id],
+          resolvedAt: new Date(Date.parse(resolvedAt) + 1).toISOString(),
+        },
+      );
+      assert.deepEqual(secondResolution, {
+        selected: 1,
+        resolved: 1,
+        replayed: 0,
+      });
+
       const after = await loadMentorProfileHealthSnapshot(client);
       assert.equal(after.unresolvedTerminalFailures, 0);
       assert.equal(after.unresolvedDeadLetters, 0);
-      assert.equal(after.resolvedDeadLetters, 1);
-      assert.equal(after.deadLettersTotal, 1);
+      assert.equal(after.resolvedDeadLetters, 2);
+      assert.equal(after.deadLettersTotal, 2);
       assert.equal(evaluateMentorProfileHealth(after).status, "healthy");
+
+      await assert.rejects(
+        resolveMentorProfileDeadLettersAfterRepairTx(client, {
+          studentId: scope.studentId,
+          repairRunId: randomUUID(),
+          repairStartedAt,
+          deadLetterIds: [randomUUID()],
+          resolvedAt,
+        }),
+        /mentor_profile_resolution_snapshot_mismatch/,
+      );
 
       await assert.rejects(
         client.query(
