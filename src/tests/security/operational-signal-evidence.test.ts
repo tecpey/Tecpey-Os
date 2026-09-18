@@ -129,6 +129,52 @@ test("operational signal payload forbids free-text measurements and bad windows"
   );
 });
 
+test("operational signal labels reject user-scoped and high-cardinality dimensions", () => {
+  assert.throws(
+    () =>
+      createOperationalSignalEvidence({
+        signalType: "mentor_profile_projection_health",
+        component: "mentor_profile_projection",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        severity: "critical",
+        occurredAt: "2026-09-18T12:05:00.000Z",
+        reasonCodes: ["student_123456"],
+        measurements: {},
+      }),
+    /operational_signal_reason_cardinality_forbidden/,
+  );
+
+  assert.throws(
+    () =>
+      createOperationalSignalEvidence({
+        signalType: "mentor_profile_projection_health",
+        component: "mentor_profile_projection",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        severity: "critical",
+        occurredAt: "2026-09-18T12:05:00.000Z",
+        reasonCodes: ["dead_letter_present"],
+        measurements: {
+          tenant_id: 42,
+        },
+      }),
+    /operational_signal_measurement_cardinality_forbidden/,
+  );
+
+  assert.throws(
+    () =>
+      createOperationalSignalEvidence({
+        signalType: "mentor_profile_projection_health",
+        component: "mentor_profile_projection",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        severity: "critical",
+        occurredAt: "2026-09-18T12:05:00.000Z",
+        reasonCodes: ["trace_0123456789abcdef"],
+        measurements: {},
+      }),
+    /operational_signal_reason_cardinality_forbidden/,
+  );
+});
+
 test("firing fingerprint override and tampered generation identity are rejected", () => {
   const created = signal("2026-09-18T12:05:00.000Z");
   assert.throws(
