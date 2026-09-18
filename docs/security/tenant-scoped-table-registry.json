@@ -724,6 +724,15 @@
       "adversarialProof": "proven",
       "issue": "#673",
       "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_dead_letter_resolutions",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-dead-letter-resolution.ts; src/lib/mentor-profile-dead-letter-resolution.ts",
+      "isolationModel": "Each repair resolution copies tenant_id + workspace_id + outbox_id from the exact append-only dead-letter source and is database-bound to that scoped dead letter. The row stores only a one-way student fingerprint plus bounded repair evidence, is unique per dead letter, and rejects UPDATE/DELETE so historical terminal evidence is preserved while operational health can distinguish unresolved from resolved incidents.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-profile-health-postgres.test.ts"
     }
   ]
 }
