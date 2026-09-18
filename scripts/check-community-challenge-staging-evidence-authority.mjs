@@ -60,7 +60,7 @@ for (const invariant of [
   "governed_alert_ca=configured",
   "ops:staging:evidence:collect",
   "ops:staging:evidence:verify",
-  "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+  "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f",
   "retention-days: 7",
 ]) {
   requireText("workflow", invariant, `protected staging workflow is missing ${invariant}`);
