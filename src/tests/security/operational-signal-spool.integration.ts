@@ -12,7 +12,11 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { createOperationalSignalEvidence } from "../../lib/ops/operational-signal-evidence";
+import {
+  createOperationalSignalEpisodeEvidence,
+  createOperationalSignalEvidence,
+} from "../../lib/ops/operational-signal-evidence";
+import { observeOperationalSignalEpisode } from "../../lib/ops/operational-signal-episode-state";
 import {
   deliverOperationalSignals,
   enqueueOperationalSignal,
@@ -411,5 +415,189 @@ describe("Operational signal spool", () => {
     assert.equal(summary.deferredDueToBatchLimit, 0);
     assert.equal(deliveredIds.length, 1);
     assert.equal((await readdir(dirs.pending)).length, 1);
+  });
+});
+
+
+describe("Operational signal episode state", () => {
+  it("emits firing, updated, resolved and a distinct recurrence inside one dedupe window", async () => {
+    const root = await tempRoot();
+    const common = {
+      stateDirectory: root,
+      signalType: "mentor_profile_projection_health",
+      component: "mentor_profile_projection",
+      sourceUnit: "tecpey-mentor-profile-health.service",
+      severity: "critical" as const,
+      dedupeWindowSeconds: 3_600,
+    };
+
+    const firing = await observeOperationalSignalEpisode({
+      ...common,
+      active: true,
+      occurredAt: "2026-09-18T12:05:00.000Z",
+      reasonCodes: ["dead_letter_present"],
+      measurements: { unresolved_dead_letters: 1 },
+    });
+    assert.equal(firing.emitted.length, 1);
+    assert.equal(firing.emitted[0]?.lifecycle, "firing");
+    const firstEpisode = firing.emitted[0]!.episodeId;
+
+    const duplicate = await observeOperationalSignalEpisode({
+      ...common,
+      active: true,
+      occurredAt: "2026-09-18T12:10:00.000Z",
+      reasonCodes: ["dead_letter_present"],
+      measurements: { unresolved_dead_letters: 7 },
+    });
+    assert.equal(duplicate.emitted.length, 0);
+    assert.equal(duplicate.activeEpisodeId, firstEpisode);
+
+    const updated = await observeOperationalSignalEpisode({
+      ...common,
+      active: true,
+      occurredAt: "2026-09-18T12:15:00.000Z",
+      reasonCodes: ["lease_overdue_critical"],
+      measurements: { overdue_leases: 1 },
+    });
+    assert.equal(updated.emitted.length, 1);
+    assert.equal(updated.emitted[0]?.lifecycle, "updated");
+    assert.equal(updated.emitted[0]?.episodeId, firstEpisode);
+    assert.equal(updated.emitted[0]?.episodeSequence, 2);
+
+    const resolved = await observeOperationalSignalEpisode({
+      ...common,
+      active: false,
+      occurredAt: "2026-09-18T12:20:00.000Z",
+      measurements: { ready_backlog: 0 },
+    });
+    assert.equal(resolved.emitted.length, 1);
+    assert.equal(resolved.emitted[0]?.lifecycle, "resolved");
+    assert.equal(resolved.emitted[0]?.episodeId, firstEpisode);
+    assert.equal(resolved.emitted[0]?.episodeSequence, 3);
+    assert.equal(resolved.activeEpisodeId, null);
+
+    const recurrence = await observeOperationalSignalEpisode({
+      ...common,
+      active: true,
+      occurredAt: "2026-09-18T12:25:00.000Z",
+      reasonCodes: ["dead_letter_present"],
+      measurements: { unresolved_dead_letters: 1 },
+    });
+    assert.equal(recurrence.emitted.length, 1);
+    assert.equal(recurrence.emitted[0]?.lifecycle, "firing");
+    assert.notEqual(recurrence.emitted[0]?.episodeId, firstEpisode);
+
+    const dirs = await ensureOperationalSignalSpoolDirectories(root);
+    assert.equal((await readdir(dirs.pending)).length, 4);
+  });
+
+  it("recovers a fsync-staged transition after crash before enqueue", async () => {
+    const root = await tempRoot();
+    const common = {
+      stateDirectory: root,
+      signalType: "mentor_profile_projection_health",
+      component: "mentor_profile_projection",
+      sourceUnit: "tecpey-mentor-profile-health.service",
+      severity: "critical" as const,
+      dedupeWindowSeconds: 3_600,
+    };
+    const firing = await observeOperationalSignalEpisode({
+      ...common,
+      active: true,
+      occurredAt: "2026-09-18T12:05:00.000Z",
+      reasonCodes: ["dead_letter_present"],
+      measurements: { unresolved_dead_letters: 1 },
+    });
+    const dirs = await ensureOperationalSignalSpoolDirectories(root);
+    const statePath = path.join(dirs.state, `${firing.detectorKey}.json`);
+    const state = JSON.parse(await readFile(statePath, "utf8")) as {
+      schemaVersion: 1;
+      detectorKey: string;
+      active: {
+        episodeId: string;
+        episodeSequence: number;
+        incidentKey: string;
+        severity: "critical";
+        reasonCodes: string[];
+      };
+      pending: null;
+    };
+
+    const stagedSignal = createOperationalSignalEpisodeEvidence({
+      signalType: common.signalType,
+      component: common.component,
+      sourceUnit: common.sourceUnit,
+      severity: "critical",
+      lifecycle: "updated",
+      episodeId: state.active.episodeId,
+      episodeSequence: state.active.episodeSequence + 1,
+      occurredAt: "2026-09-18T12:10:00.000Z",
+      dedupeWindowSeconds: 3_600,
+      reasonCodes: ["lease_overdue_critical"],
+      measurements: { overdue_leases: 1 },
+    });
+    const nextActive = {
+      episodeId: stagedSignal.episodeId,
+      episodeSequence: stagedSignal.episodeSequence,
+      incidentKey: stagedSignal.incidentKey,
+      severity: stagedSignal.severity,
+      reasonCodes: [...stagedSignal.reasonCodes],
+    };
+    await writeFile(
+      statePath,
+      `${JSON.stringify({
+        ...state,
+        pending: { signal: stagedSignal, nextActive },
+      })}\n`,
+      { mode: 0o600 },
+    );
+
+    const recovered = await observeOperationalSignalEpisode({
+      ...common,
+      active: true,
+      occurredAt: "2026-09-18T12:11:00.000Z",
+      reasonCodes: ["lease_overdue_critical"],
+      measurements: { overdue_leases: 2 },
+    });
+    assert.equal(recovered.recoveredPending, true);
+    assert.equal(recovered.emitted.length, 1);
+    assert.equal(recovered.emitted[0]?.signalId, stagedSignal.signalId);
+    assert.equal(recovered.emitted[0]?.replayed, false);
+    assert.equal(recovered.activeEpisodeId, stagedSignal.episodeId);
+  });
+
+  it("rejects different payload under the same episode event identity in the filesystem", async () => {
+    const root = await tempRoot();
+    const base = createOperationalSignalEpisodeEvidence({
+      signalType: "mentor_profile_projection_health",
+      component: "mentor_profile_projection",
+      sourceUnit: "tecpey-mentor-profile-health.service",
+      severity: "critical",
+      lifecycle: "firing",
+      episodeId: "44444444-4444-4444-8444-444444444444",
+      episodeSequence: 1,
+      occurredAt: "2026-09-18T12:05:00.000Z",
+      reasonCodes: ["dead_letter_present"],
+      measurements: { unresolved_dead_letters: 1 },
+    });
+    const changed = createOperationalSignalEpisodeEvidence({
+      signalType: base.signalType,
+      component: base.component,
+      sourceUnit: base.sourceUnit,
+      severity: base.severity,
+      lifecycle: base.lifecycle,
+      episodeId: base.episodeId,
+      episodeSequence: base.episodeSequence,
+      occurredAt: base.occurredAt,
+      dedupeWindowSeconds: base.dedupeWindowSeconds,
+      reasonCodes: base.reasonCodes,
+      measurements: { unresolved_dead_letters: 99 },
+    });
+    assert.equal(base.signalId, changed.signalId);
+    await enqueueOperationalSignal(root, base);
+    await assert.rejects(
+      enqueueOperationalSignal(root, changed),
+      /operational_signal_spool_payload_identity_conflict/,
+    );
   });
 });
