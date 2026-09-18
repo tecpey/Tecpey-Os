@@ -4,6 +4,7 @@ import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
 import { ensureMentorThreadTx, touchMentorThreadTx } from "@/lib/mentor-threads";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import {
   writeSensitiveMutationAuditTx,
   type SensitiveMutationAuditEvent,
@@ -68,6 +69,8 @@ export type MentorEvidenceInput = {
 
 export type MentorConversationPairInput = {
   requestId: string;
+  tenantId: string;
+  workspaceId: string;
   studentId: string;
   question: string;
   answer: string;
@@ -387,6 +390,14 @@ export async function persistMentorConversationPair(
             )`,
         [input.studentId],
       );
+      await enqueueMentorProfileUpdateTx(client, {
+        tenantId: input.tenantId,
+        workspaceId: input.workspaceId,
+        studentId: input.studentId,
+        eventType: "mentor.conversation",
+        reason: "mentor_conversation_saved",
+        sourceReference: input.requestId,
+      });
       return true;
     });
     return transaction.enabled && transaction.value;
