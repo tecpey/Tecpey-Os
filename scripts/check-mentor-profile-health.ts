@@ -48,26 +48,59 @@ function detailsFromSnapshot(
   };
 }
 
+async function recordAuthorityUnavailable(input: {
+  stateDirectory: string;
+  observedAt: string;
+  hostName: string;
+  reasonCode: string;
+}) {
+  return reconcileOperationalSignalIncident(input.stateDirectory, {
+    source: SOURCE,
+    sourceUnit: SOURCE_UNIT,
+    hostName: input.hostName,
+    status: "authority_unavailable",
+    observedAt: input.observedAt,
+    reasonCodes: [input.reasonCode],
+    details: {
+      policyVersion: MENTOR_PROFILE_HEALTH_POLICY_VERSION,
+      authority: "database_unavailable",
+    },
+  });
+}
+
 async function main(): Promise<void> {
   const stateDirectory = requiredAbsoluteDirectory("TECPEY_OPS_STATE_DIR");
   const observedAt = new Date().toISOString();
   const hostName = hostname();
 
-  const snapshot = await withTx((client) =>
-    loadMentorProfileHealthSnapshot(client),
-  );
-  if (!snapshot.enabled) {
-    const incident = await reconcileOperationalSignalIncident(stateDirectory, {
-      source: SOURCE,
-      sourceUnit: SOURCE_UNIT,
-      hostName,
-      status: "authority_unavailable",
+  let snapshot: Awaited<ReturnType<typeof withTx<MentorProfileHealthSnapshot>>>;
+  try {
+    snapshot = await withTx((client) =>
+      loadMentorProfileHealthSnapshot(client),
+    );
+  } catch {
+    const incident = await recordAuthorityUnavailable({
+      stateDirectory,
       observedAt,
-      reasonCodes: ["mentor_profile_database_unavailable"],
-      details: {
-        policyVersion: MENTOR_PROFILE_HEALTH_POLICY_VERSION,
-        authority: "database_unavailable",
-      },
+      hostName,
+      reasonCode: "mentor_profile_database_query_failed",
+    });
+    console.error(JSON.stringify({
+      ok: false,
+      status: "authority_unavailable",
+      error: "mentor_profile_database_query_failed",
+      signal: incident,
+    }));
+    process.exitCode = 3;
+    return;
+  }
+
+  if (!snapshot.enabled) {
+    const incident = await recordAuthorityUnavailable({
+      stateDirectory,
+      observedAt,
+      hostName,
+      reasonCode: "mentor_profile_database_unavailable",
     });
     console.error(JSON.stringify({
       ok: false,
