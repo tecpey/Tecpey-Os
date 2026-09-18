@@ -3,6 +3,7 @@ import test from "node:test";
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "@/lib/db-migration-plan";
+import { resolveMentorProfileDeadLettersAfterRepairTx } from "@/lib/mentor-profile-dead-letter-resolution";
 import {
   evaluateMentorProfileHealth,
   loadMentorProfileHealthSnapshot,
@@ -151,15 +152,66 @@ test(
       );
       assert.equal(evaluation.reasonCodes.includes("ready_age_critical"), true);
 
-      const unresolvedBefore = snapshot.unresolvedTerminalFailures;
-      const deadLettersBefore = snapshot.unresolvedDeadLetters;
-      await insertEvent(client, scope, 4, "processed");
-      const recovered = await loadMentorProfileHealthSnapshot(client);
-      assert.equal(
-        recovered.unresolvedTerminalFailures,
-        unresolvedBefore - 1,
+    });
+  },
+);
+
+test(
+  "repair resolution closes operational incident without deleting dead-letter history",
+  { skip: !databaseUrl, timeout: 20_000 },
+  async () => {
+    await withRolledBackTest(async (client) => {
+      const scope = await seedScope(client);
+      const terminalId = await insertEvent(client, scope, 11, "failed_terminal");
+      await client.query(
+        `INSERT INTO mentor_profile_update_dead_letters
+           (tenant_id, workspace_id, outbox_id, terminal_reason, event_id,
+            student_fingerprint, payload_hash)
+         SELECT tenant_id, workspace_id, id, 'health_test_terminal', event_id,
+                $2, payload_hash
+           FROM mentor_profile_update_outbox
+          WHERE id = $1::uuid`,
+        [terminalId, "c".repeat(64)],
       );
-      assert.equal(recovered.unresolvedDeadLetters, deadLettersBefore - 1);
+
+      const before = await loadMentorProfileHealthSnapshot(client);
+      assert.equal(before.unresolvedTerminalFailures, 1);
+      assert.equal(before.unresolvedDeadLetters, 1);
+      assert.equal(before.resolvedDeadLetters, 0);
+      assert.equal(before.deadLettersTotal, 1);
+      assert.equal(evaluateMentorProfileHealth(before).status, "critical");
+
+      const repairStartedAt = new Date().toISOString();
+      const resolvedAt = new Date(
+        Date.parse(repairStartedAt) + 1,
+      ).toISOString();
+      const resolution = await resolveMentorProfileDeadLettersAfterRepairTx(
+        client,
+        {
+          studentId: scope.studentId,
+          repairRunId: randomUUID(),
+          repairStartedAt,
+          resolvedAt,
+        },
+      );
+      assert.deepEqual(resolution, { selected: 1, resolved: 1, replayed: 0 });
+
+      const after = await loadMentorProfileHealthSnapshot(client);
+      assert.equal(after.unresolvedTerminalFailures, 0);
+      assert.equal(after.unresolvedDeadLetters, 0);
+      assert.equal(after.resolvedDeadLetters, 1);
+      assert.equal(after.deadLettersTotal, 1);
+      assert.equal(evaluateMentorProfileHealth(after).status, "healthy");
+
+      await assert.rejects(
+        client.query(
+          `UPDATE mentor_profile_dead_letter_resolutions
+              SET resolution_type = 'recomputed_current_state'
+            WHERE outbox_id = $1::uuid`,
+          [terminalId],
+        ),
+        /append-only/i,
+      );
     });
   },
 );
