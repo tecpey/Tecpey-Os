@@ -605,7 +605,7 @@ function withDatabaseMirrorState(
 async function reconcileArchiveDirectory(
   directory: string,
   limit: number,
-): Promise<void> {
+): Promise<boolean> {
   let mirrored = 0;
   const entries = (await readdir(directory, { withFileTypes: true }))
     .filter((entry) => entry.isFile() && SAFE_FILE_RE.test(entry.name))
@@ -622,10 +622,11 @@ async function reconcileArchiveDirectory(
     }
     if (item.delivery.databaseMirrorComplete) continue;
     const complete = await mirrorSpoolItemToDatabase(item);
-    if (!complete) break;
+    if (!complete) return false;
     await atomicWriteJson(filePath, withDatabaseMirrorState(item, true));
     mirrored += 1;
   }
+  return true;
 }
 
 function deliveryErrorCode(error: unknown): string {
@@ -659,6 +660,17 @@ export async function deliverOperationalAlerts(
   const now = config.now ?? new Date();
   if (!Number.isFinite(now.getTime())) throw new Error("operational_alert_clock_invalid");
   const fetchImpl = config.fetchImpl ?? fetch;
+
+  // Archives are authoritative during a database outage. Backfill any locally
+  // journaled entity/attempt evidence once PostgreSQL becomes available again.
+  const deliveredMirrorAvailable = await reconcileArchiveDirectory(
+    managed.delivered,
+    limit,
+  );
+  if (deliveredMirrorAvailable) {
+    await reconcileArchiveDirectory(managed.quarantine, limit);
+  }
+
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -695,11 +707,6 @@ export async function deliverOperationalAlerts(
 
     summary.selected += 1;
     const entity = spoolEntity(item);
-    if (item.schemaVersion === 1) {
-      await bestEffortPersistAlert(item.alert);
-    } else {
-      await bestEffortPersistSignal(item.signal);
-    }
     const attemptNumber = item.delivery.attemptCount + 1;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -742,32 +749,37 @@ export async function deliverOperationalAlerts(
     }
 
     const attemptedAt = now.toISOString();
-    if (item.schemaVersion === 1) {
-      await bestEffortPersistAttempt({
-        alertId: item.alert.alertId,
-        attemptNumber,
-        deliveryResult,
-        httpStatus,
-        errorCode,
-        attemptedAt,
-        evidence: {
-          provider: "webhook",
-          responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
-        },
-      });
-    } else {
-      await bestEffortPersistSignalAttempt({
-        signalId: item.signal.signalId,
-        attemptNumber,
-        deliveryResult,
-        httpStatus,
-        errorCode,
-        attemptedAt,
-        evidence: {
-          provider: "webhook",
-          responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
-        },
-      });
+    const localAttempt: OperationalSpoolAttempt = {
+      attemptNumber,
+      deliveryResult,
+      httpStatus,
+      errorCode,
+      attemptedAt,
+    };
+    const retryable =
+      deliveryResult === "retryable_failure" && attemptNumber < maxAttempts;
+    let journaled: OperationalSpoolItem = {
+      ...item,
+      delivery: {
+        attemptCount: attemptNumber,
+        nextAttemptAt: retryable
+          ? new Date(
+              now.getTime() +
+                retryDelayMs(attemptNumber, entity.id, item.schemaVersion),
+            ).toISOString()
+          : attemptedAt,
+        lastErrorCode: errorCode,
+        attemptHistory: [...item.delivery.attemptHistory, localAttempt],
+        databaseMirrorComplete: false,
+      },
+    } as OperationalSpoolItem;
+
+    // Journal the webhook outcome before any archive move. If PostgreSQL is
+    // unavailable, this file remains sufficient to backfill immutable evidence.
+    await atomicWriteJson(filePath, journaled);
+    if (await mirrorSpoolItemToDatabase(journaled)) {
+      journaled = withDatabaseMirrorState(journaled, true);
+      await atomicWriteJson(filePath, journaled);
     }
 
     if (deliveryResult === "delivered") {
@@ -780,18 +792,7 @@ export async function deliverOperationalAlerts(
       summary.quarantined += 1;
       continue;
     }
-    const updated: OperationalSpoolItem = {
-      ...item,
-      delivery: {
-        attemptCount: attemptNumber,
-        nextAttemptAt: new Date(
-          now.getTime() +
-            retryDelayMs(attemptNumber, entity.id, item.schemaVersion),
-        ).toISOString(),
-        lastErrorCode: errorCode,
-      },
-    };
-    await atomicWriteJson(filePath, updated);
+    // Retry state and its prior attempt journal were already persisted above.
     summary.retryable += 1;
   }
   return summary;
