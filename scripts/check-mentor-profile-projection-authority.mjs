@@ -155,14 +155,38 @@ for (const needle of [
 
 const installer = await source("scripts/install-mentor-profile-worker.sh");
 for (const needle of [
-  "mentor_profile_worker_bundle_missing",
-  "database_url_missing",
-  "database_url_placeholder",
+  "dist/run-mentor-profile-worker.cjs",
+  "dist/check-operational-installer-env.cjs",
+  "mentor_operational_bundle_missing",
+  "ops:installer:env-check",
+  "TECPEY_INSTALL_ENV_FILE",
   "systemd-analyze verify",
   "TECPEY_DRY_RUN",
   "runtime_user_root_forbidden",
 ]) {
   requireText("installer", installer, needle, `installer must fail closed on ${needle}`);
+}
+if (installer.includes("read_env_value()")) {
+  failures.push("installer: ad-hoc Bash env parsing must remain forbidden");
+}
+
+const installEnvironment = await source(
+  "src/lib/ops/operational-install-environment.ts",
+);
+for (const needle of [
+  "parseSystemdEnvironmentFile",
+  "rejectDuplicateKeys: true",
+  'requiredValue(values, "DATABASE_URL")',
+  'requiredValue(values, "TECPEY_OPS_ALERT_WEBHOOK_URL")',
+  "operational_install_database_url_invalid",
+  "operational_install_environment_file_unsafe",
+]) {
+  requireText(
+    "install-environment",
+    installEnvironment,
+    needle,
+    `shared installer environment authority missing: ${needle}`,
+  );
 }
 
 const registry = await source("src/lib/db-migration-registry.ts");
