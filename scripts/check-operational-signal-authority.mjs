@@ -91,6 +91,10 @@ for (const needle of [
   '"Idempotency-Key": entity.id',
   "parsed.signal.fingerprint !== signal.fingerprint",
   "parsed.signal.dedupeBucketAt !== signal.dedupeBucketAt",
+  "atomicCreateJson",
+  "await link(temporary, filePath)",
+  "await syncDirectory(parent)",
+  "await syncDirectory(destinationDirectory)",
 ]) {
   requireText("spool", spool, needle, `missing backward-compatible spool invariant: ${needle}`);
 }
@@ -233,6 +237,8 @@ for (const needle of [
   "studentId",
   "opaque-user-123",
   "student_lookup_failed",
+  "concurrent same-bucket enqueue",
+  "[false, true]",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
