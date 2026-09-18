@@ -138,6 +138,18 @@ requireText(
   "runMentorProfileDeadLetterResolutionMigrations",
   "resolution migration runner must be governed",
 );
+requireText(
+  "registry",
+  registry,
+  "migration-step-093",
+  "generic operational signal migration must be in the canonical migration ledger",
+);
+requireText(
+  "registry",
+  registry,
+  "runOperationalSignalEvidenceMigrations",
+  "generic operational signal migration runner must be governed",
+);
 
 const tenantRegistry = await source("docs/security/tenant-scoped-table-registry.json");
 requireText(
@@ -145,6 +157,114 @@ requireText(
   tenantRegistry,
   '"table": "mentor_profile_dead_letter_resolutions"',
   "resolution ledger must be in the tenant-scoped table registry",
+);
+
+const signalAdapter = await source(
+  "src/lib/ops/mentor-profile-health-signal.ts",
+);
+for (const needle of [
+  "buildMentorProfileHealthSignal",
+  "buildMentorProfileHealthAuthoritySignal",
+  "mentor.profile.projection.health",
+  "mentor.profile.projection.health_authority",
+  "CRITICAL_DEDUPE_WINDOW_SECONDS",
+  "WARNING_DEDUPE_WINDOW_SECONDS",
+  "attributes: numericAttributes(snapshot)",
+]) {
+  requireText(
+    "signal-adapter",
+    signalAdapter,
+    needle,
+    `durable Mentor signal invariant missing: ${needle}`,
+  );
+}
+for (const forbidden of [
+  "studentId",
+  "tenantId",
+  "workspaceId",
+  "conversation",
+  "prompt",
+  "email",
+  "phone",
+]) {
+  if (signalAdapter.includes(forbidden)) {
+    failures.push(
+      `signal-adapter: sensitive/high-cardinality signal field forbidden: ${forbidden}`,
+    );
+  }
+}
+
+const signalEvidence = await source(
+  "src/lib/ops/operational-signal-evidence.ts",
+);
+for (const needle of [
+  "OperationalSignalAttributeValue = number | boolean | null",
+  "buildOperationalSignal",
+  "validateOperationalSignalEvidence",
+  "hashOperationalSignalIdentity",
+  "persistOperationalSignalTx",
+  "persistOperationalSignalDeliveryAttemptTx",
+  "tecpey-operational-signal-dedupe-v1",
+  "tecpey-operational-signal-id-v1",
+]) {
+  requireText(
+    "signal-evidence",
+    signalEvidence,
+    needle,
+    `generic operational signal invariant missing: ${needle}`,
+  );
+}
+
+const signalMigration = await source(
+  "src/lib/db-migrate-operational-signal-evidence.ts",
+);
+for (const needle of [
+  "0109_operational_signal_evidence.sql",
+  "platform_operational_signals",
+  "platform_operational_signal_delivery_attempts",
+  "platform_operational_signals_immutable",
+  "platform_operational_signal_delivery_attempts_immutable",
+  "tecpey_reject_operational_evidence_mutation",
+]) {
+  requireText(
+    "signal-migration",
+    signalMigration,
+    needle,
+    `operational signal migration invariant missing: ${needle}`,
+  );
+}
+
+const spool = await source("src/lib/ops/operational-alert-spool.ts");
+for (const needle of [
+  "OperationalSignalSpoolItem",
+  "schemaVersion: 2",
+  "enqueueOperationalSignal",
+  "persistOperationalSignalTx",
+  "persistOperationalSignalDeliveryAttemptTx",
+  "tecpey-ops-retry-jitter-v1",
+  "retry-after",
+  "Idempotency-Key",
+  "syncDirectory(parent)",
+  "syncDirectory(destinationDirectory)",
+  "managed.quarantine",
+]) {
+  requireText(
+    "signal-spool",
+    spool,
+    needle,
+    `durable signal spool invariant missing: ${needle}`,
+  );
+}
+if (spool.includes("Math.random")) {
+  failures.push(
+    "signal-spool: retry jitter must remain deterministic for replay/evidence",
+  );
+}
+requirePattern(
+  "signal-spool",
+  spool,
+  /raw\.schemaVersion === 1[\s\S]*raw\.schemaVersion === 2/,
+  "legacy schema-v1 alert evidence and generic schema-v2 signals must coexist",
 );
 
 const worker = await source("scripts/run-mentor-profile-worker.ts");
@@ -189,6 +309,11 @@ for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
   "mentorProfileHealthAlertMetadata",
+  "enqueueOperationalSignal",
+  "buildMentorProfileHealthSignal",
+  "buildMentorProfileHealthAuthoritySignal",
+  "TECPEY_OPS_STATE_DIR",
+  "durableSignalQueued",
   'evaluation.status === "healthy" ? 0',
   'evaluation.status === "warning" ? 1',
   "process.exitCode = 3",
@@ -201,14 +326,38 @@ for (const needle of [
   "mentor_profile_health_bundle_missing",
   "tecpey-mentor-profile-health.service",
   "tecpey-mentor-profile-health.timer",
+  "tecpey-ops-alert-delivery.service",
+  "tecpey-ops-alert-delivery.timer",
+  "TECPEY_OPS_STATE_DIR",
+  "STATE_DIR",
+  "durable_alert_delivery_timer=active",
   "systemd-analyze verify",
   "systemctl start tecpey-mentor-profile-health.service",
   "systemctl enable --now tecpey-mentor-profile-health.timer",
   "systemctl is-enabled --quiet tecpey-mentor-profile-health.timer",
   "systemctl is-active --quiet tecpey-mentor-profile-health.timer",
+  "systemctl start tecpey-ops-alert-delivery.service",
+  "systemctl enable --now tecpey-ops-alert-delivery.timer",
+  "systemctl is-active --quiet tecpey-ops-alert-delivery.timer",
 ]) {
   requireText("installer", installer, needle, `Mentor watchdog installer invariant missing: ${needle}`);
 }
+const deliveryStartIndex = installer.indexOf(
+  "systemctl start tecpey-ops-alert-delivery.service",
+);
+const healthStartIndex = installer.indexOf(
+  "systemctl start tecpey-mentor-profile-health.service",
+);
+if (
+  deliveryStartIndex < 0 ||
+  healthStartIndex < 0 ||
+  deliveryStartIndex > healthStartIndex
+) {
+  failures.push(
+    "installer: durable alert delivery must be activated before the Mentor health probe",
+  );
+}
+
 for (const forbidden of [
   'RUN_USER="root"',
   "chmod 777",
@@ -225,12 +374,15 @@ const healthService = await source("deploy/systemd/tecpey-mentor-profile-health.
 for (const needle of [
   "Type=oneshot",
   "ExecStart=@@NPM_BIN@@ run mentor:profiles:health",
+  "OnFailure=tecpey-ops-alert-delivery.service",
+  "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
   "SuccessExitStatus=1",
   "TimeoutStartSec=45s",
   "NoNewPrivileges=true",
   "ProtectSystem=strict",
   "CapabilityBoundingSet=",
   "ReadOnlyPaths=@@APP_DIR@@",
+  "ReadWritePaths=@@STATE_DIR@@",
 ]) {
   requireText("health-service", healthService, needle, `health service invariant missing: ${needle}`);
 }
@@ -264,6 +416,11 @@ for (const needle of [
   "Watchdog failure drill",
   "independent failure detector",
   "durable incident delivery",
+  "shared spool/delivery rail",
+  "OnFailure=tecpey-ops-alert-delivery.service",
+  "Idempotency-Key",
+  "pending / delivered / quarantine",
+  "bounded exponential retry with deterministic per-identity jitter",
 ]) {
   requireText("runbook", runbook, needle, `watchdog runbook invariant missing: ${needle}`);
 }
@@ -274,6 +431,9 @@ for (const needle of [
   "deploy/systemd/tecpey-mentor-profile-worker.service.in",
   "deploy/systemd/tecpey-mentor-profile-health.service.in",
   "deploy/systemd/tecpey-mentor-profile-health.timer",
+  "deploy/systemd/tecpey-ops-alert-delivery.service.in",
+  "deploy/systemd/tecpey-ops-alert-delivery.timer",
+  "scripts/deliver-operational-alerts.ts",
   "scripts/install-mentor-profile-worker.sh",
   "docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md",
 ]) {
