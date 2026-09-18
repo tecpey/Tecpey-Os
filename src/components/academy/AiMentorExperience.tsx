@@ -236,7 +236,13 @@ export function AiMentorExperience({
   const [serverPlan, setServerPlan] = useState<MentorWorkspacePlan>(plan);
   const [capabilityReady, setCapabilityReady] = useState(false);
   const effectivePlan: MentorWorkspacePlan = capabilityReady ? serverPlan : "free";
-  const [activeSurface, setActiveSurface] = useState<MentorWorkspaceSurface>("academy");
+  const [selectedSurface, setSelectedSurface] = useState<MentorWorkspaceSurface>("academy");
+  const activeSurface: MentorWorkspaceSurface = canUseMentorWorkspaceSurface(
+    effectivePlan,
+    selectedSurface,
+  )
+    ? selectedSurface
+    : "academy";
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
   const [threads, setThreads] = useState<MentorThread[]>([]);
@@ -316,12 +322,6 @@ export function AiMentorExperience({
       });
     return () => controller.abort();
   }, []);
-
-  useEffect(() => {
-    if (!canUseMentorWorkspaceSurface(effectivePlan, activeSurface)) {
-      setActiveSurface("academy");
-    }
-  }, [activeSurface, effectivePlan]);
 
   const applyThreadsPayload = useCallback((responseOk: boolean, data: unknown) => {
     const payload = data as { ok?: boolean; threads?: MentorThread[] } | null;
@@ -526,7 +526,7 @@ export function AiMentorExperience({
   const selectSurface = useCallback(
     (surface: MentorWorkspaceSurface) => {
       if (!canUseMentorWorkspaceSurface(effectivePlan, surface)) return;
-      setActiveSurface(surface);
+      setSelectedSurface(surface);
     },
     [effectivePlan],
   );

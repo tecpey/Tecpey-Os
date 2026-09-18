@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "previousSourceHash": "94b5b1489c2cd2c31f69f6ad",
+      "issue": "#665",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the canonical Mentor operation after adding a user-level server capability authority in front of public web/X research. A client-provided researchMode or UI plan can no longer activate public research: after the existing strict session, tenant binding and Mentor product entitlement resolve, the request must also satisfy the server Mentor capability snapshot before any research runtime, spend admission or provider egress can occur. The current authority intentionally resolves free/fail-closed while TecPey Pro purchase or another durable Premium grant source is not operational. The change preserves existing CSRF, rate limiting, tenant/principal scoping, secret/injection filtering, external-provider consent, behavioral-personalization consent, evidence-before-egress, quota/spend settlement, cited-research output rejection, atomic conversation persistence and private no-store controls. The focused capability test is added to source evidence.",
+      "replacement": {
+        "route": "/api/ai-mentor",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "sourceHash": "a68e6e76ce59fc5278e9d30f",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor",
+        "testReferences": [
+          "src/tests/content/ai-mentor-locale-error-contract.test.ts",
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/ai-mentor-capability-authority.test.ts",
+          "src/tests/security/ai-mentor-preference-egress-gate.test.ts",
+          "src/tests/security/ai-mentor-provider.test.ts",
+          "src/tests/security/ai-mentor-trust-boundary.test.ts",
+          "src/tests/security/ai-mentor-trust-store-postgres.test.ts",
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "previousSourceHash": "f5b3b1803e1c60699a8fcc18",
+      "issue": "#665",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the compatibility Mentor alias after the canonical handler gained the server-authoritative user capability gate for Premium public research. The alias source remains pass-through only; its delegatedSourceHash is re-pinned so it inherits the canonical fail-closed capability check in addition to the existing strict session, tenant, consent, quota, trust, evidence, persistence and no-store controls.",
+      "replacement": {
+        "route": "/api/ai-mentor-v2",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
+        "sourceHash": "f5b3b1803e1c60699a8fcc18",
+        "delegatedTo": "src/app/api/ai-mentor/route.ts",
+        "delegatedSourceHash": "a68e6e76ce59fc5278e9d30f",
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "canonical /api/ai-mentor handler",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor-v2",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-alias",
+          "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+          "issue": "#108"
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-preferences",
+      "method": "PATCH",
+      "previousSourceHash": "ad7d1b975965ef80bc8d5b14",
+      "issue": "#665",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the Mentor preference mutation after the same route module began returning the server Mentor capability snapshot from GET so the client can render capability truth without trusting a plan prop. PATCH semantics and controls are unchanged: strict revocation, verified tenant/principal binding, CSRF, bounded body, rate limiting, Mentor product gating for enablement, revocation reachability, transactional no-op-aware consent evidence, redaction and private no-store remain intact. The changed PATCH sourceHash is caused by the shared module import/read-path addition; no client-controlled capability or subscription authority is accepted by the mutation.",
+      "replacement": {
+        "route": "/api/mentor-preferences",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/mentor-preferences/route.ts",
+        "sourceHash": "f0043781405b7bc6d96bde0f",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-preferences-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-preferences",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-preferences/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}
