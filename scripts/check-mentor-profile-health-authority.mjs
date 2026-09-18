@@ -175,6 +175,85 @@ for (const needle of [
   requireText("probe", probe, needle, `one-shot health probe missing: ${needle}`);
 }
 
+const installer = await source("scripts/install-mentor-profile-worker.sh");
+for (const needle of [
+  "mentor_profile_health_bundle_missing",
+  "tecpey-mentor-profile-health.service",
+  "tecpey-mentor-profile-health.timer",
+  "systemd-analyze verify",
+  "systemctl start tecpey-mentor-profile-health.service",
+  "systemctl enable --now tecpey-mentor-profile-health.timer",
+  "systemctl is-enabled --quiet tecpey-mentor-profile-health.timer",
+  "systemctl is-active --quiet tecpey-mentor-profile-health.timer",
+]) {
+  requireText("installer", installer, needle, `Mentor watchdog installer invariant missing: ${needle}`);
+}
+for (const forbidden of [
+  'RUN_USER="root"',
+  "chmod 777",
+  "set -x",
+  'cat "$ENV_FILE"',
+  'source "$ENV_FILE"',
+]) {
+  if (installer.includes(forbidden)) {
+    failures.push(`installer: forbidden unsafe behavior: ${forbidden}`);
+  }
+}
+
+const healthService = await source("deploy/systemd/tecpey-mentor-profile-health.service.in");
+for (const needle of [
+  "Type=oneshot",
+  "ExecStart=@@NPM_BIN@@ run mentor:profiles:health",
+  "SuccessExitStatus=1",
+  "TimeoutStartSec=45s",
+  "NoNewPrivileges=true",
+  "ProtectSystem=strict",
+  "CapabilityBoundingSet=",
+  "ReadOnlyPaths=@@APP_DIR@@",
+]) {
+  requireText("health-service", healthService, needle, `health service invariant missing: ${needle}`);
+}
+
+const healthTimer = await source("deploy/systemd/tecpey-mentor-profile-health.timer");
+for (const needle of [
+  "OnActiveSec=1min",
+  "OnUnitActiveSec=1min",
+  "Persistent=true",
+  "RandomizedDelaySec=10",
+  "AccuracySec=5s",
+  "Unit=tecpey-mentor-profile-health.service",
+]) {
+  requireText("health-timer", healthTimer, needle, `health timer invariant missing: ${needle}`);
+}
+if (healthTimer.includes("OnCalendar=") || healthTimer.includes("OnBootSec=")) {
+  failures.push("health-timer: activation-relative cadence must remain independent of boot/calendar alignment");
+}
+
+const runbook = await source("docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md");
+for (const needle of [
+  "independent health probe",
+  "tecpey-mentor-profile-health.timer",
+  "SuccessExitStatus=1",
+  "Watchdog failure drill",
+  "independent failure detector",
+  "durable incident delivery",
+]) {
+  requireText("runbook", runbook, needle, `watchdog runbook invariant missing: ${needle}`);
+}
+
+const bundleCreator = await source("scripts/create-support-deployment-bundle.sh");
+const bundleVerifier = await source("scripts/verify-support-deployment-bundle.mjs");
+for (const needle of [
+  "deploy/systemd/tecpey-mentor-profile-worker.service.in",
+  "deploy/systemd/tecpey-mentor-profile-health.service.in",
+  "deploy/systemd/tecpey-mentor-profile-health.timer",
+  "scripts/install-mentor-profile-worker.sh",
+  "docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md",
+]) {
+  requireText("bundle-creator", bundleCreator, needle, `support bundle manifest missing Mentor watchdog asset: ${needle}`);
+  requireText("bundle-verifier", bundleVerifier, needle, `support bundle verifier missing Mentor watchdog asset: ${needle}`);
+}
+
 const packageJson = JSON.parse(await source("package.json"));
 const scripts = packageJson.scripts ?? {};
 if (!scripts["mentor:profiles:health:check"]) {
