@@ -185,6 +185,15 @@ function computedFingerprint(input: {
   });
 }
 
+function derivedSignalId(
+  signalType: string,
+  dedupeBucketAt: string,
+  fingerprint: string,
+): string {
+  const bucketEpoch = Math.floor(Date.parse(dedupeBucketAt) / 1_000);
+  return `signal:${signalType}:${bucketEpoch}:${fingerprint.slice(0, 24)}`;
+}
+
 export function createOperationalSignalEvidence(
   input: CreateOperationalSignalInput,
 ): OperationalSignalEvidence {
@@ -246,17 +255,16 @@ export function createOperationalSignalEvidence(
   const dedupeBucketAt = new Date(
     Math.floor(occurredMs / bucketMs) * bucketMs,
   ).toISOString();
-  const bucketEpoch = Math.floor(Date.parse(dedupeBucketAt) / 1_000);
 
   return Object.freeze({
     schemaVersion: 1,
-    signalId: `signal:${signalType}:${bucketEpoch}:${fingerprint.slice(0, 24)}`,
+    signalId: derivedSignalId(signalType, dedupeBucketAt, fingerprint),
     signalType,
     component,
     detector,
     severity: input.severity,
     statusClassification: input.statusClassification,
-    occurredAt,
+    occurredAt: dedupeBucketAt,
     dedupeBucketAt,
     fingerprint,
     reasonCodes,
@@ -311,8 +319,8 @@ export function validateOperationalSignalEvidence(
     raw.dedupeBucketAt,
     "operational_signal_dedupe_bucket_invalid",
   );
-  if (Date.parse(dedupeBucketAt) > Date.parse(occurredAt)) {
-    throw new Error("operational_signal_time_order_invalid");
+  if (occurredAt !== dedupeBucketAt) {
+    throw new Error("operational_signal_time_not_canonical");
   }
   if (!HASH_RE.test(raw.fingerprint)) {
     throw new Error("operational_signal_fingerprint_invalid");
@@ -330,6 +338,14 @@ export function validateOperationalSignalEvidence(
   });
   if (raw.fingerprint !== expectedFingerprint) {
     throw new Error("operational_signal_fingerprint_mismatch");
+  }
+  const expectedSignalId = derivedSignalId(
+    signalType,
+    dedupeBucketAt,
+    expectedFingerprint,
+  );
+  if (signalId !== expectedSignalId) {
+    throw new Error("operational_signal_id_mismatch");
   }
 
   return Object.freeze({
