@@ -143,6 +143,7 @@ function directories(stateDirectory: string) {
     pending: path.join(root, "signals", "pending"),
     delivered: path.join(root, "signals", "delivered"),
     quarantine: path.join(root, "signals", "quarantine"),
+    state: path.join(root, "signals", "state"),
   };
 }
 
@@ -213,6 +214,7 @@ export async function ensureOperationalSignalSpoolDirectories(
   await assertManagedDirectory(managed.pending);
   await assertManagedDirectory(managed.delivered);
   await assertManagedDirectory(managed.quarantine);
+  await assertManagedDirectory(managed.state);
   // Persist directory-entry creation inside the application-owned state root.
   await syncDirectory(managed.root);
   await syncDirectory(path.dirname(managed.pending));
