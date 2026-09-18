@@ -65,6 +65,7 @@ for (const needle of [
   "quarantineUnsafeEntry",
   "realpath",
   "operational_signal_state_directory_alias_forbidden",
+  "assertNoSymlinkedAncestors",
   "recoveredDeliveredArchives",
   "recoveredQuarantinedArchives",
   'lastAttempt?.deliveryResult === "delivered"',
@@ -113,6 +114,7 @@ for (const needle of [
   "stat(target)",
   "without redelivering",
   "symlinked ancestor",
+  'error.code === "ENOENT"',
 ]) {
   requireText("spool-test", spoolTest, needle, `durability/fairness proof missing: ${needle}`);
 }
