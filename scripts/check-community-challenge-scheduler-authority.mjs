@@ -200,7 +200,11 @@ for (const invariant of [
   "TECPEY_OPS_ALERT_BEARER_TOKEN",
   "TECPEY_OPS_ALERT_TIMEOUT_MS",
   "deliverOperationalAlerts",
-  "summary.retryable > 0 || summary.quarantined > 0",
+  "deliverOperationalSignals",
+  "alerts.retryable > 0",
+  "signals.retryable > 0",
+  "alerts.quarantined > 0",
+  "signals.quarantined > 0",
 ]) {
   requireText("delivery", invariant, `alert delivery runner is missing ${invariant}`);
 }
@@ -254,7 +258,6 @@ for (const target of ["finalizerService", "alertService"]) {
     "EnvironmentFile=@@ENV_FILE@@",
     "Environment=NODE_ENV=production",
     "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
-    "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
     "NoNewPrivileges=true",
     "PrivateTmp=true",
     "PrivateDevices=true",
@@ -280,6 +283,21 @@ for (const target of ["finalizerService", "alertService"]) {
 }
 requireText(
   "finalizerService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
+  "community finalizer must retain scheduler-specific preflight",
+);
+requireText(
+  "alertService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:delivery:env-check",
+  "shared delivery service must use database-independent delivery preflight",
+);
+requireText(
+  "alertService",
+  "ExecStart=@@NPM_BIN@@ run ops:alerts:deliver:prod",
+  "shared delivery service must use the production bundle",
+);
+requireText(
+  "finalizerService",
   "OnFailure=tecpey-ops-alert-delivery.service",
   "finalizer failure must trigger alert delivery",
 );
@@ -292,16 +310,28 @@ for (const invariant of [
   requireText("finalizerTimer", invariant, `finalizer timer is missing ${invariant}`);
 }
 for (const invariant of [
-  "OnBootSec=2min",
-  "OnUnitActiveSec=5min",
+  "OnBootSec=30s",
+  "OnUnitActiveSec=1min",
+  "RandomizedDelaySec=5s",
+  "FixedRandomDelay=true",
+  "AccuracySec=1s",
   "Unit=tecpey-ops-alert-delivery.service",
 ]) {
   requireText("alertTimer", invariant, `alert timer is missing ${invariant}`);
+}
+for (const forbidden of ["Persistent=true", "OnCalendar="]) {
+  rejectText(
+    "alertTimer",
+    forbidden,
+    `monotonic shared delivery timer must not include ${forbidden}`,
+  );
 }
 
 for (const command of [
   '"community:challenge:finalize:scheduled"',
   '"ops:alerts:deliver"',
+  '"ops:alerts:deliver:prod"',
+  '"ops:delivery:env-check"',
   '"ops:scheduler:env-check"',
   '"ops:scheduler:install"',
   '"ops:scheduler:check"',
