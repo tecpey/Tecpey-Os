@@ -83,6 +83,11 @@ for (const needle of [
   "await realpath(managed.root)",
   "await syncDirectory(parent)",
   "await syncDirectory(path.dirname(source))",
+  "quarantineUnsafeEntry",
+  "recoveredDeliveredArchives",
+  "deferredDueToBatchLimit",
+  "due.sort(",
+  'lastAttempt?.deliveryResult === "delivered"',
 ]) {
   requireText("spool", spool, needle, `durable signal spool invariant missing: ${needle}`);
 }
@@ -238,6 +243,8 @@ for (const needle of [
   "deterministic capped jitter",
   "rejects a state root that traverses a symlinked ancestor",
   "replays the exact incident transition after a restart-like interruption",
+  "future retries cannot starve ready alerts",
+  "without webhook redelivery",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
