@@ -17,7 +17,7 @@ The worker requires the same production database environment as the web process.
 - `MENTOR_PROFILE_WORKER_CONCURRENCY`: 1–10, default 4.
 - `MENTOR_PROFILE_WORKER_LEASE_SECONDS`: 15–300 seconds, default 120.
 
-Install the hardened service only after the exact release has completed the governed Mentor/operations migrations through `0109_operational_signal_envelope.sql`, including the outbox, incident resolution, freshness observability and operational signal envelope migrations.
+Install the hardened service only after the exact release has completed the governed Mentor/operations migrations through `0110_operational_signal_episodes.sql`, including the outbox, incident resolution, freshness observability, operational signal envelope and episode-lifecycle migrations.
 
 Example staging dry-run:
 
@@ -87,8 +87,19 @@ The independent probe writes to the protected state directory even during a Post
 - `signals/pending`: not yet delivered or waiting for bounded retry;
 - `signals/delivered`: successfully handed to the configured webhook;
 - `signals/quarantine`: corrupt files, terminal HTTP failures or retries that exhausted the bounded attempt budget.
+- `signals/state`: private crash-consistent episode state and short-lived detector locks; never a webhook delivery queue.
 
-Within each configurable dedupe window (default one hour), the **first observation** for the same detector service, component, severity and reason-code set becomes the durable signal. Later observations in that same window replay the same signal identity instead of creating an alert storm. A later window creates a new reminder identity if the critical condition still exists.
+New critical signaling uses an explicit **episode lifecycle**, not the wall-clock dedupe window as the incident boundary:
+
+- the first critical observation opens a new UUID-backed episode and emits sequence 1 with lifecycle `firing`;
+- another observation with the same critical reason-set stays inside that episode and emits nothing, even if numeric measurements change;
+- a material critical reason-set change emits the next sequence with lifecycle `updated` while preserving the same episode UUID;
+- the first non-critical observation after an active critical episode emits lifecycle `resolved` and closes the episode;
+- a later recurrence opens a **new episode UUID**, even when it happens inside the same legacy dedupe window.
+
+Legacy schema-v1 signals retain their original window-based identity for archive/backward compatibility. Episode schema-v2 identity is bound to `episode_id + episode_sequence + incident semantics`, so recurrence and recovery cannot be suppressed by a previous notification window.
+
+Episode state lives under `signals/state` in the same protected 0700 runtime directory. Each transition is crash-safe: the intended event is first fsync-staged as a pending transition, then idempotently enqueued into `signals/pending`, then the episode state is settled. If the process crashes between those steps, the next probe replays the staged transition before evaluating new health. A bounded exclusive state lock prevents overlapping manual/systemd probes from racing the same detector; stale locks may be recovered only after a duration greater than the health service timeout.
 
 The signal spool is filesystem-first and does not require PostgreSQL to enqueue or deliver. PostgreSQL copies of signal and delivery-attempt evidence are best-effort mirrors for audit/recovery; the local spool/archive remains the outage-safe delivery authority when database persistence is unavailable.
 
@@ -172,7 +183,7 @@ A successful repair may therefore change current health from critical to healthy
 Before enabling the service on staging:
 
 1. exact release SHA is known;
-2. migration plan hash and migration ledger are green through canonical step 093;
+2. migration plan hash and migration ledger are green through canonical step 094;
 3. `npm run test:mentor-profile-outbox` and `npm run test:ops-signals` are green against PostgreSQL 16 and the filesystem spool;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
 5. `npm run mentor:profiles:freshness` produces valid aggregate calibration evidence or explicitly reports insufficient data;
@@ -180,7 +191,7 @@ Before enabling the service on staging:
 7. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
 8. the worker starts with zero unresolved terminal failures;
 9. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
-10. stop the worker in a controlled staging drill, create bounded test backlog, verify the independent health service transitions to critical without relying on worker self-reporting, verify one durable signal appears under `signals/pending` or `signals/delivered`, then restore the worker and verify health converges again.
+10. stop the worker in a controlled staging drill, create bounded test backlog, verify the independent health service transitions to critical without relying on worker self-reporting, verify one `firing` episode event appears under `signals/pending` or `signals/delivered`, then restore the worker, run the independent probe again and verify one `resolved` event for the same episode is durably queued/delivered and health converges.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
 
@@ -202,6 +213,7 @@ Expected behavior:
 - critical exit `2` or authority failure `3` makes the health service fail and is visible to host monitoring;
 - restarting the worker drains the bounded backlog;
 - a later independent probe returns healthy after convergence;
+- that recovery probe closes the same critical episode with a durable `resolved` event; a later recurrence must start a new episode ID rather than reusing the recovered one;
 - the drill must not mutate or delete dead-letter history to manufacture a green result.
 
 This watchdog is an **independent failure detector** and critical/authority-unavailable outcomes now enter the governed durable operational signal rail. Host monitoring must still treat a failed `tecpey-mentor-profile-health.service` as actionable because filesystem exhaustion, permission failure or a broken local runtime can prevent even the outage-safe spool from being written. Warning-only health remains non-paging until a measured freshness SLO/error budget justifies a broader alert policy.
