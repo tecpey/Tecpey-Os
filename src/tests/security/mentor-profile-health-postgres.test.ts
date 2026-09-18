@@ -62,7 +62,7 @@ async function insertEvent(
   client: PoolClient,
   scope: Awaited<ReturnType<typeof seedScope>>,
   ordinal: number,
-  status: "pending" | "processing" | "failed_terminal",
+  status: "pending" | "processing" | "failed_terminal" | "processed",
 ): Promise<string> {
   const id = randomUUID();
   const eventId = `mentor.health:${scope.suffix}:${ordinal}`;
@@ -70,12 +70,14 @@ async function insertEvent(
   const payloadHash = String(ordinal).repeat(64).slice(0, 64);
   const processing = status === "processing";
   const terminal = status === "failed_terminal";
+  const processed = status === "processed";
   await client.query(
     `INSERT INTO mentor_profile_update_outbox
        (id, tenant_id, workspace_id, student_id, event_type, event_version,
         event_id, source_reference, reason, payload_hash, occurred_at, status,
         available_at, attempt_count, locked_at, locked_by, lease_expires_at,
-        terminal_at, created_at, updated_at, last_error_code)
+        processed_at, terminal_at, profile_result_hash, created_at, updated_at,
+        last_error_code)
      VALUES
        ($1::uuid, $2, $3, $4::uuid, 'mentor.conversation', 1, $5, $6,
         'mentor_conversation_saved', $7,
@@ -84,7 +86,9 @@ async function insertEvent(
         CASE WHEN $10 THEN NOW() - INTERVAL '2 minutes' ELSE NULL END,
         CASE WHEN $10 THEN 'mentor-health-test' ELSE NULL END,
         CASE WHEN $10 THEN NOW() - INTERVAL '1 minute' ELSE NULL END,
-        CASE WHEN $11 THEN NOW() ELSE NULL END,
+        CASE WHEN $12 THEN NOW() ELSE NULL END,
+        CASE WHEN $11 OR $12 THEN NOW() ELSE NULL END,
+        CASE WHEN $12 THEN $13 ELSE NULL END,
         NOW() - INTERVAL '10 minutes', NOW(),
         CASE WHEN $11 THEN 'health_test_terminal' ELSE NULL END)`,
     [
@@ -99,6 +103,8 @@ async function insertEvent(
       status === "pending" ? 0 : 1,
       processing,
       terminal,
+      processed,
+      "b".repeat(64),
     ],
   );
   return id;
@@ -127,8 +133,8 @@ test(
       const snapshot = await loadMentorProfileHealthSnapshot(client);
       assert.equal(snapshot.readyBacklog >= 1, true);
       assert.equal(snapshot.overdueLeases >= 1, true);
-      assert.equal(snapshot.failedTerminal >= 1, true);
-      assert.equal(snapshot.deadLetters >= 1, true);
+      assert.equal(snapshot.unresolvedTerminalFailures >= 1, true);
+      assert.equal(snapshot.unresolvedDeadLetters >= 1, true);
       assert.equal((snapshot.oldestReadyAgeSeconds ?? 0) >= 500, true);
       assert.equal((snapshot.maxLeaseOverdueSeconds ?? 0) >= 50, true);
 
@@ -144,6 +150,16 @@ test(
         true,
       );
       assert.equal(evaluation.reasonCodes.includes("ready_age_critical"), true);
+
+      const unresolvedBefore = snapshot.unresolvedTerminalFailures;
+      const deadLettersBefore = snapshot.unresolvedDeadLetters;
+      await insertEvent(client, scope, 4, "processed");
+      const recovered = await loadMentorProfileHealthSnapshot(client);
+      assert.equal(
+        recovered.unresolvedTerminalFailures,
+        unresolvedBefore - 1,
+      );
+      assert.equal(recovered.unresolvedDeadLetters, deadLettersBefore - 1);
     });
   },
 );
