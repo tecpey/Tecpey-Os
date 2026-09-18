@@ -101,6 +101,9 @@ for (const needle of [
   "databaseMirrorComplete",
   "mirrorSpoolItemToDatabase",
   "reconcileArchiveDirectory",
+  "databaseMirrorComplete",
+  "validatedAttemptHistory",
+  "firstRecordedAttempt",
   "Journal the webhook outcome before any archive move",
 ]) {
   requireText("spool", spool, needle, `missing backward-compatible spool invariant: ${needle}`);
@@ -266,6 +269,8 @@ for (const needle of [
   "attemptHistory",
   'deliveryResult: "delivered"',
   'deliveryResult: "retryable_failure"',
+  "upgrades legacy retry files",
+  "pre-journal attempt gaps",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
