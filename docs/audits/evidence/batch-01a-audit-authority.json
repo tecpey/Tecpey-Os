@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "c7adfb76dcecb210aa6b0325295f3ab5d1e074a8",
-      "sha256": "f9ec34429b11fae6251e5fdebee96b7defbcbdf29e3ef0ab3a042b8f944a2fe9",
-      "lines": 279,
+      "gitObjectId": "106cc8477178f0053c4f9b5b1603e77c01282aae",
+      "sha256": "930a9e74aa7f948b0d1b41e334543a60c1e8644d4afc625649b211fc85d7d126",
+      "lines": 281,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 279
+          "endLine": 281
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -134,7 +134,8 @@
         "2026-09-18: re-reviewed after adding the Mentor retention run/install/check commands and composing the static retention authority guard into ai:trust:check. The package delta adds no dependency, engine or override; the run command invokes the bounded PostgreSQL cleanup worker, the installer invokes the hardened systemd installer, and the check is read-only source authority. Existing release, audit and supply-chain command composition is otherwise unchanged.",
         "2026-09-18: re-reviewed the complete 277-line package after adding mentor:profiles:worker, mentor:profiles:worker:install and test:mentor-profile-outbox. The worker command runs the bounded durable PostgreSQL projection worker, the installer invokes the fail-closed hardened systemd installer, and the test command runs focused unit/PostgreSQL lease, replay, tenant-scope, rollback and dead-letter evidence. The delta adds no dependency, engine or override, is not composed into release:check, grants no provider/spend/exchange/custody authority, and does not by itself merge, deploy or activate production.",
         "2026-09-18: re-reviewed the complete 278-line package after moving the durable Mentor profile worker onto the production server bundle. build:server now emits dist/run-mentor-profile-worker.cjs, mentor:profiles:worker executes that bundled artifact without depending on the dev-only tsx package, and mentor:profiles:worker:dev preserves the TypeScript developer entrypoint. No dependency, engine, override, provider/spend authority, exchange/custody capability or release activation changed; the systemd service now has an executable production runtime under omit-dev installations.",
-        "2026-09-18: re-reviewed the complete 279-line package after adding mentor:profiles:authority:check and composing it into ai:trust:check (therefore into the existing ai:redteam:check release path). The new command is a read-only static fail-closed guard over the durable Mentor outbox migration, producer transaction coupling, worker lease/retry/DLQ authority, tenant/workspace provenance, hardened systemd runtime, production bundle wiring and adversarial PostgreSQL evidence. It adds no dependency, engine, override, provider/spend authority, financial activation or deployment action."
+        "2026-09-18: re-reviewed the complete 279-line package after adding mentor:profiles:authority:check and composing it into ai:trust:check (therefore into the existing ai:redteam:check release path). The new command is a read-only static fail-closed guard over the durable Mentor outbox migration, producer transaction coupling, worker lease/retry/DLQ authority, tenant/workspace provenance, hardened systemd runtime, production bundle wiring and adversarial PostgreSQL evidence. It adds no dependency, engine, override, provider/spend authority, financial activation or deployment action.",
+        "2026-09-18: re-reviewed the complete 281-line package after adding mentor:evals:authority:check and test:mentor-eval-promotion, composing the read-only promotion authority into ai:trust:check and the deterministic plus PostgreSQL RLS/immutability evidence into ai:redteam:check. The delta adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch action; it keeps Mentor promotion fail-closed and runs the new database proof only under the existing test authority."
       ],
       "findings": [
         {
