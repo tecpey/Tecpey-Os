@@ -443,7 +443,7 @@ export async function persistOperationalSignalTx(
   return { replayed: true, payloadHash: row.payload_hash };
 }
 
-function validateDeliveryAttempt(
+export function validateOperationalSignalDeliveryAttempt(
   raw: OperationalSignalDeliveryAttempt,
 ): OperationalSignalDeliveryAttempt {
   const signalId = boundedToken(
@@ -513,7 +513,7 @@ export async function persistOperationalSignalDeliveryAttemptTx(
   client: PoolClient,
   raw: OperationalSignalDeliveryAttempt,
 ): Promise<{ replayed: boolean }> {
-  const attempt = validateDeliveryAttempt(raw);
+  const attempt = validateOperationalSignalDeliveryAttempt(raw);
   const attemptHash = hashOperationalSignalEvidence(attempt);
   const inserted = await client.query(
     `INSERT INTO platform_operational_signal_delivery_attempts
