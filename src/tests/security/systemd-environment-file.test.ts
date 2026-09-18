@@ -35,6 +35,33 @@ describe("systemd EnvironmentFile parser", () => {
     assert.equal(parsed.get("CONTINUED"), "left  right");
   });
 
+  it("can reject duplicate keys for installer authority without changing systemd last-wins parsing", () => {
+    assert.throws(
+      () =>
+        parseSystemdEnvironmentFile(
+          [
+            "DATABASE_URL=postgresql://first.example/tecpey",
+            "DATABASE_URL=postgresql://second.example/tecpey",
+            "",
+          ].join("\n"),
+          { rejectDuplicateKeys: true },
+        ),
+      /systemd_environment_file_duplicate_key/,
+    );
+
+    const native = parseSystemdEnvironmentFile(
+      [
+        "DATABASE_URL=postgresql://first.example/tecpey",
+        "DATABASE_URL=postgresql://second.example/tecpey",
+        "",
+      ].join("\n"),
+    );
+    assert.equal(
+      native.get("DATABASE_URL"),
+      "postgresql://second.example/tecpey",
+    );
+  });
+
   it("supports single- and double-quoted multiline values", () => {
     const parsed = parseSystemdEnvironmentFile([
       "SINGLE='first line",
