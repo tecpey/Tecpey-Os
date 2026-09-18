@@ -8,6 +8,7 @@ import {
   deliverOperationalAlerts,
   enqueueOperationalAlert,
   ensureOperationalSpoolDirectories,
+  operationalDeliveryRetryDelayMs,
   writeOperationalLastRun,
 } from "../../lib/ops/operational-alert-spool";
 import type {
@@ -25,9 +26,12 @@ async function tempRoot(): Promise<string> {
   return root;
 }
 
-function run(status: OperationalJobRunEvidence["resultStatus"]): OperationalJobRunEvidence {
+function run(
+  status: OperationalJobRunEvidence["resultStatus"],
+  runId = RUN_ID,
+): OperationalJobRunEvidence {
   return {
-    runId: RUN_ID,
+    runId,
     jobName: "community-challenge-finalization",
     schedulerUnit: "tecpey-community-challenge-finalizer.service",
     hostName: "ops-test",
@@ -47,8 +51,11 @@ function run(status: OperationalJobRunEvidence["resultStatus"]): OperationalJobR
   };
 }
 
-function alert(status: "partial_failure" | "authority_unavailable"): OperationalAlertEvidence {
-  const evidence = run(status);
+function alert(
+  status: "partial_failure" | "authority_unavailable",
+  runId = RUN_ID,
+): OperationalAlertEvidence {
+  const evidence = run(status, runId);
   return {
     schemaVersion: 1,
     alertId: `${evidence.jobName}:${evidence.runId}`,
@@ -100,6 +107,9 @@ describe("Operational alert spool", () => {
       retryable: 0,
       quarantined: 0,
       skippedUntilLater: 0,
+      deferredDueToBatchLimit: 0,
+      recoveredDeliveredArchives: 0,
+      recoveredQuarantinedArchives: 0,
     });
     assert.equal(requests.length, 1);
     const headers = new Headers(requests[0].headers);
@@ -140,11 +150,23 @@ describe("Operational alert spool", () => {
     };
     assert.equal(item.delivery.attemptCount, 1);
     assert.equal(item.delivery.lastErrorCode, "webhook_http_503");
-    assert.equal(item.delivery.nextAttemptAt, "2026-07-21T08:01:15.000Z");
+    const retryDelay = operationalDeliveryRetryDelayMs(
+      1,
+      alert("authority_unavailable").alertId,
+    );
+    assert.equal(
+      item.delivery.nextAttemptAt,
+      new Date(
+        Date.parse("2026-07-21T08:01:00.000Z") + retryDelay,
+      ).toISOString(),
+    );
+    assert.equal(retryDelay >= 12_000 && retryDelay <= 18_000, true);
     const early = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
-      now: new Date("2026-07-21T08:01:10.000Z"),
+      now: new Date(
+        Date.parse("2026-07-21T08:01:00.000Z") + retryDelay - 1,
+      ),
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
@@ -163,7 +185,7 @@ describe("Operational alert spool", () => {
 
     const dirs = await ensureOperationalSpoolDirectories(root);
     const target = path.join(root, "outside.json");
-    await writeFile(target, "{}", { mode: 0o600 });
+    await writeFile(target, "{}", { mode: 0o644 });
     await symlink(target, path.join(dirs.pending, `${"a".repeat(64)}.json`));
     await writeFile(
       path.join(dirs.pending, `${"b".repeat(64)}.json`),
@@ -179,5 +201,117 @@ describe("Operational alert spool", () => {
     });
     assert.equal(unsafe.quarantined, 3);
     assert.equal((await readdir(dirs.pending)).length, 0);
+    assert.equal((await stat(target)).mode & 0o777, 0o644);
+    assert.equal(
+      (await readdir(dirs.quarantine)).filter((name) =>
+        name.startsWith("unsafe-"),
+      ).length >= 3,
+      true,
+    );
+  });
+
+  it("selects due work before the batch limit so future retries cannot starve ready alerts", async () => {
+    const root = await tempRoot();
+    const first = await enqueueOperationalAlert(
+      root,
+      alert("partial_failure", "11111111-1111-4111-8111-111111111111"),
+    );
+    const second = await enqueueOperationalAlert(
+      root,
+      alert("partial_failure", "22222222-2222-4222-8222-222222222222"),
+    );
+    const [futurePath, duePath] = [first.filePath, second.filePath].sort((a, b) =>
+      path.basename(a).localeCompare(path.basename(b)),
+    );
+
+    const future = JSON.parse(await readFile(futurePath, "utf8")) as {
+      delivery: { nextAttemptAt: string };
+    };
+    future.delivery.nextAttemptAt = "2026-07-21T09:00:00.000Z";
+    await writeFile(futurePath, `${JSON.stringify(future)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+
+    const due = JSON.parse(await readFile(duePath, "utf8")) as {
+      alert: { alertId: string };
+    };
+    const deliveredIds: string[] = [];
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-07-21T08:02:00.000Z"),
+      limit: 1,
+      fetchImpl: async (_input, init) => {
+        deliveredIds.push(
+          new Headers(init?.headers).get("Idempotency-Key") ?? "",
+        );
+        return new Response(null, { status: 204 });
+      },
+    });
+
+    assert.equal(summary.selected, 1);
+    assert.equal(summary.delivered, 1);
+    assert.equal(summary.skippedUntilLater, 1);
+    assert.equal(summary.deferredDueToBatchLimit, 0);
+    assert.deepEqual(deliveredIds, [due.alert.alertId]);
+  });
+
+  it("archives an fsync-recorded delivered attempt after restart without webhook redelivery", async () => {
+    const root = await tempRoot();
+    const queued = await enqueueOperationalAlert(
+      root,
+      alert("partial_failure", "33333333-3333-4333-8333-333333333333"),
+    );
+    const item = JSON.parse(await readFile(queued.filePath, "utf8")) as {
+      delivery: {
+        attemptCount: number;
+        nextAttemptAt: string;
+        lastErrorCode: string | null;
+        attempts: Array<{
+          attemptNumber: number;
+          deliveryResult: string;
+          httpStatus: number | null;
+          errorCode: string | null;
+          attemptedAt: string;
+        }>;
+      };
+    };
+    item.delivery = {
+      attemptCount: 1,
+      nextAttemptAt: "2026-07-21T08:01:00.000Z",
+      lastErrorCode: null,
+      attempts: [
+        {
+          attemptNumber: 1,
+          deliveryResult: "delivered",
+          httpStatus: 204,
+          errorCode: null,
+          attemptedAt: "2026-07-21T08:01:00.000Z",
+        },
+      ],
+    };
+    await writeFile(queued.filePath, `${JSON.stringify(item)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+
+    let networkCalls = 0;
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-07-21T08:02:00.000Z"),
+      fetchImpl: async () => {
+        networkCalls += 1;
+        throw new Error("must_not_redeliver");
+      },
+    });
+
+    assert.equal(networkCalls, 0);
+    assert.equal(summary.selected, 0);
+    assert.equal(summary.recoveredDeliveredArchives, 1);
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    assert.equal((await readdir(dirs.pending)).length, 0);
+    assert.equal((await readdir(dirs.delivered)).length, 1);
   });
 });

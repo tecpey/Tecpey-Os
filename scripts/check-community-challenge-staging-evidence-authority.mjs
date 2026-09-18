@@ -295,7 +295,7 @@ for (const forbidden of [
 for (const command of [
   '"community:challenge:finalize": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/finalize-community-journal-challenges.ts"',
   '"community:challenge:finalize:scheduled": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/run-community-challenge-finalization-scheduled.ts"',
-  '"ops:alerts:deliver": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/deliver-operational-alerts.ts"',
+  '"ops:alerts:deliver": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server dist/deliver-operational-alerts.cjs"',
   '"ops:staging:evidence:collect": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-community-challenge-scheduler-host-evidence.ts"',
   '"ops:staging:evidence:verify"',
   '"ops:staging:evidence:check"',
