@@ -14,7 +14,7 @@ const serverOnlyCommands = {
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/finalize-community-journal-challenges.ts",
   "community:challenge:finalize:scheduled":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/run-community-challenge-finalization-scheduled.ts",
-  "ops:alerts:deliver":
+  "ops:alerts:deliver:dev":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/deliver-operational-alerts.ts",
   "ops:staging:evidence:collect":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-community-challenge-scheduler-host-evidence.ts",
@@ -28,6 +28,25 @@ test("server-only CLI entrypoints pin the isolated Node server runtime", async (
   for (const [name, command] of Object.entries(serverOnlyCommands)) {
     assert.equal(packageJson.scripts?.[name], command, `${name} must keep the server-only runtime`);
   }
+});
+
+test("operational alert delivery production command is release-bundled while dev keeps the server-only shim", () => {
+  assert.equal(
+    packageJson.scripts?.["ops:alerts:deliver"],
+    "node dist/deliver-operational-alerts.cjs",
+  );
+  assert.equal(
+    packageJson.scripts?.["ops:alerts:env-check"],
+    "node dist/check-operational-alert-delivery-env.cjs",
+  );
+  assert.match(
+    packageJson.scripts?.["build:server"] ?? "",
+    /scripts\/deliver-operational-alerts\.ts/,
+  );
+  assert.match(
+    packageJson.scripts?.["build:server"] ?? "",
+    /scripts\/check-operational-alert-delivery-env\.ts/,
+  );
 });
 
 test("news materialization scheduler pins the isolated server-only runtime to its release", async () => {
