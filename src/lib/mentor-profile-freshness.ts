@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 
 export const MENTOR_PROFILE_FRESHNESS_CALIBRATION_VERSION =
-  "2026-09-18.1" as const;
+  "2026-09-18.2" as const;
 
 export type MentorProfileFreshnessCalibrationInput = Readonly<{
   lookbackSeconds?: number;
@@ -14,9 +14,11 @@ export type MentorProfileFreshnessSnapshot = Readonly<{
   lookbackSeconds: number;
   targetSeconds: number;
   sampleCount: number;
-  validSampleCount: number;
+  processedSampleCount: number;
+  validLatencyCount: number;
   invalidLatencyCount: number;
   withinTargetCount: number;
+  missedTargetCount: number;
   withinTargetRatio: number | null;
   p50Seconds: number | null;
   p95Seconds: number | null;
@@ -32,9 +34,11 @@ export type MentorProfileFreshnessCalibrationEvaluation = Readonly<{
 type FreshnessRow = {
   observed_at: Date;
   sample_count: string;
-  valid_sample_count: string;
+  processed_sample_count: string;
+  valid_latency_count: string;
   invalid_latency_count: string;
   within_target_count: string;
+  missed_target_count: string;
   p50_seconds: number | null;
   p95_seconds: number | null;
   max_seconds: number | null;
@@ -85,36 +89,63 @@ export async function loadMentorProfileFreshnessSnapshot(
     3_600,
     "mentor_profile_freshness_target_invalid",
   );
+  if (targetSeconds >= lookbackSeconds) {
+    throw new Error("mentor_profile_freshness_window_invalid");
+  }
 
   const result = await client.query<FreshnessRow>(
-    `WITH recent AS (
-       SELECT EXTRACT(EPOCH FROM (processed_at - created_at))::double precision
-                AS latency_seconds
-         FROM mentor_profile_update_outbox
-        WHERE status = 'processed'
-          AND processed_at IS NOT NULL
-          AND processed_at >=
-            clock_timestamp() - make_interval(secs => $1)
+    `WITH clock AS (
+       SELECT clock_timestamp() AS observed_at
      ),
-     valid AS (
+     eligible AS (
+       SELECT
+         o.created_at,
+         o.processed_at,
+         CASE
+           WHEN o.processed_at IS NULL THEN NULL
+           ELSE EXTRACT(EPOCH FROM (o.processed_at - o.created_at))::double precision
+         END AS latency_seconds
+         FROM mentor_profile_update_outbox o
+         CROSS JOIN clock
+        WHERE o.created_at >=
+                clock.observed_at - make_interval(secs => $1)
+          AND o.created_at <=
+                clock.observed_at - make_interval(secs => $2)
+     ),
+     valid_latency AS (
        SELECT latency_seconds
-         FROM recent
-        WHERE latency_seconds >= 0
+         FROM eligible
+        WHERE latency_seconds IS NOT NULL
+          AND latency_seconds >= 0
      )
      SELECT
-       clock_timestamp() AS observed_at,
-       (SELECT COUNT(*)::text FROM recent) AS sample_count,
-       COUNT(*)::text AS valid_sample_count,
-       (SELECT COUNT(*)::text FROM recent WHERE latency_seconds < 0)
-         AS invalid_latency_count,
-       COUNT(*) FILTER (WHERE latency_seconds <= $2)::text
+       clock.observed_at,
+       (SELECT COUNT(*)::text FROM eligible) AS sample_count,
+       (SELECT COUNT(*)::text
+          FROM eligible
+         WHERE processed_at IS NOT NULL) AS processed_sample_count,
+       (SELECT COUNT(*)::text FROM valid_latency) AS valid_latency_count,
+       (SELECT COUNT(*)::text
+          FROM eligible
+         WHERE latency_seconds < 0) AS invalid_latency_count,
+       (SELECT COUNT(*)::text
+          FROM eligible
+         WHERE processed_at IS NOT NULL
+           AND processed_at >= created_at
+           AND processed_at <= created_at + make_interval(secs => $2))
          AS within_target_count,
-       percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_seconds)
-         AS p50_seconds,
-       percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_seconds)
-         AS p95_seconds,
-       MAX(latency_seconds) AS max_seconds
-       FROM valid`,
+       (SELECT COUNT(*)::text
+          FROM eligible
+         WHERE processed_at IS NULL
+            OR processed_at < created_at
+            OR processed_at > created_at + make_interval(secs => $2))
+         AS missed_target_count,
+       (SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_seconds)
+          FROM valid_latency) AS p50_seconds,
+       (SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_seconds)
+          FROM valid_latency) AS p95_seconds,
+       (SELECT MAX(latency_seconds) FROM valid_latency) AS max_seconds
+       FROM clock`,
     [lookbackSeconds, targetSeconds],
   );
 
@@ -126,9 +157,13 @@ export async function loadMentorProfileFreshnessSnapshot(
     row.sample_count,
     "mentor_profile_freshness_sample_count_invalid",
   );
-  const validSampleCount = count(
-    row.valid_sample_count,
-    "mentor_profile_freshness_valid_sample_count_invalid",
+  const processedSampleCount = count(
+    row.processed_sample_count,
+    "mentor_profile_freshness_processed_count_invalid",
+  );
+  const validLatencyCount = count(
+    row.valid_latency_count,
+    "mentor_profile_freshness_valid_latency_count_invalid",
   );
   const invalidLatencyCount = count(
     row.invalid_latency_count,
@@ -138,9 +173,16 @@ export async function loadMentorProfileFreshnessSnapshot(
     row.within_target_count,
     "mentor_profile_freshness_within_target_count_invalid",
   );
+  const missedTargetCount = count(
+    row.missed_target_count,
+    "mentor_profile_freshness_missed_target_count_invalid",
+  );
+
   if (
-    validSampleCount + invalidLatencyCount !== sampleCount ||
-    withinTargetCount > validSampleCount
+    processedSampleCount > sampleCount ||
+    validLatencyCount + invalidLatencyCount !== processedSampleCount ||
+    withinTargetCount > validLatencyCount ||
+    withinTargetCount + missedTargetCount !== sampleCount
   ) {
     throw new Error("mentor_profile_freshness_counts_inconsistent");
   }
@@ -151,13 +193,15 @@ export async function loadMentorProfileFreshnessSnapshot(
     lookbackSeconds,
     targetSeconds,
     sampleCount,
-    validSampleCount,
+    processedSampleCount,
+    validLatencyCount,
     invalidLatencyCount,
     withinTargetCount,
+    missedTargetCount,
     withinTargetRatio:
-      validSampleCount === 0
+      sampleCount === 0
         ? null
-        : Math.round((withinTargetCount / validSampleCount) * 1_000_000) /
+        : Math.round((withinTargetCount / sampleCount) * 1_000_000) /
           1_000_000,
     p50Seconds: seconds(
       row.p50_seconds,
@@ -188,20 +232,20 @@ export function evaluateMentorProfileFreshnessCalibration(
   if (snapshot.invalidLatencyCount > 0) {
     return {
       status: "invalid_evidence",
-      sampleCount: snapshot.validSampleCount,
+      sampleCount: snapshot.sampleCount,
       minimumSamples: boundedMinimum,
     };
   }
-  if (snapshot.validSampleCount < boundedMinimum) {
+  if (snapshot.sampleCount < boundedMinimum) {
     return {
       status: "insufficient_data",
-      sampleCount: snapshot.validSampleCount,
+      sampleCount: snapshot.sampleCount,
       minimumSamples: boundedMinimum,
     };
   }
   return {
     status: "observed",
-    sampleCount: snapshot.validSampleCount,
+    sampleCount: snapshot.sampleCount,
     minimumSamples: boundedMinimum,
   };
 }
