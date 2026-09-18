@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS mentor_profile_update_outbox (
   event_sequence BIGSERIAL NOT NULL UNIQUE,
   tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE RESTRICT,
   workspace_id TEXT NOT NULL,
-  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE RESTRICT,
   event_type TEXT NOT NULL CHECK (event_type IN (
     'academy.term_progress',
     'mentor.challenge_attempt',
@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS mentor_profile_update_outbox (
   last_error_detail TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT mentor_profile_update_outbox_workspace_fk
+    FOREIGN KEY (tenant_id, workspace_id)
+    REFERENCES platform_workspaces(tenant_id, id) ON DELETE RESTRICT,
+  UNIQUE (id, tenant_id, workspace_id),
   CHECK (char_length(workspace_id) BETWEEN 1 AND 120),
   CHECK (char_length(event_id) BETWEEN 16 AND 180),
   CHECK (event_id ~ '^[A-Za-z0-9._:-]+$'),
@@ -149,8 +153,9 @@ CREATE TRIGGER mentor_profile_update_outbox_no_delete
 
 CREATE TABLE IF NOT EXISTS mentor_profile_update_attempts (
   id BIGSERIAL PRIMARY KEY,
-  outbox_id UUID NOT NULL
-    REFERENCES mentor_profile_update_outbox(id) ON DELETE RESTRICT,
+  tenant_id TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  outbox_id UUID NOT NULL,
   attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
   worker_id TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN (
@@ -165,7 +170,12 @@ CREATE TABLE IF NOT EXISTS mentor_profile_update_attempts (
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
   result_hash CHAR(64),
+  CONSTRAINT mentor_profile_update_attempts_outbox_scope_fk
+    FOREIGN KEY (outbox_id, tenant_id, workspace_id)
+    REFERENCES mentor_profile_update_outbox(id, tenant_id, workspace_id)
+    ON DELETE RESTRICT,
   UNIQUE (outbox_id, attempt_number),
+  CHECK (char_length(workspace_id) BETWEEN 1 AND 120),
   CHECK (char_length(worker_id) BETWEEN 1 AND 200),
   CHECK (error_code IS NULL OR char_length(error_code) BETWEEN 1 AND 100),
   CHECK (error_detail IS NULL OR char_length(error_detail) <= 2000),
@@ -173,17 +183,24 @@ CREATE TABLE IF NOT EXISTS mentor_profile_update_attempts (
 );
 
 CREATE INDEX IF NOT EXISTS mentor_profile_update_attempts_outbox_idx
-  ON mentor_profile_update_attempts (outbox_id, attempt_number DESC);
+  ON mentor_profile_update_attempts
+    (tenant_id, workspace_id, outbox_id, attempt_number DESC);
 
 CREATE TABLE IF NOT EXISTS mentor_profile_update_dead_letters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  outbox_id UUID NOT NULL UNIQUE
-    REFERENCES mentor_profile_update_outbox(id) ON DELETE RESTRICT,
+  tenant_id TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  outbox_id UUID NOT NULL UNIQUE,
   terminal_reason TEXT NOT NULL,
   event_id TEXT NOT NULL,
   student_fingerprint CHAR(64) NOT NULL,
   payload_hash CHAR(64) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT mentor_profile_update_dead_letters_outbox_scope_fk
+    FOREIGN KEY (outbox_id, tenant_id, workspace_id)
+    REFERENCES mentor_profile_update_outbox(id, tenant_id, workspace_id)
+    ON DELETE RESTRICT,
+  CHECK (char_length(workspace_id) BETWEEN 1 AND 120),
   CHECK (char_length(terminal_reason) BETWEEN 1 AND 100),
   CHECK (student_fingerprint ~ '^[a-f0-9]{64}$'),
   CHECK (payload_hash ~ '^[a-f0-9]{64}$')
