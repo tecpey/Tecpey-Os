@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -21,12 +21,14 @@ async function fixture() {
   const envFile = path.join(root, "runtime.env");
   const state = path.join(root, "state");
   const systemd = path.join(root, "systemd");
+  const npmTrace = path.join(root, "npm.trace");
   await mkdir(app);
   await mkdir(bin);
   await mkdir(path.join(app, "dist"));
   await writeFile(path.join(app, "package.json"), "{}\n", { mode: 0o644 });
   await writeFile(path.join(app, "dist", "deliver-operational-alerts.cjs"), "// test bundle\n", { mode: 0o644 });
   await writeFile(path.join(app, "dist", "check-operational-delivery-env.cjs"), "// test bundle\n", { mode: 0o644 });
+  await writeFile(path.join(app, "dist", "check-operational-installer-env.cjs"), "// test bundle\n", { mode: 0o644 });
   await writeFile(
     envFile,
     [
@@ -37,11 +39,22 @@ async function fixture() {
     ].join("\n"),
     { mode: 0o640 },
   );
-  await executable(path.join(bin, "npm"));
+  await executable(
+    path.join(bin, "npm"),
+    [
+      "#!/bin/sh",
+      "if [ \"$1\" = \"run\" ] && [ \"$2\" = \"--silent\" ] && [ \"$3\" = \"ops:installer:env-check\" ]; then",
+      "  [ -n \"$TECPEY_NPM_TRACE\" ] && printf '%s\\n' 'ops:installer:env-check' >> \"$TECPEY_NPM_TRACE\"",
+      "  [ \"${TECPEY_TEST_INSTALL_ENV_CHECK_FAIL:-0}\" = \"1\" ] && exit 42",
+      "fi",
+      "exit 0",
+      "",
+    ].join("\n"),
+  );
   await executable(path.join(bin, "id"));
   await executable(path.join(bin, "getent"));
   await executable(path.join(bin, "systemd-analyze"));
-  return { root, app, bin, envFile, state, systemd };
+  return { root, app, bin, envFile, state, systemd, npmTrace };
 }
 
 function runInstall(
@@ -61,6 +74,7 @@ function runInstall(
       TECPEY_OPS_STATE_DIR: setup.state,
       TECPEY_SYSTEMD_DIR: setup.systemd,
       TECPEY_NPM_BIN: path.join(setup.bin, "npm"),
+      TECPEY_NPM_TRACE: setup.npmTrace,
       ...overrides,
     },
   });
@@ -91,16 +105,29 @@ describe("Community challenge scheduler installer", () => {
     assert.match(relative.stderr, /app_directory_invalid/);
   });
 
-  it("rejects a missing HTTPS alert webhook", async () => {
+  it("delegates quoted env-file validation to the bundled authority", async () => {
     const setup = await fixture();
     await writeFile(
       setup.envFile,
-      "DATABASE_URL=postgres://database.internal/tecpey\n",
+      [
+        "DATABASE_URL=\'postgresql://tecpey:secret@database.internal/tecpey\'",
+        "TECPEY_OPS_ALERT_WEBHOOK_URL=\"https://alerts.tecpey.test/hooks/ops\"",
+        "LIMOO_SMS_OTP_COPY=\'تک‌پی؛ رمز ورود شما: {0}\'",
+        "",
+      ].join("\n"),
       { mode: 0o640 },
     );
-    const result = runInstall(setup);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /ops_alert_https_webhook_missing/);
+    const accepted = runInstall(setup);
+    assert.equal(accepted.status, 0, `${accepted.stdout}\n${accepted.stderr}`);
+    assert.match(await readFile(setup.npmTrace, "utf8"), /ops:installer:env-check/);
+    assert.equal(accepted.stdout.includes("secret"), false);
+    assert.equal(accepted.stdout.includes("رمز"), false);
+
+    const rejected = runInstall(setup, {
+      TECPEY_TEST_INSTALL_ENV_CHECK_FAIL: "1",
+    });
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /operational_install_environment_invalid/);
   });
 
   it("rejects world-readable environment files", async () => {
