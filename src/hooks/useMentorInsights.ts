@@ -39,7 +39,6 @@ export type UseMentorInsightsReturn = {
 type UseMentorInsightsOptions = {
   enabled?: boolean;
 };
-
 // ── Module-level stale-while-revalidate cache ──────────────────────────────────
 // Shared across all mounted instances of useMentorInsights in the page.
 
