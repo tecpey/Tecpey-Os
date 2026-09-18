@@ -92,33 +92,87 @@ async function insertProcessed(
   );
 }
 
+async function insertPending(
+  client: PoolClient,
+  scope: Awaited<ReturnType<typeof seedScope>>,
+  ordinal: number,
+  ageSeconds: number,
+): Promise<void> {
+  const createdAt = new Date(Date.now() - ageSeconds * 1_000);
+  await client.query(
+    `INSERT INTO mentor_profile_update_outbox
+       (id, tenant_id, workspace_id, student_id, event_type, event_version,
+        event_id, source_reference, reason, payload_hash, occurred_at, status,
+        available_at, attempt_count, created_at, updated_at)
+     VALUES
+       ($1::uuid, $2, $3, $4::uuid, 'mentor.conversation', 1, $5, $6,
+        'mentor_conversation_saved', $7, $8::timestamptz, 'pending',
+        $8::timestamptz, 0, $8::timestamptz, $8::timestamptz)`,
+    [
+      randomUUID(),
+      scope.tenantId,
+      scope.workspaceId,
+      scope.studentId,
+      `mentor.freshness:${scope.suffix}:pending:${ordinal}`,
+      `freshness-${scope.suffix}-pending-${ordinal}`,
+      String(ordinal + 5).repeat(64).slice(0, 64),
+      createdAt.toISOString(),
+    ],
+  );
+}
+
 test(
   "Mentor freshness calibration derives aggregate latency evidence from PostgreSQL",
   { skip: !databaseUrl, timeout: 20_000 },
   async () => {
     await withRolledBackTest(async (client) => {
       const scope = await seedScope(client);
+      const baseline = await loadMentorProfileFreshnessSnapshot(client, {
+        lookbackSeconds: 300,
+        targetSeconds: 60,
+      });
+
       for (const [index, latency] of [10, 30, 60, 120].entries()) {
         await insertProcessed(client, scope, index + 1, latency);
       }
+      await insertPending(client, scope, 20, 120);
+      await insertPending(client, scope, 21, 10);
 
       const snapshot = await loadMentorProfileFreshnessSnapshot(client, {
         lookbackSeconds: 300,
         targetSeconds: 60,
       });
 
-      // Shared CI may contain other processed fixtures, so verify the aggregate
-      // includes at least the four controlled samples and remains internally
-      // consistent rather than assuming an empty global database.
-      assert.equal(snapshot.sampleCount >= 4, true);
-      assert.equal(snapshot.validSampleCount >= 4, true);
-      assert.equal(snapshot.withinTargetCount >= 3, true);
+      // Four processed samples plus one matured pending sample are eligible.
+      // The 10-second-old pending event has not had its full 60-second target
+      // opportunity and must not enter the denominator yet.
+      assert.equal(snapshot.sampleCount >= baseline.sampleCount + 5, true);
+      assert.equal(
+        snapshot.processedSampleCount >= baseline.processedSampleCount + 4,
+        true,
+      );
+      assert.equal(
+        snapshot.validLatencyCount >= baseline.validLatencyCount + 4,
+        true,
+      );
+      assert.equal(
+        snapshot.withinTargetCount >= baseline.withinTargetCount + 3,
+        true,
+      );
+      assert.equal(
+        snapshot.missedTargetCount >= baseline.missedTargetCount + 2,
+        true,
+      );
       assert.equal(snapshot.withinTargetRatio !== null, true);
       assert.equal((snapshot.p50Seconds ?? -1) >= 0, true);
       assert.equal((snapshot.p95Seconds ?? -1) >= 0, true);
       assert.equal((snapshot.maxSeconds ?? -1) >= 120, true);
       assert.equal(
-        snapshot.validSampleCount + snapshot.invalidLatencyCount,
+        snapshot.validLatencyCount + snapshot.invalidLatencyCount,
+        snapshot.processedSampleCount,
+      );
+      assert.equal(
+        snapshot.withinTargetCount + snapshot.missedTargetCount,
         snapshot.sampleCount,
       );
       assert.equal(
