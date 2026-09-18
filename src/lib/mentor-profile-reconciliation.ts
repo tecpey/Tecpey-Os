@@ -54,6 +54,21 @@ export function needsMentorProfileRefresh(input: MentorProfileStaleness): boolea
   return input.latestSignalAtMs > input.profileUpdatedAtMs;
 }
 
+export function needsMentorProfileRepair(
+  input: MentorProfileStaleness & { unresolvedDeadLetters: number },
+): boolean {
+  if (
+    !Number.isSafeInteger(input.unresolvedDeadLetters) ||
+    input.unresolvedDeadLetters < 0
+  ) {
+    throw new Error("mentor_profile_unresolved_dead_letters_invalid");
+  }
+  return (
+    input.unresolvedDeadLetters > 0 ||
+    needsMentorProfileRefresh(input)
+  );
+}
+
 type StaleRow = {
   student_id: string;
   profile_updated_at: Date | null;
@@ -180,8 +195,8 @@ export async function reconcileMentorProfiles(options: {
   }
 
   const candidates = read.value.filter((row) =>
-    Number.parseInt(row.unresolved_dead_letters, 10) > 0 ||
-    needsMentorProfileRefresh({
+    needsMentorProfileRepair({
+      unresolvedDeadLetters: Number.parseInt(row.unresolved_dead_letters, 10),
       profileUpdatedAtMs: row.profile_updated_at ? row.profile_updated_at.getTime() : null,
       latestSignalAtMs: row.latest_signal_at ? row.latest_signal_at.getTime() : null,
       nowMs,
