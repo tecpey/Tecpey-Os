@@ -96,7 +96,7 @@ The signal spool is filesystem-first and does not require PostgreSQL to enqueue 
 
 Delivery is performed by `tecpey-ops-alert-delivery.service` from the production bundle, not by `tsx`. Its preflight validates only the state directory, HTTPS webhook, bearer shape and bounded delivery settings; it deliberately does **not** depend on `DATABASE_URL` or Community Challenge configuration. The one-minute monotonic timer scans both the legacy job-alert spool and the new signal spool. Per-signal `nextAttemptAt` plus capped exponential backoff with deterministic jitter prevents that scan cadence from becoming a retry storm.
 
-Webhook requests use the stable signal ID as `Idempotency-Key`. HTTP 408/425/429 and 5xx are retryable; terminal HTTP responses are quarantined. No response body is persisted.
+Webhook requests use the stable signal ID as `Idempotency-Key`. The receiver contract **must** treat replay of the same idempotency key as the same delivery and return a 2xx response only after durable acceptance; this is what makes a crash between remote acceptance and local archive movement safe. TecPey does not assume that an arbitrary 409 means “already delivered,” because webhook providers can assign different semantics to that status. HTTP 408/425/429 and 5xx are retryable; other non-2xx responses are quarantined. No response body is persisted.
 
 Useful inspection commands:
 
