@@ -216,16 +216,29 @@ async function deadLetter(
   outboxId: string,
   reason: string,
 ): Promise<void> {
+  const source = await client.query<{
+    event_id: string;
+    student_id: string;
+    payload_hash: string;
+  }>(
+    `SELECT event_id, student_id::text, payload_hash
+       FROM mentor_profile_update_outbox
+      WHERE id = $1
+      FOR SHARE`,
+    [outboxId],
+  );
+  const row = source.rows[0];
+  if (!row) throw new Error("mentor_profile_dead_letter_source_missing");
+  const studentFingerprint = sha256({
+    domain: "mentor-profile-student-v1",
+    studentId: row.student_id,
+  });
   await client.query(
     `INSERT INTO mentor_profile_update_dead_letters
        (outbox_id, terminal_reason, event_id, student_fingerprint, payload_hash)
-     SELECT id, $2, event_id,
-            encode(digest('mentor-profile-student-v1:' || student_id::text, 'sha256'), 'hex'),
-            payload_hash
-       FROM mentor_profile_update_outbox
-      WHERE id = $1
+     VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (outbox_id) DO NOTHING`,
-    [outboxId, reason],
+    [outboxId, reason, row.event_id, studentFingerprint, row.payload_hash],
   );
 }
 
