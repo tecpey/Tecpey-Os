@@ -92,8 +92,33 @@ function workerId(value: string): string {
   return boundedToken(value, 1, 200, "mentor_profile_worker_id_invalid");
 }
 
-function retryDelaySeconds(attemptNumber: number): number {
-  return Math.min(3_600, 15 * 2 ** Math.max(0, attemptNumber - 1));
+export function mentorProfileRetryDelaySeconds(
+  attemptNumber: number,
+  outboxId: string,
+): number {
+  if (!Number.isSafeInteger(attemptNumber) || attemptNumber < 1 || attemptNumber > 100) {
+    throw new Error("mentor_profile_retry_attempt_invalid");
+  }
+  const normalizedOutboxId = boundedToken(
+    outboxId,
+    8,
+    200,
+    "mentor_profile_retry_outbox_id_invalid",
+  );
+  const exponential = Math.min(
+    3_600,
+    15 * 2 ** Math.max(0, attemptNumber - 1),
+  );
+  const entropy = Number.parseInt(
+    sha256({
+      authority: "mentor-profile-retry-jitter-v1",
+      outboxId: normalizedOutboxId,
+      attemptNumber,
+    }).slice(0, 8),
+    16,
+  ) / 0xffff_ffff;
+  const jittered = Math.round(exponential * (0.8 + entropy * 0.4));
+  return Math.min(3_600, Math.max(15, jittered));
 }
 
 export function createMentorProfileEventId(
@@ -503,7 +528,10 @@ export async function failMentorProfileUpdateClaim(
   );
   const errorDetail = failure.errorDetail?.slice(0, 2_000) ?? null;
   const terminal = !failure.retryable || claim.attemptNumber >= claim.maxAttempts;
-  const delaySeconds = retryDelaySeconds(claim.attemptNumber);
+  const delaySeconds = mentorProfileRetryDelaySeconds(
+    claim.attemptNumber,
+    claim.outboxId,
+  );
 
   const updated = await client.query<{ available_at: Date }>(
     `UPDATE mentor_profile_update_outbox
