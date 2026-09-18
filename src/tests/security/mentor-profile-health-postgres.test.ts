@@ -59,6 +59,26 @@ async function seedScope(client: PoolClient) {
   return { tenantId, workspaceId, studentId, suffix };
 }
 
+async function deadLetterHistoryCounts(client: PoolClient): Promise<{
+  deadLetters: number;
+  resolutions: number;
+}> {
+  const result = await client.query<{
+    dead_letters: string;
+    resolutions: string;
+  }>(
+    `SELECT
+       (SELECT COUNT(*)::text FROM mentor_profile_update_dead_letters)
+         AS dead_letters,
+       (SELECT COUNT(*)::text FROM mentor_profile_dead_letter_resolutions)
+         AS resolutions`,
+  );
+  return {
+    deadLetters: Number.parseInt(result.rows[0]?.dead_letters ?? "-1", 10),
+    resolutions: Number.parseInt(result.rows[0]?.resolutions ?? "-1", 10),
+  };
+}
+
 async function insertEvent(
   client: PoolClient,
   scope: Awaited<ReturnType<typeof seedScope>>,
@@ -177,8 +197,10 @@ test(
       const before = await loadMentorProfileHealthSnapshot(client);
       assert.equal(before.unresolvedTerminalFailures, 1);
       assert.equal(before.unresolvedDeadLetters, 1);
-      assert.equal(before.resolvedDeadLetters, 0);
-      assert.equal(before.deadLettersTotal, 1);
+      assert.deepEqual(await deadLetterHistoryCounts(client), {
+        deadLetters: 1,
+        resolutions: 0,
+      });
       assert.equal(evaluateMentorProfileHealth(before).status, "critical");
 
       const deadLetter = await client.query<{
@@ -261,8 +283,10 @@ test(
       const midRepair = await loadMentorProfileHealthSnapshot(client);
       assert.equal(midRepair.unresolvedTerminalFailures, 1);
       assert.equal(midRepair.unresolvedDeadLetters, 1);
-      assert.equal(midRepair.resolvedDeadLetters, 1);
-      assert.equal(midRepair.deadLettersTotal, 2);
+      assert.deepEqual(await deadLetterHistoryCounts(client), {
+        deadLetters: 2,
+        resolutions: 1,
+      });
       assert.equal(evaluateMentorProfileHealth(midRepair).status, "critical");
 
       const secondResolution = await resolveMentorProfileDeadLettersAfterRepairTx(
@@ -284,8 +308,10 @@ test(
       const after = await loadMentorProfileHealthSnapshot(client);
       assert.equal(after.unresolvedTerminalFailures, 0);
       assert.equal(after.unresolvedDeadLetters, 0);
-      assert.equal(after.resolvedDeadLetters, 2);
-      assert.equal(after.deadLettersTotal, 2);
+      assert.deepEqual(await deadLetterHistoryCounts(client), {
+        deadLetters: 2,
+        resolutions: 2,
+      });
       assert.equal(evaluateMentorProfileHealth(after).status, "healthy");
 
       await assert.rejects(
