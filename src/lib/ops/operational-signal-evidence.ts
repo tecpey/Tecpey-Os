@@ -6,9 +6,11 @@ import type { PoolClient } from "pg";
 const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
 const LOWER_TOKEN_RE = /^[a-z0-9][a-z0-9._:-]*$/;
 const HASH_RE = /^[0-9a-f]{64}$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type OperationalSignalSeverity = "warning" | "critical";
-export type OperationalSignalLifecycle = "firing" | "resolved";
+export type OperationalSignalLifecycle = "firing" | "updated" | "resolved";
 export type OperationalSignalMeasurement = number | boolean | null;
 
 export type OperationalSignalEvidence = Readonly<{
@@ -23,6 +25,8 @@ export type OperationalSignalEvidence = Readonly<{
   dedupeWindowStart: string;
   dedupeWindowSeconds: number;
   incidentKey: string;
+  episodeId: string | null;
+  episodeSequence: number | null;
   reasonCodes: readonly string[];
   measurements: Readonly<Record<string, OperationalSignalMeasurement>>;
 }>;
@@ -48,6 +52,8 @@ type SignalIdentityRow = {
   dedupe_window_start: Date;
   dedupe_window_seconds: number;
   incident_key: string;
+  episode_id: string | null;
+  episode_sequence: number | null;
   payload_hash: string;
 };
 
@@ -185,15 +191,56 @@ function expectedSignalId(input: {
   lifecycle: OperationalSignalLifecycle;
   dedupeWindowStart: string;
   dedupeWindowSeconds: number;
+  episodeId: string | null;
+  episodeSequence: number | null;
 }): string {
-  const digest = hashOperationalSignalEvidence({
-    authority: "tecpey-operational-signal-dedupe-v1",
-    incidentKey: input.incidentKey,
-    lifecycle: input.lifecycle,
-    dedupeWindowStart: input.dedupeWindowStart,
-    dedupeWindowSeconds: input.dedupeWindowSeconds,
-  });
+  const digest = input.episodeId === null
+    ? hashOperationalSignalEvidence({
+        authority: "tecpey-operational-signal-dedupe-v1",
+        incidentKey: input.incidentKey,
+        lifecycle: input.lifecycle,
+        dedupeWindowStart: input.dedupeWindowStart,
+        dedupeWindowSeconds: input.dedupeWindowSeconds,
+      })
+    : hashOperationalSignalEvidence({
+        authority: "tecpey-operational-signal-episode-v2",
+        episodeId: input.episodeId,
+        episodeSequence: input.episodeSequence,
+        incidentKey: input.incidentKey,
+        lifecycle: input.lifecycle,
+      });
   return `ops:${digest.slice(0, 56)}`;
+}
+
+function normalizeEpisode(input: {
+  episodeId?: string | null;
+  episodeSequence?: number | null;
+  lifecycle: OperationalSignalLifecycle;
+}): { episodeId: string | null; episodeSequence: number | null } {
+  const episodeId = input.episodeId ?? null;
+  const episodeSequence = input.episodeSequence ?? null;
+  if (episodeId === null && episodeSequence === null) {
+    if (input.lifecycle === "updated") {
+      throw new Error("operational_signal_episode_required");
+    }
+    return { episodeId: null, episodeSequence: null };
+  }
+  if (
+    typeof episodeId !== "string" ||
+    !UUID_RE.test(episodeId) ||
+    episodeSequence === null
+  ) {
+    throw new Error("operational_signal_episode_invalid");
+  }
+  return {
+    episodeId: episodeId.toLowerCase(),
+    episodeSequence: boundedInteger(
+      episodeSequence,
+      1,
+      1_000_000,
+      "operational_signal_episode_sequence_invalid",
+    ),
+  };
 }
 
 export function createOperationalSignalEvidence(input: {
@@ -202,6 +249,8 @@ export function createOperationalSignalEvidence(input: {
   sourceUnit: string;
   severity: OperationalSignalSeverity;
   lifecycle?: OperationalSignalLifecycle;
+  episodeId?: string | null;
+  episodeSequence?: number | null;
   occurredAt: string;
   dedupeWindowSeconds?: number;
   reasonCodes: readonly string[];
@@ -234,9 +283,18 @@ export function createOperationalSignalEvidence(input: {
     throw new Error("operational_signal_severity_invalid");
   }
   const lifecycle = input.lifecycle ?? "firing";
-  if (lifecycle !== "firing" && lifecycle !== "resolved") {
+  if (
+    lifecycle !== "firing" &&
+    lifecycle !== "updated" &&
+    lifecycle !== "resolved"
+  ) {
     throw new Error("operational_signal_lifecycle_invalid");
   }
+  const episode = normalizeEpisode({
+    episodeId: input.episodeId,
+    episodeSequence: input.episodeSequence,
+    lifecycle,
+  });
   const occurredAt = iso(input.occurredAt, "operational_signal_occurred_at_invalid");
   const dedupeWindowSeconds = boundedInteger(
     input.dedupeWindowSeconds ?? 3_600,
@@ -263,6 +321,8 @@ export function createOperationalSignalEvidence(input: {
     lifecycle,
     dedupeWindowStart,
     dedupeWindowSeconds,
+    episodeId: episode.episodeId,
+    episodeSequence: episode.episodeSequence,
   });
   return Object.freeze({
     schemaVersion: 1,
@@ -276,6 +336,8 @@ export function createOperationalSignalEvidence(input: {
     dedupeWindowStart,
     dedupeWindowSeconds,
     incidentKey,
+    episodeId: episode.episodeId,
+    episodeSequence: episode.episodeSequence,
     reasonCodes: Object.freeze(reasonCodes),
     measurements: Object.freeze(measurements),
   });
@@ -313,9 +375,18 @@ export function validateOperationalSignalEvidence(
   if (raw.severity !== "warning" && raw.severity !== "critical") {
     throw new Error("operational_signal_severity_invalid");
   }
-  if (raw.lifecycle !== "firing" && raw.lifecycle !== "resolved") {
+  if (
+    raw.lifecycle !== "firing" &&
+    raw.lifecycle !== "updated" &&
+    raw.lifecycle !== "resolved"
+  ) {
     throw new Error("operational_signal_lifecycle_invalid");
   }
+  const episode = normalizeEpisode({
+    episodeId: raw.episodeId,
+    episodeSequence: raw.episodeSequence,
+    lifecycle: raw.lifecycle,
+  });
   const occurredAt = iso(raw.occurredAt, "operational_signal_occurred_at_invalid");
   const dedupeWindowStart = iso(
     raw.dedupeWindowStart,
@@ -350,6 +421,8 @@ export function validateOperationalSignalEvidence(
     lifecycle: raw.lifecycle,
     dedupeWindowStart,
     dedupeWindowSeconds,
+    episodeId: episode.episodeId,
+    episodeSequence: episode.episodeSequence,
   });
   if (raw.signalId !== signalId) {
     throw new Error("operational_signal_identity_invalid");
@@ -366,6 +439,8 @@ export function validateOperationalSignalEvidence(
     dedupeWindowStart,
     dedupeWindowSeconds,
     incidentKey,
+    episodeId: episode.episodeId,
+    episodeSequence: episode.episodeSequence,
     reasonCodes: Object.freeze(reasonCodes),
     measurements: Object.freeze(measurements),
   });
@@ -382,7 +457,11 @@ function sameIdentity(
     row.lifecycle === signal.lifecycle &&
     row.dedupe_window_start.toISOString() === signal.dedupeWindowStart &&
     row.dedupe_window_seconds === signal.dedupeWindowSeconds &&
-    row.incident_key === signal.incidentKey
+    row.incident_key === signal.incidentKey &&
+    row.episode_id === signal.episodeId &&
+    (row.episode_sequence === null
+      ? signal.episodeSequence === null
+      : Number(row.episode_sequence) === signal.episodeSequence)
   );
 }
 
@@ -399,10 +478,10 @@ export async function persistOperationalSignalTx(
     `INSERT INTO platform_operational_signals
        (signal_id, signal_type, component, source_unit, severity, lifecycle,
         occurred_at, dedupe_window_start, dedupe_window_seconds, incident_key,
-        payload_hash, payload)
+        episode_id, episode_sequence, payload_hash, payload)
      VALUES
-       ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10, $11,
-        $12::jsonb)
+       ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10,
+        $11::uuid, $12, $13, $14::jsonb)
      ON CONFLICT (signal_id) DO NOTHING`,
     [
       signal.signalId,
@@ -415,6 +494,8 @@ export async function persistOperationalSignalTx(
       signal.dedupeWindowStart,
       signal.dedupeWindowSeconds,
       signal.incidentKey,
+      signal.episodeId,
+      signal.episodeSequence,
       payloadHash,
       JSON.stringify(signal),
     ],
@@ -426,7 +507,7 @@ export async function persistOperationalSignalTx(
   const existing = await client.query<SignalIdentityRow>(
     `SELECT signal_type, component, severity, lifecycle,
             dedupe_window_start, dedupe_window_seconds, incident_key,
-            payload_hash
+            episode_id::text, episode_sequence, payload_hash
        FROM platform_operational_signals
       WHERE signal_id = $1
       LIMIT 1`,
