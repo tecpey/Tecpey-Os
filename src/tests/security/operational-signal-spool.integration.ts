@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import {
+  mkdir,
   mkdtemp,
   readFile,
   readdir,
   rm,
+  stat,
+  symlink,
+  writeFile,
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -191,6 +195,81 @@ describe("Generic operational signal rail", () => {
         [[1, "delivered"]],
       );
     }
+  });
+
+  it("rejects a state root that traverses a symlinked ancestor without creating external state", async () => {
+    const root = await tempRoot();
+    const realParent = path.join(root, "real-parent");
+    const aliasParent = path.join(root, "alias-parent");
+    await mkdir(realParent, { mode: 0o700 });
+    await symlink(realParent, aliasParent);
+
+    await assert.rejects(
+      ensureOperationalSpoolDirectories(path.join(aliasParent, "state")),
+      /operational_state_directory_alias_forbidden/,
+    );
+    await assert.rejects(
+      stat(path.join(realParent, "state")),
+      (error: NodeJS.ErrnoException) => error.code === "ENOENT",
+    );
+  });
+
+  it("replays the exact incident transition after a restart-like interruption before durable enqueue", async () => {
+    const root = await tempRoot();
+    const input = observation(
+      "critical",
+      "2026-09-18T10:10:00.000Z",
+      ["dead_letter_present"],
+      10,
+    );
+    const opened = await reconcileOperationalSignalIncident(root, input);
+    assert.equal(opened.emitted, true);
+    assert.equal(opened.phase, "opened");
+
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    const [stateName] = await readdir(dirs.activeSignals);
+    assert.ok(stateName);
+    const statePath = path.join(dirs.activeSignals, stateName);
+    const state = JSON.parse(await readFile(statePath, "utf8")) as {
+      incidentId: string;
+      sequence: number;
+      lastEmittedSequence: number;
+    };
+    assert.equal(state.incidentId, opened.incidentId);
+    assert.equal(state.sequence, opened.sequence);
+    assert.equal(state.lastEmittedSequence, opened.sequence);
+
+    for (const name of await readdir(dirs.pending)) {
+      await rm(path.join(dirs.pending, name), { force: true });
+    }
+    state.lastEmittedSequence = 0;
+    await writeFile(statePath, `${JSON.stringify(state)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+
+    const resumed = await reconcileOperationalSignalIncident(root, input);
+    assert.equal(resumed.emitted, false);
+    assert.equal(resumed.incidentId, opened.incidentId);
+    assert.equal(resumed.sequence, opened.sequence);
+
+    const [replayed] = await pendingSignals(root);
+    assert.ok(replayed);
+    assert.equal(replayed.incidentId, opened.incidentId);
+    assert.equal(replayed.sequence, opened.sequence);
+    assert.equal(
+      replayed.signalId,
+      `${replayed.source}:${opened.incidentId}:${opened.sequence}`,
+    );
+
+    const repairedState = JSON.parse(await readFile(statePath, "utf8")) as {
+      incidentId: string;
+      sequence: number;
+      lastEmittedSequence: number;
+    };
+    assert.equal(repairedState.incidentId, opened.incidentId);
+    assert.equal(repairedState.sequence, opened.sequence);
+    assert.equal(repairedState.lastEmittedSequence, opened.sequence);
   });
 
   it("turns database authority loss into a critical durable incident and deduplicates repeats", async () => {
