@@ -189,10 +189,10 @@ for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
   "mentorProfileHealthAlertMetadata",
-  "createOperationalSignalEvidence",
-  "enqueueOperationalSignal",
+  "observeOperationalSignalEpisode",
   "TECPEY_OPS_STATE_DIR",
   "mentor_profile_database_unavailable",
+  "signalEpisode",
   "process.exitCode = 3",
 ]) {
   requireText("probe", probe, needle, `one-shot health probe missing: ${needle}`);
@@ -200,14 +200,20 @@ for (const needle of [
 requirePattern(
   "probe",
   probe,
-  /evaluation\.status === "healthy"[\s\S]*\? 0[\s\S]*evaluation\.status === "warning"[\s\S]*\? 1[\s\S]*: 2/,
-  "probe must preserve 0=healthy, 1=warning and 2=critical exit semantics",
+  /active:\s*evaluation\.status === "critical"/,
+  "only current critical health may keep a durable episode firing",
 );
 requirePattern(
   "probe",
   probe,
-  /if \(evaluation\.status === "critical"\)[\s\S]*enqueueCriticalSignal/,
-  "durable signal emission must remain restricted to critical health",
+  /active:\s*true[\s\S]*mentor_profile_database_unavailable/,
+  "database authority loss must enter the durable critical episode rail",
+);
+requirePattern(
+  "probe",
+  probe,
+  /episode\.error !== null[\s\S]*\? 3[\s\S]*evaluation\.status === "healthy"[\s\S]*\? 0[\s\S]*evaluation\.status === "warning"[\s\S]*\? 1[\s\S]*: 2/,
+  "probe must fail closed on episode persistence errors while preserving health exit semantics",
 );
 
 const installer = await source("scripts/install-mentor-profile-worker.sh");
