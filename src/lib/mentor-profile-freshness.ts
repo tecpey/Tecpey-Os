@@ -115,8 +115,10 @@ export async function loadMentorProfileFreshnessSnapshot(
      valid_latency AS (
        SELECT latency_seconds
          FROM eligible
+         CROSS JOIN clock
         WHERE latency_seconds IS NOT NULL
           AND latency_seconds >= 0
+          AND processed_at <= clock.observed_at
      )
      SELECT
        clock.observed_at,
@@ -127,17 +129,22 @@ export async function loadMentorProfileFreshnessSnapshot(
        (SELECT COUNT(*)::text FROM valid_latency) AS valid_latency_count,
        (SELECT COUNT(*)::text
           FROM eligible
-         WHERE latency_seconds < 0) AS invalid_latency_count,
+          CROSS JOIN clock
+         WHERE latency_seconds < 0
+            OR processed_at > clock.observed_at) AS invalid_latency_count,
        (SELECT COUNT(*)::text
           FROM eligible
          WHERE processed_at IS NOT NULL
            AND processed_at >= created_at
+           AND processed_at <= clock.observed_at
            AND processed_at <= created_at + make_interval(secs => $2))
          AS within_target_count,
        (SELECT COUNT(*)::text
           FROM eligible
+          CROSS JOIN clock
          WHERE processed_at IS NULL
             OR processed_at < created_at
+            OR processed_at > clock.observed_at
             OR processed_at > created_at + make_interval(secs => $2))
          AS missed_target_count,
        (SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_seconds)
