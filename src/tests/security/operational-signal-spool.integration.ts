@@ -82,13 +82,25 @@ describe("Operational signal evidence and durable spool", () => {
         }),
       /operational_signal_fingerprint_mismatch/,
     );
+
+    assert.throws(
+      () =>
+        validateOperationalSignalEvidence({
+          ...valid,
+          signalId: `${valid.signalId}:tampered`,
+        }),
+      /operational_signal_id_mismatch/,
+    );
   });
 
   it("writes schema v2 privately, deduplicates, and delivers with signal idempotency", async () => {
     const root = await tempRoot();
-    const evidence = signal();
+    const evidence = signal("2026-09-18T12:00:30.000Z");
+    const sameBucketReplay = signal("2026-09-18T12:14:59.000Z");
+    assert.deepEqual(sameBucketReplay, evidence);
+
     const first = await enqueueOperationalSignal(root, evidence);
-    const replay = await enqueueOperationalSignal(root, evidence);
+    const replay = await enqueueOperationalSignal(root, sameBucketReplay);
 
     assert.equal(first.replayed, false);
     assert.equal(replay.replayed, true);
