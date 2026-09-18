@@ -129,8 +129,6 @@ for (const [label, pattern] of [
     "evidence-aware profile projection",
     /projectMentorProfileEvidence\(\{/,
   ],
-  ["unknown risk withheld", /riskEvidenceState/],
-  ["unknown confidence withheld", /confidenceEvidenceState/],
 ]) {
   if (!pattern.test(trust)) failures.push(`trust boundary: missing ${label}`);
 }
@@ -140,6 +138,8 @@ for (const [label, pattern] of [
   ["unknown evidence state", /"unknown"/],
   ["provisional evidence state", /"provisional"/],
   ["observed evidence state", /"observed"/],
+  ["risk evidence state is explicit", /riskEvidenceState/],
+  ["confidence evidence state is explicit", /confidenceEvidenceState/],
   [
     "risk requires observed samples",
     /const risk = tier\(tradingSampleCount, 5\)/,
