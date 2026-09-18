@@ -100,6 +100,10 @@ import {
   MENTOR_PRIVACY_RETENTION_SQL,
   runMentorPrivacyRetentionMigrations,
 } from "./db-migrate-mentor-privacy-retention";
+import {
+  MENTOR_PROFILE_UPDATE_OUTBOX_SQL,
+  runMentorProfileUpdateOutboxMigrations,
+} from "./db-migrate-mentor-profile-update-outbox";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -174,6 +178,15 @@ const MENTOR_PRIVACY_RETENTION_MIGRATION: CanonicalMigrationContent = Object.fre
   acceptsHistoricalChecksumPrefix: false,
   compatibleHistoricalChecksums: Object.freeze([]),
 });
+
+const MENTOR_PROFILE_UPDATE_OUTBOX_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0105_mentor_profile_update_outbox.sql",
+    content: MENTOR_PROFILE_UPDATE_OUTBOX_SQL,
+    checksum: canonicalMigrationChecksum(MENTOR_PROFILE_UPDATE_OUTBOX_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
 
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
@@ -277,6 +290,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-platform-security",
     "ai-mentor",
     runMentorPrivacyRetentionMigrations,
+  ),
+  entry(
+    89,
+    "migration-step-089",
+    [MENTOR_PROFILE_UPDATE_OUTBOX_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorProfileUpdateOutboxMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
