@@ -449,7 +449,7 @@ function safeProfileContext(
     evidence: {
       termProgressCount: ctx.termProgress.length,
       tradingSampleCount: ctx.tradingSignals?.sampleCount ?? 0,
-      challengeSampleCount: ctx.challengeSampleCount,
+      challengeSampleCount: ctx.challengeSampleCount ?? 0,
     },
   });
 }
