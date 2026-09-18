@@ -159,6 +159,13 @@ export async function recordMentorEvalPromotionEvidence(
   }
 
   const metrics = validateMetricSet(input.metrics);
+  const requiresBaseline = metrics.some((metric) => {
+    const gate = gateFor(metric.metric);
+    return gate.requiresMeasuredBaseline && metric.baselineMeasured === true;
+  });
+  if (requiresBaseline && !input.baselineRunId) {
+    throw new Error("mentor_eval_baseline_run_required");
+  }
   const decision = mentorEvalReleaseDecision(releaseMetrics(metrics));
   const releaseDecision = decision.pass ? "pass" : "block";
   const hardGateFailureCount = metrics.filter((metric) => {
