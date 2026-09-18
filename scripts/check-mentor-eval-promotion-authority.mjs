@@ -45,6 +45,21 @@ requirePattern(
   "tenant runtime must have only append/read evidence authority",
 );
 
+const contract = await source("src/lib/ai/mentor-eval-contract.ts");
+for (const needle of [
+  'baselineComparison: "at_least"',
+  'baselineComparison: "at_most"',
+  "baseline_regression",
+  "baseline_values_required",
+]) {
+  requireText(
+    "contract",
+    contract,
+    needle,
+    `baseline non-regression authority missing: ${needle}`,
+  );
+}
+
 const store = await source("src/lib/ai/mentor-eval-store.ts");
 for (const needle of [
   "withAiTenantTransaction",
@@ -120,6 +135,7 @@ for (const needle of [
   "exact candidate Git commit and tree",
   "No raw production conversation",
   "Missing metrics fail closed",
+  "block promotion on regression",
   "Evidence is append-only",
   "real trading",
 ]) {
