@@ -51,7 +51,7 @@ The worker evaluates a bounded aggregate health snapshot approximately once per 
 
 The independent `tecpey-mentor-profile-health.timer` runs the same production-bundled probe outside the worker process. This is intentional: a worker can remain an active process while its event loop or database work stops making progress. The independent systemd probe provides a second failure detector instead of asking the component under observation to be its only monitor.
 
-The timer activates after one minute and then one minute after each activation, uses `Persistent=true` for missed-run catch-up, and applies a small randomized delay to avoid synchronized host work. In the health service, exit code `1` (warning) is declared a successful systemd exit via `SuccessExitStatus=1`; exit code `2` (critical) and `3` (authority/check failure) therefore make the health service fail visibly at the host layer.
+The timer activates 30 seconds after boot (or immediately when enabled after that point), then schedules one check per minute from the prior activation. It uses a small **fixed host-specific randomized delay** and one-second accuracy so repeated checks do not create synchronized host work. It deliberately does **not** use `Persistent=true`: systemd only applies that setting to `OnCalendar=` timers, while this watchdog is monotonic. In the health service, exit code `1` (warning) is declared a successful systemd exit via `SuccessExitStatus=1`; exit code `2` (critical) and `3` (authority/check failure) therefore make the health service fail visibly at the host layer.
 
 ### Internal starting SLO targets
 
@@ -74,6 +74,8 @@ npm run mentor:profiles:health
 Exit codes are `0=healthy`, `1=warning`, `2=critical`, and `3=database authority/check failure`. The JSON output contains aggregate counts, reason codes, policy version and queue ages only.
 
 Thresholds must be recalibrated from protected-staging measurements of event arrival rate, projection duration and recovery behavior before any SLA, error-budget or production reliability commitment is made.
+
+These queue/lease signals are **white-box preventive indicators**, not a substitute for a learner-facing reliability SLI. Promotion to a paging SLO requires protected-staging evidence for a user-relevant indicator such as the fraction of authoritative learning events whose Mentor profile projection converges within the agreed freshness target. Once enough baseline data exists, use multi-window / multi-burn-rate alerting rather than a single instantaneous threshold: fast windows for urgent budget burn, slower windows for sustained degradation, and ticket/log routing for non-urgent conditions. Until that evidence exists, warning remains an engineering signal and critical remains a fail-closed host condition rather than an advertised SLA breach.
 
 Database reconciliation:
 
@@ -99,7 +101,7 @@ Do not manually rewrite event identity fields, payload hashes, terminal evidence
 
 ## Failure and recovery
 
-A worker crash leaves a lease. A later claim cycle automatically recovers expired leases. Retryable failures use bounded exponential backoff; after the configured maximum attempts they become terminal and an append-only dead-letter row is recorded.
+A worker crash leaves a lease. A later claim cycle automatically recovers expired leases. Retryable failures use bounded exponential backoff with deterministic per-event jitter. The jitter is derived from the outbox identity and attempt number, so concurrent failures do not all wake on the same second while replay and tests remain deterministic. After the configured maximum attempts, the event becomes terminal and an append-only dead-letter row is recorded.
 
 A terminal event is evidence that automatic projection did not converge. Repair the underlying authority first. Do not edit the dead letter.
 
