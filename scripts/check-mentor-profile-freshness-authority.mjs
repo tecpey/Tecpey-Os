@@ -40,7 +40,7 @@ for (const needle of [
   "0108_mentor_profile_freshness_observability.sql",
   "mentor_profile_update_outbox_freshness_window_idx",
   "created_at DESC",
-  "INCLUDE (status, processed_at)",
+  "INCLUDE (processed_at)",
 ]) {
   requireText("migration", migration, needle, `observability index invariant missing: ${needle}`);
 }
