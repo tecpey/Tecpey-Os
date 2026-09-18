@@ -21,6 +21,7 @@ import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
  * backstop rather than a competitor to the hot path.
  */
 export const MENTOR_PROFILE_REPAIR_GRACE_MS = 120_000;
+export const MENTOR_PROFILE_DEAD_LETTER_SNAPSHOT_LIMIT = 1_000;
 
 export type MentorProfileStaleness = {
   /** When the stored profile was last recomputed; null when no profile exists. */
@@ -84,14 +85,50 @@ export type MentorProfileRepairResult = {
   failed: number;
 };
 
-async function mentorProfileRepairBoundary(): Promise<string> {
+type MentorProfileRepairBoundary = {
+  repairStartedAt: string;
+  deadLetterIds: string[];
+};
+
+async function mentorProfileRepairBoundary(
+  studentId: string,
+): Promise<MentorProfileRepairBoundary> {
   const boundary = await withDb(async (client) => {
-    const clock = await client.query<{ now: Date }>(
-      "SELECT clock_timestamp() AS now",
+    const result = await client.query<{
+      repair_started_at: Date;
+      dead_letter_ids: string[];
+    }>(
+      `WITH unresolved AS (
+         SELECT dl.id, dl.created_at
+           FROM mentor_profile_update_dead_letters dl
+           JOIN mentor_profile_update_outbox o
+             ON o.id = dl.outbox_id
+            AND o.tenant_id = dl.tenant_id
+            AND o.workspace_id = dl.workspace_id
+           LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+             ON resolution.dead_letter_id = dl.id
+          WHERE o.student_id = $1::uuid
+            AND resolution.dead_letter_id IS NULL
+          ORDER BY dl.created_at, dl.id
+          LIMIT $2
+       )
+       SELECT clock_timestamp() AS repair_started_at,
+              COALESCE(
+                array_agg(id::text ORDER BY created_at, id)
+                  FILTER (WHERE id IS NOT NULL),
+                ARRAY[]::text[]
+              ) AS dead_letter_ids
+         FROM unresolved`,
+      [studentId, MENTOR_PROFILE_DEAD_LETTER_SNAPSHOT_LIMIT],
     );
-    const value = clock.rows[0]?.now.toISOString();
-    if (!value) throw new Error("mentor_profile_repair_clock_unavailable");
-    return value;
+    const row = result.rows[0];
+    if (!row?.repair_started_at) {
+      throw new Error("mentor_profile_repair_clock_unavailable");
+    }
+    return {
+      repairStartedAt: row.repair_started_at.toISOString(),
+      deadLetterIds: row.dead_letter_ids ?? [],
+    };
   });
   if (!boundary.enabled) {
     throw new Error("mentor_profile_repair_database_unavailable");
@@ -160,24 +197,43 @@ export async function reconcileMentorProfiles(options: {
              ON resolution.dead_letter_id = dl.id
           WHERE resolution.dead_letter_id IS NULL
           GROUP BY o.student_id
+       ),
+       signal_summary AS (
+         SELECT student_id, MAX(signal_at) AS latest_signal_at
+           FROM signals
+          GROUP BY student_id
+       ),
+       candidate_students AS (
+         SELECT student_id FROM signal_summary
+         UNION
+         SELECT student_id FROM unresolved
        )
-       SELECT s.student_id,
-              p.updated_at AS profile_updated_at,
-              MAX(s.signal_at) AS latest_signal_at,
-              COALESCE(MAX(u.unresolved_dead_letters), '0') AS unresolved_dead_letters
-         FROM signals s
-         LEFT JOIN mentor_profiles p ON p.student_id = s.student_id
-         LEFT JOIN unresolved u ON u.student_id = s.student_id
-        GROUP BY s.student_id, p.updated_at
-       HAVING (
-         MAX(s.signal_at) <= NOW() - ($1::bigint * INTERVAL '1 millisecond')
-         AND (p.updated_at IS NULL OR MAX(s.signal_at) > p.updated_at)
-       )
-       OR COALESCE(MAX(u.unresolved_dead_letters)::integer, 0) > 0
+       SELECT candidate.student_id,
+              profile.updated_at AS profile_updated_at,
+              summary.latest_signal_at,
+              COALESCE(unresolved.unresolved_dead_letters, '0') AS unresolved_dead_letters
+         FROM candidate_students candidate
+         LEFT JOIN signal_summary summary
+           ON summary.student_id = candidate.student_id
+         LEFT JOIN mentor_profiles profile
+           ON profile.student_id = candidate.student_id
+         LEFT JOIN unresolved
+           ON unresolved.student_id = candidate.student_id
+        WHERE (
+          summary.latest_signal_at IS NOT NULL
+          AND summary.latest_signal_at <=
+            NOW() - ($1::bigint * INTERVAL '1 millisecond')
+          AND (
+            profile.updated_at IS NULL
+            OR summary.latest_signal_at > profile.updated_at
+          )
+        )
+        OR COALESCE(unresolved.unresolved_dead_letters::integer, 0) > 0
         ORDER BY
-          CASE WHEN COALESCE(MAX(u.unresolved_dead_letters)::integer, 0) > 0
+          CASE WHEN COALESCE(unresolved.unresolved_dead_letters::integer, 0) > 0
                THEN 0 ELSE 1 END,
-          MAX(s.signal_at) ASC
+          summary.latest_signal_at ASC NULLS LAST,
+          candidate.student_id
         LIMIT $2`,
       [graceMs, limit],
     );
@@ -214,13 +270,14 @@ export async function reconcileMentorProfiles(options: {
       .update(row.student_id)
       .digest("hex");
     try {
-      const repairStartedAt = await mentorProfileRepairBoundary();
+      const boundary = await mentorProfileRepairBoundary(row.student_id);
       const update = await applyMentorProfileUpdate(row.student_id);
       if (!update) throw new Error("mentor_profile_signal_authority_unavailable");
       const resolution = await resolveMentorProfileDeadLettersAfterRepair({
         studentId: row.student_id,
         repairRunId,
-        repairStartedAt,
+        repairStartedAt: boundary.repairStartedAt,
+        deadLetterIds: boundary.deadLetterIds,
       });
       if (!resolution.enabled) {
         throw new Error("mentor_profile_resolution_authority_unavailable");
