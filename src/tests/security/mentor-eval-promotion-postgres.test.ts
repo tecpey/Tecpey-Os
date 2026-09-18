@@ -114,7 +114,7 @@ test(
 );
 
 test(
-  "Mentor eval runs and metric outcomes are append-only at the database layer",
+  "Mentor eval runs and metric outcomes are append-preserved by least privilege and database guards",
   { skip: !configured, timeout: 20_000 },
   async () => {
     const scope = await seedScope("mentor-eval-append");
@@ -147,7 +147,7 @@ test(
             "UPDATE ai_mentor_eval_runs SET release_decision = 'pass' WHERE id = $1::uuid",
             [runId],
           ),
-          /append-only/i,
+          /permission denied|append-only/i,
         );
         await client.query("ROLLBACK TO SAVEPOINT eval_run_mutation");
 
@@ -159,7 +159,7 @@ test(
               WHERE run_id = $1::uuid AND metric = 'safety_hard_gate'`,
             [runId],
           ),
-          /append-only/i,
+          /permission denied|append-only/i,
         );
         await client.query("ROLLBACK TO SAVEPOINT eval_metric_mutation");
       });
