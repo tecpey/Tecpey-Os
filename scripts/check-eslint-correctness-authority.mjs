@@ -52,7 +52,7 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/home/TecpeyHomeAI.tsx:297:5",
   "react-hooks/set-state-in-effect:src/components/learning-os/NotificationCenter.tsx:106:5",
   "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:71:5",
-  "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:95:7",
+  "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:101:7",
 ]);
 
 function findingKey(finding) {
