@@ -59,7 +59,7 @@ function finiteNonNegative(value: number | undefined): number | null {
 }
 
 function boundedSampleCount(value: number): number {
-  if (!Number.isSafeInteger(value) || value < 0 || value > 10_000_000) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 10_000_000) {
     throw new Error("mentor_eval_sample_count_invalid");
   }
   return value;
@@ -129,6 +129,12 @@ function gateFor(metric: MentorEvalMetric) {
   return gate;
 }
 
+function expectedMetricUnit(
+  metric: MentorEvalMetric,
+): MentorEvalRecordedMetric["unit"] {
+  return metric === "response_latency" ? "milliseconds" : "ratio";
+}
+
 function metricPassed(
   metric: ReturnType<typeof canonicalMetric>,
 ): boolean {
@@ -157,7 +163,21 @@ export function mentorEvalPromotionSummary(
     resultHash: string;
   }>)[];
 }> {
-  const metrics = validateMetricSet(inputMetrics);
+  const metrics = validateMetricSet(inputMetrics)
+    .sort((left, right) => left.metric.localeCompare(right.metric));
+  for (const metric of metrics) {
+    const gate = gateFor(metric.metric);
+    if (metric.unit !== expectedMetricUnit(metric.metric)) {
+      throw new Error("mentor_eval_metric_unit_invalid");
+    }
+    if (
+      gate.requiresMeasuredBaseline &&
+      metric.baselineMeasured === true &&
+      (metric.candidateValue === null || metric.baselineValue === null)
+    ) {
+      throw new Error("mentor_eval_baseline_measurement_missing");
+    }
+  }
   const decision = mentorEvalReleaseDecision(releaseMetrics(metrics));
   const releaseDecision = decision.pass ? "pass" : "block";
   const hardGateFailureCount = metrics.filter((metric) => {
@@ -224,7 +244,6 @@ export async function recordMentorEvalPromotionEvidence(
   const runId = randomUUID();
 
   const evidencePayload = {
-    runId,
     tenantId: input.tenantId,
     workspaceId: input.workspaceId,
     candidateSha: input.candidateSha,
