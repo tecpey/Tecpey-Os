@@ -22,6 +22,13 @@ import {
   type OperationalAlertEvidence,
   type OperationalJobRunEvidence,
 } from "@/lib/ops/operational-job-evidence";
+import {
+  hashOperationalSignalEvidence,
+  persistOperationalSignalDeliveryAttemptTx,
+  persistOperationalSignalTx,
+  validateOperationalSignalEvidence,
+  type OperationalSignalEvidence,
+} from "@/lib/ops/operational-signal-evidence";
 
 const MAX_FILE_BYTES = 64 * 1024;
 const DEFAULT_MAX_ATTEMPTS = 10;
@@ -37,6 +44,20 @@ export type OperationalAlertSpoolItem = {
     lastErrorCode: string | null;
   };
 };
+
+export type OperationalSignalSpoolItem = {
+  schemaVersion: 2;
+  signal: OperationalSignalEvidence;
+  delivery: {
+    attemptCount: number;
+    nextAttemptAt: string;
+    lastErrorCode: string | null;
+  };
+};
+
+type OperationalSpoolItem =
+  | OperationalAlertSpoolItem
+  | OperationalSignalSpoolItem;
 
 export type OperationalAlertDeliveryConfig = {
   stateDirectory: string;
@@ -212,38 +233,61 @@ async function safeReadJson(filePath: string): Promise<unknown> {
   return JSON.parse(content) as unknown;
 }
 
-function validateSpoolItem(value: unknown): OperationalAlertSpoolItem {
+function validatedDelivery(
+  raw: Record<string, unknown>,
+): OperationalAlertSpoolItem["delivery"] {
+  if (
+    !Number.isSafeInteger(raw.attemptCount) ||
+    Number(raw.attemptCount) < 0 ||
+    Number(raw.attemptCount) > 100 ||
+    (raw.lastErrorCode !== null &&
+      (typeof raw.lastErrorCode !== "string" ||
+       !/^[a-z0-9._:-]{1,100}$/.test(raw.lastErrorCode)))
+  ) {
+    throw new Error("operational_spool_delivery_invalid");
+  }
+  return {
+    attemptCount: Number(raw.attemptCount),
+    nextAttemptAt: iso(
+      String(raw.nextAttemptAt),
+      "operational_next_attempt_invalid",
+    ),
+    lastErrorCode: raw.lastErrorCode as string | null,
+  };
+}
+
+function validateSpoolItem(value: unknown): OperationalSpoolItem {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("operational_spool_item_invalid");
   }
   const raw = value as Record<string, unknown>;
   if (
-    raw.schemaVersion !== 1 ||
-    !raw.delivery || typeof raw.delivery !== "object" || Array.isArray(raw.delivery)
+    !raw.delivery ||
+    typeof raw.delivery !== "object" ||
+    Array.isArray(raw.delivery)
   ) {
     throw new Error("operational_spool_item_invalid");
   }
-  const alert = validateOperationalAlertEvidence(raw.alert as OperationalAlertEvidence);
-  const delivery = raw.delivery as Record<string, unknown>;
-  if (
-    !Number.isSafeInteger(delivery.attemptCount) ||
-    Number(delivery.attemptCount) < 0 ||
-    Number(delivery.attemptCount) > 100 ||
-    (delivery.lastErrorCode !== null &&
-      (typeof delivery.lastErrorCode !== "string" ||
-       !/^[a-z0-9._:-]{1,100}$/.test(delivery.lastErrorCode)))
-  ) {
-    throw new Error("operational_spool_delivery_invalid");
+  const delivery = validatedDelivery(raw.delivery as Record<string, unknown>);
+  if (raw.schemaVersion === 1) {
+    return {
+      schemaVersion: 1,
+      alert: validateOperationalAlertEvidence(
+        raw.alert as OperationalAlertEvidence,
+      ),
+      delivery,
+    };
   }
-  return {
-    schemaVersion: 1,
-    alert,
-    delivery: {
-      attemptCount: Number(delivery.attemptCount),
-      nextAttemptAt: iso(String(delivery.nextAttemptAt), "operational_next_attempt_invalid"),
-      lastErrorCode: delivery.lastErrorCode as string | null,
-    },
-  };
+  if (raw.schemaVersion === 2) {
+    return {
+      schemaVersion: 2,
+      signal: validateOperationalSignalEvidence(
+        raw.signal as OperationalSignalEvidence,
+      ),
+      delivery,
+    };
+  }
+  throw new Error("operational_spool_item_invalid");
 }
 
 export async function writeOperationalLastRun(
