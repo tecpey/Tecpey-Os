@@ -69,13 +69,13 @@ export type MentorContext = {
   memories: MentorMemoryRow[];
   termProgress: { termNumber: number; status: string; percent: number }[];
   tradingSignals: {
-    sampleCount: number;
+    sampleCount?: number;
     avgRisk: number;
     avgDiscipline: number;
     riskFlags: number;
     recentEmotions: string[];
   } | null;
-  challengeSampleCount: number;
+  challengeSampleCount?: number;
 };
 
 type TradingSignalRow = {
