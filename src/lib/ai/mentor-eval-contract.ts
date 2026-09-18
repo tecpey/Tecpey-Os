@@ -30,6 +30,7 @@ export type MentorEvalGate = Readonly<{
   hardGate: boolean;
   minimumPassRate?: number;
   requiresMeasuredBaseline?: boolean;
+  baselineComparison?: "at_least" | "at_most";
   description: string;
 }>;
 
@@ -86,15 +87,17 @@ export const MENTOR_EVAL_RELEASE_GATES: readonly MentorEvalGate[] = Object.freez
     metric: "next_item_correctness",
     hardGate: false,
     requiresMeasuredBaseline: true,
+    baselineComparison: "at_least",
     description:
-      "Model/prompt promotions must measure transfer to the next unaided item instead of chat satisfaction alone.",
+      "Model/prompt promotions must measure transfer to the next unaided item and may not regress below the exact measured baseline.",
   },
   {
     metric: "response_latency",
     hardGate: false,
     requiresMeasuredBaseline: true,
+    baselineComparison: "at_most",
     description:
-      "Model/prompt promotions must compare end-to-end response latency against a staging baseline.",
+      "Model/prompt promotions must compare p95 end-to-end response latency against the same-task staging baseline and may not regress above it.",
   },
 ]);
 
@@ -274,6 +277,8 @@ export type MentorEvalMetricResult = Readonly<{
   metric: MentorEvalMetric;
   passRate?: number;
   baselineMeasured?: boolean;
+  candidateValue?: number;
+  baselineValue?: number;
 }>;
 
 export type MentorEvalReleaseDecision = Readonly<{
@@ -293,11 +298,29 @@ export function mentorEvalReleaseDecision(
       blockers.push(`missing:${gate.metric}`);
       continue;
     }
-    if (
-      gate.requiresMeasuredBaseline &&
-      result.baselineMeasured !== true
-    ) {
-      blockers.push(`baseline_required:${gate.metric}`);
+    if (gate.requiresMeasuredBaseline) {
+      if (result.baselineMeasured !== true) {
+        blockers.push(`baseline_required:${gate.metric}`);
+      } else if (
+        typeof result.candidateValue !== "number" ||
+        !Number.isFinite(result.candidateValue) ||
+        result.candidateValue < 0 ||
+        typeof result.baselineValue !== "number" ||
+        !Number.isFinite(result.baselineValue) ||
+        result.baselineValue < 0
+      ) {
+        blockers.push(`baseline_values_required:${gate.metric}`);
+      } else if (
+        gate.baselineComparison === "at_least" &&
+        result.candidateValue < result.baselineValue
+      ) {
+        blockers.push(`baseline_regression:${gate.metric}`);
+      } else if (
+        gate.baselineComparison === "at_most" &&
+        result.candidateValue > result.baselineValue
+      ) {
+        blockers.push(`baseline_regression:${gate.metric}`);
+      }
     }
     if (
       gate.minimumPassRate !== undefined &&
