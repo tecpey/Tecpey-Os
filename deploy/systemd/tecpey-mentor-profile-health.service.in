@@ -6,6 +6,7 @@ After=network-online.target
 RequiresMountsFor=@@STATE_DIR@@
 StartLimitIntervalSec=300
 StartLimitBurst=5
+OnFailure=tecpey-ops-alert-delivery.service
 
 [Service]
 Type=oneshot
