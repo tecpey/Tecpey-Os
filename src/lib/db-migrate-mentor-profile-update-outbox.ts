@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS mentor_profile_update_outbox (
   event_sequence BIGSERIAL NOT NULL UNIQUE,
   tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE RESTRICT,
   workspace_id TEXT NOT NULL,
-  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE RESTRICT,
+  student_id UUID NOT NULL,
   event_type TEXT NOT NULL CHECK (event_type IN (
     'academy.term_progress',
     'mentor.challenge_attempt',
