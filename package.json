@@ -148,7 +148,7 @@
     "ops:scheduler:install": "bash scripts/install-community-challenge-scheduler.sh",
     "ops:scheduler:check": "node scripts/check-community-challenge-scheduler-authority.mjs && npm run ops:signals:check",
     "ops:signals:check": "node scripts/check-operational-signal-authority.mjs",
-    "test:ops-signals": "NODE_PATH=src/tests/stubs NODE_ENV=test node --conditions=react-server --import tsx --test --test-force-exit src/tests/security/operational-signal-evidence.test.ts src/tests/security/operational-signal-spool.integration.ts src/tests/security/operational-signal-postgres.integration.ts src/tests/security/operational-install-environment.test.ts src/tests/security/mentor-profile-operational-installer.test.ts",
+    "test:ops-signals": "NODE_PATH=src/tests/stubs NODE_ENV=test node --conditions=react-server --import tsx --test --test-force-exit src/tests/security/operational-signal-evidence.test.ts src/tests/security/operational-condition-signal-v2.test.ts src/tests/security/operational-signal-spool.integration.ts src/tests/security/operational-signal-postgres.integration.ts src/tests/security/operational-install-environment.test.ts src/tests/security/mentor-profile-operational-installer.test.ts",
     "ops:staging:evidence:collect": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-community-challenge-scheduler-host-evidence.ts",
     "ops:staging:evidence:verify": "tsx scripts/verify-community-challenge-scheduler-host-evidence.ts",
     "ops:staging:env-evidence:collect": "node scripts/collect-protected-staging-env-evidence.mjs",
