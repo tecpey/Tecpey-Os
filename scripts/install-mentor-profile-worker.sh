@@ -52,6 +52,8 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
   || fail "mentor_profile_health_bundle_missing"
 [[ -f "$APP_DIR/dist/deliver-operational-alerts.cjs" && ! -L "$APP_DIR/dist/deliver-operational-alerts.cjs" ]] \
   || fail "operational_alert_delivery_bundle_missing"
+[[ -f "$APP_DIR/dist/check-operational-installer-env.cjs" && ! -L "$APP_DIR/dist/check-operational-installer-env.cjs" ]] \
+  || fail "operational_installer_env_bundle_missing"
 [[ -f "$WORKER_TEMPLATE" && ! -L "$WORKER_TEMPLATE" ]] || fail "mentor_profile_worker_template_missing"
 [[ -f "$HEALTH_TEMPLATE" && ! -L "$HEALTH_TEMPLATE" ]] || fail "mentor_profile_health_template_missing"
 [[ -f "$HEALTH_TIMER" && ! -L "$HEALTH_TIMER" ]] || fail "mentor_profile_health_timer_missing"
