@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/mentor-profile/recompute",
+      "method": "POST",
+      "previousSourceHash": "a65b691e04524aca47471fca",
+      "issue": "#671",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the Mentor profile recompute operation after adding focused evidence-truth tests for its transitive signal authority. The route source and all mutation controls are unchanged. The new test pins that profile computation distinguishes a real empty evidence set from database-authority unavailability, does not fabricate confidence or a learner goal when evidence is absent, and still classifies observed Arena risk. The operation remains strict-session, CSRF-protected, rate-limited, transactional and audit-coupled; this reviewed delta changes only the exact test-reference evidence attached to the existing effective source hash.",
+      "replacement": {
+        "route": "/api/mentor-profile/recompute",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+        "sourceHash": "a65b691e04524aca47471fca",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "ai-memory",
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-profile-recompute",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "mentor-profile",
+        "testReferences": [
+          "src/tests/security/mentor-profile-evidence-truth.test.ts",
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}
