@@ -148,6 +148,38 @@ function directories(stateDirectory: string) {
 
 type ManagedDirectories = ReturnType<typeof directories>;
 
+async function assertNoSymlinkedAncestors(directory: string): Promise<void> {
+  const parsed = path.parse(directory);
+  const segments = path
+    .relative(parsed.root, directory)
+    .split(path.sep)
+    .filter(Boolean);
+  let current = parsed.root;
+  for (const segment of segments) {
+    current = path.join(current, segment);
+    let entry;
+    try {
+      entry = await lstat(current);
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        break;
+      }
+      throw error;
+    }
+    if (entry.isSymbolicLink()) {
+      throw new Error("operational_signal_state_directory_alias_forbidden");
+    }
+    if (!entry.isDirectory()) {
+      throw new Error("operational_signal_state_directory_unsafe");
+    }
+  }
+}
+
 async function syncDirectory(directory: string): Promise<void> {
   const handle = await open(directory, "r");
   try {
@@ -171,6 +203,7 @@ export async function ensureOperationalSignalSpoolDirectories(
   stateDirectory: string,
 ): Promise<ManagedDirectories> {
   const managed = directories(stateDirectory);
+  await assertNoSymlinkedAncestors(managed.root);
   await assertManagedDirectory(managed.root);
   const resolvedRoot = await realpath(managed.root);
   if (resolvedRoot !== managed.root) {
