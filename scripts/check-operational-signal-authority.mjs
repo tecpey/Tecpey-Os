@@ -268,6 +268,35 @@ for (const needle of [
   requireText("installer", installer, needle, `Mentor installer operational rail missing: ${needle}`);
 }
 
+const signalSpool = await source("src/lib/ops/operational-signal-spool.ts");
+for (const needle of [
+  "listOpenOperationalSignalIncidents",
+  'signal.lifecycle === "resolved"',
+  '.filter((signal) => signal.lifecycle === "firing")',
+]) {
+  requireText(
+    "signal-spool",
+    signalSpool,
+    needle,
+    `recovery lifecycle authority missing: ${needle}`,
+  );
+}
+
+const mentorHealth = await source("scripts/check-mentor-profile-health.ts");
+for (const needle of [
+  "resolveRecoveredCriticalSignals",
+  'lifecycle: "resolved"',
+  "resolved.incidentKey !== firing.incidentKey",
+  "listOpenOperationalSignalIncidents",
+]) {
+  requireText(
+    "mentor-health",
+    mentorHealth,
+    needle,
+    `Mentor recovery lifecycle wiring missing: ${needle}`,
+  );
+}
+
 const registry = await source("src/lib/db-migration-registry.ts");
 for (const needle of [
   "migration-step-093",
