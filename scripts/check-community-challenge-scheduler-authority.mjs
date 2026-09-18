@@ -254,7 +254,6 @@ for (const target of ["finalizerService", "alertService"]) {
     "EnvironmentFile=@@ENV_FILE@@",
     "Environment=NODE_ENV=production",
     "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
-    "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
     "NoNewPrivileges=true",
     "PrivateTmp=true",
     "PrivateDevices=true",
@@ -280,6 +279,16 @@ for (const target of ["finalizerService", "alertService"]) {
 }
 requireText(
   "finalizerService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
+  "finalizer must retain scheduler-specific preflight",
+);
+requireText(
+  "alertService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:alerts:env-check",
+  "alert delivery must use database-independent alert preflight",
+);
+requireText(
+  "finalizerService",
   "OnFailure=tecpey-ops-alert-delivery.service",
   "finalizer failure must trigger alert delivery",
 );
@@ -302,6 +311,7 @@ for (const invariant of [
 for (const command of [
   '"community:challenge:finalize:scheduled"',
   '"ops:alerts:deliver"',
+  '"ops:alerts:env-check"',
   '"ops:scheduler:env-check"',
   '"ops:scheduler:install"',
   '"ops:scheduler:check"',
