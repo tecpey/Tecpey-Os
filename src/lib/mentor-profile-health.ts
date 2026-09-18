@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 
-export const MENTOR_PROFILE_HEALTH_POLICY_VERSION = "2026-09-18.1" as const;
+export const MENTOR_PROFILE_HEALTH_POLICY_VERSION = "2026-09-18.2" as const;
 
 export type MentorProfileHealthPolicy = Readonly<{
   warningReadyAgeSeconds: number;
@@ -25,6 +25,8 @@ export type MentorProfileHealthSnapshot = Readonly<{
   failedRetryable: number;
   unresolvedTerminalFailures: number;
   unresolvedDeadLetters: number;
+  resolvedDeadLetters: number;
+  deadLettersTotal: number;
   readyBacklog: number;
   overdueLeases: number;
   oldestReadyAgeSeconds: number | null;
@@ -42,6 +44,8 @@ type HealthRow = {
   failed_retryable: string;
   unresolved_terminal_failures: string;
   unresolved_dead_letters: string;
+  resolved_dead_letters: string;
+  dead_letters_total: string;
   ready_backlog: string;
   overdue_leases: string;
   oldest_ready_age_seconds: string | null;
@@ -99,28 +103,28 @@ export async function loadMentorProfileHealthSnapshot(
        (
          SELECT COUNT(*)::text
            FROM mentor_profile_update_outbox terminal
+           LEFT JOIN mentor_profile_update_dead_letters dead
+             ON dead.outbox_id = terminal.id
+           LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+             ON resolution.dead_letter_id = dead.id
           WHERE terminal.status = 'failed_terminal'
-            AND NOT EXISTS (
-              SELECT 1
-                FROM mentor_profile_update_outbox recovered
-               WHERE recovered.student_id = terminal.student_id
-                 AND recovered.event_sequence > terminal.event_sequence
-                 AND recovered.status = 'processed'
-            )
+            AND (dead.id IS NULL OR resolution.dead_letter_id IS NULL)
        ) AS unresolved_terminal_failures,
        (
          SELECT COUNT(*)::text
            FROM mentor_profile_update_dead_letters dead
-           JOIN mentor_profile_update_outbox terminal
-             ON terminal.id = dead.outbox_id
-          WHERE NOT EXISTS (
-            SELECT 1
-              FROM mentor_profile_update_outbox recovered
-             WHERE recovered.student_id = terminal.student_id
-               AND recovered.event_sequence > terminal.event_sequence
-               AND recovered.status = 'processed'
-          )
+           LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+             ON resolution.dead_letter_id = dead.id
+          WHERE resolution.dead_letter_id IS NULL
        ) AS unresolved_dead_letters,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_dead_letter_resolutions
+       ) AS resolved_dead_letters,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_dead_letters
+       ) AS dead_letters_total,
        (
          SELECT COUNT(*)::text
            FROM mentor_profile_update_outbox
@@ -162,6 +166,14 @@ export async function loadMentorProfileHealthSnapshot(
     unresolvedDeadLetters: count(
       row.unresolved_dead_letters,
       "mentor_profile_health_unresolved_dead_letter_invalid",
+    ),
+    resolvedDeadLetters: count(
+      row.resolved_dead_letters,
+      "mentor_profile_health_resolved_dead_letter_invalid",
+    ),
+    deadLettersTotal: count(
+      row.dead_letters_total,
+      "mentor_profile_health_dead_letter_total_invalid",
     ),
     readyBacklog: count(
       row.ready_backlog,
@@ -242,6 +254,8 @@ export function mentorProfileHealthAlertMetadata(
     failedRetryable: snapshot.failedRetryable,
     unresolvedTerminalFailures: snapshot.unresolvedTerminalFailures,
     unresolvedDeadLetters: snapshot.unresolvedDeadLetters,
+    resolvedDeadLetters: snapshot.resolvedDeadLetters,
+    deadLettersTotal: snapshot.deadLettersTotal,
     readyBacklog: snapshot.readyBacklog,
     overdueLeases: snapshot.overdueLeases,
     oldestReadyAgeSeconds: snapshot.oldestReadyAgeSeconds,
