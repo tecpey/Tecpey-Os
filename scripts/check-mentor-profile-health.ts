@@ -6,26 +6,22 @@ import {
   mentorProfileHealthAlertMetadata,
   type MentorProfileHealthSnapshot,
 } from "../src/lib/mentor-profile-health";
-import { createOperationalSignalEvidence } from "../src/lib/ops/operational-signal-evidence";
-import { enqueueOperationalSignal } from "../src/lib/ops/operational-signal-spool";
+import {
+  transitionOperationalConditionSignal,
+  type OperationalConditionTransition,
+} from "../src/lib/ops/operational-condition-signal";
 
 const SOURCE_UNIT = "tecpey-mentor-profile-health.service";
-const SIGNAL_TYPE = "mentor_profile_projection_health";
-const COMPONENT = "mentor_profile_projection";
+const SIGNAL_TYPE = "mentor_profile_operational_condition";
 
-function boundedWindowSeconds(): number {
-  const raw =
-    process.env.MENTOR_PROFILE_CRITICAL_SIGNAL_WINDOW_SECONDS?.trim() ?? "";
-  if (!raw) return 3_600;
-  if (!/^\d+$/.test(raw)) {
-    throw new Error("mentor_profile_signal_window_invalid");
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isSafeInteger(parsed) || parsed < 300 || parsed > 86_400) {
-    throw new Error("mentor_profile_signal_window_invalid");
-  }
-  return parsed;
-}
+type ConditionComponent =
+  | "mentor_profile_projection"
+  | "mentor_profile_database_authority"
+  | "mentor_profile_health_probe";
+
+type SignalResult =
+  | { enabled: false; transition: null }
+  | { enabled: true; transition: OperationalConditionTransition };
 
 function operationalStateDirectory(): string | null {
   const value = process.env.TECPEY_OPS_STATE_DIR?.trim() ?? "";
@@ -65,109 +61,90 @@ function safeReasonCode(error: unknown): string {
     : "mentor_profile_health_check_failed";
 }
 
-async function enqueueCriticalSignal(input: {
-  occurredAt: string;
+async function transitionCondition(input: {
+  component: ConditionComponent;
+  status: "healthy" | "warning" | "critical";
+  observedAt: string;
   reasonCodes: readonly string[];
-  measurements?: Record<string, number | boolean | null>;
-}): Promise<
-  | { enabled: false; replayed: null; signalId: null }
-  | { enabled: true; replayed: boolean; signalId: string }
-> {
+  measurements?: Readonly<Record<string, number | boolean | null>>;
+}): Promise<SignalResult> {
   const stateDirectory = operationalStateDirectory();
   if (!stateDirectory) {
-    return { enabled: false, replayed: null, signalId: null };
+    return { enabled: false, transition: null };
   }
-  const signal = createOperationalSignalEvidence({
+  const transition = await transitionOperationalConditionSignal({
+    stateDirectory,
     signalType: SIGNAL_TYPE,
-    component: COMPONENT,
+    component: input.component,
     sourceUnit: SOURCE_UNIT,
-    severity: "critical",
-    lifecycle: "firing",
-    occurredAt: input.occurredAt,
-    dedupeWindowSeconds: boundedWindowSeconds(),
+    status: input.status,
+    observedAt: input.observedAt,
     reasonCodes: input.reasonCodes,
     measurements: input.measurements ?? {},
   });
-  const queued = await enqueueOperationalSignal(stateDirectory, signal);
-  return {
-    enabled: true,
-    replayed: queued.replayed,
-    signalId: signal.signalId,
-  };
+  return { enabled: true, transition };
 }
 
 async function main(): Promise<void> {
-  const occurredAt = new Date().toISOString();
+  const observedAt = new Date().toISOString();
   const snapshot = await withTx((client) =>
     loadMentorProfileHealthSnapshot(client),
   );
+
   if (!snapshot.enabled) {
-    let signal:
-      | Awaited<ReturnType<typeof enqueueCriticalSignal>>
-      | { enabled: false; replayed: null; signalId: null };
-    try {
-      signal = await enqueueCriticalSignal({
-        occurredAt,
-        reasonCodes: ["mentor_profile_database_unavailable"],
-      });
-    } catch (error) {
-      signal = { enabled: false, replayed: null, signalId: null };
-      console.error(
-        JSON.stringify({
-          ok: false,
-          status: "signal_spool_error",
-          error: safeReasonCode(error),
-        }),
-      );
-    }
+    const databaseSignal = await transitionCondition({
+      component: "mentor_profile_database_authority",
+      status: "critical",
+      observedAt,
+      reasonCodes: ["mentor_profile_database_unavailable"],
+    });
     console.error(
       JSON.stringify({
         ok: false,
         status: "authority_unavailable",
         error: "mentor_profile_database_unavailable",
-        criticalSignal: signal,
+        operationalSignal: databaseSignal,
       }),
     );
     process.exitCode = 3;
     return;
   }
 
+  const databaseRecovery = await transitionCondition({
+    component: "mentor_profile_database_authority",
+    status: "healthy",
+    observedAt,
+    reasonCodes: [],
+  });
+
   const evaluation = evaluateMentorProfileHealth(snapshot.value);
   const evidence = mentorProfileHealthAlertMetadata(
     snapshot.value,
     evaluation,
   );
-  let criticalSignal:
-    | Awaited<ReturnType<typeof enqueueCriticalSignal>>
-    | null = null;
-  if (evaluation.status === "critical") {
-    try {
-      criticalSignal = await enqueueCriticalSignal({
-        occurredAt,
-        reasonCodes: evaluation.reasonCodes,
-        measurements: healthMeasurements(snapshot.value),
-      });
-    } catch (error) {
-      criticalSignal = {
-        enabled: false,
-        replayed: null,
-        signalId: null,
-      };
-      console.error(
-        JSON.stringify({
-          ok: false,
-          status: "signal_spool_error",
-          error: safeReasonCode(error),
-        }),
-      );
-    }
-  }
+  const projectionSignal = await transitionCondition({
+    component: "mentor_profile_projection",
+    status: evaluation.status,
+    observedAt,
+    reasonCodes: evaluation.reasonCodes,
+    measurements: healthMeasurements(snapshot.value),
+  });
+  const probeRecovery = await transitionCondition({
+    component: "mentor_profile_health_probe",
+    status: "healthy",
+    observedAt,
+    reasonCodes: [],
+  });
 
   console.log(
     JSON.stringify({
       ok: evaluation.status === "healthy",
       ...evidence,
-      criticalSignal,
+      operationalSignals: {
+        databaseAuthority: databaseRecovery,
+        projection: projectionSignal,
+        healthProbe: probeRecovery,
+      },
     }),
   );
 
@@ -180,18 +157,17 @@ async function main(): Promise<void> {
 }
 
 void main().catch(async (error) => {
-  const occurredAt = new Date().toISOString();
+  const observedAt = new Date().toISOString();
   const code = safeReasonCode(error);
-  let signal:
-    | Awaited<ReturnType<typeof enqueueCriticalSignal>>
-    | { enabled: false; replayed: null; signalId: null };
+  let probeSignal: SignalResult = { enabled: false, transition: null };
   try {
-    signal = await enqueueCriticalSignal({
-      occurredAt,
+    probeSignal = await transitionCondition({
+      component: "mentor_profile_health_probe",
+      status: "critical",
+      observedAt,
       reasonCodes: [code],
     });
   } catch (signalError) {
-    signal = { enabled: false, replayed: null, signalId: null };
     console.error(
       JSON.stringify({
         ok: false,
@@ -205,7 +181,7 @@ void main().catch(async (error) => {
       ok: false,
       status: "error",
       error: code,
-      criticalSignal: signal,
+      operationalSignal: probeSignal,
     }),
   );
   process.exitCode = 3;
