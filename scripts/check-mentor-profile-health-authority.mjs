@@ -21,8 +21,6 @@ for (const needle of [
   "unresolved_terminal_failures",
   "unresolved_dead_letters",
   "mentor_profile_dead_letter_resolutions",
-  "resolved_dead_letters",
-  "dead_letters_total",
   "available_at <= NOW()",
   "lease_expires_at <= NOW()",
   "terminal_projection_failure",
@@ -43,10 +41,24 @@ for (const forbidden of ["studentId", "tenantId", "workspaceId", "conversation",
   }
 }
 
+for (const forbidden of [
+  "resolvedDeadLetters",
+  "deadLettersTotal",
+  "resolved_dead_letters",
+  "dead_letters_total",
+]) {
+  if (health.includes(forbidden)) {
+    failures.push(`health: unbounded historical metric forbidden from hot probe: ${forbidden}`);
+  }
+}
+
 const resolution = await source("src/lib/mentor-profile-dead-letter-resolution.ts");
 for (const needle of [
   "resolveMentorProfileDeadLettersAfterRepairTx",
-  "dl.created_at <= $2::timestamptz",
+  "exactDeadLetterIds",
+  "deadLetterIds: readonly string[]",
+  "dl.id = ANY($2::uuid[])",
+  "mentor_profile_resolution_snapshot_mismatch",
   "ON CONFLICT (dead_letter_id) DO NOTHING",
   "recomputed_current_state",
   "clock_timestamp() AS now",
@@ -62,9 +74,12 @@ for (const needle of [
   "repairStartedAt",
   "resolvedDeadLetters",
   "mentorProfileRepairBoundary",
-  "clock_timestamp() AS now",
+  "clock_timestamp() AS repair_started_at",
+  "MENTOR_PROFILE_DEAD_LETTER_SNAPSHOT_LIMIT",
+  "array_agg(id::text ORDER BY created_at, id)",
+  "deadLetterIds: boundary.deadLetterIds",
   "needsMentorProfileRepair",
-  "OR COALESCE(MAX(u.unresolved_dead_letters)::integer, 0) > 0",
+  "OR COALESCE(unresolved.unresolved_dead_letters::integer, 0) > 0",
   "unresolvedDeadLetters: Number.parseInt(row.unresolved_dead_letters, 10)",
 ]) {
   requireText("reconciliation", reconciliation, needle, `repair integration missing: ${needle}`);
