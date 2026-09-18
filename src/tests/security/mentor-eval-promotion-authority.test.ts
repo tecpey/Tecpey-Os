@@ -108,3 +108,31 @@ test("empty samples, wrong units and declared baselines without measurements are
     /mentor_eval_baseline_measurement_missing/,
   );
 });
+
+test("measured learning or latency regressions block promotion", () => {
+  const learningRegression = passingMetrics();
+  learningRegression[6] = {
+    ...learningRegression[6]!,
+    candidateValue: 0.70,
+    baselineValue: 0.71,
+  };
+  const learning = mentorEvalPromotionSummary(learningRegression);
+  assert.equal(learning.releaseDecision, "block");
+  assert.equal(
+    learning.metrics.find((metric) => metric.metric === "next_item_correctness")?.passed,
+    false,
+  );
+
+  const latencyRegression = passingMetrics();
+  latencyRegression[7] = {
+    ...latencyRegression[7]!,
+    candidateValue: 1930,
+    baselineValue: 1920,
+  };
+  const latency = mentorEvalPromotionSummary(latencyRegression);
+  assert.equal(latency.releaseDecision, "block");
+  assert.equal(
+    latency.metrics.find((metric) => metric.metric === "response_latency")?.passed,
+    false,
+  );
+});
