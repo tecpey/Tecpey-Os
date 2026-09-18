@@ -52,47 +52,11 @@ ALTER TABLE platform_operational_signals
         episode_id IS NOT NULL
         AND payload ->> 'schemaVersion' = '2'
         AND lower(payload ->> 'episodeId') = episode_id::text
-        AND (payload ->> 'episodeSequence') ~ '^[0-9]+
-`;
-
-function checksum(sql: string): string {
-  return createHash("sha256")
-    .update(sql.replace(/\r\n?/g, "\n").trim())
-    .digest("hex");
-}
-
-export async function runOperationalSignalEpisodeMigrations(
-  client: PoolClient,
-): Promise<void> {
-  const cs = checksum(OPERATIONAL_SIGNAL_EPISODES_SQL);
-  const applied = await client.query<{ checksum: string }>(
-    "SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1",
-    [FILENAME],
-  );
-  if (applied.rows[0]) {
-    if (applied.rows[0].checksum !== cs) {
-      throw new Error(
-        `[db-migrate-operational-signal-episodes] checksum mismatch for ${FILENAME}`,
-      );
-    }
-    return;
-  }
-
-  await client.query("BEGIN");
-  try {
-    await client.query(OPERATIONAL_SIGNAL_EPISODES_SQL);
-    await client.query(
-      "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
-      [FILENAME, cs],
-    );
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  }
-}
-
-        AND (payload ->> 'episodeSequence')::integer = episode_sequence
+        AND CASE
+          WHEN (payload ->> 'episodeSequence') ~ '^[0-9]+$'
+          THEN (payload ->> 'episodeSequence')::integer = episode_sequence
+          ELSE FALSE
+        END
       )
     );
 
