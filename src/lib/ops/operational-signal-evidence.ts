@@ -258,19 +258,25 @@ export function createOperationalSignalEvidence(input: {
   reasonCodes: readonly string[];
   measurements?: Readonly<Record<string, OperationalSignalMeasurement>>;
 }): OperationalSignalEvidence {
-  const signalType = boundedToken(
-    input.signalType,
-    3,
-    100,
-    "operational_signal_type_invalid",
-    true,
+  const signalType = assertLowCardinalityLabel(
+    boundedToken(
+      input.signalType,
+      3,
+      100,
+      "operational_signal_type_invalid",
+      true,
+    ),
+    "operational_signal_type_cardinality_forbidden",
   );
-  const component = boundedToken(
-    input.component,
-    3,
-    100,
-    "operational_signal_component_invalid",
-    true,
+  const component = assertLowCardinalityLabel(
+    boundedToken(
+      input.component,
+      3,
+      100,
+      "operational_signal_component_invalid",
+      true,
+    ),
+    "operational_signal_component_cardinality_forbidden",
   );
   const sourceUnit = boundedToken(
     input.sourceUnit,
@@ -364,19 +370,25 @@ export function validateOperationalSignalEvidence(
   if (!raw || raw.schemaVersion !== 1) {
     throw new Error("operational_signal_schema_invalid");
   }
-  const signalType = boundedToken(
-    raw.signalType,
-    3,
-    100,
-    "operational_signal_type_invalid",
-    true,
+  const signalType = assertLowCardinalityLabel(
+    boundedToken(
+      raw.signalType,
+      3,
+      100,
+      "operational_signal_type_invalid",
+      true,
+    ),
+    "operational_signal_type_cardinality_forbidden",
   );
-  const component = boundedToken(
-    raw.component,
-    3,
-    100,
-    "operational_signal_component_invalid",
-    true,
+  const component = assertLowCardinalityLabel(
+    boundedToken(
+      raw.component,
+      3,
+      100,
+      "operational_signal_component_invalid",
+      true,
+    ),
+    "operational_signal_component_cardinality_forbidden",
   );
   const sourceUnit = boundedToken(
     raw.sourceUnit,
