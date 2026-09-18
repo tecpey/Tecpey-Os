@@ -62,6 +62,30 @@ requireText(
   '"MENTOR_PROFILE_PROJECTION_STALLED"',
   "critical alert type is missing",
 );
+requirePattern(
+  "alerts",
+  alerts,
+  /MENTOR_PROFILE_BACKLOG:\s*"warning"/,
+  "backlog alert must remain warning severity",
+);
+requirePattern(
+  "alerts",
+  alerts,
+  /MENTOR_PROFILE_PROJECTION_STALLED:\s*"critical"/,
+  "stalled projection alert must remain critical severity",
+);
+
+const probe = await source("scripts/check-mentor-profile-health.ts");
+for (const needle of [
+  "loadMentorProfileHealthSnapshot",
+  "evaluateMentorProfileHealth",
+  "mentorProfileHealthAlertMetadata",
+  'evaluation.status === "healthy" ? 0',
+  'evaluation.status === "warning" ? 1',
+  "process.exitCode = 3",
+]) {
+  requireText("probe", probe, needle, `one-shot health probe missing: ${needle}`);
+}
 
 const packageJson = JSON.parse(await source("package.json"));
 const scripts = packageJson.scripts ?? {};
@@ -70,6 +94,18 @@ if (!scripts["mentor:profiles:health:check"]) {
 }
 if (!scripts["test:mentor-profile-health"]) {
   failures.push("package: test:mentor-profile-health is missing");
+}
+if (!scripts["mentor:profiles:health"]?.includes("dist/check-mentor-profile-health.cjs")) {
+  failures.push("package: production Mentor health probe is missing");
+}
+if (!scripts["mentor:profiles:health:dev"]?.includes("scripts/check-mentor-profile-health.ts")) {
+  failures.push("package: developer Mentor health probe is missing");
+}
+if (!scripts["build:server"]?.includes("scripts/check-mentor-profile-health.ts")) {
+  failures.push("package: Mentor health probe is missing from the production server bundle");
+}
+if (!scripts["test:mentor-profile-outbox"]?.includes("mentor-profile-health")) {
+  failures.push("package: projection test suite must include Mentor health evidence");
 }
 if (!scripts["mentor:profiles:authority:check"]?.includes("mentor:profiles:health:check")) {
   failures.push("package: profile projection authority must enforce health authority");
