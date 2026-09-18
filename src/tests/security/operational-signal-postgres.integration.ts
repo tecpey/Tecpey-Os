@@ -62,7 +62,7 @@ after(async () => {
 
 describe("Operational signal PostgreSQL authority", () => {
   it(
-    "persists first observation and replays later observations in the same incident window",
+    "accepts exact replay but rejects same-identity payload drift",
     { skip: !configured },
     async () => {
       const uniqueReason = `test_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
@@ -81,12 +81,19 @@ describe("Operational signal PostgreSQL authority", () => {
       const first = await withClient((client) =>
         persistOperationalSignalTx(client, firstSignal),
       );
-      const replay = await withClient((client) =>
-        persistOperationalSignalTx(client, laterObservation),
+      const exactReplay = await withClient((client) =>
+        persistOperationalSignalTx(client, firstSignal),
       );
       assert.equal(first.replayed, false);
-      assert.equal(replay.replayed, true);
-      assert.equal(replay.payloadHash, first.payloadHash);
+      assert.equal(exactReplay.replayed, true);
+      assert.equal(exactReplay.payloadHash, first.payloadHash);
+
+      await assert.rejects(
+        withClient((client) =>
+          persistOperationalSignalTx(client, laterObservation),
+        ),
+        /operational_signal_payload_conflict/,
+      );
 
       const stored = await withClient((client) =>
         client.query<{ payload: { measurements?: { unresolved_dead_letters?: number } } }>(
