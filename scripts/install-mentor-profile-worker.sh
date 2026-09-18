@@ -3,7 +3,9 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
-TEMPLATE="${REPO_DIR}/deploy/systemd/tecpey-mentor-profile-worker.service.in"
+WORKER_TEMPLATE="${REPO_DIR}/deploy/systemd/tecpey-mentor-profile-worker.service.in"
+HEALTH_TEMPLATE="${REPO_DIR}/deploy/systemd/tecpey-mentor-profile-health.service.in"
+HEALTH_TIMER="${REPO_DIR}/deploy/systemd/tecpey-mentor-profile-health.timer"
 DRY_RUN="${TECPEY_DRY_RUN:-0}"
 APP_DIR="${TECPEY_APP_DIR:-}"
 RUN_USER="${TECPEY_RUN_USER:-tecpey}"
@@ -34,6 +36,9 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 [[ -d "$APP_DIR" && -f "$APP_DIR/package.json" ]] || fail "app_directory_missing"
 [[ -f "$APP_DIR/dist/run-mentor-profile-worker.cjs" && ! -L "$APP_DIR/dist/run-mentor-profile-worker.cjs" ]] \
   || fail "mentor_profile_worker_bundle_missing"
+[[ -f "$APP_DIR/dist/check-mentor-profile-health.cjs" && ! -L "$APP_DIR/dist/check-mentor-profile-health.cjs" ]] \
+  || fail "mentor_profile_health_bundle_missing"
+[[ -f "$HEALTH_TIMER" && ! -L "$HEALTH_TIMER" ]] || fail "mentor_profile_health_timer_missing"
 [[ -x "$NPM_BIN" ]] || fail "npm_binary_missing"
 [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || fail "environment_file_unsafe"
 grep -Eq '^DATABASE_URL=[^[:space:]]+' "$ENV_FILE" || fail "database_url_missing"
@@ -58,18 +63,28 @@ TMP_DIR="$(mktemp -d)"
 cleanup() { rm -rf -- "$TMP_DIR"; }
 trap cleanup EXIT
 escape_sed() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
-sed \
-  -e "s|@@RUN_USER@@|$(escape_sed "$RUN_USER")|g" \
-  -e "s|@@RUN_GROUP@@|$(escape_sed "$RUN_GROUP")|g" \
-  -e "s|@@APP_DIR@@|$(escape_sed "$APP_DIR")|g" \
-  -e "s|@@ENV_FILE@@|$(escape_sed "$ENV_FILE")|g" \
-  -e "s|@@NPM_BIN@@|$(escape_sed "$NPM_BIN")|g" \
-  "$TEMPLATE" > "$TMP_DIR/tecpey-mentor-profile-worker.service"
+render_service() {
+  local template="$1" output="$2"
+  sed \
+    -e "s|@@RUN_USER@@|$(escape_sed "$RUN_USER")|g" \
+    -e "s|@@RUN_GROUP@@|$(escape_sed "$RUN_GROUP")|g" \
+    -e "s|@@APP_DIR@@|$(escape_sed "$APP_DIR")|g" \
+    -e "s|@@ENV_FILE@@|$(escape_sed "$ENV_FILE")|g" \
+    -e "s|@@NPM_BIN@@|$(escape_sed "$NPM_BIN")|g" \
+    "$template" > "$output"
+  if grep -Eq '@@[A-Z_]+@@' "$output"; then
+    fail "systemd_template_placeholder_unresolved"
+  fi
+}
 
-if grep -Eq '@@[A-Z_]+@@' "$TMP_DIR/tecpey-mentor-profile-worker.service"; then
-  fail "systemd_template_placeholder_unresolved"
-fi
-systemd-analyze verify "$TMP_DIR/tecpey-mentor-profile-worker.service" >/dev/null
+render_service "$WORKER_TEMPLATE" "$TMP_DIR/tecpey-mentor-profile-worker.service"
+render_service "$HEALTH_TEMPLATE" "$TMP_DIR/tecpey-mentor-profile-health.service"
+cp -- "$HEALTH_TIMER" "$TMP_DIR/tecpey-mentor-profile-health.timer"
+
+systemd-analyze verify \
+  "$TMP_DIR/tecpey-mentor-profile-worker.service" \
+  "$TMP_DIR/tecpey-mentor-profile-health.service" \
+  "$TMP_DIR/tecpey-mentor-profile-health.timer" >/dev/null
 
 if [[ "$DRY_RUN" == "1" ]]; then
   printf 'dry_run=1\n'
@@ -78,6 +93,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   printf 'environment_file=%s\n' "$ENV_FILE"
   printf 'npm_binary=%s\n' "$NPM_BIN"
   printf 'unit_verification=passed\n'
+  printf 'health_watchdog=verified\n'
   exit 0
 fi
 
@@ -85,9 +101,19 @@ fi
 command -v systemctl >/dev/null 2>&1 || fail "systemctl_missing"
 install -d -m 0755 "$SYSTEMD_DIR"
 install -m 0644 "$TMP_DIR/tecpey-mentor-profile-worker.service" "$SYSTEMD_DIR/"
+install -m 0644 "$TMP_DIR/tecpey-mentor-profile-health.service" "$SYSTEMD_DIR/"
+install -m 0644 "$TMP_DIR/tecpey-mentor-profile-health.timer" "$SYSTEMD_DIR/"
 systemctl daemon-reload
+
 systemctl enable --now tecpey-mentor-profile-worker.service
+systemctl start tecpey-mentor-profile-health.service
+systemctl enable --now tecpey-mentor-profile-health.timer
+
 systemctl is-enabled --quiet tecpey-mentor-profile-worker.service
 systemctl is-active --quiet tecpey-mentor-profile-worker.service
+systemctl is-enabled --quiet tecpey-mentor-profile-health.timer
+systemctl is-active --quiet tecpey-mentor-profile-health.timer
+
 printf 'installed=1\n'
 printf 'mentor_profile_worker=active\n'
+printf 'mentor_profile_health_timer=active\n'
