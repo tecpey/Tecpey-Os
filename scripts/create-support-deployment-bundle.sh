@@ -97,6 +97,11 @@ scripts/support-install-readiness-policy.mjs
 support:install:rehearse
 
 Operational workers included:
+deploy/systemd/tecpey-mentor-profile-worker.service.in
+deploy/systemd/tecpey-mentor-profile-health.service.in
+deploy/systemd/tecpey-mentor-profile-health.timer
+scripts/install-mentor-profile-worker.sh
+docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md
 deploy/systemd/tecpey-news-materialization.service.in
 deploy/systemd/tecpey-news-materialization.timer
 scripts/install-news-materialization-scheduler.sh
