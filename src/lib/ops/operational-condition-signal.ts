@@ -35,16 +35,17 @@ type ActiveIncident = Readonly<{
   component: string;
   sourceUnit: string;
   severity: "critical";
+  reasonCodes: readonly string[];
   openedAt: string;
 }>;
 
 type PendingTransition = Readonly<{
-  signal: OperationalSignalEvidence;
+  signals: readonly OperationalSignalEvidence[];
   nextActive: ActiveIncident | null;
 }>;
 
 type ConditionState = Readonly<{
-  schemaVersion: 1;
+  schemaVersion: 2;
   incidentKey: string;
   active: ActiveIncident | null;
   pending: PendingTransition | null;
@@ -97,7 +98,7 @@ function withStateHash(
   });
 }
 
-function incidentId(): string {
+function newIncidentId(): string {
   return randomBytes(32).toString("hex");
 }
 
@@ -132,34 +133,104 @@ function validateActiveIncident(
     !raw ||
     raw.severity !== "critical" ||
     !HASH_RE.test(raw.incidentId) ||
-    !HASH_RE.test(raw.conditionFingerprint)
+    !HASH_RE.test(raw.conditionFingerprint) ||
+    !Array.isArray(raw.reasonCodes) ||
+    raw.reasonCodes.length === 0
   ) {
     throw new Error("operational_condition_active_state_invalid");
   }
-  const probe = createOperationalSignalEvidence({
+  const firing = createOperationalSignalEvidence({
     signalType: raw.signalType,
     component: raw.component,
     sourceUnit: raw.sourceUnit,
     severity: "critical",
     lifecycle: "firing",
     occurredAt: raw.openedAt,
-    reasonCodes: ["state_validation"],
+    incidentId: raw.incidentId,
+    reasonCodes: raw.reasonCodes,
   });
   if (
-    probe.incidentKey !== expectedIncidentKey ||
-    raw.incidentKey !== expectedIncidentKey
+    firing.incidentKey !== expectedIncidentKey ||
+    raw.incidentKey !== expectedIncidentKey ||
+    firing.conditionFingerprint !== raw.conditionFingerprint
   ) {
     throw new Error("operational_condition_active_state_invalid");
   }
   return Object.freeze({
-    incidentKey: raw.incidentKey,
-    incidentId: raw.incidentId,
-    conditionFingerprint: raw.conditionFingerprint,
-    signalType: probe.signalType,
-    component: probe.component,
-    sourceUnit: probe.sourceUnit,
+    incidentKey: firing.incidentKey,
+    incidentId: firing.incidentId,
+    conditionFingerprint: firing.conditionFingerprint,
+    signalType: firing.signalType,
+    component: firing.component,
+    sourceUnit: firing.sourceUnit,
     severity: "critical",
-    openedAt: probe.occurredAt,
+    reasonCodes: firing.reasonCodes,
+    openedAt: firing.occurredAt,
+  });
+}
+
+function validatePendingTransition(
+  raw: unknown,
+  active: ActiveIncident | null,
+  expectedIncidentKey: string,
+): PendingTransition {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("operational_condition_pending_invalid");
+  }
+  const value = raw as Record<string, unknown>;
+  if (
+    !Array.isArray(value.signals) ||
+    value.signals.length < 1 ||
+    value.signals.length > 2
+  ) {
+    throw new Error("operational_condition_pending_invalid");
+  }
+  const signals = value.signals.map((signal) =>
+    validateOperationalSignalEvidence(
+      signal as OperationalSignalEvidence,
+    ));
+  if (signals.some((signal) => signal.incidentKey !== expectedIncidentKey)) {
+    throw new Error("operational_condition_pending_invalid");
+  }
+  const nextActive =
+    value.nextActive === null
+      ? null
+      : validateActiveIncident(
+          value.nextActive as ActiveIncident,
+          expectedIncidentKey,
+        );
+
+  if (signals.length === 1) {
+    const [signal] = signals;
+    if (
+      signal!.lifecycle === "firing"
+        ? active !== null ||
+          nextActive === null ||
+          nextActive.incidentId !== signal!.incidentId
+        : active === null ||
+          signal!.incidentId !== active.incidentId ||
+          nextActive !== null
+    ) {
+      throw new Error("operational_condition_pending_invalid");
+    }
+  } else {
+    const [resolved, firing] = signals;
+    if (
+      active === null ||
+      resolved!.lifecycle !== "resolved" ||
+      resolved!.incidentId !== active.incidentId ||
+      firing!.lifecycle !== "firing" ||
+      nextActive === null ||
+      firing!.incidentId !== nextActive.incidentId ||
+      resolved!.incidentId === firing!.incidentId
+    ) {
+      throw new Error("operational_condition_pending_invalid");
+    }
+  }
+
+  return Object.freeze({
+    signals: Object.freeze(signals),
+    nextActive,
   });
 }
 
@@ -172,7 +243,7 @@ function validateConditionState(
   }
   const raw = value as Record<string, unknown>;
   if (
-    raw.schemaVersion !== 1 ||
+    raw.schemaVersion !== 2 ||
     raw.incidentKey !== expectedIncidentKey ||
     typeof raw.stateHash !== "string" ||
     !HASH_RE.test(raw.stateHash)
@@ -187,42 +258,17 @@ function validateConditionState(
           raw.active as ActiveIncident,
           expectedIncidentKey,
         );
-
-  let pending: PendingTransition | null = null;
-  if (raw.pending !== null) {
-    if (
-      !raw.pending ||
-      typeof raw.pending !== "object" ||
-      Array.isArray(raw.pending)
-    ) {
-      throw new Error("operational_condition_pending_invalid");
-    }
-    const rawPending = raw.pending as Record<string, unknown>;
-    const signal = validateOperationalSignalEvidence(
-      rawPending.signal as OperationalSignalEvidence,
-    );
-    if (signal.incidentKey !== expectedIncidentKey) {
-      throw new Error("operational_condition_pending_invalid");
-    }
-    const nextActive =
-      rawPending.nextActive === null
-        ? null
-        : validateActiveIncident(
-            rawPending.nextActive as ActiveIncident,
-            expectedIncidentKey,
-          );
-    if (
-      (signal.lifecycle === "firing" &&
-        (!nextActive || nextActive.incidentId !== signal.incidentId)) ||
-      (signal.lifecycle === "resolved" && nextActive !== null)
-    ) {
-      throw new Error("operational_condition_pending_invalid");
-    }
-    pending = Object.freeze({ signal, nextActive });
-  }
+  const pending =
+    raw.pending === null
+      ? null
+      : validatePendingTransition(
+          raw.pending,
+          active,
+          expectedIncidentKey,
+        );
 
   const state = withStateHash({
-    schemaVersion: 1,
+    schemaVersion: 2,
     incidentKey: expectedIncidentKey,
     active,
     pending,
@@ -352,13 +398,14 @@ function activeFromSignal(
     component: signal.component,
     sourceUnit: signal.sourceUnit,
     severity: "critical",
+    reasonCodes: signal.reasonCodes,
     openedAt: signal.occurredAt,
   });
 }
 
 function firingSignal(
   input: OperationalConditionObservation,
-  newIncidentId: string,
+  incidentId: string,
 ): OperationalSignalEvidence {
   if (input.status !== "critical" || input.reasonCodes.length === 0) {
     throw new Error("operational_condition_critical_reason_required");
@@ -370,7 +417,7 @@ function firingSignal(
     severity: "critical",
     lifecycle: "firing",
     occurredAt: input.observedAt,
-    incidentId: newIncidentId,
+    incidentId,
     reasonCodes: input.reasonCodes,
     measurements: input.measurements ?? {},
   });
@@ -395,32 +442,52 @@ function resolvedSignal(
   });
 }
 
+async function enqueueSequence(
+  stateDirectory: string,
+  signals: readonly OperationalSignalEvidence[],
+  enqueue: NonNullable<OperationalConditionDependencies["enqueue"]>,
+): Promise<number> {
+  let replayed = 0;
+  for (const signal of signals) {
+    const result = await enqueue(stateDirectory, signal);
+    if (result.replayed) replayed += 1;
+  }
+  return replayed;
+}
+
 async function commitPending(
   input: {
     filePath: string;
     incidentKey: string;
     currentActive: ActiveIncident | null;
-    signal: OperationalSignalEvidence;
+    signals: readonly OperationalSignalEvidence[];
     nextActive: ActiveIncident | null;
     stateDirectory: string;
   },
   enqueue: NonNullable<OperationalConditionDependencies["enqueue"]>,
-): Promise<{ replayed: boolean }> {
+): Promise<{ replayed: number }> {
+  if (input.signals.length < 1 || input.signals.length > 2) {
+    throw new Error("operational_condition_transition_sequence_invalid");
+  }
   const pendingState = withStateHash({
-    schemaVersion: 1,
+    schemaVersion: 2,
     incidentKey: input.incidentKey,
     active: input.currentActive,
     pending: Object.freeze({
-      signal: input.signal,
+      signals: Object.freeze([...input.signals]),
       nextActive: input.nextActive,
     }),
   });
   await atomicWriteState(input.filePath, pendingState);
 
-  const queued = await enqueue(input.stateDirectory, input.signal);
+  const replayed = await enqueueSequence(
+    input.stateDirectory,
+    input.signals,
+    enqueue,
+  );
 
   const committed = withStateHash({
-    schemaVersion: 1,
+    schemaVersion: 2,
     incidentKey: input.incidentKey,
     active: input.nextActive,
     pending: null,
@@ -429,7 +496,7 @@ async function commitPending(
   if (input.nextActive === null) {
     await removeState(input.filePath);
   }
-  return { replayed: queued.replayed };
+  return { replayed };
 }
 
 async function recoverPending(
@@ -437,12 +504,16 @@ async function recoverPending(
   filePath: string,
   stateDirectory: string,
   enqueue: NonNullable<OperationalConditionDependencies["enqueue"]>,
-): Promise<{ state: ConditionState | null; replayed: boolean }> {
-  if (!state.pending) return { state, replayed: false };
+): Promise<{ state: ConditionState | null; replayed: number }> {
+  if (!state.pending) return { state, replayed: 0 };
 
-  const queued = await enqueue(stateDirectory, state.pending.signal);
+  const replayed = await enqueueSequence(
+    stateDirectory,
+    state.pending.signals,
+    enqueue,
+  );
   const committed = withStateHash({
-    schemaVersion: 1,
+    schemaVersion: 2,
     incidentKey: state.incidentKey,
     active: state.pending.nextActive,
     pending: null,
@@ -450,9 +521,9 @@ async function recoverPending(
   await atomicWriteState(filePath, committed);
   if (state.pending.nextActive === null) {
     await removeState(filePath);
-    return { state: null, replayed: queued.replayed };
+    return { state: null, replayed };
   }
-  return { state: committed, replayed: queued.replayed };
+  return { state: committed, replayed };
 }
 
 export async function transitionOperationalConditionSignal(
@@ -477,11 +548,11 @@ export async function transitionOperationalConditionSignal(
       enqueue,
     );
     state = recovered.state;
-    replayed += recovered.replayed ? 1 : 0;
+    replayed += recovered.replayed;
     recoveredPending = true;
   }
 
-  let active = state?.active ?? null;
+  const active = state?.active ?? null;
 
   if (input.status !== "critical") {
     if (!active) {
@@ -502,14 +573,14 @@ export async function transitionOperationalConditionSignal(
         filePath,
         incidentKey: probe.incidentKey,
         currentActive: active,
-        signal: resolved,
+        signals: [resolved],
         nextActive: null,
         stateDirectory: input.stateDirectory,
       },
       enqueue,
     );
     emitted.push(resolved);
-    replayed += committed.replayed ? 1 : 0;
+    replayed += committed.replayed;
     return {
       active: false,
       emitted: Object.freeze(emitted),
@@ -518,10 +589,10 @@ export async function transitionOperationalConditionSignal(
     };
   }
 
-  const candidate = firingSignal(input, incidentId());
+  const firing = firingSignal(input, newIncidentId());
   if (
     active &&
-    active.conditionFingerprint === candidate.conditionFingerprint
+    active.conditionFingerprint === firing.conditionFingerprint
   ) {
     return {
       active: true,
@@ -531,39 +602,27 @@ export async function transitionOperationalConditionSignal(
     };
   }
 
-  if (active) {
-    const resolved = resolvedSignal(active, input, "condition_changed");
-    const committed = await commitPending(
-      {
-        filePath,
-        incidentKey: probe.incidentKey,
-        currentActive: active,
-        signal: resolved,
-        nextActive: null,
-        stateDirectory: input.stateDirectory,
-      },
-      enqueue,
-    );
-    emitted.push(resolved);
-    replayed += committed.replayed ? 1 : 0;
-    active = null;
-  }
-
-  const firing = candidate;
   const nextActive = activeFromSignal(firing);
+  const signals =
+    active === null
+      ? [firing]
+      : [
+          resolvedSignal(active, input, "condition_changed"),
+          firing,
+        ];
   const committed = await commitPending(
     {
       filePath,
       incidentKey: probe.incidentKey,
       currentActive: active,
-      signal: firing,
+      signals,
       nextActive,
       stateDirectory: input.stateDirectory,
     },
     enqueue,
   );
-  emitted.push(firing);
-  replayed += committed.replayed ? 1 : 0;
+  emitted.push(...signals);
+  replayed += committed.replayed;
 
   return {
     active: true,
