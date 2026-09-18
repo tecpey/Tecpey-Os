@@ -100,13 +100,27 @@ for (const needle of [
   "attemptHistory",
   "databaseMirrorComplete",
   "mirrorSpoolItemToDatabase",
-  "reconcileArchiveDirectory",
+  "reconcileSpoolDirectory",
   "databaseMirrorComplete",
   "validatedAttemptHistory",
   "firstRecordedAttempt",
   "Journal the webhook outcome before any archive move",
 ]) {
   requireText("spool", spool, needle, `missing backward-compatible spool invariant: ${needle}`);
+}
+
+const mirrorPhaseIndex = spool.indexOf(
+  "const pendingMirrorAvailable = await reconcileSpoolDirectory",
+);
+const webhookLoopIndex = spool.indexOf("for (const entry of entries)");
+if (
+  webhookLoopIndex < 0 ||
+  mirrorPhaseIndex < 0 ||
+  mirrorPhaseIndex < webhookLoopIndex
+) {
+  failures.push(
+    "spool: database reconciliation must remain after the live webhook delivery loop",
+  );
 }
 
 const journalIndex = spool.indexOf("await atomicWriteJson(filePath, journaled)");
