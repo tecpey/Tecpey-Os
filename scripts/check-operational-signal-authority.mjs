@@ -38,6 +38,10 @@ for (const needle of [
   "reasonCodes",
   "measurements",
   "operational_signal_measurement_value_invalid",
+  "operational_signal_reason_cardinality_forbidden",
+  "operational_signal_measurement_cardinality_forbidden",
+  "FORBIDDEN_CARDINALITY_SEGMENTS",
+  "LONG_IDENTIFIER_RE",
   "persistOperationalSignalTx",
   "operational_signal_payload_conflict",
   "persistOperationalSignalDeliveryAttemptTx",
@@ -54,12 +58,27 @@ if (/OperationalSignalMeasurement\s*=\s*[^;]*\bstring\b/.test(evidence)) {
   failures.push("evidence: free-text measurement values are forbidden");
 }
 
+const evidenceTest = await source(
+  "src/tests/security/operational-signal-evidence.test.ts",
+);
+for (const needle of [
+  "reject user-scoped and high-cardinality dimensions",
+  "student_123456",
+  "tenant_id",
+  "trace_0123456789abcdef",
+]) {
+  requireText("evidence-test", evidenceTest, needle, `privacy/cardinality proof missing: ${needle}`);
+}
+
 const spool = await source("src/lib/ops/operational-signal-spool.ts");
 for (const needle of [
   '"signals", "pending"',
   '"signals", "delivered"',
   '"signals", "quarantine"',
   "operationalSignalRetryDelayMs",
+  "operationalSignalRetryAfterDelayMs",
+  'response.headers.get("retry-after")',
+  "Math.max(",
   "tecpey-operational-signal-retry-v1",
   "operational_signal_webhook_https_required",
   "bestEffortPersistSignal",
@@ -115,6 +134,8 @@ const spoolTest = await source(
 );
 for (const needle of [
   "due signals before future retries",
+  "honors bounded Retry-After",
+  'headers: { "Retry-After": "120" }',
   "archived.attempts",
   "retried.attempts",
   "stat(target)",
