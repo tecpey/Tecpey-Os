@@ -105,6 +105,7 @@
     "academy:daily-repair:assign": "tsx scripts/assign-daily-repair-challenges.ts",
     "mentor:profiles:repair": "tsx scripts/reconcile-mentor-profiles.ts",
     "mentor:profiles:worker": "tsx scripts/run-mentor-profile-worker.ts",
+    "mentor:profiles:worker:install": "bash scripts/install-mentor-profile-worker.sh",
     "test:mentor-profile-outbox": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-profile-worker.test.ts src/tests/security/mentor-profile-update-outbox-postgres.test.ts",
     "mentor:vector:source:check": "node scripts/check-mentor-vector-source.mjs",
     "test:mentor-vector-source": "node --test scripts/mentor-vector-source-policy.test.mjs",
