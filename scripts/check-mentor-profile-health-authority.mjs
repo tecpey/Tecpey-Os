@@ -255,7 +255,9 @@ for (const needle of [
   "SuccessExitStatus=1",
   "Watchdog failure drill",
   "independent failure detector",
-  "durable incident delivery",
+  "Durable incident signal rail",
+  "outage-safe transport authority",
+  "tecpey-ops-alert-delivery.service",
 ]) {
   requireText("runbook", runbook, needle, `watchdog runbook invariant missing: ${needle}`);
 }
