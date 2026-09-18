@@ -108,6 +108,10 @@ import {
   MENTOR_EVAL_PROMOTION_AUTHORITY_SQL,
   runMentorEvalPromotionAuthorityMigrations,
 } from "./db-migrate-mentor-eval-promotion-authority";
+import {
+  MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+  runMentorProfileDeadLetterResolutionMigrations,
+} from "./db-migrate-mentor-profile-dead-letter-resolution";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -197,6 +201,17 @@ const MENTOR_EVAL_PROMOTION_AUTHORITY_MIGRATION: CanonicalMigrationContent =
     identity: "0106_mentor_eval_promotion_authority.sql",
     content: MENTOR_EVAL_PROMOTION_AUTHORITY_SQL,
     checksum: canonicalMigrationChecksum(MENTOR_EVAL_PROMOTION_AUTHORITY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0107_mentor_profile_dead_letter_resolution.sql",
+    content: MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+    checksum: canonicalMigrationChecksum(
+      MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+    ),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
   });
@@ -319,6 +334,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-platform-security",
     "ai-mentor",
     runMentorEvalPromotionAuthorityMigrations,
+  ),
+  entry(
+    91,
+    "migration-step-091",
+    [MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorProfileDeadLetterResolutionMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
