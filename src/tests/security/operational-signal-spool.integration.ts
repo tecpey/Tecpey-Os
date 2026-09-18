@@ -303,6 +303,10 @@ describe("Operational signal spool", () => {
       ensureOperationalSignalSpoolDirectories(path.join(aliasParent, "state")),
       /operational_signal_state_directory_alias_forbidden/,
     );
+    await assert.rejects(
+      stat(path.join(realParent, "state")),
+      (error: NodeJS.ErrnoException) => error.code === "ENOENT",
+    );
   });
 
   it("finishes a fsync-recorded delivered archive after crash without redelivering", async () => {
