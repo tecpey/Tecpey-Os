@@ -116,6 +116,10 @@ import {
   MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_SQL,
   runMentorProfileFreshnessObservabilityMigrations,
 } from "./db-migrate-mentor-profile-freshness-observability";
+import {
+  OPERATIONAL_SIGNAL_EVIDENCE_SQL,
+  runOperationalSignalEvidenceMigrations,
+} from "./db-migrate-operational-signal-evidence";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -227,6 +231,15 @@ const MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_MIGRATION: CanonicalMigrationConten
     checksum: canonicalMigrationChecksum(
       MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_SQL,
     ),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const OPERATIONAL_SIGNAL_EVIDENCE_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0109_operational_signal_evidence.sql",
+    content: OPERATIONAL_SIGNAL_EVIDENCE_SQL,
+    checksum: canonicalMigrationChecksum(OPERATIONAL_SIGNAL_EVIDENCE_SQL),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
   });
@@ -365,6 +378,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-platform-security",
     "ai-mentor",
     runMentorProfileFreshnessObservabilityMigrations,
+  ),
+  entry(
+    93,
+    "migration-step-093",
+    [OPERATIONAL_SIGNAL_EVIDENCE_MIGRATION],
+    "platform-infrastructure",
+    "operations",
+    runOperationalSignalEvidenceMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
