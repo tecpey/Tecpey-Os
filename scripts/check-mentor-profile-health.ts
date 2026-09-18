@@ -87,22 +87,35 @@ async function transitionCondition(input: {
 
 async function main(): Promise<void> {
   const observedAt = new Date().toISOString();
-  const snapshot = await withTx((client) =>
-    loadMentorProfileHealthSnapshot(client),
-  );
+  let snapshot:
+    | Awaited<ReturnType<typeof withTx<MentorProfileHealthSnapshot>>>
+    | null = null;
+  let databaseFailureCode: string | null = null;
+  try {
+    snapshot = await withTx((client) =>
+      loadMentorProfileHealthSnapshot(client),
+    );
+    if (!snapshot.enabled) {
+      databaseFailureCode = "mentor_profile_database_unavailable";
+    }
+  } catch {
+    databaseFailureCode = "mentor_profile_database_authority_failed";
+  }
 
-  if (!snapshot.enabled) {
+  if (databaseFailureCode !== null || !snapshot?.enabled) {
+    const reasonCode =
+      databaseFailureCode ?? "mentor_profile_database_unavailable";
     const databaseSignal = await transitionCondition({
       component: "mentor_profile_database_authority",
       status: "critical",
       observedAt,
-      reasonCodes: ["mentor_profile_database_unavailable"],
+      reasonCodes: [reasonCode],
     });
     console.error(
       JSON.stringify({
         ok: false,
         status: "authority_unavailable",
-        error: "mentor_profile_database_unavailable",
+        error: reasonCode,
         operationalSignal: databaseSignal,
       }),
     );
