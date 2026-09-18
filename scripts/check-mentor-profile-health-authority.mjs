@@ -151,44 +151,25 @@ const worker = await source("scripts/run-mentor-profile-worker.ts");
 for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
-  "MENTOR_PROFILE_BACKLOG",
-  "MENTOR_PROFILE_PROJECTION_STALLED",
   "mentorProfileHealthAlertMetadata",
 ]) {
   requireText("worker", worker, needle, `worker health integration missing: ${needle}`);
 }
-
-const alerts = await source("src/lib/alerts.ts");
-requireText(
-  "alerts",
-  alerts,
-  '"MENTOR_PROFILE_BACKLOG"',
-  "warning alert type is missing",
-);
-requireText(
-  "alerts",
-  alerts,
-  '"MENTOR_PROFILE_PROJECTION_STALLED"',
-  "critical alert type is missing",
-);
-requirePattern(
-  "alerts",
-  alerts,
-  /MENTOR_PROFILE_BACKLOG:\s*"warning"/,
-  "backlog alert must remain warning severity",
-);
-requirePattern(
-  "alerts",
-  alerts,
-  /MENTOR_PROFILE_PROJECTION_STALLED:\s*"critical"/,
-  "stalled projection alert must remain critical severity",
-);
+if (worker.includes("emitAlert(")) {
+  failures.push(
+    "worker: Mentor health notification must not retain a parallel best-effort alert rail",
+  );
+}
 
 const probe = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
   "mentorProfileHealthAlertMetadata",
+  "reconcileOperationalSignalIncident",
+  "TECPEY_OPS_STATE_DIR",
+  '"authority_unavailable"',
+  '"mentor_profile_database_unavailable"',
   'evaluation.status === "healthy" ? 0',
   'evaluation.status === "warning" ? 1',
   "process.exitCode = 3",
@@ -206,6 +187,14 @@ for (const needle of [
   "systemctl enable --now tecpey-mentor-profile-health.timer",
   "systemctl is-enabled --quiet tecpey-mentor-profile-health.timer",
   "systemctl is-active --quiet tecpey-mentor-profile-health.timer",
+  "operational_alert_delivery_bundle_missing",
+  "state_directory_symlink_forbidden",
+  "ops_alert_https_webhook_missing",
+  "tecpey-ops-alert-delivery.service",
+  "tecpey-ops-alert-delivery.timer",
+  'install -d -m 0700 -o "$RUN_USER" -g "$RUN_GROUP" "$STATE_DIR"',
+  "systemctl enable --now tecpey-ops-alert-delivery.timer",
+  "systemctl start tecpey-ops-alert-delivery.service",
 ]) {
   requireText("installer", installer, needle, `Mentor watchdog installer invariant missing: ${needle}`);
 }
@@ -231,6 +220,9 @@ for (const needle of [
   "ProtectSystem=strict",
   "CapabilityBoundingSet=",
   "ReadOnlyPaths=@@APP_DIR@@",
+  "RequiresMountsFor=@@STATE_DIR@@",
+  "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
+  "ReadWritePaths=@@STATE_DIR@@",
 ]) {
   requireText("health-service", healthService, needle, `health service invariant missing: ${needle}`);
 }
@@ -274,6 +266,10 @@ for (const needle of [
   "deploy/systemd/tecpey-mentor-profile-worker.service.in",
   "deploy/systemd/tecpey-mentor-profile-health.service.in",
   "deploy/systemd/tecpey-mentor-profile-health.timer",
+  "deploy/systemd/tecpey-ops-alert-delivery.service.in",
+  "deploy/systemd/tecpey-ops-alert-delivery.timer",
+  "scripts/check-operational-alert-delivery-env.mjs",
+  "scripts/deliver-operational-alerts.ts",
   "scripts/install-mentor-profile-worker.sh",
   "docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md",
 ]) {
@@ -303,6 +299,12 @@ if (!scripts["test:mentor-profile-outbox"]?.includes("mentor-profile-health")) {
 }
 if (!scripts["mentor:profiles:authority:check"]?.includes("mentor:profiles:health:check")) {
   failures.push("package: profile projection authority must enforce health authority");
+}
+if (!scripts["mentor:profiles:authority:check"]?.includes("ops:signals:authority:check")) {
+  failures.push("package: profile projection authority must enforce durable signal authority");
+}
+if (!scripts["ops:alerts:deliver"]?.includes("dist/deliver-operational-alerts.cjs")) {
+  failures.push("package: operational alert delivery must use the production bundle");
 }
 
 if (failures.length) {
