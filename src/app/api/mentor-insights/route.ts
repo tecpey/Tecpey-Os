@@ -77,7 +77,8 @@ export async function GET(req: NextRequest) {
         `SELECT
            (SELECT COUNT(*)::int
               FROM academy_term_progress
-             WHERE student_id = $1::uuid) AS term_progress_count,
+             WHERE student_id = $1::uuid
+               AND status = 'passed') AS term_progress_count,
            (SELECT COUNT(*)::int
               FROM academy_trading_arena_trades
              WHERE student_id = $1::uuid) AS trading_sample_count,
