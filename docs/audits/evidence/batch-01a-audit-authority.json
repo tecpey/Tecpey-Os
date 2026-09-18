@@ -23,8 +23,8 @@
   "files": [
     {
       "path": ".github/workflows/repository-audit-manifest.yml",
-      "gitObjectId": "e98fe6ba86d050f8a3f1584a0dd3e92c6605cdb5",
-      "sha256": "adff1bf5a7fed254c4875571f5820be4a7d85a14c7cbeeefe54fb6419ac9d0c4",
+      "gitObjectId": "27b35e74dbd5120fc2d4843a0b209c97e98c9cfb",
+      "sha256": "795749471463bcfbb4a6a50f7fba444da4572beaa7c5843e0a627034050bb398",
       "lines": 61,
       "reviewedRanges": [
         {
@@ -35,7 +35,8 @@
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Triggers, read-only permissions, exact PR-head checkout, non-persistent credentials, expected-SHA propagation, authority verification, manifest regeneration, tests and immutable artifact upload were reviewed as one fail-closed sequence.",
-        "All third-party actions are pinned to full commit SHAs and the artifact name is bound to the exact reviewed head."
+        "All third-party actions are pinned to full commit SHAs and the artifact name is bound to the exact reviewed head.",
+        "2026-09-18: re-reviewed the complete 61-line repository audit workflow for the Node 24 action-runtime migration. Checkout, setup-node and upload-artifact remain pinned to exact 40-character commit SHAs; exact-head verification, read-only permissions, non-persistent checkout credentials, audit-source SHA propagation, fail-closed manifest regeneration/tests and immutable evidence upload semantics are unchanged. No product, deploy, exchange, custody or launch authority is introduced."
       ],
       "findings": []
     },
