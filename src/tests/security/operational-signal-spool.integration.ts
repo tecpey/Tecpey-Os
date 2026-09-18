@@ -368,6 +368,7 @@ describe("Operational signal spool", () => {
       signalType: "mentor_profile_projection_health",
       component: "mentor_profile_projection",
       sourceUnit: "tecpey-mentor-profile-health.service",
+      instanceFingerprint: "111111111111111111111111",
       severity: "critical",
       lifecycle: "firing",
       occurredAt: "2026-09-18T12:05:00.000Z",
