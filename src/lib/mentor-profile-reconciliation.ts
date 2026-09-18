@@ -1,19 +1,12 @@
 // Mentor profile staleness reconciliation.
 //
-// scheduleMentorProfileUpdate dispatches profile recomputation as an in-process
-// microtask that outlives the HTTP response but not the process. A crash,
-// deployment or restart between the learning event landing and the recompute
-// finishing loses that update silently: the student keeps learning, their mentor
-// profile does not, and personalisation degrades with nothing failing.
-//
-// The fix is not a delivery guarantee. applyMentorProfileUpdate does not apply a
-// delta — it recomputes the whole profile from current academy, trading and
-// conversation signals and upserts it, so it is idempotent by construction. That
-// means we never need exactly-once delivery of an event; we only need to notice
-// that a student's signals are newer than their profile and recompute. This is a
-// repair sweep, in the same shape as the session-revocation, risk and offline
-// reconciliations already in the codebase.
+// The durable mentor_profile_update_outbox is the normal delivery authority.
+// This sweep is defense-in-depth for legacy rows, operator recovery and any
+// source signal that predates durable producer wiring. Profile computation is a
+// full current-state projection rather than an event delta, so repair remains
+// idempotent and converges onto PostgreSQL source-of-truth state.
 
+import { createHash } from "node:crypto";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
@@ -152,15 +145,24 @@ export async function reconcileMentorProfiles(options: {
   let repaired = 0;
   let failed = 0;
   for (const row of candidates) {
+    const studentFingerprint = createHash("sha256")
+      .update("mentor-profile-repair-v1\0")
+      .update(row.student_id)
+      .digest("hex");
     try {
-      await applyMentorProfileUpdate(row.student_id);
+      const update = await applyMentorProfileUpdate(row.student_id);
+      if (!update) throw new Error("mentor_profile_signal_authority_unavailable");
       repaired += 1;
     } catch (error) {
       // One student's failure must not abandon the rest of the sweep.
       failed += 1;
+      const code =
+        error instanceof Error && /^[A-Za-z0-9._:-]{1,100}$/.test(error.message)
+          ? error.message
+          : "mentor_profile_repair_failed";
       logger.error("[mentor-profile-repair] recompute failed", {
-        studentId: row.student_id,
-        error: error instanceof Error ? error.message.slice(0, 120) : String(error).slice(0, 120),
+        studentFingerprint,
+        code,
       });
     }
   }
