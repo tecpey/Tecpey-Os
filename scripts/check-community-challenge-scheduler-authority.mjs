@@ -238,7 +238,9 @@ for (const invariant of [
   "TECPEY_DRY_RUN",
   "systemctl enable --now tecpey-community-challenge-finalizer.timer",
   "systemctl enable --now tecpey-ops-alert-delivery.timer",
-  "ops_alert_https_webhook_missing",
+  "dist/check-operational-installer-env.cjs",
+  "ops:installer:env-check",
+  "TECPEY_INSTALL_ENV_FILE",
 ]) {
   requireText("installer", invariant, `installer is missing ${invariant}`);
 }
@@ -248,6 +250,7 @@ for (const forbidden of [
   "eval ",
   "chmod 777",
   "RUN_USER=\"root\"",
+  "read_env_value()",
 ]) {
   rejectText("installer", forbidden, `installer contains forbidden behavior ${forbidden}`);
 }
@@ -332,6 +335,7 @@ for (const command of [
   '"ops:alerts:deliver"',
   '"ops:alerts:deliver:prod"',
   '"ops:delivery:env-check"',
+  '"ops:installer:env-check"',
   '"ops:scheduler:env-check"',
   '"ops:scheduler:install"',
   '"ops:scheduler:check"',
