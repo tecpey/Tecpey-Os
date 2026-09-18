@@ -14,8 +14,8 @@ The scheduler changes only the operational execution of the existing official `j
 
 - `tecpey-community-challenge-finalizer.service`: hardened one-shot finalization job.
 - `tecpey-community-challenge-finalizer.timer`: hourly UTC timer at minute 05 with persistent catch-up.
-- `tecpey-ops-alert-delivery.service`: hardened one-shot delivery of pending operational alerts.
-- `tecpey-ops-alert-delivery.timer`: retries pending alerts every five minutes.
+- `tecpey-ops-alert-delivery.service`: hardened one-shot delivery of pending operational alerts and generic signals.
+- `tecpey-ops-alert-delivery.timer`: drains due operational spool work every minute with bounded jitter.
 - `platform_operational_job_runs`: immutable PostgreSQL run evidence.
 - `platform_operational_alerts`: immutable alert evidence.
 - `platform_operational_alert_delivery_attempts`: immutable delivery-attempt evidence.
@@ -34,7 +34,17 @@ AccuracySec=30s
 
 The hourly cadence gives prompt post-rollover finalization and bounded catch-up. `Persistent=true` instructs systemd to run a missed activation after the host returns. The service is `Type=oneshot`; systemd does not start another instance of the same unit while it is active.
 
-The alert-delivery timer starts after boot and runs every five minutes.
+The alert-delivery timer starts 30 seconds after boot and then runs once per minute:
+
+```ini
+OnBootSec=30s
+OnUnitActiveSec=1min
+RandomizedDelaySec=5s
+FixedRandomDelay=true
+AccuracySec=1s
+```
+
+The delivery loop validates the full pending directory before applying the batch limit, selects due work first, and archives fsync-recorded terminal attempts after a restart without re-sending the webhook. This prevents future retries from starving ready alerts and keeps crash recovery idempotent.
 
 ## Required production environment
 
@@ -52,7 +62,7 @@ TECPEY_OPS_ALERT_TIMEOUT_MS=10000
 TECPEY_OPS_ALERT_MAX_ATTEMPTS=10
 ```
 
-The installer validates the required database and HTTPS alert settings without printing their values. The bearer token is optional only when the selected alert provider authenticates through another approved mechanism.
+The installer parses the environment file with the same governed systemd-style quoting and escaping semantics used by the platform, rejects duplicate authority keys, validates the required database and HTTPS alert settings without printing their values, and fails closed on unsafe file permissions. The bearer token is optional only when the selected alert provider authenticates through another approved mechanism.
 
 ## Pre-install checks
 
