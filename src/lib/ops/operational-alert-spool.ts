@@ -348,8 +348,74 @@ export async function enqueueOperationalAlert(
   return { replayed: false, filePath };
 }
 
-function retryDelayMs(attemptNumber: number): number {
-  return Math.min(60 * 60_000, 15_000 * 2 ** Math.max(0, attemptNumber - 1));
+export async function enqueueOperationalSignal(
+  stateDirectory: string,
+  raw: OperationalSignalEvidence,
+): Promise<{ replayed: boolean; filePath: string }> {
+  const managed = await ensureOperationalSpoolDirectories(stateDirectory);
+  const signal = validateOperationalSignalEvidence(raw);
+  const fileName = spoolFileName(signal.signalId);
+  const existingPath = await findExistingAlertFile(managed, fileName);
+  if (existingPath) {
+    let parsed: OperationalSpoolItem;
+    try {
+      parsed = validateSpoolItem(await safeReadJson(existingPath));
+    } catch {
+      throw new Error("operational_spool_archive_corrupt");
+    }
+    if (
+      parsed.schemaVersion !== 2 ||
+      hashOperationalSignalEvidence(parsed.signal) !==
+        hashOperationalSignalEvidence(signal)
+    ) {
+      throw new Error("operational_spool_identity_conflict");
+    }
+    return { replayed: true, filePath: existingPath };
+  }
+  const filePath = path.join(managed.pending, fileName);
+  const item: OperationalSignalSpoolItem = {
+    schemaVersion: 2,
+    signal,
+    delivery: {
+      attemptCount: 0,
+      nextAttemptAt: signal.occurredAt,
+      lastErrorCode: null,
+    },
+  };
+  await atomicWriteJson(filePath, item);
+  return { replayed: false, filePath };
+}
+
+function spoolEntity(item: OperationalSpoolItem): {
+  id: string;
+  payload: OperationalAlertEvidence | OperationalSignalEvidence;
+} {
+  return item.schemaVersion === 1
+    ? { id: item.alert.alertId, payload: item.alert }
+    : { id: item.signal.signalId, payload: item.signal };
+}
+
+function retryDelayMs(
+  attemptNumber: number,
+  entityId: string,
+  schemaVersion: 1 | 2,
+): number {
+  const capped = Math.min(
+    60 * 60_000,
+    15_000 * 2 ** Math.max(0, attemptNumber - 1),
+  );
+  if (schemaVersion === 1) return capped;
+  const entropy = Number.parseInt(
+    createHash("sha256")
+      .update(`operational-signal-retry-v1:${entityId}:${attemptNumber}`)
+      .digest("hex")
+      .slice(0, 8),
+    16,
+  ) / 0xffff_ffff;
+  return Math.min(
+    60 * 60_000,
+    Math.max(15_000, Math.round(capped * (0.8 + entropy * 0.4))),
+  );
 }
 
 async function moveFile(source: string, destinationDirectory: string): Promise<void> {
