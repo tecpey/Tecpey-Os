@@ -35,24 +35,29 @@ const DEFAULT_MAX_ATTEMPTS = 10;
 const MAX_RESPONSE_BODY_BYTES = 0;
 const SAFE_FILE_RE = /^[0-9a-f]{64}\.json$/;
 
+export type OperationalSpoolFinalResult =
+  | "delivered"
+  | "terminal_failure"
+  | "attempts_exhausted";
+
+export type OperationalSpoolDeliveryState = {
+  attemptCount: number;
+  nextAttemptAt: string;
+  lastErrorCode: string | null;
+  lastAttemptAt: string | null;
+  finalResult: OperationalSpoolFinalResult | null;
+};
+
 export type OperationalAlertSpoolItem = {
   schemaVersion: 1;
   alert: OperationalAlertEvidence;
-  delivery: {
-    attemptCount: number;
-    nextAttemptAt: string;
-    lastErrorCode: string | null;
-  };
+  delivery: OperationalSpoolDeliveryState;
 };
 
 export type OperationalSignalSpoolItem = {
   schemaVersion: 2;
   signal: OperationalSignalEvidence;
-  delivery: {
-    attemptCount: number;
-    nextAttemptAt: string;
-    lastErrorCode: string | null;
-  };
+  delivery: OperationalSpoolDeliveryState;
 };
 
 export type OperationalSpoolItem =
@@ -243,20 +248,38 @@ async function safeReadJson(filePath: string): Promise<unknown> {
   return JSON.parse(content) as unknown;
 }
 
-function validatedDelivery(raw: Record<string, unknown>): {
-  attemptCount: number;
-  nextAttemptAt: string;
-  lastErrorCode: string | null;
-} {
+function validatedDelivery(
+  raw: Record<string, unknown>,
+): OperationalSpoolDeliveryState {
   if (
     !Number.isSafeInteger(raw.attemptCount) ||
     Number(raw.attemptCount) < 0 ||
     Number(raw.attemptCount) > 100 ||
     (raw.lastErrorCode !== null &&
+      raw.lastErrorCode !== undefined &&
       (typeof raw.lastErrorCode !== "string" ||
         !/^[a-z0-9._:-]{1,100}$/.test(raw.lastErrorCode)))
   ) {
     throw new Error("operational_spool_delivery_invalid");
+  }
+  const lastAttemptAt =
+    raw.lastAttemptAt === undefined || raw.lastAttemptAt === null
+      ? null
+      : iso(
+          String(raw.lastAttemptAt),
+          "operational_last_attempt_at_invalid",
+        );
+  const finalResult =
+    raw.finalResult === undefined || raw.finalResult === null
+      ? null
+      : raw.finalResult;
+  if (
+    finalResult !== null &&
+    finalResult !== "delivered" &&
+    finalResult !== "terminal_failure" &&
+    finalResult !== "attempts_exhausted"
+  ) {
+    throw new Error("operational_spool_final_result_invalid");
   }
   return {
     attemptCount: Number(raw.attemptCount),
@@ -264,7 +287,12 @@ function validatedDelivery(raw: Record<string, unknown>): {
       String(raw.nextAttemptAt),
       "operational_next_attempt_invalid",
     ),
-    lastErrorCode: raw.lastErrorCode as string | null,
+    lastErrorCode:
+      raw.lastErrorCode === undefined
+        ? null
+        : raw.lastErrorCode as string | null,
+    lastAttemptAt,
+    finalResult,
   };
 }
 
@@ -357,6 +385,8 @@ export async function enqueueOperationalAlert(
       attemptCount: 0,
       nextAttemptAt: alert.occurredAt,
       lastErrorCode: null,
+      lastAttemptAt: null,
+      finalResult: null,
     },
   };
   await atomicWriteJson(filePath, item);
@@ -395,6 +425,8 @@ export async function enqueueOperationalSignal(
       attemptCount: 0,
       nextAttemptAt: signal.observedAt,
       lastErrorCode: null,
+      lastAttemptAt: null,
+      finalResult: null,
     },
   };
   await atomicWriteJson(filePath, item);
@@ -405,6 +437,17 @@ export function operationalRetryDelayMs(
   attemptNumber: number,
   identity: string,
 ): number {
+  if (
+    !Number.isSafeInteger(attemptNumber) ||
+    attemptNumber < 1 ||
+    attemptNumber > 100 ||
+    typeof identity !== "string" ||
+    identity.length < 8 ||
+    identity.length > 220 ||
+    /[\u0000-\u001f\u007f]/.test(identity)
+  ) {
+    throw new Error("operational_retry_jitter_input_invalid");
+  }
   const cap = Math.min(
     60 * 60_000,
     15_000 * 2 ** Math.max(0, attemptNumber - 1),
@@ -443,7 +486,10 @@ async function moveFile(source: string, destinationDirectory: string): Promise<v
     throw new Error("operational_spool_destination_conflict");
   }
   await rename(source, destination);
-  await chmod(destination, 0o600);
+  const destinationStat = await lstat(destination);
+  if (!destinationStat.isSymbolicLink()) {
+    await chmod(destination, 0o600);
+  }
   await syncDirectory(destinationDirectory);
   if (sourceDirectory !== destinationDirectory) {
     await syncDirectory(sourceDirectory);
@@ -664,11 +710,36 @@ export async function deliverOperationalAlerts(
     });
 
     if (deliveryResult === "delivered") {
+      const finalized: OperationalSpoolItem = {
+        ...item,
+        delivery: {
+          attemptCount: attemptNumber,
+          nextAttemptAt: attemptedAt,
+          lastErrorCode: null,
+          lastAttemptAt: attemptedAt,
+          finalResult: "delivered",
+        },
+      };
+      await atomicWriteJson(filePath, finalized);
       await moveFile(filePath, managed.delivered);
       summary.delivered += 1;
       continue;
     }
     if (deliveryResult === "terminal_failure" || attemptNumber >= maxAttempts) {
+      const finalized: OperationalSpoolItem = {
+        ...item,
+        delivery: {
+          attemptCount: attemptNumber,
+          nextAttemptAt: attemptedAt,
+          lastErrorCode: errorCode,
+          lastAttemptAt: attemptedAt,
+          finalResult:
+            deliveryResult === "terminal_failure"
+              ? "terminal_failure"
+              : "attempts_exhausted",
+        },
+      };
+      await atomicWriteJson(filePath, finalized);
       await moveFile(filePath, managed.quarantine);
       summary.quarantined += 1;
       continue;
@@ -684,6 +755,8 @@ export async function deliverOperationalAlerts(
         attemptCount: attemptNumber,
         nextAttemptAt: new Date(now.getTime() + delayMs).toISOString(),
         lastErrorCode: errorCode,
+        lastAttemptAt: attemptedAt,
+        finalResult: null,
       },
     };
     await atomicWriteJson(filePath, updated);
