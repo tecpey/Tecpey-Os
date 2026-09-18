@@ -23,7 +23,18 @@ async function fixture() {
   const systemd = path.join(root, "systemd");
   await mkdir(app);
   await mkdir(bin);
+  await mkdir(path.join(app, "dist"));
   await writeFile(path.join(app, "package.json"), "{}\n", { mode: 0o644 });
+  await writeFile(
+    path.join(app, "dist", "deliver-operational-alerts.cjs"),
+    "module.exports = {};\n",
+    { mode: 0o644 },
+  );
+  await writeFile(
+    path.join(app, "dist", "check-operational-alert-delivery-env.cjs"),
+    "module.exports = {};\n",
+    { mode: 0o644 },
+  );
   await writeFile(
     envFile,
     [

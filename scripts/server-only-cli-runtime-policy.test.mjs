@@ -14,13 +14,45 @@ const serverOnlyCommands = {
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/finalize-community-journal-challenges.ts",
   "community:challenge:finalize:scheduled":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/run-community-challenge-finalization-scheduled.ts",
-  "ops:alerts:deliver":
-    "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/deliver-operational-alerts.ts",
   "ops:staging:evidence:collect":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-community-challenge-scheduler-host-evidence.ts",
   "ops:incident-readiness:evidence:collect":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-protected-incident-readiness-evidence.ts",
 };
+
+test("operational alert delivery uses the production bundle without tsx", () => {
+  assert.equal(
+    packageJson.scripts?.["ops:alerts:deliver"],
+    "node --conditions=react-server dist/deliver-operational-alerts.cjs",
+  );
+  assert.equal(
+    packageJson.scripts?.["ops:alerts:env-check"],
+    "node dist/check-operational-alert-delivery-env.cjs",
+  );
+  assert.match(
+    packageJson.scripts?.["build:server"] ?? "",
+    /scripts\/deliver-operational-alerts\.ts/,
+  );
+  assert.match(
+    packageJson.scripts?.["build:server"] ?? "",
+    /scripts\/check-operational-alert-delivery-env\.ts/,
+  );
+  assert.doesNotMatch(
+    packageJson.scripts?.["ops:alerts:deliver"] ?? "",
+    /tsx|--import/,
+  );
+});
+
+test("Mentor health production bundle preserves the react-server condition", () => {
+  assert.equal(
+    packageJson.scripts?.["mentor:profiles:health"],
+    "node --conditions=react-server dist/check-mentor-profile-health.cjs",
+  );
+  assert.doesNotMatch(
+    packageJson.scripts?.["mentor:profiles:health"] ?? "",
+    /tsx|--import/,
+  );
+});
 
 test("server-only CLI entrypoints pin the isolated Node server runtime", async () => {
   const stub = await readFile(path.join(runtimeNodePath, "server-only", "index.js"), "utf8");

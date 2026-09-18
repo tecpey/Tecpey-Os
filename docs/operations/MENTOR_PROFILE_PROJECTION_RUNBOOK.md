@@ -17,7 +17,7 @@ The worker requires the same production database environment as the web process.
 - `MENTOR_PROFILE_WORKER_CONCURRENCY`: 1–10, default 4.
 - `MENTOR_PROFILE_WORKER_LEASE_SECONDS`: 15–300 seconds, default 120.
 
-Install the hardened service only after the exact release has completed database migrations `0105_mentor_profile_update_outbox.sql` and `0107_mentor_profile_dead_letter_resolution.sql`.
+Install the hardened service only after the exact release has completed Mentor/operations migrations through `0109_operational_signal_envelope.sql`, including the durable profile outbox, incident-resolution ledger and freshness observability index.
 
 Example staging dry-run:
 
@@ -31,7 +31,7 @@ sudo env \
   bash scripts/install-mentor-profile-worker.sh
 ```
 
-Remove `TECPEY_DRY_RUN=1` only after all three generated units verify cleanly: the durable worker, the independent health probe service and its timer.
+Remove `TECPEY_DRY_RUN=1` only after all five generated units verify cleanly: the durable worker, independent health probe service/timer, and generic operational alert delivery service/timer.
 
 ## Operational checks
 
@@ -40,11 +40,15 @@ systemctl is-enabled tecpey-mentor-profile-worker.service
 systemctl is-active tecpey-mentor-profile-worker.service
 systemctl is-enabled tecpey-mentor-profile-health.timer
 systemctl is-active tecpey-mentor-profile-health.timer
-systemctl list-timers --all | grep tecpey-mentor-profile-health
+systemctl is-enabled tecpey-ops-alert-delivery.timer
+systemctl is-active tecpey-ops-alert-delivery.timer
+systemctl list-timers --all | grep -E 'tecpey-(mentor-profile-health|ops-alert-delivery)'
 systemctl status tecpey-mentor-profile-worker.service --no-pager
 systemctl status tecpey-mentor-profile-health.service --no-pager
+systemctl status tecpey-ops-alert-delivery.service --no-pager
 journalctl -u tecpey-mentor-profile-worker.service -n 100 --no-pager
 journalctl -u tecpey-mentor-profile-health.service -n 100 --no-pager
+journalctl -u tecpey-ops-alert-delivery.service -n 100 --no-pager
 ```
 
 The worker evaluates a bounded aggregate health snapshot approximately once per minute. The snapshot contains queue counts and ages only; it never includes tenant, workspace, learner, conversation, prompt, KYC or portfolio identifiers.
@@ -63,7 +67,7 @@ These are engineering starting targets for staging calibration, **not a customer
 - an expired processing lease is warning immediately and critical once it is at least 30 seconds overdue;
 - any retryable failure is warning until it converges.
 
-The worker emits `MENTOR_PROFILE_BACKLOG` for warning state and `MENTOR_PROFILE_PROJECTION_STALLED` for critical state through the existing platform alert path. That path currently provides structured logging and best-effort webhook delivery; it must not be described as durable incident delivery until the broader operational alerting program proves that property.
+The in-process worker still emits `MENTOR_PROFILE_BACKLOG` and `MENTOR_PROFILE_PROJECTION_STALLED` as local application telemetry. Paging authority is deliberately separate: the independent systemd health probe owns durable critical condition signals, while warning-only states remain engineering evidence and do not open a paging incident.
 
 A one-shot machine-readable probe is available from the production bundle:
 
@@ -95,6 +99,38 @@ Optional bounded inputs are:
 The collector uses a **matured-event denominator**: an outbox event enters the sample only after it has had the full configured target interval to converge. Every matured event is counted, including pending, retryable and terminal outcomes; therefore backlog or failure cannot disappear from the SLI through survivorship bias. A good event is one processed on or before its own create+target deadline. Aggregate output includes eligible sample count, processed/valid/invalid latency counts, within-target and missed-target counts/ratio, plus p50, p95 and max create→processed latency for valid completed events. It does not return tenant, workspace, learner, conversation or prompt identifiers. Exit `0` means enough valid observations were collected, exit `1` means the denominator is still statistically thin, exit `2` means timestamp evidence is internally invalid, and exit `3` means database/calibration authority was unavailable.
 
 This output is **not an SLO pass/fail result**. Capture it on protected staging over representative Academy, Arena and Mentor workloads, compare multiple windows and traffic levels, then define the actual freshness SLI/error budget. If paging is later enabled, use a multi-window / multi-burn-rate policy so a short transient spike does not page while a sustained user-visible freshness regression cannot hide behind a long average.
+
+
+### Durable critical signal rail
+
+Critical Mentor health is carried by the shared TecPey operational rail rather than by a Mentor-specific notification subsystem. The detector writes to the local spool **before** relying on PostgreSQL or the remote webhook. This preserves outage independence: when PostgreSQL is unavailable, the host can still record an immutable delivery candidate on disk and the generic delivery timer can retry it later.
+
+The health probe owns three bounded condition identities:
+
+- `database-authority`: PostgreSQL health authority cannot be reached;
+- `health-probe`: the independent probe itself cannot complete safely;
+- `projection-health`: current projection state crosses a critical threshold.
+
+Warning-only `projection-health` observations do not open a durable paging incident. A transition to critical creates one `firing` signal. Repeated observations with the same condition fingerprint are deduplicated. If the critical reason set changes, the previous incident receives a `resolved` signal and a new firing incident is opened. Recovery emits one immutable `condition_recovered` resolution.
+
+Signal payloads are deliberately low-cardinality and privacy-minimized: bounded reason codes, numeric counters and numeric/null gauges only. Tenant, workspace, learner, conversation, prompt, KYC, portfolio and secret material are not part of the signal contract.
+
+Delivery is **at-least-once**. Every webhook request carries an `Idempotency-Key` equal to the stable signal ID, so the downstream receiver must honor that key. Retryable HTTP/network failures use bounded exponential backoff with deterministic jitter. A valid `Retry-After` delay can extend, but never shorten, local backoff. Non-retryable responses and exhausted retries move the item to `quarantine` rather than deleting evidence.
+
+The same spool remains backward-compatible with legacy Community operational alerts. Delivery uses the production bundle and a domain-independent preflight; it does not require PostgreSQL to be healthy before attempting to deliver already-spooled evidence.
+
+Operator inspection:
+
+```bash
+sudo find /var/lib/tecpey/ops/alerts/pending -maxdepth 1 -type f | wc -l
+sudo find /var/lib/tecpey/ops/alerts/delivered -maxdepth 1 -type f | wc -l
+sudo find /var/lib/tecpey/ops/alerts/quarantine -maxdepth 1 -type f | wc -l
+sudo find /var/lib/tecpey/ops/signals/active -maxdepth 1 -type f | wc -l
+sudo systemctl start tecpey-ops-alert-delivery.service
+journalctl -u tecpey-ops-alert-delivery.service --since '-10 minutes' --no-pager
+```
+
+Any quarantined critical signal or repeated failure of the delivery service is an incident-evidence condition; do not delete spool files to make a dashboard green. Investigate the webhook/network/credential cause, preserve evidence, and use the governed delivery path for recovery.
 
 Database reconciliation:
 
@@ -137,15 +173,15 @@ A successful repair may therefore change current health from critical to healthy
 Before enabling the service on staging:
 
 1. exact release SHA is known;
-2. migration plan hash and migration ledger are green through canonical step 092;
+2. migration plan hash and migration ledger are green through canonical step 093;
 3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
 5. `npm run mentor:profiles:freshness` produces valid aggregate calibration evidence or explicitly reports insufficient data;
-6. worker + independent health service + timer dry-run pass `systemd-analyze verify`;
-7. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
+6. worker + independent health service/timer + generic alert delivery service/timer dry-run pass `systemd-analyze verify`;
+7. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists), both timers are enabled/active, and the alert delivery preflight passes without requiring a database connection;
 8. the worker starts with zero unresolved terminal failures;
 9. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
-10. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
+10. stop the worker in a controlled staging drill, create bounded test backlog, verify the independent health service transitions to critical without relying on worker self-reporting, verify one firing signal moves `pending` → `delivered` (or remains pending during an intentionally unavailable webhook), restore the worker, verify `condition_recovered` is emitted, and confirm no critical item is left in `quarantine`.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
 
@@ -163,10 +199,13 @@ journalctl -u tecpey-mentor-profile-health.service --since '-10 minutes' --no-pa
 
 Expected behavior:
 
-- warning exit `1` is retained as a successful systemd execution so transient early pressure does not produce a false unit failure;
-- critical exit `2` or authority failure `3` makes the health service fail and is visible to host monitoring;
+- warning exit `1` is retained as a successful systemd execution so transient early pressure does not produce a false unit failure or paging incident;
+- critical exit `2` or authority failure `3` makes the health service fail, spools a critical operational signal first, and triggers `tecpey-ops-alert-delivery.service` through systemd `OnFailure=`;
+- repeating the same critical fingerprint does not create an alert storm;
+- if webhook delivery is unavailable, the pending item survives and the generic timer retries it with bounded jitter/backoff;
 - restarting the worker drains the bounded backlog;
-- a later independent probe returns healthy after convergence;
-- the drill must not mutate or delete dead-letter history to manufacture a green result.
+- a later independent probe returns healthy and emits one immutable `condition_recovered` resolution for the active incident;
+- the drill must not mutate/delete dead-letter, signal, delivery-attempt or spool history to manufacture a green result;
+- a critical signal in `quarantine` is not a successful drill and must be investigated.
 
-This watchdog is an **independent failure detector**, not a replacement for durable incident delivery. Until Mentor alerts are migrated onto the governed operational alert spool/delivery rail, critical notification delivery remains best-effort at the application webhook layer and host monitoring must treat a failed `tecpey-mentor-profile-health.service` as actionable.
+The watchdog is an **independent failure detector** and the local spool is the outage-safe durable notification authority. Host unit failure remains an additional observable symptom, not the only notification mechanism.

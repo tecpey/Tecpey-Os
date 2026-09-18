@@ -10,7 +10,6 @@ import {
   isTerminalMentorProfileWorkerError,
   mentorProfileWorkerErrorCode,
 } from "../src/lib/mentor-profile-worker";
-import { emitAlert } from "../src/lib/alerts";
 import {
   evaluateMentorProfileHealth,
   loadMentorProfileHealthSnapshot,
@@ -147,19 +146,12 @@ async function run(): Promise<void> {
           health.value,
           evaluation,
         );
-        console.log("[mentor-profile-worker] health", metadata);
         if (evaluation.status === "critical") {
-          emitAlert(
-            "MENTOR_PROFILE_PROJECTION_STALLED",
-            "Mentor profile projection requires operator attention",
-            metadata,
-          );
+          console.error("[mentor-profile-worker] critical health", metadata);
         } else if (evaluation.status === "warning") {
-          emitAlert(
-            "MENTOR_PROFILE_BACKLOG",
-            "Mentor profile projection is outside its internal health target",
-            metadata,
-          );
+          console.warn("[mentor-profile-worker] warning health", metadata);
+        } else {
+          console.log("[mentor-profile-worker] health", metadata);
         }
         lastReconciliationAt = now;
       }

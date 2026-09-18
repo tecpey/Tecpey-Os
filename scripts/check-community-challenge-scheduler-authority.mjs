@@ -11,6 +11,7 @@ const paths = {
   runner: "scripts/run-community-challenge-finalization-scheduled.ts",
   delivery: "scripts/deliver-operational-alerts.ts",
   envCheck: "scripts/check-community-challenge-scheduler-env.ts",
+  alertEnvCheck: "scripts/check-operational-alert-delivery-env.ts",
   installer: "scripts/install-community-challenge-scheduler.sh",
   finalizerService: "deploy/systemd/tecpey-community-challenge-finalizer.service.in",
   finalizerTimer: "deploy/systemd/tecpey-community-challenge-finalizer.timer",
@@ -138,14 +139,16 @@ for (const invariant of [
   "await rename(temporary, filePath)",
   "isSymbolicLink()",
   'parsed.protocol !== "https:"',
-  '"Idempotency-Key": item.alert.alertId',
+  '"Idempotency-Key": identity',
   'Authorization: `Bearer ${bearerToken}`',
   "response.status === 408",
   "response.status === 429",
   "response.status >= 500",
   "retryDelayMs",
-  "findExistingAlertFile",
-  "managed.pending, managed.delivered, managed.quarantine",
+  "findExistingSpoolFile",
+  "managed.pending",
+  "managed.delivered",
+  "managed.quarantine",
   "operational_spool_destination_conflict",
   "managed.quarantine",
   "managed.delivered",
@@ -254,7 +257,6 @@ for (const target of ["finalizerService", "alertService"]) {
     "EnvironmentFile=@@ENV_FILE@@",
     "Environment=NODE_ENV=production",
     "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
-    "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
     "NoNewPrivileges=true",
     "PrivateTmp=true",
     "PrivateDevices=true",
@@ -280,6 +282,35 @@ for (const target of ["finalizerService", "alertService"]) {
 }
 requireText(
   "finalizerService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
+  "finalizer must keep scheduler-specific preflight",
+);
+requireText(
+  "alertService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:alerts:env-check",
+  "alert delivery must use domain-independent preflight",
+);
+rejectText(
+  "alertEnvCheck",
+  "DATABASE_URL",
+  "alert delivery preflight must not depend on PostgreSQL availability",
+);
+rejectText(
+  "alertEnvCheck",
+  "COMMUNITY_CHALLENGE",
+  "alert delivery preflight must not depend on Community scheduler settings",
+);
+for (const invariant of [
+  "TECPEY_OPS_STATE_DIR",
+  "TECPEY_OPS_ALERT_WEBHOOK_URL",
+  "TECPEY_OPS_ALERT_BATCH_SIZE",
+  "TECPEY_OPS_ALERT_TIMEOUT_MS",
+  "TECPEY_OPS_ALERT_MAX_ATTEMPTS",
+]) {
+  requireText("alertEnvCheck", invariant, `generic alert preflight is missing ${invariant}`);
+}
+requireText(
+  "finalizerService",
   "OnFailure=tecpey-ops-alert-delivery.service",
   "finalizer failure must trigger alert delivery",
 );
@@ -294,6 +325,8 @@ for (const invariant of [
 for (const invariant of [
   "OnBootSec=2min",
   "OnUnitActiveSec=5min",
+  "RandomizedDelaySec=30s",
+  "FixedRandomDelay=true",
   "Unit=tecpey-ops-alert-delivery.service",
 ]) {
   requireText("alertTimer", invariant, `alert timer is missing ${invariant}`);
@@ -302,6 +335,7 @@ for (const invariant of [
 for (const command of [
   '"community:challenge:finalize:scheduled"',
   '"ops:alerts:deliver"',
+  '"ops:alerts:env-check"',
   '"ops:scheduler:env-check"',
   '"ops:scheduler:install"',
   '"ops:scheduler:check"',

@@ -151,44 +151,27 @@ const worker = await source("scripts/run-mentor-profile-worker.ts");
 for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
-  "MENTOR_PROFILE_BACKLOG",
-  "MENTOR_PROFILE_PROJECTION_STALLED",
   "mentorProfileHealthAlertMetadata",
+  '[mentor-profile-worker] critical health',
+  '[mentor-profile-worker] warning health',
 ]) {
-  requireText("worker", worker, needle, `worker health integration missing: ${needle}`);
+  requireText("worker", worker, needle, `worker health telemetry missing: ${needle}`);
 }
-
-const alerts = await source("src/lib/alerts.ts");
-requireText(
-  "alerts",
-  alerts,
-  '"MENTOR_PROFILE_BACKLOG"',
-  "warning alert type is missing",
-);
-requireText(
-  "alerts",
-  alerts,
-  '"MENTOR_PROFILE_PROJECTION_STALLED"',
-  "critical alert type is missing",
-);
-requirePattern(
-  "alerts",
-  alerts,
-  /MENTOR_PROFILE_BACKLOG:\s*"warning"/,
-  "backlog alert must remain warning severity",
-);
-requirePattern(
-  "alerts",
-  alerts,
-  /MENTOR_PROFILE_PROJECTION_STALLED:\s*"critical"/,
-  "stalled projection alert must remain critical severity",
-);
+if (worker.includes("emitAlert(")) {
+  failures.push(
+    "worker: health worker must not compete with the independent durable paging authority",
+  );
+}
 
 const probe = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
   "mentorProfileHealthAlertMetadata",
+  "transitionOperationalConditionSignal",
+  'condition: "database-authority"',
+  'condition: "health-probe"',
+  'condition: "projection-health"',
   'evaluation.status === "healthy" ? 0',
   'evaluation.status === "warning" ? 1',
   "process.exitCode = 3",
@@ -201,6 +184,11 @@ for (const needle of [
   "mentor_profile_health_bundle_missing",
   "tecpey-mentor-profile-health.service",
   "tecpey-mentor-profile-health.timer",
+  "tecpey-ops-alert-delivery.service",
+  "tecpey-ops-alert-delivery.timer",
+  "operational_alert_delivery_bundle_missing",
+  "operational_alert_env_check_bundle_missing",
+  "durable_alert_delivery=verified",
   "systemd-analyze verify",
   "systemctl start tecpey-mentor-profile-health.service",
   "systemctl enable --now tecpey-mentor-profile-health.timer",
@@ -226,6 +214,9 @@ for (const needle of [
   "Type=oneshot",
   "ExecStart=@@NPM_BIN@@ run mentor:profiles:health",
   "SuccessExitStatus=1",
+  "OnFailure=tecpey-ops-alert-delivery.service",
+  "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
+  "ReadWritePaths=@@STATE_DIR@@",
   "TimeoutStartSec=45s",
   "NoNewPrivileges=true",
   "ProtectSystem=strict",
@@ -263,7 +254,10 @@ for (const needle of [
   "SuccessExitStatus=1",
   "Watchdog failure drill",
   "independent failure detector",
-  "durable incident delivery",
+  "Durable critical signal rail",
+  "Idempotency-Key",
+  "condition_recovered",
+  "at-least-once",
 ]) {
   requireText("runbook", runbook, needle, `watchdog runbook invariant missing: ${needle}`);
 }
@@ -274,6 +268,10 @@ for (const needle of [
   "deploy/systemd/tecpey-mentor-profile-worker.service.in",
   "deploy/systemd/tecpey-mentor-profile-health.service.in",
   "deploy/systemd/tecpey-mentor-profile-health.timer",
+  "deploy/systemd/tecpey-ops-alert-delivery.service.in",
+  "deploy/systemd/tecpey-ops-alert-delivery.timer",
+  "scripts/check-operational-alert-delivery-env.ts",
+  "scripts/deliver-operational-alerts.ts",
   "scripts/install-mentor-profile-worker.sh",
   "docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md",
 ]) {

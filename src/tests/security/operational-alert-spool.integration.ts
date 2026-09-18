@@ -7,12 +7,14 @@ import { rm } from "node:fs/promises";
 import {
   deliverOperationalAlerts,
   enqueueOperationalAlert,
+  enqueueOperationalSignal,
   ensureOperationalSpoolDirectories,
   writeOperationalLastRun,
 } from "../../lib/ops/operational-alert-spool";
 import type {
   OperationalAlertEvidence,
   OperationalJobRunEvidence,
+  OperationalSignalEvidence,
 } from "../../lib/ops/operational-job-evidence";
 
 const roots: string[] = [];
@@ -55,6 +57,41 @@ function alert(status: "partial_failure" | "authority_unavailable"): Operational
     run: evidence,
     severity: status === "authority_unavailable" ? "critical" : "warning",
     occurredAt: evidence.completedAt,
+  };
+}
+
+function signal(input: {
+  incidentId?: string;
+  lifecycle?: "firing" | "resolved";
+  reasonCodes?: string[];
+} = {}): OperationalSignalEvidence {
+  const incidentId =
+    input.incidentId ?? "33333333-3333-4333-8333-333333333333";
+  const lifecycle = input.lifecycle ?? "firing";
+  return {
+    schemaVersion: 1,
+    signalId: `mentor-profile-health:${incidentId}:${lifecycle}`,
+    incidentId,
+    source: "mentor-profile-health",
+    sourceUnit: "tecpey-mentor-profile-health.service",
+    hostName: "ops-test",
+    severity: "critical",
+    lifecycle,
+    condition: "projection-health",
+    conditionFingerprint: "a".repeat(64),
+    occurredAt: "2026-09-18T12:00:00.000Z",
+    reasonCodes:
+      input.reasonCodes ??
+      (lifecycle === "resolved"
+        ? ["condition_recovered"]
+        : ["dead_letter_present"]),
+    counters: {
+      ready_backlog: 3,
+      unresolved_dead_letters: lifecycle === "resolved" ? 0 : 1,
+    },
+    gauges: {
+      oldest_ready_age_seconds: lifecycle === "resolved" ? null : 301,
+    },
   };
 }
 
@@ -140,7 +177,9 @@ describe("Operational alert spool", () => {
     };
     assert.equal(item.delivery.attemptCount, 1);
     assert.equal(item.delivery.lastErrorCode, "webhook_http_503");
-    assert.equal(item.delivery.nextAttemptAt, "2026-07-21T08:01:15.000Z");
+    const retryAt = Date.parse(item.delivery.nextAttemptAt);
+    const retryDelay = retryAt - Date.parse("2026-07-21T08:01:00.000Z");
+    assert.equal(retryDelay >= 15_000 && retryDelay <= 18_000, true);
     const early = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
@@ -148,6 +187,69 @@ describe("Operational alert spool", () => {
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
+  });
+
+  it("delivers generic operational signals with exact replay and idempotency identity", async () => {
+    const root = await tempRoot();
+    const firing = signal();
+    const queued = await enqueueOperationalSignal(root, firing);
+    const replay = await enqueueOperationalSignal(root, firing);
+    assert.equal(queued.replayed, false);
+    assert.equal(replay.replayed, true);
+
+    const requests: Array<{ headers: HeadersInit | undefined; body: unknown }> = [];
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-09-18T12:00:01.000Z"),
+      fetchImpl: async (_input, init) => {
+        requests.push({
+          headers: init?.headers,
+          body: JSON.parse(String(init?.body ?? "{}")),
+        });
+        return new Response(null, { status: 204 });
+      },
+    });
+    assert.equal(summary.delivered, 1);
+    assert.equal(requests.length, 1);
+    const headers = new Headers(requests[0]!.headers);
+    assert.equal(headers.get("Idempotency-Key"), firing.signalId);
+    assert.deepEqual(requests[0]!.body, firing);
+
+    const archivedReplay = await enqueueOperationalSignal(root, firing);
+    assert.equal(archivedReplay.replayed, true);
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    assert.equal(path.dirname(archivedReplay.filePath), dirs.delivered);
+
+    await assert.rejects(
+      enqueueOperationalSignal(root, {
+        ...firing,
+        reasonCodes: ["terminal_projection_failure"],
+      }),
+      /operational_spool_identity_conflict/,
+    );
+  });
+
+  it("honors bounded Retry-After while retaining deterministic backoff", async () => {
+    const root = await tempRoot();
+    await enqueueOperationalSignal(root, signal());
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-09-18T12:00:00.000Z"),
+      fetchImpl: async () =>
+        new Response(null, {
+          status: 429,
+          headers: { "Retry-After": "120" },
+        }),
+    });
+    assert.equal(summary.retryable, 1);
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    const [name] = await readdir(dirs.pending);
+    const item = JSON.parse(
+      await readFile(path.join(dirs.pending, name!), "utf8"),
+    ) as { delivery: { nextAttemptAt: string } };
+    assert.equal(item.delivery.nextAttemptAt, "2026-09-18T12:02:00.000Z");
   });
 
   it("quarantines terminal HTTP responses, invalid names, symlinks and oversized files", async () => {

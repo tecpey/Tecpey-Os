@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "f991d8db2e1fc7f0f52c6ec3e1ee4be28a099b34",
-      "sha256": "f1662678ded4ab9b2afd5a9dc175ea616fc3aac4d1618bfccecfbfedd796a549",
-      "lines": 289,
+      "gitObjectId": "86dfa9537aae3815febeba5ae2431b601ce9c124",
+      "sha256": "ad5a7f9d6d95ba322889561db35fe7e7f70e08bb967b3fbca4ba4bd30229817f",
+      "lines": 294,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 289
+          "endLine": 294
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -137,7 +137,8 @@
         "2026-09-18: re-reviewed the complete 279-line package after adding mentor:profiles:authority:check and composing it into ai:trust:check (therefore into the existing ai:redteam:check release path). The new command is a read-only static fail-closed guard over the durable Mentor outbox migration, producer transaction coupling, worker lease/retry/DLQ authority, tenant/workspace provenance, hardened systemd runtime, production bundle wiring and adversarial PostgreSQL evidence. It adds no dependency, engine, override, provider/spend authority, financial activation or deployment action.",
         "2026-09-18: re-reviewed the complete 281-line package after adding mentor:evals:authority:check and test:mentor-eval-promotion, composing the read-only promotion authority into ai:trust:check and the deterministic plus PostgreSQL RLS/immutability evidence into ai:redteam:check. The delta adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch action; it keeps Mentor promotion fail-closed and runs the new database proof only under the existing test authority.",
         "2026-09-18: re-reviewed the complete 285-line package after adding the bundled Mentor profile health probe, health authority/test commands, and PostgreSQL-backed health evidence to the existing profile projection suite. The delta adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch action; the probe is read-only, emits aggregate queue health only, and keeps the existing AI trust path fail-closed through mentor:profiles:authority:check.",
-        "2026-09-18: re-reviewed the complete 289-line package after adding the production-bundled Mentor profile freshness calibration collector, freshness source-authority command and focused unit/PostgreSQL calibration tests, then composing the read-only calibration authority into mentor:profiles:authority:check. The collector reads aggregate create-to-processed latency evidence only, declares observed/insufficient/invalid calibration states rather than an SLO pass, adds no dependency, engine or override, opens no new product/provider/spend/exchange/custody authority, and does not merge, deploy, page or activate production."
+        "2026-09-18: re-reviewed the complete 289-line package after adding the production-bundled Mentor profile freshness calibration collector, freshness source-authority command and focused unit/PostgreSQL calibration tests, then composing the read-only calibration authority into mentor:profiles:authority:check. The collector reads aggregate create-to-processed latency evidence only, declares observed/insufficient/invalid calibration states rather than an SLO pass, adds no dependency, engine or override, opens no new product/provider/spend/exchange/custody authority, and does not merge, deploy, page or activate production.",
+        "2026-09-18: re-reviewed the complete 294-line package after production-bundling the generic operational alert delivery/preflight CLIs, adding the durable operational-signal authority and focused signal/installer tests, and retaining the Mentor health probe under the isolated react-server condition. The delta adds no dependency, engine or override; it generalizes the existing outage-safe alert rail without activating a new product, provider, exchange, custody or financial capability, and does not merge, deploy or authorize launch."
       ],
       "findings": [
         {

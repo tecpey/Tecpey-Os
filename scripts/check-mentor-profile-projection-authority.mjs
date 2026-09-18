@@ -192,7 +192,7 @@ for (const [name, needle] of [
   ["build:server", "--bundle"],
   ["mentor:profiles:worker", "node dist/run-mentor-profile-worker.cjs"],
   ["mentor:profiles:worker:dev", "tsx scripts/run-mentor-profile-worker.ts"],
-  ["mentor:profiles:health", "node dist/check-mentor-profile-health.cjs"],
+  ["mentor:profiles:health", "node --conditions=react-server dist/check-mentor-profile-health.cjs"],
 ]) {
   if (typeof scripts[name] !== "string" || !scripts[name].includes(needle)) {
     failures.push(`package/runtime wiring missing: ${name} -> ${needle}`);

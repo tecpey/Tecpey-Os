@@ -45,6 +45,10 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 
 [[ "$DRY_RUN" == "0" || "$DRY_RUN" == "1" ]] || fail "dry_run_invalid"
 [[ -d "$APP_DIR" && -f "$APP_DIR/package.json" ]] || fail "app_directory_missing"
+[[ -f "$APP_DIR/dist/deliver-operational-alerts.cjs" && ! -L "$APP_DIR/dist/deliver-operational-alerts.cjs" ]] \
+  || fail "operational_alert_delivery_bundle_missing"
+[[ -f "$APP_DIR/dist/check-operational-alert-delivery-env.cjs" && ! -L "$APP_DIR/dist/check-operational-alert-delivery-env.cjs" ]] \
+  || fail "operational_alert_env_check_bundle_missing"
 [[ -x "$NPM_BIN" ]] || fail "npm_binary_missing"
 [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || fail "environment_file_unsafe"
 id "$RUN_USER" >/dev/null 2>&1 || fail "runtime_user_missing"

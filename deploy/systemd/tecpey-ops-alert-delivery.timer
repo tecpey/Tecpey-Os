@@ -5,7 +5,8 @@ Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/operations/COMM
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min
-RandomizedDelaySec=30
+RandomizedDelaySec=30s
+FixedRandomDelay=true
 AccuracySec=15s
 Unit=tecpey-ops-alert-delivery.service
 
