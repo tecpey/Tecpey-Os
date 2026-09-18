@@ -6,12 +6,19 @@ import {
   mentorProfileHealthAlertMetadata,
   type MentorProfileHealthSnapshot,
 } from "../src/lib/mentor-profile-health";
-import { createOperationalSignalEvidence } from "../src/lib/ops/operational-signal-evidence";
-import { enqueueOperationalSignal } from "../src/lib/ops/operational-signal-spool";
+import {
+  observeOperationalSignalEpisode,
+  type OperationalSignalEpisodeResult,
+} from "../src/lib/ops/operational-signal-episode-state";
 
 const SOURCE_UNIT = "tecpey-mentor-profile-health.service";
 const SIGNAL_TYPE = "mentor_profile_projection_health";
 const COMPONENT = "mentor_profile_projection";
+
+type EpisodeOutcome =
+  | { enabled: false; result: null; error: null }
+  | { enabled: true; result: OperationalSignalEpisodeResult; error: null }
+  | { enabled: true; result: null; error: string };
 
 function boundedWindowSeconds(): number {
   const raw =
@@ -65,35 +72,38 @@ function safeReasonCode(error: unknown): string {
     : "mentor_profile_health_check_failed";
 }
 
-async function enqueueCriticalSignal(input: {
+async function observeHealthEpisode(input: {
+  active: boolean;
   occurredAt: string;
-  reasonCodes: readonly string[];
+  reasonCodes?: readonly string[];
   measurements?: Record<string, number | boolean | null>;
-}): Promise<
-  | { enabled: false; replayed: null; signalId: null }
-  | { enabled: true; replayed: boolean; signalId: string }
-> {
-  const stateDirectory = operationalStateDirectory();
-  if (!stateDirectory) {
-    return { enabled: false, replayed: null, signalId: null };
+}): Promise<EpisodeOutcome> {
+  let stateDirectory: string | null;
+  try {
+    stateDirectory = operationalStateDirectory();
+  } catch (error) {
+    return { enabled: true, result: null, error: safeReasonCode(error) };
   }
-  const signal = createOperationalSignalEvidence({
-    signalType: SIGNAL_TYPE,
-    component: COMPONENT,
-    sourceUnit: SOURCE_UNIT,
-    severity: "critical",
-    lifecycle: "firing",
-    occurredAt: input.occurredAt,
-    dedupeWindowSeconds: boundedWindowSeconds(),
-    reasonCodes: input.reasonCodes,
-    measurements: input.measurements ?? {},
-  });
-  const queued = await enqueueOperationalSignal(stateDirectory, signal);
-  return {
-    enabled: true,
-    replayed: queued.replayed,
-    signalId: signal.signalId,
-  };
+  if (!stateDirectory) {
+    return { enabled: false, result: null, error: null };
+  }
+  try {
+    const result = await observeOperationalSignalEpisode({
+      stateDirectory,
+      signalType: SIGNAL_TYPE,
+      component: COMPONENT,
+      sourceUnit: SOURCE_UNIT,
+      active: input.active,
+      ...(input.active ? { severity: "critical" as const } : {}),
+      occurredAt: input.occurredAt,
+      dedupeWindowSeconds: boundedWindowSeconds(),
+      reasonCodes: input.reasonCodes,
+      measurements: input.measurements,
+    });
+    return { enabled: true, result, error: null };
+  } catch (error) {
+    return { enabled: true, result: null, error: safeReasonCode(error) };
+  }
 }
 
 async function main(): Promise<void> {
@@ -101,31 +111,19 @@ async function main(): Promise<void> {
   const snapshot = await withTx((client) =>
     loadMentorProfileHealthSnapshot(client),
   );
+
   if (!snapshot.enabled) {
-    let signal:
-      | Awaited<ReturnType<typeof enqueueCriticalSignal>>
-      | { enabled: false; replayed: null; signalId: null };
-    try {
-      signal = await enqueueCriticalSignal({
-        occurredAt,
-        reasonCodes: ["mentor_profile_database_unavailable"],
-      });
-    } catch (error) {
-      signal = { enabled: false, replayed: null, signalId: null };
-      console.error(
-        JSON.stringify({
-          ok: false,
-          status: "signal_spool_error",
-          error: safeReasonCode(error),
-        }),
-      );
-    }
+    const episode = await observeHealthEpisode({
+      active: true,
+      occurredAt,
+      reasonCodes: ["mentor_profile_database_unavailable"],
+    });
     console.error(
       JSON.stringify({
         ok: false,
         status: "authority_unavailable",
         error: "mentor_profile_database_unavailable",
-        criticalSignal: signal,
+        signalEpisode: episode,
       }),
     );
     process.exitCode = 3;
@@ -137,75 +135,56 @@ async function main(): Promise<void> {
     snapshot.value,
     evaluation,
   );
-  let criticalSignal:
-    | Awaited<ReturnType<typeof enqueueCriticalSignal>>
-    | null = null;
-  if (evaluation.status === "critical") {
-    try {
-      criticalSignal = await enqueueCriticalSignal({
-        occurredAt,
-        reasonCodes: evaluation.reasonCodes,
-        measurements: healthMeasurements(snapshot.value),
-      });
-    } catch (error) {
-      criticalSignal = {
-        enabled: false,
-        replayed: null,
-        signalId: null,
-      };
-      console.error(
-        JSON.stringify({
-          ok: false,
-          status: "signal_spool_error",
-          error: safeReasonCode(error),
-        }),
-      );
-    }
+  const episode = await observeHealthEpisode({
+    active: evaluation.status === "critical",
+    occurredAt,
+    reasonCodes:
+      evaluation.status === "critical" ? evaluation.reasonCodes : undefined,
+    measurements: healthMeasurements(snapshot.value),
+  });
+
+  if (episode.error) {
+    console.error(
+      JSON.stringify({
+        ok: false,
+        status: "signal_episode_error",
+        error: episode.error,
+      }),
+    );
   }
 
   console.log(
     JSON.stringify({
-      ok: evaluation.status === "healthy",
+      ok: evaluation.status === "healthy" && episode.error === null,
       ...evidence,
-      criticalSignal,
+      signalEpisode: episode,
     }),
   );
 
   process.exitCode =
-    evaluation.status === "healthy"
-      ? 0
-      : evaluation.status === "warning"
-        ? 1
-        : 2;
+    episode.error !== null
+      ? 3
+      : evaluation.status === "healthy"
+        ? 0
+        : evaluation.status === "warning"
+          ? 1
+          : 2;
 }
 
 void main().catch(async (error) => {
   const occurredAt = new Date().toISOString();
   const code = safeReasonCode(error);
-  let signal:
-    | Awaited<ReturnType<typeof enqueueCriticalSignal>>
-    | { enabled: false; replayed: null; signalId: null };
-  try {
-    signal = await enqueueCriticalSignal({
-      occurredAt,
-      reasonCodes: [code],
-    });
-  } catch (signalError) {
-    signal = { enabled: false, replayed: null, signalId: null };
-    console.error(
-      JSON.stringify({
-        ok: false,
-        status: "signal_spool_error",
-        error: safeReasonCode(signalError),
-      }),
-    );
-  }
+  const episode = await observeHealthEpisode({
+    active: true,
+    occurredAt,
+    reasonCodes: [code],
+  });
   console.error(
     JSON.stringify({
       ok: false,
       status: "error",
       error: code,
-      criticalSignal: signal,
+      signalEpisode: episode,
     }),
   );
   process.exitCode = 3;
