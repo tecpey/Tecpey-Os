@@ -225,7 +225,7 @@
     "mentor:profiles:worker:dev": "tsx scripts/run-mentor-profile-worker.ts",
     "mentor:profiles:authority:check": "node scripts/check-mentor-profile-projection-authority.mjs",
     "mentor:evals:authority:check": "node scripts/check-mentor-eval-promotion-authority.mjs",
-    "test:mentor-eval-promotion": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-eval-promotion-authority.test.ts"
+    "test:mentor-eval-promotion": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-eval-promotion-authority.test.ts src/tests/security/mentor-eval-promotion-postgres.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
