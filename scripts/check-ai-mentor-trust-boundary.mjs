@@ -43,6 +43,14 @@ for (const [label, pattern] of [
     "preference outage is explicit",
     /!preferenceAuthorityAvailable\s*\? "preference_authority_unavailable"/,
   ],
+  [
+    "server-authoritative Mentor capability",
+    /resolveMentorCapabilityAuthority\(\{/,
+  ],
+  [
+    "Premium research capability gate",
+    /mentorEntitled &&[\s\S]*!mentorPublicResearchAuthorized\(capabilityAuthority\)/,
+  ],
   ["daily quota and spend admission authority", /admitAiAgentExecution\(\{/],
   ["verified knowledge retrieval", /loadVerifiedAiKnowledgeContext\(\{/],
 ]) {
@@ -206,6 +214,7 @@ for (const [label, pattern] of [
   ["transaction delegation", /setMentorAiPreferences\(\{/],
   ["typed audit request", /action: "mentor\.preferences\.update"/],
   ["no-store", /Cache-Control", "private, no-store/],
+  ["server capabilities returned", /capabilities/],
 ]) {
   if (!pattern.test(preferences))
     failures.push(`mentor preferences: missing ${label}`);

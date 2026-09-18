@@ -32,6 +32,11 @@ import { callAiProviderWithFailover } from "@/lib/ai/provider-failover";
 import { recordOpenRouterQuotaSnapshot } from "@/lib/ai/automation-store";
 import { managedAiLaunchStatus } from "@/lib/ai/managed-ai-launch-policy";
 import {
+  mentorPublicResearchAuthorized,
+  resolveMentorCapabilityAuthority,
+  type MentorCapabilitySnapshot,
+} from "@/lib/ai/mentor-capability-authority";
+import {
   accountedAiProviderRouteCost,
   admitAiAgentExecution,
   aiEvidenceHash,
@@ -478,6 +483,12 @@ function publicResearchUnavailableAnswer(
     : `پژوهش زندهٔ عمومی در این فضای کاری فعلاً آماده نیست؛ بنابراین هیچ ادعای وبِ جاری را تأییدشده نمایش نمی‌دهم. راهنمای محدود آکادمی را جایگزین می‌کنم:\n\n${academyFallback}`;
 }
 
+function premiumResearchLockedAnswer(locale: "fa" | "en"): string {
+  return locale === "en"
+    ? "Live public research is locked until TecPey Pro has a server-authoritative subscription entitlement. The client cannot unlock this capability, and no external research provider was called."
+    : "پژوهش زندهٔ عمومی تا زمانی که اشتراک TecPey Pro دارای مجوز معتبر و سمت‌سرور نباشد قفل می‌ماند. رابط کاربری نمی‌تواند این قابلیت را باز کند و هیچ ارائه‌دهندهٔ پژوهش خارجی فراخوانی نشد.";
+}
+
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: "/api/ai-mentor" }, async () => {
     if (!(await verifyCsrfOrigin(request))) return apiError("forbidden", 403);
@@ -550,6 +561,7 @@ export async function POST(request: NextRequest) {
     let authorizedStudentId: string | null = null;
     let activeTenantId: string | undefined;
     let activeWorkspaceId: string | undefined;
+    let capabilityAuthority: MentorCapabilitySnapshot | null = null;
     if (studentId) {
       const tenantContext = await resolveTenantPrincipalContext({
         session,
@@ -575,6 +587,11 @@ export async function POST(request: NextRequest) {
         if (verdict.entitled) {
           mentorEntitled = true;
           authorizedStudentId = tenantContext.principalId;
+          capabilityAuthority = await resolveMentorCapabilityAuthority({
+            tenantId: tenantContext.tenantId,
+            workspaceId: tenantContext.workspaceId,
+            studentId: tenantContext.principalId,
+          });
         } else {
           egressGateReason = verdict.reason;
         }
@@ -823,6 +840,43 @@ export async function POST(request: NextRequest) {
             externalProviderUsed: false,
             providerAttempted: false,
             providerStatus: "public_research_blocked",
+            memoryPersisted: local.memoryPersisted,
+            memoryMode: local.memoryPersisted ? "durable" : "ephemeral",
+            evidencePersisted: local.evidencePersisted,
+            personalizationApplied: false,
+            remaining: limit.remaining,
+            threadId: activeThreadId,
+            researchMode: "public_blocked",
+          }),
+        );
+      }
+
+      if (
+        mentorEntitled &&
+        (!capabilityAuthority ||
+          !mentorPublicResearchAuthorized(capabilityAuthority))
+      ) {
+        const answer = premiumResearchLockedAnswer(locale);
+        const local = await persistLocal(
+          answer,
+          "premium_capability_required",
+          publicResearchEgress,
+          {
+            ...researchMetadata,
+            capability_policy_version: capabilityAuthority?.policyVersion ?? null,
+            capability_reason:
+              capabilityAuthority?.reason ?? "capability_authority_unresolved",
+          },
+        );
+        return apiOk(
+          responseEnvelope({
+            answer,
+            fallback,
+            mentorStatus: "research_locked",
+            source: "capability_policy",
+            externalProviderUsed: false,
+            providerAttempted: false,
+            providerStatus: "premium_capability_required",
             memoryPersisted: local.memoryPersisted,
             memoryMode: local.memoryPersisted ? "durable" : "ephemeral",
             evidencePersisted: local.evidencePersisted,
