@@ -5,7 +5,14 @@ import {
   validateOperationalSignalEvidence,
 } from "@/lib/ops/operational-signal-evidence";
 
-function signal(occurredAt: string, sourceUnit = "tecpey-mentor-profile-health.service") {
+function signal(
+  occurredAt: string,
+  sourceUnit = "tecpey-mentor-profile-health.service",
+  measurements: Record<string, number | boolean | null> = {
+    unresolved_dead_letters: 1,
+    oldest_ready_age_seconds: 420,
+  },
+) {
   return createOperationalSignalEvidence({
     signalType: "mentor_profile_projection_health",
     component: "mentor_profile_projection",
@@ -15,25 +22,20 @@ function signal(occurredAt: string, sourceUnit = "tecpey-mentor-profile-health.s
     occurredAt,
     dedupeWindowSeconds: 3_600,
     reasonCodes: ["dead_letter_present", "ready_age_critical"],
-    measurements: {
-      unresolved_dead_letters: 1,
-      oldest_ready_age_seconds: 420,
-    },
+    measurements,
   });
 }
 
 test("operational signal identity is stable inside one dedupe window", () => {
   const first = signal("2026-09-18T12:05:00.000Z");
-  const second = createOperationalSignalEvidence({
-    ...first,
-    signalId: undefined as never,
-    incidentKey: undefined as never,
-    occurredAt: "2026-09-18T12:55:00.000Z",
-    measurements: {
+  const second = signal(
+    "2026-09-18T12:55:00.000Z",
+    "tecpey-mentor-profile-health.service",
+    {
       unresolved_dead_letters: 3,
       oldest_ready_age_seconds: 900,
     },
-  });
+  );
   assert.equal(first.signalId, second.signalId);
   assert.equal(first.incidentKey, second.incidentKey);
   assert.equal(first.dedupeWindowStart, "2026-09-18T12:00:00.000Z");
