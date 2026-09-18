@@ -86,6 +86,7 @@ describe("Operational signal PostgreSQL authority", () => {
       );
       assert.equal(first.replayed, false);
       assert.equal(replay.replayed, true);
+      assert.equal(replay.payloadHash, first.payloadHash);
 
       const stored = await withClient((client) =>
         client.query<{ payload: { measurements?: { unresolved_dead_letters?: number } } }>(
