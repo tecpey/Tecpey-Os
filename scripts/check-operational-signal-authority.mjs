@@ -123,6 +123,38 @@ requirePattern(
   "delivery batching must select due work before applying the batch limit",
 );
 
+const evidenceTest = await source(
+  "src/tests/security/operational-signal-evidence.test.ts",
+);
+for (const needle of [
+  "otherInstance",
+  "assert.notEqual(first.incidentKey, otherInstance.incidentKey)",
+  "assert.notEqual(first.signalId, otherInstance.signalId)",
+]) {
+  requireText(
+    "evidence-test",
+    evidenceTest,
+    needle,
+    `cross-instance identity proof missing: ${needle}`,
+  );
+}
+
+const postgresTest = await source(
+  "src/tests/security/operational-signal-postgres.integration.ts",
+);
+for (const needle of [
+  "keeps simultaneous incidents from different instances distinct",
+  'instanceFingerprint: "222222222222222222222222"',
+  "assert.notEqual(first.signalId, secondAuthoritative.signalId)",
+]) {
+  requireText(
+    "postgres-test",
+    postgresTest,
+    needle,
+    `cross-instance persistence proof missing: ${needle}`,
+  );
+}
+
 const spoolTest = await source(
   "src/tests/security/operational-signal-spool.integration.ts",
 );
