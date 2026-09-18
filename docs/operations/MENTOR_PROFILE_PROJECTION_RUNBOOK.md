@@ -95,6 +95,10 @@ SELECT terminal_reason, COUNT(*), MAX(created_at)
 FROM mentor_profile_update_dead_letters
 GROUP BY terminal_reason
 ORDER BY COUNT(*) DESC;
+
+SELECT
+  (SELECT COUNT(*) FROM mentor_profile_update_dead_letters) AS dead_letter_history,
+  (SELECT COUNT(*) FROM mentor_profile_dead_letter_resolutions) AS resolved_history;
 ```
 
 Do not manually rewrite event identity fields, payload hashes, terminal evidence or attempt history. Database triggers deliberately reject identity mutation and dead-letter UPDATE/DELETE.
@@ -107,7 +111,7 @@ A terminal event is evidence that automatic projection did not converge. Repair 
 
 The governed full-current-state repair sweep recomputes the learner profile and then appends a row to `mentor_profile_dead_letter_resolutions` for dead letters that existed **before that repair began**. This anti-race boundary prevents a new terminal event created during the repair from being silently marked resolved. Resolution rows are append-only and the original dead-letter evidence remains immutable for forensics.
 
-A successful repair may therefore change current health from critical to healthy while `deadLettersTotal` remains non-zero. This is intentional: current unresolved incident state and historical failure evidence are different signals. A manual profile edit that bypasses the governed repair path does not clear an incident.
+A successful repair may therefore change current health from critical to healthy while the append-only dead-letter table remains non-empty. This is intentional: the hot health probe reads only current actionable incident state; historical failure/resolution totals remain forensic evidence queried separately. A manual profile edit that bypasses the governed repair path does not clear an incident.
 
 ## Deployment gate
 
