@@ -104,6 +104,10 @@ import {
   MENTOR_PROFILE_UPDATE_OUTBOX_SQL,
   runMentorProfileUpdateOutboxMigrations,
 } from "./db-migrate-mentor-profile-update-outbox";
+import {
+  MENTOR_EVAL_PROMOTION_AUTHORITY_SQL,
+  runMentorEvalPromotionAuthorityMigrations,
+} from "./db-migrate-mentor-eval-promotion-authority";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -184,6 +188,15 @@ const MENTOR_PROFILE_UPDATE_OUTBOX_MIGRATION: CanonicalMigrationContent =
     identity: "0105_mentor_profile_update_outbox.sql",
     content: MENTOR_PROFILE_UPDATE_OUTBOX_SQL,
     checksum: canonicalMigrationChecksum(MENTOR_PROFILE_UPDATE_OUTBOX_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const MENTOR_EVAL_PROMOTION_AUTHORITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0106_mentor_eval_promotion_authority.sql",
+    content: MENTOR_EVAL_PROMOTION_AUTHORITY_SQL,
+    checksum: canonicalMigrationChecksum(MENTOR_EVAL_PROMOTION_AUTHORITY_SQL),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
   });
@@ -298,6 +311,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-platform-security",
     "ai-mentor",
     runMentorProfileUpdateOutboxMigrations,
+  ),
+  entry(
+    90,
+    "migration-step-090",
+    [MENTOR_EVAL_PROMOTION_AUTHORITY_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorEvalPromotionAuthorityMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
