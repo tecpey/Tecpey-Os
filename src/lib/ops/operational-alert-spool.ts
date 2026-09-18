@@ -550,51 +550,81 @@ async function moveFile(source: string, destinationDirectory: string): Promise<v
   }
 }
 
-async function bestEffortPersistAlert(alert: OperationalAlertEvidence): Promise<void> {
+async function mirrorSpoolItemToDatabase(
+  item: OperationalSpoolItem,
+): Promise<boolean> {
   try {
-    const persisted = await withTx((client) => persistOperationalAlertTx(client, alert));
-    if (!persisted.enabled) return;
+    const mirrored = await withTx(async (client) => {
+      if (item.schemaVersion === 1) {
+        await persistOperationalAlertTx(client, item.alert);
+        for (const attempt of item.delivery.attemptHistory) {
+          await persistOperationalAlertDeliveryAttemptTx(client, {
+            alertId: item.alert.alertId,
+            ...attempt,
+            evidence: {
+              provider: "webhook",
+              responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
+            },
+          });
+        }
+      } else {
+        await persistOperationalSignalTx(client, item.signal);
+        for (const attempt of item.delivery.attemptHistory) {
+          await persistOperationalSignalDeliveryAttemptTx(client, {
+            signalId: item.signal.signalId,
+            ...attempt,
+            evidence: {
+              provider: "webhook",
+              responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
+            },
+          });
+        }
+      }
+      return true;
+    });
+    return mirrored.enabled && mirrored.value === true;
   } catch {
-    // The local spool is the outage-safe authority when PostgreSQL is unavailable.
+    // The local spool/archive is the outage-safe authority until DB recovers.
+    return false;
   }
 }
 
-async function bestEffortPersistAttempt(input: Parameters<
-  typeof persistOperationalAlertDeliveryAttemptTx
->[1]): Promise<void> {
-  try {
-    const persisted = await withTx((client) =>
-      persistOperationalAlertDeliveryAttemptTx(client, input),
-    );
-    if (!persisted.enabled) return;
-  } catch {
-    // Delivery remains evidenced by the immutable local spool/archive.
-  }
+function withDatabaseMirrorState(
+  item: OperationalSpoolItem,
+  complete: boolean,
+): OperationalSpoolItem {
+  return {
+    ...item,
+    delivery: {
+      ...item.delivery,
+      databaseMirrorComplete: complete,
+    },
+  } as OperationalSpoolItem;
 }
 
-async function bestEffortPersistSignal(
-  signal: OperationalSignalEvidence,
+async function reconcileArchiveDirectory(
+  directory: string,
+  limit: number,
 ): Promise<void> {
-  try {
-    const persisted = await withTx((client) =>
-      persistOperationalSignalTx(client, signal),
-    );
-    if (!persisted.enabled) return;
-  } catch {
-    // Local spool remains authoritative during database outages.
-  }
-}
+  let mirrored = 0;
+  const entries = (await readdir(directory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && SAFE_FILE_RE.test(entry.name))
+    .sort((left, right) => left.name.localeCompare(right.name));
 
-async function bestEffortPersistSignalAttempt(input: Parameters<
-  typeof persistOperationalSignalDeliveryAttemptTx
->[1]): Promise<void> {
-  try {
-    const persisted = await withTx((client) =>
-      persistOperationalSignalDeliveryAttemptTx(client, input),
-    );
-    if (!persisted.enabled) return;
-  } catch {
-    // Delivery remains evidenced by the immutable local spool/archive.
+  for (const entry of entries) {
+    if (mirrored >= limit) break;
+    const filePath = path.join(directory, entry.name);
+    let item: OperationalSpoolItem;
+    try {
+      item = validateSpoolItem(await safeReadJson(filePath));
+    } catch {
+      continue;
+    }
+    if (item.delivery.databaseMirrorComplete) continue;
+    const complete = await mirrorSpoolItemToDatabase(item);
+    if (!complete) break;
+    await atomicWriteJson(filePath, withDatabaseMirrorState(item, true));
+    mirrored += 1;
   }
 }
 
