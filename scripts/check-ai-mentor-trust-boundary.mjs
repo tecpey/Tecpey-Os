@@ -234,6 +234,19 @@ if (!/runAiMentorTrustMigrations/.test(migrationPlan)) {
   failures.push("migration plan: AI Mentor trust migration is not governed");
 }
 
+const insights = await source("src/app/api/mentor-insights/route.ts");
+for (const forbidden of [
+  "generateMentorInsights",
+  "applyMentorProfileUpdate",
+  'searchParams.get("generate")',
+]) {
+  if (insights.includes(forbidden)) {
+    failures.push(
+      `mentor insights: GET route must remain read-only; found ${forbidden}`,
+    );
+  }
+}
+
 const preferences = await source("src/app/api/mentor-preferences/route.ts");
 for (const [label, pattern] of [
   ["strict session", /strictRevocation: true/],

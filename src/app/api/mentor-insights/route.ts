@@ -2,8 +2,6 @@ import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
-import { generateMentorInsights } from "@/lib/mentor-memory";
-import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
@@ -52,13 +50,6 @@ export async function GET(req: NextRequest) {
     const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
     if (productGate) return productGate;
     const studentId = tenantContext.principalId;
-
-    const shouldGenerate = new URL(req.url).searchParams.get("generate") === "1";
-
-    if (shouldGenerate) {
-      await applyMentorProfileUpdate(studentId);
-      await generateMentorInsights(studentId);
-    }
 
     const result = await withDb(async (client) => {
       // One pooled client serializes these regardless; awaiting in order keeps
