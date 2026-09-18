@@ -3,7 +3,7 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it, test } from "node:test";
 
 const roots: string[] = [];
 const installer = path.resolve("scripts/install-community-challenge-scheduler.sh");
