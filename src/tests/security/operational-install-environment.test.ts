@@ -70,7 +70,12 @@ describe("operational installer environment authority", () => {
           validateOperationalInstallEnvironmentFile(filePath),
           /operational_install_webhook_invalid/,
         );
-        await chmod(filePath, 0o666);
+        await chmod(filePath, 0o644);
+        await assert.rejects(
+          validateOperationalInstallEnvironmentFile(filePath),
+          /operational_install_environment_file_unsafe/,
+        );
+        await chmod(filePath, 0o650);
         await assert.rejects(
           validateOperationalInstallEnvironmentFile(filePath),
           /operational_install_environment_file_unsafe/,
