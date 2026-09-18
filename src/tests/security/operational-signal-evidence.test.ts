@@ -38,6 +38,8 @@ test("operational signal identity is stable inside one dedupe window", () => {
   );
   assert.equal(first.signalId, second.signalId);
   assert.equal(first.incidentKey, second.incidentKey);
+  assert.equal(first.incidentId, second.incidentId);
+  assert.equal(first.conditionFingerprint, second.conditionFingerprint);
   assert.equal(first.dedupeWindowStart, "2026-09-18T12:00:00.000Z");
   assert.deepEqual(validateOperationalSignalEvidence(first), first);
 });
@@ -52,6 +54,46 @@ test("new windows and different detector services produce distinct identities", 
   assert.notEqual(first.signalId, nextWindow.signalId);
   assert.notEqual(first.incidentKey, otherDetector.incidentKey);
   assert.notEqual(first.signalId, otherDetector.signalId);
+});
+
+test("condition identity is stable across cause changes while incident generation rotates", () => {
+  const first = signal("2026-09-18T12:05:00.000Z");
+  const changed = createOperationalSignalEvidence({
+    signalType: "mentor_profile_projection_health",
+    component: "mentor_profile_projection",
+    sourceUnit: "tecpey-mentor-profile-health.service",
+    severity: "critical",
+    lifecycle: "firing",
+    occurredAt: "2026-09-18T12:10:00.000Z",
+    dedupeWindowSeconds: 3_600,
+    reasonCodes: ["lease_overdue_critical"],
+    measurements: {},
+  });
+  assert.equal(first.incidentKey, changed.incidentKey);
+  assert.notEqual(first.conditionFingerprint, changed.conditionFingerprint);
+  assert.notEqual(first.incidentId, changed.incidentId);
+  assert.notEqual(first.signalId, changed.signalId);
+});
+
+test("resolved signal keeps the exact incident generation and fingerprint", () => {
+  const firing = signal("2026-09-18T12:05:00.000Z");
+  const resolved = createOperationalSignalEvidence({
+    signalType: firing.signalType,
+    component: firing.component,
+    sourceUnit: firing.sourceUnit,
+    severity: firing.severity,
+    lifecycle: "resolved",
+    occurredAt: "2026-09-18T12:20:00.000Z",
+    incidentId: firing.incidentId,
+    conditionFingerprint: firing.conditionFingerprint,
+    reasonCodes: ["condition_recovered"],
+    measurements: {},
+  });
+  assert.equal(resolved.incidentKey, firing.incidentKey);
+  assert.equal(resolved.incidentId, firing.incidentId);
+  assert.equal(resolved.conditionFingerprint, firing.conditionFingerprint);
+  assert.notEqual(resolved.signalId, firing.signalId);
+  assert.deepEqual(validateOperationalSignalEvidence(resolved), resolved);
 });
 
 test("operational signal payload forbids free-text measurements and bad windows", () => {
@@ -84,6 +126,34 @@ test("operational signal payload forbids free-text measurements and bad windows"
         },
       }),
     /operational_signal_measurement_value_invalid/,
+  );
+});
+
+test("firing fingerprint override and tampered generation identity are rejected", () => {
+  const created = signal("2026-09-18T12:05:00.000Z");
+  assert.throws(
+    () =>
+      createOperationalSignalEvidence({
+        signalType: created.signalType,
+        component: created.component,
+        sourceUnit: created.sourceUnit,
+        severity: "critical",
+        lifecycle: "firing",
+        occurredAt: created.occurredAt,
+        incidentId: created.incidentId,
+        conditionFingerprint: "a".repeat(64),
+        reasonCodes: ["different_reason"],
+        measurements: {},
+      }),
+    /operational_signal_condition_fingerprint_invalid/,
+  );
+  assert.throws(
+    () =>
+      validateOperationalSignalEvidence({
+        ...created,
+        incidentId: "b".repeat(64),
+      }),
+    /operational_signal_identity_invalid/,
   );
 });
 
