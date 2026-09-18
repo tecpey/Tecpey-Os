@@ -80,7 +80,7 @@ Incident behavior is stateful and bounded:
 
 The spool directories are mode `0700` and queued/archive files are mode `0600`. A write uses create-exclusive temporary files, fsync and atomic rename. PostgreSQL copies of signal/delivery evidence are append-only when the database is available, but delivery does not depend on PostgreSQL being reachable; the local spool/archive remains the outage-safe transport authority.
 
-`tecpey-ops-alert-delivery.timer` drains the shared operational spool through the production-bundled delivery runner. Webhook delivery uses a stable `Idempotency-Key`, HTTPS-only production configuration, bounded timeout/attempt count, capped exponential retry with deterministic per-signal jitter, and quarantine behavior:
+`tecpey-ops-alert-delivery.timer` drains the shared operational spool through the production-bundled delivery runner. Critical/error exits from the independent Mentor health probe also trigger `tecpey-ops-alert-delivery.service` immediately through systemd `OnFailure`, while the one-minute timer remains the retry/fallback path. Webhook delivery uses a stable `Idempotency-Key`, HTTPS-only production configuration, bounded timeout/attempt count, capped exponential retry with deterministic per-signal jitter, and quarantine behavior:
 
 - network failures, HTTP `408`, `425`, `429`, and `5xx` are retryable;
 - non-retryable HTTP failures are quarantined;
