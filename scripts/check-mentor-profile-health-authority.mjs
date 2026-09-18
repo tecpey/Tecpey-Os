@@ -189,16 +189,30 @@ for (const needle of [
   "loadMentorProfileHealthSnapshot",
   "evaluateMentorProfileHealth",
   "mentorProfileHealthAlertMetadata",
-  'evaluation.status === "healthy" ? 0',
-  'evaluation.status === "warning" ? 1',
+  "createOperationalSignalEvidence",
+  "enqueueOperationalSignal",
+  "TECPEY_OPS_STATE_DIR",
+  "mentor_profile_database_unavailable",
   "process.exitCode = 3",
 ]) {
   requireText("probe", probe, needle, `one-shot health probe missing: ${needle}`);
 }
+requirePattern(
+  "probe",
+  probe,
+  /evaluation\.status === "healthy"[\s\S]*\? 0[\s\S]*evaluation\.status === "warning"[\s\S]*\? 1[\s\S]*: 2/,
+  "probe must preserve 0=healthy, 1=warning and 2=critical exit semantics",
+);
+requirePattern(
+  "probe",
+  probe,
+  /if \(evaluation\.status === "critical"\)[\s\S]*enqueueCriticalSignal/,
+  "durable signal emission must remain restricted to critical health",
+);
 
 const installer = await source("scripts/install-mentor-profile-worker.sh");
 for (const needle of [
-  "mentor_profile_health_bundle_missing",
+  "mentor_operational_bundle_missing",
   "tecpey-mentor-profile-health.service",
   "tecpey-mentor-profile-health.timer",
   "systemd-analyze verify",
@@ -206,6 +220,12 @@ for (const needle of [
   "systemctl enable --now tecpey-mentor-profile-health.timer",
   "systemctl is-enabled --quiet tecpey-mentor-profile-health.timer",
   "systemctl is-active --quiet tecpey-mentor-profile-health.timer",
+  "tecpey-ops-alert-delivery.service",
+  "tecpey-ops-alert-delivery.timer",
+  "systemctl enable --now tecpey-ops-alert-delivery.timer",
+  "systemctl is-active --quiet tecpey-ops-alert-delivery.timer",
+  "TECPEY_OPS_STATE_DIR",
+  "ops:installer:env-check",
 ]) {
   requireText("installer", installer, needle, `Mentor watchdog installer invariant missing: ${needle}`);
 }
@@ -231,6 +251,8 @@ for (const needle of [
   "ProtectSystem=strict",
   "CapabilityBoundingSet=",
   "ReadOnlyPaths=@@APP_DIR@@",
+  "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
+  "ReadWritePaths=@@STATE_DIR@@",
 ]) {
   requireText("health-service", healthService, needle, `health service invariant missing: ${needle}`);
 }
@@ -263,7 +285,7 @@ for (const needle of [
   "SuccessExitStatus=1",
   "Watchdog failure drill",
   "independent failure detector",
-  "durable incident delivery",
+  "durable operational signal rail",
 ]) {
   requireText("runbook", runbook, needle, `watchdog runbook invariant missing: ${needle}`);
 }
