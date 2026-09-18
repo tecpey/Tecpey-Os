@@ -181,6 +181,19 @@ if (
   );
 }
 
+const mentorWorker = await source("scripts/run-mentor-profile-worker.ts");
+if (mentorWorker.includes("emitAlert(")) {
+  failures.push(
+    "mentor-worker: worker must remain telemetry-only; the independent probe is the sole incident producer",
+  );
+}
+for (const needle of [
+  "[mentor-profile-worker] health",
+  "sole durable incident producer",
+]) {
+  requireText("mentor-worker", mentorWorker, needle, `worker telemetry boundary missing: ${needle}`);
+}
+
 const delivery = await source("scripts/deliver-operational-alerts.ts");
 for (const needle of [
   "deliverOperationalAlerts",
@@ -363,6 +376,10 @@ for (const needle of [
   "signals/quarantine",
   "first observation",
   "PostgreSQL outage",
+  "signals/conditions",
+  "write-ahead transition",
+  "same condition recurs after recovery",
+  "sole governed producer",
 ]) {
   requireText("runbook", runbook, needle, `operational signal runbook invariant missing: ${needle}`);
 }
