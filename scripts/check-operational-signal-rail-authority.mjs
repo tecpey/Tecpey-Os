@@ -194,7 +194,10 @@ for (const needle of [
   'STATE_DIR="${TECPEY_OPS_STATE_DIR:-/var/lib/tecpey/ops}"',
   "state_directory_symlink_forbidden",
   "operational_alert_delivery_bundle_missing",
-  "ops_alert_https_webhook_missing",
+  "operational_installer_env_bundle_missing",
+  "TECPEY_INSTALL_ENV_FILE",
+  "ops:installer:env-check",
+  "operational_install_environment_invalid",
   "tecpey-ops-alert-delivery.service",
   "tecpey-ops-alert-delivery.timer",
   'install -d -m 0700 -o "$RUN_USER" -g "$RUN_GROUP" "$STATE_DIR"',
@@ -203,11 +206,47 @@ for (const needle of [
 ]) {
   requireText("installer", installer, needle, `Mentor durable signal installer invariant missing: ${needle}`);
 }
+forbidText(
+  "installer",
+  installer,
+  "read_env_value()",
+  "installer must use the governed systemd EnvironmentFile parser, not ad-hoc shell parsing",
+);
+
+const installEnvironment = await source(
+  "src/lib/ops/operational-install-environment.ts",
+);
+for (const needle of [
+  "parseSystemdEnvironmentFile",
+  "rejectDuplicateKeys: true",
+  "operational_install_database_url_invalid",
+  "operational_install_webhook_invalid",
+  "operational_install_environment_file_unsafe",
+]) {
+  requireText(
+    "installer-env",
+    installEnvironment,
+    needle,
+    `governed installer environment invariant missing: ${needle}`,
+  );
+}
+
+const systemdEnvironment = await source(
+  "src/lib/ops/systemd-environment-file.ts",
+);
+requireText(
+  "systemd-env",
+  systemdEnvironment,
+  "rejectDuplicateKeys?: boolean",
+  "systemd EnvironmentFile parser must support strict duplicate-key authority",
+);
 
 const packageJson = JSON.parse(await source("package.json"));
 const scripts = packageJson.scripts ?? {};
 for (const [name, needle] of [
   ["build:server", "scripts/deliver-operational-alerts.ts"],
+  ["build:server", "scripts/check-operational-installer-env.ts"],
+  ["ops:installer:env-check", "dist/check-operational-installer-env.cjs"],
   ["ops:alerts:deliver", "dist/deliver-operational-alerts.cjs"],
   ["ops:alerts:env-check", "check-operational-alert-delivery-env.mjs"],
   ["ops:scheduler:check", "ops:signals:authority:check"],
@@ -243,10 +282,24 @@ for (const needle of [
   "deterministic capped jitter",
   "rejects a state root that traverses a symlinked ancestor",
   "replays the exact incident transition after a restart-like interruption",
-  "future retries cannot starve ready alerts",
-  "without webhook redelivery",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
+}
+
+const alertSpoolTest = await source(
+  "src/tests/security/operational-alert-spool.integration.ts",
+);
+for (const needle of [
+  "future retries cannot starve ready alerts",
+  "without webhook redelivery",
+  "mode & 0o777, 0o644",
+]) {
+  requireText(
+    "alert-spool-test",
+    alertSpoolTest,
+    needle,
+    `alert spool hardening proof missing: ${needle}`,
+  );
 }
 
 const postgresTest = await source(
