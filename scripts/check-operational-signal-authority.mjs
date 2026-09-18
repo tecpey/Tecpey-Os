@@ -182,6 +182,8 @@ for (const needle of [
 const healthService = await source("deploy/systemd/tecpey-mentor-profile-health.service.in");
 for (const needle of [
   "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
+  "OnFailure=tecpey-ops-alert-delivery.service",
+  "SuccessExitStatus=1",
   "ProtectSystem=strict",
   "ReadOnlyPaths=@@APP_DIR@@",
   "ReadWritePaths=@@STATE_DIR@@",
