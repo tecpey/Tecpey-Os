@@ -679,6 +679,33 @@
       "adversarialProof": "proven",
       "issue": "#577",
       "testReference": "src/tests/security/support-messages-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_outbox",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Durable Mentor projection events carry tenant_id + workspace_id from the already-resolved acting student context. A composite foreign key to platform_workspaces(tenant_id, id) makes a foreign workspace pair impossible, event identity hashes tenant + workspace + student + source reference, and the system worker never accepts tenant/workspace coordinates from a client payload. The projected mentor_profiles row remains intentionally student_global; the outbox scope is immutable provenance for the tenant-authorized source event rather than a partition of the learner model.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_attempts",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Every worker attempt copies tenant_id + workspace_id from the claimed outbox row and is composite-FK-bound back to that exact (outbox_id, tenant_id, workspace_id). Callers cannot manufacture attempt scope independently; claim coordinates are payload-free and the processing transaction reloads the authoritative outbox row.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_dead_letters",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Terminal evidence copies tenant_id + workspace_id from the locked outbox source and is composite-FK-bound to the same scoped event. Dead letters are append-only, retain only bounded error identity plus hashes and a one-way student fingerprint, and reject UPDATE/DELETE.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
     }
   ]
 }
