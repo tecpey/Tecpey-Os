@@ -114,7 +114,23 @@ describe("Operational alert spool", () => {
     assert.equal(headers.get("Authorization"), "Bearer test-token");
     const dirs = await ensureOperationalSpoolDirectories(root);
     assert.equal((await readdir(dirs.pending)).length, 0);
-    assert.equal((await readdir(dirs.delivered)).length, 1);
+    const [deliveredName] = await readdir(dirs.delivered);
+    assert.ok(deliveredName);
+    const deliveredArchive = JSON.parse(
+      await readFile(path.join(dirs.delivered, deliveredName), "utf8"),
+    ) as {
+      delivery: {
+        attemptCount: number;
+        lastAttemptAt: string | null;
+        finalResult: string | null;
+      };
+    };
+    assert.equal(deliveredArchive.delivery.attemptCount, 1);
+    assert.equal(
+      deliveredArchive.delivery.lastAttemptAt,
+      "2026-07-21T08:01:00.000Z",
+    );
+    assert.equal(deliveredArchive.delivery.finalResult, "delivered");
 
     const archivedReplay = await enqueueOperationalAlert(root, queued);
     assert.equal(archivedReplay.replayed, true);
@@ -158,6 +174,10 @@ describe("Operational alert spool", () => {
       ).toISOString(),
     );
     assert.equal(expectedDelay >= 1_000 && expectedDelay <= 15_000, true);
+    assert.throws(
+      () => operationalRetryDelayMs(0, alert("authority_unavailable").alertId),
+      /operational_retry_jitter_input_invalid/,
+    );
     const early = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
@@ -350,8 +370,23 @@ describe("Operational alert spool", () => {
     assert.equal(terminal.quarantined, 1);
 
     const dirs = await ensureOperationalSpoolDirectories(root);
+    const [terminalName] = await readdir(dirs.quarantine);
+    assert.ok(terminalName);
+    const terminalArchive = JSON.parse(
+      await readFile(path.join(dirs.quarantine, terminalName), "utf8"),
+    ) as {
+      delivery: {
+        attemptCount: number;
+        lastErrorCode: string | null;
+        finalResult: string | null;
+      };
+    };
+    assert.equal(terminalArchive.delivery.attemptCount, 1);
+    assert.equal(terminalArchive.delivery.lastErrorCode, "webhook_http_400");
+    assert.equal(terminalArchive.delivery.finalResult, "terminal_failure");
+
     const target = path.join(root, "outside.json");
-    await writeFile(target, "{}", { mode: 0o600 });
+    await writeFile(target, "{}", { mode: 0o644 });
     await symlink(target, path.join(dirs.pending, `${"a".repeat(64)}.json`));
     await writeFile(
       path.join(dirs.pending, `${"b".repeat(64)}.json`),
@@ -367,5 +402,6 @@ describe("Operational alert spool", () => {
     });
     assert.equal(unsafe.quarantined, 3);
     assert.equal((await readdir(dirs.pending)).length, 0);
+    assert.equal((await stat(target)).mode & 0o777, 0o644);
   });
 });
