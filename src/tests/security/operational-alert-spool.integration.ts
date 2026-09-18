@@ -157,7 +157,9 @@ describe("Operational alert spool", () => {
     const early = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
-      now: new Date("2026-07-21T08:01:10.000Z"),
+      now: new Date(
+        Date.parse("2026-07-21T08:01:00.000Z") + expectedDelay - 1,
+      ),
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
@@ -270,10 +272,11 @@ describe("Operational alert spool", () => {
       item.delivery.nextAttemptAt,
       "2026-07-21T08:03:00.000Z",
     );
-    assert.equal(
-      operationalRetryDelayMs(1, queued.alertId),
-      operationalRetryDelayMs(1, queued.alertId),
-    );
+    const first = operationalRetryDelayMs(2, queued.alertId);
+    const replay = operationalRetryDelayMs(2, queued.alertId);
+    const other = operationalRetryDelayMs(2, `${queued.alertId}:other`);
+    assert.equal(first, replay);
+    assert.notEqual(first, other);
   });
 
   it("quarantines terminal HTTP responses, invalid names, symlinks and oversized files", async () => {
