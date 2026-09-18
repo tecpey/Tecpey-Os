@@ -173,6 +173,9 @@ export async function ensureOperationalSignalSpoolDirectories(
   await assertManagedDirectory(managed.pending);
   await assertManagedDirectory(managed.delivered);
   await assertManagedDirectory(managed.quarantine);
+  // Persist directory-entry creation inside the application-owned state root.
+  await syncDirectory(managed.root);
+  await syncDirectory(path.dirname(managed.pending));
   return managed;
 }
 
