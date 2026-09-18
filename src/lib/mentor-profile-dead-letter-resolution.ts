@@ -40,12 +40,27 @@ function iso(value: string, code: string): string {
   return normalized;
 }
 
+function exactDeadLetterIds(values: readonly string[]): string[] {
+  if (!Array.isArray(values) || values.length > 1_000) {
+    throw new Error("mentor_profile_resolution_snapshot_invalid");
+  }
+  const unique = new Set<string>();
+  for (const value of values) {
+    if (!UUID_RE.test(value) || unique.has(value.toLowerCase())) {
+      throw new Error("mentor_profile_resolution_snapshot_invalid");
+    }
+    unique.add(value.toLowerCase());
+  }
+  return [...unique].sort();
+}
+
 export async function resolveMentorProfileDeadLettersAfterRepairTx(
   client: PoolClient,
   input: {
     studentId: string;
     repairRunId: string;
     repairStartedAt: string;
+    deadLetterIds: readonly string[];
     resolvedAt: string;
   },
 ): Promise<{ selected: number; resolved: number; replayed: number }> {
@@ -67,6 +82,11 @@ export async function resolveMentorProfileDeadLettersAfterRepairTx(
     throw new Error("mentor_profile_resolution_time_order_invalid");
   }
 
+  const deadLetterIds = exactDeadLetterIds(input.deadLetterIds);
+  if (deadLetterIds.length === 0) {
+    return { selected: 0, resolved: 0, replayed: 0 };
+  }
+
   const candidates = await client.query<DeadLetterRow>(
     `SELECT dl.id::text AS dead_letter_id,
             dl.tenant_id,
@@ -78,15 +98,16 @@ export async function resolveMentorProfileDeadLettersAfterRepairTx(
          ON o.id = dl.outbox_id
         AND o.tenant_id = dl.tenant_id
         AND o.workspace_id = dl.workspace_id
-       LEFT JOIN mentor_profile_dead_letter_resolutions r
-         ON r.dead_letter_id = dl.id
       WHERE o.student_id = $1::uuid
-        AND dl.created_at <= $2::timestamptz
-        AND r.dead_letter_id IS NULL
-      ORDER BY dl.created_at, dl.id
+        AND dl.id = ANY($2::uuid[])
+      ORDER BY dl.id
       FOR SHARE OF dl, o`,
-    [input.studentId, repairStartedAt],
+    [input.studentId, deadLetterIds],
   );
+
+  if (candidates.rows.length !== deadLetterIds.length) {
+    throw new Error("mentor_profile_resolution_snapshot_mismatch");
+  }
 
   let resolved = 0;
   let replayed = 0;
@@ -134,6 +155,7 @@ export async function resolveMentorProfileDeadLettersAfterRepair(
     studentId: string;
     repairRunId: string;
     repairStartedAt: string;
+    deadLetterIds: readonly string[];
   },
 ): Promise<
   | { enabled: false; value: null }
