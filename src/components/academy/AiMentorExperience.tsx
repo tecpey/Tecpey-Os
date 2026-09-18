@@ -302,7 +302,7 @@ export function AiMentorExperience({
       .then(({ response, data }) => {
         if (controller.signal.aborted) return;
         const nextPlan: MentorWorkspacePlan =
-          response.ok && data?.capabilities?.effectivePlan === "premium"
+          response.ok && data?.capabilities?.plan === "premium"
             ? "premium"
             : "free";
         setServerPlan(nextPlan);
