@@ -450,6 +450,32 @@ async function bestEffortPersistAttempt(input: Parameters<
   }
 }
 
+async function bestEffortPersistSignal(
+  signal: OperationalSignalEvidence,
+): Promise<void> {
+  try {
+    const persisted = await withTx((client) =>
+      persistOperationalSignalTx(client, signal),
+    );
+    if (!persisted.enabled) return;
+  } catch {
+    // Local spool remains authoritative during database outages.
+  }
+}
+
+async function bestEffortPersistSignalAttempt(input: Parameters<
+  typeof persistOperationalSignalDeliveryAttemptTx
+>[1]): Promise<void> {
+  try {
+    const persisted = await withTx((client) =>
+      persistOperationalSignalDeliveryAttemptTx(client, input),
+    );
+    if (!persisted.enabled) return;
+  } catch {
+    // Delivery remains evidenced by the immutable local spool/archive.
+  }
+}
+
 function deliveryErrorCode(error: unknown): string {
   if (error instanceof DOMException && error.name === "AbortError") {
     return "webhook_timeout";
@@ -500,7 +526,7 @@ export async function deliverOperationalAlerts(
       summary.quarantined += 1;
       continue;
     }
-    let item: OperationalAlertSpoolItem;
+    let item: OperationalSpoolItem;
     try {
       item = validateSpoolItem(await safeReadJson(filePath));
     } catch {
@@ -513,7 +539,12 @@ export async function deliverOperationalAlerts(
       continue;
     }
 
-    await bestEffortPersistAlert(item.alert);
+    const entity = spoolEntity(item);
+    if (item.schemaVersion === 1) {
+      await bestEffortPersistAlert(item.alert);
+    } else {
+      await bestEffortPersistSignal(item.signal);
+    }
     const attemptNumber = item.delivery.attemptCount + 1;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -528,10 +559,10 @@ export async function deliverOperationalAlerts(
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "TecPey-Ops-Alert/1.0",
-          "Idempotency-Key": item.alert.alertId,
+          "Idempotency-Key": entity.id,
           ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
         },
-        body: JSON.stringify(item.alert),
+        body: JSON.stringify(entity.payload),
       });
       httpStatus = response.status;
       if (response.status >= 200 && response.status < 300) {
@@ -556,15 +587,33 @@ export async function deliverOperationalAlerts(
     }
 
     const attemptedAt = now.toISOString();
-    await bestEffortPersistAttempt({
-      alertId: item.alert.alertId,
-      attemptNumber,
-      deliveryResult,
-      httpStatus,
-      errorCode,
-      attemptedAt,
-      evidence: { provider: "webhook", responseBodyBytes: MAX_RESPONSE_BODY_BYTES },
-    });
+    if (item.schemaVersion === 1) {
+      await bestEffortPersistAttempt({
+        alertId: item.alert.alertId,
+        attemptNumber,
+        deliveryResult,
+        httpStatus,
+        errorCode,
+        attemptedAt,
+        evidence: {
+          provider: "webhook",
+          responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
+        },
+      });
+    } else {
+      await bestEffortPersistSignalAttempt({
+        signalId: item.signal.signalId,
+        attemptNumber,
+        deliveryResult,
+        httpStatus,
+        errorCode,
+        attemptedAt,
+        evidence: {
+          provider: "webhook",
+          responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
+        },
+      });
+    }
 
     if (deliveryResult === "delivered") {
       await moveFile(filePath, managed.delivered);
@@ -576,11 +625,14 @@ export async function deliverOperationalAlerts(
       summary.quarantined += 1;
       continue;
     }
-    const updated: OperationalAlertSpoolItem = {
+    const updated: OperationalSpoolItem = {
       ...item,
       delivery: {
         attemptCount: attemptNumber,
-        nextAttemptAt: new Date(now.getTime() + retryDelayMs(attemptNumber)).toISOString(),
+        nextAttemptAt: new Date(
+          now.getTime() +
+            retryDelayMs(attemptNumber, entity.id, item.schemaVersion),
+        ).toISOString(),
         lastErrorCode: errorCode,
       },
     };
