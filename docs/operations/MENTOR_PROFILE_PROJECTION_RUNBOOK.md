@@ -67,7 +67,7 @@ These are engineering starting targets for staging calibration, **not a customer
 - an expired processing lease is warning immediately and critical once it is at least 30 seconds overdue;
 - any retryable failure is warning until it converges.
 
-The worker still emits `MENTOR_PROFILE_BACKLOG` for warning state and `MENTOR_PROFILE_PROJECTION_STALLED` for critical state through the legacy in-process alert path. Warning remains an engineering signal and is not paged by the durable rail. The independent health probe separately writes critical and authority-unavailable conditions into the governed operational signal spool described below, so critical delivery no longer depends on the worker process or PostgreSQL being available.
+The worker records aggregate health telemetry in the journal but is **not an incident sender**. The independent health probe is the sole governed producer for Mentor profile operational incidents, avoiding duplicate delivery between a best-effort webhook path and the durable rail. Warning remains an engineering signal and does not open an incident from idle. Critical projection health, database-authority loss and health-probe failure each have independent condition identities.
 
 A one-shot machine-readable probe is available from the production bundle:
 
@@ -88,7 +88,9 @@ The independent probe writes to the protected state directory even during a Post
 - `signals/delivered`: successfully handed to the configured webhook;
 - `signals/quarantine`: corrupt files, terminal HTTP failures or retries that exhausted the bounded attempt budget.
 
-Within each configurable dedupe window (default one hour), the **first observation** for the same detector service, component, severity and reason-code set becomes the durable signal. Later observations in that same window replay the same signal identity instead of creating an alert storm. A later window creates a new reminder identity if the critical condition still exists.
+Signal identity is lifecycle-aware rather than reminder-window driven. A stable `incident_key` identifies the monitored condition; a `condition_fingerprint` identifies the current normalized critical reason set; and a separate `incident_id` identifies one firing→resolved generation. Repeated observations of the same active critical fingerprint emit nothing. If the critical reason set changes, the probe resolves the previous generation and opens a new one. Warning or healthy state resolves an existing active incident but does not page from idle. If the same condition recurs after recovery—even inside the same former dedupe window—it receives a new incident generation rather than being suppressed as an old alert.
+
+Lifecycle state is stored under `signals/conditions` using a write-ahead transition protocol. Before spool enqueue, the exact immutable firing/resolved payload is written and fsynced as a pending transition; after durable enqueue succeeds, the active state is committed and fsynced. If the process crashes between those steps, the next probe replays the **same signal ID, incident ID and payload** before evaluating a new observation. This makes crash recovery at-least-once at the transport boundary without inventing a random duplicate incident generation.
 
 The signal spool is filesystem-first and does not require PostgreSQL to enqueue or deliver. PostgreSQL copies of signal and delivery-attempt evidence are best-effort mirrors for audit/recovery; the local spool/archive remains the outage-safe delivery authority when database persistence is unavailable.
 
@@ -102,6 +104,7 @@ Useful inspection commands:
 find /var/lib/tecpey/ops/signals/pending -maxdepth 1 -type f -print
 find /var/lib/tecpey/ops/signals/delivered -maxdepth 1 -type f -print
 find /var/lib/tecpey/ops/signals/quarantine -maxdepth 1 -type f -print
+find /var/lib/tecpey/ops/signals/conditions -maxdepth 1 -type f -print
 systemctl status tecpey-ops-alert-delivery.timer --no-pager
 journalctl -u tecpey-ops-alert-delivery.service --since '-30 minutes' --no-pager
 ```
