@@ -6,7 +6,7 @@ const FILENAME = "0108_mentor_profile_freshness_observability.sql";
 export const MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_SQL = `
 CREATE INDEX IF NOT EXISTS mentor_profile_update_outbox_freshness_window_idx
   ON mentor_profile_update_outbox (created_at DESC)
-  INCLUDE (status, processed_at);
+  INCLUDE (processed_at);
 `;
 
 function checksum(sql: string): string {
