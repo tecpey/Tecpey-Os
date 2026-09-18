@@ -294,6 +294,13 @@ export function createOperationalSignalEvidence(input: {
   if (lifecycle !== "firing" && lifecycle !== "resolved") {
     throw new Error("operational_signal_lifecycle_invalid");
   }
+  if (
+    lifecycle === "resolved" &&
+    (input.incidentId === undefined ||
+      input.conditionFingerprint === undefined)
+  ) {
+    throw new Error("operational_signal_resolution_binding_required");
+  }
   const occurredAt = iso(input.occurredAt, "operational_signal_occurred_at_invalid");
   const dedupeWindowSeconds = boundedInteger(
     input.dedupeWindowSeconds ?? 3_600,
