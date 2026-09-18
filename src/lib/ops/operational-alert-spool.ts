@@ -539,7 +539,10 @@ function retryDelayMs(
   );
 }
 
-async function moveFile(source: string, destinationDirectory: string): Promise<void> {
+async function moveFile(
+  source: string,
+  destinationDirectory: string,
+): Promise<string> {
   const sourceDirectory = path.dirname(source);
   const destination = path.join(destinationDirectory, path.basename(source));
   const existing = await lstat(destination).catch(() => null);
@@ -552,6 +555,7 @@ async function moveFile(source: string, destinationDirectory: string): Promise<v
   if (sourceDirectory !== destinationDirectory) {
     await syncDirectory(sourceDirectory);
   }
+  return destination;
 }
 
 async function mirrorSpoolItemToDatabase(
@@ -665,16 +669,6 @@ export async function deliverOperationalAlerts(
   if (!Number.isFinite(now.getTime())) throw new Error("operational_alert_clock_invalid");
   const fetchImpl = config.fetchImpl ?? fetch;
 
-  // Archives are authoritative during a database outage. Backfill any locally
-  // journaled entity/attempt evidence once PostgreSQL becomes available again.
-  const deliveredMirrorAvailable = await reconcileArchiveDirectory(
-    managed.delivered,
-    limit,
-  );
-  if (deliveredMirrorAvailable) {
-    await reconcileArchiveDirectory(managed.quarantine, limit);
-  }
-
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -781,23 +775,38 @@ export async function deliverOperationalAlerts(
     // Journal the webhook outcome before any archive move. If PostgreSQL is
     // unavailable, this file remains sufficient to backfill immutable evidence.
     await atomicWriteJson(filePath, journaled);
-    if (await mirrorSpoolItemToDatabase(journaled)) {
-      journaled = withDatabaseMirrorState(journaled, true);
-      await atomicWriteJson(filePath, journaled);
+
+    let mirrorPath = filePath;
+    if (deliveryResult === "delivered") {
+      mirrorPath = await moveFile(filePath, managed.delivered);
+      summary.delivered += 1;
+    } else if (
+      deliveryResult === "terminal_failure" ||
+      attemptNumber >= maxAttempts
+    ) {
+      mirrorPath = await moveFile(filePath, managed.quarantine);
+      summary.quarantined += 1;
+    } else {
+      summary.retryable += 1;
     }
 
-    if (deliveryResult === "delivered") {
-      await moveFile(filePath, managed.delivered);
-      summary.delivered += 1;
-      continue;
+    // Database mirroring is deliberately after the outage-safe local state
+    // transition so PostgreSQL can never block webhook delivery or archival.
+    if (await mirrorSpoolItemToDatabase(journaled)) {
+      journaled = withDatabaseMirrorState(journaled, true);
+      await atomicWriteJson(mirrorPath, journaled);
     }
-    if (deliveryResult === "terminal_failure" || attemptNumber >= maxAttempts) {
-      await moveFile(filePath, managed.quarantine);
-      summary.quarantined += 1;
-      continue;
-    }
-    // Retry state and its prior attempt journal were already persisted above.
-    summary.retryable += 1;
   }
+
+  // Historical archive reconciliation is lower priority than live delivery.
+  // It runs only after all due pending work for this cycle has been handled.
+  const deliveredMirrorAvailable = await reconcileArchiveDirectory(
+    managed.delivered,
+    limit,
+  );
+  if (deliveredMirrorAvailable) {
+    await reconcileArchiveDirectory(managed.quarantine, limit);
+  }
+
   return summary;
 }
