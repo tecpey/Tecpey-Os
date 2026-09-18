@@ -42,6 +42,7 @@ for (const needle of [
   "operational_signal_measurement_cardinality_forbidden",
   "operational_signal_type_cardinality_forbidden",
   "operational_signal_component_cardinality_forbidden",
+  "operational_signal_resolution_binding_required",
   "FORBIDDEN_CARDINALITY_SEGMENTS",
   "LONG_IDENTIFIER_RE",
   "persistOperationalSignalTx",
@@ -68,6 +69,7 @@ for (const needle of [
   "student_123456",
   "tenant_id",
   "trace_0123456789abcdef",
+  "resolved evidence cannot exist without explicit incident binding",
 ]) {
   requireText("evidence-test", evidenceTest, needle, `privacy/cardinality proof missing: ${needle}`);
 }
@@ -193,6 +195,7 @@ const health = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
   "transitionOperationalConditionSignal",
   "mentor_profile_database_unavailable",
+  "mentor_profile_database_authority_failed",
   '"mentor_profile_projection"',
   '"mentor_profile_database_authority"',
   '"mentor_profile_health_probe"',
