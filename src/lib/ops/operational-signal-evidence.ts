@@ -358,7 +358,7 @@ export async function persistOperationalSignalTx(
       payloadHash,
       JSON.stringify(signal.reasonCodes),
       JSON.stringify(signal.attributes),
-      JSON.stringify({ ...signal, identityHash }),
+      JSON.stringify(signal),
     ],
   );
   if ((inserted.rowCount ?? 0) === 1) {
@@ -367,7 +367,7 @@ export async function persistOperationalSignalTx(
 
   const existing = await client.query<{
     payload_hash: string;
-    payload: { identityHash?: string };
+    payload: OperationalSignalEvidence;
   }>(
     `SELECT payload_hash, payload
        FROM platform_operational_signals
@@ -378,7 +378,15 @@ export async function persistOperationalSignalTx(
   if (!existing.rows[0]) {
     throw new Error("operational_signal_conflict_missing");
   }
-  if (existing.rows[0].payload?.identityHash !== identityHash) {
+  const existingSignal = validateOperationalSignalEvidence(
+    existing.rows[0].payload,
+  );
+  if (
+    hashOperationalEvidence(existingSignal) !== existing.rows[0].payload_hash
+  ) {
+    throw new Error("operational_signal_payload_hash_mismatch");
+  }
+  if (hashOperationalSignalIdentity(existingSignal) !== identityHash) {
     throw new Error("operational_signal_identity_conflict");
   }
   return {
