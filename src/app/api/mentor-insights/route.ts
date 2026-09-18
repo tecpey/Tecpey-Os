@@ -55,9 +55,8 @@ export async function GET(req: NextRequest) {
 
     const shouldGenerate = new URL(req.url).searchParams.get("generate") === "1";
 
-    let updatedProfile = null;
     if (shouldGenerate) {
-      updatedProfile = await applyMentorProfileUpdate(studentId);
+      await applyMentorProfileUpdate(studentId);
       await generateMentorInsights(studentId);
     }
 
