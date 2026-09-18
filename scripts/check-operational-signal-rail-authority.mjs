@@ -183,6 +183,7 @@ const healthService = await source(
 );
 for (const needle of [
   "RequiresMountsFor=@@STATE_DIR@@",
+  "OnFailure=tecpey-ops-alert-delivery.service",
   "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
   "ReadWritePaths=@@STATE_DIR@@",
 ]) {
