@@ -181,10 +181,54 @@ test(
       assert.equal(before.deadLettersTotal, 1);
       assert.equal(evaluateMentorProfileHealth(before).status, "critical");
 
-      const repairStartedAt = new Date().toISOString();
-      const resolvedAt = new Date(
-        Date.parse(repairStartedAt) + 1,
-      ).toISOString();
+      const deadLetter = await client.query<{
+        id: string;
+        tenant_id: string;
+        workspace_id: string;
+      }>(
+        `SELECT id::text, tenant_id, workspace_id
+           FROM mentor_profile_update_dead_letters
+          WHERE outbox_id = $1::uuid`,
+        [terminalId],
+      );
+      const source = deadLetter.rows[0]!;
+      await assert.rejects(
+        client.query(
+          `INSERT INTO mentor_profile_dead_letter_resolutions
+             (dead_letter_id, tenant_id, workspace_id, outbox_id, repair_run_id,
+              student_fingerprint, resolution_type, repair_started_at,
+              resolved_at, resolution_hash)
+           VALUES ($1::uuid, $2, $3, $4::uuid, $5::uuid, $6,
+                   'recomputed_current_state', NOW(), NOW(), $7)`,
+          [
+            source.id,
+            source.tenant_id,
+            source.workspace_id,
+            terminalId,
+            randomUUID(),
+            "d".repeat(64),
+            "e".repeat(64),
+          ],
+        ),
+        /foreign key/i,
+      );
+
+      const clock = await client.query<{ now: Date }>("SELECT NOW() AS now");
+      const dbNow = clock.rows[0]!.now.getTime();
+      const tooEarlyStartedAt = new Date(dbNow - 1).toISOString();
+      const tooEarly = await resolveMentorProfileDeadLettersAfterRepairTx(
+        client,
+        {
+          studentId: scope.studentId,
+          repairRunId: randomUUID(),
+          repairStartedAt: tooEarlyStartedAt,
+          resolvedAt: tooEarlyStartedAt,
+        },
+      );
+      assert.deepEqual(tooEarly, { selected: 0, resolved: 0, replayed: 0 });
+
+      const repairStartedAt = new Date(dbNow).toISOString();
+      const resolvedAt = new Date(dbNow + 1).toISOString();
       const resolution = await resolveMentorProfileDeadLettersAfterRepairTx(
         client,
         {
