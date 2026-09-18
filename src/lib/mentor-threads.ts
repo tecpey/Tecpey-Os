@@ -84,6 +84,54 @@ export async function ensureMentorThreadTx(
   return { thread: snapshot(inserted.rows[0]), created: true };
 }
 
+export async function ensureLegacyMentorThreadTx(
+  client: PoolClient,
+  input: {
+    studentId: string;
+    locale: "fa" | "en";
+    titleHint?: string | null;
+  },
+): Promise<{ thread: MentorThread; created: boolean }> {
+  const title = mentorThreadTitle(input.titleHint, input.locale);
+  const existing = await client.query<ThreadRow>(
+    `SELECT id, title, locale, status, summary, last_message_at, created_at, updated_at
+       FROM mentor_threads
+      WHERE student_id = $1::uuid AND origin = 'legacy'
+      LIMIT 1
+      FOR UPDATE`,
+    [input.studentId],
+  );
+  if (existing.rows[0]) {
+    return { thread: snapshot(existing.rows[0]), created: false };
+  }
+
+  const inserted = await client.query<ThreadRow>(
+    `INSERT INTO mentor_threads
+       (student_id, title, locale, status, origin)
+     VALUES ($1::uuid, $2, $3, 'active', 'legacy')
+     ON CONFLICT (student_id) WHERE origin = 'legacy' DO NOTHING
+     RETURNING id, title, locale, status, summary, last_message_at, created_at, updated_at`,
+    [input.studentId, title, input.locale],
+  );
+  if (inserted.rows[0]) {
+    return { thread: snapshot(inserted.rows[0]), created: true };
+  }
+
+  // A concurrent legacy-thread creator can only win if it committed before this
+  // statement's unique-index check. Reload under the same transaction rather
+  // than creating a second user-origin thread.
+  const raced = await client.query<ThreadRow>(
+    `SELECT id, title, locale, status, summary, last_message_at, created_at, updated_at
+       FROM mentor_threads
+      WHERE student_id = $1::uuid AND origin = 'legacy'
+      LIMIT 1
+      FOR UPDATE`,
+    [input.studentId],
+  );
+  if (!raced.rows[0]) throw new Error("mentor_legacy_thread_conflict_missing");
+  return { thread: snapshot(raced.rows[0]), created: false };
+}
+
 export async function ensureMentorThread(input: {
   studentId: string;
   threadId?: string | null;

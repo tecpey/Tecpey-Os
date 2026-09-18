@@ -1,0 +1,582 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-term-progress",
+      "method": "POST",
+      "previousSourceHash": "e6adfce84dfc3fc4c3869e9e",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after the authoritative term-assessment transaction gained a durable Mentor profile outbox hand-off. The outbox row is inserted in the same PostgreSQL transaction as the governed learning command, carries the already-resolved tenant/workspace/student scope, and uses the command idempotency key as the source reference. Existing strict session, CSRF, tenant/principal binding, product entitlement, bounded body, idempotency, audit/redaction, transaction and private no-store controls remain unchanged.",
+      "replacement": {
+        "route": "/api/academy-term-progress",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-term-progress/route.ts",
+        "sourceHash": "96a02c45e43f3e818240f4d1",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-term-progress-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-term-progress",
+        "testReferences": [
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-term-progress/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "previousSourceHash": "00d6fcec6b43e7714fd64e02",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after durable Mentor conversation persistence began atomically enqueueing the profile projection event with the same tenant/workspace authority already resolved at the request edge. The request still performs the existing safety, consent, capability, spend, provider, evidence and no-egress gates; no client-controlled tenant or projection authority is introduced. The in-process profile update remains only a latency accelerator while the committed outbox is recovery authority.",
+      "replacement": {
+        "route": "/api/ai-mentor",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "sourceHash": "01e7a3bbbd3998503b7129ef",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor",
+        "testReferences": [
+          "src/tests/content/ai-mentor-locale-error-contract.test.ts",
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/ai-mentor-capability-authority.test.ts",
+          "src/tests/security/ai-mentor-preference-egress-gate.test.ts",
+          "src/tests/security/ai-mentor-provider.test.ts",
+          "src/tests/security/ai-mentor-trust-boundary.test.ts",
+          "src/tests/security/ai-mentor-trust-store-postgres.test.ts",
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "previousSourceHash": "f5b3b1803e1c60699a8fcc18",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the pass-through AI Mentor compatibility alias after its canonical delegate gained the durable conversation-to-profile outbox hand-off. The alias source and its own controls are unchanged; delegatedSourceHash is re-pinned to the exact canonical handler so the compatibility surface inherits the same tenant-bound durable projection behavior.",
+      "replacement": {
+        "route": "/api/ai-mentor-v2",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
+        "sourceHash": "f5b3b1803e1c60699a8fcc18",
+        "delegatedTo": "src/app/api/ai-mentor/route.ts",
+        "delegatedSourceHash": "01e7a3bbbd3998503b7129ef",
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "canonical /api/ai-mentor handler",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor-v2",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-alias",
+          "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+          "issue": "#108"
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-challenge",
+      "method": "POST",
+      "previousSourceHash": "66c9f5ceef4e2e9e1cca9bfe",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after challenge submission was moved onto the transactional database wrapper and now inserts the immutable Mentor profile outbox event beside the challenge attempt, learning event, achievement and notification work. The durable source reference is the inserted challenge-attempt id; existing strict session, CSRF, tenant/product gates, bounded input, rate limit, audit/redaction and private no-store controls remain intact.",
+      "replacement": {
+        "route": "/api/mentor-challenge",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-challenge/route.ts",
+        "sourceHash": "c666861d1034516664eef188",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-challenge-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-challenge",
+        "testReferences": [
+          "src/tests/content/ai-mentor-locale-error-contract.test.ts",
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-challenge/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-conversations/migrate",
+      "method": "POST",
+      "previousSourceHash": "d14513848a0c2c08bda54e40",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after successful legacy Mentor history import became replay-safe and durable. The route acquires a request-hash-scoped transaction advisory lock, reuses the one database-enforced legacy Mentor thread, suppresses exact message re-imports with a PostgreSQL NOT EXISTS predicate, and enqueues one tenant/workspace-bound profile projection event only when new conversation rows were actually imported. Imported rows, the durable profile event and mandatory sensitive-mutation audit evidence remain in the same transaction. Strict session, verified tenant principal, Mentor entitlement, CSRF, bounded body, rate limiting, content inspection, hashing/redaction and private no-store controls remain intact.",
+      "replacement": {
+        "route": "/api/mentor-conversations/migrate",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
+        "sourceHash": "363e44484614ebdaafd66d9a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-conversations-migrate",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-conversations",
+        "testReferences": [
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-profile/recompute",
+      "method": "POST",
+      "previousSourceHash": "a65b691e04524aca47471fca",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after manual Mentor profile recompute was strengthened from session-only student identity to the canonical tenant/principal binding plus Mentor product entitlement, and the signal read set, per-learner advisory lock, profile upsert and sensitive audit are now one PostgreSQL transaction. The generated contract therefore truthfully moves tenantSource to tenantContext while preserving strict revocation, CSRF, rate limit, transaction, idempotent projection, redaction and private no-store semantics. Focused durable-worker/outbox tests are now part of the source evidence.",
+      "replacement": {
+        "route": "/api/mentor-profile/recompute",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+        "sourceHash": "333f567ef7183591f4e423af",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory",
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-profile-recompute",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "mentor-profile",
+        "testReferences": [
+          "src/tests/security/mentor-profile-evidence-truth.test.ts",
+          "src/tests/security/mentor-profile-update-outbox-postgres.test.ts",
+          "src/tests/security/mentor-profile-worker.test.ts",
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena",
+      "method": "POST",
+      "previousSourceHash": "fa859d99f42487ab924ff5a3",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after the Arena decision-journal mutation began transactionally enqueueing a durable Mentor profile event using the already-resolved tenant/workspace/student scope and the server decision id as source reference. No exchange or real-money authority is added. Existing strict session, Academy entitlement, CSRF, bounded JSON, rate limiting, transactional learning/achievement evidence, audit/redaction and no-store behavior are unchanged.",
+      "replacement": {
+        "route": "/api/trading-arena",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/route.ts",
+        "sourceHash": "4eea40b2fbbe14b91ad2ee7a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "trading-arena-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/arena/reflection-authority.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena/execution",
+      "method": "POST",
+      "previousSourceHash": "4f7bf17f0d8f87680cd05e68",
+      "issue": "#672",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after executable Arena trade decisions began returning their server-generated journal trade id to the enclosing transaction and atomically enqueueing a tenant/workspace-bound Mentor profile event before the command receipt commits. Idempotent command replay still bypasses duplicate projection enqueue. Existing strict session, Academy entitlement, CSRF, bounded JSON, price/revision checks, idempotency, transaction, audit/redaction and no-store controls remain unchanged.",
+      "replacement": {
+        "route": "/api/trading-arena/execution",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+        "sourceHash": "ade2f90231c0293542bb22a3",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-execution-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}

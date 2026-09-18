@@ -11,6 +11,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { recordLearningEvent } from "@/lib/learning-os";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
@@ -318,9 +319,10 @@ async function saveDecision(
   studentId: string,
   stateBefore: ArenaExecutionStateV2,
   action: ArenaExecutionActionV2,
-): Promise<void> {
+): Promise<string | null> {
   const metrics = decisionMetrics(stateBefore, action);
-  if (!metrics) return;
+  if (!metrics) return null;
+  const decisionId = randomUUID();
   await client.query(
     `INSERT INTO academy_trading_arena_trades
        (id, student_id, symbol, side, order_type, size_usdt, risk_percent,
@@ -328,7 +330,7 @@ async function saveDecision(
      VALUES ($1::uuid, $2::uuid, $3, 'buy', $4, $5::numeric, $6::numeric,
              $7, $8, $9, $10, $11, $12)`,
     [
-      randomUUID(),
+      decisionId,
       studentId,
       metrics.symbol,
       metrics.orderType,
@@ -342,6 +344,7 @@ async function saveDecision(
       metrics.riskFlag,
     ],
   );
+  return decisionId;
 }
 
 async function optionalMarketForRead(): Promise<ArenaPriceSnapshot | null> {
@@ -569,7 +572,22 @@ export async function POST(request: NextRequest) {
           attemptId: context.activeRow.id,
         }, execution.state, applied.state);
 
-        await saveDecision(client, studentId, execution.state, action);
+        const mentorTradeId = await saveDecision(
+          client,
+          studentId,
+          execution.state,
+          action,
+        );
+        if (mentorTradeId) {
+          await enqueueMentorProfileUpdateTx(client, {
+            tenantId: tenantContext.tenantId,
+            workspaceId: tenantContext.workspaceId,
+            studentId,
+            eventType: "arena.trade_signal",
+            reason: "trading_trade_created",
+            sourceReference: mentorTradeId,
+          });
+        }
         await recordLearningEvent(client, {
           studentId,
           tenantId: tenantContext.tenantId,

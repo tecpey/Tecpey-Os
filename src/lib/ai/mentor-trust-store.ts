@@ -4,6 +4,7 @@ import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
 import { ensureMentorThreadTx, touchMentorThreadTx } from "@/lib/mentor-threads";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import {
   writeSensitiveMutationAuditTx,
   type SensitiveMutationAuditEvent,
@@ -68,6 +69,8 @@ export type MentorEvidenceInput = {
 
 export type MentorConversationPairInput = {
   requestId: string;
+  tenantId: string;
+  workspaceId: string;
   studentId: string;
   question: string;
   answer: string;
@@ -77,11 +80,11 @@ export type MentorConversationPairInput = {
   threadId?: string | null;
 };
 
-const MENTOR_CONSENT_VERSION = "2026-07-20.1";
-const MENTOR_PREFERENCE_POLICY_VERSION = "mentor-preferences-consent-v1";
+const MENTOR_CONSENT_VERSION = "2026-09-18.1";
+const MENTOR_PREFERENCE_POLICY_VERSION = "mentor-preferences-consent-v2";
 
 const DEFAULT_PREFERENCES: MentorAiPreferences = {
-  externalProviderEnabled: true,
+  externalProviderEnabled: false,
   behavioralPersonalizationEnabled: false,
   realExchangeSignalsEnabled: false,
   consentVersion: MENTOR_CONSENT_VERSION,
@@ -344,6 +347,98 @@ export async function persistMentorConversationPair(
 ): Promise<boolean> {
   try {
     const transaction = await withTx(async (client) => {
+      await client.query(
+        `SELECT pg_advisory_xact_lock(
+           hashtext('mentor_conversation_pair'),
+           hashtext($1)
+         )`,
+        [`${input.studentId}:${input.requestId}`],
+      );
+
+      const existing = await client.query<{
+        role: "user" | "assistant" | "system";
+        content: string;
+        locale: string;
+        term_number: number | null;
+        content_class: string;
+        thread_id: string;
+      }>(
+        `SELECT role, content, locale, term_number, content_class,
+                thread_id::text AS thread_id
+           FROM mentor_conversations
+          WHERE student_id = $1::uuid
+            AND request_id = $2::uuid
+          ORDER BY role ASC
+          FOR UPDATE`,
+        [input.studentId, input.requestId],
+      );
+
+      if (existing.rows.length > 0) {
+        if (existing.rows.length !== 2) {
+          throw new Error("mentor_conversation_request_state_invalid");
+        }
+        const user = existing.rows.find((row) => row.role === "user");
+        const assistant = existing.rows.find((row) => row.role === "assistant");
+        const expectedContentClass = input.contentClass ?? "personal";
+        if (
+          !user ||
+          !assistant ||
+          user.thread_id !== assistant.thread_id ||
+          user.content !== input.question ||
+          assistant.content !== input.answer ||
+          user.locale !== input.locale ||
+          assistant.locale !== input.locale ||
+          user.term_number !== (input.termNumber ?? null) ||
+          assistant.term_number !== (input.termNumber ?? null) ||
+          user.content_class !== expectedContentClass ||
+          assistant.content_class !== "personal" ||
+          (input.threadId !== undefined &&
+            input.threadId !== null &&
+            user.thread_id !== input.threadId)
+        ) {
+          throw new Error("mentor_conversation_request_identity_conflict");
+        }
+
+        const event = await client.query<{
+          tenant_id: string;
+          workspace_id: string;
+        }>(
+          `SELECT tenant_id, workspace_id
+             FROM mentor_profile_update_outbox
+            WHERE student_id = $1::uuid
+              AND event_type = 'mentor.conversation'
+              AND reason = 'mentor_conversation_saved'
+              AND source_reference = $2
+            ORDER BY event_sequence ASC
+            LIMIT 2
+            FOR SHARE`,
+          [input.studentId, input.requestId],
+        );
+        if (event.rows.length > 1) {
+          throw new Error("mentor_conversation_request_scope_ambiguous");
+        }
+        if (
+          event.rows[0] &&
+          (event.rows[0].tenant_id !== input.tenantId ||
+            event.rows[0].workspace_id !== input.workspaceId)
+        ) {
+          throw new Error("mentor_conversation_request_scope_conflict");
+        }
+
+        // A same-scope replay is a no-op. If a legacy pair predates the durable
+        // outbox, this call repairs only the missing projection event under the
+        // currently authorized tenant/workspace context.
+        await enqueueMentorProfileUpdateTx(client, {
+          tenantId: input.tenantId,
+          workspaceId: input.workspaceId,
+          studentId: input.studentId,
+          eventType: "mentor.conversation",
+          reason: "mentor_conversation_saved",
+          sourceReference: input.requestId,
+        });
+        return true;
+      }
+
       const ensured = await ensureMentorThreadTx(client, {
         studentId: input.studentId,
         threadId: input.threadId,
@@ -387,6 +482,14 @@ export async function persistMentorConversationPair(
             )`,
         [input.studentId],
       );
+      await enqueueMentorProfileUpdateTx(client, {
+        tenantId: input.tenantId,
+        workspaceId: input.workspaceId,
+        studentId: input.studentId,
+        eventType: "mentor.conversation",
+        reason: "mentor_conversation_saved",
+        sourceReference: input.requestId,
+      });
       return true;
     });
     return transaction.enabled && transaction.value;
@@ -394,7 +497,10 @@ export async function persistMentorConversationPair(
     logger.error("[mentor-trust-store] conversation pair persistence failed", {
       requestId: input.requestId,
       studentFingerprint: fingerprintMentorPreferenceStudent(input.studentId),
-      error: String(error),
+      error:
+        error instanceof Error && /^[A-Za-z0-9._:-]{1,120}$/.test(error.message)
+          ? error.message
+          : "mentor_conversation_persistence_failed",
     });
     return false;
   }

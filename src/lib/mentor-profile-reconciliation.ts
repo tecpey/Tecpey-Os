@@ -1,21 +1,15 @@
 // Mentor profile staleness reconciliation.
 //
-// scheduleMentorProfileUpdate dispatches profile recomputation as an in-process
-// microtask that outlives the HTTP response but not the process. A crash,
-// deployment or restart between the learning event landing and the recompute
-// finishing loses that update silently: the student keeps learning, their mentor
-// profile does not, and personalisation degrades with nothing failing.
-//
-// The fix is not a delivery guarantee. applyMentorProfileUpdate does not apply a
-// delta — it recomputes the whole profile from current academy, trading and
-// conversation signals and upserts it, so it is idempotent by construction. That
-// means we never need exactly-once delivery of an event; we only need to notice
-// that a student's signals are newer than their profile and recompute. This is a
-// repair sweep, in the same shape as the session-revocation, risk and offline
-// reconciliations already in the codebase.
+// The durable mentor_profile_update_outbox is the normal delivery authority.
+// This sweep is defense-in-depth for legacy rows, operator recovery and any
+// source signal that predates durable producer wiring. Profile computation is a
+// full current-state projection rather than an event delta, so repair remains
+// idempotent and converges onto PostgreSQL source-of-truth state.
 
+import { createHash, randomUUID } from "node:crypto";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { resolveMentorProfileDeadLettersAfterRepair } from "@/lib/mentor-profile-dead-letter-resolution";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
 
 /**
@@ -27,6 +21,7 @@ import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
  * backstop rather than a competitor to the hot path.
  */
 export const MENTOR_PROFILE_REPAIR_GRACE_MS = 120_000;
+export const MENTOR_PROFILE_DEAD_LETTER_SNAPSHOT_LIMIT = 1_000;
 
 export type MentorProfileStaleness = {
   /** When the stored profile was last recomputed; null when no profile exists. */
@@ -60,18 +55,86 @@ export function needsMentorProfileRefresh(input: MentorProfileStaleness): boolea
   return input.latestSignalAtMs > input.profileUpdatedAtMs;
 }
 
+export function needsMentorProfileRepair(
+  input: MentorProfileStaleness & { unresolvedDeadLetters: number },
+): boolean {
+  if (
+    !Number.isSafeInteger(input.unresolvedDeadLetters) ||
+    input.unresolvedDeadLetters < 0
+  ) {
+    throw new Error("mentor_profile_unresolved_dead_letters_invalid");
+  }
+  return (
+    input.unresolvedDeadLetters > 0 ||
+    needsMentorProfileRefresh(input)
+  );
+}
+
 type StaleRow = {
   student_id: string;
   profile_updated_at: Date | null;
   latest_signal_at: Date | null;
+  unresolved_dead_letters: string;
 };
 
 export type MentorProfileRepairResult = {
   enabled: boolean;
   scanned: number;
   repaired: number;
+  resolvedDeadLetters: number;
   failed: number;
 };
+
+type MentorProfileRepairBoundary = {
+  repairStartedAt: string;
+  deadLetterIds: string[];
+};
+
+async function mentorProfileRepairBoundary(
+  studentId: string,
+): Promise<MentorProfileRepairBoundary> {
+  const boundary = await withDb(async (client) => {
+    const result = await client.query<{
+      repair_started_at: Date;
+      dead_letter_ids: string[];
+    }>(
+      `WITH unresolved AS (
+         SELECT dl.id, dl.created_at
+           FROM mentor_profile_update_dead_letters dl
+           JOIN mentor_profile_update_outbox o
+             ON o.id = dl.outbox_id
+            AND o.tenant_id = dl.tenant_id
+            AND o.workspace_id = dl.workspace_id
+           LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+             ON resolution.dead_letter_id = dl.id
+          WHERE o.student_id = $1::uuid
+            AND resolution.dead_letter_id IS NULL
+          ORDER BY dl.created_at, dl.id
+          LIMIT $2
+       )
+       SELECT clock_timestamp() AS repair_started_at,
+              COALESCE(
+                array_agg(id::text ORDER BY created_at, id)
+                  FILTER (WHERE id IS NOT NULL),
+                ARRAY[]::text[]
+              ) AS dead_letter_ids
+         FROM unresolved`,
+      [studentId, MENTOR_PROFILE_DEAD_LETTER_SNAPSHOT_LIMIT],
+    );
+    const row = result.rows[0];
+    if (!row?.repair_started_at) {
+      throw new Error("mentor_profile_repair_clock_unavailable");
+    }
+    return {
+      repairStartedAt: row.repair_started_at.toISOString(),
+      deadLetterIds: row.dead_letter_ids ?? [],
+    };
+  });
+  if (!boundary.enabled) {
+    throw new Error("mentor_profile_repair_database_unavailable");
+  }
+  return boundary.value;
+}
 
 /**
  * Recompute every mentor profile whose learning signals are newer than the stored
@@ -122,26 +185,74 @@ export async function reconcileMentorProfiles(options: {
          SELECT student_id, created_at AS signal_at FROM mentor_challenge_attempts
          UNION ALL
          SELECT student_id, created_at AS signal_at FROM mentor_conversations
+       ),
+       unresolved AS (
+         SELECT o.student_id, COUNT(*)::text AS unresolved_dead_letters
+           FROM mentor_profile_update_dead_letters dl
+           JOIN mentor_profile_update_outbox o
+             ON o.id = dl.outbox_id
+            AND o.tenant_id = dl.tenant_id
+            AND o.workspace_id = dl.workspace_id
+           LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+             ON resolution.dead_letter_id = dl.id
+          WHERE resolution.dead_letter_id IS NULL
+          GROUP BY o.student_id
+       ),
+       signal_summary AS (
+         SELECT student_id, MAX(signal_at) AS latest_signal_at
+           FROM signals
+          GROUP BY student_id
+       ),
+       candidate_students AS (
+         SELECT student_id FROM signal_summary
+         UNION
+         SELECT student_id FROM unresolved
        )
-       SELECT s.student_id,
-              p.updated_at AS profile_updated_at,
-              MAX(s.signal_at) AS latest_signal_at
-         FROM signals s
-         LEFT JOIN mentor_profiles p ON p.student_id = s.student_id
-        GROUP BY s.student_id, p.updated_at
-       HAVING MAX(s.signal_at) <= NOW() - ($1::bigint * INTERVAL '1 millisecond')
-          AND (p.updated_at IS NULL OR MAX(s.signal_at) > p.updated_at)
-        ORDER BY MAX(s.signal_at) ASC
+       SELECT candidate.student_id,
+              profile.updated_at AS profile_updated_at,
+              summary.latest_signal_at,
+              COALESCE(unresolved.unresolved_dead_letters, '0') AS unresolved_dead_letters
+         FROM candidate_students candidate
+         LEFT JOIN signal_summary summary
+           ON summary.student_id = candidate.student_id
+         LEFT JOIN mentor_profiles profile
+           ON profile.student_id = candidate.student_id
+         LEFT JOIN unresolved
+           ON unresolved.student_id = candidate.student_id
+        WHERE (
+          summary.latest_signal_at IS NOT NULL
+          AND summary.latest_signal_at <=
+            NOW() - ($1::bigint * INTERVAL '1 millisecond')
+          AND (
+            profile.updated_at IS NULL
+            OR summary.latest_signal_at > profile.updated_at
+          )
+        )
+        OR COALESCE(unresolved.unresolved_dead_letters::integer, 0) > 0
+        ORDER BY
+          CASE WHEN COALESCE(unresolved.unresolved_dead_letters::integer, 0) > 0
+               THEN 0 ELSE 1 END,
+          summary.latest_signal_at ASC NULLS LAST,
+          candidate.student_id
         LIMIT $2`,
       [graceMs, limit],
     );
     return rows.rows;
   });
 
-  if (!read.enabled) return { enabled: false, scanned: 0, repaired: 0, failed: 0 };
+  if (!read.enabled) {
+    return {
+      enabled: false,
+      scanned: 0,
+      repaired: 0,
+      resolvedDeadLetters: 0,
+      failed: 0,
+    };
+  }
 
   const candidates = read.value.filter((row) =>
-    needsMentorProfileRefresh({
+    needsMentorProfileRepair({
+      unresolvedDeadLetters: Number.parseInt(row.unresolved_dead_letters, 10),
       profileUpdatedAtMs: row.profile_updated_at ? row.profile_updated_at.getTime() : null,
       latestSignalAtMs: row.latest_signal_at ? row.latest_signal_at.getTime() : null,
       nowMs,
@@ -149,18 +260,40 @@ export async function reconcileMentorProfiles(options: {
     }),
   );
 
+  const repairRunId = randomUUID();
   let repaired = 0;
+  let resolvedDeadLetters = 0;
   let failed = 0;
   for (const row of candidates) {
+    const studentFingerprint = createHash("sha256")
+      .update("mentor-profile-repair-v1\0")
+      .update(row.student_id)
+      .digest("hex");
     try {
-      await applyMentorProfileUpdate(row.student_id);
+      const boundary = await mentorProfileRepairBoundary(row.student_id);
+      const update = await applyMentorProfileUpdate(row.student_id);
+      if (!update) throw new Error("mentor_profile_signal_authority_unavailable");
+      const resolution = await resolveMentorProfileDeadLettersAfterRepair({
+        studentId: row.student_id,
+        repairRunId,
+        repairStartedAt: boundary.repairStartedAt,
+        deadLetterIds: boundary.deadLetterIds,
+      });
+      if (!resolution.enabled) {
+        throw new Error("mentor_profile_resolution_authority_unavailable");
+      }
       repaired += 1;
+      resolvedDeadLetters += resolution.value.resolved;
     } catch (error) {
       // One student's failure must not abandon the rest of the sweep.
       failed += 1;
+      const code =
+        error instanceof Error && /^[A-Za-z0-9._:-]{1,100}$/.test(error.message)
+          ? error.message
+          : "mentor_profile_repair_failed";
       logger.error("[mentor-profile-repair] recompute failed", {
-        studentId: row.student_id,
-        error: error instanceof Error ? error.message.slice(0, 120) : String(error).slice(0, 120),
+        studentFingerprint,
+        code,
       });
     }
   }
@@ -168,8 +301,15 @@ export async function reconcileMentorProfiles(options: {
   logger.info("[mentor-profile-repair] sweep complete", {
     scanned: read.value.length,
     repaired,
+    resolvedDeadLetters,
     failed,
   });
 
-  return { enabled: true, scanned: read.value.length, repaired, failed };
+  return {
+    enabled: true,
+    scanned: read.value.length,
+    repaired,
+    resolvedDeadLetters,
+    failed,
+  };
 }

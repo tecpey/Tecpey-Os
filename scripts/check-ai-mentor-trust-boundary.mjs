@@ -43,8 +43,17 @@ for (const [label, pattern] of [
     "preference outage is explicit",
     /!preferenceAuthorityAvailable\s*\? "preference_authority_unavailable"/,
   ],
+  [
+    "server-authoritative Mentor capability",
+    /resolveMentorCapabilityAuthority\(\{/,
+  ],
+  [
+    "Premium research capability gate",
+    /mentorEntitled &&[\s\S]*!mentorPublicResearchAuthorized\(capabilityAuthority\)/,
+  ],
   ["daily quota and spend admission authority", /admitAiAgentExecution\(\{/],
   ["verified knowledge retrieval", /loadVerifiedAiKnowledgeContext\(\{/],
+  ["acute safety before egress", /hasMentorAcuteSafetySignal\(question\)/],
 ]) {
   if (!pattern.test(route)) failures.push(`AI Mentor route: missing ${label}`);
 }
@@ -114,8 +123,34 @@ for (const [label, pattern] of [
   ],
   ["behavioral consent gate", /behavioralPersonalizationEnabled/],
   ["output signal rejection", /direct_signal/],
+  ["acute safety detector", /MENTOR_ACUTE_SAFETY_PATTERN/],
+  ["acute safety response", /mentorAcuteSafetyResponse/],
+  [
+    "evidence-aware profile projection",
+    /projectMentorProfileEvidence\(\{/,
+  ],
 ]) {
   if (!pattern.test(trust)) failures.push(`trust boundary: missing ${label}`);
+}
+
+const evidencePolicy = await source("src/lib/ai/mentor-evidence-policy.ts");
+for (const [label, pattern] of [
+  ["unknown evidence state", /"unknown"/],
+  ["provisional evidence state", /"provisional"/],
+  ["observed evidence state", /"observed"/],
+  ["risk evidence state is explicit", /riskEvidenceState/],
+  ["confidence evidence state is explicit", /confidenceEvidenceState/],
+  [
+    "risk requires observed samples",
+    /const risk = tier\(tradingSampleCount, 5\)/,
+  ],
+  [
+    "profile values masked before observed evidence",
+    /states\.risk === "observed"[\s\S]*states\.confidence === "observed"/,
+  ],
+]) {
+  if (!pattern.test(evidencePolicy))
+    failures.push(`mentor evidence policy: missing ${label}`);
 }
 
 const provider = await source("src/lib/ai/provider-router.ts");
@@ -155,6 +190,7 @@ if (/\.unref(?:\?\.)?\s*\(/.test(provider)) {
 
 const store = await source("src/lib/ai/mentor-trust-store.ts");
 for (const [label, pattern] of [
+  ["default-off external provider", /externalProviderEnabled: false/],
   ["default-off personalization", /behavioralPersonalizationEnabled: false/],
   ["real exchange deny", /realExchangeSignalsEnabled: false/],
   [
@@ -198,6 +234,22 @@ if (!/runAiMentorTrustMigrations/.test(migrationPlan)) {
   failures.push("migration plan: AI Mentor trust migration is not governed");
 }
 
+const insights = await source("src/app/api/mentor-insights/route.ts");
+for (const forbidden of [
+  "generateMentorInsights",
+  "applyMentorProfileUpdate",
+  'searchParams.get("generate")',
+]) {
+  if (insights.includes(forbidden)) {
+    failures.push(
+      `mentor insights: GET route must remain read-only; found ${forbidden}`,
+    );
+  }
+}
+if (!/projectMentorProfileEvidence\(\{/.test(insights)) {
+  failures.push("mentor insights: evidence-aware profile projection is required");
+}
+
 const preferences = await source("src/app/api/mentor-preferences/route.ts");
 for (const [label, pattern] of [
   ["strict session", /strictRevocation: true/],
@@ -206,6 +258,7 @@ for (const [label, pattern] of [
   ["transaction delegation", /setMentorAiPreferences\(\{/],
   ["typed audit request", /action: "mentor\.preferences\.update"/],
   ["no-store", /Cache-Control", "private, no-store/],
+  ["server capabilities returned", /capabilities/],
 ]) {
   if (!pattern.test(preferences))
     failures.push(`mentor preferences: missing ${label}`);

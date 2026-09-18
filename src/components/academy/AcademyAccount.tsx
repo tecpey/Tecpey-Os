@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, ShieldCheck, UserRound, GraduationCap, Crown } from "lucide-react";
 import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
+import { MentorPrivacyControls } from "@/components/academy/MentorPrivacyControls";
 
 type Profile = {
   display_name?: string;
@@ -89,6 +90,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
         <h2 id="account-verification" className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5" aria-hidden="true"/>{isFa ? "احراز هویت" : "Identity verification"}</h2>
         <p className="mt-3 text-sm leading-7 text-muted">{isFa ? "پروفایل آموزشی، احراز هویت مالی محسوب نمی‌شود. ایمیل و موبایل تأییدشده از حساب خوانده می‌شوند و تغییرشان مسیر امنیتی مستقل دارد." : "A learning profile is not financial identity verification. Verified email and mobile are read from the account and use a separate secure change flow."}</p>
       </section>
+      <MentorPrivacyControls locale={locale} />
       <section id="pro" className="mt-8 scroll-mt-28 rounded-2xl border border-cyan-400/25 p-6" aria-labelledby="account-pro">
         <h2 id="account-pro" className="flex items-center gap-2 font-semibold"><Crown className="h-5 w-5 text-cyan-600 dark:text-cyan-200" aria-hidden="true"/>TecPey Pro</h2>
         <p className="mt-3 text-sm leading-7 text-muted">{isFa ? "خرید و مدیریت اشتراک Pro هنوز فعال نشده است. جزئیات امکانات، قیمت و تمدید پیش از فعال‌شدن خرید در همین بخش نمایش داده می‌شود." : "Pro purchasing and subscription management are not active yet. Features, pricing and renewal details will appear here before purchase becomes available."}</p>

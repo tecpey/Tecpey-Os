@@ -7,6 +7,7 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { cleanText } from "@/lib/student-cartax";
 import { withDb, withTx } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
@@ -397,6 +398,14 @@ export async function POST(req: NextRequest) {
             requestHash: command.requestHash,
             idempotencyKey,
             result: response,
+          });
+          await enqueueMentorProfileUpdateTx(client, {
+            tenantId: tenantContext.tenantId,
+            workspaceId: tenantContext.workspaceId,
+            studentId,
+            eventType: "academy.term_progress",
+            reason: "authoritative_term_assessment",
+            sourceReference: idempotencyKey,
           });
           return { ...response, replayed: false };
         });

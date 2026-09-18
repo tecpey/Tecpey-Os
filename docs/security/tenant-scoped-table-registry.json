@@ -679,6 +679,60 @@
       "adversarialProof": "proven",
       "issue": "#577",
       "testReference": "src/tests/security/support-messages-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_outbox",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Durable Mentor projection events carry tenant_id + workspace_id from the already-resolved acting student context. A composite foreign key to platform_workspaces(tenant_id, id) makes a foreign workspace pair impossible, event identity hashes tenant + workspace + student + source reference, and the system worker never accepts tenant/workspace coordinates from a client payload. The projected mentor_profiles row remains intentionally student_global; the outbox scope is immutable provenance for the tenant-authorized source event rather than a partition of the learner model.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_attempts",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Every worker attempt copies tenant_id + workspace_id from the claimed outbox row and is composite-FK-bound back to that exact (outbox_id, tenant_id, workspace_id). Callers cannot manufacture attempt scope independently; claim coordinates are payload-free and the processing transaction reloads the authoritative outbox row.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_dead_letters",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Terminal evidence copies tenant_id + workspace_id from the locked outbox source and is composite-FK-bound to the same scoped event. Dead letters are append-only, retain only bounded error identity plus hashes and a one-way student fingerprint, and reject UPDATE/DELETE.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "ai_mentor_eval_runs",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
+      "isolationModel": "Every finalized Mentor eval run is bound to tenant_id + workspace_id by a platform_workspaces foreign key and FORCE RLS using the signed AI tenant context. Candidate commit/tree, model, policy/dataset versions and hashes are immutable; UPDATE and DELETE are rejected.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
+    },
+    {
+      "table": "ai_mentor_eval_metric_results",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
+      "isolationModel": "Metric rows carry the run tenant/workspace pair and are composite-FK-bound to the exact eval run. FORCE RLS uses the same signed tenant context and append-only triggers prevent post-hoc threshold, baseline or outcome rewriting.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_dead_letter_resolutions",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-dead-letter-resolution.ts; src/lib/mentor-profile-dead-letter-resolution.ts",
+      "isolationModel": "Each repair resolution copies tenant_id + workspace_id + outbox_id from the exact append-only dead-letter source and is database-bound to that scoped dead letter. The row stores only a one-way student fingerprint plus bounded repair evidence, is unique per dead letter, and rejects UPDATE/DELETE so historical terminal evidence is preserved while operational health can distinguish unresolved from resolved incidents.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-profile-health-postgres.test.ts"
     }
   ]
 }

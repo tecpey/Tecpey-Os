@@ -12,9 +12,11 @@ import {
 import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
-import { ensureMentorThreadTx } from "@/lib/mentor-threads";
+import { ensureLegacyMentorThreadTx } from "@/lib/mentor-threads";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
+import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 
 export const dynamic = "force-dynamic";
 
@@ -105,8 +107,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await withTx(async (client) => {
+      await client.query(
+        `SELECT pg_advisory_xact_lock(
+           hashtext('mentor_conversations_migrate'),
+           hashtext($1)
+         )`,
+        [`${studentId}:${requestHash}`],
+      );
       const thread = messages.length > 0
-        ? await ensureMentorThreadTx(client, {
+        ? await ensureLegacyMentorThreadTx(client, {
             studentId,
             locale: "fa",
             titleHint: "گفت‌وگوی پیشین",
@@ -118,12 +127,31 @@ export async function POST(req: NextRequest) {
         const inserted = await client.query(
           `INSERT INTO mentor_conversations
              (student_id, thread_id, role, content, locale, created_at)
-           VALUES ($1::uuid, $2::uuid, $3, $4, 'fa', $5)
-           ON CONFLICT DO NOTHING
+           SELECT $1::uuid, $2::uuid, $3, $4, 'fa', $5
+            WHERE NOT EXISTS (
+              SELECT 1
+                FROM mentor_conversations
+               WHERE student_id = $1::uuid
+                 AND role = $3
+                 AND content = $4
+                 AND locale = 'fa'
+                 AND created_at = $5
+            )
            RETURNING id`,
           [studentId, thread!.thread.id, role, content, ts],
         );
         imported += inserted.rowCount ?? 0;
+      }
+
+      if (imported > 0) {
+        await enqueueMentorProfileUpdateTx(client, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+          studentId,
+          eventType: "mentor.conversation",
+          reason: "mentor_conversation_migrated",
+          sourceReference: requestHash,
+        });
       }
 
       const userCount = messages.filter((message) => message.role === "user").length;
@@ -151,6 +179,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.enabled) return apiError("mentor_storage_unavailable", 503);
+    if (result.value.imported > 0) {
+      scheduleMentorProfileUpdate(studentId, "mentor_conversation_saved");
+    }
     return apiOk({ imported: result.value.imported });
   } catch {
     return apiError("mentor_migration_unavailable", 503);

@@ -138,6 +138,7 @@ for (const migration of [
   "0031_withdrawal_settlement_authority.sql",
   "0032_api_command_idempotency.sql",
   "0033_sensitive_mutation_audit.sql",
+  "0105_mentor_profile_update_outbox.sql",
 ]) {
   requireText(integration, migration, `migration integration must verify ${migration}`);
 }
@@ -145,6 +146,9 @@ for (const table of [
   "offline_sync_commands",
   "notification_domain_outbox",
   "notification_domain_dead_letters",
+  "mentor_profile_update_outbox",
+  "mentor_profile_update_attempts",
+  "mentor_profile_update_dead_letters",
   "crm_leads",
   "crm_lead_commands",
   "crm_lead_delivery_outbox",
@@ -161,6 +165,8 @@ for (const trigger of [
   "admin_audit_events_validate_chain",
   "withdrawals_verify_price_evidence",
   "notification_domain_outbox_identity_no_update",
+  "mentor_profile_update_outbox_identity_no_update",
+  "mentor_profile_update_dead_letters_no_update",
   "academy_leads_legacy_read_only",
   "crm_leads_no_delete",
   "crm_lead_commands_no_update",
@@ -184,6 +190,8 @@ requireText(integration, "exchange_order_commands_claim_idx", "migration integra
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration must verify wallet ledger idempotency schema");
 requireText(integration, "api_command_receipts_retention_idx", "migration integration must verify command receipt retention");
 requireText(integration, "sensitive_mutation_audit_actor_idx", "migration integration must verify sensitive audit actor queries");
+requireText(integration, "mentor_profile_update_outbox_claim_idx", "migration integration must verify recoverable Mentor profile projection claims");
+requireText(integration, "mentor_profile_update_attempts_outbox_scope_fk", "migration integration must verify Mentor worker evidence scope binding");
 
 if (failures.length) {
   console.error("Database migration authority check failed:");

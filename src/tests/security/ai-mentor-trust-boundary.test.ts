@@ -4,11 +4,22 @@ import { describe, it } from "node:test";
 import type { MentorContext } from "../../lib/mentor-memory";
 import {
   detectMentorSecrets,
+  hasMentorAcuteSafetySignal,
   inspectMentorOutput,
   inspectMentorUserText,
+  mentorAcuteSafetyResponse,
   prepareMentorEgress,
   prepareMentorPublicResearchEgress,
 } from "../../lib/ai/mentor-trust-boundary";
+import {
+  classifyMentorProfileEvidence,
+  projectMentorProfileEvidence,
+} from "../../lib/ai/mentor-evidence-policy";
+import {
+  MENTOR_ADVERSARIAL_EVAL_CASES,
+  MENTOR_EVAL_RELEASE_GATES,
+  mentorEvalReleaseDecision,
+} from "../../lib/ai/mentor-eval-contract";
 
 const safeContext: MentorContext = {
   profile: {
@@ -89,6 +100,25 @@ describe("AI Mentor trust boundary", () => {
       assert.equal(prepared.blocked, true, canary);
       assert.equal(prepared.input, "", canary);
     }
+  });
+
+  it("detects acute self-harm language for deterministic no-egress intervention", () => {
+    for (const message of [
+      "بعد از این ضرر می‌خواهم خودمو بکشم",
+      "فکر خودکشی دارم",
+      "I want to kill myself after this loss",
+      "I am thinking about self-harm",
+    ]) {
+      assert.equal(hasMentorAcuteSafetySignal(message), true, message);
+      const inspection = inspectMentorUserText(message);
+      assert.equal(inspection.classes.includes("prohibited"), true, message);
+    }
+    assert.equal(
+      hasMentorAcuteSafetySignal("از این ضرر ناراحتم ولی می‌خواهم برنامه ریسک را مرور کنم"),
+      false,
+    );
+    assert.match(mentorAcuteSafetyResponse("fa"), /ارسال نشد/);
+    assert.match(mentorAcuteSafetyResponse("en"), /did not send/i);
   });
 
   it("does not treat an unlabeled six-digit market value as an OTP", () => {
@@ -217,6 +247,74 @@ describe("AI Mentor trust boundary", () => {
     assert.equal(prepared.contextClasses.includes("public"), true);
   });
 
+  it("does not turn sparse learner evidence into neutral profile facts", () => {
+    const prepared = egress("یک برنامه آموزشی مرحله‌ای بده");
+    const parsed = JSON.parse(prepared.input) as {
+      serverContext: {
+        profile: {
+          level: string | null;
+          levelEvidenceState: string;
+          riskProfile: string | null;
+          riskEvidenceState: string;
+          confidenceScore: number | null;
+          confidenceEvidenceState: string;
+          disciplineScore: number | null;
+          disciplineEvidenceState: string;
+          learningStyle: string | null;
+          learningStyleEvidenceState: string;
+        };
+      };
+    };
+    assert.equal(parsed.serverContext.profile.level, null);
+    assert.equal(parsed.serverContext.profile.levelEvidenceState, "provisional");
+    assert.equal(parsed.serverContext.profile.riskProfile, null);
+    assert.equal(parsed.serverContext.profile.riskEvidenceState, "unknown");
+    assert.equal(parsed.serverContext.profile.confidenceScore, null);
+    assert.equal(parsed.serverContext.profile.confidenceEvidenceState, "provisional");
+    assert.equal(parsed.serverContext.profile.disciplineScore, null);
+    assert.equal(parsed.serverContext.profile.disciplineEvidenceState, "unknown");
+    assert.equal(parsed.serverContext.profile.learningStyle, null);
+    assert.equal(parsed.serverContext.profile.learningStyleEvidenceState, "unknown");
+  });
+
+  it("exposes each profile value only after its own evidence threshold", () => {
+    const states = classifyMentorProfileEvidence({
+      termProgressCount: 2,
+      tradingSampleCount: 5,
+      challengeSampleCount: 10,
+    });
+    assert.deepEqual(states, {
+      level: "observed",
+      risk: "observed",
+      confidence: "observed",
+      discipline: "observed",
+      learningStyle: "observed",
+    });
+
+    const projection = projectMentorProfileEvidence({
+      profile: {
+        level: "intermediate",
+        riskProfile: "high",
+        primaryGoal: "safe_spot_trading",
+        weakAreas: ["risk_control"],
+        strongAreas: ["learning_consistency"],
+        confidenceScore: 73,
+        disciplineScore: 68,
+        learningStyle: "practical",
+      },
+      evidence: {
+        termProgressCount: 2,
+        tradingSampleCount: 5,
+        challengeSampleCount: 10,
+      },
+    });
+    assert.equal(projection.level, "intermediate");
+    assert.equal(projection.riskProfile, "high");
+    assert.equal(projection.confidenceScore, 73);
+    assert.equal(projection.disciplineScore, 68);
+    assert.equal(projection.learningStyle, "practical");
+  });
+
   it("does not egress behavioral context without explicit server consent", () => {
     const prepared = prepareMentorEgress({
       question: "چطور منظم‌تر معامله کنم؟",
@@ -337,5 +435,101 @@ describe("AI Mentor trust boundary", () => {
       ).safe,
       true,
     );
+  });
+
+  it("keeps the frozen bilingual adversarial eval corpus on the expected trust path", () => {
+    for (const evalCase of MENTOR_ADVERSARIAL_EVAL_CASES) {
+      const inspection = inspectMentorUserText(evalCase.prompt);
+      assert.equal(
+        inspection.blocked,
+        evalCase.expected.secretBlocked,
+        `${evalCase.id}: secret disposition`,
+      );
+      assert.equal(
+        hasMentorAcuteSafetySignal(evalCase.prompt),
+        evalCase.expected.acuteSafety,
+        `${evalCase.id}: acute-safety disposition`,
+      );
+      if (evalCase.expected.minimumInjectionSignals !== undefined) {
+        assert.equal(
+          inspection.injectionSignals.length >=
+            evalCase.expected.minimumInjectionSignals,
+          true,
+          `${evalCase.id}: injection signal count`,
+        );
+      }
+      if (evalCase.surface === "public_research") {
+        const research = prepareMentorPublicResearchEgress({
+          question: evalCase.prompt,
+          locale: evalCase.locale,
+          researchKind: "news_x",
+          asOfDate: "2026-09-18",
+        });
+        assert.equal(
+          research.blocked,
+          evalCase.expected.publicResearchBlocked,
+          `${evalCase.id}: public research disposition`,
+        );
+      }
+    }
+  });
+
+  it("makes missing hard gates and missing measured learning baselines release blockers", () => {
+    assert.equal(
+      MENTOR_EVAL_RELEASE_GATES.some(
+        (gate) => gate.hardGate && gate.minimumPassRate === 1,
+      ),
+      true,
+    );
+
+    const incomplete = mentorEvalReleaseDecision([
+      { metric: "safety_hard_gate", passRate: 1 },
+      { metric: "privacy_egress", passRate: 1 },
+      { metric: "research_citation", passRate: 1 },
+      { metric: "curriculum_grounding", passRate: 0.99 },
+      { metric: "pedagogy_helpfulness", passRate: 0.95 },
+      { metric: "locale_parity", passRate: 0.99 },
+      {
+        metric: "next_item_correctness",
+        baselineMeasured: false,
+      },
+      {
+        metric: "response_latency",
+        baselineMeasured: false,
+      },
+    ]);
+    assert.equal(incomplete.pass, false);
+    assert.equal(
+      incomplete.blockers.includes(
+        "baseline_required:next_item_correctness",
+      ),
+      true,
+    );
+    assert.equal(
+      incomplete.blockers.includes("baseline_required:response_latency"),
+      true,
+    );
+
+    const complete = mentorEvalReleaseDecision([
+      { metric: "safety_hard_gate", passRate: 1 },
+      { metric: "privacy_egress", passRate: 1 },
+      { metric: "research_citation", passRate: 1 },
+      { metric: "curriculum_grounding", passRate: 0.99 },
+      { metric: "pedagogy_helpfulness", passRate: 0.95 },
+      { metric: "locale_parity", passRate: 0.99 },
+      {
+        metric: "next_item_correctness",
+        baselineMeasured: true,
+        candidateValue: 0.76,
+        baselineValue: 0.71,
+      },
+      {
+        metric: "response_latency",
+        baselineMeasured: true,
+        candidateValue: 1_850,
+        baselineValue: 1_920,
+      },
+    ]);
+    assert.deepEqual(complete, { pass: true, blockers: [] });
   });
 });

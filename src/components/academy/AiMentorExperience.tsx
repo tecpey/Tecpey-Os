@@ -29,6 +29,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { MentorArenaDock } from "@/components/mentor/MentorArenaDock";
+import { MentorOfficeScene } from "@/components/mentor/MentorOfficeScene";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
 import { useMentorInsights } from "@/hooks/useMentorInsights";
@@ -44,6 +45,7 @@ import {
   type MentorArenaPanelState,
 } from "@/lib/mentor-stage-director";
 import {
+  canUseMentorWorkspaceSurface,
   mentorResearchModeForSurface,
   mentorWorkspaceDirection,
   type MentorWorkspacePlan,
@@ -231,7 +233,16 @@ export function AiMentorExperience({
   const officialProgress = useAcademyPathProgress(mentorLocale);
   const { data: mentorInsights } = useMentorInsights({ enabled: true });
 
-  const activeSurface: MentorWorkspaceSurface = "academy";
+  const [serverPlan, setServerPlan] = useState<MentorWorkspacePlan>(plan);
+  const [capabilityReady, setCapabilityReady] = useState(false);
+  const effectivePlan: MentorWorkspacePlan = capabilityReady ? serverPlan : "free";
+  const [selectedSurface, setSelectedSurface] = useState<MentorWorkspaceSurface>("academy");
+  const activeSurface: MentorWorkspaceSurface = canUseMentorWorkspaceSurface(
+    effectivePlan,
+    selectedSurface,
+  )
+    ? selectedSurface
+    : "academy";
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<WorkspaceMessage[]>([]);
   const [threads, setThreads] = useState<MentorThread[]>([]);
@@ -276,7 +287,7 @@ export function AiMentorExperience({
   );
   const confidence = mentorInsights?.profile?.confidenceScore ?? null;
   const publicResearch =
-    mentorResearchModeForSurface(plan, activeSurface) === "public";
+    mentorResearchModeForSurface(effectivePlan, activeSurface) === "public";
 
   const dateFormatter = useMemo(() => {
     try {
@@ -285,6 +296,32 @@ export function AiMentorExperience({
       return new Intl.DateTimeFormat(mentorLocale, { day: "numeric", month: "short" });
     }
   }, [locale, mentorLocale]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/mentor-preferences", {
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => ({ response, data: await response.json() }))
+      .then(({ response, data }) => {
+        if (controller.signal.aborted) return;
+        const nextPlan: MentorWorkspacePlan =
+          response.ok && data?.capabilities?.plan === "premium"
+            ? "premium"
+            : "free";
+        setServerPlan(nextPlan);
+        setCapabilityReady(true);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setServerPlan("free");
+          setCapabilityReady(true);
+        }
+      });
+    return () => controller.abort();
+  }, []);
 
   const applyThreadsPayload = useCallback((responseOk: boolean, data: unknown) => {
     const payload = data as { ok?: boolean; threads?: MentorThread[] } | null;
@@ -486,6 +523,14 @@ export function AiMentorExperience({
     window.requestAnimationFrame(() => arenaTriggerRef.current?.focus());
   }, []);
 
+  const selectSurface = useCallback(
+    (surface: MentorWorkspaceSurface) => {
+      if (!canUseMentorWorkspaceSurface(effectivePlan, surface)) return;
+      setSelectedSurface(surface);
+    },
+    [effectivePlan],
+  );
+
   const ask = useCallback(async () => {
     const clean = question.trim();
     if (clean.length < 2 || loading || historyLoading) return;
@@ -668,7 +713,7 @@ export function AiMentorExperience({
     <section
       className={styles.workspace}
       dir={direction}
-      data-plan={plan}
+      data-plan={effectivePlan}
       data-arena-panel={arenaPanel}
       aria-labelledby="mentor-workspace-title"
     >
@@ -685,15 +730,43 @@ export function AiMentorExperience({
           </div>
         </div>
         <div className={styles.workspaceMeta}>
-          <span data-plan={plan}>
-            {plan === "premium" ? <Crown aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
-            {plan === "premium" ? copy.premiumPlan : copy.freePlan}
+          <span data-plan={effectivePlan}>
+            {effectivePlan === "premium" ? <Crown aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
+            {effectivePlan === "premium" ? copy.premiumPlan : copy.freePlan}
           </span>
           <Link href={isFa ? "/academy/account#pro" : "/en/academy/account#pro"} className={styles.planLink}><Crown aria-hidden="true" />Pro</Link>
         </div>
       </header>
 
-      <div className={`${styles.workspaceGrid} ${styles.conversationWorkspace}`} data-arena-panel={arenaPanel}>
+      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel}>
+        <div className={styles.officeCell}>
+          <MentorOfficeScene
+            activeSurface={activeSurface}
+            completedTerms={completedTerms}
+            confidence={confidence}
+            framing={stageDirection.framing}
+            gaze={stageDirection.gaze}
+            intensity={stageDirection.intensity}
+            locale={locale}
+            mentorAct={mentorAct}
+            mode={stageDirection.mode}
+            motion={stageDirection.motion}
+            onSelectSurface={selectSurface}
+            plan={effectivePlan}
+            pose={stageDirection.pose}
+            status={
+              loading
+                ? publicResearch
+                  ? "researching"
+                  : "thinking"
+                : isExplaining
+                  ? "explaining"
+                  : question.trim().length > 0
+                    ? "listening"
+                    : "idle"
+            }
+          />
+        </div>
         <section className={styles.chatPanel} dir={direction} aria-label={copy.conversation}>
           <header className={styles.chatHeader}>
             <div>
@@ -896,7 +969,7 @@ export function AiMentorExperience({
               onFocus={() => setArenaPanel("focus")}
               onMinimize={() => setArenaPanel("minimized")}
               panel={arenaPanel}
-              plan={plan}
+              plan={effectivePlan}
             />
           </div>
         ) : null}

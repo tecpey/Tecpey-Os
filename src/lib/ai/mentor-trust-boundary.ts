@@ -1,8 +1,9 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import type { MentorContext } from "@/lib/mentor-memory";
+import { projectMentorProfileEvidence } from "@/lib/ai/mentor-evidence-policy";
 
-export const AI_MENTOR_TRUST_POLICY_VERSION = "2026-08-28.1";
+export const AI_MENTOR_TRUST_POLICY_VERSION = "2026-09-18.1";
 
 export type MentorDataClass =
   | "public"
@@ -131,6 +132,9 @@ const WIF_PATTERN = /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/g;
 const BASE64_CANDIDATE = /\b[A-Za-z0-9+/]{24,}={0,2}\b/g;
 const LABELED_VALUE_PATTERN =
   /(?:password|passphrase|secret|token|api[\s_-]*key|private[\s_-]*key|otp|2fa|رمز|پسورد|کلید\s*خصوصی|کد\s*تأیید)\s*(?:=|:|است|هست)?\s*["']?([^\s,"'}]{4,})/gi;
+
+const MENTOR_ACUTE_SAFETY_PATTERN =
+  /(?:خودکشی|خودم\s*را\s*بکشم|خودمو\s*بکشم|به\s*خودم\s*آسیب|آسیب\s*به\s*خود|suicide|kill\s+myself|hurt\s+myself|self[\s-]*harm)/i;
 
 const INJECTION_PATTERNS: Array<[string, RegExp]> = [
   [
@@ -368,7 +372,7 @@ function classify(
   }
   ETH_ADDRESS_PATTERN.lastIndex = 0;
   BTC_ADDRESS_PATTERN.lastIndex = 0;
-  if (/خودکشی|آسیب\s*به\s*خود|suicide|self[\s-]*harm/i.test(value)) {
+  if (MENTOR_ACUTE_SAFETY_PATTERN.test(value)) {
     classes.add("prohibited");
   }
   return [...classes].sort();
@@ -378,6 +382,10 @@ function injectionSignals(value: string): string[] {
   return INJECTION_PATTERNS.filter(([, pattern]) => pattern.test(value)).map(
     ([name]) => name,
   );
+}
+
+export function hasMentorAcuteSafetySignal(value: unknown): boolean {
+  return MENTOR_ACUTE_SAFETY_PATTERN.test(normalizeMentorText(value, 4000));
 }
 
 export function inspectMentorUserText(value: unknown): MentorInputInspection {
@@ -426,22 +434,26 @@ function safeProfileContext(
   ctx: MentorContext,
 ): Record<string, unknown> | null {
   if (!ctx.profile) return null;
-  return {
-    level: ctx.profile.level,
-    riskProfile: ctx.profile.riskProfile,
-    primaryGoal: normalizeMentorText(ctx.profile.primaryGoal, 120),
-    weakAreas: safeStringList(ctx.profile.weakAreas, 6, 80),
-    strongAreas: safeStringList(ctx.profile.strongAreas, 6, 80),
-    confidenceScore: Math.max(
-      0,
-      Math.min(100, Number(ctx.profile.confidenceScore) || 0),
-    ),
-    disciplineScore: Math.max(
-      0,
-      Math.min(100, Number(ctx.profile.disciplineScore) || 0),
-    ),
-    learningStyle: normalizeMentorText(ctx.profile.learningStyle, 40),
-  };
+  return projectMentorProfileEvidence({
+    profile: {
+      level: ctx.profile.level,
+      riskProfile: ctx.profile.riskProfile,
+      primaryGoal:
+        normalizeMentorText(ctx.profile.primaryGoal, 120) || "",
+      weakAreas: safeStringList(ctx.profile.weakAreas, 6, 80),
+      strongAreas: safeStringList(ctx.profile.strongAreas, 6, 80),
+      confidenceScore: Number(ctx.profile.confidenceScore),
+      disciplineScore: Number(ctx.profile.disciplineScore),
+      learningStyle: normalizeMentorText(ctx.profile.learningStyle, 40),
+    },
+    evidence: {
+      termProgressCount: ctx.termProgress.filter(
+        (term) => term.status === "passed",
+      ).length,
+      tradingSampleCount: ctx.tradingSignals?.sampleCount ?? 0,
+      challengeSampleCount: ctx.challengeSampleCount ?? 0,
+    },
+  });
 }
 
 function safeProgressContext(
@@ -739,6 +751,21 @@ export function inspectMentorOutput(value: unknown): MentorOutputInspection {
   }
   if (!normalized) reasons.push("empty_output");
   return { safe: reasons.length === 0, reasons, normalized };
+}
+
+export function mentorAcuteSafetyResponse(locale: string): string {
+  if (locale === "en") {
+    return [
+      "If you may hurt yourself or you are in immediate danger, TecPey Mentor is not a substitute for urgent human help.",
+      "Contact your local emergency service or a trusted person now and do not stay alone. If you can do so safely, move away from anything you could use to hurt yourself.",
+      "I did not send this message to an external AI provider and I did not save it in Mentor memory. If you want to continue here, tell me only whether you are in immediate danger right now.",
+    ].join("\n\n");
+  }
+  return [
+    "اگر ممکن است به خودت آسیب بزنی یا در خطر فوری هستی، منتور تک‌پی جای کمک فوری انسانی را نمی‌گیرد.",
+    "همین حالا با خدمات اضطراری محل زندگی یا یک فرد قابل‌اعتماد تماس بگیر و تنها نمان. اگر می‌توانی بدون به‌خطرانداختن خودت، از هر وسیله‌ای که ممکن است با آن به خودت آسیب بزنی فاصله بگیر.",
+    "این پیام به ارائه‌دهنده هوش مصنوعی خارجی ارسال نشد و در حافظه منتور ذخیره نشد. اگر می‌خواهی اینجا ادامه بدهی، فقط بگو آیا همین الان در خطر فوری هستی یا نه.",
+  ].join("\n\n");
 }
 
 export function secretIncidentResponse(locale: string): string {

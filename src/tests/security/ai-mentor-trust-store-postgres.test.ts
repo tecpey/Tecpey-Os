@@ -204,6 +204,7 @@ describe("AI Mentor durable trust store", () => {
       try {
         const initial = await loadMentorAiPreferences(first);
         assert.equal(initial.available, true);
+        assert.equal(initial.preferences.externalProviderEnabled, false);
         assert.equal(initial.preferences.behavioralPersonalizationEnabled, false);
         assert.equal(initial.preferences.realExchangeSignalsEnabled, false);
 
@@ -227,6 +228,7 @@ describe("AI Mentor durable trust store", () => {
 
         const other = await loadMentorAiPreferences(second);
         assert.equal(other.available, true);
+        assert.equal(other.preferences.externalProviderEnabled, false);
         assert.equal(other.preferences.behavioralPersonalizationEnabled, false);
 
         await withClient(async (client) => {
@@ -456,6 +458,8 @@ describe("AI Mentor durable trust store", () => {
         assert.equal(
           await persistMentorConversationPair({
             requestId,
+            tenantId: "tecpey",
+            workspaceId: "main",
             studentId,
             question: "چطور ریسک را محدود کنم؟",
             answer: "قبل از ورود، حداکثر زیان و نقطه ابطال را مشخص کن.",
@@ -492,6 +496,85 @@ describe("AI Mentor durable trust store", () => {
   );
 
   it(
+    "replays one live conversation request without duplicating turns or projection events",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) =>
+        createStudent(client, "mentor-pair-replay"),
+      );
+      const requestId = randomUUID();
+      const input = {
+        requestId,
+        tenantId: "tecpey",
+        workspaceId: "main",
+        studentId,
+        question: "چطور قبل از ورود حد ضرر را تعریف کنم؟",
+        answer: "ابتدا نقطه ابطال تحلیل را مشخص کن و اندازه موقعیت را بر همان اساس بساز.",
+        locale: "fa" as const,
+        termNumber: 6,
+        contentClass: "financial_sensitive" as const,
+      };
+      try {
+        assert.equal(await persistMentorConversationPair(input), true);
+        assert.equal(await persistMentorConversationPair(input), true);
+
+        await withClient(async (client) => {
+          const pair = await client.query<{
+            role: string;
+            content: string;
+          }>(
+            `SELECT role, content
+               FROM mentor_conversations
+              WHERE student_id = $1::uuid
+                AND request_id = $2::uuid
+              ORDER BY role ASC`,
+            [studentId, requestId],
+          );
+          assert.equal(pair.rows.length, 2);
+          assert.deepEqual(
+            new Set(pair.rows.map((row) => row.role)),
+            new Set(["user", "assistant"]),
+          );
+
+          const events = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM mentor_profile_update_outbox
+              WHERE student_id = $1::uuid
+                AND source_reference = $2
+                AND event_type = 'mentor.conversation'
+                AND reason = 'mentor_conversation_saved'`,
+            [studentId, requestId],
+          );
+          assert.equal(Number(events.rows[0]?.count ?? "0"), 1);
+        });
+
+        assert.equal(
+          await persistMentorConversationPair({
+            ...input,
+            answer: "این پاسخ با همان request id نباید جایگزین شود.",
+          }),
+          false,
+        );
+
+        await withClient(async (client) => {
+          const assistant = await client.query<{ content: string }>(
+            `SELECT content
+               FROM mentor_conversations
+              WHERE student_id = $1::uuid
+                AND request_id = $2::uuid
+                AND role = 'assistant'`,
+            [studentId, requestId],
+          );
+          assert.equal(assistant.rows.length, 1);
+          assert.equal(assistant.rows[0]?.content, input.answer);
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+
+  it(
     "rejects a thread owned by another student at both lookup and persistence boundaries",
     { skip: !configured, timeout: 20_000 },
     async () => {
@@ -518,6 +601,8 @@ describe("AI Mentor durable trust store", () => {
         assert.equal(
           await persistMentorConversationPair({
             requestId: randomUUID(),
+            tenantId: "tecpey",
+            workspaceId: "main",
             studentId: otherId,
             threadId: owned.thread.id,
             question: "نباید ثبت شود",
@@ -773,6 +858,8 @@ describe("AI Mentor durable trust store", () => {
         assert.equal(
           await persistMentorConversationPair({
             requestId,
+            tenantId: "tecpey",
+            workspaceId: "main",
             studentId,
             question: "user turn",
             answer: "assistant turn",

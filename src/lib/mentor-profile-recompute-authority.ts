@@ -4,6 +4,7 @@ import {
   collectConversationSignals,
   collectTradingSignals,
   computeMentorProfileUpdate,
+  mentorSignalAuthorityAvailable,
   type MentorProfileUpdate,
 } from "./mentor-signals";
 
@@ -15,6 +16,24 @@ export async function computeMentorProfileForStudent(
     collectTradingSignals(studentId),
     collectConversationSignals(studentId),
   ]);
+  if (!mentorSignalAuthorityAvailable(academy, trading, conversation)) {
+    throw new Error("mentor_profile_signal_authority_unavailable");
+  }
+  return computeMentorProfileUpdate(academy, trading, conversation);
+}
+
+export async function computeMentorProfileForStudentTx(
+  client: PoolClient,
+  studentId: string,
+): Promise<MentorProfileUpdate> {
+  // One transaction/client provides a single authoritative processing boundary.
+  // Queries are intentionally serial on the same PostgreSQL client.
+  const academy = await collectAcademySignals(studentId, client);
+  const trading = await collectTradingSignals(studentId, client);
+  const conversation = await collectConversationSignals(studentId, client);
+  if (!mentorSignalAuthorityAvailable(academy, trading, conversation)) {
+    throw new Error("mentor_profile_signal_authority_unavailable");
+  }
   return computeMentorProfileUpdate(academy, trading, conversation);
 }
 

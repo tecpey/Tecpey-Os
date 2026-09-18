@@ -323,6 +323,7 @@ const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/mentor-conversations/migrate/route.ts": "mentor",
   "src/app/api/mentor-threads/route.ts": "mentor",
   "src/app/api/mentor-preferences/route.ts": "mentor",
+  "src/app/api/mentor-profile/recompute/route.ts": "mentor",
   "src/app/api/notification-brain/route.ts": "academy",
   "src/app/api/trading-arena/route.ts": "academy",
   "src/app/api/trading-arena/execution/route.ts": "academy",

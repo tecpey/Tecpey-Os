@@ -96,6 +96,22 @@ import {
 import { runIdentityProductLinkingMigrations } from "./db-migrate-identity-product-linking";
 import { runAcademyProfileDetailsMigrations } from "./db-migrate-academy-profile-details";
 import { runAcademyQuestionBankBaselineMigrations } from "./db-migrate-academy-question-bank-baseline";
+import {
+  MENTOR_PRIVACY_RETENTION_SQL,
+  runMentorPrivacyRetentionMigrations,
+} from "./db-migrate-mentor-privacy-retention";
+import {
+  MENTOR_PROFILE_UPDATE_OUTBOX_SQL,
+  runMentorProfileUpdateOutboxMigrations,
+} from "./db-migrate-mentor-profile-update-outbox";
+import {
+  MENTOR_EVAL_PROMOTION_AUTHORITY_SQL,
+  runMentorEvalPromotionAuthorityMigrations,
+} from "./db-migrate-mentor-eval-promotion-authority";
+import {
+  MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+  runMentorProfileDeadLetterResolutionMigrations,
+} from "./db-migrate-mentor-profile-dead-letter-resolution";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -162,6 +178,43 @@ const NEWS_FULL_EVIDENCE_CAPTURE_MIGRATION: CanonicalMigrationContent = Object.f
   acceptsHistoricalChecksumPrefix: false,
   compatibleHistoricalChecksums: Object.freeze([]),
 });
+
+const MENTOR_PRIVACY_RETENTION_MIGRATION: CanonicalMigrationContent = Object.freeze({
+  identity: "0104_mentor_privacy_retention_authority.sql",
+  content: MENTOR_PRIVACY_RETENTION_SQL,
+  checksum: canonicalMigrationChecksum(MENTOR_PRIVACY_RETENTION_SQL),
+  acceptsHistoricalChecksumPrefix: false,
+  compatibleHistoricalChecksums: Object.freeze([]),
+});
+
+const MENTOR_PROFILE_UPDATE_OUTBOX_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0105_mentor_profile_update_outbox.sql",
+    content: MENTOR_PROFILE_UPDATE_OUTBOX_SQL,
+    checksum: canonicalMigrationChecksum(MENTOR_PROFILE_UPDATE_OUTBOX_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const MENTOR_EVAL_PROMOTION_AUTHORITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0106_mentor_eval_promotion_authority.sql",
+    content: MENTOR_EVAL_PROMOTION_AUTHORITY_SQL,
+    checksum: canonicalMigrationChecksum(MENTOR_EVAL_PROMOTION_AUTHORITY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0107_mentor_profile_dead_letter_resolution.sql",
+    content: MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+    checksum: canonicalMigrationChecksum(
+      MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+    ),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
 
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
@@ -257,6 +310,38 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "growth-platform",
     "organic-growth",
     runNewsFullEvidenceCaptureMigrations,
+  ),
+  entry(
+    88,
+    "migration-step-088",
+    [MENTOR_PRIVACY_RETENTION_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorPrivacyRetentionMigrations,
+  ),
+  entry(
+    89,
+    "migration-step-089",
+    [MENTOR_PROFILE_UPDATE_OUTBOX_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorProfileUpdateOutboxMigrations,
+  ),
+  entry(
+    90,
+    "migration-step-090",
+    [MENTOR_EVAL_PROMOTION_AUTHORITY_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorEvalPromotionAuthorityMigrations,
+  ),
+  entry(
+    91,
+    "migration-step-091",
+    [MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorProfileDeadLetterResolutionMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 

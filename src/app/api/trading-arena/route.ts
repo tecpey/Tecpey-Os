@@ -8,6 +8,7 @@ import { cleanText, numeric } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withTx } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import { apiOk, apiError, checkBodySize } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
@@ -394,6 +395,15 @@ export async function POST(request: NextRequest) {
           tradeId: decision.id,
           symbol: decision.symbol,
         }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
+
+        await enqueueMentorProfileUpdateTx(client, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+          studentId,
+          eventType: "arena.trade_signal",
+          reason: "trading_trade_created",
+          sourceReference: decision.id,
+        });
 
         const refreshedAccount = await ensureArenaAccount(client, studentId);
         const decisions = await getDecisions(client, studentId);

@@ -1,0 +1,14 @@
+[Unit]
+Description=Continuously verify TecPey Mentor profile projection health
+Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=1min
+RandomizedDelaySec=5s
+FixedRandomDelay=true
+AccuracySec=1s
+Unit=tecpey-mentor-profile-health.service
+
+[Install]
+WantedBy=timers.target

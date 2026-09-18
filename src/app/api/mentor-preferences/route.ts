@@ -16,6 +16,7 @@ import {
 } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { resolveMentorCapabilityAuthority } from "@/lib/ai/mentor-capability-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,12 @@ export async function GET(req: NextRequest) {
       if (!loaded.available) {
         return noStore(apiError("mentor_preferences_unavailable", 503));
       }
-      return noStore(apiOk({ preferences: loaded.preferences }));
+      const capabilities = await resolveMentorCapabilityAuthority({
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
+        studentId: tenantContext.principalId,
+      });
+      return noStore(apiOk({ preferences: loaded.preferences, capabilities }));
     },
   );
 }

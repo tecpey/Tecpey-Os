@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   MENTOR_PROFILE_REPAIR_GRACE_MS,
   needsMentorProfileRefresh,
+  needsMentorProfileRepair,
 } from "../lib/mentor-profile-reconciliation";
 
 // scheduleMentorProfileUpdate dispatches profile recomputation as an in-process
@@ -78,6 +79,37 @@ test("the grace window is configurable without changing the rule", () => {
   );
 });
 
+test("unresolved dead letters remain repair candidates even when the profile looks fresh", () => {
+  assert.equal(
+    needsMentorProfileRepair({
+      unresolvedDeadLetters: 1,
+      profileUpdatedAtMs: NOW,
+      latestSignalAtMs: NOW - HOUR,
+      nowMs: NOW,
+    }),
+    true,
+  );
+  assert.equal(
+    needsMentorProfileRepair({
+      unresolvedDeadLetters: 0,
+      profileUpdatedAtMs: NOW,
+      latestSignalAtMs: NOW - HOUR,
+      nowMs: NOW,
+    }),
+    false,
+  );
+  assert.throws(
+    () =>
+      needsMentorProfileRepair({
+        unresolvedDeadLetters: -1,
+        profileUpdatedAtMs: NOW,
+        latestSignalAtMs: NOW - HOUR,
+        nowMs: NOW,
+      }),
+    /mentor_profile_unresolved_dead_letters_invalid/,
+  );
+});
+
 test("the staleness scan covers exactly the sources the recompute reads", () => {
   // The original version of this sweep scanned learning_events, which
   // applyMentorProfileUpdate does not read at all. It therefore missed every
@@ -106,8 +138,11 @@ test("the staleness scan covers exactly the sources the recompute reads", () => 
   const readTables = fromTables(bodies);
   assert.ok(readTables.size > 0, "expected to find the collector source tables");
 
-  const scanned = fromTables(sweep);
-  scanned.delete("signals"); // the CTE the union feeds, not a signal store
+  const signalCteMatch = sweep.match(
+    /`WITH signals AS \(([\s\S]*?)\n       \),\n       unresolved AS \(/,
+  );
+  assert.ok(signalCteMatch?.[1], "expected a bounded signals CTE before recovery joins");
+  const scanned = fromTables(signalCteMatch[1]);
 
   assert.deepEqual(
     [...scanned].sort(),
