@@ -381,7 +381,12 @@ for (const needle of [
   "signals/pending",
   "signals/delivered",
   "signals/quarantine",
-  "first observation",
+  "signals/state",
+  "episode lifecycle",
+  "firing",
+  "updated",
+  "resolved",
+  "new episode UUID",
   "PostgreSQL outage",
 ]) {
   requireText("runbook", runbook, needle, `operational signal runbook invariant missing: ${needle}`);
