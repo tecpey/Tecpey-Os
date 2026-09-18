@@ -28,6 +28,8 @@ for (const needle of [
   "fingerprint CHAR(64) NOT NULL",
   "payload_hash CHAR(64) NOT NULL",
   "platform_operational_signal_attempt_semantics_check",
+  "laterSameBucket",
+  "distributedReplay",
 ]) {
   requireText("migration", migration, needle, `missing signal schema invariant: ${needle}`);
 }
@@ -59,6 +61,9 @@ for (const needle of [
   "dedupeWindowSeconds",
   "Date.parse(dedupeBucketAt) > Date.parse(occurredAt)",
   "operational_signal_attempt_semantics_invalid",
+  "row.signal_type !== signal.signalType",
+  "row.dedupe_bucket_at.toISOString() !== signal.dedupeBucketAt",
+  "row.fingerprint !== signal.fingerprint",
   "attributes.length",
 ]) {
   if (needle === "attributes.length") continue;
