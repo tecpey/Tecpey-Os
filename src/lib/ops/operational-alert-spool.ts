@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   chmod,
   lstat,
@@ -22,21 +22,44 @@ import {
   type OperationalAlertEvidence,
   type OperationalJobRunEvidence,
 } from "@/lib/ops/operational-job-evidence";
+import {
+  persistOperationalSignalDeliveryAttemptTx,
+  persistOperationalSignalTx,
+  validateOperationalSignalEvidence,
+  type OperationalSignalDetailValue,
+  type OperationalSignalEvidence,
+  type OperationalSignalPhase,
+  type OperationalSignalSeverity,
+} from "@/lib/ops/operational-signal-evidence";
 
 const MAX_FILE_BYTES = 64 * 1024;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const MAX_RESPONSE_BODY_BYTES = 0;
 const SAFE_FILE_RE = /^[0-9a-f]{64}\.json$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type DeliveryState = {
+  attemptCount: number;
+  nextAttemptAt: string;
+  lastErrorCode: string | null;
+};
 
 export type OperationalAlertSpoolItem = {
   schemaVersion: 1;
   alert: OperationalAlertEvidence;
-  delivery: {
-    attemptCount: number;
-    nextAttemptAt: string;
-    lastErrorCode: string | null;
-  };
+  delivery: DeliveryState;
 };
+
+export type OperationalSignalSpoolItem = {
+  schemaVersion: 2;
+  signal: OperationalSignalEvidence;
+  delivery: DeliveryState;
+};
+
+export type OperationalSpoolItem =
+  | OperationalAlertSpoolItem
+  | OperationalSignalSpoolItem;
 
 export type OperationalAlertDeliveryConfig = {
   stateDirectory: string;
@@ -55,6 +78,41 @@ export type OperationalAlertDeliverySummary = {
   retryable: number;
   quarantined: number;
   skippedUntilLater: number;
+};
+
+export type OperationalSignalObservation = Readonly<{
+  source: string;
+  sourceUnit: string;
+  hostName: string;
+  status: "healthy" | "warning" | "critical" | "authority_unavailable";
+  observedAt: string;
+  reasonCodes: readonly string[];
+  details: Readonly<Record<string, OperationalSignalDetailValue>>;
+}>;
+
+export type OperationalSignalIncidentResult = Readonly<{
+  emitted: boolean;
+  replayed: boolean;
+  phase: OperationalSignalPhase | null;
+  incidentId: string | null;
+  sequence: number | null;
+}>;
+
+type OperationalSignalIncidentState = {
+  schemaVersion: 1;
+  source: string;
+  sourceUnit: string;
+  hostName: string;
+  incidentId: string;
+  sequence: number;
+  lastEmittedSequence: number;
+  pendingPhase: OperationalSignalPhase;
+  severity: OperationalSignalSeverity;
+  fingerprint: string;
+  reasonCodes: readonly string[];
+  details: Readonly<Record<string, OperationalSignalDetailValue>>;
+  openedAt: string;
+  lastObservedAt: string;
 };
 
 function normalizedAbsoluteDirectory(value: string): string {
@@ -108,7 +166,8 @@ function validateWebhookUrl(value: string): string {
   if (parsed.username || parsed.password || parsed.hash) {
     throw new Error("operational_alert_webhook_invalid");
   }
-  const testHttpAllowed = process.env.NODE_ENV === "test" &&
+  const testHttpAllowed =
+    process.env.NODE_ENV === "test" &&
     parsed.protocol === "http:" &&
     (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost");
   if (parsed.protocol !== "https:" && !testHttpAllowed) {
@@ -125,8 +184,12 @@ function validateBearerToken(value: string | null | undefined): string | null {
   return value;
 }
 
-function spoolFileName(alertId: string): string {
-  return `${createHash("sha256").update(alertId).digest("hex")}.json`;
+function spoolFileName(identity: string): string {
+  return `${createHash("sha256").update(identity).digest("hex")}.json`;
+}
+
+function activeSignalFileName(source: string): string {
+  return spoolFileName(`active-signal:${source}`);
 }
 
 function directories(stateDirectory: string) {
@@ -137,10 +200,11 @@ function directories(stateDirectory: string) {
     pending: path.join(root, "alerts", "pending"),
     delivered: path.join(root, "alerts", "delivered"),
     quarantine: path.join(root, "alerts", "quarantine"),
+    activeSignals: path.join(root, "signals", "active"),
   };
 }
 
-type ManagedDirectories = ReturnType<typeof directories>;
+export type ManagedOperationalSpoolDirectories = ReturnType<typeof directories>;
 
 async function assertManagedDirectory(directory: string): Promise<void> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -153,13 +217,15 @@ async function assertManagedDirectory(directory: string): Promise<void> {
 
 export async function ensureOperationalSpoolDirectories(
   stateDirectory: string,
-): Promise<ManagedDirectories> {
+): Promise<ManagedOperationalSpoolDirectories> {
   const managed = directories(stateDirectory);
   await assertManagedDirectory(managed.root);
   await assertManagedDirectory(path.dirname(managed.pending));
   await assertManagedDirectory(managed.pending);
   await assertManagedDirectory(managed.delivered);
   await assertManagedDirectory(managed.quarantine);
+  await assertManagedDirectory(path.dirname(managed.activeSignals));
+  await assertManagedDirectory(managed.activeSignals);
   return managed;
 }
 
@@ -169,8 +235,8 @@ async function atomicWriteJson(filePath: string, value: unknown): Promise<void> 
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
     throw new Error("operational_spool_parent_unsafe");
   }
-  const content = `${JSON.stringify(value)}\n`;
-  if (Buffer.byteLength(content) > MAX_FILE_BYTES) {
+  const body = `${JSON.stringify(value)}\n`;
+  if (Buffer.byteLength(body) > MAX_FILE_BYTES) {
     throw new Error("operational_spool_payload_too_large");
   }
   const temporary = path.join(
@@ -182,7 +248,7 @@ async function atomicWriteJson(filePath: string, value: unknown): Promise<void> 
   );
   const handle = await open(temporary, "wx", 0o600);
   try {
-    await handle.writeFile(content, { encoding: "utf8" });
+    await handle.writeFile(body, { encoding: "utf8" });
     await handle.sync();
   } finally {
     await handle.close();
@@ -208,42 +274,70 @@ async function safeReadJson(filePath: string): Promise<unknown> {
   if (stat.size < 2 || stat.size > MAX_FILE_BYTES) {
     throw new Error("operational_spool_file_size_invalid");
   }
-  const content = await readFile(filePath, "utf8");
-  return JSON.parse(content) as unknown;
+  const body = await readFile(filePath, "utf8");
+  return JSON.parse(body) as unknown;
 }
 
-function validateSpoolItem(value: unknown): OperationalAlertSpoolItem {
+function validateDeliveryState(value: unknown): DeliveryState {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("operational_spool_item_invalid");
+    throw new Error("operational_spool_delivery_invalid");
   }
   const raw = value as Record<string, unknown>;
   if (
-    raw.schemaVersion !== 1 ||
-    !raw.delivery || typeof raw.delivery !== "object" || Array.isArray(raw.delivery)
-  ) {
-    throw new Error("operational_spool_item_invalid");
-  }
-  const alert = validateOperationalAlertEvidence(raw.alert as OperationalAlertEvidence);
-  const delivery = raw.delivery as Record<string, unknown>;
-  if (
-    !Number.isSafeInteger(delivery.attemptCount) ||
-    Number(delivery.attemptCount) < 0 ||
-    Number(delivery.attemptCount) > 100 ||
-    (delivery.lastErrorCode !== null &&
-      (typeof delivery.lastErrorCode !== "string" ||
-       !/^[a-z0-9._:-]{1,100}$/.test(delivery.lastErrorCode)))
+    !Number.isSafeInteger(raw.attemptCount) ||
+    Number(raw.attemptCount) < 0 ||
+    Number(raw.attemptCount) > 100 ||
+    (raw.lastErrorCode !== null &&
+      (typeof raw.lastErrorCode !== "string" ||
+        !/^[a-z0-9._:-]{1,100}$/.test(raw.lastErrorCode)))
   ) {
     throw new Error("operational_spool_delivery_invalid");
   }
   return {
-    schemaVersion: 1,
-    alert,
-    delivery: {
-      attemptCount: Number(delivery.attemptCount),
-      nextAttemptAt: iso(String(delivery.nextAttemptAt), "operational_next_attempt_invalid"),
-      lastErrorCode: delivery.lastErrorCode as string | null,
-    },
+    attemptCount: Number(raw.attemptCount),
+    nextAttemptAt: iso(
+      String(raw.nextAttemptAt),
+      "operational_next_attempt_invalid",
+    ),
+    lastErrorCode: raw.lastErrorCode as string | null,
   };
+}
+
+function validateSpoolItem(value: unknown): OperationalSpoolItem {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("operational_spool_item_invalid");
+  }
+  const raw = value as Record<string, unknown>;
+  const delivery = validateDeliveryState(raw.delivery);
+  if (raw.schemaVersion === 1) {
+    return {
+      schemaVersion: 1,
+      alert: validateOperationalAlertEvidence(
+        raw.alert as OperationalAlertEvidence,
+      ),
+      delivery,
+    };
+  }
+  if (raw.schemaVersion === 2) {
+    return {
+      schemaVersion: 2,
+      signal: validateOperationalSignalEvidence(
+        raw.signal as OperationalSignalEvidence,
+      ),
+      delivery,
+    };
+  }
+  throw new Error("operational_spool_item_invalid");
+}
+
+function spoolIdentity(item: OperationalSpoolItem): string {
+  return item.schemaVersion === 1 ? item.alert.alertId : item.signal.signalId;
+}
+
+function spoolPayload(
+  item: OperationalSpoolItem,
+): OperationalAlertEvidence | OperationalSignalEvidence {
+  return item.schemaVersion === 1 ? item.alert : item.signal;
 }
 
 export async function writeOperationalLastRun(
@@ -259,15 +353,47 @@ export async function writeOperationalLastRun(
   });
 }
 
-async function findExistingAlertFile(
-  managed: ManagedDirectories,
+async function findExistingSpoolFile(
+  managed: ManagedOperationalSpoolDirectories,
   fileName: string,
 ): Promise<string | null> {
-  for (const directory of [managed.pending, managed.delivered, managed.quarantine]) {
+  for (const directory of [
+    managed.pending,
+    managed.delivered,
+    managed.quarantine,
+  ]) {
     const candidate = path.join(directory, fileName);
     if (await lstat(candidate).catch(() => null)) return candidate;
   }
   return null;
+}
+
+async function enqueueSpoolItem(
+  managed: ManagedOperationalSpoolDirectories,
+  item: OperationalSpoolItem,
+): Promise<{ replayed: boolean; filePath: string }> {
+  const identity = spoolIdentity(item);
+  const fileName = spoolFileName(identity);
+  const existingPath = await findExistingSpoolFile(managed, fileName);
+  if (existingPath) {
+    let parsed: OperationalSpoolItem;
+    try {
+      parsed = validateSpoolItem(await safeReadJson(existingPath));
+    } catch {
+      throw new Error("operational_spool_archive_corrupt");
+    }
+    if (
+      spoolIdentity(parsed) !== identity ||
+      hashOperationalEvidence(spoolPayload(parsed)) !==
+        hashOperationalEvidence(spoolPayload(item))
+    ) {
+      throw new Error("operational_spool_identity_conflict");
+    }
+    return { replayed: true, filePath: existingPath };
+  }
+  const filePath = path.join(managed.pending, fileName);
+  await atomicWriteJson(filePath, item);
+  return { replayed: false, filePath };
 }
 
 export async function enqueueOperationalAlert(
@@ -276,22 +402,7 @@ export async function enqueueOperationalAlert(
 ): Promise<{ replayed: boolean; filePath: string }> {
   const managed = await ensureOperationalSpoolDirectories(stateDirectory);
   const alert = validateOperationalAlertEvidence(raw);
-  const fileName = spoolFileName(alert.alertId);
-  const existingPath = await findExistingAlertFile(managed, fileName);
-  if (existingPath) {
-    let parsed: OperationalAlertSpoolItem;
-    try {
-      parsed = validateSpoolItem(await safeReadJson(existingPath));
-    } catch {
-      throw new Error("operational_spool_archive_corrupt");
-    }
-    if (hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)) {
-      throw new Error("operational_spool_identity_conflict");
-    }
-    return { replayed: true, filePath: existingPath };
-  }
-  const filePath = path.join(managed.pending, fileName);
-  const item: OperationalAlertSpoolItem = {
+  return enqueueSpoolItem(managed, {
     schemaVersion: 1,
     alert,
     delivery: {
@@ -299,16 +410,56 @@ export async function enqueueOperationalAlert(
       nextAttemptAt: alert.occurredAt,
       lastErrorCode: null,
     },
-  };
-  await atomicWriteJson(filePath, item);
-  return { replayed: false, filePath };
+  });
 }
 
-function retryDelayMs(attemptNumber: number): number {
-  return Math.min(60 * 60_000, 15_000 * 2 ** Math.max(0, attemptNumber - 1));
+export async function enqueueOperationalSignal(
+  stateDirectory: string,
+  raw: OperationalSignalEvidence,
+): Promise<{ replayed: boolean; filePath: string }> {
+  const managed = await ensureOperationalSpoolDirectories(stateDirectory);
+  const signal = validateOperationalSignalEvidence(raw);
+  return enqueueSpoolItem(managed, {
+    schemaVersion: 2,
+    signal,
+    delivery: {
+      attemptCount: 0,
+      nextAttemptAt: signal.occurredAt,
+      lastErrorCode: null,
+    },
+  });
 }
 
-async function moveFile(source: string, destinationDirectory: string): Promise<void> {
+export function operationalDeliveryRetryDelayMs(
+  attemptNumber: number,
+  identity: string,
+): number {
+  if (!Number.isSafeInteger(attemptNumber) || attemptNumber < 1 || attemptNumber > 100) {
+    throw new Error("operational_retry_attempt_invalid");
+  }
+  if (typeof identity !== "string" || identity.length < 8 || identity.length > 220) {
+    throw new Error("operational_retry_identity_invalid");
+  }
+  const exponential = Math.min(
+    60 * 60_000,
+    15_000 * 2 ** Math.max(0, attemptNumber - 1),
+  );
+  const entropy =
+    Number.parseInt(
+      createHash("sha256")
+        .update(`operational-delivery-jitter-v1:${identity}:${attemptNumber}`)
+        .digest("hex")
+        .slice(0, 8),
+      16,
+    ) / 0xffff_ffff;
+  const jittered = Math.round(exponential * (0.8 + entropy * 0.4));
+  return Math.min(60 * 60_000, Math.max(1_000, jittered));
+}
+
+async function moveFile(
+  source: string,
+  destinationDirectory: string,
+): Promise<void> {
   const destination = path.join(destinationDirectory, path.basename(source));
   const existing = await lstat(destination).catch(() => null);
   if (existing) {
@@ -318,25 +469,52 @@ async function moveFile(source: string, destinationDirectory: string): Promise<v
   await chmod(destination, 0o600);
 }
 
-async function bestEffortPersistAlert(alert: OperationalAlertEvidence): Promise<void> {
-  try {
-    const persisted = await withTx((client) => persistOperationalAlertTx(client, alert));
-    if (!persisted.enabled) return;
-  } catch {
-    // The local spool is the outage-safe authority when PostgreSQL is unavailable.
-  }
-}
-
-async function bestEffortPersistAttempt(input: Parameters<
-  typeof persistOperationalAlertDeliveryAttemptTx
->[1]): Promise<void> {
+async function bestEffortPersistItem(item: OperationalSpoolItem): Promise<void> {
   try {
     const persisted = await withTx((client) =>
-      persistOperationalAlertDeliveryAttemptTx(client, input),
+      item.schemaVersion === 1
+        ? persistOperationalAlertTx(client, item.alert)
+        : persistOperationalSignalTx(client, item.signal),
     );
     if (!persisted.enabled) return;
   } catch {
-    // Delivery remains evidenced by the immutable local spool/archive.
+    // The private local spool is the outage-safe authority.
+  }
+}
+
+async function bestEffortPersistAttempt(
+  item: OperationalSpoolItem,
+  input: {
+    attemptNumber: number;
+    deliveryResult: "delivered" | "retryable_failure" | "terminal_failure";
+    httpStatus: number | null;
+    errorCode: string | null;
+    attemptedAt: string;
+  },
+): Promise<void> {
+  try {
+    const persisted = await withTx((client) =>
+      item.schemaVersion === 1
+        ? persistOperationalAlertDeliveryAttemptTx(client, {
+            alertId: item.alert.alertId,
+            ...input,
+            evidence: {
+              provider: "webhook",
+              responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
+            },
+          })
+        : persistOperationalSignalDeliveryAttemptTx(client, {
+            signalId: item.signal.signalId,
+            ...input,
+            evidence: {
+              provider: "webhook",
+              responseBodyBytes: MAX_RESPONSE_BODY_BYTES,
+            },
+          }),
+    );
+    if (!persisted.enabled) return;
+  } catch {
+    // Delivery remains evidenced by the immutable local archive.
   }
 }
 
@@ -353,7 +531,13 @@ export async function deliverOperationalAlerts(
   const managed = await ensureOperationalSpoolDirectories(config.stateDirectory);
   const webhookUrl = validateWebhookUrl(config.webhookUrl);
   const bearerToken = validateBearerToken(config.bearerToken);
-  const limit = boundedInteger(config.limit, 20, 1, 100, "operational_alert_limit_invalid");
+  const limit = boundedInteger(
+    config.limit,
+    20,
+    1,
+    100,
+    "operational_alert_limit_invalid",
+  );
   const timeoutMs = boundedInteger(
     config.timeoutMs,
     10_000,
@@ -369,7 +553,9 @@ export async function deliverOperationalAlerts(
     "operational_alert_max_attempts_invalid",
   );
   const now = config.now ?? new Date();
-  if (!Number.isFinite(now.getTime())) throw new Error("operational_alert_clock_invalid");
+  if (!Number.isFinite(now.getTime())) {
+    throw new Error("operational_alert_clock_invalid");
+  }
   const fetchImpl = config.fetchImpl ?? fetch;
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
@@ -390,7 +576,7 @@ export async function deliverOperationalAlerts(
       summary.quarantined += 1;
       continue;
     }
-    let item: OperationalAlertSpoolItem;
+    let item: OperationalSpoolItem;
     try {
       item = validateSpoolItem(await safeReadJson(filePath));
     } catch {
@@ -403,11 +589,15 @@ export async function deliverOperationalAlerts(
       continue;
     }
 
-    await bestEffortPersistAlert(item.alert);
+    await bestEffortPersistItem(item);
+    const identity = spoolIdentity(item);
     const attemptNumber = item.delivery.attemptCount + 1;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    let deliveryResult: "delivered" | "retryable_failure" | "terminal_failure";
+    let deliveryResult:
+      | "delivered"
+      | "retryable_failure"
+      | "terminal_failure";
     let httpStatus: number | null = null;
     let errorCode: string | null = null;
     try {
@@ -417,11 +607,11 @@ export async function deliverOperationalAlerts(
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "TecPey-Ops-Alert/1.0",
-          "Idempotency-Key": item.alert.alertId,
+          "User-Agent": "TecPey-Ops-Delivery/2.0",
+          "Idempotency-Key": identity,
           ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
         },
-        body: JSON.stringify(item.alert),
+        body: JSON.stringify(spoolPayload(item)),
       });
       httpStatus = response.status;
       if (response.status >= 200 && response.status < 300) {
@@ -446,14 +636,12 @@ export async function deliverOperationalAlerts(
     }
 
     const attemptedAt = now.toISOString();
-    await bestEffortPersistAttempt({
-      alertId: item.alert.alertId,
+    await bestEffortPersistAttempt(item, {
       attemptNumber,
       deliveryResult,
       httpStatus,
       errorCode,
       attemptedAt,
-      evidence: { provider: "webhook", responseBodyBytes: MAX_RESPONSE_BODY_BYTES },
     });
 
     if (deliveryResult === "delivered") {
@@ -466,11 +654,14 @@ export async function deliverOperationalAlerts(
       summary.quarantined += 1;
       continue;
     }
-    const updated: OperationalAlertSpoolItem = {
+    const updated: OperationalSpoolItem = {
       ...item,
       delivery: {
         attemptCount: attemptNumber,
-        nextAttemptAt: new Date(now.getTime() + retryDelayMs(attemptNumber)).toISOString(),
+        nextAttemptAt: new Date(
+          now.getTime() +
+            operationalDeliveryRetryDelayMs(attemptNumber, identity),
+        ).toISOString(),
         lastErrorCode: errorCode,
       },
     };
@@ -478,4 +669,321 @@ export async function deliverOperationalAlerts(
     summary.retryable += 1;
   }
   return summary;
+}
+
+function incidentStatePath(
+  managed: ManagedOperationalSpoolDirectories,
+  source: string,
+): string {
+  return path.join(managed.activeSignals, activeSignalFileName(source));
+}
+
+function incidentSignal(
+  state: OperationalSignalIncidentState,
+): OperationalSignalEvidence {
+  return validateOperationalSignalEvidence({
+    schemaVersion: 1,
+    signalId: `${state.source}:${state.incidentId}:${state.sequence}`,
+    incidentId: state.incidentId,
+    sequence: state.sequence,
+    source: state.source,
+    sourceUnit: state.sourceUnit,
+    hostName: state.hostName,
+    phase: state.pendingPhase,
+    severity: state.severity,
+    occurredAt: state.lastObservedAt,
+    fingerprint: state.fingerprint,
+    reasonCodes: state.reasonCodes,
+    details: state.details,
+  });
+}
+
+function validateIncidentState(value: unknown): OperationalSignalIncidentState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("operational_signal_incident_state_invalid");
+  }
+  const raw = value as Record<string, unknown>;
+  if (
+    raw.schemaVersion !== 1 ||
+    !UUID_RE.test(String(raw.incidentId)) ||
+    !Number.isSafeInteger(raw.sequence) ||
+    Number(raw.sequence) < 1 ||
+    Number(raw.sequence) > 1_000_000 ||
+    !Number.isSafeInteger(raw.lastEmittedSequence) ||
+    Number(raw.lastEmittedSequence) < 0 ||
+    Number(raw.lastEmittedSequence) > Number(raw.sequence)
+  ) {
+    throw new Error("operational_signal_incident_state_invalid");
+  }
+  const state: OperationalSignalIncidentState = {
+    schemaVersion: 1,
+    source: String(raw.source),
+    sourceUnit: String(raw.sourceUnit),
+    hostName: String(raw.hostName),
+    incidentId: String(raw.incidentId).toLowerCase(),
+    sequence: Number(raw.sequence),
+    lastEmittedSequence: Number(raw.lastEmittedSequence),
+    pendingPhase: raw.pendingPhase as OperationalSignalPhase,
+    severity: raw.severity as OperationalSignalSeverity,
+    fingerprint: String(raw.fingerprint),
+    reasonCodes: Array.isArray(raw.reasonCodes)
+      ? raw.reasonCodes.map(String)
+      : [],
+    details:
+      raw.details && typeof raw.details === "object" && !Array.isArray(raw.details)
+        ? (raw.details as Record<string, OperationalSignalDetailValue>)
+        : {},
+    openedAt: iso(
+      String(raw.openedAt),
+      "operational_signal_incident_opened_at_invalid",
+    ),
+    lastObservedAt: iso(
+      String(raw.lastObservedAt),
+      "operational_signal_incident_observed_at_invalid",
+    ),
+  };
+  incidentSignal(state);
+  return state;
+}
+
+async function readIncidentState(
+  filePath: string,
+): Promise<OperationalSignalIncidentState | null> {
+  const stat = await lstat(filePath).catch(() => null);
+  if (!stat) return null;
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    throw new Error("operational_signal_incident_state_unsafe");
+  }
+  return validateIncidentState(await safeReadJson(filePath));
+}
+
+async function emitIncidentState(
+  stateDirectory: string,
+  filePath: string,
+  state: OperationalSignalIncidentState,
+): Promise<{
+  state: OperationalSignalIncidentState;
+  replayed: boolean;
+}> {
+  const queued = await enqueueOperationalSignal(
+    stateDirectory,
+    incidentSignal(state),
+  );
+  const emittedState: OperationalSignalIncidentState = {
+    ...state,
+    lastEmittedSequence: state.sequence,
+  };
+  await atomicWriteJson(filePath, emittedState);
+  return { state: emittedState, replayed: queued.replayed };
+}
+
+function observationFingerprint(
+  input: OperationalSignalObservation,
+): string {
+  return hashOperationalEvidence({
+    authority: "operational-signal-incident-v1",
+    source: input.source,
+    status: input.status,
+    reasonCodes: [...input.reasonCodes].sort(),
+  });
+}
+
+function observationSeverity(
+  status: OperationalSignalObservation["status"],
+): "warning" | "critical" {
+  return status === "warning" ? "warning" : "critical";
+}
+
+function nextIncidentState(
+  current: OperationalSignalIncidentState | null,
+  input: OperationalSignalObservation,
+  phase: "opened" | "updated",
+): OperationalSignalIncidentState {
+  const fingerprint = observationFingerprint(input);
+  return {
+    schemaVersion: 1,
+    source: input.source,
+    sourceUnit: input.sourceUnit,
+    hostName: input.hostName,
+    incidentId: current?.incidentId ?? randomUUID(),
+    sequence: current ? current.sequence + 1 : 1,
+    lastEmittedSequence: current?.lastEmittedSequence ?? 0,
+    pendingPhase: phase,
+    severity: observationSeverity(input.status),
+    fingerprint,
+    reasonCodes: [...input.reasonCodes],
+    details: input.details,
+    openedAt: current?.openedAt ?? input.observedAt,
+    lastObservedAt: input.observedAt,
+  };
+}
+
+export async function reconcileOperationalSignalIncident(
+  stateDirectory: string,
+  raw: OperationalSignalObservation,
+): Promise<OperationalSignalIncidentResult> {
+  const observedAt = iso(
+    raw.observedAt,
+    "operational_signal_observation_time_invalid",
+  );
+  const probe = validateOperationalSignalEvidence({
+    schemaVersion: 1,
+    signalId: `${raw.source}:${"00000000-0000-4000-8000-000000000000"}:1`,
+    incidentId: "00000000-0000-4000-8000-000000000000",
+    sequence: 1,
+    source: raw.source,
+    sourceUnit: raw.sourceUnit,
+    hostName: raw.hostName,
+    phase: raw.status === "healthy" ? "recovered" : "opened",
+    severity: raw.status === "healthy" ? "info" : observationSeverity(raw.status),
+    occurredAt: observedAt,
+    fingerprint: hashOperationalEvidence({
+      authority: "operational-signal-observation-validation-v1",
+      source: raw.source,
+      status: raw.status,
+      reasonCodes: [...raw.reasonCodes].sort(),
+    }),
+    reasonCodes:
+      raw.status === "healthy" ? ["recovered"] : [...raw.reasonCodes],
+    details: raw.details,
+  });
+  const input: OperationalSignalObservation = {
+    source: probe.source,
+    sourceUnit: probe.sourceUnit,
+    hostName: probe.hostName,
+    status: raw.status,
+    observedAt,
+    reasonCodes:
+      raw.status === "healthy" ? [] : probe.reasonCodes,
+    details: probe.details,
+  };
+
+  const managed = await ensureOperationalSpoolDirectories(stateDirectory);
+  const filePath = incidentStatePath(managed, input.source);
+  let current = await readIncidentState(filePath);
+
+  if (input.status === "healthy") {
+    if (!current) {
+      return {
+        emitted: false,
+        replayed: false,
+        phase: null,
+        incidentId: null,
+        sequence: null,
+      };
+    }
+    if (current.lastEmittedSequence < current.sequence) {
+      const emitted = await emitIncidentState(stateDirectory, filePath, current);
+      current = emitted.state;
+    }
+    if (current.pendingPhase === "recovered") {
+      const queued = await enqueueOperationalSignal(
+        stateDirectory,
+        incidentSignal(current),
+      );
+      await rm(filePath, { force: true });
+      return {
+        emitted: true,
+        replayed: queued.replayed,
+        phase: "recovered",
+        incidentId: current.incidentId,
+        sequence: current.sequence,
+      };
+    }
+    const recovery: OperationalSignalIncidentState = {
+      ...current,
+      sequence: current.sequence + 1,
+      lastEmittedSequence: current.sequence,
+      pendingPhase: "recovered",
+      severity: "info",
+      fingerprint: hashOperationalEvidence({
+        authority: "operational-signal-incident-v1",
+        source: input.source,
+        status: "healthy",
+        reasonCodes: ["recovered"],
+      }),
+      reasonCodes: ["recovered"],
+      details: input.details,
+      lastObservedAt: input.observedAt,
+    };
+    await atomicWriteJson(filePath, recovery);
+    const emitted = await emitIncidentState(
+      stateDirectory,
+      filePath,
+      recovery,
+    );
+    await rm(filePath, { force: true });
+    return {
+      emitted: true,
+      replayed: emitted.replayed,
+      phase: "recovered",
+      incidentId: recovery.incidentId,
+      sequence: recovery.sequence,
+    };
+  }
+
+  const fingerprint = observationFingerprint(input);
+  if (!current) {
+    const opened = nextIncidentState(null, input, "opened");
+    await atomicWriteJson(filePath, opened);
+    const emitted = await emitIncidentState(stateDirectory, filePath, opened);
+    return {
+      emitted: true,
+      replayed: emitted.replayed,
+      phase: "opened",
+      incidentId: opened.incidentId,
+      sequence: opened.sequence,
+    };
+  }
+
+  if (current.pendingPhase === "recovered") {
+    if (current.lastEmittedSequence < current.sequence) {
+      await emitIncidentState(stateDirectory, filePath, current);
+    }
+    await rm(filePath, { force: true });
+    current = null;
+  }
+
+  if (!current) {
+    const reopened = nextIncidentState(null, input, "opened");
+    await atomicWriteJson(filePath, reopened);
+    const emitted = await emitIncidentState(
+      stateDirectory,
+      filePath,
+      reopened,
+    );
+    return {
+      emitted: true,
+      replayed: emitted.replayed,
+      phase: "opened",
+      incidentId: reopened.incidentId,
+      sequence: reopened.sequence,
+    };
+  }
+
+  if (current.lastEmittedSequence < current.sequence) {
+    const emitted = await emitIncidentState(stateDirectory, filePath, current);
+    current = emitted.state;
+  }
+
+  if (current.fingerprint === fingerprint) {
+    return {
+      emitted: false,
+      replayed: false,
+      phase: null,
+      incidentId: current.incidentId,
+      sequence: current.sequence,
+    };
+  }
+
+  const updated = nextIncidentState(current, input, "updated");
+  await atomicWriteJson(filePath, updated);
+  const emitted = await emitIncidentState(stateDirectory, filePath, updated);
+  return {
+    emitted: true,
+    replayed: emitted.replayed,
+    phase: "updated",
+    incidentId: updated.incidentId,
+    sequence: updated.sequence,
+  };
 }
