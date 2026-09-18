@@ -11,6 +11,11 @@ import {
   prepareMentorEgress,
   prepareMentorPublicResearchEgress,
 } from "../../lib/ai/mentor-trust-boundary";
+import {
+  MENTOR_ADVERSARIAL_EVAL_CASES,
+  MENTOR_EVAL_RELEASE_GATES,
+  mentorEvalReleaseDecision,
+} from "../../lib/ai/mentor-eval-contract";
 
 const safeContext: MentorContext = {
   profile: {
@@ -358,5 +363,97 @@ describe("AI Mentor trust boundary", () => {
       ).safe,
       true,
     );
+  });
+
+  it("keeps the frozen bilingual adversarial eval corpus on the expected trust path", () => {
+    for (const evalCase of MENTOR_ADVERSARIAL_EVAL_CASES) {
+      const inspection = inspectMentorUserText(evalCase.prompt);
+      assert.equal(
+        inspection.blocked,
+        evalCase.expected.secretBlocked,
+        `${evalCase.id}: secret disposition`,
+      );
+      assert.equal(
+        hasMentorAcuteSafetySignal(evalCase.prompt),
+        evalCase.expected.acuteSafety,
+        `${evalCase.id}: acute-safety disposition`,
+      );
+      if (evalCase.expected.minimumInjectionSignals !== undefined) {
+        assert.equal(
+          inspection.injectionSignals.length >=
+            evalCase.expected.minimumInjectionSignals,
+          true,
+          `${evalCase.id}: injection signal count`,
+        );
+      }
+      if (evalCase.surface === "public_research") {
+        const research = prepareMentorPublicResearchEgress({
+          question: evalCase.prompt,
+          locale: evalCase.locale,
+          researchKind: "news_x",
+          asOfDate: "2026-09-18",
+        });
+        assert.equal(
+          research.blocked,
+          evalCase.expected.publicResearchBlocked,
+          `${evalCase.id}: public research disposition`,
+        );
+      }
+    }
+  });
+
+  it("makes missing hard gates and missing measured learning baselines release blockers", () => {
+    assert.equal(
+      MENTOR_EVAL_RELEASE_GATES.some(
+        (gate) => gate.hardGate && gate.minimumPassRate === 1,
+      ),
+      true,
+    );
+
+    const incomplete = mentorEvalReleaseDecision([
+      { metric: "safety_hard_gate", passRate: 1 },
+      { metric: "privacy_egress", passRate: 1 },
+      { metric: "research_citation", passRate: 1 },
+      { metric: "curriculum_grounding", passRate: 0.99 },
+      { metric: "pedagogy_helpfulness", passRate: 0.95 },
+      { metric: "locale_parity", passRate: 0.99 },
+      {
+        metric: "next_item_correctness",
+        baselineMeasured: false,
+      },
+      {
+        metric: "response_latency",
+        baselineMeasured: false,
+      },
+    ]);
+    assert.equal(incomplete.pass, false);
+    assert.equal(
+      incomplete.blockers.includes(
+        "baseline_required:next_item_correctness",
+      ),
+      true,
+    );
+    assert.equal(
+      incomplete.blockers.includes("baseline_required:response_latency"),
+      true,
+    );
+
+    const complete = mentorEvalReleaseDecision([
+      { metric: "safety_hard_gate", passRate: 1 },
+      { metric: "privacy_egress", passRate: 1 },
+      { metric: "research_citation", passRate: 1 },
+      { metric: "curriculum_grounding", passRate: 0.99 },
+      { metric: "pedagogy_helpfulness", passRate: 0.95 },
+      { metric: "locale_parity", passRate: 0.99 },
+      {
+        metric: "next_item_correctness",
+        baselineMeasured: true,
+      },
+      {
+        metric: "response_latency",
+        baselineMeasured: true,
+      },
+    ]);
+    assert.deepEqual(complete, { pass: true, blockers: [] });
   });
 });
