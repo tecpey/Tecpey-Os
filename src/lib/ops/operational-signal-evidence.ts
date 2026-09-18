@@ -7,6 +7,8 @@ const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
 const LOWER_TOKEN_RE = /^[a-z0-9][a-z0-9._:-]*$/;
 const HASH_RE = /^[0-9a-f]{64}$/;
 const ATTRIBUTE_KEY_RE = /^[a-z][A-Za-z0-9._:-]{0,63}$/;
+const FORBIDDEN_ATTRIBUTE_KEY_RE =
+  /(tenant|workspace|student|user|account|conversation|prompt|email|phone|address|token|secret|cookie|authorization|portfolio|kyc|passport)/i;
 
 export type OperationalSignalSeverity = "warning" | "critical";
 export type OperationalSignalStatus = "active" | "authority_unavailable";
@@ -26,6 +28,18 @@ export type OperationalSignalEvidence = {
   reasonCodes: string[];
   attributes: Record<string, OperationalSignalAttribute>;
 };
+
+export type CreateOperationalSignalInput = Readonly<{
+  signalType: string;
+  component: string;
+  detector: string;
+  severity: OperationalSignalSeverity;
+  statusClassification: OperationalSignalStatus;
+  occurredAt: string;
+  reasonCodes: readonly string[];
+  attributes: Record<string, OperationalSignalAttribute>;
+  dedupeWindowSeconds?: number;
+}>;
 
 export type OperationalSignalDeliveryAttempt = {
   signalId: string;
@@ -98,7 +112,10 @@ function validatedAttributes(
   if (entries.length > 24) throw new Error("operational_signal_attributes_too_many");
   const normalized: Record<string, OperationalSignalAttribute> = {};
   for (const [key, value] of entries.sort(([a], [b]) => a.localeCompare(b))) {
-    if (!ATTRIBUTE_KEY_RE.test(key)) {
+    if (
+      !ATTRIBUTE_KEY_RE.test(key) ||
+      FORBIDDEN_ATTRIBUTE_KEY_RE.test(key)
+    ) {
       throw new Error("operational_signal_attribute_key_invalid");
     }
     if (typeof value === "string") {
@@ -124,6 +141,127 @@ function validatedAttributes(
     throw new Error("operational_signal_attributes_too_large");
   }
   return normalized;
+}
+
+function normalizedReasonCodes(raw: readonly string[]): string[] {
+  if (!Array.isArray(raw) || raw.length > 16) {
+    throw new Error("operational_signal_reason_codes_invalid");
+  }
+  const normalized = [...new Set(
+    raw.map((reason) =>
+      boundedToken(
+        reason,
+        1,
+        100,
+        "operational_signal_reason_code_invalid",
+        true,
+      )
+    ),
+  )].sort();
+  if (normalized.length !== raw.length) {
+    throw new Error("operational_signal_reason_codes_duplicate");
+  }
+  return normalized;
+}
+
+function computedFingerprint(input: {
+  signalType: string;
+  component: string;
+  detector: string;
+  severity: OperationalSignalSeverity;
+  statusClassification: OperationalSignalStatus;
+  reasonCodes: readonly string[];
+  attributes: Record<string, OperationalSignalAttribute>;
+}): string {
+  return hashOperationalSignalEvidence({
+    authority: "operational-signal-fingerprint-v1",
+    signalType: input.signalType,
+    component: input.component,
+    detector: input.detector,
+    severity: input.severity,
+    statusClassification: input.statusClassification,
+    reasonCodes: input.reasonCodes,
+    attributes: input.attributes,
+  });
+}
+
+export function createOperationalSignalEvidence(
+  input: CreateOperationalSignalInput,
+): OperationalSignalEvidence {
+  const signalType = boundedToken(
+    input.signalType,
+    3,
+    100,
+    "operational_signal_type_invalid",
+    true,
+  );
+  const component = boundedToken(
+    input.component,
+    3,
+    100,
+    "operational_signal_component_invalid",
+    true,
+  );
+  const detector = boundedToken(
+    input.detector,
+    3,
+    120,
+    "operational_signal_detector_invalid",
+    true,
+  );
+  if (input.severity !== "warning" && input.severity !== "critical") {
+    throw new Error("operational_signal_severity_invalid");
+  }
+  if (
+    input.statusClassification !== "active" &&
+    input.statusClassification !== "authority_unavailable"
+  ) {
+    throw new Error("operational_signal_status_invalid");
+  }
+  const occurredAt = iso(
+    input.occurredAt,
+    "operational_signal_occurred_at_invalid",
+  );
+  const dedupeWindowSeconds = input.dedupeWindowSeconds ?? 900;
+  if (
+    !Number.isSafeInteger(dedupeWindowSeconds) ||
+    dedupeWindowSeconds < 60 ||
+    dedupeWindowSeconds > 86_400
+  ) {
+    throw new Error("operational_signal_dedupe_window_invalid");
+  }
+  const reasonCodes = normalizedReasonCodes(input.reasonCodes);
+  const attributes = validatedAttributes(input.attributes);
+  const fingerprint = computedFingerprint({
+    signalType,
+    component,
+    detector,
+    severity: input.severity,
+    statusClassification: input.statusClassification,
+    reasonCodes,
+    attributes,
+  });
+  const occurredMs = Date.parse(occurredAt);
+  const bucketMs = dedupeWindowSeconds * 1_000;
+  const dedupeBucketAt = new Date(
+    Math.floor(occurredMs / bucketMs) * bucketMs,
+  ).toISOString();
+  const bucketEpoch = Math.floor(Date.parse(dedupeBucketAt) / 1_000);
+
+  return Object.freeze({
+    schemaVersion: 1,
+    signalId: `signal:${signalType}:${bucketEpoch}:${fingerprint.slice(0, 24)}`,
+    signalType,
+    component,
+    detector,
+    severity: input.severity,
+    statusClassification: input.statusClassification,
+    occurredAt,
+    dedupeBucketAt,
+    fingerprint,
+    reasonCodes,
+    attributes,
+  });
 }
 
 export function validateOperationalSignalEvidence(
@@ -179,16 +317,19 @@ export function validateOperationalSignalEvidence(
   if (!HASH_RE.test(raw.fingerprint)) {
     throw new Error("operational_signal_fingerprint_invalid");
   }
-  if (!Array.isArray(raw.reasonCodes) || raw.reasonCodes.length > 16) {
-    throw new Error("operational_signal_reason_codes_invalid");
-  }
-  const reasonCodes = [...new Set(
-    raw.reasonCodes.map((reason) =>
-      boundedToken(reason, 1, 100, "operational_signal_reason_code_invalid", true)
-    ),
-  )].sort();
-  if (reasonCodes.length !== raw.reasonCodes.length) {
-    throw new Error("operational_signal_reason_codes_duplicate");
+  const reasonCodes = normalizedReasonCodes(raw.reasonCodes);
+  const attributes = validatedAttributes(raw.attributes);
+  const expectedFingerprint = computedFingerprint({
+    signalType,
+    component,
+    detector,
+    severity: raw.severity,
+    statusClassification: raw.statusClassification,
+    reasonCodes,
+    attributes,
+  });
+  if (raw.fingerprint !== expectedFingerprint) {
+    throw new Error("operational_signal_fingerprint_mismatch");
   }
 
   return Object.freeze({
@@ -203,7 +344,7 @@ export function validateOperationalSignalEvidence(
     dedupeBucketAt,
     fingerprint: raw.fingerprint,
     reasonCodes,
-    attributes: validatedAttributes(raw.attributes),
+    attributes,
   });
 }
 
