@@ -22,10 +22,9 @@ export const DEFAULT_MENTOR_PROFILE_HEALTH_POLICY: MentorProfileHealthPolicy =
 export type MentorProfileHealthSnapshot = Readonly<{
   pending: number;
   processing: number;
-  processed: number;
   failedRetryable: number;
-  failedTerminal: number;
-  deadLetters: number;
+  unresolvedTerminalFailures: number;
+  unresolvedDeadLetters: number;
   readyBacklog: number;
   overdueLeases: number;
   oldestReadyAgeSeconds: number | null;
@@ -40,10 +39,9 @@ export type MentorProfileHealthEvaluation = Readonly<{
 type HealthRow = {
   pending: string;
   processing: string;
-  processed: string;
   failed_retryable: string;
-  failed_terminal: string;
-  dead_letters: string;
+  unresolved_terminal_failures: string;
+  unresolved_dead_letters: string;
   ready_backlog: string;
   overdue_leases: string;
   oldest_ready_age_seconds: string | null;
@@ -83,54 +81,87 @@ export async function loadMentorProfileHealthSnapshot(
 ): Promise<MentorProfileHealthSnapshot> {
   const result = await client.query<HealthRow>(
     `SELECT
-       COUNT(*) FILTER (WHERE status = 'pending')::text AS pending,
-       COUNT(*) FILTER (WHERE status = 'processing')::text AS processing,
-       COUNT(*) FILTER (WHERE status = 'processed')::text AS processed,
-       COUNT(*) FILTER (WHERE status = 'failed_retryable')::text AS failed_retryable,
-       COUNT(*) FILTER (WHERE status = 'failed_terminal')::text AS failed_terminal,
        (
          SELECT COUNT(*)::text
-           FROM mentor_profile_update_dead_letters
-       ) AS dead_letters,
-       COUNT(*) FILTER (
-         WHERE status IN ('pending', 'failed_retryable')
-           AND available_at <= NOW()
-       )::text AS ready_backlog,
-       COUNT(*) FILTER (
-         WHERE status = 'processing'
-           AND lease_expires_at <= NOW()
-       )::text AS overdue_leases,
-       EXTRACT(EPOCH FROM (
-         NOW() - MIN(created_at) FILTER (
-           WHERE status IN ('pending', 'failed_retryable')
-             AND available_at <= NOW()
-         )
-       ))::text AS oldest_ready_age_seconds,
-       EXTRACT(EPOCH FROM (
-         NOW() - MIN(lease_expires_at) FILTER (
-           WHERE status = 'processing'
-             AND lease_expires_at <= NOW()
-         )
-       ))::text AS max_lease_overdue_seconds
-     FROM mentor_profile_update_outbox`,
+           FROM mentor_profile_update_outbox
+          WHERE status = 'pending'
+       ) AS pending,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_outbox
+          WHERE status = 'processing'
+       ) AS processing,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_outbox
+          WHERE status = 'failed_retryable'
+       ) AS failed_retryable,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_outbox terminal
+          WHERE terminal.status = 'failed_terminal'
+            AND NOT EXISTS (
+              SELECT 1
+                FROM mentor_profile_update_outbox recovered
+               WHERE recovered.student_id = terminal.student_id
+                 AND recovered.event_sequence > terminal.event_sequence
+                 AND recovered.status = 'processed'
+            )
+       ) AS unresolved_terminal_failures,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_dead_letters dead
+           JOIN mentor_profile_update_outbox terminal
+             ON terminal.id = dead.outbox_id
+          WHERE NOT EXISTS (
+            SELECT 1
+              FROM mentor_profile_update_outbox recovered
+             WHERE recovered.student_id = terminal.student_id
+               AND recovered.event_sequence > terminal.event_sequence
+               AND recovered.status = 'processed'
+          )
+       ) AS unresolved_dead_letters,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_outbox
+          WHERE status IN ('pending', 'failed_retryable')
+            AND available_at <= NOW()
+       ) AS ready_backlog,
+       (
+         SELECT COUNT(*)::text
+           FROM mentor_profile_update_outbox
+          WHERE status = 'processing'
+            AND lease_expires_at <= NOW()
+       ) AS overdue_leases,
+       (
+         SELECT EXTRACT(EPOCH FROM (NOW() - MIN(created_at)))::text
+           FROM mentor_profile_update_outbox
+          WHERE status IN ('pending', 'failed_retryable')
+            AND available_at <= NOW()
+       ) AS oldest_ready_age_seconds,
+       (
+         SELECT EXTRACT(EPOCH FROM (NOW() - MIN(lease_expires_at)))::text
+           FROM mentor_profile_update_outbox
+          WHERE status = 'processing'
+            AND lease_expires_at <= NOW()
+       ) AS max_lease_overdue_seconds`,
   );
   const row = result.rows[0];
   if (!row) throw new Error("mentor_profile_health_snapshot_missing");
   return Object.freeze({
     pending: count(row.pending, "mentor_profile_health_pending_invalid"),
     processing: count(row.processing, "mentor_profile_health_processing_invalid"),
-    processed: count(row.processed, "mentor_profile_health_processed_invalid"),
     failedRetryable: count(
       row.failed_retryable,
       "mentor_profile_health_failed_retryable_invalid",
     ),
-    failedTerminal: count(
-      row.failed_terminal,
-      "mentor_profile_health_failed_terminal_invalid",
+    unresolvedTerminalFailures: count(
+      row.unresolved_terminal_failures,
+      "mentor_profile_health_unresolved_terminal_invalid",
     ),
-    deadLetters: count(
-      row.dead_letters,
-      "mentor_profile_health_dead_letters_invalid",
+    unresolvedDeadLetters: count(
+      row.unresolved_dead_letters,
+      "mentor_profile_health_unresolved_dead_letter_invalid",
     ),
     readyBacklog: count(
       row.ready_backlog,
@@ -159,8 +190,10 @@ export function evaluateMentorProfileHealth(
   const critical = new Set<string>();
   const warning = new Set<string>();
 
-  if (snapshot.failedTerminal > 0) critical.add("terminal_projection_failure");
-  if (snapshot.deadLetters > 0) critical.add("dead_letter_present");
+  if (snapshot.unresolvedTerminalFailures > 0) {
+    critical.add("terminal_projection_failure");
+  }
+  if (snapshot.unresolvedDeadLetters > 0) critical.add("dead_letter_present");
   if (snapshot.readyBacklog >= policy.criticalBacklogDepth) {
     critical.add("ready_backlog_critical");
   } else if (snapshot.readyBacklog >= policy.warningBacklogDepth) {
@@ -207,8 +240,8 @@ export function mentorProfileHealthAlertMetadata(
     pending: snapshot.pending,
     processing: snapshot.processing,
     failedRetryable: snapshot.failedRetryable,
-    failedTerminal: snapshot.failedTerminal,
-    deadLetters: snapshot.deadLetters,
+    unresolvedTerminalFailures: snapshot.unresolvedTerminalFailures,
+    unresolvedDeadLetters: snapshot.unresolvedDeadLetters,
     readyBacklog: snapshot.readyBacklog,
     overdueLeases: snapshot.overdueLeases,
     oldestReadyAgeSeconds: snapshot.oldestReadyAgeSeconds,
