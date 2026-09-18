@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import {
   chmod,
+  link,
   lstat,
   mkdir,
   open,
@@ -184,15 +185,31 @@ export async function ensureOperationalSpoolDirectories(
   return managed;
 }
 
-async function atomicWriteJson(filePath: string, value: unknown): Promise<void> {
-  const parent = path.dirname(filePath);
-  const stat = await lstat(parent);
-  if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    throw new Error("operational_spool_parent_unsafe");
+async function syncDirectory(directory: string): Promise<void> {
+  const handle = await open(directory, "r");
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
+}
+
+function serializedJson(value: unknown): string {
   const content = `${JSON.stringify(value)}\n`;
   if (Buffer.byteLength(content) > MAX_FILE_BYTES) {
     throw new Error("operational_spool_payload_too_large");
+  }
+  return content;
+}
+
+async function writeTemporaryJson(
+  parent: string,
+  filePath: string,
+  value: unknown,
+): Promise<string> {
+  const stat = await lstat(parent);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new Error("operational_spool_parent_unsafe");
   }
   const temporary = path.join(
     parent,
@@ -203,21 +220,55 @@ async function atomicWriteJson(filePath: string, value: unknown): Promise<void> 
   );
   const handle = await open(temporary, "wx", 0o600);
   try {
-    await handle.writeFile(content, { encoding: "utf8" });
+    await handle.writeFile(serializedJson(value), { encoding: "utf8" });
     await handle.sync();
   } finally {
     await handle.close();
   }
+  return temporary;
+}
+
+async function atomicWriteJson(filePath: string, value: unknown): Promise<void> {
+  const parent = path.dirname(filePath);
+  const temporary = await writeTemporaryJson(parent, filePath, value);
   try {
     const existing = await lstat(filePath).catch(() => null);
     if (existing?.isSymbolicLink()) {
       throw new Error("operational_spool_target_symlink");
     }
     await rename(temporary, filePath);
-    await chmod(filePath, 0o600);
+    await syncDirectory(parent);
   } catch (error) {
     await rm(temporary, { force: true });
     throw error;
+  }
+}
+
+async function atomicCreateJson(
+  filePath: string,
+  value: unknown,
+): Promise<boolean> {
+  const parent = path.dirname(filePath);
+  const temporary = await writeTemporaryJson(parent, filePath, value);
+  try {
+    try {
+      await link(temporary, filePath);
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "EEXIST"
+      ) {
+        return false;
+      }
+      throw error;
+    }
+    await syncDirectory(parent);
+    return true;
+  } finally {
+    await rm(temporary, { force: true });
+    await syncDirectory(parent);
   }
 }
 
