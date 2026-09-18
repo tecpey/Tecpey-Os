@@ -134,7 +134,6 @@ export async function resolveMentorProfileDeadLettersAfterRepair(
     studentId: string;
     repairRunId: string;
     repairStartedAt: string;
-    resolvedAt: string;
   },
 ): Promise<
   | { enabled: false; value: null }
@@ -143,7 +142,17 @@ export async function resolveMentorProfileDeadLettersAfterRepair(
       value: { selected: number; resolved: number; replayed: number };
     }
 > {
-  return withTx((client) =>
-    resolveMentorProfileDeadLettersAfterRepairTx(client, input),
-  );
+  return withTx(async (client) => {
+    const clock = await client.query<{ now: Date }>(
+      "SELECT clock_timestamp() AS now",
+    );
+    const resolvedAt = clock.rows[0]?.now.toISOString();
+    if (!resolvedAt) {
+      throw new Error("mentor_profile_resolution_clock_unavailable");
+    }
+    return resolveMentorProfileDeadLettersAfterRepairTx(client, {
+      ...input,
+      resolvedAt,
+    });
+  });
 }
