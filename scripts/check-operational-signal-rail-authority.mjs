@@ -79,6 +79,10 @@ for (const needle of [
   "bestEffortReconcileSpoolEvidence",
   "persistSpoolItemTx",
   "attempts: [...item.delivery.attempts, attempt]",
+  "assertNoSymlinkedAncestors",
+  "await realpath(managed.root)",
+  "await syncDirectory(parent)",
+  "await syncDirectory(path.dirname(source))",
 ]) {
   requireText("spool", spool, needle, `durable signal spool invariant missing: ${needle}`);
 }
@@ -232,6 +236,8 @@ for (const needle of [
   "database authority loss",
   "operational_spool_identity_conflict",
   "deterministic capped jitter",
+  "rejects a state root that traverses a symlinked ancestor",
+  "replays the exact incident transition after a restart-like interruption",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
