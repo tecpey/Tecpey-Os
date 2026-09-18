@@ -2,7 +2,7 @@
 // Reads live DB data and derives a MentorProfileUpdate from real user behavior.
 
 import type { PoolClient } from "pg";
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
 import { cleanText } from "@/lib/student-cartax";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -412,21 +412,27 @@ export function computeMentorProfileUpdate(
 export async function applyMentorProfileUpdate(
   studentId: string,
 ): Promise<MentorProfileUpdate | null> {
-  // Collect all signals in parallel.
-  const [academy, trading, conversation] = await Promise.all([
-    collectAcademySignals(studentId),
-    collectTradingSignals(studentId),
-    collectConversationSignals(studentId),
-  ]);
-
-  if (!mentorSignalAuthorityAvailable(academy, trading, conversation)) {
-    return null;
-  }
-
-  const update = computeMentorProfileUpdate(academy, trading, conversation);
-
-  const result = await withDb(async (client) => {
+  const result = await withTx(async (client) => {
     await client.query(
+      `SELECT pg_advisory_xact_lock(
+         hashtext('mentor_profile_projection'),
+         hashtext($1)
+       )`,
+      [studentId],
+    );
+
+    // Keep the projection read set and write inside one database transaction.
+    // A request-local accelerator may race a durable worker claim, but the
+    // shared advisory lock serializes both onto the same student-global profile.
+    const academy = await collectAcademySignals(studentId, client);
+    const trading = await collectTradingSignals(studentId, client);
+    const conversation = await collectConversationSignals(studentId, client);
+    if (!mentorSignalAuthorityAvailable(academy, trading, conversation)) {
+      throw new Error("mentor_profile_signal_authority_unavailable");
+    }
+    const update = computeMentorProfileUpdate(academy, trading, conversation);
+
+    const written = await client.query(
       `INSERT INTO mentor_profiles (student_id, level, risk_profile, primary_goal,
          weak_areas, strong_areas, confidence_score, discipline_score, learning_style,
          last_active_at, updated_at)
@@ -441,7 +447,8 @@ export async function applyMentorProfileUpdate(
          discipline_score = EXCLUDED.discipline_score,
          learning_style = EXCLUDED.learning_style,
          last_active_at = NOW(),
-         updated_at = NOW()`,
+         updated_at = NOW()
+       RETURNING student_id`,
       [
         studentId,
         update.level,
@@ -454,6 +461,9 @@ export async function applyMentorProfileUpdate(
         update.learningStyle,
       ],
     );
+    if ((written.rowCount ?? 0) !== 1) {
+      throw new Error("mentor_profile_upsert_failed");
+    }
     return update;
   });
 
