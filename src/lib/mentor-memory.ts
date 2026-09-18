@@ -69,11 +69,13 @@ export type MentorContext = {
   memories: MentorMemoryRow[];
   termProgress: { termNumber: number; status: string; percent: number }[];
   tradingSignals: {
+    sampleCount: number;
     avgRisk: number;
     avgDiscipline: number;
     riskFlags: number;
     recentEmotions: string[];
   } | null;
+  challengeSampleCount: number;
 };
 
 type TradingSignalRow = {
@@ -217,6 +219,7 @@ export async function getMentorContext(
     memories: [],
     termProgress: [],
     tradingSignals: null,
+    challengeSampleCount: 0,
   };
 
   const result = await withDb(async (client) => {
@@ -253,6 +256,12 @@ export async function getMentorContext(
       `SELECT risk_percent, risk_flag, discipline_score, emotion
          FROM academy_trading_arena_trades
          WHERE student_id = $1::uuid ORDER BY created_at DESC LIMIT 20`,
+      [studentId],
+    );
+    const challengeCountRes = await client.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count
+         FROM mentor_challenge_attempts
+        WHERE student_id = $1::uuid`,
       [studentId],
     );
 
@@ -311,10 +320,28 @@ export async function getMentorContext(
       const recentEmotions = [
         ...new Set(trades.map((row) => String(row.emotion || "")).filter(Boolean)),
       ].slice(0, 5);
-      tradingSignals = { avgRisk, avgDiscipline, riskFlags, recentEmotions };
+      tradingSignals = {
+        sampleCount: count,
+        avgRisk,
+        avgDiscipline,
+        riskFlags,
+        recentEmotions,
+      };
     }
 
-    return { profile, recentConversations, memories, termProgress, tradingSignals };
+    const challengeSampleCount = Math.max(
+      0,
+      Number(challengeCountRes.rows[0]?.count ?? 0),
+    );
+
+    return {
+      profile,
+      recentConversations,
+      memories,
+      termProgress,
+      tradingSignals,
+      challengeSampleCount,
+    };
   });
 
   return result.enabled ? (result.value ?? empty) : empty;
