@@ -20,8 +20,9 @@ for (const needle of [
   "mentor_profile_update_dead_letters",
   "unresolved_terminal_failures",
   "unresolved_dead_letters",
-  "recovered.event_sequence > terminal.event_sequence",
-  "recovered.status = 'processed'",
+  "mentor_profile_dead_letter_resolutions",
+  "resolved_dead_letters",
+  "dead_letters_total",
   "available_at <= NOW()",
   "lease_expires_at <= NOW()",
   "terminal_projection_failure",
@@ -41,6 +42,60 @@ for (const forbidden of ["studentId", "tenantId", "workspaceId", "conversation",
     failures.push(`health: sensitive/high-cardinality alert field forbidden: ${forbidden}`);
   }
 }
+
+const resolution = await source("src/lib/mentor-profile-dead-letter-resolution.ts");
+for (const needle of [
+  "resolveMentorProfileDeadLettersAfterRepairTx",
+  "dl.created_at <= $2::timestamptz",
+  "ON CONFLICT (dead_letter_id) DO NOTHING",
+  "recomputed_current_state",
+]) {
+  requireText("resolution", resolution, needle, `incident resolution invariant missing: ${needle}`);
+}
+
+const reconciliation = await source("src/lib/mentor-profile-reconciliation.ts");
+for (const needle of [
+  "resolveMentorProfileDeadLettersAfterRepair",
+  "unresolved_dead_letters",
+  "repairRunId",
+  "repairStartedAt",
+  "resolvedDeadLetters",
+]) {
+  requireText("reconciliation", reconciliation, needle, `repair integration missing: ${needle}`);
+}
+
+const migration = await source("src/lib/db-migrate-mentor-profile-dead-letter-resolution.ts");
+for (const needle of [
+  "0107_mentor_profile_dead_letter_resolution.sql",
+  "mentor_profile_dead_letter_resolutions",
+  "dead_letter_id UUID NOT NULL UNIQUE",
+  "mentor_profile_dead_letter_resolution_scope_fk",
+  "mentor_profile_dead_letter_resolutions is append-only",
+]) {
+  requireText("migration", migration, needle, `resolution migration invariant missing: ${needle}`);
+}
+
+const registry = await source("src/lib/db-migration-registry.ts");
+requireText(
+  "registry",
+  registry,
+  "migration-step-091",
+  "resolution migration must be in the canonical migration ledger",
+);
+requireText(
+  "registry",
+  registry,
+  "runMentorProfileDeadLetterResolutionMigrations",
+  "resolution migration runner must be governed",
+);
+
+const tenantRegistry = await source("docs/security/tenant-scoped-table-registry.json");
+requireText(
+  "tenant-registry",
+  tenantRegistry,
+  '"table": "mentor_profile_dead_letter_resolutions"',
+  "resolution ledger must be in the tenant-scoped table registry",
+);
 
 const worker = await source("scripts/run-mentor-profile-worker.ts");
 for (const needle of [
