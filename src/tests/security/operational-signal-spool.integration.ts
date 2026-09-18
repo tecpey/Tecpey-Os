@@ -60,6 +60,54 @@ describe("Operational signal evidence and durable spool", () => {
     assert.equal(later.dedupeBucketAt, "2026-09-18T12:15:00.000Z");
   });
 
+  it("rejects hidden high-cardinality strings and sensitive reason codes", () => {
+    assert.doesNotThrow(() =>
+      createOperationalSignalEvidence({
+        signalType: "mentor.profile.projection_stalled",
+        component: "mentor-profile",
+        detector: "mentor-profile-health-probe",
+        severity: "critical",
+        statusClassification: "active",
+        occurredAt: "2026-09-18T12:00:30.000Z",
+        reasonCodes: ["ready_age_critical"],
+        attributes: {
+          policyVersion: "2026-09-18.3",
+          criticalReadyAgeSeconds: 300,
+        },
+      }),
+    );
+
+    assert.throws(
+      () =>
+        createOperationalSignalEvidence({
+          signalType: "mentor.profile.projection_stalled",
+          component: "mentor-profile",
+          detector: "mentor-profile-health-probe",
+          severity: "critical",
+          statusClassification: "active",
+          occurredAt: "2026-09-18T12:00:30.000Z",
+          reasonCodes: ["ready_age_critical"],
+          attributes: { correlation: "opaque-user-123" },
+        }),
+      /operational_signal_attribute_value_invalid/,
+    );
+
+    assert.throws(
+      () =>
+        createOperationalSignalEvidence({
+          signalType: "mentor.profile.projection_stalled",
+          component: "mentor-profile",
+          detector: "mentor-profile-health-probe",
+          severity: "critical",
+          statusClassification: "active",
+          occurredAt: "2026-09-18T12:00:30.000Z",
+          reasonCodes: ["student_lookup_failed"],
+          attributes: { policyVersion: "2026-09-18.3" },
+        }),
+      /operational_signal_reason_code_invalid/,
+    );
+  });
+
   it("rejects high-cardinality or tampered signal attributes", () => {
     assert.throws(
       () =>
