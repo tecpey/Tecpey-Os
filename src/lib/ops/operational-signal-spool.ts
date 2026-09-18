@@ -20,6 +20,8 @@ import {
   type OperationalSignalDeliveryAttempt,
   type OperationalSignalEvidence,
 } from "@/lib/ops/operational-signal-evidence";
+
+const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
 const MAX_FILE_BYTES = 64 * 1024;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const MAX_RESPONSE_BODY_BYTES = 0;
@@ -545,4 +547,3 @@ export async function deliverOperationalSignals(
   return Object.freeze(summary);
 }
 
-const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
