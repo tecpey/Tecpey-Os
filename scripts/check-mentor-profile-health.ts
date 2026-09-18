@@ -73,7 +73,9 @@ async function main(): Promise<void> {
   const observedAt = new Date().toISOString();
   const hostName = hostname();
 
-  let snapshot: Awaited<ReturnType<typeof withTx<MentorProfileHealthSnapshot>>>;
+  let snapshot:
+    | { enabled: true; value: MentorProfileHealthSnapshot }
+    | { enabled: false; value: null };
   try {
     snapshot = await withTx((client) =>
       loadMentorProfileHealthSnapshot(client),
