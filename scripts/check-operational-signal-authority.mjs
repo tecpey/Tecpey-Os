@@ -168,6 +168,34 @@ for (const forbidden of [
   }
 }
 
+const installEnvironment = await source(
+  "src/lib/ops/operational-install-environment.ts",
+);
+for (const needle of [
+  "parseSystemdEnvironmentFile",
+  "rejectDuplicateKeys: true",
+  "DATABASE_URL",
+  "TECPEY_OPS_ALERT_WEBHOOK_URL",
+  "operational_install_environment_file_unsafe",
+]) {
+  requireText(
+    "install-environment",
+    installEnvironment,
+    needle,
+    `installer env authority missing: ${needle}`,
+  );
+}
+
+const installEnvironmentCli = await source(
+  "scripts/check-operational-installer-env.ts",
+);
+requireText(
+  "install-environment-cli",
+  installEnvironmentCli,
+  "TECPEY_INSTALL_ENV_FILE",
+  "bundled installer env preflight must require the exact env-file path",
+);
+
 const healthService = await source(
   "deploy/systemd/tecpey-mentor-profile-health.service.in",
 );
@@ -209,6 +237,25 @@ if (deliveryTimer.includes("Persistent=true") || deliveryTimer.includes("OnCalen
 }
 
 const installer = await source("scripts/install-mentor-profile-worker.sh");
+const schedulerInstaller = await source(
+  "scripts/install-community-challenge-scheduler.sh",
+);
+for (const [label, body] of [
+  ["mentor-installer", installer],
+  ["scheduler-installer", schedulerInstaller],
+]) {
+  for (const needle of [
+    "dist/check-operational-installer-env.cjs",
+    "ops:installer:env-check",
+    "TECPEY_INSTALL_ENV_FILE",
+  ]) {
+    requireText(label, body, needle, `governed env preflight wiring missing: ${needle}`);
+  }
+  if (body.includes("read_env_value()")) {
+    failures.push(`${label}: ad-hoc Bash env parsing must remain forbidden`);
+  }
+}
+
 for (const needle of [
   "TECPEY_OPS_STATE_DIR:-/var/lib/tecpey/ops",
   "dist/deliver-operational-alerts.cjs",
@@ -245,10 +292,13 @@ const scripts = packageJson.scripts ?? {};
 for (const [name, needle] of [
   ["build:server", "scripts/deliver-operational-alerts.ts"],
   ["build:server", "scripts/check-operational-delivery-env.ts"],
+  ["build:server", "scripts/check-operational-installer-env.ts"],
+  ["ops:installer:env-check", "dist/check-operational-installer-env.cjs"],
   ["ops:alerts:deliver:prod", "dist/deliver-operational-alerts.cjs"],
   ["ops:delivery:env-check", "dist/check-operational-delivery-env.cjs"],
   ["test:ops-signals", "operational-signal"],
   ["test:ops-signals", "mentor-profile-operational-installer.test.ts"],
+  ["test:ops-signals", "operational-install-environment.test.ts"],
 ]) {
   if (typeof scripts[name] !== "string" || !scripts[name].includes(needle)) {
     failures.push(`package: missing ${name} -> ${needle}`);
