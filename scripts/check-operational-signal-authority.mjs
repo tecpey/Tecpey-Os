@@ -53,6 +53,8 @@ for (const needle of [
   "operational_signal_id_mismatch",
   "derivedSignalId",
   "FORBIDDEN_ATTRIBUTE_KEY_RE",
+  "ALLOWED_STRING_ATTRIBUTE_KEYS",
+  "FORBIDDEN_REASON_CODE_RE",
   "dedupeWindowSeconds",
   "Date.parse(dedupeBucketAt) > Date.parse(occurredAt)",
   "attributes.length",
@@ -229,6 +231,8 @@ for (const needle of [
   "Idempotency-Key",
   "deterministic bounded jitter",
   "studentId",
+  "opaque-user-123",
+  "student_lookup_failed",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
