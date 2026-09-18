@@ -150,6 +150,52 @@ describe("Operational alert spool", () => {
     assert.equal(early.skippedUntilLater, 1);
   });
 
+  it("upgrades legacy retry files without quarantining pre-journal attempt gaps", async () => {
+    const root = await tempRoot();
+    const queued = await enqueueOperationalAlert(
+      root,
+      alert("authority_unavailable"),
+    );
+    const legacy = JSON.parse(await readFile(queued.filePath, "utf8")) as {
+      delivery: Record<string, unknown>;
+    };
+    legacy.delivery = {
+      attemptCount: 2,
+      nextAttemptAt: "2026-07-21T08:01:00.000Z",
+      lastErrorCode: "webhook_http_503",
+    };
+    await writeFile(queued.filePath, `${JSON.stringify(legacy)}\n`, {
+      mode: 0o600,
+    });
+
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-07-21T08:02:00.000Z"),
+      fetchImpl: async () => new Response(null, { status: 204 }),
+    });
+    assert.equal(summary.delivered, 1);
+    assert.equal(summary.quarantined, 0);
+
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    const [name] = await readdir(dirs.delivered);
+    const archived = JSON.parse(
+      await readFile(path.join(dirs.delivered, name!), "utf8"),
+    ) as {
+      delivery: {
+        attemptCount: number;
+        attemptHistory: Array<{
+          attemptNumber: number;
+          deliveryResult: string;
+        }>;
+      };
+    };
+    assert.equal(archived.delivery.attemptCount, 3);
+    assert.deepEqual(archived.delivery.attemptHistory, [
+      { attemptNumber: 3, deliveryResult: "delivered", httpStatus: 204, errorCode: null, attemptedAt: "2026-07-21T08:02:00.000Z" },
+    ]);
+  });
+
   it("quarantines terminal HTTP responses, invalid names, symlinks and oversized files", async () => {
     const root = await tempRoot();
     await enqueueOperationalAlert(root, alert("partial_failure"));
