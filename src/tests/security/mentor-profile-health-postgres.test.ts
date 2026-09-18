@@ -79,6 +79,38 @@ async function deadLetterHistoryCounts(client: PoolClient): Promise<{
   };
 }
 
+async function unresolvedIncidentCountsForOutboxIds(
+  client: PoolClient,
+  outboxIds: readonly string[],
+): Promise<{ terminal: number; deadLetters: number }> {
+  const result = await client.query<{
+    terminal: string;
+    dead_letters: string;
+  }>(
+    `SELECT
+       COUNT(DISTINCT o.id) FILTER (
+         WHERE o.status = 'failed_terminal'
+           AND resolution.dead_letter_id IS NULL
+       )::text AS terminal,
+       COUNT(DISTINCT dead.id) FILTER (
+         WHERE resolution.dead_letter_id IS NULL
+       )::text AS dead_letters
+       FROM mentor_profile_update_outbox o
+       LEFT JOIN mentor_profile_update_dead_letters dead
+         ON dead.outbox_id = o.id
+        AND dead.tenant_id = o.tenant_id
+        AND dead.workspace_id = o.workspace_id
+       LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+         ON resolution.dead_letter_id = dead.id
+      WHERE o.id = ANY($1::uuid[])`,
+    [outboxIds],
+  );
+  return {
+    terminal: Number.parseInt(result.rows[0]?.terminal ?? "-1", 10),
+    deadLetters: Number.parseInt(result.rows[0]?.dead_letters ?? "-1", 10),
+  };
+}
+
 async function insertEvent(
   client: PoolClient,
   scope: Awaited<ReturnType<typeof seedScope>>,
@@ -305,14 +337,29 @@ test(
         replayed: 0,
       });
 
-      const after = await loadMentorProfileHealthSnapshot(client);
-      assert.equal(after.unresolvedTerminalFailures, 0);
-      assert.equal(after.unresolvedDeadLetters, 0);
+      assert.deepEqual(
+        await unresolvedIncidentCountsForOutboxIds(client, [
+          terminalId,
+          concurrentTerminalId,
+        ]),
+        { terminal: 0, deadLetters: 0 },
+      );
       assert.deepEqual(await deadLetterHistoryCounts(client), {
         deadLetters: 2,
         resolutions: 2,
       });
-      assert.equal(evaluateMentorProfileHealth(after).status, "healthy");
+
+      // The production health snapshot is intentionally global. Shared CI can
+      // have unrelated warning fixtures in flight, so this test proves the two
+      // incidents it created are resolved without pretending the whole shared
+      // database must be warning-free at the same instant.
+      const after = await loadMentorProfileHealthSnapshot(client);
+      const afterEvaluation = evaluateMentorProfileHealth(after);
+      assert.equal(
+        afterEvaluation.reasonCodes.includes("terminal_projection_failure") &&
+          after.unresolvedTerminalFailures === 0,
+        false,
+      );
 
       await assert.rejects(
         resolveMentorProfileDeadLettersAfterRepairTx(client, {
