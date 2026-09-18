@@ -52,6 +52,21 @@ if (/OperationalSignalMeasurement\s*=\s*[^;]*\bstring\b/.test(evidence)) {
   failures.push("evidence: free-text measurement values are forbidden");
 }
 
+for (const forbidden of [
+  "hostName:",
+  "hostname:",
+  "rawHostname",
+  "studentId",
+  "tenantId",
+  "workspaceId",
+  "conversation",
+  "prompt",
+]) {
+  if (evidence.includes(forbidden)) {
+    failures.push(`evidence: raw/high-cardinality identity forbidden: ${forbidden}`);
+  }
+}
+
 const spool = await source("src/lib/ops/operational-signal-spool.ts");
 for (const needle of [
   '"signals", "pending"',
