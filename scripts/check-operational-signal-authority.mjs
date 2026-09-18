@@ -63,6 +63,11 @@ for (const needle of [
   "deferredDueToBatchLimit",
   "due.sort(",
   "quarantineUnsafeEntry",
+  "realpath",
+  "operational_signal_state_directory_alias_forbidden",
+  "recoveredDeliveredArchives",
+  "recoveredQuarantinedArchives",
+  'lastAttempt?.deliveryResult === "delivered"',
 ]) {
   requireText("spool", spool, needle, `signal spool invariant missing: ${needle}`);
 }
@@ -106,6 +111,8 @@ for (const needle of [
   "archived.attempts",
   "retried.attempts",
   "stat(target)",
+  "without redelivering",
+  "symlinked ancestor",
 ]) {
   requireText("spool-test", spoolTest, needle, `durability/fairness proof missing: ${needle}`);
 }
