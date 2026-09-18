@@ -15,6 +15,8 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { ensureMentorThreadTx } from "@/lib/mentor-threads";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
+import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +128,17 @@ export async function POST(req: NextRequest) {
         imported += inserted.rowCount ?? 0;
       }
 
+      if (imported > 0) {
+        await enqueueMentorProfileUpdateTx(client, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+          studentId,
+          eventType: "mentor.conversation",
+          reason: "mentor_conversation_migrated",
+          sourceReference: requestHash,
+        });
+      }
+
       const userCount = messages.filter((message) => message.role === "user").length;
       const assistantCount = messages.length - userCount;
       await writeSensitiveMutationAuditTx(client, {
@@ -151,6 +164,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.enabled) return apiError("mentor_storage_unavailable", 503);
+    if (result.value.imported > 0) {
+      scheduleMentorProfileUpdate(studentId, "mentor_conversation_saved");
+    }
     return apiOk({ imported: result.value.imported });
   } catch {
     return apiError("mentor_migration_unavailable", 503);
