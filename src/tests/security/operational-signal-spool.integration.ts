@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -288,6 +289,19 @@ describe("Operational signal spool", () => {
     assert.equal(
       quarantineNames.filter((name) => name.startsWith("unsafe-")).length >= 3,
       true,
+    );
+  });
+
+  it("rejects a state root that resolves through a symlinked ancestor", async () => {
+    const root = await tempRoot();
+    const realParent = path.join(root, "real-parent");
+    const aliasParent = path.join(root, "alias-parent");
+    await mkdir(realParent, { mode: 0o700 });
+    await symlink(realParent, aliasParent);
+
+    await assert.rejects(
+      ensureOperationalSignalSpoolDirectories(path.join(aliasParent, "state")),
+      /operational_signal_state_directory_alias_forbidden/,
     );
   });
 
