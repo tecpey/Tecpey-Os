@@ -76,7 +76,9 @@ for (const needle of [
   "operational-delivery-jitter-v1",
   "persistOperationalSignalTx",
   "persistOperationalSignalDeliveryAttemptTx",
-  "The private local spool is the outage-safe authority",
+  "bestEffortReconcileSpoolEvidence",
+  "persistSpoolItemTx",
+  "attempts: [...item.delivery.attempts, attempt]",
 ]) {
   requireText("spool", spool, needle, `durable signal spool invariant missing: ${needle}`);
 }
@@ -93,12 +95,33 @@ requireText(
   "webhook delivery must carry stable idempotency identity",
 );
 
+if (spool.includes("await bestEffortPersistItem(item)")) {
+  failures.push(
+    "spool: PostgreSQL persistence must not sit on the webhook critical path",
+  );
+}
+const webhookIndex = spool.indexOf("const response = await fetchImpl");
+const reconciliationIndex = spool.indexOf(
+  "await bestEffortReconcileSpoolEvidence(managed)",
+);
+if (
+  webhookIndex < 0 ||
+  reconciliationIndex < 0 ||
+  webhookIndex > reconciliationIndex
+) {
+  failures.push(
+    "spool: local webhook delivery must occur before best-effort database evidence reconciliation",
+  );
+}
+
 const probe = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
   "TECPEY_OPS_STATE_DIR",
   "reconcileOperationalSignalIncident",
   '"authority_unavailable"',
   '"mentor_profile_database_unavailable"',
+  '"mentor_profile_database_query_failed"',
+  "recordAuthorityUnavailable",
   'source: SOURCE',
   'sourceUnit: SOURCE_UNIT',
   "detailsFromSnapshot",
