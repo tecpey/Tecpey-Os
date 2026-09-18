@@ -63,7 +63,7 @@ These are engineering starting targets for staging calibration, **not a customer
 - an expired processing lease is warning immediately and critical once it is at least 30 seconds overdue;
 - any retryable failure is warning until it converges.
 
-The worker emits `MENTOR_PROFILE_BACKLOG` for warning state and `MENTOR_PROFILE_PROJECTION_STALLED` for critical state through the existing platform alert path. That path currently provides structured logging and best-effort webhook delivery; it must not be described as durable incident delivery until the broader operational alerting program proves that property.
+The worker continues to emit `MENTOR_PROFILE_BACKLOG` and `MENTOR_PROFILE_PROJECTION_STALLED` as immediate structured application signals. The **independent health probe** adds the durable path for critical/authority conditions: before returning exit `2` or `3`, it writes a bounded schema-v2 operational signal to the private local spool. The spool is the outage-safe authority; PostgreSQL persistence is best-effort and webhook delivery is performed separately by `tecpey-ops-alert-delivery.timer`.
 
 A one-shot machine-readable probe is available from the production bundle:
 
@@ -95,6 +95,33 @@ Optional bounded inputs are:
 The collector uses a **matured-event denominator**: an outbox event enters the sample only after it has had the full configured target interval to converge. Every matured event is counted, including pending, retryable and terminal outcomes; therefore backlog or failure cannot disappear from the SLI through survivorship bias. A good event is one processed on or before its own create+target deadline. Aggregate output includes eligible sample count, processed/valid/invalid latency counts, within-target and missed-target counts/ratio, plus p50, p95 and max create→processed latency for valid completed events. It does not return tenant, workspace, learner, conversation or prompt identifiers. Exit `0` means enough valid observations were collected, exit `1` means the denominator is still statistically thin, exit `2` means timestamp evidence is internally invalid, and exit `3` means database/calibration authority was unavailable.
 
 This output is **not an SLO pass/fail result**. Capture it on protected staging over representative Academy, Arena and Mentor workloads, compare multiple windows and traffic levels, then define the actual freshness SLI/error budget. If paging is later enabled, use a multi-window / multi-burn-rate policy so a short transient spike does not page while a sustained user-visible freshness regression cannot hide behind a long average.
+
+
+### Durable operational signal rail
+
+Critical Mentor projection health and health-authority failures use the shared TecPey operational spool rather than a Mentor-specific delivery stack.
+
+- schema-v1 job alerts remain backward-compatible;
+- schema-v2 generic signals use a derived fingerprint and a 15-minute dedupe bucket;
+- signal identity is derived by the authority library, not supplied by the caller;
+- generic attributes are bounded to low-cardinality scalar values and keys associated with tenant/workspace/student/user/account/conversation/prompt/contact/credential/KYC data are rejected;
+- spool directories are private and files are written atomically with mode `0600`;
+- delivery uses `Idempotency-Key: <signalId>`;
+- transient webhook failures use capped exponential backoff with deterministic signal-specific jitter;
+- terminal HTTP failures or exhausted attempts move evidence to quarantine rather than deleting it;
+- delivered and quarantined items remain replay-detectable, preventing accidental duplicate delivery of the same signal identity;
+- PostgreSQL `platform_operational_signals` and `platform_operational_signal_delivery_attempts` are append-only forensic mirrors when database authority is available;
+- alert delivery preflight deliberately does **not** require `DATABASE_URL`, so a database outage cannot suppress delivery of a signal already durably spooled.
+
+Production commands:
+
+```bash
+npm run ops:alerts:env-check
+npm run ops:alerts:deliver
+systemctl status tecpey-ops-alert-delivery.timer --no-pager
+```
+
+Warnings are not promoted to durable paging merely because the rail exists. Page/ticket policy remains gated on the measured freshness SLI/error budget. Critical projection-stall and authority-unavailable signals are durable incident evidence, while the future paging destination and escalation policy remain an operations configuration decision.
 
 Database reconciliation:
 
@@ -137,15 +164,16 @@ A successful repair may therefore change current health from critical to healthy
 Before enabling the service on staging:
 
 1. exact release SHA is known;
-2. migration plan hash and migration ledger are green through canonical step 092;
+2. migration plan hash and migration ledger are green through canonical step 093;
 3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
 5. `npm run mentor:profiles:freshness` produces valid aggregate calibration evidence or explicitly reports insufficient data;
-6. worker + independent health service + timer dry-run pass `systemd-analyze verify`;
-7. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
-8. the worker starts with zero unresolved terminal failures;
-9. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
-10. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
+6. worker + independent health service + health timer + operational alert-delivery service/timer dry-run pass `systemd-analyze verify`;
+7. `npm run ops:alerts:env-check` passes without requiring database authority and the alert-delivery timer is enabled/active;
+8. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
+9. the worker starts with zero unresolved terminal failures;
+10. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
+11. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
 
@@ -164,9 +192,10 @@ journalctl -u tecpey-mentor-profile-health.service --since '-10 minutes' --no-pa
 Expected behavior:
 
 - warning exit `1` is retained as a successful systemd execution so transient early pressure does not produce a false unit failure;
-- critical exit `2` or authority failure `3` makes the health service fail and is visible to host monitoring;
+- critical exit `2` or authority failure `3` first creates/replays a schema-v2 signal in the private local spool, then makes the health service fail and remain visible to host monitoring;
+- `tecpey-ops-alert-delivery.timer` can deliver the spooled signal even when PostgreSQL is unavailable;
 - restarting the worker drains the bounded backlog;
 - a later independent probe returns healthy after convergence;
 - the drill must not mutate or delete dead-letter history to manufacture a green result.
 
-This watchdog is an **independent failure detector**, not a replacement for durable incident delivery. Until Mentor alerts are migrated onto the governed operational alert spool/delivery rail, critical notification delivery remains best-effort at the application webhook layer and host monitoring must treat a failed `tecpey-mentor-profile-health.service` as actionable.
+This watchdog is an **independent failure detector** and now feeds the governed durable operational signal rail. Host monitoring must still treat a failed `tecpey-mentor-profile-health.service` as actionable because the local spool protects evidence/delivery intent; it does not make the detector itself infallible. During a drill, verify both the failed health unit and a corresponding pending/delivered schema-v2 spool item.
