@@ -30,11 +30,6 @@ require_absolute_path() {
   [[ "$value" != *$'\n'* && "$value" != *$'\r'* && "$value" != *$'\t'* && "$value" != *' '* ]] || fail "$code"
 }
 
-read_env_value() {
-  local name="$1"
-  sed -n -E "s/^[[:space:]]*${name}=([^[:space:]]+)[[:space:]]*$/\\1/p" "$ENV_FILE" | tail -n 1
-}
-
 require_safe_token "$RUN_USER" "runtime_user_invalid"
 require_safe_token "$RUN_GROUP" "runtime_group_invalid"
 [[ "$RUN_USER" != "root" ]] || fail "runtime_user_root_forbidden"
@@ -46,7 +41,8 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 [[ "$DRY_RUN" == "0" || "$DRY_RUN" == "1" ]] || fail "dry_run_invalid"
 
 [[ -d "$APP_DIR" && -f "$APP_DIR/package.json" ]] || fail "app_directory_missing"
-for runtime_file in   "$APP_DIR/dist/run-mentor-profile-worker.cjs"   "$APP_DIR/dist/check-mentor-profile-health.cjs"   "$APP_DIR/dist/deliver-operational-alerts.cjs"   "$APP_DIR/dist/check-operational-delivery-env.cjs"
+for runtime_file in   "$APP_DIR/dist/run-mentor-profile-worker.cjs"   "$APP_DIR/dist/check-mentor-profile-health.cjs"   "$APP_DIR/dist/deliver-operational-alerts.cjs"   "$APP_DIR/dist/check-operational-delivery-env.cjs" \
+  "$APP_DIR/dist/check-operational-installer-env.cjs"
 do
   [[ -f "$runtime_file" && ! -L "$runtime_file" ]] || fail "mentor_operational_bundle_missing"
 done
@@ -72,12 +68,9 @@ ENV_OTHER_DIGIT="${ENV_LAST3:2:1}"
 (( ENV_OTHER_DIGIT == 0 )) || fail "environment_file_world_access_forbidden"
 (( (ENV_GROUP_DIGIT & 3) == 0 )) || fail "environment_file_group_write_execute_forbidden"
 
-DATABASE_URL_VALUE="$(read_env_value DATABASE_URL)"
-ALERT_WEBHOOK_VALUE="$(read_env_value TECPEY_OPS_ALERT_WEBHOOK_URL)"
-[[ -n "$DATABASE_URL_VALUE" ]] || fail "database_url_missing"
-[[ "$DATABASE_URL_VALUE" != *CHANGE_ME* && "$DATABASE_URL_VALUE" != *example.invalid* ]]   || fail "database_url_placeholder"
-[[ "$ALERT_WEBHOOK_VALUE" == https://* ]] || fail "ops_alert_https_webhook_missing"
-[[ "$ALERT_WEBHOOK_VALUE" != *CHANGE_ME* && "$ALERT_WEBHOOK_VALUE" != *example.invalid* && "$ALERT_WEBHOOK_VALUE" != *localhost* ]]   || fail "ops_alert_webhook_placeholder_forbidden"
+TECPEY_INSTALL_ENV_FILE="$ENV_FILE" \
+  "$NPM_BIN" run --silent ops:installer:env-check >/dev/null \
+  || fail "operational_install_environment_invalid"
 
 TMP_DIR="$(mktemp -d)"
 cleanup() { rm -rf -- "$TMP_DIR"; }
