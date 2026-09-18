@@ -192,6 +192,8 @@ for (const needle of [
   "createOperationalSignalEvidence",
   "enqueueOperationalSignal",
   "TECPEY_OPS_STATE_DIR",
+  "operationalInstanceFingerprint",
+  "tecpey-operational-instance-v1",
   "mentor_profile_database_unavailable",
   "process.exitCode = 3",
 ]) {
