@@ -195,9 +195,10 @@ function validateActive(value: unknown): ActiveEpisode | null {
   if (
     typeof raw.episodeId !== "string" ||
     !UUID_RE.test(raw.episodeId) ||
+    typeof raw.episodeSequence !== "number" ||
     !Number.isSafeInteger(raw.episodeSequence) ||
-    Number(raw.episodeSequence) < 1 ||
-    Number(raw.episodeSequence) > 1_000_000 ||
+    raw.episodeSequence < 1 ||
+    raw.episodeSequence > 1_000_000 ||
     typeof raw.incidentKey !== "string" ||
     !HASH_RE.test(raw.incidentKey) ||
     (raw.severity !== "warning" && raw.severity !== "critical")
