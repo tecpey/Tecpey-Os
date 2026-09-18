@@ -3,6 +3,7 @@ Description=TecPey Mentor Profile Independent Health Probe
 Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/operations/MENTOR_PROFILE_PROJECTION_RUNBOOK.md
 Wants=network-online.target
 After=network-online.target
+RequiresMountsFor=@@STATE_DIR@@
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
@@ -13,6 +14,7 @@ Group=@@RUN_GROUP@@
 WorkingDirectory=@@APP_DIR@@
 EnvironmentFile=@@ENV_FILE@@
 Environment=NODE_ENV=production
+Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@
 Environment=NPM_CONFIG_UPDATE_NOTIFIER=false
 Environment=NPM_CONFIG_CACHE=/tmp/tecpey-npm-cache
 ExecStart=@@NPM_BIN@@ run mentor:profiles:health
@@ -41,3 +43,4 @@ SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 CapabilityBoundingSet=
 ReadOnlyPaths=@@APP_DIR@@
+ReadWritePaths=@@STATE_DIR@@
