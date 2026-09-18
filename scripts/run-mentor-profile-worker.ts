@@ -10,7 +10,6 @@ import {
   isTerminalMentorProfileWorkerError,
   mentorProfileWorkerErrorCode,
 } from "../src/lib/mentor-profile-worker";
-import { emitAlert } from "../src/lib/alerts";
 import {
   evaluateMentorProfileHealth,
   loadMentorProfileHealthSnapshot,
@@ -148,19 +147,9 @@ async function run(): Promise<void> {
           evaluation,
         );
         console.log("[mentor-profile-worker] health", metadata);
-        if (evaluation.status === "critical") {
-          emitAlert(
-            "MENTOR_PROFILE_PROJECTION_STALLED",
-            "Mentor profile projection requires operator attention",
-            metadata,
-          );
-        } else if (evaluation.status === "warning") {
-          emitAlert(
-            "MENTOR_PROFILE_BACKLOG",
-            "Mentor profile projection is outside its internal health target",
-            metadata,
-          );
-        }
+        // The independent health probe is the sole durable incident producer.
+        // The worker keeps aggregate telemetry only, avoiding a second best-effort
+        // webhook sender that could duplicate or race the governed signal lifecycle.
         lastReconciliationAt = now;
       }
 
