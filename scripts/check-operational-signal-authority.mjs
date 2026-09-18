@@ -267,6 +267,7 @@ const deliveryService = await source(
 for (const needle of [
   "ops:delivery:env-check",
   "ops:alerts:deliver:prod",
+  "StartLimitIntervalSec=0",
   "ReadWritePaths=@@STATE_DIR@@",
   "ProtectSystem=strict",
 ]) {
