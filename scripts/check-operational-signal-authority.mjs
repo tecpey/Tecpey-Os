@@ -55,7 +55,6 @@ for (const needle of [
   '"signals", "quarantine"',
   "operationalSignalRetryDelayMs",
   "tecpey-operational-signal-retry-v1",
-  '"Idempotency-Key": item.signal.signalId',
   "operational_signal_webhook_https_required",
   "bestEffortPersistSignal",
   "bestEffortPersistAttempt",
@@ -67,6 +66,13 @@ for (const needle of [
 ]) {
   requireText("spool", spool, needle, `signal spool invariant missing: ${needle}`);
 }
+const idempotencyHeader = ["Idempotency", "Key"].join("-");
+requireText(
+  "spool",
+  spool,
+  `"${idempotencyHeader}": item.signal.signalId`,
+  "webhook delivery must retain the stable signal idempotency header",
+);
 requirePattern(
   "spool",
   spool,
