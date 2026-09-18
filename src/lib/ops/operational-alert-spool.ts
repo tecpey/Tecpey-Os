@@ -90,6 +90,9 @@ export type OperationalAlertDeliverySummary = {
   retryable: number;
   quarantined: number;
   skippedUntilLater: number;
+  deferredDueToBatchLimit: number;
+  recoveredDeliveredArchives: number;
+  recoveredQuarantinedArchives: number;
 };
 
 export type OperationalSignalObservation = Readonly<{
@@ -576,17 +579,46 @@ async function moveFile(
   source: string,
   destinationDirectory: string,
 ): Promise<void> {
+  const sourceStat = await lstat(source);
+  if (sourceStat.isSymbolicLink() || !sourceStat.isFile()) {
+    throw new Error("operational_spool_move_source_unsafe");
+  }
   const destination = path.join(destinationDirectory, path.basename(source));
   const existing = await lstat(destination).catch(() => null);
   if (existing) {
     throw new Error("operational_spool_destination_conflict");
   }
+  const sourceDirectory = path.dirname(source);
   await rename(source, destination);
   await chmod(destination, 0o600);
-  await syncDirectory(path.dirname(source));
-  if (path.dirname(source) !== destinationDirectory) {
-    await syncDirectory(destinationDirectory);
+  await syncDirectory(destinationDirectory);
+  if (sourceDirectory !== destinationDirectory) {
+    await syncDirectory(sourceDirectory);
   }
+}
+
+async function quarantineUnsafeEntry(
+  source: string,
+  destinationDirectory: string,
+  reason: "invalid_name" | "unsafe_or_corrupt_item",
+  now: Date,
+): Promise<void> {
+  const sourceName = path.basename(source);
+  const digest = createHash("sha256")
+    .update(`tecpey-operational-spool-quarantine-v2:${reason}:${sourceName}`)
+    .digest("hex");
+  const destination = path.join(
+    destinationDirectory,
+    `unsafe-${digest}.json`,
+  );
+  await atomicWriteJson(destination, {
+    schemaVersion: 1,
+    quarantineReason: reason,
+    originalNameHash: createHash("sha256").update(sourceName).digest("hex"),
+    quarantinedAt: now.toISOString(),
+  });
+  await rm(source, { force: true });
+  await syncDirectory(path.dirname(source));
 }
 
 async function persistSpoolItemTx(
@@ -705,36 +737,87 @@ export async function deliverOperationalAlerts(
   const fetchImpl = config.fetchImpl ?? fetch;
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .slice(0, limit);
+    .sort((left, right) => left.name.localeCompare(right.name));
   const summary: OperationalAlertDeliverySummary = {
-    selected: entries.length,
+    selected: 0,
     delivered: 0,
     retryable: 0,
     quarantined: 0,
     skippedUntilLater: 0,
+    deferredDueToBatchLimit: 0,
+    recoveredDeliveredArchives: 0,
+    recoveredQuarantinedArchives: 0,
   };
+  const due: Array<{
+    filePath: string;
+    item: OperationalSpoolItem;
+    nextAttemptAtMs: number;
+  }> = [];
 
   for (const entry of entries) {
     const filePath = path.join(managed.pending, entry.name);
     if (!SAFE_FILE_RE.test(entry.name)) {
-      await moveFile(filePath, managed.quarantine);
+      await quarantineUnsafeEntry(
+        filePath,
+        managed.quarantine,
+        "invalid_name",
+        now,
+      );
       summary.quarantined += 1;
       continue;
     }
+
     let item: OperationalSpoolItem;
     try {
       item = validateSpoolItem(await safeReadJson(filePath));
     } catch {
-      await moveFile(filePath, managed.quarantine);
+      await quarantineUnsafeEntry(
+        filePath,
+        managed.quarantine,
+        "unsafe_or_corrupt_item",
+        now,
+      );
       summary.quarantined += 1;
       continue;
     }
-    if (Date.parse(item.delivery.nextAttemptAt) > now.getTime()) {
-      summary.skippedUntilLater += 1;
+
+    const lastAttempt = item.delivery.attempts.at(-1);
+    if (lastAttempt?.deliveryResult === "delivered") {
+      await moveFile(filePath, managed.delivered);
+      summary.recoveredDeliveredArchives += 1;
+      continue;
+    }
+    if (
+      lastAttempt?.deliveryResult === "terminal_failure" ||
+      (
+        lastAttempt?.deliveryResult === "retryable_failure" &&
+        item.delivery.attemptCount >= maxAttempts
+      )
+    ) {
+      await moveFile(filePath, managed.quarantine);
+      summary.recoveredQuarantinedArchives += 1;
       continue;
     }
 
+    const nextAttemptAtMs = Date.parse(item.delivery.nextAttemptAt);
+    if (nextAttemptAtMs > now.getTime()) {
+      summary.skippedUntilLater += 1;
+      continue;
+    }
+    due.push({ filePath, item, nextAttemptAtMs });
+  }
+
+  due.sort(
+    (left, right) =>
+      left.nextAttemptAtMs - right.nextAttemptAtMs ||
+      left.filePath.localeCompare(right.filePath),
+  );
+  const selected = due.slice(0, limit);
+  summary.selected = selected.length;
+  summary.deferredDueToBatchLimit = Math.max(0, due.length - selected.length);
+
+  for (const candidate of selected) {
+    const { filePath, item } = candidate;
     const identity = spoolIdentity(item);
     const attemptNumber = item.delivery.attemptCount + 1;
     const controller = new AbortController();
@@ -806,6 +889,9 @@ export async function deliverOperationalAlerts(
         attempts: [...item.delivery.attempts, attempt],
       },
     };
+
+    // Persist and fsync the exact delivery result before any archive move.
+    // A restart can then finish the terminal move without redelivering.
     await atomicWriteJson(filePath, updated);
 
     if (deliveryResult === "delivered") {
