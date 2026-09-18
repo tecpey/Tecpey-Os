@@ -53,6 +53,9 @@ describe("Operational signal evidence and durable spool", () => {
     assert.equal(first.signalId, replay.signalId);
     assert.equal(first.fingerprint, replay.fingerprint);
     assert.equal(first.dedupeBucketAt, "2026-09-18T12:00:00.000Z");
+    assert.equal(first.occurredAt, "2026-09-18T12:00:30.000Z");
+    assert.equal(replay.occurredAt, "2026-09-18T12:14:59.000Z");
+    assert.notEqual(first.occurredAt, replay.occurredAt);
     assert.notEqual(first.signalId, later.signalId);
     assert.equal(later.dedupeBucketAt, "2026-09-18T12:15:00.000Z");
   });
@@ -97,7 +100,9 @@ describe("Operational signal evidence and durable spool", () => {
     const root = await tempRoot();
     const evidence = signal("2026-09-18T12:00:30.000Z");
     const sameBucketReplay = signal("2026-09-18T12:14:59.000Z");
-    assert.deepEqual(sameBucketReplay, evidence);
+    assert.equal(sameBucketReplay.signalId, evidence.signalId);
+    assert.equal(sameBucketReplay.fingerprint, evidence.fingerprint);
+    assert.notEqual(sameBucketReplay.occurredAt, evidence.occurredAt);
 
     const first = await enqueueOperationalSignal(root, evidence);
     const replay = await enqueueOperationalSignal(root, sameBucketReplay);
@@ -109,10 +114,11 @@ describe("Operational signal evidence and durable spool", () => {
 
     const stored = JSON.parse(await readFile(first.filePath, "utf8")) as {
       schemaVersion: number;
-      signal: { signalId: string; reasonCodes: string[] };
+      signal: { signalId: string; reasonCodes: string[]; occurredAt: string };
     };
     assert.equal(stored.schemaVersion, 2);
     assert.equal(stored.signal.signalId, evidence.signalId);
+    assert.equal(stored.signal.occurredAt, "2026-09-18T12:00:30.000Z");
     assert.deepEqual(stored.signal.reasonCodes, [
       "dead_letter_present",
       "ready_age_critical",
