@@ -204,6 +204,7 @@ describe("AI Mentor durable trust store", () => {
       try {
         const initial = await loadMentorAiPreferences(first);
         assert.equal(initial.available, true);
+        assert.equal(initial.preferences.externalProviderEnabled, false);
         assert.equal(initial.preferences.behavioralPersonalizationEnabled, false);
         assert.equal(initial.preferences.realExchangeSignalsEnabled, false);
 
@@ -227,6 +228,7 @@ describe("AI Mentor durable trust store", () => {
 
         const other = await loadMentorAiPreferences(second);
         assert.equal(other.available, true);
+        assert.equal(other.preferences.externalProviderEnabled, false);
         assert.equal(other.preferences.behavioralPersonalizationEnabled, false);
 
         await withClient(async (client) => {

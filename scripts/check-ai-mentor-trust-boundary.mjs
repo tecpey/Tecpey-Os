@@ -53,6 +53,7 @@ for (const [label, pattern] of [
   ],
   ["daily quota and spend admission authority", /admitAiAgentExecution\(\{/],
   ["verified knowledge retrieval", /loadVerifiedAiKnowledgeContext\(\{/],
+  ["acute safety before egress", /hasMentorAcuteSafetySignal\(question\)/],
 ]) {
   if (!pattern.test(route)) failures.push(`AI Mentor route: missing ${label}`);
 }
@@ -122,6 +123,8 @@ for (const [label, pattern] of [
   ],
   ["behavioral consent gate", /behavioralPersonalizationEnabled/],
   ["output signal rejection", /direct_signal/],
+  ["acute safety detector", /MENTOR_ACUTE_SAFETY_PATTERN/],
+  ["acute safety response", /mentorAcuteSafetyResponse/],
 ]) {
   if (!pattern.test(trust)) failures.push(`trust boundary: missing ${label}`);
 }
@@ -163,6 +166,7 @@ if (/\.unref(?:\?\.)?\s*\(/.test(provider)) {
 
 const store = await source("src/lib/ai/mentor-trust-store.ts");
 for (const [label, pattern] of [
+  ["default-off external provider", /externalProviderEnabled: false/],
   ["default-off personalization", /behavioralPersonalizationEnabled: false/],
   ["real exchange deny", /realExchangeSignalsEnabled: false/],
   [

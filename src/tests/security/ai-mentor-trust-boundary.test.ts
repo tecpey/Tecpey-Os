@@ -4,8 +4,10 @@ import { describe, it } from "node:test";
 import type { MentorContext } from "../../lib/mentor-memory";
 import {
   detectMentorSecrets,
+  hasMentorAcuteSafetySignal,
   inspectMentorOutput,
   inspectMentorUserText,
+  mentorAcuteSafetyResponse,
   prepareMentorEgress,
   prepareMentorPublicResearchEgress,
 } from "../../lib/ai/mentor-trust-boundary";
@@ -89,6 +91,25 @@ describe("AI Mentor trust boundary", () => {
       assert.equal(prepared.blocked, true, canary);
       assert.equal(prepared.input, "", canary);
     }
+  });
+
+  it("detects acute self-harm language for deterministic no-egress intervention", () => {
+    for (const message of [
+      "بعد از این ضرر می‌خواهم خودمو بکشم",
+      "فکر خودکشی دارم",
+      "I want to kill myself after this loss",
+      "I am thinking about self-harm",
+    ]) {
+      assert.equal(hasMentorAcuteSafetySignal(message), true, message);
+      const inspection = inspectMentorUserText(message);
+      assert.equal(inspection.classes.includes("prohibited"), true, message);
+    }
+    assert.equal(
+      hasMentorAcuteSafetySignal("از این ضرر ناراحتم ولی می‌خواهم برنامه ریسک را مرور کنم"),
+      false,
+    );
+    assert.match(mentorAcuteSafetyResponse("fa"), /ارسال نشد/);
+    assert.match(mentorAcuteSafetyResponse("en"), /did not send/i);
   });
 
   it("does not treat an unlabeled six-digit market value as an OTP", () => {

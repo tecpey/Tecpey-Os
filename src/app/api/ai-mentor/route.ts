@@ -19,8 +19,10 @@ import { apiError, apiOk, apiRateLimited } from "@/lib/api-validation";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import {
   AI_MENTOR_TRUST_POLICY_VERSION,
+  hasMentorAcuteSafetySignal,
   inspectMentorOutput,
   inspectMentorUserText,
+  mentorAcuteSafetyResponse,
   prepareMentorEgress,
   prepareMentorPublicResearchEgress,
   secretIncidentResponse,
@@ -624,6 +626,48 @@ export async function POST(request: NextRequest) {
           answer: secretIncidentResponse(locale),
           fallback,
           mentorStatus: "blocked_secret",
+          source: "security_policy",
+          externalProviderUsed: false,
+          providerAttempted: false,
+          providerStatus: "blocked_before_egress",
+          memoryPersisted: false,
+          memoryMode: "not_recorded",
+          evidencePersisted,
+          personalizationApplied: false,
+          remaining: limit.remaining,
+        }),
+      );
+    }
+
+    if (hasMentorAcuteSafetySignal(question)) {
+      const answer = mentorAcuteSafetyResponse(locale);
+      const evidencePersisted = await appendAiMentorEvidence({
+        tenantId: activeTenantId,
+        requestId,
+        studentId: authorizedStudentId ?? studentId,
+        phase: "local",
+        provider: "none",
+        policyVersion: AI_MENTOR_TRUST_POLICY_VERSION,
+        contextClasses: inspection.classes,
+        redactionCount: inspection.redactionCount,
+        injectionSignalCount: inspection.injectionSignals.length,
+        inputHash: inspection.inputHash,
+        inputChars: inspection.normalized.length,
+        estimatedInputTokens: Math.ceil(inspection.normalized.length / 3.2),
+        estimatedOutputTokens: Math.ceil(answer.length / 3.2),
+        outcome: "local_guidance",
+        memoryPersisted: false,
+        metadata: {
+          acute_safety_intervention: true,
+          external_egress_blocked: true,
+          mentor_memory_blocked: true,
+        },
+      });
+      return apiOk(
+        responseEnvelope({
+          answer,
+          fallback,
+          mentorStatus: "safety_intervention",
           source: "security_policy",
           externalProviderUsed: false,
           providerAttempted: false,

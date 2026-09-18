@@ -77,11 +77,11 @@ export type MentorConversationPairInput = {
   threadId?: string | null;
 };
 
-const MENTOR_CONSENT_VERSION = "2026-07-20.1";
-const MENTOR_PREFERENCE_POLICY_VERSION = "mentor-preferences-consent-v1";
+const MENTOR_CONSENT_VERSION = "2026-09-18.1";
+const MENTOR_PREFERENCE_POLICY_VERSION = "mentor-preferences-consent-v2";
 
 const DEFAULT_PREFERENCES: MentorAiPreferences = {
-  externalProviderEnabled: true,
+  externalProviderEnabled: false,
   behavioralPersonalizationEnabled: false,
   realExchangeSignalsEnabled: false,
   consentVersion: MENTOR_CONSENT_VERSION,
