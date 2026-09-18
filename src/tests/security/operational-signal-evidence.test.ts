@@ -8,6 +8,7 @@ import {
 function signal(
   occurredAt: string,
   sourceUnit = "tecpey-mentor-profile-health.service",
+  instanceFingerprint = "111111111111111111111111",
   measurements: Record<string, number | boolean | null> = {
     unresolved_dead_letters: 1,
     oldest_ready_age_seconds: 420,
@@ -17,6 +18,7 @@ function signal(
     signalType: "mentor_profile_projection_health",
     component: "mentor_profile_projection",
     sourceUnit,
+    instanceFingerprint,
     severity: "critical",
     lifecycle: "firing",
     occurredAt,
@@ -31,6 +33,7 @@ test("operational signal identity is stable inside one dedupe window", () => {
   const second = signal(
     "2026-09-18T12:55:00.000Z",
     "tecpey-mentor-profile-health.service",
+    "111111111111111111111111",
     {
       unresolved_dead_letters: 3,
       oldest_ready_age_seconds: 900,
@@ -49,9 +52,16 @@ test("new windows and different detector services produce distinct identities", 
     "2026-09-18T12:05:00.000Z",
     "tecpey-other-health.service",
   );
+  const otherInstance = signal(
+    "2026-09-18T12:05:00.000Z",
+    "tecpey-mentor-profile-health.service",
+    "222222222222222222222222",
+  );
   assert.notEqual(first.signalId, nextWindow.signalId);
   assert.notEqual(first.incidentKey, otherDetector.incidentKey);
   assert.notEqual(first.signalId, otherDetector.signalId);
+  assert.notEqual(first.incidentKey, otherInstance.incidentKey);
+  assert.notEqual(first.signalId, otherInstance.signalId);
 });
 
 test("operational signal payload forbids free-text measurements and bad windows", () => {
@@ -61,6 +71,7 @@ test("operational signal payload forbids free-text measurements and bad windows"
         signalType: "mentor_profile_projection_health",
         component: "mentor_profile_projection",
         sourceUnit: "tecpey-mentor-profile-health.service",
+        instanceFingerprint: "111111111111111111111111",
         severity: "critical",
         occurredAt: "2026-09-18T12:05:00.000Z",
         dedupeWindowSeconds: 30,
@@ -76,6 +87,7 @@ test("operational signal payload forbids free-text measurements and bad windows"
         signalType: "mentor_profile_projection_health",
         component: "mentor_profile_projection",
         sourceUnit: "tecpey-mentor-profile-health.service",
+        instanceFingerprint: "111111111111111111111111",
         severity: "critical",
         occurredAt: "2026-09-18T12:05:00.000Z",
         reasonCodes: ["dead_letter_present"],
