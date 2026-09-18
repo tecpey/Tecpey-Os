@@ -22,8 +22,11 @@ async function fixture() {
   const state = path.join(root, "state");
   const systemd = path.join(root, "systemd");
   await mkdir(app);
+  await mkdir(path.join(app, "dist"));
   await mkdir(bin);
   await writeFile(path.join(app, "package.json"), "{}\n", { mode: 0o644 });
+  await writeFile(path.join(app, "dist", "deliver-operational-alerts.cjs"), "module.exports = {};\n", { mode: 0o600 });
+  await writeFile(path.join(app, "dist", "check-operational-installer-env.cjs"), "module.exports = {};\n", { mode: 0o600 });
   await writeFile(
     envFile,
     [
@@ -88,16 +91,12 @@ describe("Community challenge scheduler installer", () => {
     assert.match(relative.stderr, /app_directory_invalid/);
   });
 
-  it("rejects a missing HTTPS alert webhook", async () => {
+  it("fails closed when governed environment validation rejects the file", async () => {
     const setup = await fixture();
-    await writeFile(
-      setup.envFile,
-      "DATABASE_URL=postgres://database.internal/tecpey\n",
-      { mode: 0o640 },
-    );
+    await executable(path.join(setup.bin, "npm"), "#!/bin/sh\nexit 1\n");
     const result = runInstall(setup);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /ops_alert_https_webhook_missing/);
+    assert.match(result.stderr, /operational_install_environment_invalid/);
   });
 
   it("rejects world-readable environment files", async () => {
