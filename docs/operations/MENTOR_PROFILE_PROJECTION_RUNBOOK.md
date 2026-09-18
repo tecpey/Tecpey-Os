@@ -31,18 +31,27 @@ sudo env \
   bash scripts/install-mentor-profile-worker.sh
 ```
 
-Remove `TECPEY_DRY_RUN=1` only after the generated unit verifies cleanly.
+Remove `TECPEY_DRY_RUN=1` only after all three generated units verify cleanly: the durable worker, the independent health probe service and its timer.
 
 ## Operational checks
 
 ```bash
 systemctl is-enabled tecpey-mentor-profile-worker.service
 systemctl is-active tecpey-mentor-profile-worker.service
+systemctl is-enabled tecpey-mentor-profile-health.timer
+systemctl is-active tecpey-mentor-profile-health.timer
+systemctl list-timers --all | grep tecpey-mentor-profile-health
 systemctl status tecpey-mentor-profile-worker.service --no-pager
+systemctl status tecpey-mentor-profile-health.service --no-pager
 journalctl -u tecpey-mentor-profile-worker.service -n 100 --no-pager
+journalctl -u tecpey-mentor-profile-health.service -n 100 --no-pager
 ```
 
 The worker evaluates a bounded aggregate health snapshot approximately once per minute. The snapshot contains queue counts and ages only; it never includes tenant, workspace, learner, conversation, prompt, KYC or portfolio identifiers.
+
+The independent `tecpey-mentor-profile-health.timer` runs the same production-bundled probe outside the worker process. This is intentional: a worker can remain an active process while its event loop or database work stops making progress. The independent systemd probe provides a second failure detector instead of asking the component under observation to be its only monitor.
+
+The timer activates after one minute and then one minute after each activation, uses `Persistent=true` for missed-run catch-up, and applies a small randomized delay to avoid synchronized host work. In the health service, exit code `1` (warning) is declared a successful systemd exit via `SuccessExitStatus=1`; exit code `2` (critical) and `3` (authority/check failure) therefore make the health service fail visibly at the host layer.
 
 ### Internal starting SLO targets
 
@@ -106,8 +115,32 @@ Before enabling the service on staging:
 2. migration plan hash and migration ledger are green through canonical step 091;
 3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
-5. service template dry-run passes `systemd-analyze verify`;
-6. the worker starts with zero terminal failures;
-7. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge.
+5. worker + independent health service + timer dry-run pass `systemd-analyze verify`;
+6. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
+7. the worker starts with zero unresolved terminal failures;
+8. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
+9. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
+
+## Watchdog failure drill
+
+Run this only in protected staging with a controlled test learner and no production traffic.
+
+```bash
+sudo systemctl stop tecpey-mentor-profile-worker.service
+# create the approved bounded test signal/backlog through the normal application path
+sudo systemctl start tecpey-mentor-profile-health.service || true
+systemctl status tecpey-mentor-profile-health.service --no-pager
+journalctl -u tecpey-mentor-profile-health.service --since '-10 minutes' --no-pager
+```
+
+Expected behavior:
+
+- warning exit `1` is retained as a successful systemd execution so transient early pressure does not produce a false unit failure;
+- critical exit `2` or authority failure `3` makes the health service fail and is visible to host monitoring;
+- restarting the worker drains the bounded backlog;
+- a later independent probe returns healthy after convergence;
+- the drill must not mutate or delete dead-letter history to manufacture a green result.
+
+This watchdog is an **independent failure detector**, not a replacement for durable incident delivery. Until Mentor alerts are migrated onto the governed operational alert spool/delivery rail, critical notification delivery remains best-effort at the application webhook layer and host monitoring must treat a failed `tecpey-mentor-profile-health.service` as actionable.
