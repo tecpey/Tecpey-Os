@@ -807,9 +807,12 @@ export async function POST(request: NextRequest) {
       evidenceContext: typeof egress = egress,
       extraMetadata: Record<string, unknown> = {},
     ) => {
-      const memoryPersisted = authorizedStudentId
-        ? await persistMentorConversationPair({
+      const memoryPersisted =
+        authorizedStudentId && activeTenantId && activeWorkspaceId
+          ? await persistMentorConversationPair({
             requestId,
+            tenantId: activeTenantId,
+            workspaceId: activeWorkspaceId,
             studentId: authorizedStudentId,
             question,
             answer,
@@ -1377,9 +1380,12 @@ export async function POST(request: NextRequest) {
         researchProvider.sources,
         locale,
       );
-      const memoryPersisted = authorizedStudentId
-        ? await persistMentorConversationPair({
+      const memoryPersisted =
+        authorizedStudentId && activeTenantId && activeWorkspaceId
+          ? await persistMentorConversationPair({
             requestId,
+            tenantId: activeTenantId,
+            workspaceId: activeWorkspaceId,
             studentId: authorizedStudentId,
             question,
             answer: memoryAnswer,
@@ -1727,9 +1733,12 @@ export async function POST(request: NextRequest) {
       completionOutcome = "provider_circuit_open";
     }
 
-    const memoryPersisted = authorizedStudentId
-      ? await persistMentorConversationPair({
+    const memoryPersisted =
+      authorizedStudentId && activeTenantId && activeWorkspaceId
+        ? await persistMentorConversationPair({
           requestId,
+          tenantId: activeTenantId,
+          workspaceId: activeWorkspaceId,
           studentId: authorizedStudentId,
           question,
           answer,
