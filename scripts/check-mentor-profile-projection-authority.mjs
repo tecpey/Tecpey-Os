@@ -46,6 +46,8 @@ for (const needle of [
   "failed_terminal",
   "deadLetter",
   "pg_advisory_xact_lock",
+  "mentorProfileRetryDelaySeconds",
+  "mentor-profile-retry-jitter-v1",
   "computeMentorProfileForStudentTx",
   "upsertMentorProfileUpdateTx",
 ]) {
@@ -204,6 +206,14 @@ for (const name of [
   if (typeof scripts[name] !== "string" || scripts[name].trim() === "") {
     failures.push(`package/runtime script missing: ${name}`);
   }
+}
+
+const workerTest = await source("src/tests/security/mentor-profile-worker.test.ts");
+for (const needle of [
+  "retry jitter is deterministic, bounded and event-spread",
+  "mentorProfileRetryDelaySeconds(3, firstId)",
+]) {
+  requireText("worker-test", workerTest, needle, `retry jitter proof missing: ${needle}`);
 }
 
 const postgresTest = await source("src/tests/security/mentor-profile-update-outbox-postgres.test.ts");
