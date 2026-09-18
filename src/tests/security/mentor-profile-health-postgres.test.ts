@@ -59,19 +59,22 @@ async function seedScope(client: PoolClient) {
   return { tenantId, workspaceId, studentId, suffix };
 }
 
-async function deadLetterHistoryCounts(client: PoolClient): Promise<{
-  deadLetters: number;
-  resolutions: number;
-}> {
+async function deadLetterHistoryCounts(
+  client: PoolClient,
+  outboxIds: readonly string[],
+): Promise<{ deadLetters: number; resolutions: number }> {
   const result = await client.query<{
     dead_letters: string;
     resolutions: string;
   }>(
     `SELECT
-       (SELECT COUNT(*)::text FROM mentor_profile_update_dead_letters)
-         AS dead_letters,
-       (SELECT COUNT(*)::text FROM mentor_profile_dead_letter_resolutions)
-         AS resolutions`,
+       COUNT(DISTINCT dead.id)::text AS dead_letters,
+       COUNT(DISTINCT resolution.dead_letter_id)::text AS resolutions
+       FROM mentor_profile_update_dead_letters dead
+       LEFT JOIN mentor_profile_dead_letter_resolutions resolution
+         ON resolution.dead_letter_id = dead.id
+      WHERE dead.outbox_id = ANY($1::uuid[])`,
+    [outboxIds],
   );
   return {
     deadLetters: Number.parseInt(result.rows[0]?.dead_letters ?? "-1", 10),
@@ -227,9 +230,13 @@ test(
       );
 
       const before = await loadMentorProfileHealthSnapshot(client);
-      assert.equal(before.unresolvedTerminalFailures, 1);
-      assert.equal(before.unresolvedDeadLetters, 1);
-      assert.deepEqual(await deadLetterHistoryCounts(client), {
+      assert.equal(before.unresolvedTerminalFailures >= 1, true);
+      assert.equal(before.unresolvedDeadLetters >= 1, true);
+      assert.deepEqual(
+        await unresolvedIncidentCountsForOutboxIds(client, [terminalId]),
+        { terminal: 1, deadLetters: 1 },
+      );
+      assert.deepEqual(await deadLetterHistoryCounts(client, [terminalId]), {
         deadLetters: 1,
         resolutions: 0,
       });
@@ -313,12 +320,22 @@ test(
       assert.deepEqual(resolution, { selected: 1, resolved: 1, replayed: 0 });
 
       const midRepair = await loadMentorProfileHealthSnapshot(client);
-      assert.equal(midRepair.unresolvedTerminalFailures, 1);
-      assert.equal(midRepair.unresolvedDeadLetters, 1);
-      assert.deepEqual(await deadLetterHistoryCounts(client), {
-        deadLetters: 2,
-        resolutions: 1,
-      });
+      assert.equal(midRepair.unresolvedTerminalFailures >= 1, true);
+      assert.equal(midRepair.unresolvedDeadLetters >= 1, true);
+      assert.deepEqual(
+        await unresolvedIncidentCountsForOutboxIds(client, [
+          terminalId,
+          concurrentTerminalId,
+        ]),
+        { terminal: 1, deadLetters: 1 },
+      );
+      assert.deepEqual(
+        await deadLetterHistoryCounts(client, [
+          terminalId,
+          concurrentTerminalId,
+        ]),
+        { deadLetters: 2, resolutions: 1 },
+      );
       assert.equal(evaluateMentorProfileHealth(midRepair).status, "critical");
 
       const secondResolution = await resolveMentorProfileDeadLettersAfterRepairTx(
@@ -344,21 +361,12 @@ test(
         ]),
         { terminal: 0, deadLetters: 0 },
       );
-      assert.deepEqual(await deadLetterHistoryCounts(client), {
-        deadLetters: 2,
-        resolutions: 2,
-      });
-
-      // The production health snapshot is intentionally global. Shared CI can
-      // have unrelated warning fixtures in flight, so this test proves the two
-      // incidents it created are resolved without pretending the whole shared
-      // database must be warning-free at the same instant.
-      const after = await loadMentorProfileHealthSnapshot(client);
-      const afterEvaluation = evaluateMentorProfileHealth(after);
-      assert.equal(
-        afterEvaluation.reasonCodes.includes("terminal_projection_failure") &&
-          after.unresolvedTerminalFailures === 0,
-        false,
+      assert.deepEqual(
+        await deadLetterHistoryCounts(client, [
+          terminalId,
+          concurrentTerminalId,
+        ]),
+        { deadLetters: 2, resolutions: 2 },
       );
 
       await assert.rejects(
