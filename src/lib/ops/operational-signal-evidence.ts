@@ -165,6 +165,7 @@ function normalizeMeasurements(
 function expectedIncidentKey(input: {
   signalType: string;
   component: string;
+  sourceUnit: string;
   severity: OperationalSignalSeverity;
   reasonCodes: readonly string[];
 }): string {
@@ -172,6 +173,7 @@ function expectedIncidentKey(input: {
     authority: "tecpey-operational-signal-incident-v1",
     signalType: input.signalType,
     component: input.component,
+    sourceUnit: input.sourceUnit,
     severity: input.severity,
     reasonCodes: [...input.reasonCodes],
   });
@@ -251,6 +253,7 @@ export function createOperationalSignalEvidence(input: {
   const incidentKey = expectedIncidentKey({
     signalType,
     component,
+    sourceUnit,
     severity: input.severity,
     reasonCodes,
   });
@@ -334,6 +337,7 @@ export function validateOperationalSignalEvidence(
   const incidentKey = expectedIncidentKey({
     signalType,
     component,
+    sourceUnit,
     severity: raw.severity,
     reasonCodes,
   });
