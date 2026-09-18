@@ -9,7 +9,7 @@ const requireText = (label, body, needle, message) => {
 const freshness = await source("src/lib/mentor-profile-freshness.ts");
 for (const needle of [
   "MENTOR_PROFILE_FRESHNESS_CALIBRATION_VERSION",
-  "processed_at - created_at",
+  "o.processed_at - o.created_at",
   "o.created_at <=",
   "processed_at IS NULL",
   "missedTargetCount",
