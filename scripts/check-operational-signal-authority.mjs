@@ -27,6 +27,7 @@ for (const needle of [
   "dedupe_bucket_at TIMESTAMPTZ NOT NULL",
   "fingerprint CHAR(64) NOT NULL",
   "payload_hash CHAR(64) NOT NULL",
+  "platform_operational_signal_attempt_semantics_check",
 ]) {
   requireText("migration", migration, needle, `missing signal schema invariant: ${needle}`);
 }
@@ -57,6 +58,7 @@ for (const needle of [
   "FORBIDDEN_REASON_CODE_RE",
   "dedupeWindowSeconds",
   "Date.parse(dedupeBucketAt) > Date.parse(occurredAt)",
+  "operational_signal_attempt_semantics_invalid",
   "attributes.length",
 ]) {
   if (needle === "attributes.length") continue;
@@ -299,6 +301,8 @@ for (const needle of [
   "append-only",
   "platform_operational_signals",
   "platform_operational_signal_delivery_attempts",
+  "invalid_attempt_semantics",
+  "platform_operational_signal_attempt_semantics_check",
 ]) {
   requireText("postgres-test", postgresTest, needle, `signal PostgreSQL proof missing: ${needle}`);
 }
