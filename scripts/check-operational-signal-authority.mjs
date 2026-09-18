@@ -40,6 +40,8 @@ for (const needle of [
   "operational_signal_measurement_value_invalid",
   "operational_signal_reason_cardinality_forbidden",
   "operational_signal_measurement_cardinality_forbidden",
+  "operational_signal_type_cardinality_forbidden",
+  "operational_signal_component_cardinality_forbidden",
   "FORBIDDEN_CARDINALITY_SEGMENTS",
   "LONG_IDENTIFIER_RE",
   "persistOperationalSignalTx",
@@ -407,6 +409,10 @@ for (const needle of [
   "write-ahead transition",
   "same condition recurs after recovery",
   "sole governed producer",
+  "Retry-After",
+  "never shortens the local jittered backoff",
+  "immutable signal payload hash matches exactly",
+  "high-cardinality segments",
 ]) {
   requireText("runbook", runbook, needle, `operational signal runbook invariant missing: ${needle}`);
 }
