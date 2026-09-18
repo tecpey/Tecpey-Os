@@ -17,6 +17,10 @@ import type {
   OperationalJobRunEvidence,
 } from "../../lib/ops/operational-job-evidence";
 import { buildOperationalSignal } from "../../lib/ops/operational-signal-evidence";
+import {
+  buildMentorProfileHealthAuthoritySignal,
+  buildMentorProfileHealthSignal,
+} from "../../lib/ops/mentor-profile-health-signal";
 
 const roots: string[] = [];
 const RUN_ID = "22222222-2222-4222-8222-222222222222";
@@ -163,6 +167,61 @@ describe("Operational alert spool", () => {
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
+  });
+
+  it("maps Mentor health into bounded low-cardinality durable signals", () => {
+    const snapshot = {
+      pending: 7,
+      processing: 2,
+      failedRetryable: 1,
+      unresolvedTerminalFailures: 1,
+      unresolvedDeadLetters: 1,
+      readyBacklog: 5,
+      overdueLeases: 1,
+      oldestReadyAgeSeconds: 301,
+      maxLeaseOverdueSeconds: 40,
+    };
+    const signal = buildMentorProfileHealthSignal(
+      snapshot,
+      {
+        status: "critical",
+        reasonCodes: ["dead_letter_present", "ready_age_critical"],
+      },
+      "2026-09-18T12:01:00.000Z",
+    );
+    assert.ok(signal);
+    assert.equal(signal.severity, "critical");
+    assert.equal(signal.eventName, "mentor.profile.projection.health");
+    assert.equal(signal.dedupeWindowSeconds, 300);
+    assert.deepEqual(signal.reasonCodes, [
+      "dead_letter_present",
+      "ready_age_critical",
+    ]);
+    assert.equal(signal.attributes.readyBacklog, 5);
+    assert.doesNotMatch(
+      JSON.stringify(signal),
+      /student|tenant|workspace|conversation|prompt|email|phone/i,
+    );
+
+    assert.equal(
+      buildMentorProfileHealthSignal(
+        snapshot,
+        { status: "healthy", reasonCodes: [] },
+        "2026-09-18T12:01:00.000Z",
+      ),
+      null,
+    );
+
+    const authority = buildMentorProfileHealthAuthoritySignal(
+      "mentor_profile_database_unavailable",
+      "2026-09-18T12:01:00.000Z",
+    );
+    assert.equal(authority.severity, "critical");
+    assert.equal(
+      authority.eventName,
+      "mentor.profile.projection.health_authority",
+    );
+    assert.deepEqual(authority.attributes, {});
   });
 
   it("deduplicates generic signals by stable bucket identity while preserving first evidence", async () => {
