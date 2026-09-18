@@ -54,7 +54,7 @@ async function seedScope(
   await client.query(
     `INSERT INTO platform_workspaces
        (id, tenant_id, slug, display_name, products, settings)
-     VALUES ($1, $2, 'main', $1, '{}'::text[], '{}'::jsonb)`,
+     VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
     [workspaceId, tenantId],
   );
   await client.query(
