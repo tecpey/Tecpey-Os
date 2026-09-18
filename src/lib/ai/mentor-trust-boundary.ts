@@ -447,7 +447,9 @@ function safeProfileContext(
       learningStyle: normalizeMentorText(ctx.profile.learningStyle, 40),
     },
     evidence: {
-      termProgressCount: ctx.termProgress.length,
+      termProgressCount: ctx.termProgress.filter(
+        (term) => term.status === "passed",
+      ).length,
       tradingSampleCount: ctx.tradingSignals?.sampleCount ?? 0,
       challengeSampleCount: ctx.challengeSampleCount ?? 0,
     },
