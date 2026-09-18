@@ -138,14 +138,16 @@ for (const invariant of [
   "await rename(temporary, filePath)",
   "isSymbolicLink()",
   'parsed.protocol !== "https:"',
-  '"Idempotency-Key": item.alert.alertId',
+  '"Idempotency-Key": identity',
   'Authorization: `Bearer ${bearerToken}`',
   "response.status === 408",
   "response.status === 429",
   "response.status >= 500",
-  "retryDelayMs",
-  "findExistingAlertFile",
-  "managed.pending, managed.delivered, managed.quarantine",
+  "operationalDeliveryRetryDelayMs",
+  "findExistingSpoolFile",
+  "managed.pending",
+  "managed.delivered",
+  "managed.quarantine",
   "operational_spool_destination_conflict",
   "managed.quarantine",
   "managed.delivered",
@@ -254,7 +256,6 @@ for (const target of ["finalizerService", "alertService"]) {
     "EnvironmentFile=@@ENV_FILE@@",
     "Environment=NODE_ENV=production",
     "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
-    "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
     "NoNewPrivileges=true",
     "PrivateTmp=true",
     "PrivateDevices=true",
@@ -280,6 +281,16 @@ for (const target of ["finalizerService", "alertService"]) {
 }
 requireText(
   "finalizerService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
+  "community finalizer must retain scheduler-specific preflight",
+);
+requireText(
+  "alertService",
+  "ExecStartPre=@@NPM_BIN@@ run ops:alerts:env-check",
+  "generic alert delivery must use the standalone outage-safe preflight",
+);
+requireText(
+  "finalizerService",
   "OnFailure=tecpey-ops-alert-delivery.service",
   "finalizer failure must trigger alert delivery",
 );
@@ -302,6 +313,8 @@ for (const invariant of [
 for (const command of [
   '"community:challenge:finalize:scheduled"',
   '"ops:alerts:deliver"',
+  '"ops:alerts:env-check"',
+  '"ops:signals:authority:check"',
   '"ops:scheduler:env-check"',
   '"ops:scheduler:install"',
   '"ops:scheduler:check"',
@@ -309,10 +322,21 @@ for (const command of [
 ]) {
   requireText("package", command, `package command missing ${command}`);
 }
+const packageJson = JSON.parse(source.package);
+const packageScripts = packageJson.scripts ?? {};
+if (!packageScripts["ops:alerts:deliver"]?.includes("dist/deliver-operational-alerts.cjs")) {
+  failures.push(`${paths.package}: production alert delivery must use the bundled runtime`);
+}
+if (packageScripts["ops:alerts:deliver"]?.includes("--import tsx")) {
+  failures.push(`${paths.package}: production alert delivery must not depend on tsx`);
+}
+
 for (const testFile of [
   "community-challenge-scheduler.integration.ts",
   "operational-alert-spool.integration.ts",
   "operational-job-evidence-postgres.integration.ts",
+  "operational-signal-spool.integration.ts",
+  "operational-signal-evidence-postgres.integration.ts",
   "community-challenge-scheduler-installer.test.ts",
 ]) {
   requireText("package", testFile, `permanent scheduler test missing ${testFile}`);
