@@ -300,6 +300,7 @@ test(
       assert.match(dead.rows[0]?.student_fingerprint ?? "", /^[a-f0-9]{64}$/);
       assert.equal(dead.rows[0]?.student_fingerprint.includes(scope.studentId), false);
 
+      await client.query("SAVEPOINT mentor_dead_letter_mutation");
       await assert.rejects(
         client.query(
           `UPDATE mentor_profile_update_dead_letters
@@ -309,6 +310,9 @@ test(
         ),
         /append-only/,
       );
+      await client.query("ROLLBACK TO SAVEPOINT mentor_dead_letter_mutation");
+
+      await client.query("SAVEPOINT mentor_event_identity_mutation");
       await assert.rejects(
         client.query(
           "UPDATE mentor_profile_update_outbox SET reason = 'mentor_conversation_saved' WHERE id = $1",
@@ -316,6 +320,7 @@ test(
         ),
         /event identity is immutable/,
       );
+      await client.query("ROLLBACK TO SAVEPOINT mentor_event_identity_mutation");
     });
   },
 );
