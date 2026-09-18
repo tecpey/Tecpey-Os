@@ -44,6 +44,8 @@ export const DOMAIN_TABLES = Object.freeze({
     "platform_operational_job_runs",
     "platform_operational_alerts",
     "platform_operational_alert_delivery_attempts",
+    "platform_operational_signals",
+    "platform_operational_signal_delivery_attempts",
   ]),
 });
 
