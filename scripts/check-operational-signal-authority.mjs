@@ -81,6 +81,8 @@ for (const needle of [
   "Math.max(",
   "tecpey-operational-signal-retry-v1",
   "operational_signal_webhook_https_required",
+  "operational_signal_spool_payload_conflict",
+  "hashOperationalSignalEvidence(existing.signal)",
   "bestEffortPersistSignal",
   "bestEffortPersistAttempt",
   "syncDirectory",
@@ -133,6 +135,8 @@ const spoolTest = await source(
   "src/tests/security/operational-signal-spool.integration.ts",
 );
 for (const needle of [
+  "accepts exact replay and rejects same-id payload drift",
+  "publishes exactly one immutable payload under concurrent exact replay",
   "due signals before future retries",
   "honors bounded Retry-After",
   'headers: { "Retry-After": "120" }',
