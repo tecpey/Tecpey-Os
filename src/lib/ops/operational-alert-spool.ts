@@ -8,6 +8,7 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
 } from "node:fs/promises";
@@ -217,6 +218,47 @@ function directories(stateDirectory: string) {
 
 export type ManagedOperationalSpoolDirectories = ReturnType<typeof directories>;
 
+async function assertNoSymlinkedAncestors(directory: string): Promise<void> {
+  const parsed = path.parse(directory);
+  const segments = path
+    .relative(parsed.root, directory)
+    .split(path.sep)
+    .filter(Boolean);
+  let current = parsed.root;
+  for (const segment of segments) {
+    current = path.join(current, segment);
+    let entry;
+    try {
+      entry = await lstat(current);
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        break;
+      }
+      throw error;
+    }
+    if (entry.isSymbolicLink()) {
+      throw new Error("operational_state_directory_alias_forbidden");
+    }
+    if (!entry.isDirectory()) {
+      throw new Error("operational_state_directory_unsafe");
+    }
+  }
+}
+
+async function syncDirectory(directory: string): Promise<void> {
+  const handle = await open(directory, "r");
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
 async function assertManagedDirectory(directory: string): Promise<void> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const stat = await lstat(directory);
@@ -224,19 +266,28 @@ async function assertManagedDirectory(directory: string): Promise<void> {
     throw new Error("operational_spool_directory_unsafe");
   }
   await chmod(directory, 0o700);
+  await syncDirectory(directory);
 }
 
 export async function ensureOperationalSpoolDirectories(
   stateDirectory: string,
 ): Promise<ManagedOperationalSpoolDirectories> {
   const managed = directories(stateDirectory);
+  await assertNoSymlinkedAncestors(managed.root);
   await assertManagedDirectory(managed.root);
+  const resolvedRoot = await realpath(managed.root);
+  if (resolvedRoot !== managed.root) {
+    throw new Error("operational_state_directory_alias_forbidden");
+  }
   await assertManagedDirectory(path.dirname(managed.pending));
   await assertManagedDirectory(managed.pending);
   await assertManagedDirectory(managed.delivered);
   await assertManagedDirectory(managed.quarantine);
   await assertManagedDirectory(path.dirname(managed.activeSignals));
   await assertManagedDirectory(managed.activeSignals);
+  await syncDirectory(managed.root);
+  await syncDirectory(path.dirname(managed.pending));
+  await syncDirectory(path.dirname(managed.activeSignals));
   return managed;
 }
 
@@ -271,6 +322,7 @@ async function atomicWriteJson(filePath: string, value: unknown): Promise<void> 
     }
     await rename(temporary, filePath);
     await chmod(filePath, 0o600);
+    await syncDirectory(parent);
   } catch (error) {
     await rm(temporary, { force: true });
     throw error;
@@ -531,6 +583,10 @@ async function moveFile(
   }
   await rename(source, destination);
   await chmod(destination, 0o600);
+  await syncDirectory(path.dirname(source));
+  if (path.dirname(source) !== destinationDirectory) {
+    await syncDirectory(destinationDirectory);
+  }
 }
 
 async function persistSpoolItemTx(
@@ -980,6 +1036,7 @@ export async function reconcileOperationalSignalIncident(
         incidentSignal(current),
       );
       await rm(filePath, { force: true });
+      await syncDirectory(path.dirname(filePath));
       return {
         emitted: true,
         replayed: queued.replayed,
@@ -1011,6 +1068,7 @@ export async function reconcileOperationalSignalIncident(
       recovery,
     );
     await rm(filePath, { force: true });
+    await syncDirectory(path.dirname(filePath));
     return {
       emitted: true,
       replayed: emitted.replayed,
@@ -1039,6 +1097,7 @@ export async function reconcileOperationalSignalIncident(
       await emitIncidentState(stateDirectory, filePath, current);
     }
     await rm(filePath, { force: true });
+    await syncDirectory(path.dirname(filePath));
     current = null;
   }
 
