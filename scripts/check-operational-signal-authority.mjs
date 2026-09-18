@@ -130,9 +130,9 @@ const lifecycle = await source(
 );
 for (const needle of [
   "tecpey-operational-condition-state-v2",
-  "pending: Object.freeze",
+  "signals: Object.freeze",
   "await atomicWriteState(input.filePath, pendingState)",
-  "const queued = await enqueue(input.stateDirectory, input.signal)",
+  "enqueueSequence",
   "await atomicWriteState(input.filePath, committed)",
   "recoverPending",
   '"condition_changed"',
@@ -144,7 +144,7 @@ for (const needle of [
 requirePattern(
   "lifecycle",
   lifecycle,
-  /await atomicWriteState\(input\.filePath, pendingState\)[\s\S]*await enqueue\(input\.stateDirectory, input\.signal\)[\s\S]*await atomicWriteState\(input\.filePath, committed\)/,
+  /await atomicWriteState\(input\.filePath, pendingState\)[\s\S]*await enqueueSequence\([\s\S]*await atomicWriteState\(input\.filePath, committed\)/,
   "transition intent must be fsync-persisted before spool enqueue and committed afterward",
 );
 
@@ -154,6 +154,8 @@ const lifecycleTest = await source(
 for (const needle of [
   "same-hour recurrence",
   "write-ahead pending transition replays the exact signal",
+  "cause-change crash after resolving the old incident",
+  "simulated_second_enqueue_crash",
   "seenDuringRecovery[0], seenBeforeCrash[0]",
   "warning or healthy observation never opens",
 ]) {
