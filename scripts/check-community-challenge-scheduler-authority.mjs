@@ -138,7 +138,7 @@ for (const invariant of [
   "await rename(temporary, filePath)",
   "isSymbolicLink()",
   'parsed.protocol !== "https:"',
-  '"Idempotency-Key": item.alert.alertId',
+  '"Idempotency-Key": entity.id',
   'Authorization: `Bearer ${bearerToken}`',
   "response.status === 408",
   "response.status === 429",
