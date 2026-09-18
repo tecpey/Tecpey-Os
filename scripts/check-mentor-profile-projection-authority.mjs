@@ -114,7 +114,9 @@ for (const needle of [
   "claimMentorProfileUpdates",
   "processMentorProfileUpdateClaimTx",
   "failMentorProfileUpdateClaim",
-  "mentorProfileOutboxStatus",
+  "loadMentorProfileHealthSnapshot",
+  "evaluateMentorProfileHealth",
+  "mentorProfileHealthAlertMetadata",
   "withTx",
   "MENTOR_PROFILE_WORKER_LEASE_SECONDS",
   "errorDetail: null",
@@ -179,15 +181,29 @@ for (const table of [
   requireText("tenant-registry", tenantRegistry, `"table": "${table}"`, `tenant registry missing ${table}`);
 }
 
-const packageJson = await source("package.json");
-for (const needle of [
-  "scripts/run-mentor-profile-worker.ts --bundle",
-  '"mentor:profiles:worker": "node dist/run-mentor-profile-worker.cjs"',
-  '"mentor:profiles:worker:dev": "tsx scripts/run-mentor-profile-worker.ts"',
-  '"test:mentor-profile-outbox"',
-  '"mentor:profiles:authority:check"',
+const packageRaw = await source("package.json");
+const packageJson = JSON.parse(packageRaw);
+const scripts = packageJson.scripts ?? {};
+for (const [name, needle] of [
+  ["build:server", "scripts/run-mentor-profile-worker.ts"],
+  ["build:server", "scripts/check-mentor-profile-health.ts"],
+  ["build:server", "--bundle"],
+  ["mentor:profiles:worker", "node dist/run-mentor-profile-worker.cjs"],
+  ["mentor:profiles:worker:dev", "tsx scripts/run-mentor-profile-worker.ts"],
+  ["mentor:profiles:health", "node dist/check-mentor-profile-health.cjs"],
 ]) {
-  requireText("package", packageJson, needle, `package/runtime wiring missing: ${needle}`);
+  if (typeof scripts[name] !== "string" || !scripts[name].includes(needle)) {
+    failures.push(`package/runtime wiring missing: ${name} -> ${needle}`);
+  }
+}
+for (const name of [
+  "test:mentor-profile-outbox",
+  "mentor:profiles:authority:check",
+  "mentor:profiles:health:check",
+]) {
+  if (typeof scripts[name] !== "string" || scripts[name].trim() === "") {
+    failures.push(`package/runtime script missing: ${name}`);
+  }
 }
 
 const postgresTest = await source("src/tests/security/mentor-profile-update-outbox-postgres.test.ts");
