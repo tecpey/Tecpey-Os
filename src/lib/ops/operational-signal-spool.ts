@@ -16,6 +16,7 @@ import {
 import path from "node:path";
 import { withTx } from "@/lib/db";
 import {
+  hashOperationalSignalEvidence,
   persistOperationalSignalDeliveryAttemptTx,
   persistOperationalSignalTx,
   validateOperationalSignalDeliveryAttempt,
@@ -417,6 +418,12 @@ export async function enqueueOperationalSignal(
     ) {
       throw new Error("operational_signal_spool_identity_conflict");
     }
+    if (
+      hashOperationalSignalEvidence(existing.signal) !==
+      hashOperationalSignalEvidence(signal)
+    ) {
+      throw new Error("operational_signal_spool_payload_conflict");
+    }
     return { replayed: true, filePath: existingPath };
   }
 
@@ -450,6 +457,12 @@ export async function enqueueOperationalSignal(
     raced.signal.dedupeWindowSeconds !== signal.dedupeWindowSeconds
   ) {
     throw new Error("operational_signal_spool_identity_conflict");
+  }
+  if (
+    hashOperationalSignalEvidence(raced.signal) !==
+    hashOperationalSignalEvidence(signal)
+  ) {
+    throw new Error("operational_signal_spool_payload_conflict");
   }
   return { replayed: true, filePath };
 }
