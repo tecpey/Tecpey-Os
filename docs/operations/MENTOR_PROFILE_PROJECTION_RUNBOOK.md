@@ -77,6 +77,25 @@ Thresholds must be recalibrated from protected-staging measurements of event arr
 
 These queue/lease signals are **white-box preventive indicators**, not a substitute for a learner-facing reliability SLI. Promotion to a paging SLO requires protected-staging evidence for a user-relevant indicator such as the fraction of authoritative learning events whose Mentor profile projection converges within the agreed freshness target. Once enough baseline data exists, use multi-window / multi-burn-rate alerting rather than a single instantaneous threshold: fast windows for urgent budget burn, slower windows for sustained degradation, and ticket/log routing for non-urgent conditions. Until that evidence exists, warning remains an engineering signal and critical remains a fail-closed host condition rather than an advertised SLA breach.
 
+
+### Freshness calibration evidence
+
+Use the read-only calibration collector to measure actual projection convergence before defining a learner-facing SLO:
+
+```bash
+npm run mentor:profiles:freshness
+```
+
+Optional bounded inputs are:
+
+- `MENTOR_PROFILE_FRESHNESS_LOOKBACK_SECONDS`: 300–86400, default 3600;
+- `MENTOR_PROFILE_FRESHNESS_TARGET_SECONDS`: 1–3600, default 60;
+- `MENTOR_PROFILE_FRESHNESS_MIN_SAMPLES`: 1–1000000, default 50.
+
+The collector returns aggregate-only evidence: sample count, valid/invalid latency count, within-target count and ratio, p50, p95 and max create→processed latency. It does not return tenant, workspace, learner, conversation or prompt identifiers. Exit `0` means enough valid observations were collected, exit `1` means the window is still statistically thin, exit `2` means timestamp evidence is internally invalid, and exit `3` means database/calibration authority was unavailable.
+
+This output is **not an SLO pass/fail result**. Capture it on protected staging over representative Academy, Arena and Mentor workloads, compare multiple windows and traffic levels, then define the actual freshness SLI/error budget. If paging is later enabled, use a multi-window / multi-burn-rate policy so a short transient spike does not page while a sustained user-visible freshness regression cannot hide behind a long average.
+
 Database reconciliation:
 
 ```sql
@@ -118,14 +137,15 @@ A successful repair may therefore change current health from critical to healthy
 Before enabling the service on staging:
 
 1. exact release SHA is known;
-2. migration plan hash and migration ledger are green through canonical step 091;
+2. migration plan hash and migration ledger are green through canonical step 092;
 3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
-5. worker + independent health service + timer dry-run pass `systemd-analyze verify`;
-6. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
-7. the worker starts with zero unresolved terminal failures;
-8. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
-9. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
+5. `npm run mentor:profiles:freshness` produces valid aggregate calibration evidence or explicitly reports insufficient data;
+6. worker + independent health service + timer dry-run pass `systemd-analyze verify`;
+7. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
+8. the worker starts with zero unresolved terminal failures;
+9. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
+10. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
 
