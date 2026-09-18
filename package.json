@@ -78,7 +78,7 @@
     "auth:check": "node scripts/check-auth-session-authority.mjs && node scripts/check-session-authority-completion.mjs && node scripts/check-strict-revocation-authority.mjs",
     "test:auth-session": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/auth-*.test.ts'",
     "auth:revocations:repair": "tsx scripts/reconcile-session-revocations.ts",
-    "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs && node scripts/check-mentor-preferences-authority.mjs && npm run ai:database:runtime-evidence:check && npm run mentor:vector:source:check && npm run mentor:rive:activation:check && node scripts/check-mentor-retention-authority.mjs",
+    "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs && node scripts/check-mentor-preferences-authority.mjs && npm run ai:database:runtime-evidence:check && npm run mentor:vector:source:check && npm run mentor:rive:activation:check && node scripts/check-mentor-retention-authority.mjs && npm run mentor:profiles:authority:check",
     "ai:automation:worker": "tsx scripts/run-ai-automation-worker.ts",
     "ai:automation:internal-executor": "tsx scripts/run-ai-automation-internal-executor.ts",
     "ai:database:ci-roles": "tsx scripts/provision-ai-database-ci-roles.ts",
@@ -222,7 +222,8 @@
     "mentor:retention:run": "tsx scripts/run-mentor-retention.ts",
     "mentor:retention:install": "bash scripts/install-mentor-retention-scheduler.sh",
     "mentor:retention:check": "node scripts/check-mentor-retention-authority.mjs",
-    "mentor:profiles:worker:dev": "tsx scripts/run-mentor-profile-worker.ts"
+    "mentor:profiles:worker:dev": "tsx scripts/run-mentor-profile-worker.ts",
+    "mentor:profiles:authority:check": "node scripts/check-mentor-profile-projection-authority.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
