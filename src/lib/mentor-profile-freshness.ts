@@ -134,6 +134,7 @@ export async function loadMentorProfileFreshnessSnapshot(
             OR processed_at > clock.observed_at) AS invalid_latency_count,
        (SELECT COUNT(*)::text
           FROM eligible
+          CROSS JOIN clock
          WHERE processed_at IS NOT NULL
            AND processed_at >= created_at
            AND processed_at <= clock.observed_at
