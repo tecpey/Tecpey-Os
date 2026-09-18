@@ -236,13 +236,18 @@ for (const invariant of [
   "TECPEY_DRY_RUN",
   "systemctl enable --now tecpey-community-challenge-finalizer.timer",
   "systemctl enable --now tecpey-ops-alert-delivery.timer",
-  "ops_alert_https_webhook_missing",
+  "operational_delivery_bundle_missing",
+  "operational_installer_env_bundle_missing",
+  "TECPEY_INSTALL_ENV_FILE",
+  "ops:installer:env-check",
+  "operational_install_environment_invalid",
 ]) {
   requireText("installer", invariant, `installer is missing ${invariant}`);
 }
 for (const forbidden of [
   "cat \"$ENV_FILE\"",
   "source \"$ENV_FILE\"",
+  "read_env_value()",
   "eval ",
   "chmod 777",
   "RUN_USER=\"root\"",
@@ -303,8 +308,11 @@ for (const invariant of [
   requireText("finalizerTimer", invariant, `finalizer timer is missing ${invariant}`);
 }
 for (const invariant of [
-  "OnBootSec=2min",
-  "OnUnitActiveSec=5min",
+  "OnBootSec=30s",
+  "OnUnitActiveSec=1min",
+  "RandomizedDelaySec=5s",
+  "FixedRandomDelay=true",
+  "AccuracySec=1s",
   "Unit=tecpey-ops-alert-delivery.service",
 ]) {
   requireText("alertTimer", invariant, `alert timer is missing ${invariant}`);
@@ -314,6 +322,7 @@ for (const command of [
   '"community:challenge:finalize:scheduled"',
   '"ops:alerts:deliver"',
   '"ops:alerts:env-check"',
+  '"ops:installer:env-check"',
   '"ops:signals:authority:check"',
   '"ops:scheduler:env-check"',
   '"ops:scheduler:install"',
