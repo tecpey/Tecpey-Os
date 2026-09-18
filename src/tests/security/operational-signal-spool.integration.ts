@@ -198,7 +198,31 @@ describe("Operational signal evidence and durable spool", () => {
 
     const dirs = await ensureOperationalSpoolDirectories(root);
     assert.equal((await readdir(dirs.pending)).length, 0);
-    assert.equal((await readdir(dirs.delivered)).length, 1);
+    const deliveredNames = await readdir(dirs.delivered);
+    assert.equal(deliveredNames.length, 1);
+    const archived = JSON.parse(
+      await readFile(path.join(dirs.delivered, deliveredNames[0]!), "utf8"),
+    ) as {
+      delivery: {
+        attemptCount: number;
+        attemptHistory: Array<{
+          attemptNumber: number;
+          deliveryResult: string;
+          httpStatus: number | null;
+          attemptedAt: string;
+        }>;
+      };
+    };
+    assert.equal(archived.delivery.attemptCount, 1);
+    assert.deepEqual(archived.delivery.attemptHistory, [
+      {
+        attemptNumber: 1,
+        deliveryResult: "delivered",
+        httpStatus: 204,
+        errorCode: null,
+        attemptedAt: "2026-09-18T12:01:00.000Z",
+      },
+    ]);
   });
 
   it("does not clobber the first durable signal under concurrent same-bucket enqueue", async () => {
@@ -313,6 +337,27 @@ describe("Operational signal evidence and durable spool", () => {
     };
     assert.equal(pending.delivery.attemptCount, 1);
     assert.equal(pending.delivery.lastErrorCode, "webhook_http_503");
+    const pendingFull = JSON.parse(
+      await readFile(path.join(dirs.pending, name!), "utf8"),
+    ) as {
+      delivery: {
+        attemptHistory: Array<{
+          attemptNumber: number;
+          deliveryResult: string;
+          httpStatus: number | null;
+          errorCode: string | null;
+        }>;
+      };
+    };
+    assert.deepEqual(pendingFull.delivery.attemptHistory, [
+      {
+        attemptNumber: 1,
+        deliveryResult: "retryable_failure",
+        httpStatus: 503,
+        errorCode: "webhook_http_503",
+        attemptedAt: "2026-09-18T12:01:00.000Z",
+      },
+    ]);
     const delayMs = Date.parse(pending.delivery.nextAttemptAt) - now.getTime();
     assert.equal(delayMs >= 15_000 && delayMs <= 18_000, true);
 
