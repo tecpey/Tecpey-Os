@@ -125,8 +125,32 @@ for (const [label, pattern] of [
   ["output signal rejection", /direct_signal/],
   ["acute safety detector", /MENTOR_ACUTE_SAFETY_PATTERN/],
   ["acute safety response", /mentorAcuteSafetyResponse/],
+  [
+    "evidence-aware profile projection",
+    /projectMentorProfileEvidence\(\{/,
+  ],
+  ["unknown risk withheld", /riskEvidenceState/],
+  ["unknown confidence withheld", /confidenceEvidenceState/],
 ]) {
   if (!pattern.test(trust)) failures.push(`trust boundary: missing ${label}`);
+}
+
+const evidencePolicy = await source("src/lib/ai/mentor-evidence-policy.ts");
+for (const [label, pattern] of [
+  ["unknown evidence state", /"unknown"/],
+  ["provisional evidence state", /"provisional"/],
+  ["observed evidence state", /"observed"/],
+  [
+    "risk requires observed samples",
+    /const risk = tier\(tradingSampleCount, 5\)/,
+  ],
+  [
+    "profile values masked before observed evidence",
+    /states\.risk === "observed"[\s\S]*states\.confidence === "observed"/,
+  ],
+]) {
+  if (!pattern.test(evidencePolicy))
+    failures.push(`mentor evidence policy: missing ${label}`);
 }
 
 const provider = await source("src/lib/ai/provider-router.ts");

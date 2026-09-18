@@ -9,6 +9,7 @@ import { withObservability } from "@/lib/observe";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { projectMentorProfileEvidence } from "@/lib/ai/mentor-evidence-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,23 @@ export async function GET(req: NextRequest) {
            WHERE student_id = $1::uuid`,
         [studentId],
       );
+      const evidenceRows = await client.query<{
+        term_progress_count: number;
+        trading_sample_count: number;
+        challenge_sample_count: number;
+      }>(
+        `SELECT
+           (SELECT COUNT(*)::int
+              FROM academy_term_progress
+             WHERE student_id = $1::uuid) AS term_progress_count,
+           (SELECT COUNT(*)::int
+              FROM academy_trading_arena_trades
+             WHERE student_id = $1::uuid) AS trading_sample_count,
+           (SELECT COUNT(*)::int
+              FROM mentor_challenge_attempts
+             WHERE student_id = $1::uuid) AS challenge_sample_count`,
+        [studentId],
+      );
 
       const insights = insightRows.rows.map((r) => ({
         id: r.id,
@@ -86,16 +104,38 @@ export async function GET(req: NextRequest) {
         generatedAt: new Date(r.generated_at).toISOString(),
       }));
 
+      const evidence = evidenceRows.rows[0] ?? {
+        term_progress_count: 0,
+        trading_sample_count: 0,
+        challenge_sample_count: 0,
+      };
       const profile = profileRow.rows[0]
         ? {
-            level: profileRow.rows[0].level,
-            riskProfile: profileRow.rows[0].risk_profile,
-            primaryGoal: profileRow.rows[0].primary_goal,
-            weakAreas: profileRow.rows[0].weak_areas ?? [],
-            strongAreas: profileRow.rows[0].strong_areas ?? [],
-            confidenceScore: Number(profileRow.rows[0].confidence_score),
-            disciplineScore: Number(profileRow.rows[0].discipline_score ?? 0),
-            learningStyle: String(profileRow.rows[0].learning_style ?? "mixed"),
+            ...projectMentorProfileEvidence({
+              profile: {
+                level: profileRow.rows[0].level,
+                riskProfile: profileRow.rows[0].risk_profile,
+                primaryGoal: String(profileRow.rows[0].primary_goal ?? ""),
+                weakAreas: Array.isArray(profileRow.rows[0].weak_areas)
+                  ? profileRow.rows[0].weak_areas
+                  : [],
+                strongAreas: Array.isArray(profileRow.rows[0].strong_areas)
+                  ? profileRow.rows[0].strong_areas
+                  : [],
+                confidenceScore: Number(profileRow.rows[0].confidence_score),
+                disciplineScore: Number(
+                  profileRow.rows[0].discipline_score ?? 0,
+                ),
+                learningStyle: String(
+                  profileRow.rows[0].learning_style ?? "mixed",
+                ),
+              },
+              evidence: {
+                termProgressCount: Number(evidence.term_progress_count ?? 0),
+                tradingSampleCount: Number(evidence.trading_sample_count ?? 0),
+                challengeSampleCount: Number(evidence.challenge_sample_count ?? 0),
+              },
+            }),
             updatedAt: new Date(profileRow.rows[0].updated_at).toISOString(),
           }
         : null;
@@ -104,9 +144,12 @@ export async function GET(req: NextRequest) {
     });
 
     if (!result.enabled) {
-      return apiOk({ insights: [], profile: updatedProfile, storage: "unavailable" });
+      return apiOk({ insights: [], profile: null, storage: "unavailable" });
     }
 
-    return apiOk({ insights: result.value?.insights ?? [], profile: result.value?.profile ?? updatedProfile });
+    return apiOk({
+      insights: result.value?.insights ?? [],
+      profile: result.value?.profile ?? null,
+    });
   });
 }

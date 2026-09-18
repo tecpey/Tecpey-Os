@@ -4,15 +4,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+export type MentorEvidenceState = "unknown" | "provisional" | "observed";
+
 export type MentorInsightsProfile = {
-  level: "beginner" | "intermediate" | "advanced";
-  riskProfile: "low" | "medium" | "high";
+  level: "beginner" | "intermediate" | "advanced" | null;
+  levelEvidenceState: MentorEvidenceState;
+  riskProfile: "low" | "medium" | "high" | null;
+  riskEvidenceState: MentorEvidenceState;
   primaryGoal: string;
   weakAreas: string[];
   strongAreas: string[];
-  confidenceScore: number;
-  disciplineScore: number;
-  learningStyle: string;
+  confidenceScore: number | null;
+  confidenceEvidenceState: MentorEvidenceState;
+  disciplineScore: number | null;
+  disciplineEvidenceState: MentorEvidenceState;
+  learningStyle: string | null;
+  learningStyleEvidenceState: MentorEvidenceState;
   updatedAt: string;
 };
 

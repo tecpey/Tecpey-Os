@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import type { MentorContext } from "@/lib/mentor-memory";
+import { projectMentorProfileEvidence } from "@/lib/ai/mentor-evidence-policy";
 
 export const AI_MENTOR_TRUST_POLICY_VERSION = "2026-09-18.1";
 
@@ -433,22 +434,24 @@ function safeProfileContext(
   ctx: MentorContext,
 ): Record<string, unknown> | null {
   if (!ctx.profile) return null;
-  return {
-    level: ctx.profile.level,
-    riskProfile: ctx.profile.riskProfile,
-    primaryGoal: normalizeMentorText(ctx.profile.primaryGoal, 120),
-    weakAreas: safeStringList(ctx.profile.weakAreas, 6, 80),
-    strongAreas: safeStringList(ctx.profile.strongAreas, 6, 80),
-    confidenceScore: Math.max(
-      0,
-      Math.min(100, Number(ctx.profile.confidenceScore) || 0),
-    ),
-    disciplineScore: Math.max(
-      0,
-      Math.min(100, Number(ctx.profile.disciplineScore) || 0),
-    ),
-    learningStyle: normalizeMentorText(ctx.profile.learningStyle, 40),
-  };
+  const projected = projectMentorProfileEvidence({
+    profile: {
+      level: ctx.profile.level,
+      riskProfile: ctx.profile.riskProfile,
+      primaryGoal: normalizeMentorText(ctx.profile.primaryGoal, 120),
+      weakAreas: safeStringList(ctx.profile.weakAreas, 6, 80),
+      strongAreas: safeStringList(ctx.profile.strongAreas, 6, 80),
+      confidenceScore: Number(ctx.profile.confidenceScore),
+      disciplineScore: Number(ctx.profile.disciplineScore),
+      learningStyle: normalizeMentorText(ctx.profile.learningStyle, 40),
+    },
+    evidence: {
+      termProgressCount: ctx.termProgress.length,
+      tradingSampleCount: ctx.tradingSignals?.sampleCount ?? 0,
+      challengeSampleCount: ctx.challengeSampleCount ?? 0,
+    },
+  });
+  return projected;
 }
 
 function safeProgressContext(
