@@ -11,7 +11,7 @@ Every finalized evaluation run is persisted as immutable, tenant/workspace-scope
 - No raw production conversation, prompt, KYC, portfolio or secret is stored as eval evidence.
 - Safety, privacy and citation hard gates cannot be averaged away by helpfulness.
 - Missing metrics fail closed.
-- Metrics that require a measured baseline fail closed without one.
+- Metrics that require a measured baseline fail closed without one and block promotion on regression.
 - Evidence is append-only. A rerun creates a new run; it never edits history.
 - The database enforces tenant/workspace isolation with FORCE RLS and the signed AI tenant context.
 - A promotion verdict is meaningful only for the exact candidate SHA/tree and evidence versions recorded by the run.
@@ -20,7 +20,7 @@ Every finalized evaluation run is persisted as immutable, tenant/workspace-scope
 
 1. Deterministic bilingual adversarial corpus for secrets, injection, acute safety and public-research privacy.
 2. Frozen offline provider/model evaluation for curriculum grounding, citation quality, pedagogy and locale parity.
-3. Staging learning-transfer evidence such as next unaided item correctness plus end-to-end latency against a measured baseline.
+3. Staging learning-transfer evidence uses next unaided item correctness (higher is better) and p95 end-to-end latency (lower is better) against the same-task measured baseline; regressions block promotion.
 4. Continuous post-change evaluation whenever model, prompt, retrieval, tool, trust-policy or routing behavior changes.
 
 ## Stored evidence
