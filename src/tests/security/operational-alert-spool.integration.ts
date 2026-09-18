@@ -7,13 +7,16 @@ import { rm } from "node:fs/promises";
 import {
   deliverOperationalAlerts,
   enqueueOperationalAlert,
+  enqueueOperationalSignal,
   ensureOperationalSpoolDirectories,
+  operationalRetryDelayMs,
   writeOperationalLastRun,
 } from "../../lib/ops/operational-alert-spool";
 import type {
   OperationalAlertEvidence,
   OperationalJobRunEvidence,
 } from "../../lib/ops/operational-job-evidence";
+import { buildOperationalSignal } from "../../lib/ops/operational-signal-evidence";
 
 const roots: string[] = [];
 const RUN_ID = "22222222-2222-4222-8222-222222222222";
@@ -140,7 +143,17 @@ describe("Operational alert spool", () => {
     };
     assert.equal(item.delivery.attemptCount, 1);
     assert.equal(item.delivery.lastErrorCode, "webhook_http_503");
-    assert.equal(item.delivery.nextAttemptAt, "2026-07-21T08:01:15.000Z");
+    const expectedDelay = operationalRetryDelayMs(
+      1,
+      alert("authority_unavailable").alertId,
+    );
+    assert.equal(
+      item.delivery.nextAttemptAt,
+      new Date(
+        Date.parse("2026-07-21T08:01:00.000Z") + expectedDelay,
+      ).toISOString(),
+    );
+    assert.equal(expectedDelay >= 1_000 && expectedDelay <= 15_000, true);
     const early = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
@@ -148,6 +161,119 @@ describe("Operational alert spool", () => {
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
+  });
+
+  it("deduplicates generic signals by stable bucket identity while preserving first evidence", async () => {
+    const root = await tempRoot();
+    const firstSignal = buildOperationalSignal({
+      eventName: "mentor.profile.projection.health",
+      source: {
+        component: "mentor-profile-projection",
+        unit: "tecpey-mentor-profile-health.service",
+      },
+      severity: "critical",
+      policyVersion: "2026-09-18.1",
+      occurredAt: "2026-09-18T12:01:00.000Z",
+      observedAt: "2026-09-18T12:01:00.000Z",
+      dedupeWindowSeconds: 300,
+      reasonCodes: ["dead_letter_present"],
+      attributes: { readyBacklog: 12 },
+    });
+    const laterSameBucket = buildOperationalSignal({
+      eventName: "mentor.profile.projection.health",
+      source: firstSignal.source,
+      severity: "critical",
+      policyVersion: firstSignal.policyVersion,
+      occurredAt: "2026-09-18T12:03:00.000Z",
+      observedAt: "2026-09-18T12:03:00.000Z",
+      dedupeWindowSeconds: 300,
+      reasonCodes: ["dead_letter_present"],
+      attributes: { readyBacklog: 40 },
+    });
+    assert.equal(firstSignal.signalId, laterSameBucket.signalId);
+    const first = await enqueueOperationalSignal(root, firstSignal);
+    const replay = await enqueueOperationalSignal(root, laterSameBucket);
+    assert.equal(first.replayed, false);
+    assert.equal(replay.replayed, true);
+    assert.equal(first.filePath, replay.filePath);
+
+    const stored = JSON.parse(await readFile(first.filePath, "utf8")) as {
+      schemaVersion: number;
+      signal: { attributes: { readyBacklog: number } };
+    };
+    assert.equal(stored.schemaVersion, 2);
+    assert.equal(stored.signal.attributes.readyBacklog, 12);
+  });
+
+  it("delivers generic signals with signal idempotency and preserves the low-cardinality envelope", async () => {
+    const root = await tempRoot();
+    const signal = buildOperationalSignal({
+      eventName: "mentor.profile.projection.health",
+      source: {
+        component: "mentor-profile-projection",
+        unit: "tecpey-mentor-profile-health.service",
+      },
+      severity: "warning",
+      policyVersion: "2026-09-18.1",
+      occurredAt: "2026-09-18T12:30:00.000Z",
+      dedupeWindowSeconds: 1_800,
+      reasonCodes: ["ready_backlog_warning"],
+      attributes: {
+        readyBacklog: 50,
+        oldestReadyAgeSeconds: 60,
+      },
+    });
+    await enqueueOperationalSignal(root, signal);
+    const bodies: unknown[] = [];
+    const keys: string[] = [];
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-09-18T12:31:00.000Z"),
+      fetchImpl: async (_input, init) => {
+        keys.push(new Headers(init?.headers).get("Idempotency-Key") ?? "");
+        bodies.push(JSON.parse(String(init?.body)));
+        return new Response(null, { status: 202 });
+      },
+    });
+    assert.equal(summary.delivered, 1);
+    assert.deepEqual(keys, [signal.signalId]);
+    assert.deepEqual(bodies, [signal]);
+    assert.doesNotMatch(
+      JSON.stringify(bodies),
+      /student|tenant|workspace|conversation|prompt/i,
+    );
+  });
+
+  it("honors bounded Retry-After while retaining deterministic jitter fallback", async () => {
+    const root = await tempRoot();
+    const queued = alert("authority_unavailable");
+    await enqueueOperationalAlert(root, queued);
+    const now = new Date("2026-07-21T08:01:00.000Z");
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now,
+      fetchImpl: async () =>
+        new Response(null, {
+          status: 429,
+          headers: { "Retry-After": "120" },
+        }),
+    });
+    assert.equal(summary.retryable, 1);
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    const [name] = await readdir(dirs.pending);
+    const item = JSON.parse(
+      await readFile(path.join(dirs.pending, name), "utf8"),
+    ) as { delivery: { nextAttemptAt: string } };
+    assert.equal(
+      item.delivery.nextAttemptAt,
+      "2026-07-21T08:03:00.000Z",
+    );
+    assert.equal(
+      operationalRetryDelayMs(1, queued.alertId),
+      operationalRetryDelayMs(1, queued.alertId),
+    );
   });
 
   it("quarantines terminal HTTP responses, invalid names, symlinks and oversized files", async () => {
