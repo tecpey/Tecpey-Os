@@ -144,7 +144,10 @@ function parseValue(
   return parseUnquoted(source, cursor);
 }
 
-export function parseSystemdEnvironmentFile(source: string): Map<string, string> {
+export function parseSystemdEnvironmentFile(
+  source: string,
+  options: Readonly<{ rejectDuplicateKeys?: boolean }> = {},
+): Map<string, string> {
   assertValidSource(source);
   const normalized = source.replace(/\r\n/g, "\n");
   const values = new Map<string, string>();
@@ -169,6 +172,9 @@ export function parseSystemdEnvironmentFile(source: string): Map<string, string>
       throw new Error("systemd_environment_file_key_invalid");
     }
 
+    if (options.rejectDuplicateKeys === true && values.has(key)) {
+      throw new Error("systemd_environment_file_duplicate_key");
+    }
     const parsed = parseValue(normalized, offset + separator + 1, end);
     values.set(key, parsed.value);
     offset = parsed.nextOffset;
