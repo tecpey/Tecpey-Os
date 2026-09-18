@@ -17,7 +17,7 @@ The worker requires the same production database environment as the web process.
 - `MENTOR_PROFILE_WORKER_CONCURRENCY`: 1–10, default 4.
 - `MENTOR_PROFILE_WORKER_LEASE_SECONDS`: 15–300 seconds, default 120.
 
-Install the hardened service only after the exact release has completed database migrations `0105_mentor_profile_update_outbox.sql` and `0107_mentor_profile_dead_letter_resolution.sql`.
+Install the hardened service only after the exact release has completed the governed Mentor/operations migrations through `0109_operational_signal_envelope.sql`, including the outbox, incident resolution, freshness observability and operational signal envelope migrations.
 
 Example staging dry-run:
 
@@ -31,7 +31,7 @@ sudo env \
   bash scripts/install-mentor-profile-worker.sh
 ```
 
-Remove `TECPEY_DRY_RUN=1` only after all three generated units verify cleanly: the durable worker, the independent health probe service and its timer.
+Remove `TECPEY_DRY_RUN=1` only after all five generated units verify cleanly: the durable worker, the independent health probe service and timer, plus the shared operational alert/signal delivery service and timer.
 
 ## Operational checks
 
@@ -40,11 +40,15 @@ systemctl is-enabled tecpey-mentor-profile-worker.service
 systemctl is-active tecpey-mentor-profile-worker.service
 systemctl is-enabled tecpey-mentor-profile-health.timer
 systemctl is-active tecpey-mentor-profile-health.timer
-systemctl list-timers --all | grep tecpey-mentor-profile-health
+systemctl is-enabled tecpey-ops-alert-delivery.timer
+systemctl is-active tecpey-ops-alert-delivery.timer
+systemctl list-timers --all | grep -E 'tecpey-mentor-profile-health|tecpey-ops-alert-delivery'
 systemctl status tecpey-mentor-profile-worker.service --no-pager
 systemctl status tecpey-mentor-profile-health.service --no-pager
+systemctl status tecpey-ops-alert-delivery.service --no-pager
 journalctl -u tecpey-mentor-profile-worker.service -n 100 --no-pager
 journalctl -u tecpey-mentor-profile-health.service -n 100 --no-pager
+journalctl -u tecpey-ops-alert-delivery.service -n 100 --no-pager
 ```
 
 The worker evaluates a bounded aggregate health snapshot approximately once per minute. The snapshot contains queue counts and ages only; it never includes tenant, workspace, learner, conversation, prompt, KYC or portfolio identifiers.
@@ -63,7 +67,7 @@ These are engineering starting targets for staging calibration, **not a customer
 - an expired processing lease is warning immediately and critical once it is at least 30 seconds overdue;
 - any retryable failure is warning until it converges.
 
-The worker emits `MENTOR_PROFILE_BACKLOG` for warning state and `MENTOR_PROFILE_PROJECTION_STALLED` for critical state through the existing platform alert path. That path currently provides structured logging and best-effort webhook delivery; it must not be described as durable incident delivery until the broader operational alerting program proves that property.
+The worker still emits `MENTOR_PROFILE_BACKLOG` for warning state and `MENTOR_PROFILE_PROJECTION_STALLED` for critical state through the legacy in-process alert path. Warning remains an engineering signal and is not paged by the durable rail. The independent health probe separately writes critical and authority-unavailable conditions into the governed operational signal spool described below, so critical delivery no longer depends on the worker process or PostgreSQL being available.
 
 A one-shot machine-readable probe is available from the production bundle:
 
@@ -72,6 +76,37 @@ npm run mentor:profiles:health
 ```
 
 Exit codes are `0=healthy`, `1=warning`, `2=critical`, and `3=database authority/check failure`. The JSON output contains aggregate counts, reason codes, policy version and queue ages only.
+
+
+### Durable critical signal rail
+
+Critical Mentor health is persisted before delivery as a privacy-minimized operational signal. The signal contains only bounded reason codes plus numeric/boolean/null measurements; it does not contain tenant, workspace, learner, conversation, prompt, KYC or portfolio values.
+
+The independent probe writes to the protected state directory even during a PostgreSQL outage:
+
+- `signals/pending`: not yet delivered or waiting for bounded retry;
+- `signals/delivered`: successfully handed to the configured webhook;
+- `signals/quarantine`: corrupt files, terminal HTTP failures or retries that exhausted the bounded attempt budget.
+
+Within each configurable dedupe window (default one hour), the **first observation** for the same detector service, component, severity and reason-code set becomes the durable signal. Later observations in that same window replay the same signal identity instead of creating an alert storm. A later window creates a new reminder identity if the critical condition still exists.
+
+The signal spool is filesystem-first and does not require PostgreSQL to enqueue or deliver. PostgreSQL copies of signal and delivery-attempt evidence are best-effort mirrors for audit/recovery; the local spool/archive remains the outage-safe delivery authority when database persistence is unavailable.
+
+Delivery is performed by `tecpey-ops-alert-delivery.service` from the production bundle, not by `tsx`. Its preflight validates only the state directory, HTTPS webhook, bearer shape and bounded delivery settings; it deliberately does **not** depend on `DATABASE_URL` or Community Challenge configuration. The one-minute monotonic timer scans both the legacy job-alert spool and the new signal spool. Per-signal `nextAttemptAt` plus capped exponential backoff with deterministic jitter prevents that scan cadence from becoming a retry storm.
+
+Webhook requests use the stable signal ID as `Idempotency-Key`. HTTP 408/425/429 and 5xx are retryable; terminal HTTP responses are quarantined. No response body is persisted.
+
+Useful inspection commands:
+
+```bash
+find /var/lib/tecpey/ops/signals/pending -maxdepth 1 -type f -print
+find /var/lib/tecpey/ops/signals/delivered -maxdepth 1 -type f -print
+find /var/lib/tecpey/ops/signals/quarantine -maxdepth 1 -type f -print
+systemctl status tecpey-ops-alert-delivery.timer --no-pager
+journalctl -u tecpey-ops-alert-delivery.service --since '-30 minutes' --no-pager
+```
+
+A quarantined critical signal is an operator incident. Do not delete it to manufacture green health; diagnose the webhook/configuration failure, preserve the file as evidence, and use a reviewed recovery procedure.
 
 Thresholds must be recalibrated from protected-staging measurements of event arrival rate, projection duration and recovery behavior before any SLA, error-budget or production reliability commitment is made.
 
@@ -137,15 +172,15 @@ A successful repair may therefore change current health from critical to healthy
 Before enabling the service on staging:
 
 1. exact release SHA is known;
-2. migration plan hash and migration ledger are green through canonical step 092;
-3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
+2. migration plan hash and migration ledger are green through canonical step 093;
+3. `npm run test:mentor-profile-outbox` and `npm run test:ops-signals` are green against PostgreSQL 16 and the filesystem spool;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
 5. `npm run mentor:profiles:freshness` produces valid aggregate calibration evidence or explicitly reports insufficient data;
-6. worker + independent health service + timer dry-run pass `systemd-analyze verify`;
+6. worker, independent health probe/timer and operational delivery service/timer all pass the installer dry-run and `systemd-analyze verify`;
 7. the initial one-shot health probe succeeds (healthy, or warning only when an explicitly understood staging condition exists) and the timer is enabled/active;
 8. the worker starts with zero unresolved terminal failures;
 9. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge;
-10. stop the worker in a controlled staging drill, create bounded test backlog, and verify the independent health service transitions to critical without relying on worker self-reporting; restore the worker and verify health converges again.
+10. stop the worker in a controlled staging drill, create bounded test backlog, verify the independent health service transitions to critical without relying on worker self-reporting, verify one durable signal appears under `signals/pending` or `signals/delivered`, then restore the worker and verify health converges again.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
 
@@ -169,4 +204,4 @@ Expected behavior:
 - a later independent probe returns healthy after convergence;
 - the drill must not mutate or delete dead-letter history to manufacture a green result.
 
-This watchdog is an **independent failure detector**, not a replacement for durable incident delivery. Until Mentor alerts are migrated onto the governed operational alert spool/delivery rail, critical notification delivery remains best-effort at the application webhook layer and host monitoring must treat a failed `tecpey-mentor-profile-health.service` as actionable.
+This watchdog is an **independent failure detector** and critical/authority-unavailable outcomes now enter the governed durable operational signal rail. Host monitoring must still treat a failed `tecpey-mentor-profile-health.service` as actionable because filesystem exhaustion, permission failure or a broken local runtime can prevent even the outage-safe spool from being written. Warning-only health remains non-paging until a measured freshness SLO/error budget justifies a broader alert policy.
