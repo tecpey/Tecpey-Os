@@ -10,10 +10,12 @@ const freshness = await source("src/lib/mentor-profile-freshness.ts");
 for (const needle of [
   "MENTOR_PROFILE_FRESHNESS_CALIBRATION_VERSION",
   "processed_at - created_at",
-  "processed_at >=",
+  "o.created_at <=",
+  "processed_at IS NULL",
+  "missedTargetCount",
+  "withinTargetRatio",
   "percentile_cont(0.50)",
   "percentile_cont(0.95)",
-  "withinTargetRatio",
   '"insufficient_data"',
   '"invalid_evidence"',
 ]) {
@@ -36,11 +38,16 @@ const migration = await source(
 );
 for (const needle of [
   "0108_mentor_profile_freshness_observability.sql",
-  "mentor_profile_update_outbox_processed_window_idx",
-  "processed_at DESC",
-  "status = 'processed'",
+  "mentor_profile_update_outbox_freshness_window_idx",
+  "created_at DESC",
+  "INCLUDE (status, processed_at)",
 ]) {
   requireText("migration", migration, needle, `observability index invariant missing: ${needle}`);
+}
+if (migration.includes("WHERE status = 'processed'")) {
+  failures.push(
+    "migration: freshness index must cover the matured-event denominator, not only successful rows",
+  );
 }
 
 const registry = await source("src/lib/db-migration-registry.ts");
@@ -49,6 +56,17 @@ for (const needle of [
   "runMentorProfileFreshnessObservabilityMigrations",
 ]) {
   requireText("registry", registry, needle, `canonical migration wiring missing: ${needle}`);
+}
+
+const postgresTest = await source(
+  "src/tests/security/mentor-profile-freshness-postgres.test.ts",
+);
+for (const needle of [
+  "matured pending sample",
+  "snapshot.missedTargetCount",
+  "snapshot.withinTargetCount + snapshot.missedTargetCount",
+]) {
+  requireText("postgres-test", postgresTest, needle, `anti-survivorship proof missing: ${needle}`);
 }
 
 const runner = await source(
