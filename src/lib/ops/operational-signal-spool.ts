@@ -17,6 +17,7 @@ import { withTx } from "@/lib/db";
 import {
   persistOperationalSignalDeliveryAttemptTx,
   persistOperationalSignalTx,
+  validateOperationalSignalDeliveryAttempt,
   validateOperationalSignalEvidence,
   type OperationalSignalDeliveryAttempt,
   type OperationalSignalEvidence,
@@ -36,6 +37,7 @@ export type OperationalSignalSpoolItem = Readonly<{
     nextAttemptAt: string;
     lastErrorCode: string | null;
   }>;
+  attempts: readonly OperationalSignalDeliveryAttempt[];
 }>;
 
 export type OperationalSignalDeliveryConfig = Readonly<{
@@ -55,6 +57,7 @@ export type OperationalSignalDeliverySummary = Readonly<{
   retryable: number;
   quarantined: number;
   skippedUntilLater: number;
+  deferredDueToBatchLimit: number;
 }>;
 
 function normalizedAbsoluteDirectory(value: string): string {
@@ -142,6 +145,15 @@ function directories(stateDirectory: string) {
 
 type ManagedDirectories = ReturnType<typeof directories>;
 
+async function syncDirectory(directory: string): Promise<void> {
+  const handle = await open(directory, "r");
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
 async function assertManagedDirectory(directory: string): Promise<void> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const stat = await lstat(directory);
@@ -149,6 +161,7 @@ async function assertManagedDirectory(directory: string): Promise<void> {
     throw new Error("operational_signal_spool_directory_unsafe");
   }
   await chmod(directory, 0o700);
+  await syncDirectory(directory);
 }
 
 export async function ensureOperationalSignalSpoolDirectories(
@@ -194,6 +207,7 @@ async function atomicReplaceJson(filePath: string, value: unknown): Promise<void
     }
     await rename(temporary, filePath);
     await chmod(filePath, 0o600);
+    await syncDirectory(parent);
   } catch (error) {
     await rm(temporary, { force: true });
     throw error;
@@ -231,7 +245,9 @@ async function atomicCreateJson(
   try {
     await link(temporary, filePath);
     await chmod(filePath, 0o600);
+    await syncDirectory(parent);
     await rm(temporary, { force: true });
+    await syncDirectory(parent);
     return "created";
   } catch (error) {
     await rm(temporary, { force: true });
@@ -274,6 +290,22 @@ function validateSpoolItem(value: unknown): OperationalSignalSpoolItem {
   const signal = validateOperationalSignalEvidence(
     raw.signal as OperationalSignalEvidence,
   );
+  if (!Array.isArray(raw.attempts) || raw.attempts.length > 100) {
+    throw new Error("operational_signal_spool_attempts_invalid");
+  }
+  const attempts = raw.attempts.map((attempt) =>
+    validateOperationalSignalDeliveryAttempt(
+      attempt as OperationalSignalDeliveryAttempt,
+    ),
+  );
+  for (const [index, attempt] of attempts.entries()) {
+    if (
+      attempt.signalId !== signal.signalId ||
+      attempt.attemptNumber !== index + 1
+    ) {
+      throw new Error("operational_signal_spool_attempt_sequence_invalid");
+    }
+  }
   const delivery = raw.delivery as Record<string, unknown>;
   if (
     !Number.isSafeInteger(delivery.attemptCount) ||
@@ -284,6 +316,9 @@ function validateSpoolItem(value: unknown): OperationalSignalSpoolItem {
         !/^[a-z0-9._:-]{1,100}$/.test(delivery.lastErrorCode)))
   ) {
     throw new Error("operational_signal_spool_delivery_invalid");
+  }
+  if (Number(delivery.attemptCount) !== attempts.length) {
+    throw new Error("operational_signal_spool_attempt_count_mismatch");
   }
   return Object.freeze({
     schemaVersion: 1,
@@ -296,6 +331,7 @@ function validateSpoolItem(value: unknown): OperationalSignalSpoolItem {
       ),
       lastErrorCode: delivery.lastErrorCode as string | null,
     }),
+    attempts: Object.freeze(attempts),
   });
 }
 
@@ -350,6 +386,7 @@ export async function enqueueOperationalSignal(
       nextAttemptAt: signal.occurredAt,
       lastErrorCode: null,
     }),
+    attempts: Object.freeze([]),
   });
   const created = await atomicCreateJson(filePath, item);
   if (created === "created") {
@@ -413,13 +450,22 @@ async function moveFile(
   source: string,
   destinationDirectory: string,
 ): Promise<void> {
+  const sourceStat = await lstat(source);
+  if (sourceStat.isSymbolicLink() || !sourceStat.isFile()) {
+    throw new Error("operational_signal_spool_move_source_unsafe");
+  }
   const destination = path.join(destinationDirectory, path.basename(source));
   const existing = await lstat(destination).catch(() => null);
   if (existing) {
     throw new Error("operational_signal_spool_destination_conflict");
   }
+  const sourceDirectory = path.dirname(source);
   await rename(source, destination);
   await chmod(destination, 0o600);
+  await syncDirectory(destinationDirectory);
+  if (sourceDirectory !== destinationDirectory) {
+    await syncDirectory(sourceDirectory);
+  }
 }
 
 async function bestEffortPersistSignal(
