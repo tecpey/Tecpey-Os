@@ -32,6 +32,8 @@ require_absolute_path "$SYSTEMD_DIR" "systemd_directory_invalid"
 require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 [[ "$DRY_RUN" == "0" || "$DRY_RUN" == "1" ]] || fail "dry_run_invalid"
 [[ -d "$APP_DIR" && -f "$APP_DIR/package.json" ]] || fail "app_directory_missing"
+[[ -f "$APP_DIR/dist/run-mentor-profile-worker.cjs" && ! -L "$APP_DIR/dist/run-mentor-profile-worker.cjs" ]] \
+  || fail "mentor_profile_worker_bundle_missing"
 [[ -x "$NPM_BIN" ]] || fail "npm_binary_missing"
 [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || fail "environment_file_unsafe"
 grep -Eq '^DATABASE_URL=[^[:space:]]+' "$ENV_FILE" || fail "database_url_missing"
