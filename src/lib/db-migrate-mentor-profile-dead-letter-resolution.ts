@@ -4,8 +4,9 @@ import type { PoolClient } from "pg";
 const FILENAME = "0107_mentor_profile_dead_letter_resolution.sql";
 
 export const MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL = `
-CREATE UNIQUE INDEX IF NOT EXISTS mentor_profile_dead_letters_scope_key
-  ON mentor_profile_update_dead_letters (id, tenant_id, workspace_id, outbox_id);
+CREATE UNIQUE INDEX IF NOT EXISTS mentor_profile_dead_letters_resolution_scope_key
+  ON mentor_profile_update_dead_letters
+    (id, tenant_id, workspace_id, outbox_id, student_fingerprint);
 
 CREATE TABLE IF NOT EXISTS mentor_profile_dead_letter_resolutions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,9 +24,11 @@ CREATE TABLE IF NOT EXISTS mentor_profile_dead_letter_resolutions (
   resolution_hash CHAR(64) NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT mentor_profile_dead_letter_resolution_scope_fk
-    FOREIGN KEY (dead_letter_id, tenant_id, workspace_id, outbox_id)
+    FOREIGN KEY (
+      dead_letter_id, tenant_id, workspace_id, outbox_id, student_fingerprint
+    )
     REFERENCES mentor_profile_update_dead_letters(
-      id, tenant_id, workspace_id, outbox_id
+      id, tenant_id, workspace_id, outbox_id, student_fingerprint
     )
     ON DELETE RESTRICT,
   CHECK (char_length(workspace_id) BETWEEN 1 AND 120),
