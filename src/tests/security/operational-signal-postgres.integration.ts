@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import {
+  createOperationalSignalEpisodeEvidence,
   createOperationalSignalEvidence,
   persistOperationalSignalDeliveryAttemptTx,
   persistOperationalSignalTx,
@@ -194,6 +195,59 @@ describe("Operational signal PostgreSQL authority", () => {
           /operational evidence is append-only/,
         );
       }
+    },
+  );
+});
+
+
+describe("Operational signal episode PostgreSQL authority", () => {
+  it(
+    "requires exact payload replay for episode v2 while preserving immutable event identity",
+    { skip: !configured },
+    async () => {
+      const episodeId = randomUUID();
+      const first = createOperationalSignalEpisodeEvidence({
+        signalType: "mentor_profile_projection_health",
+        component: "mentor_profile_projection",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        severity: "critical",
+        lifecycle: "firing",
+        episodeId,
+        episodeSequence: 1,
+        occurredAt: "2026-09-18T15:05:00.000Z",
+        reasonCodes: ["dead_letter_present"],
+        measurements: { unresolved_dead_letters: 1 },
+      });
+      const mutatedPayload = createOperationalSignalEpisodeEvidence({
+        signalType: first.signalType,
+        component: first.component,
+        sourceUnit: first.sourceUnit,
+        severity: first.severity,
+        lifecycle: first.lifecycle,
+        episodeId: first.episodeId,
+        episodeSequence: first.episodeSequence,
+        occurredAt: first.occurredAt,
+        dedupeWindowSeconds: first.dedupeWindowSeconds,
+        reasonCodes: first.reasonCodes,
+        measurements: { unresolved_dead_letters: 9 },
+      });
+      assert.equal(first.signalId, mutatedPayload.signalId);
+
+      const inserted = await withClient((client) =>
+        persistOperationalSignalTx(client, first),
+      );
+      const replay = await withClient((client) =>
+        persistOperationalSignalTx(client, first),
+      );
+      assert.equal(inserted.replayed, false);
+      assert.equal(replay.replayed, true);
+
+      await assert.rejects(
+        withClient((client) =>
+          persistOperationalSignalTx(client, mutatedPayload),
+        ),
+        /operational_signal_payload_identity_conflict/,
+      );
     },
   );
 });
