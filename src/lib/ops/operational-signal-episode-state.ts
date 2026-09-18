@@ -148,19 +148,23 @@ async function atomicWriteJson(filePath: string, value: unknown): Promise<void> 
     `.${path.basename(filePath)}.${process.pid}.${randomUUID()}.tmp`,
   );
   const handle = await open(temporary, "wx", 0o600);
+  let renamed = false;
   try {
     await handle.writeFile(body, "utf8");
     await handle.sync();
-  } finally {
     await handle.close();
-  }
-  try {
     await rename(temporary, filePath);
+    renamed = true;
     await chmod(filePath, 0o600);
     await syncDirectory(parent);
   } catch (error) {
-    await rm(temporary, { force: true });
+    await handle.close().catch(() => undefined);
     throw error;
+  } finally {
+    if (!renamed) {
+      await rm(temporary, { force: true });
+      await syncDirectory(parent).catch(() => undefined);
+    }
   }
 }
 
