@@ -37,6 +37,9 @@ for (const needle of [
   "createOperationalSignalEvidence",
   "operational-signal-fingerprint-v1",
   "operational_signal_fingerprint_mismatch",
+  "operational_signal_time_not_canonical",
+  "operational_signal_id_mismatch",
+  "derivedSignalId",
   "FORBIDDEN_ATTRIBUTE_KEY_RE",
   "dedupeWindowSeconds",
   "attributes.length",
@@ -176,6 +179,8 @@ if (scripts["ops:alerts:deliver"]?.includes("tsx")) {
 const spoolTest = await source("src/tests/security/operational-signal-spool.integration.ts");
 for (const needle of [
   "deduplicates",
+  "sameBucketReplay",
+  "operational_signal_id_mismatch",
   "Idempotency-Key",
   "deterministic bounded jitter",
   "studentId",
