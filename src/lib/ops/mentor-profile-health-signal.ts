@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   MENTOR_PROFILE_HEALTH_POLICY_VERSION,
-  mentorProfileHealthAlertMetadata,
   type MentorProfileHealthEvaluation,
   type MentorProfileHealthSnapshot,
 } from "@/lib/mentor-profile-health";
@@ -22,26 +21,16 @@ const WARNING_DEDUPE_WINDOW_SECONDS = 30 * 60;
 function numericAttributes(
   snapshot: MentorProfileHealthSnapshot,
 ): Readonly<Record<string, number | null>> {
-  const metadata = mentorProfileHealthAlertMetadata(snapshot, {
-    status: "healthy",
-    reasonCodes: [],
-  });
   return Object.freeze({
-    pending: Number(metadata.pending),
-    processing: Number(metadata.processing),
-    failedRetryable: Number(metadata.failedRetryable),
-    unresolvedTerminalFailures: Number(metadata.unresolvedTerminalFailures),
-    unresolvedDeadLetters: Number(metadata.unresolvedDeadLetters),
-    readyBacklog: Number(metadata.readyBacklog),
-    overdueLeases: Number(metadata.overdueLeases),
-    oldestReadyAgeSeconds:
-      metadata.oldestReadyAgeSeconds === null
-        ? null
-        : Number(metadata.oldestReadyAgeSeconds),
-    maxLeaseOverdueSeconds:
-      metadata.maxLeaseOverdueSeconds === null
-        ? null
-        : Number(metadata.maxLeaseOverdueSeconds),
+    pending: snapshot.pending,
+    processing: snapshot.processing,
+    failedRetryable: snapshot.failedRetryable,
+    unresolvedTerminalFailures: snapshot.unresolvedTerminalFailures,
+    unresolvedDeadLetters: snapshot.unresolvedDeadLetters,
+    readyBacklog: snapshot.readyBacklog,
+    overdueLeases: snapshot.overdueLeases,
+    oldestReadyAgeSeconds: snapshot.oldestReadyAgeSeconds,
+    maxLeaseOverdueSeconds: snapshot.maxLeaseOverdueSeconds,
   });
 }
 
