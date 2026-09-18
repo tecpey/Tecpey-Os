@@ -8,6 +8,7 @@ import {
   type OperationalConditionObservation,
 } from "@/lib/ops/operational-condition-signal";
 import {
+  enqueueOperationalSignal,
   ensureOperationalSignalSpoolDirectories,
 } from "@/lib/ops/operational-signal-spool";
 import type { OperationalSignalEvidence } from "@/lib/ops/operational-signal-evidence";
@@ -170,6 +171,90 @@ test("write-ahead pending transition replays the exact signal after an enqueue f
   assert.deepEqual(recovered.emitted, []);
   assert.equal(seenDuringRecovery.length, 1);
   assert.deepEqual(seenDuringRecovery[0], seenBeforeCrash[0]);
+});
+
+test("cause-change crash after resolving the old incident replays the full transition sequence", async () => {
+  const root = await tempRoot();
+  const initial = await transitionOperationalConditionSignal(
+    observation(root, {
+      status: "critical",
+      reasonCodes: ["dead_letter_present"],
+    }),
+  );
+  const oldIncidentId = initial.emitted[0]!.incidentId;
+
+  const attempted: OperationalSignalEvidence[] = [];
+  let calls = 0;
+  await assert.rejects(
+    transitionOperationalConditionSignal(
+      observation(root, {
+        status: "critical",
+        reasonCodes: ["lease_overdue_critical"],
+        observedAt: "2026-09-18T12:02:00.000Z",
+      }),
+      {
+        enqueue: async (stateDirectory, signal) => {
+          attempted.push(signal);
+          calls += 1;
+          if (calls === 2) {
+            throw new Error("simulated_second_enqueue_crash");
+          }
+          return enqueueOperationalSignal(stateDirectory, signal);
+        },
+      },
+    ),
+    /simulated_second_enqueue_crash/,
+  );
+
+  assert.equal(attempted.length, 2);
+  assert.equal(attempted[0]!.lifecycle, "resolved");
+  assert.equal(attempted[0]!.incidentId, oldIncidentId);
+  assert.equal(attempted[1]!.lifecycle, "firing");
+  const newIncidentId = attempted[1]!.incidentId;
+  assert.notEqual(newIncidentId, oldIncidentId);
+
+  const recovered = await transitionOperationalConditionSignal(
+    observation(root, {
+      status: "critical",
+      reasonCodes: ["lease_overdue_critical"],
+      observedAt: "2026-09-18T12:03:00.000Z",
+    }),
+  );
+  assert.equal(recovered.recoveredPending, true);
+  assert.equal(recovered.active, true);
+  assert.equal(recovered.replayed >= 1, true);
+  assert.deepEqual(recovered.emitted, []);
+
+  const dirs = await ensureOperationalSignalSpoolDirectories(root);
+  const pending = await readdir(dirs.pending);
+  assert.equal(pending.length, 3);
+
+  const bodies = await Promise.all(
+    pending.map(async (name) =>
+      JSON.parse(
+        await (await import("node:fs/promises")).readFile(
+          path.join(dirs.pending, name),
+          "utf8",
+        ),
+      ) as { signal: OperationalSignalEvidence }),
+  );
+  const signals = bodies.map((item) => item.signal);
+  assert.equal(
+    signals.some(
+      (signal) =>
+        signal.lifecycle === "resolved" &&
+        signal.incidentId === oldIncidentId,
+    ),
+    true,
+  );
+  assert.equal(
+    signals.some(
+      (signal) =>
+        signal.lifecycle === "firing" &&
+        signal.incidentId === newIncidentId,
+    ),
+    true,
+  );
 });
 
 test("warning or healthy observation never opens a durable incident from idle", async () => {
