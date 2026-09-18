@@ -20,7 +20,6 @@ import {
   type OperationalSignalDeliveryAttempt,
   type OperationalSignalEvidence,
 } from "@/lib/ops/operational-signal-evidence";
-
 const MAX_FILE_BYTES = 64 * 1024;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const MAX_RESPONSE_BODY_BYTES = 0;
