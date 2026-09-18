@@ -3,7 +3,6 @@ import { withTx } from "../src/lib/db";
 import {
   claimMentorProfileUpdates,
   failMentorProfileUpdateClaim,
-  mentorProfileOutboxStatus,
   processMentorProfileUpdateClaimTx,
   type MentorProfileOutboxClaim,
 } from "../src/lib/mentor-profile-update-outbox";
@@ -11,6 +10,12 @@ import {
   isTerminalMentorProfileWorkerError,
   mentorProfileWorkerErrorCode,
 } from "../src/lib/mentor-profile-worker";
+import { emitAlert } from "../src/lib/alerts";
+import {
+  evaluateMentorProfileHealth,
+  loadMentorProfileHealthSnapshot,
+  mentorProfileHealthAlertMetadata,
+} from "../src/lib/mentor-profile-health";
 
 function boundedIntegerEnv(
   name: string,
@@ -131,11 +136,30 @@ async function run(): Promise<void> {
 
       const now = Date.now();
       if (now - lastReconciliationAt >= 60_000) {
-        const reconciliation = await withTx((client) =>
-          mentorProfileOutboxStatus(client),
+        const health = await withTx((client) =>
+          loadMentorProfileHealthSnapshot(client),
         );
-        if (reconciliation.enabled) {
-          console.log("[mentor-profile-worker] reconciliation", reconciliation.value);
+        if (!health.enabled) {
+          throw new Error("mentor_profile_database_unavailable");
+        }
+        const evaluation = evaluateMentorProfileHealth(health.value);
+        const metadata = mentorProfileHealthAlertMetadata(
+          health.value,
+          evaluation,
+        );
+        console.log("[mentor-profile-worker] health", metadata);
+        if (evaluation.status === "critical") {
+          emitAlert(
+            "MENTOR_PROFILE_PROJECTION_STALLED",
+            "Mentor profile projection requires operator attention",
+            metadata,
+          );
+        } else if (evaluation.status === "warning") {
+          emitAlert(
+            "MENTOR_PROFILE_BACKLOG",
+            "Mentor profile projection is outside its internal health target",
+            metadata,
+          );
         }
         lastReconciliationAt = now;
       }
