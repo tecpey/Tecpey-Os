@@ -143,8 +143,6 @@ function validateActiveIncident(
     severity: "critical",
     lifecycle: "firing",
     occurredAt: raw.openedAt,
-    incidentId: raw.incidentId,
-    conditionFingerprint: raw.conditionFingerprint,
     reasonCodes: ["state_validation"],
   });
   if (
