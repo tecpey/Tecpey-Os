@@ -48,6 +48,7 @@ type SignalIdentityRow = {
   dedupe_window_start: Date;
   dedupe_window_seconds: number;
   incident_key: string;
+  payload_hash: string;
 };
 
 function canonicalJson(value: unknown): string {
@@ -424,7 +425,8 @@ export async function persistOperationalSignalTx(
 
   const existing = await client.query<SignalIdentityRow>(
     `SELECT signal_type, component, severity, lifecycle,
-            dedupe_window_start, dedupe_window_seconds, incident_key
+            dedupe_window_start, dedupe_window_seconds, incident_key,
+            payload_hash
        FROM platform_operational_signals
       WHERE signal_id = $1
       LIMIT 1`,
@@ -435,7 +437,10 @@ export async function persistOperationalSignalTx(
   if (!sameIdentity(row, signal)) {
     throw new Error("operational_signal_identity_conflict");
   }
-  return { replayed: true, payloadHash };
+  if (!HASH_RE.test(row.payload_hash)) {
+    throw new Error("operational_signal_stored_payload_hash_invalid");
+  }
+  return { replayed: true, payloadHash: row.payload_hash };
 }
 
 function validateDeliveryAttempt(
