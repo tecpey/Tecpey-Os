@@ -165,7 +165,32 @@ describe("Generic operational signal rail", () => {
     assert.equal(delivery.delivered, 3);
     assert.equal(new Set(deliveredIds).size, 3);
     assert.equal((await readdir(dirs.pending)).length, 0);
-    assert.equal((await readdir(dirs.delivered)).length, 3);
+    const deliveredNames = await readdir(dirs.delivered);
+    assert.equal(deliveredNames.length, 3);
+    for (const name of deliveredNames) {
+      const archived = JSON.parse(
+        await readFile(path.join(dirs.delivered, name), "utf8"),
+      ) as {
+        schemaVersion: number;
+        delivery: {
+          attemptCount: number;
+          attempts: Array<{
+            attemptNumber: number;
+            deliveryResult: string;
+            attemptedAt: string;
+          }>;
+        };
+      };
+      assert.equal(archived.schemaVersion, 2);
+      assert.equal(archived.delivery.attemptCount, 1);
+      assert.deepEqual(
+        archived.delivery.attempts.map((attempt) => [
+          attempt.attemptNumber,
+          attempt.deliveryResult,
+        ]),
+        [[1, "delivered"]],
+      );
+    }
   });
 
   it("turns database authority loss into a critical durable incident and deduplicates repeats", async () => {
