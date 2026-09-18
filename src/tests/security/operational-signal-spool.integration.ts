@@ -226,6 +226,49 @@ describe("Generic operational signal rail", () => {
     );
   });
 
+  it("rejects sensitive or high-cardinality detail keys at runtime", async () => {
+    const root = await tempRoot();
+    const incidentId = "55555555-5555-4555-8555-555555555555";
+    const base: OperationalSignalEvidence = {
+      schemaVersion: 1,
+      signalId: `mentor-profile-health:${incidentId}:1`,
+      incidentId,
+      sequence: 1,
+      source: "mentor-profile-health",
+      sourceUnit: "tecpey-mentor-profile-health.service",
+      hostName: "mentor-signal-test",
+      phase: "opened",
+      severity: "critical",
+      occurredAt: "2026-09-18T13:00:00.000Z",
+      fingerprint: "b".repeat(64),
+      reasonCodes: ["dead_letter_present"],
+      details: {
+        policyVersion: "2026-09-18.3",
+        readyBacklog: 1,
+      },
+    };
+
+    await enqueueOperationalSignal(root, base);
+    for (const forbiddenKey of [
+      "student_id",
+      "tenantId",
+      "workspace-id",
+      "accountId",
+      "prompt",
+      "apiKey",
+    ]) {
+      await assert.rejects(
+        enqueueOperationalSignal(root, {
+          ...base,
+          signalId: `mentor-profile-health:${incidentId}:2`,
+          sequence: 2,
+          details: { [forbiddenKey]: "redacted" },
+        }),
+        /operational_signal_detail_key_forbidden/,
+      );
+    }
+  });
+
   it("uses deterministic capped jitter for delivery retries", () => {
     const identity =
       "mentor-profile-health:44444444-4444-4444-8444-444444444444:1";
