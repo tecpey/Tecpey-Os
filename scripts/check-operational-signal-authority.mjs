@@ -95,6 +95,8 @@ for (const needle of [
   "await link(temporary, filePath)",
   "await syncDirectory(parent)",
   "await syncDirectory(destinationDirectory)",
+  "if (summary.selected >= limit) break",
+  "summary.skippedUntilLater += 1",
 ]) {
   requireText("spool", spool, needle, `missing backward-compatible spool invariant: ${needle}`);
 }
@@ -239,6 +241,8 @@ for (const needle of [
   "student_lookup_failed",
   "concurrent same-bucket enqueue",
   "[false, true]",
+  "future-backoff files starve a due signal",
+  "summary.skippedUntilLater",
 ]) {
   requireText("spool-test", spoolTest, needle, `signal spool proof missing: ${needle}`);
 }
