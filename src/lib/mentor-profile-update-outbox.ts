@@ -38,6 +38,9 @@ export type MentorProfileOutboxClaim = Readonly<{
 
 type ClaimRow = {
   id: string;
+  tenant_id: string;
+  workspace_id: string;
+  event_sequence: string | number;
   attempt_count: number;
   max_attempts: number;
 };
@@ -112,8 +115,10 @@ export function createMentorProfileEventId(
 function eventPayloadHash(
   input: MentorProfileEventInput,
   eventId: string,
-  occurredAt: string,
 ): string {
+  // occurredAt is immutable evidence, but it is not part of event identity.
+  // A producer retry for the same authoritative source reference may happen
+  // later; it must resolve to the original row rather than look like tampering.
   return sha256({
     eventId,
     eventType: input.eventType,
@@ -123,7 +128,6 @@ function eventPayloadHash(
     studentId: input.studentId,
     sourceReference: input.sourceReference,
     reason: input.reason,
-    occurredAt,
   });
 }
 
@@ -169,7 +173,6 @@ export async function enqueueMentorProfileUpdateTx(
       sourceReference,
     },
     eventId,
-    occurredAt,
   );
 
   const inserted = await client.query<{ id: string }>(
@@ -217,11 +220,13 @@ async function deadLetter(
   reason: string,
 ): Promise<void> {
   const source = await client.query<{
+    tenant_id: string;
+    workspace_id: string;
     event_id: string;
     student_id: string;
     payload_hash: string;
   }>(
-    `SELECT event_id, student_id::text, payload_hash
+    `SELECT tenant_id, workspace_id, event_id, student_id::text, payload_hash
        FROM mentor_profile_update_outbox
       WHERE id = $1
       FOR SHARE`,
@@ -235,10 +240,19 @@ async function deadLetter(
   });
   await client.query(
     `INSERT INTO mentor_profile_update_dead_letters
-       (outbox_id, terminal_reason, event_id, student_fingerprint, payload_hash)
-     VALUES ($1, $2, $3, $4, $5)
+       (tenant_id, workspace_id, outbox_id, terminal_reason, event_id,
+        student_fingerprint, payload_hash)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (outbox_id) DO NOTHING`,
-    [outboxId, reason, row.event_id, studentFingerprint, row.payload_hash],
+    [
+      row.tenant_id,
+      row.workspace_id,
+      outboxId,
+      reason,
+      row.event_id,
+      studentFingerprint,
+      row.payload_hash,
+    ],
   );
 }
 
@@ -248,6 +262,8 @@ export async function recoverExpiredMentorProfileLeases(
 ): Promise<{ recovered: number; terminal: number }> {
   const boundedLimit = Math.min(500, Math.max(1, Math.trunc(limit)));
   const stale = await client.query<{
+    tenant_id: string;
+    workspace_id: string;
     outbox_id: string;
     attempt_number: number;
     terminal: boolean;
@@ -274,7 +290,8 @@ export async function recoverExpiredMentorProfileLeases(
               updated_at = NOW()
          FROM candidates c
         WHERE o.id = c.id
-       RETURNING o.id AS outbox_id, o.attempt_count AS attempt_number, c.terminal
+       RETURNING o.tenant_id, o.workspace_id, o.id AS outbox_id,
+                 o.attempt_count AS attempt_number, c.terminal
      )
      SELECT * FROM updated`,
     [boundedLimit],
@@ -286,10 +303,17 @@ export async function recoverExpiredMentorProfileLeases(
           SET status = 'lease_recovered',
               error_code = 'worker_lease_expired',
               completed_at = NOW()
-        WHERE outbox_id = $1
-          AND attempt_number = $2
+        WHERE tenant_id = $1
+          AND workspace_id = $2
+          AND outbox_id = $3
+          AND attempt_number = $4
           AND status = 'claimed'`,
-      [row.outbox_id, row.attempt_number],
+      [
+        row.tenant_id,
+        row.workspace_id,
+        row.outbox_id,
+        row.attempt_number,
+      ],
     );
     if (row.terminal) {
       await deadLetter(
@@ -320,7 +344,7 @@ export async function claimMentorProfileUpdates(
 
   const claimed = await client.query<ClaimRow>(
     `WITH candidates AS (
-       SELECT id
+       SELECT id, event_sequence
          FROM mentor_profile_update_outbox
         WHERE status IN ('pending', 'failed_retryable')
           AND available_at <= NOW()
@@ -340,18 +364,25 @@ export async function claimMentorProfileUpdates(
               updated_at = NOW()
          FROM candidates c
         WHERE o.id = c.id
-       RETURNING o.id, o.attempt_count, o.max_attempts
+       RETURNING o.id, o.tenant_id, o.workspace_id, o.event_sequence,
+                 o.attempt_count, o.max_attempts
      )
-     SELECT * FROM updated ORDER BY id`,
+     SELECT * FROM updated ORDER BY event_sequence`,
     [limit, id, leaseSeconds],
   );
 
   for (const row of claimed.rows) {
     await client.query(
       `INSERT INTO mentor_profile_update_attempts
-         (outbox_id, attempt_number, worker_id, status)
-       VALUES ($1, $2, $3, 'claimed')`,
-      [row.id, row.attempt_count, id],
+         (tenant_id, workspace_id, outbox_id, attempt_number, worker_id, status)
+       VALUES ($1, $2, $3, $4, $5, 'claimed')`,
+      [
+        row.tenant_id,
+        row.workspace_id,
+        row.id,
+        row.attempt_count,
+        id,
+      ],
     );
   }
 
