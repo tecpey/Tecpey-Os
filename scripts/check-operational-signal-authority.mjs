@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 const failures = [];
@@ -37,7 +38,13 @@ for (const needle of [
 ]) {
   requireText("evidence", evidence, needle, `signal evidence invariant missing: ${needle}`);
 }
-if (/measurements:[\s\S]*string\s*\|/.test(evidence)) {
+requireText(
+  "evidence",
+  evidence,
+  'export type OperationalSignalMeasurement = number | boolean | null;',
+  "signal measurements must remain numeric/boolean/null only",
+);
+if (/OperationalSignalMeasurement\s*=\s*[^;]*\bstring\b/.test(evidence)) {
   failures.push("evidence: free-text measurement values are forbidden");
 }
 
@@ -193,6 +200,7 @@ for (const [name, needle] of [
   ["ops:alerts:deliver:prod", "dist/deliver-operational-alerts.cjs"],
   ["ops:delivery:env-check", "dist/check-operational-delivery-env.cjs"],
   ["test:ops-signals", "operational-signal"],
+  ["test:ops-signals", "mentor-profile-operational-installer.test.ts"],
 ]) {
   if (typeof scripts[name] !== "string" || !scripts[name].includes(needle)) {
     failures.push(`package: missing ${name} -> ${needle}`);
@@ -215,6 +223,14 @@ for (const needle of [
   "PostgreSQL outage",
 ]) {
   requireText("runbook", runbook, needle, `operational signal runbook invariant missing: ${needle}`);
+}
+
+try {
+  execFileSync("bash", ["-n", "scripts/install-mentor-profile-worker.sh"], {
+    stdio: "pipe",
+  });
+} catch {
+  failures.push("installer: bash syntax validation failed");
 }
 
 if (failures.length) {
