@@ -368,8 +368,9 @@ export async function enqueueOperationalSignal(
     }
     if (
       parsed.schemaVersion !== 2 ||
-      hashOperationalSignalEvidence(parsed.signal) !==
-        hashOperationalSignalEvidence(signal)
+      parsed.signal.signalId !== signal.signalId ||
+      parsed.signal.fingerprint !== signal.fingerprint ||
+      parsed.signal.dedupeBucketAt !== signal.dedupeBucketAt
     ) {
       throw new Error("operational_spool_identity_conflict");
     }
