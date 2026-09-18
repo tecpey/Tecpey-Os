@@ -374,14 +374,14 @@ function settledState(
 }
 
 async function flushPending(
-  stateDirectory: string,
+  rootStateDirectory: string,
   filePath: string,
   state: EpisodeState,
   emitted: Array<OperationalSignalEpisodeResult["emitted"][number]>,
 ): Promise<{ state: EpisodeState; recovered: boolean }> {
   if (!state.pending) return { state, recovered: false };
   const queued = await enqueueOperationalSignal(
-    path.resolve(stateDirectory, "..", ".."),
+    rootStateDirectory,
     state.pending.signal,
   );
   emitted.push({
@@ -417,15 +417,19 @@ export async function observeOperationalSignalEpisode(
   try {
     let state = await readState(stateFile, key);
     const flushed = await flushPending(
-      managed.state,
+      input.stateDirectory,
       stateFile,
       state,
       emitted,
     );
     state = flushed.state;
 
-    const occurredAt = new Date(input.occurredAt).toISOString();
-    if (!Number.isFinite(Date.parse(input.occurredAt)) || occurredAt !== input.occurredAt) {
+    const occurredAtMs = Date.parse(input.occurredAt);
+    if (!Number.isFinite(occurredAtMs)) {
+      throw new Error("operational_signal_episode_occurred_at_invalid");
+    }
+    const occurredAt = new Date(occurredAtMs).toISOString();
+    if (occurredAt !== input.occurredAt) {
       throw new Error("operational_signal_episode_occurred_at_invalid");
     }
 
