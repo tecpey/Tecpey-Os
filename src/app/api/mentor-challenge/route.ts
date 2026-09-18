@@ -4,7 +4,7 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { createSmartNotification, maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
@@ -12,6 +12,8 @@ import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutat
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import { recordDegradedRead } from "@/lib/degraded-read";
+import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 
 const ROUTE = "/api/mentor-challenge";
 
@@ -203,7 +205,7 @@ export async function POST(req: NextRequest) {
     if (!questionId || !["A","B","C","D"].includes(selectedOption)) return apiError("invalid_answer", 400);
     const responseTimeMs = Math.max(0, Math.min(600_000, Math.round(Number(body.responseTimeMs) || 0)));
     const confidence = cleanText(body.confidence || "medium", 20);
-    const result = await withDb(async (client) => {
+    const result = await withTx(async (client) => {
       const question = await client.query(`SELECT id, term_number, lesson_slug, topic, difficulty, correct_option, explanation FROM academy_question_bank WHERE id = $1 AND approved = TRUE LIMIT 1`, [questionId]);
       const row = question.rows[0];
       if (!row) return { accepted: false, error: "question_not_found" };
@@ -214,12 +216,15 @@ export async function POST(req: NextRequest) {
       const isCorrect = selectedOption === row.correct_option;
       const locale = cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa";
       const localePrefix = locale === "en" ? "/en" : "";
-      await client.query(
+      const insertedAttempt = await client.query<{ id: string }>(
         `INSERT INTO mentor_challenge_attempts
          (student_id, question_id, term_number, lesson_slug, locale, selected_option, is_correct, attempt_number, first_answer, response_time_ms, confidence)
-         VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+         VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         RETURNING id::text AS id`,
         [studentId, questionId, row.term_number, row.lesson_slug, locale, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
       );
+      const attemptId = insertedAttempt.rows[0]?.id;
+      if (!attemptId) throw new Error("mentor_challenge_attempt_insert_failed");
       if (isCorrect) await client.query(`UPDATE academy_question_bank SET success_count = success_count + 1 WHERE id = $1`, [questionId]);
       await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId,
           workspaceId: tenantContext.workspaceId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
@@ -249,10 +254,19 @@ export async function POST(req: NextRequest) {
         priority: isCorrect ? 2 : 3,
         metadata: { questionId, isCorrect, attemptNumber },
       });
+      await enqueueMentorProfileUpdateTx(client, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
+        studentId,
+        eventType: "mentor.challenge_attempt",
+        reason: "mentor_challenge_answered",
+        sourceReference: attemptId,
+      });
       return { accepted: true, isCorrect, attemptNumber, firstAnswer, topic: row.topic, explanation: row.explanation };
     });
     if (!result.enabled) return apiError("mentor_challenge_not_configured", 503);
     if (!result.value?.accepted) return apiError(result.value?.error || "not_accepted", 404);
+    scheduleMentorProfileUpdate(studentId, "quiz_submitted");
     return apiOk({ result: result.value });
   } catch {
     return apiError("server_error", 500);
