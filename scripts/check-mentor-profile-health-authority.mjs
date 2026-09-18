@@ -41,14 +41,14 @@ for (const forbidden of ["studentId", "tenantId", "workspaceId", "conversation",
   }
 }
 
-for (const forbidden of [
-  "resolvedDeadLetters",
-  "deadLettersTotal",
-  "resolved_dead_letters",
-  "dead_letters_total",
+for (const [label, pattern] of [
+  ["resolvedDeadLetters", /\bresolvedDeadLetters\b/],
+  ["deadLettersTotal", /\bdeadLettersTotal\b/],
+  ["resolved_dead_letters", /\bresolved_dead_letters\b/],
+  ["dead_letters_total", /\bdead_letters_total\b/],
 ]) {
-  if (health.includes(forbidden)) {
-    failures.push(`health: unbounded historical metric forbidden from hot probe: ${forbidden}`);
+  if (pattern.test(health)) {
+    failures.push(`health: unbounded historical metric forbidden from hot probe: ${label}`);
   }
 }
 
@@ -88,8 +88,14 @@ for (const needle of [
 requirePattern(
   "reconciliation",
   reconciliation,
-  /needsMentorProfileRepair\(\{[\s\S]*unresolvedDeadLetters:[\s\S]*needsMentorProfileRefresh/,
-  "unresolved dead letters must independently keep a learner in the repair set",
+  /export function needsMentorProfileRepair\([\s\S]*input\.unresolvedDeadLetters > 0 \|\|[\s\S]*needsMentorProfileRefresh\(input\)/,
+  "unresolved dead letters must independently keep a learner in the repair decision",
+);
+requirePattern(
+  "reconciliation",
+  reconciliation,
+  /needsMentorProfileRepair\(\{[\s\S]*unresolvedDeadLetters: Number\.parseInt\(row\.unresolved_dead_letters, 10\)/,
+  "the reconciliation candidate filter must pass unresolved dead-letter evidence into the governed repair decision",
 );
 
 const recomputeIndex = reconciliation.indexOf("await applyMentorProfileUpdate");
