@@ -16,6 +16,8 @@ for (const needle of [
   "platform_operational_signals",
   "platform_operational_signal_delivery_attempts",
   "incident_key CHAR(64)",
+  "instance_fingerprint CHAR(24)",
+  "platform_operational_signal_instance_fingerprint_check",
   "dedupe_window_start",
   "dedupe_window_seconds",
   "platform_operational_signals_immutable",
@@ -30,6 +32,8 @@ for (const needle of [
   "tecpey-operational-signal-incident-v1",
   "tecpey-operational-signal-dedupe-v1",
   "sourceUnit: input.sourceUnit",
+  "instanceFingerprint: input.instanceFingerprint",
+  "operational_signal_instance_fingerprint_invalid",
   "reasonCodes",
   "measurements",
   "operational_signal_measurement_value_invalid",
@@ -127,6 +131,8 @@ for (const needle of [
   'evaluation.status === "critical"',
   "TECPEY_OPS_STATE_DIR",
   "MENTOR_PROFILE_CRITICAL_SIGNAL_WINDOW_SECONDS",
+  "operationalInstanceFingerprint",
+  "tecpey-operational-instance-v1",
 ]) {
   requireText("health", health, needle, `health-to-signal wiring missing: ${needle}`);
 }
