@@ -706,6 +706,24 @@
       "adversarialProof": "proven",
       "issue": "#671",
       "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "ai_mentor_eval_runs",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
+      "isolationModel": "Every finalized Mentor eval run is bound to tenant_id + workspace_id by a platform_workspaces foreign key and FORCE RLS using the signed AI tenant context. Candidate commit/tree, model, policy/dataset versions and hashes are immutable; UPDATE and DELETE are rejected.",
+      "adversarialProof": "proven",
+      "issue": "#672",
+      "testReference": "src/tests/security/mentor-eval-promotion-authority.test.ts"
+    },
+    {
+      "table": "ai_mentor_eval_metric_results",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
+      "isolationModel": "Metric rows carry the run tenant/workspace pair and are composite-FK-bound to the exact eval run. FORCE RLS uses the same signed tenant context and append-only triggers prevent post-hoc threshold, baseline or outcome rewriting.",
+      "adversarialProof": "proven",
+      "issue": "#672",
+      "testReference": "src/tests/security/mentor-eval-promotion-authority.test.ts"
     }
   ]
 }
