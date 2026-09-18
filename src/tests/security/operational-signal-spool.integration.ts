@@ -17,6 +17,7 @@ import {
   deliverOperationalSignals,
   enqueueOperationalSignal,
   ensureOperationalSignalSpoolDirectories,
+  operationalSignalRetryAfterDelayMs,
   operationalSignalRetryDelayMs,
 } from "../../lib/ops/operational-signal-spool";
 
@@ -250,6 +251,75 @@ describe("Operational signal spool", () => {
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
     assert.equal(early.skippedUntilLater, 1);
+  });
+
+  it("honors bounded Retry-After only when it delays the local jitter schedule", async () => {
+    const root = await tempRoot();
+    const queued = signal("2026-09-18T12:05:00.000Z");
+    await enqueueOperationalSignal(root, queued);
+    const now = new Date("2026-09-18T12:06:00.000Z");
+
+    assert.equal(
+      operationalSignalRetryAfterDelayMs("120", now),
+      120_000,
+    );
+    assert.equal(
+      operationalSignalRetryAfterDelayMs("999999", now),
+      60 * 60_000,
+    );
+    assert.equal(
+      operationalSignalRetryAfterDelayMs("not-a-date", now),
+      null,
+    );
+
+    const summary = await deliverOperationalSignals({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-signal",
+      now,
+      fetchImpl: async () =>
+        new Response(null, {
+          status: 429,
+          headers: { "Retry-After": "120" },
+        }),
+    });
+    assert.equal(summary.retryable, 1);
+
+    const dirs = await ensureOperationalSignalSpoolDirectories(root);
+    const [name] = await readdir(dirs.pending);
+    const item = JSON.parse(
+      await readFile(path.join(dirs.pending, name), "utf8"),
+    ) as { delivery: { nextAttemptAt: string } };
+    assert.equal(
+      Date.parse(item.delivery.nextAttemptAt),
+      now.getTime() + 120_000,
+    );
+
+    const localDelay = operationalSignalRetryDelayMs(1, queued.signalId);
+    const root2 = await tempRoot();
+    const queued2 = signal("2026-09-18T13:05:00.000Z");
+    await enqueueOperationalSignal(root2, queued2);
+    const now2 = new Date("2026-09-18T13:06:00.000Z");
+    await deliverOperationalSignals({
+      stateDirectory: root2,
+      webhookUrl: "http://127.0.0.1/ops-signal",
+      now: now2,
+      fetchImpl: async () =>
+        new Response(null, {
+          status: 503,
+          headers: { "Retry-After": "1" },
+        }),
+    });
+    const dirs2 = await ensureOperationalSignalSpoolDirectories(root2);
+    const [name2] = await readdir(dirs2.pending);
+    const item2 = JSON.parse(
+      await readFile(path.join(dirs2.pending, name2), "utf8"),
+    ) as { delivery: { nextAttemptAt: string } };
+    assert.equal(
+      Date.parse(item2.delivery.nextAttemptAt) >=
+        now2.getTime() + operationalSignalRetryDelayMs(1, queued2.signalId),
+      true,
+    );
+    assert.equal(localDelay >= 15_000, true);
   });
 
   it("quarantines terminal responses and unsafe filesystem entries", async () => {
