@@ -575,10 +575,9 @@ export async function deliverOperationalAlerts(
   const fetchImpl = config.fetchImpl ?? fetch;
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .slice(0, limit);
+    .sort((left, right) => left.name.localeCompare(right.name));
   const summary: OperationalAlertDeliverySummary = {
-    selected: entries.length,
+    selected: 0,
     delivered: 0,
     retryable: 0,
     quarantined: 0,
@@ -586,8 +585,10 @@ export async function deliverOperationalAlerts(
   };
 
   for (const entry of entries) {
+    if (summary.selected >= limit) break;
     const filePath = path.join(managed.pending, entry.name);
     if (!SAFE_FILE_RE.test(entry.name)) {
+      summary.selected += 1;
       await moveFile(filePath, managed.quarantine);
       summary.quarantined += 1;
       continue;
@@ -596,6 +597,7 @@ export async function deliverOperationalAlerts(
     try {
       item = validateSpoolItem(await safeReadJson(filePath));
     } catch {
+      summary.selected += 1;
       await moveFile(filePath, managed.quarantine);
       summary.quarantined += 1;
       continue;
@@ -605,6 +607,7 @@ export async function deliverOperationalAlerts(
       continue;
     }
 
+    summary.selected += 1;
     const entity = spoolEntity(item);
     if (item.schemaVersion === 1) {
       await bestEffortPersistAlert(item.alert);
