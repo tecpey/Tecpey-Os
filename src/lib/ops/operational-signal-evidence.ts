@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { hashOperationalEvidence } from "@/lib/ops/operational-job-evidence";
 
 const TOKEN_RE = /^[A-Za-z0-9._:-]+$/;
+const LOWER_TOKEN_RE = /^[a-z][a-z0-9._:-]*$/;
 const HASH_RE = /^[0-9a-f]{64}$/;
 const SIGNAL_ID_RE = /^ops:[0-9a-f]{64}$/;
 
@@ -77,6 +78,23 @@ function token(
     normalized.length < minimum ||
     normalized.length > maximum ||
     !TOKEN_RE.test(normalized)
+  ) {
+    throw new Error(code);
+  }
+  return normalized;
+}
+
+function lowerToken(
+  value: string,
+  minimum: number,
+  maximum: number,
+  code: string,
+): string {
+  const normalized = value.trim();
+  if (
+    normalized.length < minimum ||
+    normalized.length > maximum ||
+    !LOWER_TOKEN_RE.test(normalized)
   ) {
     throw new Error(code);
   }
@@ -183,13 +201,13 @@ function signalId(input: {
 export function buildOperationalSignal(
   input: OperationalSignalInput,
 ): OperationalSignalEvidence {
-  const eventName = token(
+  const eventName = lowerToken(
     input.eventName,
     3,
     120,
     "operational_signal_event_name_invalid",
   );
-  const component = token(
+  const component = lowerToken(
     input.source.component,
     3,
     120,
