@@ -112,6 +112,10 @@ import {
   MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
   runMentorProfileDeadLetterResolutionMigrations,
 } from "./db-migrate-mentor-profile-dead-letter-resolution";
+import {
+  MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_SQL,
+  runMentorProfileFreshnessObservabilityMigrations,
+} from "./db-migrate-mentor-profile-freshness-observability";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -211,6 +215,17 @@ const MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_MIGRATION: CanonicalMigrationContent
     content: MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
     checksum: canonicalMigrationChecksum(
       MENTOR_PROFILE_DEAD_LETTER_RESOLUTION_SQL,
+    ),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0108_mentor_profile_freshness_observability.sql",
+    content: MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_SQL,
+    checksum: canonicalMigrationChecksum(
+      MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_SQL,
     ),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
@@ -342,6 +357,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-platform-security",
     "ai-mentor",
     runMentorProfileDeadLetterResolutionMigrations,
+  ),
+  entry(
+    92,
+    "migration-step-092",
+    [MENTOR_PROFILE_FRESHNESS_OBSERVABILITY_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorProfileFreshnessObservabilityMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
