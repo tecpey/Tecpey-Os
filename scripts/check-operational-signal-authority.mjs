@@ -44,6 +44,17 @@ requireText(
   'export type OperationalSignalMeasurement = number | boolean | null;',
   "signal measurements must remain numeric/boolean/null only",
 );
+
+for (const needle of [
+  "OperationalSignalEvidenceV1",
+  "OperationalSignalEvidenceV2",
+  "createOperationalSignalEpisodeEvidence",
+  "tecpey-operational-signal-episode-v2",
+  "schemaVersion: 2",
+  "operational_signal_payload_identity_conflict",
+]) {
+  requireText("evidence", evidence, needle, `episode evidence invariant missing: ${needle}`);
+}
 if (/OperationalSignalMeasurement\s*=\s*[^;]*\bstring\b/.test(evidence)) {
   failures.push("evidence: free-text measurement values are forbidden");
 }
@@ -53,6 +64,7 @@ for (const needle of [
   '"signals", "pending"',
   '"signals", "delivered"',
   '"signals", "quarantine"',
+  '"signals", "state"',
   "operationalSignalRetryDelayMs",
   "tecpey-operational-signal-retry-v1",
   "operational_signal_webhook_https_required",
@@ -103,6 +115,35 @@ requirePattern(
   /due\.sort\([\s\S]*due\.slice\(0, limit\)/,
   "delivery batching must select due work before applying the batch limit",
 );
+requireText(
+  "spool",
+  spool,
+  "operational_signal_spool_payload_identity_conflict",
+  "episode filesystem replay must reject payload mutation",
+);
+
+const episodeState = await source(
+  "src/lib/ops/operational-signal-episode-state.ts",
+);
+for (const needle of [
+  "observeOperationalSignalEpisode",
+  "operational_signal_episode_lock_busy",
+  "LOCK_STALE_MS",
+  "pendingState",
+  "flushPending",
+  "recoveredPending",
+  'lifecycle: "firing"',
+  'lifecycle: "updated"',
+  'lifecycle: "resolved"',
+]) {
+  requireText("episode-state", episodeState, needle, `episode state invariant missing: ${needle}`);
+}
+requirePattern(
+  "episode-state",
+  episodeState,
+  /atomicWriteJson\(stateFile, staged\)[\s\S]*enqueueOperationalSignal\(input\.stateDirectory, signal\)[\s\S]*atomicWriteJson\(stateFile, state\)/,
+  "episode transition must persist pending state before enqueue and settle only after durable spool write",
+);
 
 const spoolTest = await source(
   "src/tests/security/operational-signal-spool.integration.ts",
@@ -115,28 +156,30 @@ for (const needle of [
   "without redelivering",
   "symlinked ancestor",
   'error.code === "ENOENT"',
+  "firing, updated, resolved and a distinct recurrence",
+  "recovers a fsync-staged transition after crash before enqueue",
+  "same episode event identity in the filesystem",
 ]) {
   requireText("spool-test", spoolTest, needle, `durability/fairness proof missing: ${needle}`);
 }
 
 const health = await source("scripts/check-mentor-profile-health.ts");
 for (const needle of [
-  "enqueueOperationalSignal",
-  "createOperationalSignalEvidence",
+  "observeOperationalSignalEpisode",
   "mentor_profile_database_unavailable",
   'evaluation.status === "critical"',
   "TECPEY_OPS_STATE_DIR",
   "MENTOR_PROFILE_CRITICAL_SIGNAL_WINDOW_SECONDS",
+  "signalEpisode",
 ]) {
   requireText("health", health, needle, `health-to-signal wiring missing: ${needle}`);
 }
-if (
-  /if\s*\(evaluation\.status === "warning"\)\s*\{[\s\S]*?enqueueCriticalSignal/.test(
-    health,
-  )
-) {
-  failures.push("health: explicit warning branch must not enter the durable critical signal rail");
-}
+requirePattern(
+  "health",
+  health,
+  /active:\s*evaluation\.status === "critical"/,
+  "warning/healthy observations must resolve rather than keep a critical episode firing",
+);
 
 const delivery = await source("scripts/deliver-operational-alerts.ts");
 for (const needle of [
@@ -275,6 +318,27 @@ for (const needle of [
   "runOperationalSignalEnvelopeMigrations",
 ]) {
   requireText("registry", registry, needle, `canonical migration wiring missing: ${needle}`);
+}
+
+const episodeMigration = await source(
+  "src/lib/db-migrate-operational-signal-episodes.ts",
+);
+for (const needle of [
+  "0110_operational_signal_episodes.sql",
+  "episode_id UUID",
+  "episode_sequence INTEGER",
+  "'updated'",
+  "platform_operational_signal_payload_episode_check",
+  "CREATE UNIQUE INDEX IF NOT EXISTS platform_operational_signals_episode_idx",
+]) {
+  requireText("episode-migration", episodeMigration, needle, `episode migration invariant missing: ${needle}`);
+}
+for (const needle of [
+  "migration-step-094",
+  "0110_operational_signal_episodes.sql",
+  "runOperationalSignalEpisodeMigrations",
+]) {
+  requireText("registry", registry, needle, `episode migration wiring missing: ${needle}`);
 }
 
 const recovery = await source(
