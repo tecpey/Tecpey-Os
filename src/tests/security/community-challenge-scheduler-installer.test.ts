@@ -23,7 +23,10 @@ async function fixture() {
   const systemd = path.join(root, "systemd");
   await mkdir(app);
   await mkdir(bin);
+  await mkdir(path.join(app, "dist"));
   await writeFile(path.join(app, "package.json"), "{}\n", { mode: 0o644 });
+  await writeFile(path.join(app, "dist", "deliver-operational-alerts.cjs"), "// test bundle\n", { mode: 0o644 });
+  await writeFile(path.join(app, "dist", "check-operational-delivery-env.cjs"), "// test bundle\n", { mode: 0o644 });
   await writeFile(
     envFile,
     [
@@ -116,4 +119,12 @@ describe("Community challenge scheduler installer", () => {
     assert.notEqual(linked.status, 0);
     assert.match(linked.stderr, /environment_file_unsafe/);
   });
+});
+
+test("community installer fails closed when bundled delivery runtime is missing", async () => {
+  const setup = await fixture();
+  await rm(path.join(setup.app, "dist", "deliver-operational-alerts.cjs"));
+  const result = runInstall(setup);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /operational_delivery_bundle_missing/);
 });
