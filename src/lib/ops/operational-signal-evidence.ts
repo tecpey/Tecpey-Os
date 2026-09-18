@@ -23,6 +23,8 @@ export type OperationalSignalEvidence = Readonly<{
   dedupeWindowStart: string;
   dedupeWindowSeconds: number;
   incidentKey: string;
+  incidentId: string;
+  conditionFingerprint: string;
   reasonCodes: readonly string[];
   measurements: Readonly<Record<string, OperationalSignalMeasurement>>;
 }>;
@@ -48,6 +50,8 @@ type SignalIdentityRow = {
   dedupe_window_start: Date;
   dedupe_window_seconds: number;
   incident_key: string;
+  incident_id: string;
+  condition_fingerprint: string;
   payload_hash: string;
 };
 
@@ -167,31 +171,34 @@ function expectedIncidentKey(input: {
   signalType: string;
   component: string;
   sourceUnit: string;
+}): string {
+  return hashOperationalSignalEvidence({
+    authority: "tecpey-operational-condition-key-v2",
+    signalType: input.signalType,
+    component: input.component,
+    sourceUnit: input.sourceUnit,
+  });
+}
+
+function expectedConditionFingerprint(input: {
   severity: OperationalSignalSeverity;
   reasonCodes: readonly string[];
 }): string {
   return hashOperationalSignalEvidence({
-    authority: "tecpey-operational-signal-incident-v1",
-    signalType: input.signalType,
-    component: input.component,
-    sourceUnit: input.sourceUnit,
+    authority: "tecpey-operational-condition-fingerprint-v2",
     severity: input.severity,
     reasonCodes: [...input.reasonCodes],
   });
 }
 
 function expectedSignalId(input: {
-  incidentKey: string;
+  incidentId: string;
   lifecycle: OperationalSignalLifecycle;
-  dedupeWindowStart: string;
-  dedupeWindowSeconds: number;
 }): string {
   const digest = hashOperationalSignalEvidence({
-    authority: "tecpey-operational-signal-dedupe-v1",
-    incidentKey: input.incidentKey,
+    authority: "tecpey-operational-signal-id-v2",
+    incidentId: input.incidentId,
     lifecycle: input.lifecycle,
-    dedupeWindowStart: input.dedupeWindowStart,
-    dedupeWindowSeconds: input.dedupeWindowSeconds,
   });
   return `ops:${digest.slice(0, 56)}`;
 }
@@ -204,6 +211,8 @@ export function createOperationalSignalEvidence(input: {
   lifecycle?: OperationalSignalLifecycle;
   occurredAt: string;
   dedupeWindowSeconds?: number;
+  incidentId?: string;
+  conditionFingerprint?: string;
   reasonCodes: readonly string[];
   measurements?: Readonly<Record<string, OperationalSignalMeasurement>>;
 }): OperationalSignalEvidence {
@@ -255,14 +264,34 @@ export function createOperationalSignalEvidence(input: {
     signalType,
     component,
     sourceUnit,
+  });
+  const computedConditionFingerprint = expectedConditionFingerprint({
     severity: input.severity,
     reasonCodes,
   });
+  const conditionFingerprint =
+    input.conditionFingerprint === undefined
+      ? computedConditionFingerprint
+      : input.conditionFingerprint;
+  if (!HASH_RE.test(conditionFingerprint)) {
+    throw new Error("operational_signal_condition_fingerprint_invalid");
+  }
+  const incidentId =
+    input.incidentId === undefined
+      ? hashOperationalSignalEvidence({
+          authority: "tecpey-operational-incident-generation-v2",
+          incidentKey,
+          conditionFingerprint,
+          dedupeWindowStart,
+          dedupeWindowSeconds,
+        })
+      : input.incidentId;
+  if (!HASH_RE.test(incidentId)) {
+    throw new Error("operational_signal_incident_id_invalid");
+  }
   const signalId = expectedSignalId({
-    incidentKey,
+    incidentId,
     lifecycle,
-    dedupeWindowStart,
-    dedupeWindowSeconds,
   });
   return Object.freeze({
     schemaVersion: 1,
@@ -276,6 +305,8 @@ export function createOperationalSignalEvidence(input: {
     dedupeWindowStart,
     dedupeWindowSeconds,
     incidentKey,
+    incidentId,
+    conditionFingerprint,
     reasonCodes: Object.freeze(reasonCodes),
     measurements: Object.freeze(measurements),
   });
@@ -339,17 +370,19 @@ export function validateOperationalSignalEvidence(
     signalType,
     component,
     sourceUnit,
-    severity: raw.severity,
-    reasonCodes,
   });
   if (!HASH_RE.test(raw.incidentKey) || raw.incidentKey !== incidentKey) {
     throw new Error("operational_signal_incident_key_invalid");
   }
+  if (!HASH_RE.test(raw.incidentId)) {
+    throw new Error("operational_signal_incident_id_invalid");
+  }
+  if (!HASH_RE.test(raw.conditionFingerprint)) {
+    throw new Error("operational_signal_condition_fingerprint_invalid");
+  }
   const signalId = expectedSignalId({
-    incidentKey,
+    incidentId: raw.incidentId,
     lifecycle: raw.lifecycle,
-    dedupeWindowStart,
-    dedupeWindowSeconds,
   });
   if (raw.signalId !== signalId) {
     throw new Error("operational_signal_identity_invalid");
@@ -366,6 +399,8 @@ export function validateOperationalSignalEvidence(
     dedupeWindowStart,
     dedupeWindowSeconds,
     incidentKey,
+    incidentId: raw.incidentId,
+    conditionFingerprint: raw.conditionFingerprint,
     reasonCodes: Object.freeze(reasonCodes),
     measurements: Object.freeze(measurements),
   });
@@ -382,7 +417,9 @@ function sameIdentity(
     row.lifecycle === signal.lifecycle &&
     row.dedupe_window_start.toISOString() === signal.dedupeWindowStart &&
     row.dedupe_window_seconds === signal.dedupeWindowSeconds &&
-    row.incident_key === signal.incidentKey
+    row.incident_key === signal.incidentKey &&
+    row.incident_id === signal.incidentId &&
+    row.condition_fingerprint === signal.conditionFingerprint
   );
 }
 
@@ -399,10 +436,10 @@ export async function persistOperationalSignalTx(
     `INSERT INTO platform_operational_signals
        (signal_id, signal_type, component, source_unit, severity, lifecycle,
         occurred_at, dedupe_window_start, dedupe_window_seconds, incident_key,
-        payload_hash, payload)
+        incident_id, condition_fingerprint, payload_hash, payload)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10, $11,
-        $12::jsonb)
+        $12, $13, $14::jsonb)
      ON CONFLICT (signal_id) DO NOTHING`,
     [
       signal.signalId,
@@ -415,6 +452,8 @@ export async function persistOperationalSignalTx(
       signal.dedupeWindowStart,
       signal.dedupeWindowSeconds,
       signal.incidentKey,
+      signal.incidentId,
+      signal.conditionFingerprint,
       payloadHash,
       JSON.stringify(signal),
     ],
@@ -426,7 +465,7 @@ export async function persistOperationalSignalTx(
   const existing = await client.query<SignalIdentityRow>(
     `SELECT signal_type, component, severity, lifecycle,
             dedupe_window_start, dedupe_window_seconds, incident_key,
-            payload_hash
+            incident_id, condition_fingerprint, payload_hash
        FROM platform_operational_signals
       WHERE signal_id = $1
       LIMIT 1`,
