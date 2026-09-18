@@ -323,13 +323,16 @@ export async function enqueueOperationalAlert(
   const fileName = spoolFileName(alert.alertId);
   const existingPath = await findExistingAlertFile(managed, fileName);
   if (existingPath) {
-    let parsed: OperationalAlertSpoolItem;
+    let parsed: OperationalSpoolItem;
     try {
       parsed = validateSpoolItem(await safeReadJson(existingPath));
     } catch {
       throw new Error("operational_spool_archive_corrupt");
     }
-    if (hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)) {
+    if (
+      parsed.schemaVersion !== 1 ||
+      hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)
+    ) {
       throw new Error("operational_spool_identity_conflict");
     }
     return { replayed: true, filePath: existingPath };
