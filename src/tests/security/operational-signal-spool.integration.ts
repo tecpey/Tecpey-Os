@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -230,6 +230,61 @@ describe("Operational signal evidence and durable spool", () => {
 
     const dirs = await ensureOperationalSpoolDirectories(root);
     assert.equal((await readdir(dirs.pending)).length, 1);
+  });
+
+  it("does not let future-backoff files starve a due signal behind the batch limit", async () => {
+    const root = await tempRoot();
+    const first = signal("2026-09-18T12:00:30.000Z");
+    const second = createOperationalSignalEvidence({
+      signalType: "mentor.profile.authority_unavailable",
+      component: "mentor-profile",
+      detector: "mentor-profile-health-probe",
+      severity: "critical",
+      statusClassification: "authority_unavailable",
+      occurredAt: "2026-09-18T12:00:31.000Z",
+      reasonCodes: ["database_unavailable"],
+      attributes: { policyVersion: "2026-09-18.3" },
+      dedupeWindowSeconds: 900,
+    });
+    await enqueueOperationalSignal(root, first);
+    await enqueueOperationalSignal(root, second);
+
+    const dirs = await ensureOperationalSpoolDirectories(root);
+    const names = (await readdir(dirs.pending)).sort();
+    assert.equal(names.length, 2);
+
+    const futurePath = path.join(dirs.pending, names[0]!);
+    const duePath = path.join(dirs.pending, names[1]!);
+    const future = JSON.parse(await readFile(futurePath, "utf8")) as {
+      delivery: { nextAttemptAt: string };
+    };
+    future.delivery.nextAttemptAt = "2026-09-18T13:00:00.000Z";
+    await writeFile(futurePath, `${JSON.stringify(future)}\n`, { mode: 0o600 });
+
+    const due = JSON.parse(await readFile(duePath, "utf8")) as {
+      delivery: { nextAttemptAt: string };
+    };
+    due.delivery.nextAttemptAt = "2026-09-18T12:00:00.000Z";
+    await writeFile(duePath, `${JSON.stringify(due)}\n`, { mode: 0o600 });
+
+    let requests = 0;
+    const summary = await deliverOperationalAlerts({
+      stateDirectory: root,
+      webhookUrl: "http://127.0.0.1/ops-alert",
+      now: new Date("2026-09-18T12:10:00.000Z"),
+      limit: 1,
+      fetchImpl: async () => {
+        requests += 1;
+        return new Response(null, { status: 204 });
+      },
+    });
+
+    assert.equal(summary.selected, 1);
+    assert.equal(summary.delivered, 1);
+    assert.equal(summary.skippedUntilLater, 1);
+    assert.equal(requests, 1);
+    assert.equal((await readdir(dirs.pending)).length, 1);
+    assert.equal((await readdir(dirs.delivered)).length, 1);
   });
 
   it("keeps transient signal delivery pending with deterministic bounded jitter", async () => {
