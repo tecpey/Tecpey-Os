@@ -42,7 +42,29 @@ systemctl status tecpey-mentor-profile-worker.service --no-pager
 journalctl -u tecpey-mentor-profile-worker.service -n 100 --no-pager
 ```
 
-The worker emits a reconciliation count approximately once per minute. Healthy steady state normally has `processing=0`, `failed_retryable=0` and `failed_terminal=0` between bursts. Pending rows may briefly appear during normal ingestion.
+The worker evaluates a bounded aggregate health snapshot approximately once per minute. The snapshot contains queue counts and ages only; it never includes tenant, workspace, learner, conversation, prompt, KYC or portfolio identifiers.
+
+### Internal starting SLO targets
+
+These are engineering starting targets for staging calibration, **not a customer SLA and not a production-grade reliability claim**:
+
+- warning when the ready backlog reaches 50 events or the oldest ready event reaches 60 seconds;
+- critical when the ready backlog reaches 500 events or the oldest ready event reaches 300 seconds;
+- any terminal projection failure or dead letter is critical;
+- an expired processing lease is warning immediately and critical once it is at least 30 seconds overdue;
+- any retryable failure is warning until it converges.
+
+The worker emits `MENTOR_PROFILE_BACKLOG` for warning state and `MENTOR_PROFILE_PROJECTION_STALLED` for critical state through the existing platform alert path. That path currently provides structured logging and best-effort webhook delivery; it must not be described as durable incident delivery until the broader operational alerting program proves that property.
+
+A one-shot machine-readable probe is available from the production bundle:
+
+```bash
+npm run mentor:profiles:health
+```
+
+Exit codes are `0=healthy`, `1=warning`, `2=critical`, and `3=database authority/check failure`. The JSON output contains aggregate counts, reason codes, policy version and queue ages only.
+
+Thresholds must be recalibrated from protected-staging measurements of event arrival rate, projection duration and recovery behavior before any SLA, error-budget or production reliability commitment is made.
 
 Database reconciliation:
 
@@ -79,8 +101,9 @@ Before enabling the service on staging:
 1. exact release SHA is known;
 2. migration plan hash and migration ledger are green;
 3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
-4. service template dry-run passes `systemd-analyze verify`;
-5. the worker starts with zero terminal failures;
-6. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge.
+4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
+5. service template dry-run passes `systemd-analyze verify`;
+6. the worker starts with zero terminal failures;
+7. create one controlled Academy assessment and verify source mutation, outbox row, processed attempt and profile projection all converge.
 
 Production remains gated until the same evidence is repeated on the approved candidate SHA.
