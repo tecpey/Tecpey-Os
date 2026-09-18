@@ -10,26 +10,39 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type OperationalSignalSeverity = "warning" | "critical";
+export type OperationalSignalLifecycleV1 = "firing" | "resolved";
 export type OperationalSignalLifecycle = "firing" | "updated" | "resolved";
 export type OperationalSignalMeasurement = number | boolean | null;
 
-export type OperationalSignalEvidence = Readonly<{
-  schemaVersion: 1;
+type OperationalSignalCommon = Readonly<{
   signalId: string;
   signalType: string;
   component: string;
   sourceUnit: string;
   severity: OperationalSignalSeverity;
-  lifecycle: OperationalSignalLifecycle;
   occurredAt: string;
   dedupeWindowStart: string;
   dedupeWindowSeconds: number;
   incidentKey: string;
-  episodeId: string | null;
-  episodeSequence: number | null;
   reasonCodes: readonly string[];
   measurements: Readonly<Record<string, OperationalSignalMeasurement>>;
 }>;
+
+export type OperationalSignalEvidenceV1 = OperationalSignalCommon & Readonly<{
+  schemaVersion: 1;
+  lifecycle: OperationalSignalLifecycleV1;
+}>;
+
+export type OperationalSignalEvidenceV2 = OperationalSignalCommon & Readonly<{
+  schemaVersion: 2;
+  lifecycle: OperationalSignalLifecycle;
+  episodeId: string;
+  episodeSequence: number;
+}>;
+
+export type OperationalSignalEvidence =
+  | OperationalSignalEvidenceV1
+  | OperationalSignalEvidenceV2;
 
 export type OperationalSignalDeliveryAttempt = Readonly<{
   signalId: string;
@@ -186,76 +199,55 @@ function expectedIncidentKey(input: {
   });
 }
 
-function expectedSignalId(input: {
+function expectedLegacySignalId(input: {
   incidentKey: string;
-  lifecycle: OperationalSignalLifecycle;
+  lifecycle: OperationalSignalLifecycleV1;
   dedupeWindowStart: string;
   dedupeWindowSeconds: number;
-  episodeId: string | null;
-  episodeSequence: number | null;
 }): string {
-  const digest = input.episodeId === null
-    ? hashOperationalSignalEvidence({
-        authority: "tecpey-operational-signal-dedupe-v1",
-        incidentKey: input.incidentKey,
-        lifecycle: input.lifecycle,
-        dedupeWindowStart: input.dedupeWindowStart,
-        dedupeWindowSeconds: input.dedupeWindowSeconds,
-      })
-    : hashOperationalSignalEvidence({
-        authority: "tecpey-operational-signal-episode-v2",
-        episodeId: input.episodeId,
-        episodeSequence: input.episodeSequence,
-        incidentKey: input.incidentKey,
-        lifecycle: input.lifecycle,
-      });
+  const digest = hashOperationalSignalEvidence({
+    authority: "tecpey-operational-signal-dedupe-v1",
+    incidentKey: input.incidentKey,
+    lifecycle: input.lifecycle,
+    dedupeWindowStart: input.dedupeWindowStart,
+    dedupeWindowSeconds: input.dedupeWindowSeconds,
+  });
   return `ops:${digest.slice(0, 56)}`;
 }
 
-function normalizeEpisode(input: {
-  episodeId?: string | null;
-  episodeSequence?: number | null;
+function expectedEpisodeSignalId(input: {
+  episodeId: string;
+  episodeSequence: number;
+  incidentKey: string;
   lifecycle: OperationalSignalLifecycle;
-}): { episodeId: string | null; episodeSequence: number | null } {
-  const episodeId = input.episodeId ?? null;
-  const episodeSequence = input.episodeSequence ?? null;
-  if (episodeId === null && episodeSequence === null) {
-    if (input.lifecycle === "updated") {
-      throw new Error("operational_signal_episode_required");
-    }
-    return { episodeId: null, episodeSequence: null };
-  }
-  if (
-    typeof episodeId !== "string" ||
-    !UUID_RE.test(episodeId) ||
-    episodeSequence === null
-  ) {
-    throw new Error("operational_signal_episode_invalid");
-  }
-  return {
-    episodeId: episodeId.toLowerCase(),
-    episodeSequence: boundedInteger(
-      episodeSequence,
-      1,
-      1_000_000,
-      "operational_signal_episode_sequence_invalid",
-    ),
-  };
+}): string {
+  const digest = hashOperationalSignalEvidence({
+    authority: "tecpey-operational-signal-episode-v2",
+    episodeId: input.episodeId,
+    episodeSequence: input.episodeSequence,
+    incidentKey: input.incidentKey,
+    lifecycle: input.lifecycle,
+  });
+  return `ops:${digest.slice(0, 56)}`;
 }
 
-export function createOperationalSignalEvidence(input: {
+function normalizeEpisodeId(value: string): string {
+  if (typeof value !== "string" || !UUID_RE.test(value)) {
+    throw new Error("operational_signal_episode_invalid");
+  }
+  return value.toLowerCase();
+}
+
+function normalizeCommon(input: {
   signalType: string;
   component: string;
   sourceUnit: string;
   severity: OperationalSignalSeverity;
-  lifecycle?: OperationalSignalLifecycle;
-  episodeId?: string | null;
-  episodeSequence?: number | null;
   occurredAt: string;
-  dedupeWindowSeconds?: number;
+  dedupeWindowSeconds: number;
   reasonCodes: readonly string[];
-  measurements?: Readonly<Record<string, OperationalSignalMeasurement>>;
-}): OperationalSignalEvidence {
+  measurements: Readonly<Record<string, OperationalSignalMeasurement>>;
+}): Omit<OperationalSignalCommon, "signalId"> {
   const signalType = boundedToken(
     input.signalType,
     3,
@@ -282,22 +274,12 @@ export function createOperationalSignalEvidence(input: {
   if (input.severity !== "warning" && input.severity !== "critical") {
     throw new Error("operational_signal_severity_invalid");
   }
-  const lifecycle = input.lifecycle ?? "firing";
-  if (
-    lifecycle !== "firing" &&
-    lifecycle !== "updated" &&
-    lifecycle !== "resolved"
-  ) {
-    throw new Error("operational_signal_lifecycle_invalid");
-  }
-  const episode = normalizeEpisode({
-    episodeId: input.episodeId,
-    episodeSequence: input.episodeSequence,
-    lifecycle,
-  });
-  const occurredAt = iso(input.occurredAt, "operational_signal_occurred_at_invalid");
+  const occurredAt = iso(
+    input.occurredAt,
+    "operational_signal_occurred_at_invalid",
+  );
   const dedupeWindowSeconds = boundedInteger(
-    input.dedupeWindowSeconds ?? 3_600,
+    input.dedupeWindowSeconds,
     60,
     86_400,
     "operational_signal_dedupe_window_invalid",
@@ -308,7 +290,7 @@ export function createOperationalSignalEvidence(input: {
     Math.floor(occurredAtMs / windowMs) * windowMs,
   ).toISOString();
   const reasonCodes = normalizeReasonCodes(input.reasonCodes);
-  const measurements = normalizeMeasurements(input.measurements ?? {});
+  const measurements = normalizeMeasurements(input.measurements);
   const incidentKey = expectedIncidentKey({
     signalType,
     component,
@@ -316,65 +298,140 @@ export function createOperationalSignalEvidence(input: {
     severity: input.severity,
     reasonCodes,
   });
-  const signalId = expectedSignalId({
-    incidentKey,
-    lifecycle,
-    dedupeWindowStart,
-    dedupeWindowSeconds,
-    episodeId: episode.episodeId,
-    episodeSequence: episode.episodeSequence,
-  });
-  return Object.freeze({
-    schemaVersion: 1,
-    signalId,
+  return {
     signalType,
     component,
     sourceUnit,
     severity: input.severity,
-    lifecycle,
     occurredAt,
     dedupeWindowStart,
     dedupeWindowSeconds,
     incidentKey,
-    episodeId: episode.episodeId,
-    episodeSequence: episode.episodeSequence,
     reasonCodes: Object.freeze(reasonCodes),
     measurements: Object.freeze(measurements),
+  };
+}
+
+export function createOperationalSignalEvidence(input: {
+  signalType: string;
+  component: string;
+  sourceUnit: string;
+  severity: OperationalSignalSeverity;
+  lifecycle?: OperationalSignalLifecycleV1;
+  occurredAt: string;
+  dedupeWindowSeconds?: number;
+  reasonCodes: readonly string[];
+  measurements?: Readonly<Record<string, OperationalSignalMeasurement>>;
+}): OperationalSignalEvidenceV1 {
+  const lifecycle = input.lifecycle ?? "firing";
+  if (lifecycle !== "firing" && lifecycle !== "resolved") {
+    throw new Error("operational_signal_lifecycle_invalid");
+  }
+  const common = normalizeCommon({
+    ...input,
+    dedupeWindowSeconds: input.dedupeWindowSeconds ?? 3_600,
+    measurements: input.measurements ?? {},
+  });
+  const signalId = expectedLegacySignalId({
+    incidentKey: common.incidentKey,
+    lifecycle,
+    dedupeWindowStart: common.dedupeWindowStart,
+    dedupeWindowSeconds: common.dedupeWindowSeconds,
+  });
+  return Object.freeze({
+    schemaVersion: 1,
+    signalId,
+    ...common,
+    lifecycle,
+  });
+}
+
+export function createOperationalSignalEpisodeEvidence(input: {
+  signalType: string;
+  component: string;
+  sourceUnit: string;
+  severity: OperationalSignalSeverity;
+  lifecycle: OperationalSignalLifecycle;
+  episodeId: string;
+  episodeSequence: number;
+  occurredAt: string;
+  dedupeWindowSeconds?: number;
+  reasonCodes: readonly string[];
+  measurements?: Readonly<Record<string, OperationalSignalMeasurement>>;
+}): OperationalSignalEvidenceV2 {
+  if (
+    input.lifecycle !== "firing" &&
+    input.lifecycle !== "updated" &&
+    input.lifecycle !== "resolved"
+  ) {
+    throw new Error("operational_signal_lifecycle_invalid");
+  }
+  const episodeId = normalizeEpisodeId(input.episodeId);
+  const episodeSequence = boundedInteger(
+    input.episodeSequence,
+    1,
+    1_000_000,
+    "operational_signal_episode_sequence_invalid",
+  );
+  const common = normalizeCommon({
+    ...input,
+    dedupeWindowSeconds: input.dedupeWindowSeconds ?? 3_600,
+    measurements: input.measurements ?? {},
+  });
+  const signalId = expectedEpisodeSignalId({
+    episodeId,
+    episodeSequence,
+    incidentKey: common.incidentKey,
+    lifecycle: input.lifecycle,
+  });
+  return Object.freeze({
+    schemaVersion: 2,
+    signalId,
+    ...common,
+    lifecycle: input.lifecycle,
+    episodeId,
+    episodeSequence,
   });
 }
 
 export function validateOperationalSignalEvidence(
   raw: OperationalSignalEvidence,
 ): OperationalSignalEvidence {
-  if (!raw || raw.schemaVersion !== 1) {
+  if (!raw || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2)) {
     throw new Error("operational_signal_schema_invalid");
   }
-  const signalType = boundedToken(
-    raw.signalType,
-    3,
-    100,
-    "operational_signal_type_invalid",
-    true,
-  );
-  const component = boundedToken(
-    raw.component,
-    3,
-    100,
-    "operational_signal_component_invalid",
-    true,
-  );
-  const sourceUnit = boundedToken(
-    raw.sourceUnit,
-    3,
-    200,
-    "operational_signal_source_unit_invalid",
-  );
-  if (!sourceUnit.endsWith(".service")) {
-    throw new Error("operational_signal_source_unit_invalid");
+  if (raw.schemaVersion === 1) {
+    if (raw.lifecycle !== "firing" && raw.lifecycle !== "resolved") {
+      throw new Error("operational_signal_lifecycle_invalid");
+    }
+    const common = normalizeCommon({
+      ...raw,
+      dedupeWindowSeconds: raw.dedupeWindowSeconds,
+      measurements: raw.measurements,
+    });
+    if (raw.dedupeWindowStart !== common.dedupeWindowStart) {
+      throw new Error("operational_signal_window_start_invalid");
+    }
+    const signalId = expectedLegacySignalId({
+      incidentKey: common.incidentKey,
+      lifecycle: raw.lifecycle,
+      dedupeWindowStart: common.dedupeWindowStart,
+      dedupeWindowSeconds: common.dedupeWindowSeconds,
+    });
+    if (
+      raw.signalId !== signalId ||
+      raw.incidentKey !== common.incidentKey
+    ) {
+      throw new Error("operational_signal_identity_invalid");
+    }
+    return Object.freeze({
+      schemaVersion: 1,
+      signalId,
+      ...common,
+      lifecycle: raw.lifecycle,
+    });
   }
-  if (raw.severity !== "warning" && raw.severity !== "critical") {
-    throw new Error("operational_signal_severity_invalid");
-  }
+
   if (
     raw.lifecycle !== "firing" &&
     raw.lifecycle !== "updated" &&
@@ -382,67 +439,40 @@ export function validateOperationalSignalEvidence(
   ) {
     throw new Error("operational_signal_lifecycle_invalid");
   }
-  const episode = normalizeEpisode({
-    episodeId: raw.episodeId,
-    episodeSequence: raw.episodeSequence,
+  const episodeId = normalizeEpisodeId(raw.episodeId);
+  const episodeSequence = boundedInteger(
+    raw.episodeSequence,
+    1,
+    1_000_000,
+    "operational_signal_episode_sequence_invalid",
+  );
+  const common = normalizeCommon({
+    ...raw,
+    dedupeWindowSeconds: raw.dedupeWindowSeconds,
+    measurements: raw.measurements,
+  });
+  if (raw.dedupeWindowStart !== common.dedupeWindowStart) {
+    throw new Error("operational_signal_window_start_invalid");
+  }
+  const signalId = expectedEpisodeSignalId({
+    episodeId,
+    episodeSequence,
+    incidentKey: common.incidentKey,
     lifecycle: raw.lifecycle,
   });
-  const occurredAt = iso(raw.occurredAt, "operational_signal_occurred_at_invalid");
-  const dedupeWindowStart = iso(
-    raw.dedupeWindowStart,
-    "operational_signal_window_start_invalid",
-  );
-  const dedupeWindowSeconds = boundedInteger(
-    raw.dedupeWindowSeconds,
-    60,
-    86_400,
-    "operational_signal_dedupe_window_invalid",
-  );
-  const windowStartMs = Date.parse(dedupeWindowStart);
-  const occurredAtMs = Date.parse(occurredAt);
-  const windowEndMs = windowStartMs + dedupeWindowSeconds * 1_000;
-  if (occurredAtMs < windowStartMs || occurredAtMs >= windowEndMs) {
-    throw new Error("operational_signal_occurred_outside_window");
-  }
-  const reasonCodes = normalizeReasonCodes(raw.reasonCodes);
-  const measurements = normalizeMeasurements(raw.measurements);
-  const incidentKey = expectedIncidentKey({
-    signalType,
-    component,
-    sourceUnit,
-    severity: raw.severity,
-    reasonCodes,
-  });
-  if (!HASH_RE.test(raw.incidentKey) || raw.incidentKey !== incidentKey) {
-    throw new Error("operational_signal_incident_key_invalid");
-  }
-  const signalId = expectedSignalId({
-    incidentKey,
-    lifecycle: raw.lifecycle,
-    dedupeWindowStart,
-    dedupeWindowSeconds,
-    episodeId: episode.episodeId,
-    episodeSequence: episode.episodeSequence,
-  });
-  if (raw.signalId !== signalId) {
+  if (
+    raw.signalId !== signalId ||
+    raw.incidentKey !== common.incidentKey
+  ) {
     throw new Error("operational_signal_identity_invalid");
   }
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     signalId,
-    signalType,
-    component,
-    sourceUnit,
-    severity: raw.severity,
+    ...common,
     lifecycle: raw.lifecycle,
-    occurredAt,
-    dedupeWindowStart,
-    dedupeWindowSeconds,
-    incidentKey,
-    episodeId: episode.episodeId,
-    episodeSequence: episode.episodeSequence,
-    reasonCodes: Object.freeze(reasonCodes),
-    measurements: Object.freeze(measurements),
+    episodeId,
+    episodeSequence,
   });
 }
 
@@ -450,6 +480,9 @@ function sameIdentity(
   row: SignalIdentityRow,
   signal: OperationalSignalEvidence,
 ): boolean {
+  const episodeId = signal.schemaVersion === 2 ? signal.episodeId : null;
+  const episodeSequence =
+    signal.schemaVersion === 2 ? signal.episodeSequence : null;
   return (
     row.signal_type === signal.signalType &&
     row.component === signal.component &&
@@ -458,10 +491,10 @@ function sameIdentity(
     row.dedupe_window_start.toISOString() === signal.dedupeWindowStart &&
     row.dedupe_window_seconds === signal.dedupeWindowSeconds &&
     row.incident_key === signal.incidentKey &&
-    row.episode_id === signal.episodeId &&
+    row.episode_id === episodeId &&
     (row.episode_sequence === null
-      ? signal.episodeSequence === null
-      : Number(row.episode_sequence) === signal.episodeSequence)
+      ? episodeSequence === null
+      : Number(row.episode_sequence) === episodeSequence)
   );
 }
 
@@ -494,8 +527,8 @@ export async function persistOperationalSignalTx(
       signal.dedupeWindowStart,
       signal.dedupeWindowSeconds,
       signal.incidentKey,
-      signal.episodeId,
-      signal.episodeSequence,
+      signal.schemaVersion === 2 ? signal.episodeId : null,
+      signal.schemaVersion === 2 ? signal.episodeSequence : null,
       payloadHash,
       JSON.stringify(signal),
     ],
@@ -520,6 +553,9 @@ export async function persistOperationalSignalTx(
   }
   if (!HASH_RE.test(row.payload_hash)) {
     throw new Error("operational_signal_stored_payload_hash_invalid");
+  }
+  if (signal.schemaVersion === 2 && row.payload_hash !== payloadHash) {
+    throw new Error("operational_signal_payload_identity_conflict");
   }
   return { replayed: true, payloadHash: row.payload_hash };
 }
