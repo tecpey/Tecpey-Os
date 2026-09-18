@@ -520,10 +520,14 @@ describe("AI Mentor trust boundary", () => {
       {
         metric: "next_item_correctness",
         baselineMeasured: true,
+        candidateValue: 0.76,
+        baselineValue: 0.71,
       },
       {
         metric: "response_latency",
         baselineMeasured: true,
+        candidateValue: 1_850,
+        baselineValue: 1_920,
       },
     ]);
     assert.deepEqual(complete, { pass: true, blockers: [] });
