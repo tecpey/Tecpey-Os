@@ -34,11 +34,6 @@ require_absolute_path() {
   [[ "$value" != *$'\n'* && "$value" != *$'\r'* && "$value" != *$'\t'* && "$value" != *' '* ]] || fail "$code"
 }
 
-read_env_value() {
-  local name="$1"
-  sed -n -E "s/^[[:space:]]*${name}=([^[:space:]]+)[[:space:]]*$/\\1/p" "$ENV_FILE" | tail -n 1
-}
-
 require_safe_token "$RUN_USER" "runtime_user_invalid"
 require_safe_token "$RUN_GROUP" "runtime_group_invalid"
 [[ "$RUN_USER" != "root" ]] || fail "runtime_user_root_forbidden"
@@ -65,17 +60,6 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 [[ -x "$NPM_BIN" ]] || fail "npm_binary_missing"
 [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || fail "environment_file_unsafe"
 
-grep -Eq '^DATABASE_URL=[^[:space:]]+' "$ENV_FILE" || fail "database_url_missing"
-if grep -Eq '^DATABASE_URL=.*(CHANGE_ME|example\.invalid)' "$ENV_FILE"; then
-  fail "database_url_placeholder"
-fi
-
-ALERT_WEBHOOK_VALUE="$(read_env_value TECPEY_OPS_ALERT_WEBHOOK_URL)"
-[[ "$ALERT_WEBHOOK_VALUE" == https://* ]] || fail "ops_alert_https_webhook_missing"
-if [[ "$ALERT_WEBHOOK_VALUE" == *CHANGE_ME* || "$ALERT_WEBHOOK_VALUE" == *example.invalid* || "$ALERT_WEBHOOK_VALUE" == *localhost* ]]; then
-  fail "ops_alert_webhook_placeholder_forbidden"
-fi
-
 id "$RUN_USER" >/dev/null 2>&1 || fail "runtime_user_missing"
 getent group "$RUN_GROUP" >/dev/null 2>&1 || fail "runtime_group_missing"
 command -v systemd-analyze >/dev/null 2>&1 || fail "systemd_analyze_missing"
@@ -92,6 +76,10 @@ ENV_GROUP_DIGIT="${ENV_LAST3:1:1}"
 ENV_OTHER_DIGIT="${ENV_LAST3:2:1}"
 (( ENV_OTHER_DIGIT == 0 )) || fail "environment_file_world_access_forbidden"
 (( (ENV_GROUP_DIGIT & 3) == 0 )) || fail "environment_file_group_write_execute_forbidden"
+
+TECPEY_INSTALL_ENV_FILE="$ENV_FILE" \
+  "$NPM_BIN" run --silent ops:installer:env-check >/dev/null \
+  || fail "operational_install_environment_invalid"
 
 TMP_DIR="$(mktemp -d)"
 cleanup() {
