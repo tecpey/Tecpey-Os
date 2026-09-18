@@ -171,6 +171,9 @@ async function runCriticalProbe(input: {
     || summary.retryable !== 0
     || summary.quarantined !== 0
     || summary.skippedUntilLater !== 0
+    || summary.deferredDueToBatchLimit !== 0
+    || summary.recoveredDeliveredArchives !== 0
+    || summary.recoveredQuarantinedArchives !== 0
   ) {
     throw new Error("incident_probe_delivery_invalid");
   }
