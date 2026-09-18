@@ -45,16 +45,18 @@ async function enqueueAuthorityFailure(
   );
 }
 
+async function loadSnapshot() {
+  return withTx((client) =>
+    loadMentorProfileHealthSnapshot(client),
+  );
+}
+
 async function main(): Promise<void> {
   const observedAt = new Date().toISOString();
-  let snapshot: Awaited<
-    ReturnType<typeof withTx<typeof loadMentorProfileHealthSnapshot>>
-  >;
+  let snapshot: Awaited<ReturnType<typeof loadSnapshot>>;
 
   try {
-    snapshot = await withTx((client) =>
-      loadMentorProfileHealthSnapshot(client),
-    );
+    snapshot = await loadSnapshot();
   } catch {
     await enqueueAuthorityFailure(
       "mentor_profile_health_probe_failed",
