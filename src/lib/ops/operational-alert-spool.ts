@@ -398,7 +398,10 @@ export async function enqueueOperationalAlert(
       lastErrorCode: null,
     },
   };
-  await atomicWriteJson(filePath, item);
+  const created = await atomicCreateJson(filePath, item);
+  if (!created) {
+    return enqueueOperationalAlert(stateDirectory, alert);
+  }
   return { replayed: false, filePath };
 }
 
@@ -437,7 +440,10 @@ export async function enqueueOperationalSignal(
       lastErrorCode: null,
     },
   };
-  await atomicWriteJson(filePath, item);
+  const created = await atomicCreateJson(filePath, item);
+  if (!created) {
+    return enqueueOperationalSignal(stateDirectory, signal);
+  }
   return { replayed: false, filePath };
 }
 
@@ -474,6 +480,7 @@ function retryDelayMs(
 }
 
 async function moveFile(source: string, destinationDirectory: string): Promise<void> {
+  const sourceDirectory = path.dirname(source);
   const destination = path.join(destinationDirectory, path.basename(source));
   const existing = await lstat(destination).catch(() => null);
   if (existing) {
@@ -481,6 +488,10 @@ async function moveFile(source: string, destinationDirectory: string): Promise<v
   }
   await rename(source, destination);
   await chmod(destination, 0o600);
+  await syncDirectory(destinationDirectory);
+  if (sourceDirectory !== destinationDirectory) {
+    await syncDirectory(sourceDirectory);
+  }
 }
 
 async function bestEffortPersistAlert(alert: OperationalAlertEvidence): Promise<void> {
