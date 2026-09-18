@@ -431,6 +431,13 @@ export async function processMentorProfileUpdateClaimTx(
     throw new Error("mentor_profile_outbox_lease_lost");
   }
 
+  await client.query(
+    `SELECT pg_advisory_xact_lock(
+       hashtext('mentor_profile_projection'),
+       hashtext($1)
+     )`,
+    [row.student_id],
+  );
   const update = await computeMentorProfileForStudentTx(client, row.student_id);
   await upsertMentorProfileUpdateTx(client, row.student_id, update);
   const resultHash = sha256({
