@@ -18,6 +18,10 @@ for (const needle of [
   "criticalBacklogDepth",
   "criticalLeaseOverdueSeconds",
   "mentor_profile_update_dead_letters",
+  "unresolved_terminal_failures",
+  "unresolved_dead_letters",
+  "recovered.event_sequence > terminal.event_sequence",
+  "recovered.status = 'processed'",
   "available_at <= NOW()",
   "lease_expires_at <= NOW()",
   "terminal_projection_failure",
@@ -29,7 +33,7 @@ for (const needle of [
 requirePattern(
   "health",
   health,
-  /mentorProfileHealthAlertMetadata[\s\S]*pending:[\s\S]*processing:[\s\S]*deadLetters:/,
+  /mentorProfileHealthAlertMetadata[\s\S]*pending:[\s\S]*processing:[\s\S]*unresolvedDeadLetters:/,
   "alert metadata must be aggregate operational evidence only",
 );
 for (const forbidden of ["studentId", "tenantId", "workspaceId", "conversation", "prompt"]) {
