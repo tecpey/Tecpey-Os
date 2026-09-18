@@ -80,3 +80,31 @@ test("duplicate or incomplete metric sets are rejected", () => {
     /mentor_eval_metric_set_invalid/,
   );
 });
+
+test("empty samples, wrong units and declared baselines without measurements are rejected", () => {
+  const empty = passingMetrics();
+  empty[0] = { ...empty[0]!, sampleCount: 0 };
+  assert.throws(
+    () => mentorEvalPromotionSummary(empty),
+    /mentor_eval_sample_count_invalid/,
+  );
+
+  const wrongUnit = passingMetrics();
+  wrongUnit[7] = { ...wrongUnit[7]!, unit: "ratio" };
+  assert.throws(
+    () => mentorEvalPromotionSummary(wrongUnit),
+    /mentor_eval_metric_unit_invalid/,
+  );
+
+  const missingMeasurement = passingMetrics();
+  missingMeasurement[6] = {
+    metric: "next_item_correctness",
+    baselineMeasured: true,
+    sampleCount: 120,
+    unit: "ratio",
+  };
+  assert.throws(
+    () => mentorEvalPromotionSummary(missingMeasurement),
+    /mentor_eval_baseline_measurement_missing/,
+  );
+});
