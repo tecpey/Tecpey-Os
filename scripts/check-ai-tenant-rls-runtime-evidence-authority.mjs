@@ -61,7 +61,7 @@ for (const marker of [
   "Verify detached digest and evidence policy",
   "actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661",
   "subject-path:",
-  "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+  "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f",
   "if-no-files-found: error",
 ]) {
   requireText("workflow", marker, `workflow is missing ${marker}`);
