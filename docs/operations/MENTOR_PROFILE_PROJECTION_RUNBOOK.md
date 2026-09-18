@@ -80,7 +80,7 @@ Exit codes are `0=healthy`, `1=warning`, `2=critical`, and `3=database authority
 
 ### Durable critical signal rail
 
-Critical Mentor health is persisted before delivery as a privacy-minimized operational signal. The signal contains only bounded reason codes plus numeric/boolean/null measurements; it does not contain tenant, workspace, learner, conversation, prompt, KYC or portfolio values.
+Critical Mentor health is persisted before delivery as a privacy-minimized operational signal. The signal contains only bounded reason codes plus numeric/boolean/null measurements; it does not contain tenant, workspace, learner, conversation, prompt, KYC or portfolio values. The signal library itself rejects user-scoped/high-cardinality segments in signal type, component, reason-code and measurement-key dimensions, plus long identifier-like digit/hex sequences; this is enforced at the authority boundary rather than left to caller convention.
 
 The independent probe writes to the protected state directory even during a PostgreSQL outage:
 
@@ -94,9 +94,9 @@ Lifecycle state is stored under `signals/conditions` using a write-ahead transit
 
 The signal spool is filesystem-first and does not require PostgreSQL to enqueue or deliver. PostgreSQL copies of signal and delivery-attempt evidence are best-effort mirrors for audit/recovery; the local spool/archive remains the outage-safe delivery authority when database persistence is unavailable.
 
-Delivery is performed by `tecpey-ops-alert-delivery.service` from the production bundle, not by `tsx`. Its preflight validates only the state directory, HTTPS webhook, bearer shape and bounded delivery settings; it deliberately does **not** depend on `DATABASE_URL` or Community Challenge configuration. The one-minute monotonic timer scans both the legacy job-alert spool and the new signal spool. Per-signal `nextAttemptAt` plus capped exponential backoff with deterministic jitter prevents that scan cadence from becoming a retry storm.
+Delivery is performed by `tecpey-ops-alert-delivery.service` from the production bundle, not by `tsx`. Its preflight validates only the state directory, HTTPS webhook, bearer shape and bounded delivery settings; it deliberately does **not** depend on `DATABASE_URL` or Community Challenge configuration. The one-minute monotonic timer scans both the legacy job-alert spool and the new signal spool. Per-signal `nextAttemptAt` plus capped exponential backoff with deterministic jitter prevents that scan cadence from becoming a retry storm. A valid webhook `Retry-After` hint can only delay the next attempt further; it never shortens the local jittered backoff, and the combined delay remains capped at one hour.
 
-Webhook requests use the stable signal ID as `Idempotency-Key`. HTTP 408/425/429 and 5xx are retryable; terminal HTTP responses are quarantined. No response body is persisted.
+Webhook requests use the stable signal ID as `Idempotency-Key`. HTTP 408/425/429 and 5xx are retryable; terminal HTTP responses are quarantined. No response body is persisted. A replay is accepted only when the immutable signal payload hash matches exactly. Reusing the same signal identity with changed occurrence, reason or measurement payload is a conflict in both the outage-safe filesystem authority and the PostgreSQL forensic mirror.
 
 Useful inspection commands:
 
