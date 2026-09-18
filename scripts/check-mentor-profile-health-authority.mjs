@@ -64,12 +64,28 @@ for (const needle of [
   requireText("reconciliation", reconciliation, needle, `repair integration missing: ${needle}`);
 }
 
+const recomputeIndex = reconciliation.indexOf("await applyMentorProfileUpdate");
+const resolutionIndex = reconciliation.indexOf(
+  "await resolveMentorProfileDeadLettersAfterRepair",
+);
+if (
+  recomputeIndex < 0 ||
+  resolutionIndex < 0 ||
+  recomputeIndex > resolutionIndex
+) {
+  failures.push(
+    "reconciliation: dead-letter resolution must occur only after successful current-state recompute",
+  );
+}
+
 const migration = await source("src/lib/db-migrate-mentor-profile-dead-letter-resolution.ts");
 for (const needle of [
   "0107_mentor_profile_dead_letter_resolution.sql",
   "mentor_profile_dead_letter_resolutions",
   "dead_letter_id UUID NOT NULL UNIQUE",
   "mentor_profile_dead_letter_resolution_scope_fk",
+  "student_fingerprint",
+  "mentor_profile_dead_letters_resolution_scope_key",
   "mentor_profile_dead_letter_resolutions is append-only",
 ]) {
   requireText("migration", migration, needle, `resolution migration invariant missing: ${needle}`);
