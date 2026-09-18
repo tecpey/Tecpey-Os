@@ -33,6 +33,7 @@ function signal(
     signalType: "mentor_profile_projection_health",
     component: "mentor_profile_projection",
     sourceUnit: "tecpey-mentor-profile-health.service",
+    instanceFingerprint: "111111111111111111111111",
     severity: "critical",
     lifecycle: "firing",
     occurredAt,
