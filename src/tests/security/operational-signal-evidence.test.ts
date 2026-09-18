@@ -96,6 +96,23 @@ test("resolved signal keeps the exact incident generation and fingerprint", () =
   assert.deepEqual(validateOperationalSignalEvidence(resolved), resolved);
 });
 
+test("resolved evidence cannot exist without explicit incident binding", () => {
+  assert.throws(
+    () =>
+      createOperationalSignalEvidence({
+        signalType: "mentor_profile_projection_health",
+        component: "mentor_profile_projection",
+        sourceUnit: "tecpey-mentor-profile-health.service",
+        severity: "critical",
+        lifecycle: "resolved",
+        occurredAt: "2026-09-18T12:20:00.000Z",
+        reasonCodes: ["condition_recovered"],
+        measurements: {},
+      }),
+    /operational_signal_resolution_binding_required/,
+  );
+});
+
 test("operational signal payload forbids free-text measurements and bad windows", () => {
   assert.throws(
     () =>
