@@ -94,6 +94,9 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.match(route, /const studentId = tenantContext\.principalId/);
     assert.doesNotMatch(route, /body\.studentId|body\.userId|body\.actorId/);
     assert.match(route, /contentHash: hashSensitiveAuditRequest\(message\.content\)/);
+    assert.match(route, /pg_advisory_xact_lock/);
+    assert.match(route, /ensureLegacyMentorThreadTx\(client/);
+    assert.match(route, /WHERE NOT EXISTS/);
     assert.match(route, /withTx\(async \(client\)/);
     assert.match(route, /actorId: studentId/);
     assert.match(metadata, /attemptedCount/);
