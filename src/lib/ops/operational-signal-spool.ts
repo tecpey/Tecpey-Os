@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import {
   chmod,
+  link,
   lstat,
   mkdir,
   open,
@@ -162,7 +163,7 @@ export async function ensureOperationalSignalSpoolDirectories(
   return managed;
 }
 
-async function atomicWriteJson(filePath: string, value: unknown): Promise<void> {
+async function atomicReplaceJson(filePath: string, value: unknown): Promise<void> {
   const parent = path.dirname(filePath);
   const stat = await lstat(parent);
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
@@ -195,6 +196,53 @@ async function atomicWriteJson(filePath: string, value: unknown): Promise<void> 
     await chmod(filePath, 0o600);
   } catch (error) {
     await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
+async function atomicCreateJson(
+  filePath: string,
+  value: unknown,
+): Promise<"created" | "exists"> {
+  const parent = path.dirname(filePath);
+  const stat = await lstat(parent);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new Error("operational_signal_spool_parent_unsafe");
+  }
+  const content = `${JSON.stringify(value)}\n`;
+  if (Buffer.byteLength(content) > MAX_FILE_BYTES) {
+    throw new Error("operational_signal_spool_payload_too_large");
+  }
+  const temporary = path.join(
+    parent,
+    `.${path.basename(filePath)}.${process.pid}.${createHash("sha256")
+      .update(`${filePath}:create:${Date.now()}:${process.hrtime.bigint()}`)
+      .digest("hex")
+      .slice(0, 12)}.tmp`,
+  );
+  const handle = await open(temporary, "wx", 0o600);
+  try {
+    await handle.writeFile(content, { encoding: "utf8" });
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+
+  try {
+    await link(temporary, filePath);
+    await chmod(filePath, 0o600);
+    await rm(temporary, { force: true });
+    return "created";
+  } catch (error) {
+    await rm(temporary, { force: true });
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "EEXIST"
+    ) {
+      return "exists";
+    }
     throw error;
   }
 }
@@ -303,8 +351,27 @@ export async function enqueueOperationalSignal(
       lastErrorCode: null,
     }),
   });
-  await atomicWriteJson(filePath, item);
-  return { replayed: false, filePath };
+  const created = await atomicCreateJson(filePath, item);
+  if (created === "created") {
+    return { replayed: false, filePath };
+  }
+
+  let raced: OperationalSignalSpoolItem;
+  try {
+    raced = validateSpoolItem(await safeReadJson(filePath));
+  } catch {
+    throw new Error("operational_signal_spool_archive_corrupt");
+  }
+  if (
+    raced.signal.signalId !== signal.signalId ||
+    raced.signal.incidentKey !== signal.incidentKey ||
+    raced.signal.lifecycle !== signal.lifecycle ||
+    raced.signal.dedupeWindowStart !== signal.dedupeWindowStart ||
+    raced.signal.dedupeWindowSeconds !== signal.dedupeWindowSeconds
+  ) {
+    throw new Error("operational_signal_spool_identity_conflict");
+  }
+  return { replayed: true, filePath };
 }
 
 export function operationalSignalRetryDelayMs(
@@ -540,7 +607,7 @@ export async function deliverOperationalSignals(
         lastErrorCode: errorCode,
       }),
     });
-    await atomicWriteJson(filePath, updated);
+    await atomicReplaceJson(filePath, updated);
     summary.retryable += 1;
   }
 
