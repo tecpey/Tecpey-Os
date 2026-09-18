@@ -69,7 +69,7 @@ async function fixture() {
       "fi",
       "exit 0",
       "",
-    ].join("\\n"),
+    ].join("\n"),
   );
   await executable(path.join(bin, "id"));
   await executable(path.join(bin, "getent"));
@@ -158,7 +158,7 @@ describe("Mentor profile operational installer", () => {
         "TECPEY_OPS_ALERT_WEBHOOK_URL=\"https://alerts.tecpey.test/hooks/ops\"",
         "LIMOO_SMS_OTP_COPY=\'تک‌پی؛ رمز ورود شما: {0}\'",
         "",
-      ].join("\\n"),
+      ].join("\n"),
       { mode: 0o640 },
     );
     const accepted = runInstall(setup);
