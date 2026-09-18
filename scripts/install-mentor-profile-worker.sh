@@ -34,7 +34,10 @@ require_absolute_path "$NPM_BIN" "npm_binary_invalid"
 [[ -d "$APP_DIR" && -f "$APP_DIR/package.json" ]] || fail "app_directory_missing"
 [[ -x "$NPM_BIN" ]] || fail "npm_binary_missing"
 [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || fail "environment_file_unsafe"
-grep -Eq '^DATABASE_URL=|^TECPEY_DATABASE_URL=' "$ENV_FILE" || fail "database_url_missing"
+grep -Eq '^DATABASE_URL=[^[:space:]]+' "$ENV_FILE" || fail "database_url_missing"
+if grep -Eq '^DATABASE_URL=.*CHANGE_ME' "$ENV_FILE"; then
+  fail "database_url_placeholder"
+fi
 id "$RUN_USER" >/dev/null 2>&1 || fail "runtime_user_missing"
 getent group "$RUN_GROUP" >/dev/null 2>&1 || fail "runtime_group_missing"
 command -v systemd-analyze >/dev/null 2>&1 || fail "systemd_analyze_missing"
