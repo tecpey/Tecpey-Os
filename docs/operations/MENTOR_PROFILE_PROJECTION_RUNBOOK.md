@@ -17,7 +17,7 @@ The worker requires the same production database environment as the web process.
 - `MENTOR_PROFILE_WORKER_CONCURRENCY`: 1–10, default 4.
 - `MENTOR_PROFILE_WORKER_LEASE_SECONDS`: 15–300 seconds, default 120.
 
-Install the hardened service only after the exact release has completed database migration `0105_mentor_profile_update_outbox.sql`.
+Install the hardened service only after the exact release has completed database migrations `0105_mentor_profile_update_outbox.sql` and `0107_mentor_profile_dead_letter_resolution.sql`.
 
 Example staging dry-run:
 
@@ -50,7 +50,7 @@ These are engineering starting targets for staging calibration, **not a customer
 
 - warning when the ready backlog reaches 50 events or the oldest ready event reaches 60 seconds;
 - critical when the ready backlog reaches 500 events or the oldest ready event reaches 300 seconds;
-- any terminal projection failure or dead letter is critical;
+- any **unresolved** terminal projection failure or dead letter is critical; resolved historical evidence remains queryable but does not permanently poison current health;
 - an expired processing lease is warning immediately and critical once it is at least 30 seconds overdue;
 - any retryable failure is warning until it converges.
 
@@ -92,16 +92,18 @@ Do not manually rewrite event identity fields, payload hashes, terminal evidence
 
 A worker crash leaves a lease. A later claim cycle automatically recovers expired leases. Retryable failures use bounded exponential backoff; after the configured maximum attempts they become terminal and an append-only dead-letter row is recorded.
 
-A terminal event is evidence that automatic projection did not converge. Repair the underlying authority first. Do not edit the dead letter. After the defect is fixed, use a separately reviewed replay/repair operation that creates a new authoritative source reference and reaches a successful projection.
+A terminal event is evidence that automatic projection did not converge. Repair the underlying authority first. Do not edit the dead letter.
 
-Operational health treats a terminal/dead-letter event as unresolved until a later event for the same student reaches `processed`. Because each successful projection reloads current PostgreSQL source-of-truth signals, that newer success is the recovery proof while the original terminal/dead-letter evidence remains immutable for forensics. A manual profile edit that bypasses this projection authority does not clear the incident.
+The governed full-current-state repair sweep recomputes the learner profile and then appends a row to `mentor_profile_dead_letter_resolutions` for dead letters that existed **before that repair began**. This anti-race boundary prevents a new terminal event created during the repair from being silently marked resolved. Resolution rows are append-only and the original dead-letter evidence remains immutable for forensics.
+
+A successful repair may therefore change current health from critical to healthy while `deadLettersTotal` remains non-zero. This is intentional: current unresolved incident state and historical failure evidence are different signals. A manual profile edit that bypasses the governed repair path does not clear an incident.
 
 ## Deployment gate
 
 Before enabling the service on staging:
 
 1. exact release SHA is known;
-2. migration plan hash and migration ledger are green;
+2. migration plan hash and migration ledger are green through canonical step 091;
 3. `npm run test:mentor-profile-outbox` is green against PostgreSQL 16;
 4. `npm run mentor:profiles:health` reports healthy on the migrated candidate before controlled ingestion;
 5. service template dry-run passes `systemd-analyze verify`;
