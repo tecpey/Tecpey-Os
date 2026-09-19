@@ -9,6 +9,7 @@ import {
   computeArenaPortfolioRiskTelemetry,
   computeArenaDrawdownRate,
   computeArenaMentorRiskSignals,
+  computeArenaMentorCapabilities,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
   type ArenaExecutionContext,
@@ -346,6 +347,42 @@ describe("authoritative Arena execution aggregate", () => {
       type: "refresh_market",
     }, context("operation-drawdown-refresh")));
     assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("withholds Mentor live-market and daily-PnL claims when their authorities are unavailable", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({ ...initial, dailyLoss: undefined }, "100000");
+    const capabilities = computeArenaMentorCapabilities(
+      buildArenaMentorRiskContext(legacy, "2026-07-19T00:00:10.000Z"),
+    );
+    assert.equal(capabilities.marketObservation, "unavailable");
+    assert.equal(capabilities.dailyPerformanceInterpretation, "withhold");
+    assert.equal(capabilities.mayReferenceLiveMarket, false);
+    assert.equal(capabilities.mayInterpretDailyPnl, false);
+    assert.deepEqual(capabilities.reasons, ["market-missing", "daily-accounting-incomplete"]);
+  });
+
+  it("allows authoritative Mentor interpretation only when market and accounting provenance are complete", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const context = buildArenaMentorRiskContext({ ...initial, lastMarket: MARKET }, "2026-07-19T00:00:10.000Z");
+    const capabilities = computeArenaMentorCapabilities(context);
+    assert.equal(capabilities.marketObservation, "authoritative");
+    assert.equal(capabilities.dailyPerformanceInterpretation, "authoritative");
+    assert.equal(capabilities.riskCoaching, "authoritative");
+    assert.equal(capabilities.mayReferenceLiveMarket, true);
+    assert.equal(capabilities.mayInterpretDailyPnl, true);
+    assert.deepEqual(capabilities.reasons, []);
+  });
+
+  it("degrades Mentor market coaching for stale or future observations", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const withMarket = { ...initial, lastMarket: MARKET };
+    for (const generatedAt of ["2026-07-19T00:00:16.000Z", "2026-07-18T23:59:54.000Z"]) {
+      const capabilities = computeArenaMentorCapabilities(buildArenaMentorRiskContext(withMarket, generatedAt));
+      assert.equal(capabilities.marketObservation, "degraded");
+      assert.equal(capabilities.riskCoaching, "degraded");
+      assert.equal(capabilities.mayReferenceLiveMarket, false);
+    }
   });
 
   it("classifies Mentor market provenance as fresh, stale or future without hiding its age", () => {
