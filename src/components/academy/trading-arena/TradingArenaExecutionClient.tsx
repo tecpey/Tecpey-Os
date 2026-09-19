@@ -212,14 +212,20 @@ function JournalModal({
 function TradeForm({
   snapshot,
   busy,
+  locale,
+  selectedAsset,
+  onSelectedAsset,
   onCommand,
 }: {
   snapshot: ArenaExecutionSnapshot;
   busy: boolean;
+  locale: "fa" | "en";
+  selectedAsset: ArenaExecutionAsset;
+  onSelectedAsset: (asset: ArenaExecutionAsset) => void;
   onCommand: (command: ArenaExecutionCommand) => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState<TradeDraft>({
-    asset: "BTC",
+    asset: selectedAsset,
     orderType: "market",
     quoteAmount: "",
     limitPrice: "",
@@ -333,7 +339,7 @@ function TradeForm({
             <button
               key={asset}
               type="button"
-              onClick={() => update("asset", asset)}
+              onClick={() => { update("asset", asset); onSelectedAsset(asset); }}
               disabled={busy}
               aria-pressed={draft.asset === asset}
               className={`rounded-2xl border px-3 py-3 text-sm font-black transition ${draft.asset === asset ? "border-cyan-300/40 bg-cyan-400/10 text-cyan-200" : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"} disabled:opacity-50`}
@@ -519,6 +525,7 @@ function ClosedTradeRow({ trade }: { trade: ArenaClosedTradeV2 }) {
 
 export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" | "en" }) {
   const isFa = locale === "fa";
+  const [selectedAsset, setSelectedAsset] = useState<ArenaExecutionAsset>("BTC");
   const [snapshot, setSnapshot] = useState<ArenaExecutionSnapshot | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -792,8 +799,8 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       </section>
 
       <ArenaMarketChart
-        asset="BTC"
-        livePrice={market?.prices.BTC ?? null}
+        asset={selectedAsset}
+        livePrice={market?.prices[selectedAsset] ?? null}
         locale={locale}
       />
 
@@ -801,7 +808,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       {notice && <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200" role="status"><CheckCircle2 className="h-4 w-4 shrink-0" />{notice}</div>}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1.35fr)]">
-        <TradeForm snapshot={snapshot} busy={busy} onCommand={sendCommand} />
+        <TradeForm snapshot={snapshot} busy={busy} locale={locale} selectedAsset={selectedAsset} onSelectedAsset={setSelectedAsset} onCommand={sendCommand} />
 
         <div className="space-y-6">
           <section aria-labelledby="arena-open-positions">
