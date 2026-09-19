@@ -642,7 +642,14 @@ export function prepareMentorEgress(input: {
   const arenaRiskContext = input.arenaRiskContext ?? null;
   const arenaCapabilities = arenaRiskContext
     ? computeArenaMentorCapabilities(arenaRiskContext)
-    : null;
+    : {
+        marketObservation: "unavailable" as const,
+        dailyPerformanceInterpretation: "withhold" as const,
+        riskCoaching: "degraded" as const,
+        mayReferenceLiveMarket: false,
+        mayInterpretDailyPnl: false,
+        reasons: ["market-missing", "daily-accounting-incomplete"] as const,
+      };
   const safeArenaContext = arenaRiskContext
     ? {
         generatedAt: arenaRiskContext.generatedAt,
@@ -663,6 +670,7 @@ export function prepareMentorEgress(input: {
       clientHistoryIgnored: Boolean(input.clientHistoryPresent),
       behavioralPersonalizationEnabled: Boolean(behavioral),
       arenaRiskContextIsServerAuthority: Boolean(safeArenaContext),
+      arenaCapabilitiesAreFailClosed: true,
     },
     userQuestion: inspection.providerText,
     interface: {
@@ -679,6 +687,7 @@ export function prepareMentorEgress(input: {
     serverContext,
     behavioralContext: behavioral,
     arenaRiskContext: safeArenaContext,
+    arenaCapabilities,
   };
 
   const instructions = [
