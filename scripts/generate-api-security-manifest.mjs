@@ -229,13 +229,11 @@ async function loadTestIndex() {
 
 function testReferences(route, sourcePath, tests) {
   const routeToken = route.replace(/^\/api\//, "");
-  const domain = routeToken.split("/")[0];
   return tests
     .filter((test) =>
       test.source.includes(route)
       || test.source.includes(sourcePath)
-      || test.path.includes(routeToken)
-      || (domain.length > 4 && test.path.split("/").includes(domain)),
+      || test.path.includes(routeToken),
     )
     .map((test) => test.path)
     .slice(0, 20);
