@@ -206,16 +206,20 @@ export function validateArenaExecutionStateV2(value: unknown): ArenaExecutionSta
     if (!new Decimal(equity).eq(expectedEquity)) invalid();
   }
 
+  const initialBalance = amount(row.initialBalance, true, false, 10);
+  const peakEquity = amount(row.peakEquity ?? row.initialBalance, true, false, 10);
+  if (new Decimal(peakEquity).lt(equity) || new Decimal(peakEquity).lt(initialBalance)) invalid();
+
   const createdAt = time(row.createdAt);
   const updatedAt = time(row.updatedAt);
   if (Date.parse(updatedAt) < Date.parse(createdAt)) invalid();
   return {
     version: 2,
-    initialBalance: amount(row.initialBalance, true, false, 10),
+    initialBalance,
     cashBalance, reservedBalance, equity, holdings, openPositions, pendingOrders, closedTrades,
     totalRealizedPnl: amount(row.totalRealizedPnl, false, true, 10),
     totalFeesPaid: amount(row.totalFeesPaid, false, false, 10),
     lastTradeAt: nullableTime(row.lastTradeAt), lastLossAt: nullableTime(row.lastLossAt),
-    lastMarket, createdAt, updatedAt,
+    lastMarket, createdAt, updatedAt, peakEquity,
   };
 }
