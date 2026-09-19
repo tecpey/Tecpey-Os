@@ -138,6 +138,7 @@
         },
         "domainOwner": "academy-profile-avatar",
         "testReferences": [
+          "src/tests/academy-profile-avatar-lifecycle.test.ts",
           "src/tests/content/profile-editor-contract.test.ts",
           "src/tests/security/tenant-scoped-route-guards.test.ts"
         ],
