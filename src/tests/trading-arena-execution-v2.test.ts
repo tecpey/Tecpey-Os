@@ -116,11 +116,12 @@ describe("authoritative Arena execution aggregate", () => {
         type: "market_buy",
         asset: "BTC",
         quoteAmount: "10000",
-        stopLoss: "52000",
+        stopLoss: "52150",
       }, { ...context(`operation-portfolio-risk-${index}`), slippageBps: "0" }));
       state = opened.state;
     }
     assert.ok(new Decimal(computeArenaPortfolioStopRisk(state)).gt("5900"));
+    assert.ok(new Decimal(computeArenaPortfolioStopRisk(state)).lte("6000"));
     const rejected = applyArenaExecutionActionV2(state, {
       type: "market_buy",
       asset: "ETH",
