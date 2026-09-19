@@ -212,6 +212,15 @@ export function validateArenaExecutionStateV2(value: unknown): ArenaExecutionSta
 
   const createdAt = time(row.createdAt);
   const updatedAt = time(row.updatedAt);
+  const dailyLossRow = row.dailyLoss === undefined ? null : object(row.dailyLoss);
+  const dailyLoss = dailyLossRow
+    ? {
+        day: typeof dailyLossRow.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dailyLossRow.day)
+          ? dailyLossRow.day
+          : invalid(),
+        realizedLoss: amount(dailyLossRow.realizedLoss, false, false, 10),
+      }
+    : { day: updatedAt.slice(0, 10), realizedLoss: "0.0000000000" };
   if (Date.parse(updatedAt) < Date.parse(createdAt)) invalid();
   return {
     version: 2,
@@ -220,6 +229,6 @@ export function validateArenaExecutionStateV2(value: unknown): ArenaExecutionSta
     totalRealizedPnl: amount(row.totalRealizedPnl, false, true, 10),
     totalFeesPaid: amount(row.totalFeesPaid, false, false, 10),
     lastTradeAt: nullableTime(row.lastTradeAt), lastLossAt: nullableTime(row.lastLossAt),
-    lastMarket, createdAt, updatedAt, peakEquity,
+    lastMarket, createdAt, updatedAt, peakEquity, dailyLoss,
   };
 }
