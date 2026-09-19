@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { describe, it } from "node:test";
 import type { MentorContext } from "../../lib/mentor-memory";
+import { buildArenaMentorRiskContext, createArenaExecutionStateV2 } from "../../lib/trading-arena-execution-v2";
 import {
   detectMentorSecrets,
   hasMentorAcuteSafetySignal,
@@ -176,6 +177,55 @@ describe("AI Mentor trust boundary", () => {
     );
     assert.equal(persian.injectionSignals.includes("ignore_policy"), true);
     assert.equal(persian.injectionSignals.includes("reveal_prompt"), true);
+  });
+
+  it("fails closed on Arena claims when no server Arena evidence is available", () => {
+    const prepared = egress("وضعیت معامله امروز من چطور است؟", null);
+    const parsed = JSON.parse(prepared.input) as {
+      trust: { arenaCapabilitiesAreFailClosed: boolean; arenaRiskContextIsServerAuthority: boolean };
+      arenaRiskContext: unknown;
+      arenaCapabilities: { mayReferenceLiveMarket: boolean; mayInterpretDailyPnl: boolean; reasons: string[] };
+    };
+    assert.equal(parsed.trust.arenaCapabilitiesAreFailClosed, true);
+    assert.equal(parsed.trust.arenaRiskContextIsServerAuthority, false);
+    assert.equal(parsed.arenaRiskContext, null);
+    assert.equal(parsed.arenaCapabilities.mayReferenceLiveMarket, false);
+    assert.equal(parsed.arenaCapabilities.mayInterpretDailyPnl, false);
+    assert.deepEqual(parsed.arenaCapabilities.reasons, ["market-missing", "daily-accounting-incomplete"]);
+  });
+
+  it("carries stale Arena evidence through trusted egress while withholding live-market authority", () => {
+    const state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const arenaRiskContext = buildArenaMentorRiskContext({
+      ...state,
+      lastMarket: {
+        prices: { BTC: "65000.0000000000", ETH: "3500.0000000000" },
+        source: "test_feed",
+        observedAt: "2026-07-19T00:00:00.000Z",
+      },
+    }, "2026-07-19T00:00:16.000Z");
+    const prepared = prepareMentorEgress({
+      question: "بازار الان و عملکرد امروز من چطور است؟",
+      locale: "fa",
+      curriculum: { termNumber: 6, termTitle: "مدیریت ریسک", knowledge: "محتوای آموزشی" },
+      mentorContext: null,
+      arenaRiskContext,
+      behavioralPersonalizationEnabled: false,
+      behavioralContext: null,
+    });
+    const parsed = JSON.parse(prepared.input) as {
+      trust: { arenaRiskContextIsServerAuthority: boolean };
+      arenaRiskContext: { market: { freshness: string; ageMs: number } };
+      arenaCapabilities: { marketObservation: string; mayReferenceLiveMarket: boolean; mayInterpretDailyPnl: boolean };
+    };
+    assert.equal(parsed.trust.arenaRiskContextIsServerAuthority, true);
+    assert.equal(parsed.arenaRiskContext.market.freshness, "stale");
+    assert.equal(parsed.arenaRiskContext.market.ageMs, 16000);
+    assert.equal(parsed.arenaCapabilities.marketObservation, "degraded");
+    assert.equal(parsed.arenaCapabilities.mayReferenceLiveMarket, false);
+    assert.equal(parsed.arenaCapabilities.mayInterpretDailyPnl, true);
+    assert.equal(prepared.contextClasses.includes("financial_sensitive"), true);
+    assert.match(prepared.instructions, /never describe market data as live unless mayReferenceLiveMarket is true/i);
   });
 
   it("egresses only sanitized human-verified knowledge as quoted reference data", () => {
