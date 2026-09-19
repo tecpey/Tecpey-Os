@@ -7,7 +7,7 @@ import {
   resolveSafeAcademyReturnPath,
 } from "../../lib/academy-profile-read-state";
 
-type TestProfile = { display_name?: string | null };
+type TestProfile = { id?: string | null; public_student_id?: string | null; display_name?: string | null };
 
 const okResponse = { ok: true } as Pick<Response, "ok">;
 const failedResponse = { ok: false } as Pick<Response, "ok">;
@@ -57,7 +57,7 @@ describe("Academy profile client authority state", () => {
     });
     const completeProfile = resolveAcademyProfileReadState<TestProfile>(okResponse, {
       authenticated: true,
-      profile: { display_name: "Learner" },
+      profile: { public_student_id: "TP-STD-TEST0001", display_name: "Learner" },
     });
     const unavailable = resolveAcademyProfileReadState<TestProfile>(
       failedResponse,
@@ -68,12 +68,17 @@ describe("Academy profile client authority state", () => {
     assert.equal(resolveAcademyPostAuthPath("en", noProfile), "/en/academy/onboarding");
     assert.equal(resolveAcademyPostAuthPath("fa", completeProfile), "/academy/profile");
     assert.equal(resolveAcademyPostAuthPath("en", unavailable), "/en/academy/profile");
+    const persistedWithoutDisplayName = resolveAcademyProfileReadState<TestProfile>(okResponse, {
+      authenticated: true,
+      profile: { public_student_id: "TP-STD-PERSIST1", display_name: null },
+    });
+    assert.equal(resolveAcademyPostAuthPath("fa", persistedWithoutDisplayName), "/academy/profile");
   });
 
   it("returns a completed profile only to a safe Academy destination", () => {
     const completeProfile = resolveAcademyProfileReadState<TestProfile>(okResponse, {
       authenticated: true,
-      profile: { display_name: "Learner" },
+      profile: { public_student_id: "TP-STD-TEST0001", display_name: "Learner" },
     });
     const noProfile = resolveAcademyProfileReadState<TestProfile>(okResponse, {
       authenticated: true,

@@ -3,8 +3,15 @@ import Decimal from "decimal.js";
 export const ARENA_EXECUTION_VERSION = 2 as const;
 export const ARENA_EXECUTION_FEE_RATE = "0.001";
 export const ARENA_EXECUTION_MIN_TRADE = "10";
-export const ARENA_EXECUTION_MAX_RISK_RATE = "0.20";
-export const ARENA_EXECUTION_WARNING_RISK_RATE = "0.05";
+export const ARENA_EXECUTION_MAX_ALLOCATION_RATE = "0.20";
+export const ARENA_EXECUTION_WARNING_ALLOCATION_RATE = "0.05";
+export const ARENA_EXECUTION_MAX_STOP_RISK_RATE = "0.02";
+export const ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE = "0.06";
+export const ARENA_EXECUTION_MAX_DRAWDOWN_RATE = "0.10";
+/** @deprecated Use ARENA_EXECUTION_MAX_ALLOCATION_RATE. */
+export const ARENA_EXECUTION_MAX_RISK_RATE = ARENA_EXECUTION_MAX_ALLOCATION_RATE;
+/** @deprecated Use ARENA_EXECUTION_WARNING_ALLOCATION_RATE. */
+export const ARENA_EXECUTION_WARNING_RISK_RATE = ARENA_EXECUTION_WARNING_ALLOCATION_RATE;
 export const ARENA_EXECUTION_MAX_OPEN_POSITIONS = 5;
 export const ARENA_EXECUTION_MAX_PENDING_ORDERS = 20;
 export const ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT = 5_000;
@@ -20,6 +27,42 @@ export type ArenaExecutionMentorFlag =
   | "good-discipline"
   | "proper-sizing"
   | "target-hit";
+
+export type ArenaMentorRiskSignalV2 = {
+  code: "drawdown-pressure" | "daily-accounting-incomplete" | "daily-net-loss" | "unprotected-exposure";
+  severity: "info" | "warning" | "critical";
+  evidence: Record<string, string | number | boolean>;
+};
+
+export type ArenaMentorRiskContextV2 = {
+  version: 2;
+  generatedAt: string;
+  market: { source: string; observedAt: string; ageMs: number; freshness: "fresh" | "stale" | "future" } | null;
+  accounting: {
+    day: string;
+    complete: boolean;
+    realizedPnl: string | null;
+    grossRealizedLoss: string | null;
+  };
+  portfolio: {
+    equity: string;
+    peakEquity: string;
+    drawdownRate: string;
+    definedStopRisk: string;
+    unboundedExposure: string;
+    fullyStopDefined: boolean;
+  };
+  signals: ArenaMentorRiskSignalV2[];
+};
+
+export type ArenaMentorCapabilityMatrixV2 = {
+  marketObservation: "authoritative" | "degraded" | "unavailable";
+  dailyPerformanceInterpretation: "authoritative" | "withhold";
+  riskCoaching: "authoritative" | "degraded";
+  mayReferenceLiveMarket: boolean;
+  mayInterpretDailyPnl: boolean;
+  reasons: Array<"market-missing" | "market-stale" | "market-future" | "daily-accounting-incomplete">;
+};
 
 export type ArenaPriceSnapshot = {
   prices: Record<ArenaExecutionAsset, string>;
@@ -71,6 +114,13 @@ export type ArenaClosedTradeV2 = {
   mentorFlags: ArenaExecutionMentorFlag[];
 };
 
+export type ArenaDailyLossAuthorityV2 = {
+  day: string;
+  realizedLoss: string;
+  realizedPnl: string;
+  complete: boolean;
+};
+
 export type ArenaExecutionStateV2 = {
   version: typeof ARENA_EXECUTION_VERSION;
   initialBalance: string;
@@ -88,6 +138,8 @@ export type ArenaExecutionStateV2 = {
   lastMarket: ArenaPriceSnapshot | null;
   createdAt: string;
   updatedAt: string;
+  peakEquity: string;
+  dailyLoss: ArenaDailyLossAuthorityV2;
 };
 
 export type ArenaExecutionActionV2 =
@@ -155,6 +207,25 @@ function nonNegative(value: unknown, places = MONEY_DP): string | null {
   return parsed.isFinite() && parsed.gte(0) ? fixed(parsed, places) : null;
 }
 
+function utcDay(value: string): string {
+  return value.slice(0, 10);
+}
+
+function normalizeDailyLossAuthority(value: unknown, fallbackDay: string): ArenaDailyLossAuthorityV2 {
+  if (!value || typeof value !== "object") return { day: fallbackDay, realizedLoss: fixed(0), realizedPnl: fixed(0), complete: false };
+  const raw = value as Partial<ArenaDailyLossAuthorityV2>;
+  const day = typeof raw.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.day) ? raw.day : fallbackDay;
+  const realizedLoss = nonNegative(raw.realizedLoss) ?? fixed(0);
+  const realizedPnl = typeof raw.realizedPnl === "string" && decimal(raw.realizedPnl).isFinite() ? fixed(decimal(raw.realizedPnl)) : fixed(0);
+  const complete = raw.complete === true && typeof raw.realizedPnl === "string";
+  return { day, realizedLoss, realizedPnl, complete };
+}
+
+function dailyLossForNow(state: ArenaExecutionStateV2, now: string): ArenaDailyLossAuthorityV2 {
+  const day = utcDay(now);
+  return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0), realizedPnl: fixed(0), complete: true };
+}
+
 function iso(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const time = Date.parse(value);
@@ -174,6 +245,86 @@ function normalizePriceSnapshot(value: unknown): ArenaPriceSnapshot | null {
   if (!BTC || !ETH || decimal(BTC).lte(0) || decimal(ETH).lte(0) || !observedAt) return null;
   if (typeof raw.source !== "string" || raw.source.length < 1 || raw.source.length > 120) return null;
   return { prices: { BTC, ETH }, source: raw.source, observedAt };
+}
+
+function stopDefinedCapitalRisk(input: {
+  quoteAmount: Decimal;
+  entryPrice: Decimal;
+  stopLoss: string | null;
+}): Decimal | null {
+  if (!input.stopLoss) return null;
+  const stop = decimal(input.stopLoss);
+  if (!stop.isFinite() || stop.lte(0) || stop.gte(input.entryPrice)) return null;
+  return input.quoteAmount.mul(input.entryPrice.minus(stop).div(input.entryPrice));
+}
+
+function exceedsStopDefinedRisk(input: {
+  quoteAmount: Decimal;
+  entryPrice: Decimal;
+  stopLoss: string | null;
+  equity: Decimal;
+}): boolean {
+  const capitalAtRisk = stopDefinedCapitalRisk(input);
+  if (!capitalAtRisk || input.equity.lte(0)) return false;
+  return capitalAtRisk.div(input.equity).gt(ARENA_EXECUTION_MAX_STOP_RISK_RATE);
+}
+
+function plannedStopRiskForPosition(position: ArenaOpenPositionV2): Decimal {
+  return stopDefinedCapitalRisk({
+    quoteAmount: decimal(position.quoteCommitted),
+    entryPrice: decimal(position.entryPrice),
+    stopLoss: position.stopLoss,
+  }) ?? decimal(0);
+}
+
+function plannedStopRiskForOrder(order: ArenaPendingOrderV2): Decimal {
+  return stopDefinedCapitalRisk({
+    quoteAmount: decimal(order.quoteReserved),
+    entryPrice: decimal(order.limitPrice),
+    stopLoss: order.stopLoss,
+  }) ?? decimal(0);
+}
+
+export type ArenaPortfolioRiskTelemetry = {
+  definedStopRisk: string;
+  unboundedExposure: string;
+  unprotectedPositions: number;
+  unprotectedPendingOrders: number;
+  fullyStopDefined: boolean;
+};
+
+export function computeArenaPortfolioRiskTelemetry(
+  state: Pick<ArenaExecutionStateV2, "openPositions" | "pendingOrders">,
+): ArenaPortfolioRiskTelemetry {
+  const unprotectedPositions = state.openPositions.filter((position) => !position.stopLoss);
+  const unprotectedPendingOrders = state.pendingOrders.filter((order) => !order.stopLoss);
+  return {
+    definedStopRisk: fixed(
+      sum(state.openPositions, plannedStopRiskForPosition)
+        .plus(sum(state.pendingOrders, plannedStopRiskForOrder)),
+    ),
+    unboundedExposure: fixed(
+      sum(unprotectedPositions, (position) => decimal(position.quoteCommitted))
+        .plus(sum(unprotectedPendingOrders, (order) => decimal(order.quoteReserved))),
+    ),
+    unprotectedPositions: unprotectedPositions.length,
+    unprotectedPendingOrders: unprotectedPendingOrders.length,
+    fullyStopDefined: unprotectedPositions.length === 0 && unprotectedPendingOrders.length === 0,
+  };
+}
+
+export function computeArenaPortfolioStopRisk(state: Pick<ArenaExecutionStateV2, "openPositions" | "pendingOrders">): string {
+  return computeArenaPortfolioRiskTelemetry(state).definedStopRisk;
+}
+
+function exceedsPortfolioStopRisk(input: {
+  state: ArenaExecutionStateV2;
+  candidateRisk: Decimal;
+  equity: Decimal;
+}): boolean {
+  if (input.equity.lte(0)) return true;
+  const aggregate = decimal(computeArenaPortfolioStopRisk(input.state)).plus(input.candidateRisk);
+  return aggregate.div(input.equity).gt(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
 }
 
 function mentorFlags(input: {
@@ -273,6 +424,8 @@ export function createArenaExecutionStateV2(
     lastMarket: null,
     createdAt: timestamp,
     updatedAt: timestamp,
+    peakEquity: normalized,
+    dailyLoss: { day: utcDay(timestamp), realizedLoss: fixed(0), realizedPnl: fixed(0), complete: true },
   };
 }
 
@@ -297,7 +450,8 @@ export function normalizeArenaExecutionStateV2(
   const totalFeesPaid = nonNegative(raw.totalFeesPaid);
   const createdAt = iso(raw.createdAt);
   const updatedAt = iso(raw.updatedAt);
-  if (!normalizedInitial || !cashBalance || totalRealizedPnl === null || !totalFeesPaid || !createdAt || !updatedAt) {
+  const peakEquity = nonNegative(raw.peakEquity ?? raw.initialBalance);
+  if (!normalizedInitial || !cashBalance || totalRealizedPnl === null || !totalFeesPaid || !createdAt || !updatedAt || !peakEquity) {
     throw new Error("arena_execution_state_invalid");
   }
 
@@ -365,9 +519,130 @@ export function normalizeArenaExecutionStateV2(
     lastMarket,
     createdAt,
     updatedAt,
+    peakEquity,
+    dailyLoss: normalizeDailyLossAuthority(raw.dailyLoss, utcDay(updatedAt)),
   };
   if (lastMarket) state.equity = computeArenaExecutionEquity(state, lastMarket);
+  if (decimal(state.equity).gt(state.peakEquity)) state.peakEquity = state.equity;
   return state;
+}
+
+function updatePeakEquity(state: ArenaExecutionStateV2): ArenaExecutionStateV2 {
+  if (decimal(state.equity).gt(state.peakEquity)) return { ...state, peakEquity: state.equity };
+  return state;
+}
+
+export function computeArenaDrawdownRate(state: Pick<ArenaExecutionStateV2, "equity" | "peakEquity">): string {
+  const peak = decimal(state.peakEquity);
+  if (peak.lte(0)) return "0.00000000";
+  const drawdown = Decimal.max(0, peak.minus(state.equity).div(peak));
+  return drawdown.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed(8);
+}
+
+function drawdownCircuitOpen(state: ArenaExecutionStateV2): boolean {
+  return decimal(computeArenaDrawdownRate(state)).gte(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
+}
+
+export function computeArenaMentorRiskSignals(state: ArenaExecutionStateV2): ArenaMentorRiskSignalV2[] {
+  const signals: ArenaMentorRiskSignalV2[] = [];
+  const drawdownRate = computeArenaDrawdownRate(state);
+  if (decimal(drawdownRate).gt(0)) {
+    signals.push({
+      code: "drawdown-pressure",
+      severity: decimal(drawdownRate).gte(ARENA_EXECUTION_MAX_DRAWDOWN_RATE) ? "critical" : "warning",
+      evidence: { drawdownRate, peakEquity: state.peakEquity, equity: state.equity },
+    });
+  }
+  if (!state.dailyLoss.complete) {
+    signals.push({
+      code: "daily-accounting-incomplete",
+      severity: "info",
+      evidence: { day: state.dailyLoss.day, complete: false },
+    });
+  } else if (decimal(state.dailyLoss.realizedPnl).lt(0)) {
+    signals.push({
+      code: "daily-net-loss",
+      severity: "warning",
+      evidence: {
+        day: state.dailyLoss.day,
+        realizedPnl: state.dailyLoss.realizedPnl,
+        grossRealizedLoss: state.dailyLoss.realizedLoss,
+      },
+    });
+  }
+  const risk = computeArenaPortfolioRiskTelemetry(state);
+  if (!risk.fullyStopDefined) {
+    signals.push({
+      code: "unprotected-exposure",
+      severity: "warning",
+      evidence: {
+        unboundedExposure: risk.unboundedExposure,
+        unprotectedPositions: risk.unprotectedPositions,
+        unprotectedPendingOrders: risk.unprotectedPendingOrders,
+      },
+    });
+  }
+  return signals;
+}
+
+export function buildArenaMentorRiskContext(
+  state: ArenaExecutionStateV2,
+  generatedAt: string,
+): ArenaMentorRiskContextV2 {
+  const at = iso(generatedAt);
+  if (!at) throw new Error("arena_mentor_context_time_invalid");
+  const risk = computeArenaPortfolioRiskTelemetry(state);
+  return {
+    version: 2,
+    generatedAt: at,
+    market: state.lastMarket
+      ? (() => {
+          const ageMs = Date.parse(at) - Date.parse(state.lastMarket.observedAt);
+          return {
+            source: state.lastMarket.source,
+            observedAt: state.lastMarket.observedAt,
+            ageMs,
+            freshness: ageMs < -5_000 ? "future" as const : ageMs > 15_000 ? "stale" as const : "fresh" as const,
+          };
+        })()
+      : null,
+    accounting: {
+      day: state.dailyLoss.day,
+      complete: state.dailyLoss.complete,
+      realizedPnl: state.dailyLoss.complete ? state.dailyLoss.realizedPnl : null,
+      grossRealizedLoss: state.dailyLoss.complete ? state.dailyLoss.realizedLoss : null,
+    },
+    portfolio: {
+      equity: state.equity,
+      peakEquity: state.peakEquity,
+      drawdownRate: computeArenaDrawdownRate(state),
+      definedStopRisk: risk.definedStopRisk,
+      unboundedExposure: risk.unboundedExposure,
+      fullyStopDefined: risk.fullyStopDefined,
+    },
+    signals: computeArenaMentorRiskSignals(state),
+  };
+}
+
+export function computeArenaMentorCapabilities(
+  context: ArenaMentorRiskContextV2,
+): ArenaMentorCapabilityMatrixV2 {
+  const reasons: ArenaMentorCapabilityMatrixV2["reasons"] = [];
+  if (!context.market) reasons.push("market-missing");
+  else if (context.market.freshness === "stale") reasons.push("market-stale");
+  else if (context.market.freshness === "future") reasons.push("market-future");
+  if (!context.accounting.complete) reasons.push("daily-accounting-incomplete");
+
+  const marketAuthoritative = context.market?.freshness === "fresh";
+  const dailyAuthoritative = context.accounting.complete;
+  return {
+    marketObservation: marketAuthoritative ? "authoritative" : context.market ? "degraded" : "unavailable",
+    dailyPerformanceInterpretation: dailyAuthoritative ? "authoritative" : "withhold",
+    riskCoaching: marketAuthoritative ? "authoritative" : "degraded",
+    mayReferenceLiveMarket: marketAuthoritative,
+    mayInterpretDailyPnl: dailyAuthoritative,
+    reasons,
+  };
 }
 
 function validateProtectivePrices(
@@ -470,6 +745,12 @@ function closeOnePosition(
   };
 
   const nextPositions = state.openPositions.filter((item) => item.id !== position.id);
+  const dailyLoss = dailyLossForNow(state, context.now);
+  const nextDailyLoss = {
+    ...dailyLoss,
+    realizedLoss: pnl.lt(0) ? fixed(decimal(dailyLoss.realizedLoss).plus(pnl.abs())) : dailyLoss.realizedLoss,
+    realizedPnl: fixed(decimal(dailyLoss.realizedPnl).plus(pnl)),
+  };
   const next: ArenaExecutionStateV2 = {
     ...state,
     cashBalance: fixed(decimal(state.cashBalance).plus(netProceeds)),
@@ -482,17 +763,23 @@ function closeOnePosition(
     lastMarket: context.market,
     updatedAt: context.now,
     holdings: computeHoldings(nextPositions),
+    dailyLoss: nextDailyLoss,
   };
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.equity = computeArenaExecutionEquity(next, context.market);
-  return { state: next, trade };
+  return { state: updatePeakEquity(next), trade };
 }
 
 function processMarket(
   state: ArenaExecutionStateV2,
   context: ArenaExecutionContext,
 ): { state: ArenaExecutionStateV2; filledOrderIds: string[]; closedTradeIds: string[] } {
-  let next: ArenaExecutionStateV2 = { ...state, lastMarket: context.market, updatedAt: context.now };
+  let next: ArenaExecutionStateV2 = {
+    ...state,
+    lastMarket: context.market,
+    updatedAt: context.now,
+    dailyLoss: dailyLossForNow(state, context.now),
+  };
   const filledOrderIds: string[] = [];
   const closedTradeIds: string[] = [];
 
@@ -548,7 +835,7 @@ function processMarket(
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.holdings = computeHoldings(next.openPositions);
   next.equity = computeArenaExecutionEquity(next, context.market);
-  return { state: next, filledOrderIds, closedTradeIds };
+  return { state: updatePeakEquity(next), filledOrderIds, closedTradeIds };
 }
 
 export function applyArenaExecutionActionV2(
@@ -588,7 +875,7 @@ export function applyArenaExecutionActionV2(
     const order = state.pendingOrders.find((item) => item.id === action.orderId);
     if (!order) return { ok: false, error: "arena_order_not_found" };
     const pendingOrders = state.pendingOrders.filter((item) => item.id !== order.id);
-    const next: ArenaExecutionStateV2 = {
+    let next: ArenaExecutionStateV2 = {
       ...state,
       cashBalance: fixed(decimal(state.cashBalance).plus(order.quoteReserved)),
       pendingOrders,
@@ -597,6 +884,7 @@ export function applyArenaExecutionActionV2(
       updatedAt: now,
     };
     next.equity = computeArenaExecutionEquity(next, market);
+    next = updatePeakEquity(next);
     return {
       ok: true,
       state: next,
@@ -623,13 +911,15 @@ export function applyArenaExecutionActionV2(
     };
   }
 
+  if (drawdownCircuitOpen(state)) return { ok: false, error: "arena_drawdown_circuit_open" };
+
   const quoteAmount = positive(action.quoteAmount);
   if (!quoteAmount || quoteAmount.lt(ARENA_EXECUTION_MIN_TRADE)) {
     return { ok: false, error: "arena_trade_below_minimum" };
   }
   if (quoteAmount.gt(state.cashBalance)) return { ok: false, error: "arena_insufficient_cash" };
   const currentEquity = decimal(computeArenaExecutionEquity(state, market));
-  if (currentEquity.lte(0) || quoteAmount.div(currentEquity).gt(ARENA_EXECUTION_MAX_RISK_RATE)) {
+  if (currentEquity.lte(0) || quoteAmount.div(currentEquity).gt(ARENA_EXECUTION_MAX_ALLOCATION_RATE)) {
     return { ok: false, error: "arena_risk_limit_exceeded" };
   }
 
@@ -641,6 +931,20 @@ export function applyArenaExecutionActionV2(
     if (!limitPrice) return { ok: false, error: "arena_limit_price_invalid" };
     const protection = validateProtectivePrices(limitPrice, action.stopLoss, action.takeProfit);
     if (!protection) return { ok: false, error: "arena_protective_price_invalid" };
+    if (exceedsStopDefinedRisk({
+      quoteAmount,
+      entryPrice: limitPrice,
+      stopLoss: protection.stopLoss,
+      equity: currentEquity,
+    })) return { ok: false, error: "arena_stop_risk_limit_exceeded" };
+    const candidateStopRisk = stopDefinedCapitalRisk({
+      quoteAmount,
+      entryPrice: limitPrice,
+      stopLoss: protection.stopLoss,
+    }) ?? decimal(0);
+    if (exceedsPortfolioStopRisk({ state, candidateRisk: candidateStopRisk, equity: currentEquity })) {
+      return { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" };
+    }
 
     const order: ArenaPendingOrderV2 = {
       id: `${safeContext.operationId}:order:1`,
@@ -695,6 +999,20 @@ export function applyArenaExecutionActionV2(
     id: `${safeContext.operationId}:position:1`,
   });
   if (!position) return { ok: false, error: "arena_protective_price_invalid" };
+  if (exceedsStopDefinedRisk({
+    quoteAmount,
+    entryPrice: fillPrice,
+    stopLoss: position.stopLoss,
+    equity: currentEquity,
+  })) return { ok: false, error: "arena_stop_risk_limit_exceeded" };
+  const candidateStopRisk = stopDefinedCapitalRisk({
+    quoteAmount,
+    entryPrice: fillPrice,
+    stopLoss: position.stopLoss,
+  }) ?? decimal(0);
+  if (exceedsPortfolioStopRisk({ state, candidateRisk: candidateStopRisk, equity: currentEquity })) {
+    return { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" };
+  }
 
   const openPositions = [...state.openPositions, position];
   const next: ArenaExecutionStateV2 = {
@@ -709,9 +1027,10 @@ export function applyArenaExecutionActionV2(
   };
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.equity = computeArenaExecutionEquity(next, market);
+  const finalized = updatePeakEquity(next);
   return {
     ok: true,
-    state: next,
+    state: finalized,
     eventType: "arena.market_position_opened",
     event: { position },
   };

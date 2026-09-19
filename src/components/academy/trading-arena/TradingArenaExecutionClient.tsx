@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArenaMarketChart } from "./ArenaMarketChart";
 import { resolveArenaAccessGate } from "@/lib/arena-access-state";
 import {
   AlertTriangle,
@@ -34,6 +35,10 @@ import {
 import {
   ARENA_EXECUTION_MAX_RISK_RATE,
   ARENA_EXECUTION_WARNING_RISK_RATE,
+  ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE,
+  ARENA_EXECUTION_MAX_DRAWDOWN_RATE,
+  computeArenaPortfolioRiskTelemetry,
+  computeArenaDrawdownRate,
   type ArenaClosedTradeV2,
   type ArenaExecutionAsset,
   type ArenaExecutionMentorFlag,
@@ -211,14 +216,21 @@ function JournalModal({
 function TradeForm({
   snapshot,
   busy,
+  locale,
+  selectedAsset,
+  onSelectedAsset,
   onCommand,
 }: {
   snapshot: ArenaExecutionSnapshot;
   busy: boolean;
+  locale: "fa" | "en";
+  selectedAsset: ArenaExecutionAsset;
+  onSelectedAsset: (asset: ArenaExecutionAsset) => void;
   onCommand: (command: ArenaExecutionCommand) => Promise<boolean>;
 }) {
+  const isFa = locale === "fa";
   const [draft, setDraft] = useState<TradeDraft>({
-    asset: "BTC",
+    asset: selectedAsset,
     orderType: "market",
     quoteAmount: "",
     limitPrice: "",
@@ -332,7 +344,7 @@ function TradeForm({
             <button
               key={asset}
               type="button"
-              onClick={() => update("asset", asset)}
+              onClick={() => { update("asset", asset); onSelectedAsset(asset); }}
               disabled={busy}
               aria-pressed={draft.asset === asset}
               className={`rounded-2xl border px-3 py-3 text-sm font-black transition ${draft.asset === asset ? "border-cyan-300/40 bg-cyan-400/10 text-cyan-200" : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"} disabled:opacity-50`}
@@ -428,7 +440,7 @@ function TradeForm({
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-600 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/10 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CircleDollarSign className="h-4 w-4" />}
-          {busy ? "در حال ثبت فرمان..." : "بررسی برنامه و ارسال به سرور"}
+          {busy ? (isFa ? "در حال ثبت فرمان..." : "Sending command...") : (isFa ? "بررسی برنامه و ارسال به سرور" : "Review plan and send to server")}
         </button>
       </section>
     </>
@@ -516,7 +528,9 @@ function ClosedTradeRow({ trade }: { trade: ArenaClosedTradeV2 }) {
   );
 }
 
-export function TradingArenaExecutionClient() {
+export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" | "en" }) {
+  const isFa = locale === "fa";
+  const [selectedAsset, setSelectedAsset] = useState<ArenaExecutionAsset>("BTC");
   const [snapshot, setSnapshot] = useState<ArenaExecutionSnapshot | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -603,7 +617,7 @@ export function TradingArenaExecutionClient() {
     const current = snapshotRef.current;
     if (!current) return false;
     if (commandLockRef.current) {
-      if (!options?.quiet) setError("آرنا در حال همگام‌سازی یک فرمان معتبر است؛ چند لحظه بعد دوباره ارسال کنید.");
+      if (!options?.quiet) setError(isFa ? "آرنا در حال همگام‌سازی یک فرمان معتبر است؛ چند لحظه بعد دوباره ارسال کنید." : "Arena is synchronizing an authoritative command. Try again in a moment.");
       return false;
     }
     const identityDecision = resolveArenaCommandIdentity({
@@ -614,7 +628,7 @@ export function TradingArenaExecutionClient() {
     });
     if (identityDecision.kind === "blocked") {
       if (!options?.quiet) {
-        setError("نتیجه فرمان قبلی هنوز قطعی نشده است. ابتدا همان فرمان با شناسه امن قبلی بازیابی می‌شود.");
+        setError(isFa ? "نتیجه فرمان قبلی هنوز قطعی نشده است. ابتدا همان فرمان با شناسه امن قبلی بازیابی می‌شود." : "The previous command is not final yet. Arena will first recover it with the same safe command identity.");
       }
       return false;
     }
@@ -675,7 +689,7 @@ export function TradingArenaExecutionClient() {
       commandLockRef.current = false;
       if (mountedRef.current && !options?.quiet) setBusyAction(null);
     }
-  }, [applySnapshot]);
+  }, [applySnapshot, isFa]);
 
   useEffect(() => {
     void loadSnapshot();
@@ -720,22 +734,22 @@ export function TradingArenaExecutionClient() {
   if ((loadState === "profile" || loadState === "login") && !snapshot) {
     const needsLogin = loadState === "login";
     return (
-      <div className="mx-auto max-w-xl rounded-[28px] border border-amber-300/25 bg-amber-400/10 p-8 text-center" dir="rtl">
+      <div className="mx-auto max-w-xl rounded-[28px] border border-amber-300/25 bg-amber-400/10 p-8 text-center" dir={isFa ? "rtl" : "ltr"}>
         <ShieldCheck className="mx-auto h-11 w-11 text-amber-200" />
-        <h1 className="mt-4 text-xl font-bold">{needsLogin ? "برای ادامه تمرین وارد شوید" : "پروفایل آموزشی را بررسی کنید"}</h1>
-        <p role="status" className="mt-3 text-sm leading-7 text-slate-300">{needsLogin ? "برای دسترسی به تمرین‌ها و سابقه خود، ورود به حساب آکادمی لازم است." : "برای اتصال آرنا به مسیر یادگیری، اطلاعات پروفایل را بررسی و ذخیره کنید."}</p>
-        <Link href={needsLogin ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/academy/onboarding"} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{needsLogin ? "ورود به آکادمی" : "بررسی پروفایل"}</Link>
+        <h1 className="mt-4 text-xl font-bold">{isFa ? (needsLogin ? "برای ادامه تمرین وارد شوید" : "پروفایل آموزشی را بررسی کنید") : (needsLogin ? "Sign in to continue practising" : "Review your Academy profile")}</h1>
+        <p role="status" className="mt-3 text-sm leading-7 text-slate-300">{isFa ? (needsLogin ? "برای دسترسی به تمرین‌ها و سابقه خود، ورود به حساب آکادمی لازم است." : "برای اتصال آرنا به مسیر یادگیری، اطلاعات پروفایل را بررسی و ذخیره کنید.") : (needsLogin ? "Sign in to your Academy account to access practice and history." : "Review and save your profile so Arena can connect to your learning journey.")}</p>
+        <Link href={needsLogin ? (isFa ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/en/academy/login?redirect=%2Fen%2Facademy%2Ftrading-arena") : (isFa ? "/academy/onboarding" : "/en/academy/onboarding")} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{isFa ? (needsLogin ? "ورود به آکادمی" : "بررسی پروفایل") : (needsLogin ? "Sign in to Academy" : "Review profile")}</Link>
       </div>
     );
   }
 
   if (!snapshot) {
     return (
-      <div className="mx-auto max-w-xl rounded-[28px] border border-white/10 bg-slate-900/70 p-8 text-center" dir="rtl">
+      <div className="mx-auto max-w-xl rounded-[28px] border border-white/10 bg-slate-900/70 p-8 text-center" dir={isFa ? "rtl" : "ltr"}>
         <AlertTriangle className="mx-auto h-10 w-10 text-amber-300" />
-        <h1 className="mt-4 text-xl font-black">آرنا در دسترس نیست</h1>
+        <h1 className="mt-4 text-xl font-black">{isFa ? "آرنا در دسترس نیست" : "Arena is unavailable"}</h1>
         <p className="mt-3 text-sm font-bold leading-7 text-slate-400">{error ?? arenaUiError("arena_execution_unavailable")}</p>
-        <button type="button" onClick={() => void loadSnapshot()} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white"><RefreshCw className="h-4 w-4" /> تلاش دوباره</button>
+        <button type="button" onClick={() => void loadSnapshot()} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white"><RefreshCw className="h-4 w-4" /> {isFa ? "تلاش دوباره" : "Try again"}</button>
       </div>
     );
   }
@@ -746,6 +760,20 @@ export function TradingArenaExecutionClient() {
   const initial = number(snapshot.state.initialBalance);
   const equityDelta = equity - initial;
   const equityRate = initial > 0 ? equityDelta / initial : 0;
+  const portfolioRiskTelemetry = computeArenaPortfolioRiskTelemetry(snapshot.state);
+  const portfolioStopRisk = number(portfolioRiskTelemetry.definedStopRisk);
+  const portfolioRiskRate = equity > 0 ? portfolioStopRisk / equity : 0;
+  const portfolioRiskLimit = number(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
+  const portfolioRiskRemaining = Math.max(0, portfolioRiskLimit - portfolioRiskRate);
+  const drawdownRate = number(computeArenaDrawdownRate(snapshot.state));
+  const drawdownLimit = number(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
+  const drawdownRemaining = Math.max(0, drawdownLimit - drawdownRate);
+  const drawdownCircuitOpen = drawdownRate >= drawdownLimit;
+  const dailyLoss = number(snapshot.state.dailyLoss.realizedLoss);
+  const dailyRealizedPnl = number(snapshot.state.dailyLoss.realizedPnl);
+  const dailyLossRate = initial > 0 ? dailyLoss / initial : 0;
+  const dailyLossComplete = snapshot.state.dailyLoss.complete;
+  const riskCircuitOpen = drawdownCircuitOpen;
   const recentFlags = [...new Set(snapshot.state.closedTrades.slice(0, 10).flatMap((trade) => trade.mentorFlags))];
   const busy = busyAction !== null;
 
@@ -764,7 +792,7 @@ export function TradingArenaExecutionClient() {
 
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <div className="flex items-center gap-2"><h1 className="text-2xl font-black sm:text-3xl">آرنای معاملاتی</h1><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-black text-emerald-300">SERVER V2</span></div>
+          <div className="flex items-center gap-2"><h1 className="text-2xl font-black sm:text-3xl">{isFa ? "آرنای معاملاتی" : "TecPey Trading Arena"}</h1><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-black text-emerald-300">SERVER V2</span></div>
           <p className="mt-1 text-sm font-bold text-slate-400">تمرین تصمیم‌گیری با سرمایه مجازی ۱۰۰٬۰۰۰ دلاری و سه فرصت کنترل‌شده</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -781,6 +809,24 @@ export function TradingArenaExecutionClient() {
         <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-300">نسخه معتبر</p><p className="mt-2 text-2xl font-black tabular-nums">r{snapshot.revision}</p><p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-300"><ServerCog className="h-3.5 w-3.5" /> PostgreSQL authority</p></div>
       </section>
 
+      <section className={`rounded-[24px] border p-5 ${riskCircuitOpen ? "border-red-400/30 bg-red-400/5" : "border-white/10 bg-slate-900/70"}`} aria-labelledby="arena-risk-telemetry">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="arena-risk-telemetry" className="text-xs font-black uppercase tracking-widest text-slate-300">{isFa ? "مرکز کنترل ریسک" : "Risk control center"}</h2>
+            <p className="mt-1 text-xs font-bold text-slate-400">{isFa ? "محاسبات از state معتبر سرور انجام می‌شوند." : "Metrics are derived from the authoritative server state."}</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${riskCircuitOpen ? "bg-red-400/10 text-red-200" : "bg-emerald-400/10 text-emerald-200"}`}>
+            {riskCircuitOpen ? (isFa ? "افزایش ریسک متوقف" : "Risk increase paused") : (isFa ? "در محدوده حفاظتی" : "Within guardrails")}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "اوج ارزش حساب" : "Peak equity"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(snapshot.state.peakEquity)}</p></div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "افت از اوج" : "Current drawdown"}</p><p className="mt-1 text-lg font-black tabular-nums">{percent(drawdownRate)}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? `تا توقف: ${percent(drawdownRemaining)}` : `To circuit: ${percent(drawdownRemaining)}`}</p></div>\n          <div className={`rounded-2xl border p-3 ${dailyLossComplete ? "border-white/10 bg-black/10" : "border-amber-400/30 bg-amber-400/5"}`}><p className="text-[11px] font-black text-slate-400">{isFa ? "زیان ناخالص تحقق‌یافته امروز (UTC)" : "Gross realized loss today (UTC)"}</p><p className="mt-1 text-lg font-black tabular-nums">{dailyLossComplete ? <>{usd(dailyLoss)} · {percent(dailyLossRate)}<span className="mt-1 block text-xs font-bold text-slate-400">{isFa ? `P&L خالص: ${signedUsd(dailyRealizedPnl)}` : `Net P&L: ${signedUsd(dailyRealizedPnl)}`}</span></> : (isFa ? "داده روزانه ناقص" : "Incomplete daily data")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{!dailyLossComplete ? (isFa ? "snapshot قدیمی است؛ صفر به‌عنوان زیان قطعی فرض نمی‌شود." : "Legacy snapshot: zero is not treated as authoritative loss data.") : (isFa ? "تلومتری آموزشی؛ هنوز هیچ سقف روزانه اجرایی برای آن تصویب نشده است." : "Training telemetry; no governed daily execution limit is active yet.")}</p></div>
+          <div className={`rounded-2xl border p-3 ${portfolioRiskTelemetry.fullyStopDefined ? "border-white/10 bg-black/10" : "border-amber-400/30 bg-amber-400/5"}`}><p className="text-[11px] font-black text-slate-400">{isFa ? "ریسک برنامه‌ریزی‌شده پرتفوی" : "Planned portfolio risk"}</p><p className="mt-1 text-lg font-black tabular-nums">{portfolioRiskTelemetry.fullyStopDefined ? `${usd(portfolioStopRisk)} · ${percent(portfolioRiskRate)}` : (isFa ? "نامحدود / تعریف‌نشده" : "Unbounded / undefined")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{portfolioRiskTelemetry.fullyStopDefined ? (isFa ? `ظرفیت باقی‌مانده: ${percent(portfolioRiskRemaining)}` : `Remaining budget: ${percent(portfolioRiskRemaining)}`) : (isFa ? `${portfolioRiskTelemetry.unprotectedPositions} موقعیت و ${portfolioRiskTelemetry.unprotectedPendingOrders} سفارش بدون حد ضرر · ${usd(portfolioRiskTelemetry.unboundedExposure)} اکسپوژر بدون حفاظت` : `${portfolioRiskTelemetry.unprotectedPositions} position(s) and ${portfolioRiskTelemetry.unprotectedPendingOrders} order(s) without a stop · ${usd(portfolioRiskTelemetry.unboundedExposure)} unprotected exposure`)}</p></div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "سقف‌های آموزشی" : "Training guardrails"}</p><p className="mt-1 text-sm font-black">{isFa ? `پرتفوی ${percent(portfolioRiskLimit)} · افت ${percent(drawdownLimit)}` : `Portfolio ${percent(portfolioRiskLimit)} · Drawdown ${percent(drawdownLimit)}`}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? "بستن موقعیت و لغو سفارش همیشه مجاز می‌ماند." : "Closing positions and cancelling orders remain available."}</p></div>
+        </div>
+      </section>
+
       <section className={`rounded-2xl border p-4 ${snapshot.marketStatus === "available" ? "border-cyan-300/15 bg-cyan-400/5" : "border-amber-400/25 bg-amber-400/5"}`} aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">{snapshot.marketStatus === "available" ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <WifiOff className="h-4 w-4 text-amber-300" />}<p className="text-xs font-black text-slate-300">{snapshot.marketStatus === "available" ? "قیمت معتبر سرور فعال است" : "قیمت معتبر سرور در دسترس نیست؛ فرمان‌های قیمت‌محور متوقف‌اند"}</p></div>
@@ -789,11 +835,17 @@ export function TradingArenaExecutionClient() {
         {market && <div className="mt-3 flex gap-4 text-sm font-black"><span>BTC {usd(market.prices.BTC)}</span><span>ETH {usd(market.prices.ETH)}</span></div>}
       </section>
 
+      <ArenaMarketChart
+        asset={selectedAsset}
+        livePrice={market?.prices[selectedAsset] ?? null}
+        locale={locale}
+      />
+
       {error && <div className="flex items-start gap-3 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm font-bold leading-7 text-red-200" role="alert"><AlertTriangle className="mt-1 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200" role="status"><CheckCircle2 className="h-4 w-4 shrink-0" />{notice}</div>}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1.35fr)]">
-        <TradeForm snapshot={snapshot} busy={busy} onCommand={sendCommand} />
+        <TradeForm snapshot={snapshot} busy={busy} locale={locale} selectedAsset={selectedAsset} onSelectedAsset={setSelectedAsset} onCommand={sendCommand} />
 
         <div className="space-y-6">
           <section aria-labelledby="arena-open-positions">

@@ -66,8 +66,8 @@ function contractFor(testInfo) {
             key: "arena",
             path: "/en/academy/trading-arena",
             requiresSession: true,
-            heading: /Learn the decision process before risking real capital/i,
-            cta: /Create Academy profile|Explore the Academy/i,
+            heading: /TecPey Trading Arena|Sign in to continue practising|Review your Academy profile|Arena is unavailable/i,
+            cta: /Create Academy profile|Explore the Academy|Review plan and send to server/i,
           },
           {
             key: "mentor",
@@ -135,6 +135,7 @@ function arenaSnapshot() {
     },
     createdAt: NOW,
     updatedAt: NOW,
+    peakEquity: "100000.0000000000",
   };
 
   return {
