@@ -5,6 +5,7 @@ import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
   computeArenaPortfolioStopRisk,
+  computeArenaDrawdownRate,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
   type ArenaExecutionContext,
@@ -264,6 +265,42 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.state.closedTrades[0]?.closureReason, "stop-loss");
     assert.ok(new Decimal(refreshed.state.totalRealizedPnl).lt(0));
     assert.equal(refreshed.state.lastLossAt, "2026-07-19T00:10:00.000Z");
+  });
+
+  it("tracks peak equity and opens a drawdown circuit without trapping risk-reducing actions", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const stressed = {
+      ...initial,
+      cashBalance: "89000.0000000000",
+      equity: "89000.0000000000",
+      peakEquity: "100000.0000000000",
+    };
+    assert.equal(computeArenaDrawdownRate(stressed), "0.11000000");
+
+    const blocked = applyArenaExecutionActionV2(stressed, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+    }, context("operation-drawdown-block"));
+    assert.deepEqual(blocked, { ok: false, error: "arena_drawdown_circuit_open" });
+
+    const refreshed = success(applyArenaExecutionActionV2(stressed, {
+      type: "refresh_market",
+    }, context("operation-drawdown-refresh")));
+    assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("never lowers peak equity after a later market drawdown", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "10000",
+      stopLoss: "60000",
+    }, context("operation-peak-open")));
+    assert.equal(opened.state.peakEquity, "100000.0000000000");
+    assert.ok(new Decimal(opened.state.equity).lt(opened.state.peakEquity));
+    assert.ok(new Decimal(computeArenaDrawdownRate(opened.state)).gt(0));
   });
 
   it("rejects legacy or malformed execution snapshots instead of silently resetting them", () => {
