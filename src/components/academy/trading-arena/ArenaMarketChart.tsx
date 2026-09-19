@@ -33,7 +33,6 @@ export function ArenaMarketChart({ asset, livePrice, locale = "fa" }: {
 
   useEffect(() => {
     const controller = new AbortController();
-    setState("loading");
     fetch(`/api/markets?source=arena-bars&asset=${asset}&resolution=${resolution}&countBack=240`, {
       cache: "no-store",
       signal: controller.signal,
