@@ -760,7 +760,8 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
   const initial = number(snapshot.state.initialBalance);
   const equityDelta = equity - initial;
   const equityRate = initial > 0 ? equityDelta / initial : 0;
-  const portfolioRiskTelemetry = computeArenaPortfolioRiskTelemetry(snapshot.state);\n  const portfolioStopRisk = number(portfolioRiskTelemetry.definedStopRisk);
+  const portfolioRiskTelemetry = computeArenaPortfolioRiskTelemetry(snapshot.state);
+  const portfolioStopRisk = number(portfolioRiskTelemetry.definedStopRisk);
   const portfolioRiskRate = equity > 0 ? portfolioStopRisk / equity : 0;
   const portfolioRiskLimit = number(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
   const portfolioRiskRemaining = Math.max(0, portfolioRiskLimit - portfolioRiskRate);
