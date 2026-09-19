@@ -81,6 +81,7 @@ export type ArenaClosedTradeV2 = {
 export type ArenaDailyLossAuthorityV2 = {
   day: string;
   realizedLoss: string;
+  realizedPnl: string;
   complete: boolean;
 };
 
@@ -175,17 +176,18 @@ function utcDay(value: string): string {
 }
 
 function normalizeDailyLossAuthority(value: unknown, fallbackDay: string): ArenaDailyLossAuthorityV2 {
-  if (!value || typeof value !== "object") return { day: fallbackDay, realizedLoss: fixed(0), complete: false };
+  if (!value || typeof value !== "object") return { day: fallbackDay, realizedLoss: fixed(0), realizedPnl: fixed(0), complete: false };
   const raw = value as Partial<ArenaDailyLossAuthorityV2>;
   const day = typeof raw.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.day) ? raw.day : fallbackDay;
   const realizedLoss = nonNegative(raw.realizedLoss) ?? fixed(0);
-  const complete = raw.complete === true;
-  return { day, realizedLoss, complete };
+  const realizedPnl = typeof raw.realizedPnl === "string" && decimal(raw.realizedPnl).isFinite() ? fixed(decimal(raw.realizedPnl)) : fixed(0);
+  const complete = raw.complete === true && typeof raw.realizedPnl === "string";
+  return { day, realizedLoss, realizedPnl, complete };
 }
 
 function dailyLossForNow(state: ArenaExecutionStateV2, now: string): ArenaDailyLossAuthorityV2 {
   const day = utcDay(now);
-  return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0), complete: true };
+  return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0), realizedPnl: fixed(0), complete: true };
 }
 
 function iso(value: unknown): string | null {
@@ -387,7 +389,7 @@ export function createArenaExecutionStateV2(
     createdAt: timestamp,
     updatedAt: timestamp,
     peakEquity: normalized,
-    dailyLoss: { day: utcDay(timestamp), realizedLoss: fixed(0), complete: true },
+    dailyLoss: { day: utcDay(timestamp), realizedLoss: fixed(0), realizedPnl: fixed(0), complete: true },
   };
 }
 
@@ -606,9 +608,11 @@ function closeOnePosition(
 
   const nextPositions = state.openPositions.filter((item) => item.id !== position.id);
   const dailyLoss = dailyLossForNow(state, context.now);
-  const nextDailyLoss = pnl.lt(0)
-    ? { ...dailyLoss, realizedLoss: fixed(decimal(dailyLoss.realizedLoss).plus(pnl.abs())) }
-    : dailyLoss;
+  const nextDailyLoss = {
+    ...dailyLoss,
+    realizedLoss: pnl.lt(0) ? fixed(decimal(dailyLoss.realizedLoss).plus(pnl.abs())) : dailyLoss.realizedLoss,
+    realizedPnl: fixed(decimal(dailyLoss.realizedPnl).plus(pnl)),
+  };
   const next: ArenaExecutionStateV2 = {
     ...state,
     cashBalance: fixed(decimal(state.cashBalance).plus(netProceeds)),
