@@ -13,20 +13,31 @@ type ArenaMentorRow = {
 
 export async function loadArenaMentorRiskContext(
   studentId: string,
+  tenantId: string,
+  workspaceId: string,
   generatedAt = new Date().toISOString(),
 ): Promise<ArenaMentorRiskContextV2 | null> {
   const result = await withDb(async (client) => {
     const query = await client.query<ArenaMentorRow>(
       `SELECT attempt.starting_balance::text, attempt.execution_state
-         FROM academy_trading_arena_accounts account
+         FROM platform_principals principal
+         JOIN platform_workspaces workspace
+           ON workspace.id = principal.workspace_id
+          AND workspace.tenant_id = principal.tenant_id
+         JOIN academy_trading_arena_accounts account
+           ON account.student_id = principal.principal_id
          JOIN academy_trading_arena_attempts attempt
            ON attempt.student_id = account.student_id
           AND attempt.cycle_id = account.cycle_id
-        WHERE account.student_id = $1::uuid
+        WHERE principal.principal_type = 'student'
+          AND principal.principal_id = $1::uuid
+          AND principal.tenant_id = $2::uuid
+          AND principal.workspace_id = $3::uuid
+          AND principal.status = 'active'
           AND attempt.status = 'active'
         ORDER BY attempt.attempt_number DESC
         LIMIT 1`,
-      [studentId],
+      [studentId, tenantId, workspaceId],
     );
     const row = query.rows[0];
     if (!row) return null;
