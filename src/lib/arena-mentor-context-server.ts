@@ -20,7 +20,7 @@ export async function loadArenaMentorRiskContext(
   const result = await withDb(async (client) => {
     const query = await client.query<ArenaMentorRow>(
       `SELECT attempt.starting_balance::text, attempt.execution_state
-         FROM platform_principals principal
+         FROM platform_principal_bindings principal
          JOIN platform_workspaces workspace
            ON workspace.id = principal.workspace_id
           AND workspace.tenant_id = principal.tenant_id
