@@ -721,22 +721,22 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
   if ((loadState === "profile" || loadState === "login") && !snapshot) {
     const needsLogin = loadState === "login";
     return (
-      <div className="mx-auto max-w-xl rounded-[28px] border border-amber-300/25 bg-amber-400/10 p-8 text-center" dir="rtl">
+      <div className="mx-auto max-w-xl rounded-[28px] border border-amber-300/25 bg-amber-400/10 p-8 text-center" dir={isFa ? "rtl" : "ltr"}>
         <ShieldCheck className="mx-auto h-11 w-11 text-amber-200" />
-        <h1 className="mt-4 text-xl font-bold">{needsLogin ? "برای ادامه تمرین وارد شوید" : "پروفایل آموزشی را بررسی کنید"}</h1>
-        <p role="status" className="mt-3 text-sm leading-7 text-slate-300">{needsLogin ? "برای دسترسی به تمرین‌ها و سابقه خود، ورود به حساب آکادمی لازم است." : "برای اتصال آرنا به مسیر یادگیری، اطلاعات پروفایل را بررسی و ذخیره کنید."}</p>
-        <Link href={needsLogin ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/academy/onboarding"} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{needsLogin ? "ورود به آکادمی" : "بررسی پروفایل"}</Link>
+        <h1 className="mt-4 text-xl font-bold">{isFa ? (needsLogin ? "برای ادامه تمرین وارد شوید" : "پروفایل آموزشی را بررسی کنید") : (needsLogin ? "Sign in to continue practising" : "Review your Academy profile")}</h1>
+        <p role="status" className="mt-3 text-sm leading-7 text-slate-300">{isFa ? (needsLogin ? "برای دسترسی به تمرین‌ها و سابقه خود، ورود به حساب آکادمی لازم است." : "برای اتصال آرنا به مسیر یادگیری، اطلاعات پروفایل را بررسی و ذخیره کنید.") : (needsLogin ? "Sign in to your Academy account to access practice and history." : "Review and save your profile so Arena can connect to your learning journey.")}</p>
+        <Link href={needsLogin ? (isFa ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/en/academy/login?redirect=%2Fen%2Facademy%2Ftrading-arena") : (isFa ? "/academy/onboarding" : "/en/academy/onboarding")} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{isFa ? (needsLogin ? "ورود به آکادمی" : "بررسی پروفایل") : (needsLogin ? "Sign in to Academy" : "Review profile")}</Link>
       </div>
     );
   }
 
   if (!snapshot) {
     return (
-      <div className="mx-auto max-w-xl rounded-[28px] border border-white/10 bg-slate-900/70 p-8 text-center" dir="rtl">
+      <div className="mx-auto max-w-xl rounded-[28px] border border-white/10 bg-slate-900/70 p-8 text-center" dir={isFa ? "rtl" : "ltr"}>
         <AlertTriangle className="mx-auto h-10 w-10 text-amber-300" />
-        <h1 className="mt-4 text-xl font-black">آرنا در دسترس نیست</h1>
+        <h1 className="mt-4 text-xl font-black">{isFa ? "آرنا در دسترس نیست" : "Arena is unavailable"}</h1>
         <p className="mt-3 text-sm font-bold leading-7 text-slate-400">{error ?? arenaUiError("arena_execution_unavailable")}</p>
-        <button type="button" onClick={() => void loadSnapshot()} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white"><RefreshCw className="h-4 w-4" /> تلاش دوباره</button>
+        <button type="button" onClick={() => void loadSnapshot()} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white"><RefreshCw className="h-4 w-4" /> {isFa ? "تلاش دوباره" : "Try again"}</button>
       </div>
     );
   }
@@ -765,7 +765,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
 
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <div className="flex items-center gap-2"><h1 className="text-2xl font-black sm:text-3xl">آرنای معاملاتی</h1><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-black text-emerald-300">SERVER V2</span></div>
+          <div className="flex items-center gap-2"><h1 className="text-2xl font-black sm:text-3xl">{isFa ? "آرنای معاملاتی" : "TecPey Trading Arena"}</h1><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-black text-emerald-300">SERVER V2</span></div>
           <p className="mt-1 text-sm font-bold text-slate-400">تمرین تصمیم‌گیری با سرمایه مجازی ۱۰۰٬۰۰۰ دلاری و سه فرصت کنترل‌شده</p>
         </div>
         <div className="flex flex-wrap gap-2">
