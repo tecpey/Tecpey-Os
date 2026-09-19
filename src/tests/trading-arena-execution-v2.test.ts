@@ -307,6 +307,22 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.state.lastLossAt, "2026-07-19T00:10:00.000Z");
   });
 
+  it("updates daily net PnL and gross loss together on a losing close", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "BTC", quoteAmount: "5000", stopLoss: "60000",
+    }, context("operation-daily-loss-open")));
+    const lowerMarket: ArenaPriceSnapshot = {
+      ...MARKET, prices: { ...MARKET.prices, BTC: "59000.0000000000" }, observedAt: "2026-07-19T00:10:00.000Z",
+    };
+    const refreshed = success(applyArenaExecutionActionV2(opened.state, {
+      type: "refresh_market",
+    }, { ...context("operation-daily-loss-close", lowerMarket), now: "2026-07-19T00:10:00.000Z" }));
+    assert.ok(new Decimal(refreshed.state.dailyLoss.realizedPnl).lt(0));
+    assert.ok(new Decimal(refreshed.state.dailyLoss.realizedLoss).gt(0));
+    assert.equal(new Decimal(refreshed.state.dailyLoss.realizedLoss).eq(new Decimal(refreshed.state.dailyLoss.realizedPnl).abs()), true);
+  });
+
   it("tracks peak equity and opens a drawdown circuit without trapping risk-reducing actions", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const stressed = {
