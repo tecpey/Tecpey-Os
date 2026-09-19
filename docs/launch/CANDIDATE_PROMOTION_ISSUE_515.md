@@ -10,7 +10,7 @@
 
 **Protected execution during promotion:** allowed only for exact-candidate evidence collection
 
-**Superseded intermediate candidate:** `5e65ec55e003986187083a71a84272676dc09ccc` (post-PR #685; historical exact-candidate evidence only)
+**Superseded intermediate candidate:** `5e65ec55e003986187083a71a84272676dc09ccc` (post-PR #581; historical exact-candidate evidence only)
 
 **Current evidence authority:** Candidate Evidence Recollection Authority run https://github.com/tecpey/Tecpey-Os/actions/runs/35412133096 plus exact-main NOG-03/NOG-04/NOG-06 artifacts bound to `8db71529b3b9250bab2462c5c151d00c3aef2754`.
 
