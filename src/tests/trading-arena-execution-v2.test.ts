@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import Decimal from "decimal.js";
 import {
   applyArenaExecutionActionV2,
+  buildArenaMentorRiskContext,
   computeArenaExecutionEquity,
   computeArenaPortfolioStopRisk,
   computeArenaPortfolioRiskTelemetry,
@@ -345,6 +346,25 @@ describe("authoritative Arena execution aggregate", () => {
       type: "refresh_market",
     }, context("operation-drawdown-refresh")));
     assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("redacts incomplete daily accounting values from the Mentor context", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({ ...initial, dailyLoss: undefined }, "100000");
+    const riskContext = buildArenaMentorRiskContext(legacy, "2026-07-19T00:05:00.000Z");
+    assert.deepEqual(riskContext.accounting, {
+      day: "2026-07-19",
+      complete: false,
+      realizedPnl: null,
+      grossRealizedLoss: null,
+    });
+    assert.equal(riskContext.version, 2);
+    assert.equal(riskContext.generatedAt, "2026-07-19T00:05:00.000Z");
+  });
+
+  it("rejects an invalid Mentor context timestamp instead of manufacturing provenance", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    assert.throws(() => buildArenaMentorRiskContext(initial, "not-a-time"), /arena_mentor_context_time_invalid/);
   });
 
   it("keeps incomplete daily accounting informational and never fabricates a net-loss signal", () => {
