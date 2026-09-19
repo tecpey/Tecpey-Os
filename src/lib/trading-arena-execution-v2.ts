@@ -82,6 +82,7 @@ export type ArenaClosedTradeV2 = {
 export type ArenaDailyLossAuthorityV2 = {
   day: string;
   realizedLoss: string;
+  complete: boolean;
 };
 
 export type ArenaExecutionStateV2 = {
@@ -175,21 +176,23 @@ function utcDay(value: string): string {
 }
 
 function normalizeDailyLossAuthority(value: unknown, fallbackDay: string): ArenaDailyLossAuthorityV2 {
-  if (!value || typeof value !== "object") return { day: fallbackDay, realizedLoss: fixed(0) };
+  if (!value || typeof value !== "object") return { day: fallbackDay, realizedLoss: fixed(0), complete: false };
   const raw = value as Partial<ArenaDailyLossAuthorityV2>;
   const day = typeof raw.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.day) ? raw.day : fallbackDay;
   const realizedLoss = nonNegative(raw.realizedLoss) ?? fixed(0);
-  return { day, realizedLoss };
+  const complete = raw.complete === true;
+  return { day, realizedLoss, complete };
 }
 
 function dailyLossForNow(state: ArenaExecutionStateV2, now: string): ArenaDailyLossAuthorityV2 {
   const day = utcDay(now);
-  return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0) };
+  return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0), complete: true };
 }
 
 function dailyLossCircuitOpen(state: ArenaExecutionStateV2, now: string): boolean {
   const authority = dailyLossForNow(state, now);
   if (decimal(state.initialBalance).lte(0)) return true;
+  if (!authority.complete) return false;
   return decimal(authority.realizedLoss).div(state.initialBalance).gte(ARENA_EXECUTION_MAX_DAILY_REALIZED_LOSS_RATE);
 }
 
@@ -392,7 +395,7 @@ export function createArenaExecutionStateV2(
     createdAt: timestamp,
     updatedAt: timestamp,
     peakEquity: normalized,
-    dailyLoss: { day: utcDay(timestamp), realizedLoss: fixed(0) },
+    dailyLoss: { day: utcDay(timestamp), realizedLoss: fixed(0), complete: true },
   };
 }
 
