@@ -296,6 +296,7 @@ export function arenaUiError(error: unknown, status?: number): string {
     arena_insufficient_cash: "موجودی نقد برای این معامله کافی نیست.",
     arena_risk_limit_exceeded: "حجم معامله از سقف تخصیص مجاز آرنا بیشتر است.",
     arena_stop_risk_limit_exceeded: "ریسک سرمایه تا حد ضرر از سقف ۲٪ ارزش حساب بیشتر است.",
+    arena_portfolio_stop_risk_limit_exceeded: "مجموع ریسک برنامه‌ریزی‌شده معاملات باز و سفارش‌های در انتظار از بودجه ریسک پرتفوی بیشتر است.",
     arena_protective_price_invalid: "حد ضرر یا حد سود با قیمت ورود سازگار نیست.",
     arena_open_position_limit: "حداکثر تعداد موقعیت‌های باز تکمیل شده است.",
     arena_pending_order_limit: "حداکثر تعداد سفارش‌های در انتظار تکمیل شده است.",
