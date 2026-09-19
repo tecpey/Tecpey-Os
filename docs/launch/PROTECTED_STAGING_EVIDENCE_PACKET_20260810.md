@@ -173,14 +173,14 @@ PostgreSQL/Redis volume-restore mechanics only.
 | Field | Evidence |
 |---|---|
 | Candidate SHA | `8db71529b3b9250bab2462c5c151d00c3aef2754` |
-| Previous release SHA | `18e5276f4586bb358a1679d351ebb08d5ea5ae53` |
+| Previous release SHA | `862b7582c128bbc20bf51558d9814b38ef0be403` |
 | Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/35412133080` |
 | Rollback job | `Ephemeral staging rollback and volume restore`, job `105813667070`, success |
 | Recovery artifact | `container-recovery-8db71529b3b9250bab2462c5c151d00c3aef2754` |
 | Recovery artifact digest | `sha256:cf9bf15c3cbe57a62f7e63f68af1d0de0cff337bcca195641fc4148aafaefa76` |
 | Rollback result | candidate image served, previous-release image served after rollback |
 | Volume-restore verifier | `scripts/verify-operational-recovery-evidence.mjs` passed for the candidate SHA |
-| RTO sample | synthetic CI recovery completed in `9691ms` under the `300s` maximum |
+| RTO sample | synthetic CI recovery completed in `11510ms` under the `300s` maximum |
 
 This closes only the rollback/volume-restore mechanics blocker. The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release. Protected
 staging activation and redacted env evidence remain under NOG-01/NOG-02, and
