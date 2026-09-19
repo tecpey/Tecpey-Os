@@ -55,6 +55,15 @@ export type ArenaMentorRiskContextV2 = {
   signals: ArenaMentorRiskSignalV2[];
 };
 
+export type ArenaMentorCapabilityMatrixV2 = {
+  marketObservation: "authoritative" | "degraded" | "unavailable";
+  dailyPerformanceInterpretation: "authoritative" | "withhold";
+  riskCoaching: "authoritative" | "degraded";
+  mayReferenceLiveMarket: boolean;
+  mayInterpretDailyPnl: boolean;
+  reasons: Array<"market-missing" | "market-stale" | "market-future" | "daily-accounting-incomplete">;
+};
+
 export type ArenaPriceSnapshot = {
   prices: Record<ArenaExecutionAsset, string>;
   source: string;
@@ -612,6 +621,27 @@ export function buildArenaMentorRiskContext(
       fullyStopDefined: risk.fullyStopDefined,
     },
     signals: computeArenaMentorRiskSignals(state),
+  };
+}
+
+export function computeArenaMentorCapabilities(
+  context: ArenaMentorRiskContextV2,
+): ArenaMentorCapabilityMatrixV2 {
+  const reasons: ArenaMentorCapabilityMatrixV2["reasons"] = [];
+  if (!context.market) reasons.push("market-missing");
+  else if (context.market.freshness === "stale") reasons.push("market-stale");
+  else if (context.market.freshness === "future") reasons.push("market-future");
+  if (!context.accounting.complete) reasons.push("daily-accounting-incomplete");
+
+  const marketAuthoritative = context.market?.freshness === "fresh";
+  const dailyAuthoritative = context.accounting.complete;
+  return {
+    marketObservation: marketAuthoritative ? "authoritative" : context.market ? "degraded" : "unavailable",
+    dailyPerformanceInterpretation: dailyAuthoritative ? "authoritative" : "withhold",
+    riskCoaching: marketAuthoritative ? "authoritative" : "degraded",
+    mayReferenceLiveMarket: marketAuthoritative,
+    mayInterpretDailyPnl: dailyAuthoritative,
+    reasons,
   };
 }
 
