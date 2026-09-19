@@ -25,14 +25,14 @@ export async function loadArenaMentorRiskContext(
            ON workspace.id = principal.workspace_id
           AND workspace.tenant_id = principal.tenant_id
          JOIN academy_trading_arena_accounts account
-           ON account.student_id = principal.principal_id
+           ON account.student_id::text = principal.principal_id
          JOIN academy_trading_arena_attempts attempt
            ON attempt.student_id = account.student_id
           AND attempt.cycle_id = account.cycle_id
         WHERE principal.principal_type = 'student'
-          AND principal.principal_id = $1::uuid
-          AND principal.tenant_id = $2::uuid
-          AND principal.workspace_id = $3::uuid
+          AND principal.principal_id = $1
+          AND principal.tenant_id = $2
+          AND principal.workspace_id = $3
           AND principal.status = 'active'
           AND attempt.status = 'active'
         ORDER BY attempt.attempt_number DESC
