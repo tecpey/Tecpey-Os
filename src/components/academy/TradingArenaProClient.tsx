@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { isAcademyProfileEstablished } from "@/lib/academy-profile-read-state";
 import {
   AlertTriangle,
   Bot,
