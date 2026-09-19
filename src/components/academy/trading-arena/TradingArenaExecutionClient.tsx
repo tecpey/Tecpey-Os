@@ -37,7 +37,7 @@ import {
   ARENA_EXECUTION_WARNING_RISK_RATE,
   ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE,
   ARENA_EXECUTION_MAX_DRAWDOWN_RATE,
-  computeArenaPortfolioStopRisk,
+  computeArenaPortfolioRiskTelemetry,
   computeArenaDrawdownRate,
   type ArenaClosedTradeV2,
   type ArenaExecutionAsset,
@@ -760,7 +760,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
   const initial = number(snapshot.state.initialBalance);
   const equityDelta = equity - initial;
   const equityRate = initial > 0 ? equityDelta / initial : 0;
-  const portfolioStopRisk = number(computeArenaPortfolioStopRisk(snapshot.state));
+  const portfolioRiskTelemetry = computeArenaPortfolioRiskTelemetry(snapshot.state);\n  const portfolioStopRisk = number(portfolioRiskTelemetry.definedStopRisk);
   const portfolioRiskRate = equity > 0 ? portfolioStopRisk / equity : 0;
   const portfolioRiskLimit = number(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
   const portfolioRiskRemaining = Math.max(0, portfolioRiskLimit - portfolioRiskRate);
@@ -816,7 +816,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "اوج ارزش حساب" : "Peak equity"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(snapshot.state.peakEquity)}</p></div>
           <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "افت از اوج" : "Current drawdown"}</p><p className="mt-1 text-lg font-black tabular-nums">{percent(drawdownRate)}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? `تا توقف: ${percent(drawdownRemaining)}` : `To circuit: ${percent(drawdownRemaining)}`}</p></div>
-          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "ریسک برنامه‌ریزی‌شده پرتفوی" : "Planned portfolio risk"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(portfolioStopRisk)} · {percent(portfolioRiskRate)}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? `ظرفیت باقی‌مانده: ${percent(portfolioRiskRemaining)}` : `Remaining budget: ${percent(portfolioRiskRemaining)}`}</p></div>
+          <div className={`rounded-2xl border p-3 ${portfolioRiskTelemetry.fullyStopDefined ? "border-white/10 bg-black/10" : "border-amber-400/30 bg-amber-400/5"}`}><p className="text-[11px] font-black text-slate-400">{isFa ? "ریسک برنامه‌ریزی‌شده پرتفوی" : "Planned portfolio risk"}</p><p className="mt-1 text-lg font-black tabular-nums">{portfolioRiskTelemetry.fullyStopDefined ? `${usd(portfolioStopRisk)} · ${percent(portfolioRiskRate)}` : (isFa ? "نامحدود / تعریف‌نشده" : "Unbounded / undefined")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{portfolioRiskTelemetry.fullyStopDefined ? (isFa ? `ظرفیت باقی‌مانده: ${percent(portfolioRiskRemaining)}` : `Remaining budget: ${percent(portfolioRiskRemaining)}`) : (isFa ? `${portfolioRiskTelemetry.unprotectedPositions} موقعیت و ${portfolioRiskTelemetry.unprotectedPendingOrders} سفارش بدون حد ضرر · ${usd(portfolioRiskTelemetry.unboundedExposure)} اکسپوژر بدون حفاظت` : `${portfolioRiskTelemetry.unprotectedPositions} position(s) and ${portfolioRiskTelemetry.unprotectedPendingOrders} order(s) without a stop · ${usd(portfolioRiskTelemetry.unboundedExposure)} unprotected exposure`)}</p></div>
           <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "سقف‌های آموزشی" : "Training guardrails"}</p><p className="mt-1 text-sm font-black">{isFa ? `پرتفوی ${percent(portfolioRiskLimit)} · Drawdown ${percent(drawdownLimit)}` : `Portfolio ${percent(portfolioRiskLimit)} · Drawdown ${percent(drawdownLimit)}`}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? "بستن موقعیت و لغو سفارش همیشه مجاز می‌ماند." : "Closing positions and cancelling orders remain available."}</p></div>
         </div>
       </section>
