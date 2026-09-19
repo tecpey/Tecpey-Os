@@ -71,6 +71,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
               // eslint-disable-next-line @next/next/no-img-element -- #619: private same-origin account photo is intentionally not image-optimizer proxied.
               <img src={profile.photo_url} alt="" className="h-full w-full object-cover" />
             ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- static same-origin TecPey identity fallback.
               <img src="/assets/tecpey-default-profile.svg" alt="" className="h-full w-full object-cover" />
             )}
           </span>
