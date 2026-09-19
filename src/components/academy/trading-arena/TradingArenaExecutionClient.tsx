@@ -595,7 +595,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       if (!snapshotRef.current) setLoadState("error");
       return false;
     }
-  }, [applySnapshot]);
+  }, [applySnapshot, isFa]);
 
   const sendCommand = useCallback(async (
     action: ArenaExecutionCommand,
