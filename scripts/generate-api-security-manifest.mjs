@@ -235,7 +235,7 @@ function testReferences(route, sourcePath, tests) {
       test.source.includes(route)
       || test.source.includes(sourcePath)
       || test.path.includes(routeToken)
-      || (domain.length > 4 && test.path.includes(domain)),
+      || (domain.length > 4 && test.path.split("/").includes(domain)),
     )
     .map((test) => test.path)
     .slice(0, 20);
