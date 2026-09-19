@@ -116,7 +116,7 @@ export function TradingArenaProClient({ locale = "fa" }: { locale?: Locale }) {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.error || "profile_load_failed");
         if (controller.signal.aborted) return;
-        setProfileReady(Boolean(data?.profile?.display_name));
+        setProfileReady(isAcademyProfileEstablished(data?.profile));
         setDisplayName(data?.profile?.display_name || "");
       })
       .catch(() => {
