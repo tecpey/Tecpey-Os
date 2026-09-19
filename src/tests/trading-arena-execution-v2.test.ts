@@ -390,6 +390,25 @@ describe("authoritative Arena execution aggregate", () => {
     assert.ok(new Decimal(closed.state.dailyLoss.realizedPnl).gt(0));
   });
 
+  it("starts a complete zero daily ledger after an incomplete legacy state crosses the UTC boundary", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: undefined,
+      updatedAt: "2026-07-19T23:59:00.000Z",
+    }, "100000");
+    const nextDayMarket: ArenaPriceSnapshot = { ...MARKET, observedAt: "2026-07-20T00:00:01.000Z" };
+    const refreshed = success(applyArenaExecutionActionV2(legacy, { type: "refresh_market" }, {
+      ...context("operation-legacy-rollover", nextDayMarket), now: "2026-07-20T00:00:01.000Z",
+    }));
+    assert.deepEqual(refreshed.state.dailyLoss, {
+      day: "2026-07-20",
+      realizedLoss: "0.0000000000",
+      realizedPnl: "0.0000000000",
+      complete: true,
+    });
+  });
+
   it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const legacy = normalizeArenaExecutionStateV2({
