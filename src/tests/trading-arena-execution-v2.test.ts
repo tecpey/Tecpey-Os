@@ -348,6 +348,19 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.eventType, "arena.market_refreshed");
   });
 
+  it("classifies Mentor market provenance as fresh, stale or future without hiding its age", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const withMarket = { ...initial, lastMarket: MARKET };
+    const fresh = buildArenaMentorRiskContext(withMarket, "2026-07-19T00:00:10.000Z");
+    const stale = buildArenaMentorRiskContext(withMarket, "2026-07-19T00:00:16.000Z");
+    const future = buildArenaMentorRiskContext(withMarket, "2026-07-18T23:59:54.000Z");
+    assert.deepEqual(fresh.market, { source: "test_feed", observedAt: MARKET.observedAt, ageMs: 10_000, freshness: "fresh" });
+    assert.equal(stale.market?.freshness, "stale");
+    assert.equal(stale.market?.ageMs, 16_000);
+    assert.equal(future.market?.freshness, "future");
+    assert.equal(future.market?.ageMs, -6_000);
+  });
+
   it("redacts incomplete daily accounting values from the Mentor context", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const legacy = normalizeArenaExecutionStateV2({ ...initial, dailyLoss: undefined }, "100000");
