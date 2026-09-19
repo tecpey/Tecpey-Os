@@ -212,14 +212,12 @@ function JournalModal({
 function TradeForm({
   snapshot,
   busy,
-  locale,
   selectedAsset,
   onSelectedAsset,
   onCommand,
 }: {
   snapshot: ArenaExecutionSnapshot;
   busy: boolean;
-  locale: "fa" | "en";
   selectedAsset: ArenaExecutionAsset;
   onSelectedAsset: (asset: ArenaExecutionAsset) => void;
   onCommand: (command: ArenaExecutionCommand) => Promise<boolean>;
@@ -603,7 +601,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       if (!snapshotRef.current) setLoadState("error");
       return false;
     }
-  }, [applySnapshot, isFa]);
+  }, [applySnapshot]);
 
   const sendCommand = useCallback(async (
     action: ArenaExecutionCommand,
@@ -684,7 +682,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       commandLockRef.current = false;
       if (mountedRef.current && !options?.quiet) setBusyAction(null);
     }
-  }, [applySnapshot]);
+  }, [applySnapshot, isFa]);
 
   useEffect(() => {
     void loadSnapshot();
@@ -808,7 +806,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       {notice && <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200" role="status"><CheckCircle2 className="h-4 w-4 shrink-0" />{notice}</div>}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1.35fr)]">
-        <TradeForm snapshot={snapshot} busy={busy} locale={locale} selectedAsset={selectedAsset} onSelectedAsset={setSelectedAsset} onCommand={sendCommand} />
+        <TradeForm snapshot={snapshot} busy={busy} selectedAsset={selectedAsset} onSelectedAsset={setSelectedAsset} onCommand={sendCommand} />
 
         <div className="space-y-6">
           <section aria-labelledby="arena-open-positions">
