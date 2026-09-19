@@ -5,6 +5,7 @@ import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
   computeArenaPortfolioStopRisk,
+  computeArenaPortfolioRiskTelemetry,
   computeArenaDrawdownRate,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
@@ -152,6 +153,28 @@ describe("authoritative Arena execution aggregate", () => {
       stopLoss: "2750",
     }, context("operation-pending-risk-reject"));
     assert.deepEqual(rejected, { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" });
+  });
+
+  it("never reports no-stop exposure as zero defined portfolio risk", () => {
+    let state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    state = success(applyArenaExecutionActionV2(state, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "5000",
+    }, context("operation-unprotected-position"))).state;
+    state = success(applyArenaExecutionActionV2(state, {
+      type: "limit_buy",
+      asset: "ETH",
+      quoteAmount: "3000",
+      limitPrice: "3400",
+    }, context("operation-unprotected-order"))).state;
+
+    const telemetry = computeArenaPortfolioRiskTelemetry(state);
+    assert.equal(telemetry.definedStopRisk, "0.0000000000");
+    assert.equal(telemetry.unboundedExposure, "8000.0000000000");
+    assert.equal(telemetry.unprotectedPositions, 1);
+    assert.equal(telemetry.unprotectedPendingOrders, 1);
+    assert.equal(telemetry.fullyStopDefined, false);
   });
 
   it("reserves limit-order cash and restores it exactly on cancellation", () => {
