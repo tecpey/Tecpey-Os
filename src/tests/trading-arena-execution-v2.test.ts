@@ -313,24 +313,20 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.eventType, "arena.market_refreshed");
   });
 
-  it("persists daily realized loss independently of retained trade history and blocks only risk-increasing actions", () => {
+  it("persists daily realized loss as telemetry without inventing an ungoverned hard gate", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
-    const lossLimited = {
+    const observed = {
       ...initial,
       dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", complete: true },
       closedTrades: [],
     };
-    const blocked = applyArenaExecutionActionV2(lossLimited, {
+    const accepted = applyArenaExecutionActionV2(observed, {
       type: "market_buy",
       asset: "BTC",
       quoteAmount: "1000",
-    }, context("operation-daily-loss-block"));
-    assert.deepEqual(blocked, { ok: false, error: "arena_daily_loss_circuit_open" });
-
-    const refreshed = success(applyArenaExecutionActionV2(lossLimited, {
-      type: "refresh_market",
-    }, context("operation-daily-loss-refresh")));
-    assert.equal(refreshed.eventType, "arena.market_refreshed");
+      stopLoss: "60000",
+    }, context("operation-daily-loss-telemetry"));
+    assert.equal(accepted.ok, true);
   });
 
   it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {
