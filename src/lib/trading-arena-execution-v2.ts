@@ -392,6 +392,7 @@ export function createArenaExecutionStateV2(
     createdAt: timestamp,
     updatedAt: timestamp,
     peakEquity: normalized,
+    dailyLoss: { day: utcDay(timestamp), realizedLoss: fixed(0) },
   };
 }
 
@@ -486,6 +487,7 @@ export function normalizeArenaExecutionStateV2(
     createdAt,
     updatedAt,
     peakEquity,
+    dailyLoss: normalizeDailyLossAuthority(raw.dailyLoss, utcDay(updatedAt)),
   };
   if (lastMarket) state.equity = computeArenaExecutionEquity(state, lastMarket);
   if (decimal(state.equity).gt(state.peakEquity)) state.peakEquity = state.equity;
@@ -608,6 +610,10 @@ function closeOnePosition(
   };
 
   const nextPositions = state.openPositions.filter((item) => item.id !== position.id);
+  const dailyLoss = dailyLossForNow(state, context.now);
+  const nextDailyLoss = pnl.lt(0)
+    ? { ...dailyLoss, realizedLoss: fixed(decimal(dailyLoss.realizedLoss).plus(pnl.abs())) }
+    : dailyLoss;
   const next: ArenaExecutionStateV2 = {
     ...state,
     cashBalance: fixed(decimal(state.cashBalance).plus(netProceeds)),
@@ -620,6 +626,7 @@ function closeOnePosition(
     lastMarket: context.market,
     updatedAt: context.now,
     holdings: computeHoldings(nextPositions),
+    dailyLoss: nextDailyLoss,
   };
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.equity = computeArenaExecutionEquity(next, context.market);
@@ -763,6 +770,7 @@ export function applyArenaExecutionActionV2(
   }
 
   if (drawdownCircuitOpen(state)) return { ok: false, error: "arena_drawdown_circuit_open" };
+  if (dailyLossCircuitOpen(state, now)) return { ok: false, error: "arena_daily_loss_circuit_open" };
 
   const quoteAmount = positive(action.quoteAmount);
   if (!quoteAmount || quoteAmount.lt(ARENA_EXECUTION_MIN_TRADE)) {
