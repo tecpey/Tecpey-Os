@@ -263,6 +263,23 @@ describe("authoritative Arena execution aggregate", () => {
     assert.ok(new Decimal(closed.state.cashBalance).gt(100000));
   });
 
+  it("updates daily net PnL on a profitable close without increasing gross loss", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200",
+    }, context("operation-daily-profit-open")));
+    const positionId = opened.state.openPositions[0]?.id ?? "";
+    const higherMarket: ArenaPriceSnapshot = {
+      ...MARKET, prices: { ...MARKET.prices, ETH: "3850.0000000000" }, observedAt: "2026-07-19T00:05:00.000Z",
+    };
+    const closed = success(applyArenaExecutionActionV2(opened.state, {
+      type: "close_position", positionId, reason: "manual",
+    }, { ...context("operation-daily-profit-close", higherMarket), now: "2026-07-19T00:05:00.000Z" }));
+    assert.ok(new Decimal(closed.state.dailyLoss.realizedPnl).gt(0));
+    assert.equal(closed.state.dailyLoss.realizedLoss, "0.0000000000");
+    assert.equal(closed.state.dailyLoss.complete, true);
+  });
+
   it("automatically executes stop-loss from a server market refresh", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const opened = success(applyArenaExecutionActionV2(initial, {
