@@ -562,7 +562,7 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
         "href",
         "/en/academy/trading-arena/scenarios",
       );
-      await expect(page.getByRole("link", { name: "Server journal" })).toHaveAttribute(
+      await expect(page.getByRole("link", { name: "Server journal", exact: true })).toHaveAttribute(
         "href",
         "/en/academy/trading-arena/journal",
       );
