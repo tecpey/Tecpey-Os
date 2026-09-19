@@ -67,7 +67,7 @@ function contractFor(testInfo) {
             path: "/en/academy/trading-arena",
             requiresSession: true,
             heading: /TecPey Trading Arena|Sign in to continue practising|Review your Academy profile|Arena is unavailable/i,
-            cta: /Create Academy profile|Explore the Academy|Risk control center/i,
+            cta: /Create Academy profile|Explore the Academy|Review plan and send to server/i,
           },
           {
             key: "mentor",
