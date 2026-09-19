@@ -14,14 +14,6 @@
 
 **Current evidence authority:** Candidate Evidence Recollection Authority run https://github.com/tecpey/Tecpey-Os/actions/runs/35412133096 plus exact-main NOG-03/NOG-04/NOG-06 artifacts bound to `8db71529b3b9250bab2462c5c151d00c3aef2754`.
 
-**Superseded intermediate candidate:** `8db71529b3b9250bab2462c5c151d00c3aef2754` (post-PR #685; historical exact-candidate evidence only)
-
-**Current evidence authority:** Candidate Evidence Recollection Authority run https://github.com/tecpey/Tecpey-Os/actions/runs/35412133096 plus exact-main NOG-03/NOG-04/NOG-06 artifacts bound to `8db71529b3b9250bab2462c5c151d00c3aef2754`.
-
-**Superseded intermediate candidate:** `8db71529b3b9250bab2462c5c151d00c3aef2754` (post-PR #685; historical exact-candidate evidence only)
-
-**Current evidence authority:** Candidate Evidence Recollection Authority run https://github.com/tecpey/Tecpey-Os/actions/runs/35412133096 plus exact-main NOG-03/NOG-04/NOG-06 artifacts bound to `8db71529b3b9250bab2462c5c151d00c3aef2754`.
-
 The accepted candidate `79c48a16cb685a88315a44e103b3758cf7845d65` and its controlled-scope Go evidence remain historical and exact-candidate-bound. They do not authorize the newer runtime. Main advanced through public runtime resilience, Academy login/profile continuity, Iran-safe authentication, secure Limoo/Resend communications operations, the PR #566 pinned OpenSSL runtime remediation, PR #568 secure Limoo Pattern OTP, and the governed product/runtime integration line through PR #685. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json` and is accepted only for exact-SHA evidence collection after genuine NOG-03/NOG-04/NOG-06 evidence was recollected and atomically promoted.
 
 ## Two-phase fail-closed promotion
