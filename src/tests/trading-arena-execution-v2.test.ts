@@ -7,6 +7,7 @@ import {
   computeArenaPortfolioStopRisk,
   computeArenaPortfolioRiskTelemetry,
   computeArenaDrawdownRate,
+  computeArenaMentorRiskSignals,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
   type ArenaExecutionContext,
@@ -344,6 +345,53 @@ describe("authoritative Arena execution aggregate", () => {
       type: "refresh_market",
     }, context("operation-drawdown-refresh")));
     assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("keeps incomplete daily accounting informational and never fabricates a net-loss signal", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "2500.0000000000", complete: true },
+    }, "100000");
+    const signals = computeArenaMentorRiskSignals(legacy);
+    assert.equal(signals.some((signal) => signal.code === "daily-accounting-incomplete"), true);
+    assert.equal(signals.some((signal) => signal.code === "daily-net-loss"), false);
+  });
+
+  it("derives daily net-loss evidence only from a complete signed ledger", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const observed = {
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "2500.0000000000", realizedPnl: "-1250.0000000000", complete: true },
+    };
+    const signal = computeArenaMentorRiskSignals(observed).find((item) => item.code === "daily-net-loss");
+    assert.equal(signal?.severity, "warning");
+    assert.deepEqual(signal?.evidence, {
+      day: "2026-07-19",
+      realizedPnl: "-1250.0000000000",
+      grossRealizedLoss: "2500.0000000000",
+    });
+  });
+
+  it("escalates drawdown evidence to critical only at the governed circuit boundary", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const warning = computeArenaMentorRiskSignals({ ...initial, equity: "95000.0000000000", peakEquity: "100000.0000000000" })
+      .find((signal) => signal.code === "drawdown-pressure");
+    const critical = computeArenaMentorRiskSignals({ ...initial, equity: "90000.0000000000", peakEquity: "100000.0000000000" })
+      .find((signal) => signal.code === "drawdown-pressure");
+    assert.equal(warning?.severity, "warning");
+    assert.equal(critical?.severity, "critical");
+  });
+
+  it("surfaces unprotected exposure without converting it into an invented hard gate", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "BTC", quoteAmount: "1000",
+    }, context("operation-mentor-unprotected")));
+    const signal = computeArenaMentorRiskSignals(opened.state).find((item) => item.code === "unprotected-exposure");
+    assert.equal(signal?.severity, "warning");
+    assert.equal(signal?.evidence.unprotectedPositions, 1);
+    assert.ok(new Decimal(String(signal?.evidence.unboundedExposure ?? 0)).gt(0));
   });
 
   it("persists daily realized loss as telemetry without inventing an ungoverned hard gate", () => {
