@@ -28,6 +28,12 @@ export type ArenaExecutionMentorFlag =
   | "proper-sizing"
   | "target-hit";
 
+export type ArenaMentorRiskSignalV2 = {
+  code: "drawdown-pressure" | "daily-accounting-incomplete" | "daily-net-loss" | "unprotected-exposure";
+  severity: "info" | "warning" | "critical";
+  evidence: Record<string, string | number | boolean>;
+};
+
 export type ArenaPriceSnapshot = {
   prices: Record<ArenaExecutionAsset, string>;
   source: string;
@@ -505,6 +511,48 @@ export function computeArenaDrawdownRate(state: Pick<ArenaExecutionStateV2, "equ
 
 function drawdownCircuitOpen(state: ArenaExecutionStateV2): boolean {
   return decimal(computeArenaDrawdownRate(state)).gte(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
+}
+
+export function computeArenaMentorRiskSignals(state: ArenaExecutionStateV2): ArenaMentorRiskSignalV2[] {
+  const signals: ArenaMentorRiskSignalV2[] = [];
+  const drawdownRate = computeArenaDrawdownRate(state);
+  if (decimal(drawdownRate).gt(0)) {
+    signals.push({
+      code: "drawdown-pressure",
+      severity: decimal(drawdownRate).gte(ARENA_EXECUTION_MAX_DRAWDOWN_RATE) ? "critical" : "warning",
+      evidence: { drawdownRate, peakEquity: state.peakEquity, equity: state.equity },
+    });
+  }
+  if (!state.dailyLoss.complete) {
+    signals.push({
+      code: "daily-accounting-incomplete",
+      severity: "info",
+      evidence: { day: state.dailyLoss.day, complete: false },
+    });
+  } else if (decimal(state.dailyLoss.realizedPnl).lt(0)) {
+    signals.push({
+      code: "daily-net-loss",
+      severity: "warning",
+      evidence: {
+        day: state.dailyLoss.day,
+        realizedPnl: state.dailyLoss.realizedPnl,
+        grossRealizedLoss: state.dailyLoss.realizedLoss,
+      },
+    });
+  }
+  const risk = computeArenaPortfolioRiskTelemetry(state);
+  if (!risk.fullyStopDefined) {
+    signals.push({
+      code: "unprotected-exposure",
+      severity: "warning",
+      evidence: {
+        unboundedExposure: risk.unboundedExposure,
+        unprotectedPositions: risk.unprotectedPositions,
+        unprotectedPendingOrders: risk.unprotectedPendingOrders,
+      },
+    });
+  }
+  return signals;
 }
 
 function validateProtectivePrices(
