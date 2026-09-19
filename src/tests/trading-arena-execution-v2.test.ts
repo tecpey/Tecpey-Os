@@ -487,6 +487,48 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(initial.dailyLoss.complete, true);
   });
 
+  it("reconciles mixed same-day wins and losses to the signed and gross daily ledgers", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const firstOpen = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200",
+    }, context("operation-mixed-win-open")));
+    const firstPositionId = firstOpen.state.openPositions[0]?.id ?? "";
+    const higherEth: ArenaPriceSnapshot = {
+      ...MARKET,
+      prices: { ...MARKET.prices, ETH: "3850.0000000000" },
+      observedAt: "2026-07-19T00:05:00.000Z",
+    };
+    const firstClose = success(applyArenaExecutionActionV2(firstOpen.state, {
+      type: "close_position", positionId: firstPositionId, reason: "manual",
+    }, { ...context("operation-mixed-win-close", higherEth), now: "2026-07-19T00:05:00.000Z" }));
+
+    const secondOpen = success(applyArenaExecutionActionV2(firstClose.state, {
+      type: "market_buy", asset: "BTC", quoteAmount: "10000", stopLoss: "55000",
+    }, { ...context("operation-mixed-loss-open", higherEth), now: "2026-07-19T00:06:00.000Z" }));
+    const secondPositionId = secondOpen.state.openPositions[0]?.id ?? "";
+    const lowerBtc: ArenaPriceSnapshot = {
+      ...MARKET,
+      prices: { ...MARKET.prices, BTC: "57000.0000000000" },
+      observedAt: "2026-07-19T00:10:00.000Z",
+    };
+    const secondClose = success(applyArenaExecutionActionV2(secondOpen.state, {
+      type: "close_position", positionId: secondPositionId, reason: "manual",
+    }, { ...context("operation-mixed-loss-close", lowerBtc), now: "2026-07-19T00:10:00.000Z" }));
+
+    const realized = secondClose.state.closedTrades.map((trade) => new Decimal(trade.realizedPnl));
+    const expectedNet = realized.reduce((sum, pnl) => sum.plus(pnl), new Decimal(0));
+    const expectedGrossLoss = realized
+      .filter((pnl) => pnl.lt(0))
+      .reduce((sum, pnl) => sum.plus(pnl.abs()), new Decimal(0));
+
+    assert.equal(realized.length, 2);
+    assert.equal(realized.some((pnl) => pnl.gt(0)), true);
+    assert.equal(realized.some((pnl) => pnl.lt(0)), true);
+    assert.equal(new Decimal(secondClose.state.dailyLoss.realizedPnl).eq(expectedNet), true);
+    assert.equal(new Decimal(secondClose.state.dailyLoss.realizedLoss).eq(expectedGrossLoss), true);
+    assert.equal(secondClose.state.dailyLoss.complete, true);
+  });
+
   it("preserves incomplete provenance when a legacy same-day state records a new close", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const legacy = normalizeArenaExecutionStateV2({
