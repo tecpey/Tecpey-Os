@@ -735,8 +735,8 @@ export async function POST(request: NextRequest) {
               limit: 6,
             })
           : Promise.resolve([]),
-        !publicResearchRequested && authorizedStudentId
-          ? loadArenaMentorRiskContext(authorizedStudentId)
+        !publicResearchRequested && authorizedStudentId && activeTenantId && activeWorkspaceId
+          ? loadArenaMentorRiskContext(authorizedStudentId, activeTenantId, activeWorkspaceId)
           : Promise.resolve(null),
       ]);
     const verifiedKnowledgeStatus = Array.isArray(verifiedKnowledgeResult)
