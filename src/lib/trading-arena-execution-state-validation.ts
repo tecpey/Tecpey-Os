@@ -219,9 +219,10 @@ export function validateArenaExecutionStateV2(value: unknown): ArenaExecutionSta
           ? dailyLossRow.day
           : invalid(),
         realizedLoss: amount(dailyLossRow.realizedLoss, false, false, 10),
-        complete: dailyLossRow.complete === true,
+        realizedPnl: dailyLossRow.realizedPnl === undefined ? "0.0000000000" : amount(dailyLossRow.realizedPnl, false, true, 10),
+        complete: dailyLossRow.complete === true && dailyLossRow.realizedPnl !== undefined,
       }
-    : { day: updatedAt.slice(0, 10), realizedLoss: "0.0000000000", complete: false };
+    : { day: updatedAt.slice(0, 10), realizedLoss: "0.0000000000", realizedPnl: "0.0000000000", complete: false };
   if (Date.parse(updatedAt) < Date.parse(createdAt)) invalid();
   return {
     version: 2,
