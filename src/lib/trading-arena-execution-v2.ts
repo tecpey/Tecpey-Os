@@ -6,6 +6,7 @@ export const ARENA_EXECUTION_MIN_TRADE = "10";
 export const ARENA_EXECUTION_MAX_ALLOCATION_RATE = "0.20";
 export const ARENA_EXECUTION_WARNING_ALLOCATION_RATE = "0.05";
 export const ARENA_EXECUTION_MAX_STOP_RISK_RATE = "0.02";
+export const ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE = "0.06";
 /** @deprecated Use ARENA_EXECUTION_MAX_ALLOCATION_RATE. */
 export const ARENA_EXECUTION_MAX_RISK_RATE = ARENA_EXECUTION_MAX_ALLOCATION_RATE;
 /** @deprecated Use ARENA_EXECUTION_WARNING_ALLOCATION_RATE. */
@@ -201,6 +202,39 @@ function exceedsStopDefinedRisk(input: {
   const capitalAtRisk = stopDefinedCapitalRisk(input);
   if (!capitalAtRisk || input.equity.lte(0)) return false;
   return capitalAtRisk.div(input.equity).gt(ARENA_EXECUTION_MAX_STOP_RISK_RATE);
+}
+
+function plannedStopRiskForPosition(position: ArenaOpenPositionV2): Decimal {
+  return stopDefinedCapitalRisk({
+    quoteAmount: decimal(position.quoteCommitted),
+    entryPrice: decimal(position.entryPrice),
+    stopLoss: position.stopLoss,
+  }) ?? decimal(0);
+}
+
+function plannedStopRiskForOrder(order: ArenaPendingOrderV2): Decimal {
+  return stopDefinedCapitalRisk({
+    quoteAmount: decimal(order.quoteReserved),
+    entryPrice: decimal(order.limitPrice),
+    stopLoss: order.stopLoss,
+  }) ?? decimal(0);
+}
+
+export function computeArenaPortfolioStopRisk(state: Pick<ArenaExecutionStateV2, "openPositions" | "pendingOrders">): string {
+  return fixed(
+    sum(state.openPositions, plannedStopRiskForPosition)
+      .plus(sum(state.pendingOrders, plannedStopRiskForOrder)),
+  );
+}
+
+function exceedsPortfolioStopRisk(input: {
+  state: ArenaExecutionStateV2;
+  candidateRisk: Decimal;
+  equity: Decimal;
+}): boolean {
+  if (input.equity.lte(0)) return true;
+  const aggregate = decimal(computeArenaPortfolioStopRisk(input.state)).plus(input.candidateRisk);
+  return aggregate.div(input.equity).gt(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
 }
 
 function mentorFlags(input: {
@@ -674,6 +708,14 @@ export function applyArenaExecutionActionV2(
       stopLoss: protection.stopLoss,
       equity: currentEquity,
     })) return { ok: false, error: "arena_stop_risk_limit_exceeded" };
+    const candidateStopRisk = stopDefinedCapitalRisk({
+      quoteAmount,
+      entryPrice: limitPrice,
+      stopLoss: protection.stopLoss,
+    }) ?? decimal(0);
+    if (exceedsPortfolioStopRisk({ state, candidateRisk: candidateStopRisk, equity: currentEquity })) {
+      return { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" };
+    }
 
     const order: ArenaPendingOrderV2 = {
       id: `${safeContext.operationId}:order:1`,
@@ -734,6 +776,14 @@ export function applyArenaExecutionActionV2(
     stopLoss: position.stopLoss,
     equity: currentEquity,
   })) return { ok: false, error: "arena_stop_risk_limit_exceeded" };
+  const candidateStopRisk = stopDefinedCapitalRisk({
+    quoteAmount,
+    entryPrice: fillPrice,
+    stopLoss: position.stopLoss,
+  }) ?? decimal(0);
+  if (exceedsPortfolioStopRisk({ state, candidateRisk: candidateStopRisk, equity: currentEquity })) {
+    return { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" };
+  }
 
   const openPositions = [...state.openPositions, position];
   const next: ArenaExecutionStateV2 = {
