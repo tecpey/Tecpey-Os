@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { isAcademyProfileEstablished } from "@/lib/academy-profile-read-state";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -174,7 +175,7 @@ export default function Navbar({
         setAcademyAuthReady(
           Boolean((authResponse.ok && authData?.authenticated) || (profileResponse.ok && profileData?.authenticated)),
         );
-        setAcademyProfileReady(Boolean(profileResponse.ok && profileData?.profile?.display_name));
+        setAcademyProfileReady(Boolean(profileResponse.ok && isAcademyProfileEstablished(profileData?.profile)));
         setAcademyIdentity(profileResponse.ok && profileData?.authenticated ? profileData.profile : null);
         setAcademyLogoutError(false);
       } catch {
