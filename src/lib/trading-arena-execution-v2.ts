@@ -34,6 +34,27 @@ export type ArenaMentorRiskSignalV2 = {
   evidence: Record<string, string | number | boolean>;
 };
 
+export type ArenaMentorRiskContextV2 = {
+  version: 2;
+  generatedAt: string;
+  market: { source: string; observedAt: string } | null;
+  accounting: {
+    day: string;
+    complete: boolean;
+    realizedPnl: string | null;
+    grossRealizedLoss: string | null;
+  };
+  portfolio: {
+    equity: string;
+    peakEquity: string;
+    drawdownRate: string;
+    definedStopRisk: string;
+    unboundedExposure: string;
+    fullyStopDefined: boolean;
+  };
+  signals: ArenaMentorRiskSignalV2[];
+};
+
 export type ArenaPriceSnapshot = {
   prices: Record<ArenaExecutionAsset, string>;
   source: string;
@@ -553,6 +574,37 @@ export function computeArenaMentorRiskSignals(state: ArenaExecutionStateV2): Are
     });
   }
   return signals;
+}
+
+export function buildArenaMentorRiskContext(
+  state: ArenaExecutionStateV2,
+  generatedAt: string,
+): ArenaMentorRiskContextV2 {
+  const at = iso(generatedAt);
+  if (!at) throw new Error("arena_mentor_context_time_invalid");
+  const risk = computeArenaPortfolioRiskTelemetry(state);
+  return {
+    version: 2,
+    generatedAt: at,
+    market: state.lastMarket
+      ? { source: state.lastMarket.source, observedAt: state.lastMarket.observedAt }
+      : null,
+    accounting: {
+      day: state.dailyLoss.day,
+      complete: state.dailyLoss.complete,
+      realizedPnl: state.dailyLoss.complete ? state.dailyLoss.realizedPnl : null,
+      grossRealizedLoss: state.dailyLoss.complete ? state.dailyLoss.realizedLoss : null,
+    },
+    portfolio: {
+      equity: state.equity,
+      peakEquity: state.peakEquity,
+      drawdownRate: computeArenaDrawdownRate(state),
+      definedStopRisk: risk.definedStopRisk,
+      unboundedExposure: risk.unboundedExposure,
+      fullyStopDefined: risk.fullyStopDefined,
+    },
+    signals: computeArenaMentorRiskSignals(state),
+  };
 }
 
 function validateProtectivePrices(
