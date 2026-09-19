@@ -216,16 +216,19 @@ function JournalModal({
 function TradeForm({
   snapshot,
   busy,
+  locale,
   selectedAsset,
   onSelectedAsset,
   onCommand,
 }: {
   snapshot: ArenaExecutionSnapshot;
   busy: boolean;
+  locale: "fa" | "en";
   selectedAsset: ArenaExecutionAsset;
   onSelectedAsset: (asset: ArenaExecutionAsset) => void;
   onCommand: (command: ArenaExecutionCommand) => Promise<boolean>;
 }) {
+  const isFa = locale === "fa";
   const [draft, setDraft] = useState<TradeDraft>({
     asset: selectedAsset,
     orderType: "market",
@@ -437,7 +440,7 @@ function TradeForm({
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-600 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/10 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CircleDollarSign className="h-4 w-4" />}
-          {busy ? "در حال ثبت فرمان..." : "بررسی برنامه و ارسال به سرور"}
+          {busy ? (isFa ? "در حال ثبت فرمان..." : "Sending command...") : (isFa ? "بررسی برنامه و ارسال به سرور" : "Review plan and send to server")}
         </button>
       </section>
     </>
@@ -836,7 +839,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
       {notice && <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200" role="status"><CheckCircle2 className="h-4 w-4 shrink-0" />{notice}</div>}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1.35fr)]">
-        <TradeForm snapshot={snapshot} busy={busy} selectedAsset={selectedAsset} onSelectedAsset={setSelectedAsset} onCommand={sendCommand} />
+        <TradeForm snapshot={snapshot} busy={busy} locale={locale} selectedAsset={selectedAsset} onSelectedAsset={setSelectedAsset} onCommand={sendCommand} />
 
         <div className="space-y-6">
           <section aria-labelledby="arena-open-positions">
