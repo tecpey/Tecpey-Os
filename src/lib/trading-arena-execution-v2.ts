@@ -671,7 +671,7 @@ export function applyArenaExecutionActionV2(
     const order = state.pendingOrders.find((item) => item.id === action.orderId);
     if (!order) return { ok: false, error: "arena_order_not_found" };
     const pendingOrders = state.pendingOrders.filter((item) => item.id !== order.id);
-    const next: ArenaExecutionStateV2 = {
+    let next: ArenaExecutionStateV2 = {
       ...state,
       cashBalance: fixed(decimal(state.cashBalance).plus(order.quoteReserved)),
       pendingOrders,
