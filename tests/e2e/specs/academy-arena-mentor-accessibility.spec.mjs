@@ -552,6 +552,22 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
     await expect(page.locator("html"), `${surface.path}: html dir`).toHaveAttribute("dir", contract.dir);
     await expect(page.getByRole("heading", { level: 1, name: surface.heading })).toBeVisible();
 
+    if (contract.locale === "en" && surface.key === "arena") {
+      const renderedText = await page.locator("body").innerText();
+      expect(
+        renderedText,
+        `${surface.path}: English Arena rendered Persian or Arabic-script UI copy`,
+      ).not.toMatch(/[\u0600-\u06ff]/);
+      await expect(page.getByRole("link", { name: "Scenarios" })).toHaveAttribute(
+        "href",
+        "/en/academy/trading-arena/scenarios",
+      );
+      await expect(page.getByRole("link", { name: "Server journal" })).toHaveAttribute(
+        "href",
+        "/en/academy/trading-arena/journal",
+      );
+    }
+
     await expectNoHorizontalOverflow(page, surface.path);
     await expectPrimaryTargetSize(page, surface);
 

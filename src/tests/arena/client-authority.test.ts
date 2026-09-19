@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   arenaCommandFingerprint,
+  arenaUiError,
   createArenaIdempotencyKey,
   parseArenaExecutionSnapshot,
   resolveArenaCommandIdentity,
@@ -78,6 +79,21 @@ function parsed(input?: Parameters<typeof payload>[0]): ArenaExecutionSnapshot {
 }
 
 describe("Trading Arena UI authority parser", () => {
+  it("localizes governed execution errors without changing the Persian default", () => {
+    assert.equal(
+      arenaUiError("arena_trade_below_minimum"),
+      "حداقل مبلغ معامله ۱۰ USDT است.",
+    );
+    assert.equal(
+      arenaUiError("arena_trade_below_minimum", 400, "en"),
+      "The minimum trade amount is 10 USDT.",
+    );
+    assert.equal(
+      arenaUiError("unknown", 401, "en"),
+      "Sign in to your Academy account again to continue practising.",
+    );
+  });
+
   it("accepts the canonical success payload and revision-conflict details", () => {
     const root = parsed({ revision: 2 });
     const conflict = parseArenaExecutionSnapshot({
