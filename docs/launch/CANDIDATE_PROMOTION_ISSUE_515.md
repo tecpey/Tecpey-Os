@@ -38,18 +38,18 @@ The human/JSON candidate ledger and protected-staging target may move only after
 
 ## Evidence truth boundary
 
-The PR-head evidence from PR #685 (`b6f034b334d8798597788435a4b9e863e1df1faa`) is useful validation of the governed Infinite Growth activation, but it is not exact-candidate evidence for the post-merge `main` commit `8db71529b3b9250bab2462c5c151d00c3aef2754` and must not be substituted for it.
+The PR-head evidence from PR #685 (`b6f034b334d8798597788435a4b9e863e1df1faa`) validates the immutable Node 24 GitHub Actions migration, but it is not exact-candidate evidence for the post-merge `main` commit `8db71529b3b9250bab2462c5c151d00c3aef2754` and must not be substituted for it.
 
 Likewise, accepted evidence attached to `79c48a16cb685a88315a44e103b3758cf7845d65` remains exact to that historical candidate and must not be relabelled.
 
 ## Guard now enforced
 
-`scripts/check-controlled-launch-candidate-lineage.mjs` validates the two-phase promotion state. It requires:
+`scripts/check-controlled-launch-candidate-lineage.mjs` validates the promoted state. It requires:
 
-- the proposed SHA to be a different exact 40-character SHA from the currently accepted candidate;
-- `protectedExecutionAllowed` to remain `false` while promotion is pending;
-- NOG-03/NOG-04/NOG-06 to be explicitly identified as stale accepted evidence requiring recollection;
-- NOG-01/02/05/07/08/09 to remain open;
+- the human ledger, JSON ledger, protected-staging request, runbook and No-Go register to target the same exact candidate SHA;
+- `protectedExecutionAllowed: true` only after genuine NOG-03/NOG-04/NOG-06 evidence is accepted for that exact candidate, and only for protected evidence collection — never as Go approval;
+- NOG-01/02/05/07/08/09 to remain open until fresh exact-candidate operational evidence is accepted;
+- NOG-03/NOG-04/NOG-06 to remain bound to genuine current-candidate workflow/artifact evidence;
 - real-money and expanded-scope capability boundaries to remain disabled.
 
 ## Parallel-safety rule
