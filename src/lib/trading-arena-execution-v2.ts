@@ -222,11 +222,36 @@ function plannedStopRiskForOrder(order: ArenaPendingOrderV2): Decimal {
   }) ?? decimal(0);
 }
 
+export type ArenaPortfolioRiskTelemetry = {
+  definedStopRisk: string;
+  unboundedExposure: string;
+  unprotectedPositions: number;
+  unprotectedPendingOrders: number;
+  fullyStopDefined: boolean;
+};
+
+export function computeArenaPortfolioRiskTelemetry(
+  state: Pick<ArenaExecutionStateV2, "openPositions" | "pendingOrders">,
+): ArenaPortfolioRiskTelemetry {
+  const unprotectedPositions = state.openPositions.filter((position) => !position.stopLoss);
+  const unprotectedPendingOrders = state.pendingOrders.filter((order) => !order.stopLoss);
+  return {
+    definedStopRisk: fixed(
+      sum(state.openPositions, plannedStopRiskForPosition)
+        .plus(sum(state.pendingOrders, plannedStopRiskForOrder)),
+    ),
+    unboundedExposure: fixed(
+      sum(unprotectedPositions, (position) => decimal(position.quoteCommitted))
+        .plus(sum(unprotectedPendingOrders, (order) => decimal(order.quoteReserved))),
+    ),
+    unprotectedPositions: unprotectedPositions.length,
+    unprotectedPendingOrders: unprotectedPendingOrders.length,
+    fullyStopDefined: unprotectedPositions.length === 0 && unprotectedPendingOrders.length === 0,
+  };
+}
+
 export function computeArenaPortfolioStopRisk(state: Pick<ArenaExecutionStateV2, "openPositions" | "pendingOrders">): string {
-  return fixed(
-    sum(state.openPositions, plannedStopRiskForPosition)
-      .plus(sum(state.pendingOrders, plannedStopRiskForOrder)),
-  );
+  return computeArenaPortfolioRiskTelemetry(state).definedStopRisk;
 }
 
 function exceedsPortfolioStopRisk(input: {
