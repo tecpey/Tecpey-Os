@@ -291,7 +291,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           <aside className="space-y-4">
             <div className="rounded-[32px] border border-white/10 bg-white/[0.055] p-5">
               <p className="text-xs font-black text-slate-400">{t.tecpeyId}</p>
-              <p className="mt-2 break-all font-mono text-lg font-semibold text-cyan-200"><bdi>{profile.public_student_id}</bdi></p>
+              <p className="mt-2 break-all font-mono text-lg font-semibold text-cyan-200"><bdi>{profile?.public_student_id || "—"}</bdi></p>
               <p className="mt-3 text-xs font-bold leading-6 text-slate-400">{t.noIndex}</p>
             </div>
             <Quick href={`${termBase}/ai-guide`} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "گفت‌وگو درباره مسیر یادگیری و تمرین بعدی" : "Talk through your learning journey and next practice"} />
