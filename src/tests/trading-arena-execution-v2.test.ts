@@ -313,6 +313,46 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.eventType, "arena.market_refreshed");
   });
 
+  it("persists daily realized loss independently of retained trade history and blocks only risk-increasing actions", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const lossLimited = {
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000" },
+      closedTrades: [],
+    };
+    const blocked = applyArenaExecutionActionV2(lossLimited, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+    }, context("operation-daily-loss-block"));
+    assert.deepEqual(blocked, { ok: false, error: "arena_daily_loss_circuit_open" });
+
+    const refreshed = success(applyArenaExecutionActionV2(lossLimited, {
+      type: "refresh_market",
+    }, context("operation-daily-loss-refresh")));
+    assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("rolls the UTC daily-loss authority at the deterministic day boundary", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:59.000Z");
+    const previousDayLimited = {
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000" },
+    };
+    const nextDay = {
+      ...context("operation-next-day"),
+      now: "2026-07-20T00:00:01.000Z",
+      market: { ...MARKET, observedAt: "2026-07-20T00:00:00.000Z" },
+    };
+    const accepted = applyArenaExecutionActionV2(previousDayLimited, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+      stopLoss: "60000",
+    }, nextDay);
+    assert.equal(accepted.ok, true);
+  });
+
   it("never lowers peak equity after a later market drawdown", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const opened = success(applyArenaExecutionActionV2(initial, {
