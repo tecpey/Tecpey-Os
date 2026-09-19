@@ -8,6 +8,7 @@ export const ARENA_EXECUTION_WARNING_ALLOCATION_RATE = "0.05";
 export const ARENA_EXECUTION_MAX_STOP_RISK_RATE = "0.02";
 export const ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE = "0.06";
 export const ARENA_EXECUTION_MAX_DRAWDOWN_RATE = "0.10";
+export const ARENA_EXECUTION_MAX_DAILY_REALIZED_LOSS_RATE = "0.03";
 /** @deprecated Use ARENA_EXECUTION_MAX_ALLOCATION_RATE. */
 export const ARENA_EXECUTION_MAX_RISK_RATE = ARENA_EXECUTION_MAX_ALLOCATION_RATE;
 /** @deprecated Use ARENA_EXECUTION_WARNING_ALLOCATION_RATE. */
@@ -78,6 +79,11 @@ export type ArenaClosedTradeV2 = {
   mentorFlags: ArenaExecutionMentorFlag[];
 };
 
+export type ArenaDailyLossAuthorityV2 = {
+  day: string;
+  realizedLoss: string;
+};
+
 export type ArenaExecutionStateV2 = {
   version: typeof ARENA_EXECUTION_VERSION;
   initialBalance: string;
@@ -96,6 +102,7 @@ export type ArenaExecutionStateV2 = {
   createdAt: string;
   updatedAt: string;
   peakEquity: string;
+  dailyLoss: ArenaDailyLossAuthorityV2;
 };
 
 export type ArenaExecutionActionV2 =
@@ -161,6 +168,29 @@ function nonNegative(value: unknown, places = MONEY_DP): string | null {
   if (typeof value !== "string" || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) return null;
   const parsed = decimal(value);
   return parsed.isFinite() && parsed.gte(0) ? fixed(parsed, places) : null;
+}
+
+function utcDay(value: string): string {
+  return value.slice(0, 10);
+}
+
+function normalizeDailyLossAuthority(value: unknown, fallbackDay: string): ArenaDailyLossAuthorityV2 {
+  if (!value || typeof value !== "object") return { day: fallbackDay, realizedLoss: fixed(0) };
+  const raw = value as Partial<ArenaDailyLossAuthorityV2>;
+  const day = typeof raw.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.day) ? raw.day : fallbackDay;
+  const realizedLoss = nonNegative(raw.realizedLoss) ?? fixed(0);
+  return { day, realizedLoss };
+}
+
+function dailyLossForNow(state: ArenaExecutionStateV2, now: string): ArenaDailyLossAuthorityV2 {
+  const day = utcDay(now);
+  return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0) };
+}
+
+function dailyLossCircuitOpen(state: ArenaExecutionStateV2, now: string): boolean {
+  const authority = dailyLossForNow(state, now);
+  if (decimal(state.initialBalance).lte(0)) return true;
+  return decimal(authority.realizedLoss).div(state.initialBalance).gte(ARENA_EXECUTION_MAX_DAILY_REALIZED_LOSS_RATE);
 }
 
 function iso(value: unknown): string | null {
