@@ -220,7 +220,7 @@
       "previousSourceHash": "9a88eba6dfd5e324f79ad975",
       "issue": "#616",
       "owner": "academy-platform",
-      "reason": "Verified student identity recovery: route/delegation hashes and regression references updated. Refresh remains guarded by atomic Session Authority rotation, now recognized as strict revocation runtime evidence; no access-cookie requirement or security exception added.",
+      "reason": "Verified student identity recovery and the current exact generated test-evidence set for the compatibility Academy login operation. Runtime route/delegation hashes and inherited authentication controls remain unchanged; this review additionally binds the avatar-lifecycle regression evidence discovered by the manifest generator.",
       "replacement": {
         "route": "/api/academy/auth/login",
         "method": "POST",
@@ -268,6 +268,7 @@
           "src/tests/academy/path-progress.test.ts",
           "src/tests/academy/progress-state.test.ts",
           "src/tests/academy/reflection-memory.test.ts",
+          "src/tests/academy-profile-avatar-lifecycle.test.ts",
           "src/tests/content/academy-path-en-quality.test.ts",
           "src/tests/security/academy-auth-client-2fa-source.test.ts",
           "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
@@ -278,8 +279,7 @@
           "src/tests/security/academy-progress-authority-postgres.test.ts",
           "src/tests/security/academy-progress-client-authority.test.ts",
           "src/tests/security/academy-progress-idempotency-postgres.test.ts",
-          "src/tests/security/academy-progress-projection-authority.test.ts",
-          "src/tests/security/academy-student-session-identity.test.ts"
+          "src/tests/security/academy-progress-mentor-coach-evidence.test.ts"
         ],
         "requirements": {
           "csrf": true,
