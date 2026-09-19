@@ -98,7 +98,7 @@
       "method": "POST",
       "issue": "#619",
       "owner": "academy-platform",
-      "reason": "Adds the private Academy profile-photo upload command with CSRF, strict revocation, per-route rate limiting, an enforceable streaming byte ceiling before multipart parsing, content-type validation, ownership-bound storage, observability and private no-store responses.",
+      "reason": "Adds the private Academy profile-photo upload command with CSRF, strict revocation, per-route rate limiting, an enforceable streaming byte ceiling before multipart parsing, content-type validation, ownership-bound storage, observability and private no-store responses. Lifecycle storage behavior is covered separately by the profile avatar lifecycle unit contract and is not route evidence for this upload operation.",
       "replacement": {
         "route": "/api/academy-profile-avatar",
         "method": "POST",
@@ -138,7 +138,6 @@
         },
         "domainOwner": "academy-profile-avatar",
         "testReferences": [
-          "src/tests/profile-avatar-lifecycle.test.ts",
           "src/tests/content/profile-editor-contract.test.ts",
           "src/tests/security/tenant-scoped-route-guards.test.ts"
         ],
