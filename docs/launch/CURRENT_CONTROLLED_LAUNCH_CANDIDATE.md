@@ -63,6 +63,8 @@ artifact collected next must bind the exact SHA above.
 
 | `9c210885b48f36a478d6a12fc369f822db259559` | Controlled-launch evidence candidate selected after PR #568 secure Limoo Pattern OTP | Superseded by PR #581 for current-main exact-candidate evidence collection. |
 
+| `8db71529b3b9250bab2462c5c151d00c3aef2754` | Current controlled-launch candidate after PR #581 governed Infinite Growth activation | Superseded by PR #685 for current-main exact-candidate evidence collection. |
+
 | `5e65ec55e003986187083a71a84272676dc09ccc` | Current controlled-launch candidate after PR #581 governed Infinite Growth activation | Superseded by PR #685 for current-main exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
