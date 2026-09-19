@@ -5,7 +5,7 @@
     {
       "route": "/api/ai-mentor",
       "method": "POST",
-      "previousSourceHash": "7c0e29f31a07793bd91b2598",
+      "previousSourceHash": "01e7a3bbbd3998503b7129ef",
       "issue": "#688",
       "owner": "ai-platform-security",
       "reason": "Reviewed after the authenticated Mentor request path was tightened so its server-only Arena risk-context read now receives the already-verified tenant and workspace authority alongside the authorized student principal. The loader independently requires an active platform_principal_bindings row for that exact tenant/workspace/student tuple before any Arena attempt can contribute evidence. Missing or mismatched binding yields no Arena context and the existing capability gate remains fail-closed. No client-controlled tenant selector, exchange authority, real-money action or new provider permission is introduced; existing strict session, entitlement, CSRF, rate-limit, safety, spend, evidence, audit/redaction and private no-store controls remain unchanged.",
