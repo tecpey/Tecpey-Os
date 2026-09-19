@@ -7,6 +7,7 @@ export const ARENA_EXECUTION_MAX_ALLOCATION_RATE = "0.20";
 export const ARENA_EXECUTION_WARNING_ALLOCATION_RATE = "0.05";
 export const ARENA_EXECUTION_MAX_STOP_RISK_RATE = "0.02";
 export const ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE = "0.06";
+export const ARENA_EXECUTION_MAX_DRAWDOWN_RATE = "0.10";
 /** @deprecated Use ARENA_EXECUTION_MAX_ALLOCATION_RATE. */
 export const ARENA_EXECUTION_MAX_RISK_RATE = ARENA_EXECUTION_MAX_ALLOCATION_RATE;
 /** @deprecated Use ARENA_EXECUTION_WARNING_ALLOCATION_RATE. */
@@ -94,6 +95,7 @@ export type ArenaExecutionStateV2 = {
   lastMarket: ArenaPriceSnapshot | null;
   createdAt: string;
   updatedAt: string;
+  peakEquity: string;
 };
 
 export type ArenaExecutionActionV2 =
@@ -334,6 +336,7 @@ export function createArenaExecutionStateV2(
     lastMarket: null,
     createdAt: timestamp,
     updatedAt: timestamp,
+    peakEquity: normalized,
   };
 }
 
@@ -358,7 +361,8 @@ export function normalizeArenaExecutionStateV2(
   const totalFeesPaid = nonNegative(raw.totalFeesPaid);
   const createdAt = iso(raw.createdAt);
   const updatedAt = iso(raw.updatedAt);
-  if (!normalizedInitial || !cashBalance || totalRealizedPnl === null || !totalFeesPaid || !createdAt || !updatedAt) {
+  const peakEquity = nonNegative(raw.peakEquity ?? raw.initialBalance);
+  if (!normalizedInitial || !cashBalance || totalRealizedPnl === null || !totalFeesPaid || !createdAt || !updatedAt || !peakEquity) {
     throw new Error("arena_execution_state_invalid");
   }
 
@@ -426,9 +430,27 @@ export function normalizeArenaExecutionStateV2(
     lastMarket,
     createdAt,
     updatedAt,
+    peakEquity,
   };
   if (lastMarket) state.equity = computeArenaExecutionEquity(state, lastMarket);
+  if (decimal(state.equity).gt(state.peakEquity)) state.peakEquity = state.equity;
   return state;
+}
+
+function updatePeakEquity(state: ArenaExecutionStateV2): ArenaExecutionStateV2 {
+  if (decimal(state.equity).gt(state.peakEquity)) return { ...state, peakEquity: state.equity };
+  return state;
+}
+
+export function computeArenaDrawdownRate(state: Pick<ArenaExecutionStateV2, "equity" | "peakEquity">): string {
+  const peak = decimal(state.peakEquity);
+  if (peak.lte(0)) return "0.00000000";
+  const drawdown = Decimal.max(0, peak.minus(state.equity).div(peak));
+  return drawdown.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed(8);
+}
+
+function drawdownCircuitOpen(state: ArenaExecutionStateV2): boolean {
+  return decimal(computeArenaDrawdownRate(state)).gte(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
 }
 
 function validateProtectivePrices(
@@ -546,7 +568,7 @@ function closeOnePosition(
   };
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.equity = computeArenaExecutionEquity(next, context.market);
-  return { state: next, trade };
+  return { state: updatePeakEquity(next), trade };
 }
 
 function processMarket(
@@ -609,7 +631,7 @@ function processMarket(
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.holdings = computeHoldings(next.openPositions);
   next.equity = computeArenaExecutionEquity(next, context.market);
-  return { state: next, filledOrderIds, closedTradeIds };
+  return { state: updatePeakEquity(next), filledOrderIds, closedTradeIds };
 }
 
 export function applyArenaExecutionActionV2(
@@ -658,6 +680,7 @@ export function applyArenaExecutionActionV2(
       updatedAt: now,
     };
     next.equity = computeArenaExecutionEquity(next, market);
+    next = updatePeakEquity(next);
     return {
       ok: true,
       state: next,
@@ -683,6 +706,8 @@ export function applyArenaExecutionActionV2(
       event: { trade: closed.trade },
     };
   }
+
+  if (drawdownCircuitOpen(state)) return { ok: false, error: "arena_drawdown_circuit_open" };
 
   const quoteAmount = positive(action.quoteAmount);
   if (!quoteAmount || quoteAmount.lt(ARENA_EXECUTION_MIN_TRADE)) {
@@ -798,9 +823,10 @@ export function applyArenaExecutionActionV2(
   };
   next.reservedBalance = fixed(computeReserved(next.pendingOrders));
   next.equity = computeArenaExecutionEquity(next, market);
+  const finalized = updatePeakEquity(next);
   return {
     ok: true,
-    state: next,
+    state: finalized,
     eventType: "arena.market_position_opened",
     event: { position },
   };
