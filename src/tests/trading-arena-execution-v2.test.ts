@@ -317,7 +317,7 @@ describe("authoritative Arena execution aggregate", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const lossLimited = {
       ...initial,
-      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000" },
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", complete: true },
       closedTrades: [],
     };
     const blocked = applyArenaExecutionActionV2(lossLimited, {
@@ -333,11 +333,32 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.eventType, "arena.market_refreshed");
   });
 
+  it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: undefined,
+      updatedAt: "2026-07-19T12:00:00.000Z",
+    });
+    assert.deepEqual(legacy.dailyLoss, {
+      day: "2026-07-19",
+      realizedLoss: "0.0000000000",
+      complete: false,
+    });
+    const accepted = applyArenaExecutionActionV2(legacy, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+      stopLoss: "60000",
+    }, context("operation-legacy-incomplete-daily-loss"));
+    assert.equal(accepted.ok, true);
+  });
+
   it("rolls the UTC daily-loss authority at the deterministic day boundary", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:59.000Z");
     const previousDayLimited = {
       ...initial,
-      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000" },
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", complete: true },
     };
     const nextDay = {
       ...context("operation-next-day"),
