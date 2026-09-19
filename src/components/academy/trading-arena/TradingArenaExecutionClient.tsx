@@ -35,6 +35,10 @@ import {
 import {
   ARENA_EXECUTION_MAX_RISK_RATE,
   ARENA_EXECUTION_WARNING_RISK_RATE,
+  ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE,
+  ARENA_EXECUTION_MAX_DRAWDOWN_RATE,
+  computeArenaPortfolioStopRisk,
+  computeArenaDrawdownRate,
   type ArenaClosedTradeV2,
   type ArenaExecutionAsset,
   type ArenaExecutionMentorFlag,
@@ -753,6 +757,14 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
   const initial = number(snapshot.state.initialBalance);
   const equityDelta = equity - initial;
   const equityRate = initial > 0 ? equityDelta / initial : 0;
+  const portfolioStopRisk = number(computeArenaPortfolioStopRisk(snapshot.state));
+  const portfolioRiskRate = equity > 0 ? portfolioStopRisk / equity : 0;
+  const portfolioRiskLimit = number(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
+  const portfolioRiskRemaining = Math.max(0, portfolioRiskLimit - portfolioRiskRate);
+  const drawdownRate = number(computeArenaDrawdownRate(snapshot.state));
+  const drawdownLimit = number(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
+  const drawdownRemaining = Math.max(0, drawdownLimit - drawdownRate);
+  const drawdownCircuitOpen = drawdownRate >= drawdownLimit;
   const recentFlags = [...new Set(snapshot.state.closedTrades.slice(0, 10).flatMap((trade) => trade.mentorFlags))];
   const busy = busyAction !== null;
 
@@ -786,6 +798,24 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
         <div className={`rounded-[24px] border p-5 ${equityDelta >= 0 ? "border-emerald-400/20 bg-emerald-400/5" : "border-red-400/20 bg-red-400/5"}`}><p className="text-xs font-black text-slate-300">ارزش لحظه‌ای حساب</p><p className="mt-2 text-2xl font-black tabular-nums">{usd(equity)}</p><p className={`mt-1 text-xs font-black ${equityDelta >= 0 ? "text-emerald-300" : "text-red-300"}`}>{equityDelta >= 0 ? <ArrowUpRight className="inline h-3.5 w-3.5" /> : <ArrowDownRight className="inline h-3.5 w-3.5" />} {signedUsd(equityDelta)} · {percent(equityRate)}</p></div>
         <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-300">فرصت فعال</p><p className="mt-2 text-2xl font-black">{snapshot.activeAttempt.attemptNumber} از {snapshot.account.attemptsTotal}</p><p className="mt-1 text-xs font-bold text-slate-300">باقی‌مانده: {snapshot.account.attemptsRemaining}</p></div>
         <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-300">نسخه معتبر</p><p className="mt-2 text-2xl font-black tabular-nums">r{snapshot.revision}</p><p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-300"><ServerCog className="h-3.5 w-3.5" /> PostgreSQL authority</p></div>
+      </section>
+
+      <section className={`rounded-[24px] border p-5 ${drawdownCircuitOpen ? "border-red-400/30 bg-red-400/5" : "border-white/10 bg-slate-900/70"}`} aria-labelledby="arena-risk-telemetry">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="arena-risk-telemetry" className="text-xs font-black uppercase tracking-widest text-slate-300">{isFa ? "مرکز کنترل ریسک" : "Risk control center"}</h2>
+            <p className="mt-1 text-xs font-bold text-slate-400">{isFa ? "محاسبات از state معتبر سرور انجام می‌شوند." : "Metrics are derived from the authoritative server state."}</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-black ${drawdownCircuitOpen ? "bg-red-400/10 text-red-200" : "bg-emerald-400/10 text-emerald-200"}`}>
+            {drawdownCircuitOpen ? (isFa ? "افزایش ریسک متوقف" : "Risk increase paused") : (isFa ? "در محدوده حفاظتی" : "Within guardrails")}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "اوج ارزش حساب" : "Peak equity"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(snapshot.state.peakEquity)}</p></div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "افت از اوج" : "Current drawdown"}</p><p className="mt-1 text-lg font-black tabular-nums">{percent(drawdownRate)}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? `تا توقف: ${percent(drawdownRemaining)}` : `To circuit: ${percent(drawdownRemaining)}`}</p></div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "ریسک برنامه‌ریزی‌شده پرتفوی" : "Planned portfolio risk"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(portfolioStopRisk)} · {percent(portfolioRiskRate)}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? `ظرفیت باقی‌مانده: ${percent(portfolioRiskRemaining)}` : `Remaining budget: ${percent(portfolioRiskRemaining)}`}</p></div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "سقف‌های آموزشی" : "Training guardrails"}</p><p className="mt-1 text-sm font-black">{isFa ? `پرتفوی ${percent(portfolioRiskLimit)} · Drawdown ${percent(drawdownLimit)}` : `Portfolio ${percent(portfolioRiskLimit)} · Drawdown ${percent(drawdownLimit)}`}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? "بستن موقعیت و لغو سفارش همیشه مجاز می‌ماند." : "Closing positions and cancelling orders remain available."}</p></div>
+        </div>
       </section>
 
       <section className={`rounded-2xl border p-4 ${snapshot.marketStatus === "available" ? "border-cyan-300/15 bg-cyan-400/5" : "border-amber-400/25 bg-amber-400/5"}`} aria-live="polite">
