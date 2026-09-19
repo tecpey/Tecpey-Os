@@ -9,7 +9,7 @@ import {
   findStudentCartaxProfile,
   upsertStudentCartax,
 } from "@/lib/student-cartax";
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
 import { isSessionConfigured } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
@@ -339,7 +339,20 @@ export async function POST(req: NextRequest) {
         // Email and mobile are identity-provider claims. They are displayed in
         // the profile editor but never accepted from the presentation form.
         const email = session.email ?? undefined;
-        const result = await withDb(async (client) => {
+        const result = await withTx(async (client) => {
+          // Serialize profile mutations per student across every application
+          // instance. File reconciliation happens after this transaction
+          // commits, so the final durable profile value cannot be overtaken by
+          // an older concurrent writer.
+          if (session.studentId) {
+            await client.query(
+              `SELECT pg_advisory_xact_lock(
+                 hashtext('academy_student_profile_command'),
+                 hashtext($1)
+               )`,
+              [session.studentId],
+            );
+          }
           const verifiedPhone = session.academyAccountId
             ? await client.query<{ phone_e164: string | null }>(
                 `SELECT phone_e164
