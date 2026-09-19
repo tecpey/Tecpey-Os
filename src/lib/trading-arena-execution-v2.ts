@@ -636,7 +636,12 @@ function processMarket(
   state: ArenaExecutionStateV2,
   context: ArenaExecutionContext,
 ): { state: ArenaExecutionStateV2; filledOrderIds: string[]; closedTradeIds: string[] } {
-  let next: ArenaExecutionStateV2 = { ...state, lastMarket: context.market, updatedAt: context.now };
+  let next: ArenaExecutionStateV2 = {
+    ...state,
+    lastMarket: context.market,
+    updatedAt: context.now,
+    dailyLoss: dailyLossForNow(state, context.now),
+  };
   const filledOrderIds: string[] = [];
   const closedTradeIds: string[] = [];
 
