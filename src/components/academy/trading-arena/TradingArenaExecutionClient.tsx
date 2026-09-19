@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArenaMarketChart } from "./ArenaMarketChart";
 import { resolveArenaAccessGate } from "@/lib/arena-access-state";
 import {
   AlertTriangle,
@@ -789,6 +790,12 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" |
         </div>
         {market && <div className="mt-3 flex gap-4 text-sm font-black"><span>BTC {usd(market.prices.BTC)}</span><span>ETH {usd(market.prices.ETH)}</span></div>}
       </section>
+
+      <ArenaMarketChart
+        asset="BTC"
+        livePrice={market?.prices.BTC ?? null}
+        locale={locale}
+      />
 
       {error && <div className="flex items-start gap-3 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm font-bold leading-7 text-red-200" role="alert"><AlertTriangle className="mt-1 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200" role="status"><CheckCircle2 className="h-4 w-4 shrink-0" />{notice}</div>}
