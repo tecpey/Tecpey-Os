@@ -31,7 +31,7 @@ describe("academy profile editor contract", () => {
     assert.match(cartax, /s\.country/);
   });
 
-  it("uses a bounded same-origin upload path and separates private photo from public avatar", () => {
+  it("uses a bounded same-origin upload path and removes the legacy emoji-avatar command", () => {
     const editor = read("src/components/academy/AcademyOnboardingClient.tsx");
     const upload = read("src/app/api/academy-profile-avatar/route.ts");
     const storage = read("src/lib/academy-profile-avatar-storage.ts");
@@ -45,7 +45,9 @@ describe("academy profile editor contract", () => {
     assert.match(storage, /TECPEY_PROFILE_AVATAR_DIR/);
     assert.match(storage, /writeFile\([^\n]+\{ flag: "wx", mode: 0o640 \}\)/);
     assert.match(profileRoute, /isOwnedAcademyProfileAvatarUrl/);
-    assert.match(profileRoute, /AVATAR_OPTIONS\.has\(requestedAvatar\)/);
+    assert.doesNotMatch(profileRoute, /AVATAR_OPTIONS|requestedAvatar/);
+    assert.doesNotMatch(editor, /avatarOptions|aria-pressed=\{avatar === item\}/);
+    assert.match(editor, /tecpey-default-profile\.svg/);
     assert.match(profileRoute, /photoUrl/);
   });
 
