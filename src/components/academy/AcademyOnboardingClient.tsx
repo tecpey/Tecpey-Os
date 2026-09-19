@@ -248,6 +248,7 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
                 // eslint-disable-next-line @next/next/no-img-element -- #619: authenticated user photo is served by the governed same-origin avatar endpoint.
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- static same-origin TecPey identity fallback.
                 <img src="/assets/tecpey-default-profile.svg" alt="" className="h-full w-full object-cover" />
               )}
             </div>
