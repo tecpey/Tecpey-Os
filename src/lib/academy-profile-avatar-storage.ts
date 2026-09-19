@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -106,4 +106,50 @@ export async function readAcademyProfileAvatar(owner: string, filename: string):
   } catch {
     return null;
   }
+}
+
+
+function filenameFromOwnedAvatarUrl(value: string, studentId: string): string | null {
+  if (!isOwnedAcademyProfileAvatarUrl(value, studentId)) return null;
+  const filename = value.slice(value.lastIndexOf("/") + 1);
+  return FILE_RE.test(filename) ? filename : null;
+}
+
+/**
+ * Reconciles the private avatar directory only after the profile record has
+ * committed successfully. This makes replace/delete idempotent and removes
+ * abandoned uploads from earlier failed saves without ever crossing owners.
+ *
+ * Backup/restore contract: TECPEY_PROFILE_AVATAR_DIR is persistent application
+ * data and must be snapshotted/restored together with the database.
+ */
+export async function reconcileAcademyProfileAvatars(input: {
+  studentId: string;
+  keepUrl?: string | null;
+}): Promise<{ removed: number }> {
+  const owner = profileAvatarOwnerKey(input.studentId);
+  const keep = input.keepUrl ? filenameFromOwnedAvatarUrl(input.keepUrl, input.studentId) : null;
+  if (input.keepUrl && !keep) throw new Error("profile_avatar_not_owned");
+
+  const ownerDir = path.join(storageRoot(), owner);
+  let entries: string[];
+  try {
+    entries = await readdir(ownerDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return { removed: 0 };
+    throw error;
+  }
+
+  let removed = 0;
+  for (const filename of entries) {
+    if (!FILE_RE.test(filename) || filename === keep) continue;
+    try {
+      await rm(path.join(ownerDir, filename), { force: true });
+      removed += 1;
+    } catch {
+      // Profile persistence is authoritative. Cleanup is best-effort here and
+      // can be retried by the next successful profile mutation.
+    }
+  }
+  return { removed };
 }

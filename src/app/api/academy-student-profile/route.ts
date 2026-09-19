@@ -19,7 +19,7 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
-import { isOwnedAcademyProfileAvatarUrl } from "@/lib/academy-profile-avatar-storage";
+import { isOwnedAcademyProfileAvatarUrl, reconcileAcademyProfileAvatars } from "@/lib/academy-profile-avatar-storage";
 
 type LocalProfile = {
   id: string;
@@ -373,6 +373,16 @@ export async function POST(req: NextRequest) {
         });
 
         if (result.enabled && result.value) {
+          // The database commit is the authority boundary. Reconcile files only
+          // afterwards so a failed profile save can never delete the last
+          // committed photo. A later successful mutation also removes orphans
+          // left by an earlier upload whose save did not complete.
+          if (photoUrl !== undefined && session.studentId) {
+            await reconcileAcademyProfileAvatars({
+              studentId: session.studentId,
+              keepUrl: photoUrl,
+            }).catch(() => undefined);
+          }
           const response = apiOk({
             storage: "cloud" as const,
             authenticated: true as const,
@@ -409,6 +419,12 @@ export async function POST(req: NextRequest) {
           country,
           locale: typeof body.locale === "string" ? body.locale : undefined,
         });
+        if (photoUrl !== undefined && local.studentId) {
+          await reconcileAcademyProfileAvatars({
+            studentId: local.studentId,
+            keepUrl: photoUrl,
+          }).catch(() => undefined);
+        }
         const response = apiOk({
           storage: "local-dev" as const,
           authenticated: true as const,
