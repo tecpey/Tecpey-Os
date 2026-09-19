@@ -32,7 +32,7 @@ test("policy rejects reserved GitHub SHA overrides", () => {
 
 test("policy rejects floating third-party actions", () => {
   const mutated = workflow.replace(
-    "actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4",
+    "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1",
     "actions/checkout@v4",
   );
   assert.match(repositoryAuditWorkflowFindings(mutated).join("\n"), /not pinned/);

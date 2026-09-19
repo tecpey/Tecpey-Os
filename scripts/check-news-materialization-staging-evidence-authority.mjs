@@ -62,7 +62,7 @@ for (const invariant of [
   "unexpected calendar-based news materialization cadence",
   "news-materialization-last-run.json",
   "sha256sum",
-  "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+  "actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f",
   "retention-days: 7",
 ]) {
   requireText("workflow", invariant, `protected staging news workflow is missing ${invariant}`);
