@@ -71,6 +71,76 @@
           "resolved": true
         }
       }
+    },
+    {
+      "route": "/api/academy-student-profile",
+      "method": "POST",
+      "previousSourceHash": "85d9cf6ba583c879fa51df0f",
+      "issue": "#687",
+      "owner": "academy-platform",
+      "reason": "Serializes Academy student-profile mutations per student inside a real PostgreSQL transaction using a transaction-scoped advisory lock, preventing an older concurrent avatar mutation from committing/reconciling after a newer mutation. Authentication, CSRF, strict revocation, bounded-body, audit, privacy and no-store controls remain unchanged.",
+      "replacement": {
+        "route": "/api/academy-student-profile",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-student-profile/route.ts",
+        "sourceHash": "f2932878bb6f95d6e5d9984c",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-student-profile-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-student-profile",
+        "testReferences": [
+          "src/tests/content/profile-editor-contract.test.ts",
+          "src/tests/security/student-identity-selection.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-student-profile/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
     }
   ],
   "readOnlyRoutes": [],
