@@ -70,7 +70,9 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
             {profile.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element -- #619: private same-origin account photo is intentionally not image-optimizer proxied.
               <img src={profile.photo_url} alt="" className="h-full w-full object-cover" />
-            ) : (profile.avatar || "👤")}
+            ) : (
+              <img src="/assets/tecpey-default-profile.svg" alt="" className="h-full w-full object-cover" />
+            )}
           </span>
           <div className="min-w-0">
             <h2 className="truncate font-semibold">{profile.display_name}</h2>

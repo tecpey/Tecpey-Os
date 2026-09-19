@@ -235,7 +235,7 @@ function mapProfile(row: CommunityProfileRow): CommunityOwnedProfile {
     username:
       normalizeUsername(row.username) ||
       `learner-${row.public_profile_id.replaceAll("-", "").slice(0, 8)}`,
-    avatar: cleanText(row.avatar, 20) || "🟦",
+    avatar: "",
     level:
       completedTerms >= 5
         ? "Advanced Learner"

@@ -54,7 +54,6 @@ type LocalStore = {
   profiles: Record<string, LocalProfile>;
 };
 
-const AVATAR_OPTIONS = new Set(["🟦", "🟣", "🟢", "🟠", "⚡", "🎓", "🧠", "📈"]);
 const GENDERS = new Set(["female", "male", "nonbinary", "prefer_not_to_say"]);
 
 function publicIdFromUuid(id: string) {
@@ -172,7 +171,7 @@ async function upsertLocalProfile(input: {
         .slice(0, 32) ||
       existing.username ||
       null,
-    avatar: cleanText(input.avatar, 40) || existing.avatar || "🟦",
+    avatar: null,
     photo_url: input.photoUrl === undefined ? existing.photo_url || null : input.photoUrl,
     learning_goal:
       cleanText(input.learningGoal, 120) || existing.learning_goal || null,
@@ -314,11 +313,6 @@ export async function POST(req: NextRequest) {
         const birthDate = parseOptionalBirthDate(body.birthDate);
         const gender = parseOptionalGender(body.gender);
         const country = parseOptionalCountry(body.country);
-        const requestedAvatar = typeof body.avatar === "string" ? body.avatar.trim() : undefined;
-        if (requestedAvatar && !AVATAR_OPTIONS.has(requestedAvatar)) {
-          return apiError("academy_avatar_invalid", 400);
-        }
-
         let photoUrl: string | null | undefined;
         if (body.photoUrl === undefined) {
           photoUrl = undefined;
@@ -371,7 +365,6 @@ export async function POST(req: NextRequest) {
               phone: verifiedPhone?.rows[0]?.phone_e164 ?? undefined,
               displayName: typeof body.displayName === "string" ? body.displayName : session.displayName ?? undefined,
               username: typeof body.username === "string" ? body.username : session.username ?? undefined,
-              avatar: requestedAvatar,
               photoUrl,
               learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
               birthDate,
@@ -424,7 +417,6 @@ export async function POST(req: NextRequest) {
           email,
           displayName: typeof body.displayName === "string" ? body.displayName : session.displayName ?? undefined,
           username: typeof body.username === "string" ? body.username : session.username ?? undefined,
-          avatar: requestedAvatar,
           photoUrl,
           learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
           birthDate,
