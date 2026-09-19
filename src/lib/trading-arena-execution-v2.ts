@@ -37,7 +37,7 @@ export type ArenaMentorRiskSignalV2 = {
 export type ArenaMentorRiskContextV2 = {
   version: 2;
   generatedAt: string;
-  market: { source: string; observedAt: string } | null;
+  market: { source: string; observedAt: string; ageMs: number; freshness: "fresh" | "stale" | "future" } | null;
   accounting: {
     day: string;
     complete: boolean;
@@ -587,7 +587,15 @@ export function buildArenaMentorRiskContext(
     version: 2,
     generatedAt: at,
     market: state.lastMarket
-      ? { source: state.lastMarket.source, observedAt: state.lastMarket.observedAt }
+      ? (() => {
+          const ageMs = Date.parse(at) - Date.parse(state.lastMarket.observedAt);
+          return {
+            source: state.lastMarket.source,
+            observedAt: state.lastMarket.observedAt,
+            ageMs,
+            freshness: ageMs < -5_000 ? "future" as const : ageMs > 15_000 ? "stale" as const : "fresh" as const,
+          };
+        })()
       : null,
     accounting: {
       day: state.dailyLoss.day,
