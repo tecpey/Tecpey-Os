@@ -127,7 +127,7 @@ describe("authoritative Arena execution aggregate", () => {
       type: "market_buy",
       asset: "ETH",
       quoteAmount: "10000",
-      stopLoss: "2800",
+      stopLoss: "2820",
     }, { ...context("operation-portfolio-risk-reject"), slippageBps: "0" });
     assert.deepEqual(rejected, { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" });
   });
