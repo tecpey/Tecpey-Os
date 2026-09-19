@@ -1,12 +1,12 @@
 # Controlled Soft Launch Go/No-Go Checklist
 
 - **Status:** NO-GO until every blocking row below has accepted evidence
-- **Current candidate SHA:** `5e65ec55e003986187083a71a84272676dc09ccc`
+- **Current candidate SHA:** `8db71529b3b9250bab2462c5c151d00c3aef2754`
 - **Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`
 - **Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 - **Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`
 - **Active protected staging NO-GO register:** `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`
-- **Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, #377, #378, #433, #435, #434, #436, #438, #439, #440, #441, #437, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
+- **Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, #377, #378, #433, #435, #434, #436, #438, #439, #440, #441, #437, #684, #685, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
 
 This checklist is the release-decision surface for the narrow controlled Soft
 Launch. It is not a marketing readiness claim, and it does not authorize
@@ -30,7 +30,7 @@ ledger above; older packet SHAs are historical draft baselines only unless a
 release-owner promotion PR explicitly reselects them.
 
 The governed final manifest and release packet for `79c48a16cb685a88315a44e103b3758cf7845d65` remain
-historical evidence only. They are not active evidence for `5e65ec55e003986187083a71a84272676dc09ccc` and do not
+historical evidence only. They are not active evidence for `8db71529b3b9250bab2462c5c151d00c3aef2754` and do not
 authorize its staging deployment, merge or launch.
 
 ## Blocking checklist
@@ -56,7 +56,7 @@ authorize its staging deployment, merge or launch.
 The final Go/No-Go record must contain:
 
 The governed manifest and generated final packet dated 2026-08-24 are archived
-for candidate `79c48a16cb685a88315a44e103b3758cf7845d65` only. A new final record for `5e65ec55e003986187083a71a84272676dc09ccc` may be generated
+for candidate `79c48a16cb685a88315a44e103b3758cf7845d65` only. A new final record for `8db71529b3b9250bab2462c5c151d00c3aef2754` may be generated
 only after every active blocker is accepted for this exact candidate; the
 historical packet must never be copied or relabelled.
 
