@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
+  computeArenaPortfolioStopRisk,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
   type ArenaExecutionContext,
@@ -106,6 +107,49 @@ describe("authoritative Arena execution aggregate", () => {
       stopLoss: "50000",
     }, context("operation-limit-stop-risk"));
     assert.deepEqual(rejected, { ok: false, error: "arena_stop_risk_limit_exceeded" });
+  });
+
+  it("caps aggregate planned stop risk across simultaneous positions", () => {
+    let state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    for (let index = 0; index < 3; index += 1) {
+      const opened = success(applyArenaExecutionActionV2(state, {
+        type: "market_buy",
+        asset: "BTC",
+        quoteAmount: "10000",
+        stopLoss: "52000",
+      }, { ...context(`operation-portfolio-risk-${index}`), slippageBps: "0" }));
+      state = opened.state;
+    }
+    assert.ok(new Decimal(computeArenaPortfolioStopRisk(state)).gt("5900"));
+    const rejected = applyArenaExecutionActionV2(state, {
+      type: "market_buy",
+      asset: "ETH",
+      quoteAmount: "10000",
+      stopLoss: "2800",
+    }, { ...context("operation-portfolio-risk-reject"), slippageBps: "0" });
+    assert.deepEqual(rejected, { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" });
+  });
+
+  it("includes pending-order stop risk in the aggregate portfolio budget", () => {
+    let state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    for (let index = 0; index < 3; index += 1) {
+      const placed = success(applyArenaExecutionActionV2(state, {
+        type: "limit_buy",
+        asset: "BTC",
+        quoteAmount: "10000",
+        limitPrice: "64000",
+        stopLoss: "51520",
+      }, context(`operation-pending-risk-${index}`)));
+      state = placed.state;
+    }
+    const rejected = applyArenaExecutionActionV2(state, {
+      type: "limit_buy",
+      asset: "ETH",
+      quoteAmount: "10000",
+      limitPrice: "3400",
+      stopLoss: "2750",
+    }, context("operation-pending-risk-reject"));
+    assert.deepEqual(rejected, { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" });
   });
 
   it("reserves limit-order cash and restores it exactly on cancellation", () => {
