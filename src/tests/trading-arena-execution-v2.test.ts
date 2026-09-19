@@ -339,7 +339,7 @@ describe("authoritative Arena execution aggregate", () => {
       ...initial,
       dailyLoss: undefined,
       updatedAt: "2026-07-19T12:00:00.000Z",
-    });
+    }, "100000");
     assert.deepEqual(legacy.dailyLoss, {
       day: "2026-07-19",
       realizedLoss: "0.0000000000",
