@@ -3,8 +3,13 @@ import Decimal from "decimal.js";
 export const ARENA_EXECUTION_VERSION = 2 as const;
 export const ARENA_EXECUTION_FEE_RATE = "0.001";
 export const ARENA_EXECUTION_MIN_TRADE = "10";
-export const ARENA_EXECUTION_MAX_RISK_RATE = "0.20";
-export const ARENA_EXECUTION_WARNING_RISK_RATE = "0.05";
+export const ARENA_EXECUTION_MAX_ALLOCATION_RATE = "0.20";
+export const ARENA_EXECUTION_WARNING_ALLOCATION_RATE = "0.05";
+export const ARENA_EXECUTION_MAX_STOP_RISK_RATE = "0.02";
+/** @deprecated Use ARENA_EXECUTION_MAX_ALLOCATION_RATE. */
+export const ARENA_EXECUTION_MAX_RISK_RATE = ARENA_EXECUTION_MAX_ALLOCATION_RATE;
+/** @deprecated Use ARENA_EXECUTION_WARNING_ALLOCATION_RATE. */
+export const ARENA_EXECUTION_WARNING_RISK_RATE = ARENA_EXECUTION_WARNING_ALLOCATION_RATE;
 export const ARENA_EXECUTION_MAX_OPEN_POSITIONS = 5;
 export const ARENA_EXECUTION_MAX_PENDING_ORDERS = 20;
 export const ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT = 5_000;
@@ -174,6 +179,28 @@ function normalizePriceSnapshot(value: unknown): ArenaPriceSnapshot | null {
   if (!BTC || !ETH || decimal(BTC).lte(0) || decimal(ETH).lte(0) || !observedAt) return null;
   if (typeof raw.source !== "string" || raw.source.length < 1 || raw.source.length > 120) return null;
   return { prices: { BTC, ETH }, source: raw.source, observedAt };
+}
+
+function stopDefinedCapitalRisk(input: {
+  quoteAmount: Decimal;
+  entryPrice: Decimal;
+  stopLoss: string | null;
+}): Decimal | null {
+  if (!input.stopLoss) return null;
+  const stop = decimal(input.stopLoss);
+  if (!stop.isFinite() || stop.lte(0) || stop.gte(input.entryPrice)) return null;
+  return input.quoteAmount.mul(input.entryPrice.minus(stop).div(input.entryPrice));
+}
+
+function exceedsStopDefinedRisk(input: {
+  quoteAmount: Decimal;
+  entryPrice: Decimal;
+  stopLoss: string | null;
+  equity: Decimal;
+}): boolean {
+  const capitalAtRisk = stopDefinedCapitalRisk(input);
+  if (!capitalAtRisk || input.equity.lte(0)) return false;
+  return capitalAtRisk.div(input.equity).gt(ARENA_EXECUTION_MAX_STOP_RISK_RATE);
 }
 
 function mentorFlags(input: {
@@ -629,7 +656,7 @@ export function applyArenaExecutionActionV2(
   }
   if (quoteAmount.gt(state.cashBalance)) return { ok: false, error: "arena_insufficient_cash" };
   const currentEquity = decimal(computeArenaExecutionEquity(state, market));
-  if (currentEquity.lte(0) || quoteAmount.div(currentEquity).gt(ARENA_EXECUTION_MAX_RISK_RATE)) {
+  if (currentEquity.lte(0) || quoteAmount.div(currentEquity).gt(ARENA_EXECUTION_MAX_ALLOCATION_RATE)) {
     return { ok: false, error: "arena_risk_limit_exceeded" };
   }
 
@@ -641,6 +668,12 @@ export function applyArenaExecutionActionV2(
     if (!limitPrice) return { ok: false, error: "arena_limit_price_invalid" };
     const protection = validateProtectivePrices(limitPrice, action.stopLoss, action.takeProfit);
     if (!protection) return { ok: false, error: "arena_protective_price_invalid" };
+    if (exceedsStopDefinedRisk({
+      quoteAmount,
+      entryPrice: limitPrice,
+      stopLoss: protection.stopLoss,
+      equity: currentEquity,
+    })) return { ok: false, error: "arena_stop_risk_limit_exceeded" };
 
     const order: ArenaPendingOrderV2 = {
       id: `${safeContext.operationId}:order:1`,
@@ -695,6 +728,12 @@ export function applyArenaExecutionActionV2(
     id: `${safeContext.operationId}:position:1`,
   });
   if (!position) return { ok: false, error: "arena_protective_price_invalid" };
+  if (exceedsStopDefinedRisk({
+    quoteAmount,
+    entryPrice: fillPrice,
+    stopLoss: position.stopLoss,
+    equity: currentEquity,
+  })) return { ok: false, error: "arena_stop_risk_limit_exceeded" };
 
   const openPositions = [...state.openPositions, position];
   const next: ArenaExecutionStateV2 = {
