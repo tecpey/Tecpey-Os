@@ -317,7 +317,7 @@ describe("authoritative Arena execution aggregate", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const observed = {
       ...initial,
-      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", complete: true },
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", realizedPnl: "-3000.0000000000", complete: true },
       closedTrades: [],
     };
     const accepted = applyArenaExecutionActionV2(observed, {
@@ -327,6 +327,13 @@ describe("authoritative Arena execution aggregate", () => {
       stopLoss: "60000",
     }, context("operation-daily-loss-telemetry"));
     assert.equal(accepted.ok, true);
+  });
+
+  it("tracks signed daily realized PnL independently from gross realized loss", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    assert.equal(initial.dailyLoss.realizedPnl, "0.0000000000");
+    assert.equal(initial.dailyLoss.realizedLoss, "0.0000000000");
+    assert.equal(initial.dailyLoss.complete, true);
   });
 
   it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {
@@ -339,6 +346,7 @@ describe("authoritative Arena execution aggregate", () => {
     assert.deepEqual(legacy.dailyLoss, {
       day: "2026-07-19",
       realizedLoss: "0.0000000000",
+      realizedPnl: "0.0000000000",
       complete: false,
     });
     const accepted = applyArenaExecutionActionV2(legacy, {
@@ -354,7 +362,7 @@ describe("authoritative Arena execution aggregate", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:59.000Z");
     const previousDayLimited = {
       ...initial,
-      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", complete: true },
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", realizedPnl: "-3000.0000000000", complete: true },
     };
     const nextDay = {
       ...context("operation-next-day"),
