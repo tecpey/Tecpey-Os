@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-31T19:09:50Z",
+  "generatedAt": "2026-09-19T01:25:36Z",
   "issue": 515,
   "status": "promoted_exact_candidate_evidence",
-  "currentAcceptedCandidateSha": "5e65ec55e003986187083a71a84272676dc09ccc",
+  "currentAcceptedCandidateSha": "8db71529b3b9250bab2462c5c151d00c3aef2754",
   "proposedCandidate": {
-    "sha": "5e65ec55e003986187083a71a84272676dc09ccc",
+    "sha": "8db71529b3b9250bab2462c5c151d00c3aef2754",
     "sourceBranch": "main",
-    "sourcePullRequest": 581,
-    "reason": "PR #581 advanced main to the governed Infinite Growth runtime at 5e65ec55e003986187083a71a84272676dc09ccc. Candidate Evidence Recollection Authority #265 attempt 1 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open; the prior 9c210885 candidate and 79c48a16 Go packet are historical only."
+    "sourcePullRequest": 685,
+    "reason": "PR #685 advanced main to 8db71529b3b9250bab2462c5c151d00c3aef2754 after the cumulative post-PR #581 runtime/security/product line. Candidate Evidence Recollection Authority run 35412133096 and exact-main Container Supply Chain / Scheduled Operational Recovery evidence satisfy the NOG-03/NOG-04/NOG-06 recollection contract. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open; 5e65ec55e003986187083a71a84272676dc09ccc and 79c48a16cb685a88315a44e103b3758cf7845d65 remain historical only."
   },
   "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
