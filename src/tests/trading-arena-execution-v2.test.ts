@@ -77,6 +77,37 @@ describe("authoritative Arena execution aggregate", () => {
     assert.deepEqual(result, { ok: false, error: "arena_risk_limit_exceeded" });
   });
 
+  it("separates allocation from stop-defined capital risk", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const accepted = applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "10000",
+      stopLoss: "60000",
+    }, context("operation-stop-risk-ok"));
+    assert.equal(accepted.ok, true);
+
+    const rejected = applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "20000",
+      stopLoss: "50000",
+    }, context("operation-stop-risk-too-high"));
+    assert.deepEqual(rejected, { ok: false, error: "arena_stop_risk_limit_exceeded" });
+  });
+
+  it("applies the same stop-defined risk authority to pending limit orders", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const rejected = applyArenaExecutionActionV2(initial, {
+      type: "limit_buy",
+      asset: "BTC",
+      quoteAmount: "20000",
+      limitPrice: "60000",
+      stopLoss: "50000",
+    }, context("operation-limit-stop-risk"));
+    assert.deepEqual(rejected, { ok: false, error: "arena_stop_risk_limit_exceeded" });
+  });
+
   it("reserves limit-order cash and restores it exactly on cancellation", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const placed = success(applyArenaExecutionActionV2(initial, {
