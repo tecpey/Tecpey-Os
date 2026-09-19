@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
@@ -259,7 +260,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 overflow-hidden place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{profile?.photo_url ? <img src={profile.photo_url} alt="" className="h-full w-full object-cover" /> : avatar}</div>
+              <div className="grid h-16 w-16 overflow-hidden place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{profile?.photo_url ? <Image src={profile.photo_url} alt="" width={64} height={64} unoptimized className="h-full w-full object-cover" /> : avatar}</div>
               <div>
                 <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
                 <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
