@@ -369,6 +369,27 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(initial.dailyLoss.complete, true);
   });
 
+  it("preserves incomplete provenance when a legacy same-day state records a new close", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: undefined,
+      updatedAt: "2026-07-19T00:01:00.000Z",
+    }, "100000");
+    const opened = success(applyArenaExecutionActionV2(legacy, {
+      type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200",
+    }, { ...context("operation-legacy-open"), now: "2026-07-19T00:02:00.000Z" }));
+    const positionId = opened.state.openPositions[0]?.id ?? "";
+    const higherMarket: ArenaPriceSnapshot = {
+      ...MARKET, prices: { ...MARKET.prices, ETH: "3850.0000000000" }, observedAt: "2026-07-19T00:05:00.000Z",
+    };
+    const closed = success(applyArenaExecutionActionV2(opened.state, {
+      type: "close_position", positionId, reason: "manual",
+    }, { ...context("operation-legacy-close", higherMarket), now: "2026-07-19T00:05:00.000Z" }));
+    assert.equal(closed.state.dailyLoss.complete, false);
+    assert.ok(new Decimal(closed.state.dailyLoss.realizedPnl).gt(0));
+  });
+
   it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const legacy = normalizeArenaExecutionStateV2({
