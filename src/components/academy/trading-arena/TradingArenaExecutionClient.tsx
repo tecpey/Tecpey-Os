@@ -516,7 +516,8 @@ function ClosedTradeRow({ trade }: { trade: ArenaClosedTradeV2 }) {
   );
 }
 
-export function TradingArenaExecutionClient() {
+export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: "fa" | "en" }) {
+  const isFa = locale === "fa";
   const [snapshot, setSnapshot] = useState<ArenaExecutionSnapshot | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -603,7 +604,7 @@ export function TradingArenaExecutionClient() {
     const current = snapshotRef.current;
     if (!current) return false;
     if (commandLockRef.current) {
-      if (!options?.quiet) setError("آرنا در حال همگام‌سازی یک فرمان معتبر است؛ چند لحظه بعد دوباره ارسال کنید.");
+      if (!options?.quiet) setError(isFa ? "آرنا در حال همگام‌سازی یک فرمان معتبر است؛ چند لحظه بعد دوباره ارسال کنید." : "Arena is synchronizing an authoritative command. Try again in a moment.");
       return false;
     }
     const identityDecision = resolveArenaCommandIdentity({
@@ -614,7 +615,7 @@ export function TradingArenaExecutionClient() {
     });
     if (identityDecision.kind === "blocked") {
       if (!options?.quiet) {
-        setError("نتیجه فرمان قبلی هنوز قطعی نشده است. ابتدا همان فرمان با شناسه امن قبلی بازیابی می‌شود.");
+        setError(isFa ? "نتیجه فرمان قبلی هنوز قطعی نشده است. ابتدا همان فرمان با شناسه امن قبلی بازیابی می‌شود." : "The previous command is not final yet. Arena will first recover it with the same safe command identity.");
       }
       return false;
     }
