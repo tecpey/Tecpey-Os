@@ -8,7 +8,6 @@ export const ARENA_EXECUTION_WARNING_ALLOCATION_RATE = "0.05";
 export const ARENA_EXECUTION_MAX_STOP_RISK_RATE = "0.02";
 export const ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE = "0.06";
 export const ARENA_EXECUTION_MAX_DRAWDOWN_RATE = "0.10";
-export const ARENA_EXECUTION_MAX_DAILY_REALIZED_LOSS_RATE = "0.03";
 /** @deprecated Use ARENA_EXECUTION_MAX_ALLOCATION_RATE. */
 export const ARENA_EXECUTION_MAX_RISK_RATE = ARENA_EXECUTION_MAX_ALLOCATION_RATE;
 /** @deprecated Use ARENA_EXECUTION_WARNING_ALLOCATION_RATE. */
@@ -187,13 +186,6 @@ function normalizeDailyLossAuthority(value: unknown, fallbackDay: string): Arena
 function dailyLossForNow(state: ArenaExecutionStateV2, now: string): ArenaDailyLossAuthorityV2 {
   const day = utcDay(now);
   return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0), complete: true };
-}
-
-function dailyLossCircuitOpen(state: ArenaExecutionStateV2, now: string): boolean {
-  const authority = dailyLossForNow(state, now);
-  if (decimal(state.initialBalance).lte(0)) return true;
-  if (!authority.complete) return false;
-  return decimal(authority.realizedLoss).div(state.initialBalance).gte(ARENA_EXECUTION_MAX_DAILY_REALIZED_LOSS_RATE);
 }
 
 function iso(value: unknown): string | null {
@@ -773,7 +765,6 @@ export function applyArenaExecutionActionV2(
   }
 
   if (drawdownCircuitOpen(state)) return { ok: false, error: "arena_drawdown_circuit_open" };
-  if (dailyLossCircuitOpen(state, now)) return { ok: false, error: "arena_daily_loss_circuit_open" };
 
   const quoteAmount = positive(action.quoteAmount);
   if (!quoteAmount || quoteAmount.lt(ARENA_EXECUTION_MIN_TRADE)) {
