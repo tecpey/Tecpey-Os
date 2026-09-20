@@ -174,27 +174,27 @@ test("Academy evidence fusion renormalizes only over observed authoritative moda
 });
 
 
-test("flashcard recall contributes only when review evidence exists", () => {
+test("client-managed flashcard state cannot inflate Mentor confidence or mastery", () => {
   const update = computeMentorProfileUpdate(
     academy({
-      flashcardReviewed: 12,
-      flashcardAvgGrade: 85,
+      flashcardReviewed: 2_000,
+      flashcardAvgGrade: 100,
     }),
     trading(),
     conversation(),
   );
 
-  assert.equal(update.confidenceScore, 85);
-  assert.equal(update.strongAreas.includes("flashcard_recall"), true);
+  assert.equal(update.confidenceScore, 0);
+  assert.equal(update.strongAreas.includes("flashcard_recall"), false);
 });
 
-test("reflection activity can establish consistency but cannot fabricate mastery confidence", () => {
+test("client-managed reflection activity cannot manufacture a strong area", () => {
   const update = computeMentorProfileUpdate(
-    academy({ reflectionCount: 6 }),
+    academy({ reflectionCount: 2_000 }),
     trading(),
     conversation(),
   );
 
   assert.equal(update.confidenceScore, 0);
-  assert.equal(update.strongAreas.includes("reflection_consistency"), true);
+  assert.equal(update.strongAreas.includes("reflection_consistency"), false);
 });
