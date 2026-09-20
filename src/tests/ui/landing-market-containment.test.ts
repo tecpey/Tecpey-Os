@@ -23,3 +23,18 @@ test("educational market snapshot stays within its mobile container", () => {
   assert.match(snapshot, /min-w-0/);
   assert.match(snapshot, /tabular-nums/);
 });
+
+
+test("product-led hero reserves enough mobile vertical space", () => {
+  const css = readFileSync(
+    "src/components/home/calm-entry.module.css",
+    "utf8",
+  );
+  const mobile = css.slice(
+    css.indexOf("@media (max-width: 760px)"),
+    css.indexOf("@media (max-width: 420px)"),
+  );
+
+  assert.match(mobile, /\.visual \{ aspect-ratio: 4 \/ 5; \}/);
+  assert.doesNotMatch(mobile, /\.visual \{ aspect-ratio: 1\.7; \}/);
+});
