@@ -31,24 +31,28 @@ const COPY = {
         label: "۱",
         title: "یاد بگیر",
         text: "۷ ترم پایه + ترم رشد بی‌پایان، آزمون، فلش‌کارت و تمرین.",
+        action: "دیدن مسیر آکادمی",
         href: "/academy",
       },
       {
         label: "۲",
         title: "بپرس",
         text: "منتور آموزشی با زمینهٔ مسیر یادگیری؛ بدون فروش سیگنال.",
+        action: "گفتگو با منتور",
         href: "/academy/ai-guide",
       },
       {
         label: "۳",
         title: "تمرین کن",
         text: "تریدینگ آرنا با سرمایهٔ مجازی، ژورنال و کنترل ریسک.",
+        action: "ورود به تریدینگ آرنا",
         href: "/academy/trading-arena",
       },
       {
         label: "۴",
         title: "زمینه را ببین",
         text: "خبر، دادهٔ بازار، پروندهٔ رمزارز و ابزارهای تصمیم‌گیری.",
+        action: "دیدن زمینهٔ بازار",
         href: "/crypto-news",
       },
     ],
@@ -106,24 +110,28 @@ const COPY = {
         label: "1",
         title: "Learn",
         text: "7 foundation terms + continuous growth, assessments, flashcards and practice.",
+        action: "Explore Academy",
         href: "/en/academy",
       },
       {
         label: "2",
         title: "Ask",
         text: "A learning mentor grounded in your journey—not a signal seller.",
+        action: "Ask the Mentor",
         href: "/en/academy/ai-guide",
       },
       {
         label: "3",
         title: "Practice",
         text: "Trading Arena with virtual capital, journaling and risk controls.",
+        action: "Open Trading Arena",
         href: "/en/academy/trading-arena",
       },
       {
         label: "4",
         title: "Add context",
         text: "News, market data, coin research and decision-support tools.",
+        action: "Explore market context",
         href: "/en/crypto-news",
       },
     ],
@@ -207,7 +215,7 @@ export function HomeProductStory({ locale }: { locale: Locale }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="group relative min-h-[230px] border-b border-[color:var(--tp-border)] px-1 py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)] md:border-b-0 md:border-s md:px-6 md:first:border-s-0"
+                  className="group relative min-h-[230px] border-b border-[color:var(--tp-border)] px-1 py-7 last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)] md:border-b-0 md:border-s md:px-6 md:first:border-s-0"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-xs font-black text-[color:var(--tp-primary)]">
@@ -222,7 +230,7 @@ export function HomeProductStory({ locale }: { locale: Locale }) {
                     {item.text}
                   </p>
                   <span className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-black text-[color:var(--tp-primary)]">
-                    {isFa ? "باز کردن" : "Open"}
+                    {item.action}
                     <Arrow className="h-4 w-4 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden="true" />
                   </span>
                 </Link>
