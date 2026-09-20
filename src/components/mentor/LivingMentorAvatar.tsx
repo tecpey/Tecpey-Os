@@ -31,15 +31,6 @@ const ACT_LABELS: Record<LivingMentorAct, { en: string; fa: string }> = {
   privacy_notice: { en: "privacy notice", fa: "یادآوری حریم خصوصی" },
   data_unavailable: { en: "data unavailable", fa: "داده در دسترس نیست" },
   error_recover: { en: "recovering safely", fa: "بازیابی امن" },
-  curious: { en: "curious", fa: "کنجکاو" },
-  supportive: { en: "supporting you", fa: "همراه و حمایتگر" },
-  proud: { en: "proud of your progress", fa: "خوشحال از پیشرفت شما" },
-  focused: { en: "focused", fa: "متمرکز" },
-  surprised: { en: "pleasantly surprised", fa: "شگفت‌زده" },
-  reviewing: { en: "reviewing your learning evidence", fa: "در حال مرور شواهد یادگیری" },
-  reading_news: { en: "reading market context", fa: "در حال مرور اخبار و زمینه بازار" },
-  arena_coach: { en: "coaching your practice", fa: "مربی تمرین آرنا" },
-  streak_rescue: { en: "helping protect your learning rhythm", fa: "همراه حفظ تداوم یادگیری" },
 };
 
 /**
