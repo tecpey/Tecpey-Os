@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -205,7 +207,7 @@ export function HomeProductStory({ locale }: { locale: Locale }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="group relative min-h-[230px] border-b border-[color:var(--tp-border)] px-1 py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)] md:border-b-0 md:border-s md:px-6 first:md:border-s-0"
+                  className="group relative min-h-[230px] border-b border-[color:var(--tp-border)] px-1 py-7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)] md:border-b-0 md:border-s md:px-6 md:first:border-s-0"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-xs font-black text-[color:var(--tp-primary)]">
