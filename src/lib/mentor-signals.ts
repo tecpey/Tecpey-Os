@@ -3,6 +3,8 @@
 
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
+import { normalizeReflectionMap } from "@/lib/academy-reflections";
+import { normalizeDeck } from "@/lib/spaced-repetition";
 import { cleanText } from "@/lib/student-cartax";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -18,6 +20,9 @@ export type AcademySignals = {
   lessonAssessmentCount: number; // authoritative lesson-level assessment attempts
   avgLessonAssessmentScore: number; // 0-100 across persisted lesson assessments
   passedLessonAssessments: number;
+  flashcardReviewed: number;
+  flashcardAvgGrade: number;
+  reflectionCount: number;
 };
 
 export type TradingSignals = {
@@ -70,6 +75,9 @@ export async function collectAcademySignals(
     lessonAssessmentCount: 0,
     avgLessonAssessmentScore: 0,
     passedLessonAssessments: 0,
+    flashcardReviewed: 0,
+    flashcardAvgGrade: 0,
+    reflectionCount: 0,
   };
 
   const collect = async (client: PoolClient): Promise<AcademySignals> => {
@@ -92,6 +100,17 @@ export async function collectAcademySignals(
         WHERE student_id = $1::uuid
         ORDER BY updated_at DESC
         LIMIT 200`,
+      [studentId],
+    );
+    const learningStateRes = await client.query<{
+      flashcards: unknown;
+      reflections: unknown;
+    }>(
+      `SELECT flashcards, reflections
+         FROM academy_state_documents
+        WHERE student_id = $1::uuid
+        ORDER BY updated_at DESC
+        LIMIT 2`,
       [studentId],
     );
 
@@ -137,6 +156,30 @@ export async function collectAcademySignals(
     const passedLessonAssessments = lessonAssessments.filter(
       (row) => Boolean(row.passed_at),
     ).length;
+    const reviewedCards = learningStateRes.rows
+      .flatMap((row) => normalizeDeck(row.flashcards))
+      .filter((card) => card.lastReviewedAt !== null);
+    const flashcardReviewed = reviewedCards.length;
+    const flashcardAvgGrade =
+      flashcardReviewed > 0
+        ? Math.round(
+            (reviewedCards.reduce(
+              (sum, card) => sum + Math.max(0, card.lastGrade),
+              0,
+            ) /
+              flashcardReviewed /
+              5) *
+              100,
+          )
+        : 0;
+    const reflectionCount = learningStateRes.rows.reduce(
+      (count, row) =>
+        count +
+        Object.values(normalizeReflectionMap(row.reflections)).filter(
+          (entry) => entry.text.trim().length > 20,
+        ).length,
+      0,
+    );
 
     return {
       authorityAvailable: true,
@@ -149,6 +192,9 @@ export async function collectAcademySignals(
       lessonAssessmentCount,
       avgLessonAssessmentScore,
       passedLessonAssessments,
+      flashcardReviewed,
+      flashcardAvgGrade,
+      reflectionCount,
     };
   };
 
@@ -355,7 +401,9 @@ export function computeMentorProfileUpdate(
   const academyEvidence =
     academy.completedTerms > 0 ||
     academy.totalChallengeAttempts > 0 ||
-    academy.lessonAssessmentCount > 0;
+    academy.lessonAssessmentCount > 0 ||
+    academy.flashcardReviewed > 0 ||
+    academy.reflectionCount > 0;
   const academyScores: Array<{ score: number; weight: number }> = [];
   if (academy.completedTerms > 0) {
     academyScores.push({ score: academy.avgPassedPercent, weight: 0.5 });
@@ -368,6 +416,9 @@ export function computeMentorProfileUpdate(
   }
   if (academy.totalChallengeAttempts > 0) {
     academyScores.push({ score: academy.challengeAccuracy, weight: 0.15 });
+  }
+  if (academy.flashcardReviewed > 0) {
+    academyScores.push({ score: academy.flashcardAvgGrade, weight: 0.1 });
   }
   const academyWeight = academyScores.reduce((sum, item) => sum + item.weight, 0);
   const academyScore =
@@ -441,6 +492,10 @@ export function computeMentorProfileUpdate(
   if (academy.avgLessonAssessmentScore >= 85 && academy.lessonAssessmentCount >= 5) {
     strongAreas.push("lesson_assessment_mastery");
   }
+  if (academy.flashcardAvgGrade >= 80 && academy.flashcardReviewed >= 10) {
+    strongAreas.push("flashcard_recall");
+  }
+  if (academy.reflectionCount >= 5) strongAreas.push("reflection_consistency");
   if (trading.tradeCount >= 10) strongAreas.push("practice_commitment");
 
   // ── Primary goal ──────────────────────────────────────────────────────────
