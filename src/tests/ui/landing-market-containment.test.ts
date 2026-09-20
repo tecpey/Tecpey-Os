@@ -35,7 +35,17 @@ test("product-led hero reserves enough mobile vertical space", () => {
     css.indexOf("@media (max-width: 420px)"),
   );
 
-  assert.match(mobile, /\.visual \{ aspect-ratio: auto; height: clamp\(430px, 112vw, 560px\); \}/);
+  assert.match(mobile, /\.visual \{ aspect-ratio: auto; height: clamp\(470px, 120vw, 560px\); \}/);
   assert.doesNotMatch(mobile, /\.visual \{ aspect-ratio: 1\.7; \}/);
-  assert.match(mobile, /430px/);
+  assert.match(mobile, /470px/);
+});
+
+
+test("hero preview reserves space for its caption overlay", () => {
+  const hero = readFileSync(
+    "src/components/home/CalmLandingHero.tsx",
+    "utf8",
+  );
+
+  assert.match(hero, /flex h-full flex-col p-4 pb-24 sm:p-6 sm:pb-24/);
 });
