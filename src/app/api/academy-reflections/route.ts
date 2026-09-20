@@ -219,7 +219,7 @@ export async function PUT(req: NextRequest) {
         studentId,
         eventType: "academy.reflection_updated",
         reason: "authoritative_reflection_updated",
-        sourceReference: `reflection:${locale}:${lessonId}:${reflection.revision}`,
+        sourceReference: `reflection:${locale}:${nextCollectionRevision}`,
       });
 
       return {
