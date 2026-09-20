@@ -169,9 +169,10 @@ export function parseArenaExecutionSnapshot(value: unknown): ArenaExecutionSnaps
   }
   const responseMarket = market(source.market);
   const parsedMarket = responseMarket ?? state.lastMarket;
-  const marketStatus = source.marketStatus === "unavailable" || !parsedMarket
-    ? "unavailable"
-    : "available";
+  const idempotentReplay = source.idempotentReplay === true;
+  const marketStatus = !idempotentReplay && source.marketStatus === "available" && responseMarket
+    ? "available"
+    : "unavailable";
   const projectedEquity = amount(source.projectedEquity) ?? state.equity;
   if (numberValue(projectedEquity) < 0) return null;
   const eventType = typeof source.eventType === "string" ? source.eventType.slice(0, 160) : null;
@@ -185,7 +186,7 @@ export function parseArenaExecutionSnapshot(value: unknown): ArenaExecutionSnaps
     projectedEquity,
     marketStatus,
     eventType,
-    idempotentReplay: source.idempotentReplay === true,
+    idempotentReplay,
   };
 }
 
@@ -281,9 +282,13 @@ export function resolveArenaCommandIdentity(input: {
   };
 }
 
-export function arenaUiError(error: unknown, status?: number): string {
+export function arenaUiError(
+  error: unknown,
+  status?: number,
+  locale: "fa" | "en" = "fa",
+): string {
   const code = typeof error === "string" ? error : "arena_execution_unavailable";
-  const messages: Record<string, string> = {
+  const faMessages: Record<string, string> = {
     academy_login_required: "برای ادامه تمرین، دوباره وارد حساب آکادمی شوید.",
     arena_session_unavailable: "بررسی حساب موقتاً در دسترس نیست. کمی بعد دوباره تلاش کنید؛ نیازی به ساخت پروفایل تازه نیست.",
     academy_profile_required: "برای ورود به آرنا ابتدا پروفایل آکادمی را کامل کنید.",
@@ -294,7 +299,10 @@ export function arenaUiError(error: unknown, status?: number): string {
     arena_no_active_attempt: "فرصت فعال آرنا در دسترس نیست.",
     arena_trade_below_minimum: "حداقل مبلغ معامله ۱۰ USDT است.",
     arena_insufficient_cash: "موجودی نقد برای این معامله کافی نیست.",
-    arena_risk_limit_exceeded: "حجم معامله از سقف ریسک مجاز آرنا بیشتر است.",
+    arena_risk_limit_exceeded: "حجم معامله از سقف تخصیص مجاز آرنا بیشتر است.",
+    arena_stop_risk_limit_exceeded: "ریسک سرمایه تا حد ضرر از سقف ۲٪ ارزش حساب بیشتر است.",
+    arena_portfolio_stop_risk_limit_exceeded: "مجموع ریسک برنامه‌ریزی‌شده معاملات باز و سفارش‌های در انتظار از بودجه ریسک پرتفوی بیشتر است.",
+    arena_drawdown_circuit_open: "افت سرمایه از سقف حفاظتی آرنا عبور کرده است؛ افزایش ریسک متوقف است، اما بستن موقعیت و کاهش ریسک همچنان مجاز است.",
     arena_protective_price_invalid: "حد ضرر یا حد سود با قیمت ورود سازگار نیست.",
     arena_open_position_limit: "حداکثر تعداد موقعیت‌های باز تکمیل شده است.",
     arena_pending_order_limit: "حداکثر تعداد سفارش‌های در انتظار تکمیل شده است.",
@@ -306,7 +314,36 @@ export function arenaUiError(error: unknown, status?: number): string {
     forbidden: "نشست معتبر نیست؛ صفحه را تازه‌سازی کنید.",
     arena_execution_unavailable: "موتور امن آرنا موقتاً در دسترس نیست.",
   };
+  const enMessages: Record<string, string> = {
+    academy_login_required: "Sign in to your Academy account again to continue practising.",
+    arena_session_unavailable: "Account verification is temporarily unavailable. Try again shortly; you do not need to create another profile.",
+    academy_profile_required: "Complete your Academy profile before entering the Arena.",
+    revision_conflict: "Your Arena state changed on another device. The latest version was restored; review the decision before submitting again.",
+    idempotency_key_reused: "That request identity was already used for a different command. Try again.",
+    idempotency_key_required: "A secure request identity could not be created. Refresh the page and try again.",
+    arena_price_feed_unavailable: "A server-authoritative price is unavailable, so trading is paused to protect the account.",
+    arena_no_active_attempt: "No active Arena attempt is available.",
+    arena_trade_below_minimum: "The minimum trade amount is 10 USDT.",
+    arena_insufficient_cash: "There is not enough available cash for this trade.",
+    arena_risk_limit_exceeded: "The trade size exceeds the Arena allocation limit.",
+    arena_stop_risk_limit_exceeded: "Capital at risk to the stop exceeds 2% of account equity.",
+    arena_portfolio_stop_risk_limit_exceeded: "Combined planned risk across open positions and pending orders exceeds the portfolio risk budget.",
+    arena_drawdown_circuit_open: "Drawdown crossed the Arena safety limit. Increasing risk is paused, while closing positions and reducing risk remain available.",
+    arena_protective_price_invalid: "The stop-loss or take-profit level is incompatible with the entry price.",
+    arena_open_position_limit: "The maximum number of open positions has been reached.",
+    arena_pending_order_limit: "The maximum number of pending orders has been reached.",
+    arena_position_not_found: "That position no longer exists in the authoritative server state.",
+    arena_order_not_found: "That order no longer exists in the authoritative server state.",
+    invalid_arena_action: "The trading command is invalid.",
+    invalid_revision: "The Arena state version is invalid. Refresh the page and try again.",
+    rate_limited: "Requests were submitted too quickly. Try again in a moment.",
+    forbidden: "The session is not valid. Refresh the page and sign in again if needed.",
+    arena_execution_unavailable: "The secure Arena engine is temporarily unavailable.",
+  };
+  const messages = locale === "en" ? enMessages : faMessages;
   if (messages[code]) return messages[code];
   if (status === 401) return messages.academy_login_required;
-  return "ارتباط امن با موتور آرنا انجام نشد. اطلاعات فرم حفظ شده است؛ دوباره تلاش کنید.";
+  return locale === "en"
+    ? "The secure Arena connection failed. Your form is preserved; try again."
+    : "ارتباط امن با موتور آرنا انجام نشد. اطلاعات فرم حفظ شده است؛ دوباره تلاش کنید.";
 }

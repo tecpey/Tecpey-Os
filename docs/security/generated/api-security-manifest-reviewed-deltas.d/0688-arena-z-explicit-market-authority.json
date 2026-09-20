@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/trading-arena/execution",
+      "method": "POST",
+      "previousSourceHash": "78ebf97eb682f4fa17513418",
+      "issue": "#688",
+      "owner": "academy-arena-security",
+      "reason": "Reviewed after the shared Arena execution route made live-price authority explicit for every command response. Non-priced cancel_order and revision-conflict responses are now marked unavailable, while price-dependent commands expose a live overlay only when the current server response includes a valid market and explicitly declares it available. Historical lastMarket values remain provenance-only. The existing strict session, verified tenant context, CSRF, bounded-body, idempotency, transaction, audit/redaction, private no-store and fail-closed controls remain unchanged; parser behavior and route contracts have dedicated regression coverage.",
+      "replacement": {
+        "route": "/api/trading-arena/execution",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+        "sourceHash": "8338ff6ce7bfa326498d10b6",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-execution-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts",
+          "src/tests/trading-arena-review-regressions.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}

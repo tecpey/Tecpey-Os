@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   arenaCommandFingerprint,
+  arenaUiError,
   createArenaIdempotencyKey,
   parseArenaExecutionSnapshot,
   resolveArenaCommandIdentity,
@@ -16,6 +17,7 @@ function payload(input?: {
   attemptId?: string;
   observedAt?: string;
   marketStatus?: "available" | "unavailable";
+  idempotentReplay?: boolean;
 }) {
   const cycleId = input?.cycleId ?? "11111111-1111-4111-8111-111111111111";
   const attemptId = input?.attemptId ?? "22222222-2222-4222-8222-222222222222";
@@ -68,6 +70,7 @@ function payload(input?: {
     market,
     projectedEquity: "100000.0000000000",
     marketStatus: input?.marketStatus ?? "available",
+    idempotentReplay: input?.idempotentReplay ?? false,
   };
 }
 
@@ -78,6 +81,21 @@ function parsed(input?: Parameters<typeof payload>[0]): ArenaExecutionSnapshot {
 }
 
 describe("Trading Arena UI authority parser", () => {
+  it("localizes governed execution errors without changing the Persian default", () => {
+    assert.equal(
+      arenaUiError("arena_trade_below_minimum"),
+      "حداقل مبلغ معامله ۱۰ USDT است.",
+    );
+    assert.equal(
+      arenaUiError("arena_trade_below_minimum", 400, "en"),
+      "The minimum trade amount is 10 USDT.",
+    );
+    assert.equal(
+      arenaUiError("unknown", 401, "en"),
+      "Sign in to your Academy account again to continue practising.",
+    );
+  });
+
   it("accepts the canonical success payload and revision-conflict details", () => {
     const root = parsed({ revision: 2 });
     const conflict = parseArenaExecutionSnapshot({
@@ -89,6 +107,26 @@ describe("Trading Arena UI authority parser", () => {
     assert.equal(root.revision, 2);
     assert.equal(conflict?.revision, 3);
     assert.equal(conflict?.marketStatus, "available");
+  });
+
+  it("requires explicit current-market authority before exposing a live price", () => {
+    const missingStatus = payload();
+    delete (missingStatus as { marketStatus?: unknown }).marketStatus;
+    const parsedMissingStatus = parseArenaExecutionSnapshot(missingStatus);
+    const unavailable = parsed({ marketStatus: "unavailable" });
+
+    assert.equal(parsedMissingStatus?.marketStatus, "unavailable");
+    assert.ok(parsedMissingStatus?.market, "historical market remains available as provenance");
+    assert.equal(unavailable.marketStatus, "unavailable");
+    assert.ok(unavailable.market, "explicitly unavailable market remains available as provenance");
+  });
+
+  it("withholds a stored replay market from live-price consumers", () => {
+    const replay = parsed({ idempotentReplay: true, marketStatus: "available" });
+
+    assert.equal(replay.idempotentReplay, true);
+    assert.equal(replay.marketStatus, "unavailable");
+    assert.ok(replay.market, "the historical market remains available as provenance");
   });
 
   it("rejects malformed execution state rather than creating browser defaults", () => {

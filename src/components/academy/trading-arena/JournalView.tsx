@@ -46,30 +46,58 @@ import type {
 
 const EXECUTION_ENDPOINT = "/api/trading-arena/execution";
 const REFLECTION_ENDPOINT = "/api/trading-arena/reflections";
+type JournalLocale = "fa" | "en";
 
-const FLAG_LABEL: Record<ArenaExecutionMentorFlag, string> = {
-  "no-stop-loss": "بدون حد ضرر",
-  "over-risk": "ریسک بالا",
-  "impulse-entry": "ورود شتاب‌زده",
-  "revenge-trade": "معامله انتقامی",
-  "fomo-entry": "ورود FOMO",
-  "good-discipline": "انضباط مناسب",
-  "proper-sizing": "حجم مناسب",
-  "target-hit": "هدف محقق شد",
+const FLAG_LABEL: Record<JournalLocale, Record<ArenaExecutionMentorFlag, string>> = {
+  fa: {
+    "no-stop-loss": "بدون حد ضرر",
+    "over-risk": "ریسک بالا",
+    "impulse-entry": "ورود شتاب‌زده",
+    "revenge-trade": "معامله انتقامی",
+    "fomo-entry": "ورود FOMO",
+    "good-discipline": "انضباط مناسب",
+    "proper-sizing": "حجم مناسب",
+    "target-hit": "هدف محقق شد",
+  },
+  en: {
+    "no-stop-loss": "No stop-loss",
+    "over-risk": "High allocation",
+    "impulse-entry": "Impulse entry",
+    "revenge-trade": "Revenge trade",
+    "fomo-entry": "FOMO entry",
+    "good-discipline": "Good discipline",
+    "proper-sizing": "Proper sizing",
+    "target-hit": "Target reached",
+  },
 };
 
-const TAG_LABEL: Record<ArenaReflectionTag, string> = {
-  "late-entry": "ورود دیرهنگام",
-  "early-exit": "خروج زودهنگام",
-  "oversized-position": "حجم بیش از حد",
-  "missing-stop-loss": "نبود حد ضرر",
-  "moved-stop-loss": "جابه‌جایی حد ضرر",
-  "fomo-entry": "ورود از ترس جا ماندن",
-  "revenge-trade": "معامله انتقامی",
-  "ignored-plan": "نادیده‌گرفتن برنامه",
-  "poor-risk-reward": "نسبت ریسک‌به‌بازده ضعیف",
-  overtrading: "بیش‌معامله‌گری",
-  none: "هیچ‌کدام",
+const TAG_LABEL: Record<JournalLocale, Record<ArenaReflectionTag, string>> = {
+  fa: {
+    "late-entry": "ورود دیرهنگام",
+    "early-exit": "خروج زودهنگام",
+    "oversized-position": "حجم بیش از حد",
+    "missing-stop-loss": "نبود حد ضرر",
+    "moved-stop-loss": "جابه‌جایی حد ضرر",
+    "fomo-entry": "ورود از ترس جا ماندن",
+    "revenge-trade": "معامله انتقامی",
+    "ignored-plan": "نادیده‌گرفتن برنامه",
+    "poor-risk-reward": "نسبت ریسک‌به‌بازده ضعیف",
+    overtrading: "بیش‌معامله‌گری",
+    none: "هیچ‌کدام",
+  },
+  en: {
+    "late-entry": "Late entry",
+    "early-exit": "Early exit",
+    "oversized-position": "Oversized position",
+    "missing-stop-loss": "Missing stop-loss",
+    "moved-stop-loss": "Moved stop-loss",
+    "fomo-entry": "FOMO entry",
+    "revenge-trade": "Revenge trade",
+    "ignored-plan": "Ignored plan",
+    "poor-risk-reward": "Poor risk-to-reward",
+    overtrading: "Overtrading",
+    none: "None",
+  },
 };
 
 function number(value: string | number): number {
@@ -84,77 +112,80 @@ function usd(value: string | number): string {
   })}`;
 }
 
-function percent(value: string | number): string {
+function percent(value: string | number, locale: JournalLocale): string {
   const parsed = number(value) * 100;
-  return `${parsed >= 0 ? "+" : ""}${parsed.toLocaleString("fa-IR", { maximumFractionDigits: 2 })}٪`;
+  const formatted = parsed.toLocaleString(locale === "fa" ? "fa-IR" : "en-US", { maximumFractionDigits: 2 });
+  return locale === "fa" ? `${parsed >= 0 ? "+" : ""}${formatted}٪` : `${parsed >= 0 ? "+" : ""}${formatted}%`;
 }
 
-function faDateTime(value: string): string {
-  return new Intl.DateTimeFormat("fa-IR", {
+function dateTime(value: string, locale: JournalLocale): string {
+  return new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : "en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
 
-function Flag({ flag }: { flag: ArenaExecutionMentorFlag }) {
+function Flag({ flag, locale }: { flag: ArenaExecutionMentorFlag; locale: JournalLocale }) {
   const positive = flag === "good-discipline" || flag === "proper-sizing" || flag === "target-hit";
   return (
     <span className={`rounded-full border px-2 py-1 text-[10px] font-black ${positive
       ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
       : "border-amber-400/20 bg-amber-400/10 text-amber-300"}`}>
-      {FLAG_LABEL[flag]}
+      {FLAG_LABEL[locale][flag]}
     </span>
   );
 }
 
-function OpenEvidence({ position }: { position: ArenaOpenPositionV2 }) {
+function OpenEvidence({ position, locale }: { position: ArenaOpenPositionV2; locale: JournalLocale }) {
+  const isFa = locale === "fa";
   return (
     <article className="rounded-[24px] border border-cyan-300/15 bg-cyan-400/5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-black">{position.asset} · موقعیت باز</p>
+          <p className="font-black">{position.asset} · {isFa ? "موقعیت باز" : "Open position"}</p>
           <p className="mt-1 text-xs font-bold text-slate-500">
-            {faDateTime(position.openedAt)} · ورود {usd(position.entryPrice)}
+            {dateTime(position.openedAt, locale)} · {isFa ? "ورود" : "Entry"} {usd(position.entryPrice)}
           </p>
         </div>
         <span className="rounded-full border border-cyan-300/20 px-2.5 py-1 text-xs font-black text-cyan-300">
-          {usd(position.quoteCommitted)} تعهد
+          {usd(position.quoteCommitted)} {isFa ? "تعهد" : "committed"}
         </span>
       </div>
       {position.preTradePlan ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/35 p-4">
-          <p className="text-xs font-black text-slate-500">برنامه پیش از معامله</p>
+          <p className="text-xs font-black text-slate-500">{isFa ? "برنامه پیش از معامله" : "Pre-trade plan"}</p>
           <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{position.preTradePlan}</p>
         </div>
       ) : (
-        <p className="mt-4 text-xs font-bold text-slate-500">برای این موقعیت برنامه متنی ثبت نشده است.</p>
+        <p className="mt-4 text-xs font-bold text-slate-500">{isFa ? "برای این موقعیت برنامه متنی ثبت نشده است." : "No written plan was recorded for this position."}</p>
       )}
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="rounded-full border border-white/10 px-2 py-1 text-[10px] font-black text-slate-400">
-          حالت: {position.emotionalState || "ثبت نشده"}
+          {isFa ? "حالت" : "State"}: {position.emotionalState || (isFa ? "ثبت نشده" : "Not recorded")}
         </span>
-        {position.mentorFlags.map((flag) => <Flag key={flag} flag={flag} />)}
+        {position.mentorFlags.map((flag) => <Flag key={flag} flag={flag} locale={locale} />)}
       </div>
     </article>
   );
 }
 
-function PendingEvidence({ order }: { order: ArenaPendingOrderV2 }) {
+function PendingEvidence({ order, locale }: { order: ArenaPendingOrderV2; locale: JournalLocale }) {
+  const isFa = locale === "fa";
   return (
     <article className="rounded-[24px] border border-amber-400/20 bg-amber-400/5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-black">{order.asset} · سفارش محدود در انتظار</p>
+          <p className="font-black">{order.asset} · {isFa ? "سفارش محدود در انتظار" : "Pending limit order"}</p>
           <p className="mt-1 text-xs font-bold text-slate-500">
-            {faDateTime(order.createdAt)} · هدف ورود {usd(order.limitPrice)}
+            {dateTime(order.createdAt, locale)} · {isFa ? "هدف ورود" : "Entry target"} {usd(order.limitPrice)}
           </p>
         </div>
         <Clock3 className="h-5 w-5 text-amber-300" />
       </div>
-      <p className="mt-4 text-sm font-bold text-slate-300">وجه رزروشده: {usd(order.quoteReserved)}</p>
+      <p className="mt-4 text-sm font-bold text-slate-300">{isFa ? "وجه رزروشده" : "Reserved cash"}: {usd(order.quoteReserved)}</p>
       {order.preTradePlan && (
         <p className="mt-3 rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm font-bold leading-7 text-slate-300">
-          برنامه: {order.preTradePlan}
+          {isFa ? "برنامه" : "Plan"}: {order.preTradePlan}
         </p>
       )}
     </article>
@@ -163,6 +194,7 @@ function PendingEvidence({ order }: { order: ArenaPendingOrderV2 }) {
 
 type ReflectionEditorProps = {
   trade: ArenaClosedTradeV2;
+  locale: JournalLocale;
   reflection: ArenaReflectionView | null;
   draft: ArenaReflectionDraft;
   pending: ArenaPendingReflectionIdentity | null;
@@ -175,6 +207,7 @@ type ReflectionEditorProps = {
 
 function ReflectionEditor({
   trade,
+  locale,
   reflection,
   draft,
   pending,
@@ -184,6 +217,7 @@ function ReflectionEditor({
   onSave,
   onRefresh,
 }: ReflectionEditorProps) {
+  const isFa = locale === "fa";
   const toggleTag = (tag: ArenaReflectionTag) => {
     if (tag === "none") {
       onChange({ ...draft, mistakeTags: ["none"] });
@@ -201,19 +235,19 @@ function ReflectionEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id={`reflection-${trade.id}`} className="font-black text-violet-100">
-            بازتاب پس از معامله
+            {isFa ? "بازتاب پس از معامله" : "Post-trade reflection"}
           </h3>
           <p className="mt-1 text-xs font-bold leading-6 text-slate-500">
-            تحلیل تو به شواهد قطعی این معامله متصل و در حساب تک‌پی ذخیره می‌شود.
+            {isFa ? "تحلیل تو به شواهد قطعی این معامله متصل و در حساب تک‌پی ذخیره می‌شود." : "Your analysis is bound to this trade's authoritative evidence and saved to your TecPey account."}
           </p>
         </div>
         {reflection ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black text-emerald-300">
-            <CheckCircle2 className="h-3 w-3" /> نسخه {reflection.revision}
+            <CheckCircle2 className="h-3 w-3" /> {isFa ? "نسخه" : "Revision"} {reflection.revision}
           </span>
         ) : (
           <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-black text-slate-500">
-            هنوز ذخیره نشده
+            {isFa ? "هنوز ذخیره نشده" : "Not saved yet"}
           </span>
         )}
       </div>
@@ -221,10 +255,10 @@ function ReflectionEditor({
       {pending && (
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 text-xs font-bold leading-6 text-amber-100">
           <p className="max-w-2xl">
-            نتیجه آخرین ذخیره‌سازی هنوز قطعی نیست. فقط همان متن قبلی را می‌توان با همان شناسه دوباره ارسال کرد؛ برای بررسی نتیجه سرور، ژورنال را تازه‌سازی کن.
+            {isFa ? "نتیجه آخرین ذخیره‌سازی هنوز قطعی نیست. فقط همان متن قبلی را می‌توان با همان شناسه دوباره ارسال کرد؛ برای بررسی نتیجه سرور، ژورنال را تازه‌سازی کن." : "The latest save is not final yet. Only the same content may be retried with its original identity; refresh the journal to check the server result."}
           </p>
           <button type="button" onClick={onRefresh} className="inline-flex items-center gap-1 rounded-xl border border-amber-300/25 px-3 py-2 font-black">
-            <RefreshCw className="h-3.5 w-3.5" /> بررسی سرور
+            <RefreshCw className="h-3.5 w-3.5" /> {isFa ? "بررسی سرور" : "Check server"}
           </button>
         </div>
       )}
@@ -238,7 +272,7 @@ function ReflectionEditor({
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <label className="block text-xs font-black text-slate-400">
-          مرور تصمیم و اجرای معامله
+          {isFa ? "مرور تصمیم و اجرای معامله" : "Decision and execution review"}
           <textarea
             value={draft.decisionReview}
             onChange={(event) => onChange({ ...draft, decisionReview: event.target.value })}
@@ -246,11 +280,11 @@ function ReflectionEditor({
             maxLength={4_000}
             rows={4}
             className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="چه تصمیمی گرفتم و اجرای من نسبت به برنامه چگونه بود؟"
+            placeholder={isFa ? "چه تصمیمی گرفتم و اجرای من نسبت به برنامه چگونه بود؟" : "What decision did I make, and how did execution compare with my plan?"}
           />
         </label>
         <label className="block text-xs font-black text-slate-400">
-          مهم‌ترین درس
+          {isFa ? "مهم‌ترین درس" : "Most important lesson"}
           <textarea
             value={draft.learnedLesson}
             onChange={(event) => onChange({ ...draft, learnedLesson: event.target.value })}
@@ -258,11 +292,11 @@ function ReflectionEditor({
             maxLength={4_000}
             rows={4}
             className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="از این معامله چه چیزی یاد گرفتم؟"
+            placeholder={isFa ? "از این معامله چه چیزی یاد گرفتم؟" : "What did I learn from this trade?"}
           />
         </label>
         <label className="block text-xs font-black text-slate-400">
-          مرور احساسات
+          {isFa ? "مرور احساسات" : "Emotional review"}
           <textarea
             value={draft.emotionalReview}
             onChange={(event) => onChange({ ...draft, emotionalReview: event.target.value })}
@@ -270,11 +304,11 @@ function ReflectionEditor({
             maxLength={2_000}
             rows={3}
             className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="پیش و هنگام خروج چه احساسی داشتم و چه اثری روی تصمیمم گذاشت؟"
+            placeholder={isFa ? "پیش و هنگام خروج چه احساسی داشتم و چه اثری روی تصمیمم گذاشت؟" : "How did I feel before and during the exit, and how did it affect my decision?"}
           />
         </label>
         <label className="block text-xs font-black text-slate-400">
-          تعهد برای معامله بعدی <span className="text-slate-600">(اختیاری)</span>
+          {isFa ? "تعهد برای معامله بعدی" : "Commitment for the next trade"} <span className="text-slate-600">{isFa ? "(اختیاری)" : "(optional)"}</span>
           <textarea
             value={draft.nextActionCommitment}
             onChange={(event) => onChange({ ...draft, nextActionCommitment: event.target.value })}
@@ -282,13 +316,13 @@ function ReflectionEditor({
             maxLength={2_000}
             rows={3}
             className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="در معامله بعدی دقیقاً چه رفتاری را تغییر می‌دهم؟"
+            placeholder={isFa ? "در معامله بعدی دقیقاً چه رفتاری را تغییر می‌دهم؟" : "What behaviour will I change in the next trade?"}
           />
         </label>
       </div>
 
       <fieldset className="mt-4" disabled={saving}>
-        <legend className="text-xs font-black text-slate-400">خطاها یا الگوهای قابل اصلاح</legend>
+        <legend className="text-xs font-black text-slate-400">{isFa ? "خطاها یا الگوهای قابل اصلاح" : "Mistakes or patterns to improve"}</legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {ARENA_REFLECTION_TAG_OPTIONS.map((tag) => {
             const checked = draft.mistakeTags.includes(tag);
@@ -302,7 +336,7 @@ function ReflectionEditor({
                   onChange={() => toggleTag(tag)}
                   className="sr-only"
                 />
-                {TAG_LABEL[tag]}
+                {TAG_LABEL[locale][tag]}
               </label>
             );
           })}
@@ -311,7 +345,7 @@ function ReflectionEditor({
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[11px] font-bold text-slate-600">
-          شواهد مالی این فرم قابل ویرایش نیست و از معامله معتبر سرور خوانده می‌شود.
+          {isFa ? "شواهد مالی این فرم قابل ویرایش نیست و از معامله معتبر سرور خوانده می‌شود." : "Financial evidence in this form is immutable and comes from the server-authoritative trade."}
         </p>
         <button
           type="button"
@@ -320,7 +354,7 @@ function ReflectionEditor({
           className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {reflection ? "ذخیره نسخه جدید" : "ثبت بازتاب"}
+          {reflection ? (isFa ? "ذخیره نسخه جدید" : "Save new revision") : (isFa ? "ثبت بازتاب" : "Save reflection")}
         </button>
       </div>
     </section>
@@ -329,6 +363,7 @@ function ReflectionEditor({
 
 function ClosedEvidence({
   trade,
+  locale,
   reflection,
   draft,
   pending,
@@ -339,6 +374,7 @@ function ClosedEvidence({
   onRefresh,
 }: {
   trade: ArenaClosedTradeV2;
+  locale: JournalLocale;
   reflection: ArenaReflectionView | null;
   draft: ArenaReflectionDraft;
   pending: ArenaPendingReflectionIdentity | null;
@@ -348,12 +384,13 @@ function ClosedEvidence({
   onSave: () => void;
   onRefresh: () => void;
 }) {
+  const isFa = locale === "fa";
   const pnl = number(trade.realizedPnl);
   const reason = trade.closureReason === "manual"
-    ? "بستن دستی"
+    ? (isFa ? "بستن دستی" : "Manual close")
     : trade.closureReason === "stop-loss"
-      ? "فعال‌شدن حد ضرر"
-      : "فعال‌شدن حد سود";
+      ? (isFa ? "فعال‌شدن حد ضرر" : "Stop-loss triggered")
+      : (isFa ? "فعال‌شدن حد سود" : "Take-profit triggered");
 
   return (
     <article className="rounded-[24px] border border-white/10 bg-slate-900/65 p-5">
@@ -365,7 +402,7 @@ function ClosedEvidence({
           <div>
             <p className="font-black">{trade.asset} · {reason}</p>
             <p className="mt-1 text-xs font-bold text-slate-500">
-              {faDateTime(trade.openedAt)} تا {faDateTime(trade.closedAt)}
+              {dateTime(trade.openedAt, locale)} {isFa ? "تا" : "to"} {dateTime(trade.closedAt, locale)}
             </p>
           </div>
         </div>
@@ -373,22 +410,23 @@ function ClosedEvidence({
           <p className={`font-black ${pnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
             {pnl >= 0 ? "+" : "-"}{usd(Math.abs(pnl))}
           </p>
-          <p className="text-xs font-bold text-slate-500">{percent(trade.realizedPnlRate)}</p>
+          <p className="text-xs font-bold text-slate-500">{percent(trade.realizedPnlRate, locale)}</p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-slate-400 sm:grid-cols-4">
-        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">ورود</span>{usd(trade.entryPrice)}</div>
-        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">خروج</span>{usd(trade.exitPrice)}</div>
-        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">تعهد</span>{usd(trade.quoteCommitted)}</div>
-        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">کارمزد</span>{usd(trade.totalFee)}</div>
+        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">{isFa ? "ورود" : "Entry"}</span>{usd(trade.entryPrice)}</div>
+        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">{isFa ? "خروج" : "Exit"}</span>{usd(trade.exitPrice)}</div>
+        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">{isFa ? "تعهد" : "Committed"}</span>{usd(trade.quoteCommitted)}</div>
+        <div className="rounded-xl bg-slate-950/40 p-3"><span className="block text-slate-600">{isFa ? "کارمزد" : "Fees"}</span>{usd(trade.totalFee)}</div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {trade.mentorFlags.length > 0
-          ? trade.mentorFlags.map((flag) => <Flag key={flag} flag={flag} />)
-          : <span className="text-xs font-bold text-slate-600">برچسب رفتاری ثبت نشده است.</span>}
+          ? trade.mentorFlags.map((flag) => <Flag key={flag} flag={flag} locale={locale} />)
+          : <span className="text-xs font-bold text-slate-600">{isFa ? "برچسب رفتاری ثبت نشده است." : "No behavioural tag was recorded."}</span>}
       </div>
       <ReflectionEditor
         trade={trade}
+        locale={locale}
         reflection={reflection}
         draft={draft}
         pending={pending}
@@ -402,7 +440,8 @@ function ClosedEvidence({
   );
 }
 
-export function JournalView() {
+export function JournalView({ locale = "fa" }: { locale?: JournalLocale }) {
+  const isFa = locale === "fa";
   const [snapshot, setSnapshot] = useState<ArenaExecutionSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -463,7 +502,7 @@ export function JournalView() {
       });
       const body = await response.json().catch(() => ({})) as { error?: unknown };
       if (!response.ok) {
-        if (mountedRef.current) setError(arenaUiError(body.error, response.status));
+        if (mountedRef.current) setError(arenaUiError(body.error, response.status, locale));
         return;
       }
       const parsed = parseArenaExecutionSnapshot(body);
@@ -481,11 +520,11 @@ export function JournalView() {
         setError(null);
       }
     } catch {
-      if (mountedRef.current) setError(arenaUiError("arena_execution_unavailable"));
+      if (mountedRef.current) setError(arenaUiError("arena_execution_unavailable", undefined, locale));
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   const loadReflections = useCallback(async (activeAttemptId: string) => {
     const responseSequence = ++reflectionSequenceRef.current;
@@ -500,7 +539,7 @@ export function JournalView() {
       const body = await response.json().catch(() => ({})) as { error?: unknown };
       if (!response.ok) {
         if (mountedRef.current && responseSequence === reflectionSequenceRef.current) {
-          setError(arenaReflectionUiError(body.error, response.status));
+          setError(arenaReflectionUiError(body.error, response.status, locale));
         }
         return;
       }
@@ -536,14 +575,14 @@ export function JournalView() {
       setError(null);
     } catch {
       if (mountedRef.current && responseSequence === reflectionSequenceRef.current) {
-        setError(arenaReflectionUiError("arena_reflections_unavailable"));
+        setError(arenaReflectionUiError("arena_reflections_unavailable", undefined, locale));
       }
     } finally {
       if (mountedRef.current && responseSequence === reflectionSequenceRef.current) {
         setReflectionLoading(false);
       }
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void load();
@@ -571,7 +610,7 @@ export function JournalView() {
     if (!draft.decisionReview.trim() || !draft.learnedLesson.trim() || !draft.emotionalReview.trim()) {
       setReflectionErrors((current) => ({
         ...current,
-        [trade.id]: "مرور تصمیم، درس و احساسات برای ثبت بازتاب ضروری است.",
+        [trade.id]: isFa ? "مرور تصمیم، درس و احساسات برای ثبت بازتاب ضروری است." : "Decision review, lesson and emotional review are required.",
       }));
       return;
     }
@@ -586,7 +625,7 @@ export function JournalView() {
     if (decision.kind === "blocked") {
       setReflectionErrors((current) => ({
         ...current,
-        [trade.id]: "نتیجه درخواست قبلی نامشخص است. متن را به نسخه قبلی برگردان و دوباره ارسال کن، یا ابتدا وضعیت سرور را تازه‌سازی کن.",
+        [trade.id]: isFa ? "نتیجه درخواست قبلی نامشخص است. متن را به نسخه قبلی برگردان و دوباره ارسال کن، یا ابتدا وضعیت سرور را تازه‌سازی کن." : "The previous request result is unresolved. Restore the previous text and retry it, or refresh the server state first.",
       }));
       return;
     }
@@ -640,7 +679,7 @@ export function JournalView() {
         }
         setReflectionErrors((current) => ({
           ...current,
-          [trade.id]: arenaReflectionUiError(body.error, response.status),
+          [trade.id]: arenaReflectionUiError(body.error, response.status, locale),
         }));
         return;
       }
@@ -665,7 +704,7 @@ export function JournalView() {
       if (isLatestResponse()) {
         setReflectionErrors((current) => ({
           ...current,
-          [trade.id]: arenaReflectionUiError("arena_reflections_unavailable"),
+          [trade.id]: arenaReflectionUiError("arena_reflections_unavailable", undefined, locale),
         }));
       }
     } finally {
@@ -673,7 +712,7 @@ export function JournalView() {
         setSaving((current) => ({ ...current, [trade.id]: false }));
       }
     }
-  }, [drafts, updatePendingIdentity]);
+  }, [drafts, isFa, locale, updatePendingIdentity]);
 
   const stats = useMemo(() => {
     const closed = snapshot?.state.closedTrades ?? [];
@@ -684,14 +723,14 @@ export function JournalView() {
   }, [snapshot]);
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6" dir={isFa ? "rtl" : "ltr"}>
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black sm:text-3xl">ژورنال معاملاتی سروری</h1>
+            <h1 className="text-2xl font-black sm:text-3xl">{isFa ? "ژورنال معاملاتی سروری" : "Server trading journal"}</h1>
             <ShieldCheck className="h-5 w-5 text-emerald-300" />
           </div>
-          <p className="mt-1 text-sm font-bold text-slate-400">شواهد اجرا و بازتاب‌های آموزشی از PostgreSQL معتبر</p>
+          <p className="mt-1 text-sm font-bold text-slate-400">{isFa ? "شواهد اجرا و بازتاب‌های آموزشی از PostgreSQL معتبر" : "Execution evidence and learning reflections from authoritative PostgreSQL state"}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -703,10 +742,10 @@ export function JournalView() {
             disabled={loading || reflectionLoading}
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-400 hover:text-white disabled:opacity-40"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading || reflectionLoading ? "animate-spin" : ""}`} /> تازه‌سازی
+            <RefreshCw className={`h-3.5 w-3.5 ${loading || reflectionLoading ? "animate-spin" : ""}`} /> {isFa ? "تازه‌سازی" : "Refresh"}
           </button>
-          <Link href="/academy/trading-arena" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-400 hover:text-white">
-            <ChevronRight className="h-3 w-3 rotate-180" /> آرنا
+          <Link href={isFa ? "/academy/trading-arena" : "/en/academy/trading-arena"} className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-400 hover:text-white">
+            <ChevronRight className={`h-3 w-3 ${isFa ? "" : "rotate-180"}`} /> {isFa ? "آرنا" : "Arena"}
           </Link>
         </div>
       </header>
@@ -715,9 +754,9 @@ export function JournalView() {
         <div className="flex items-start gap-3">
           <ServerCog className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
           <div>
-            <p className="font-black text-cyan-100">اجرا و بازتاب ژورنال از سرور معتبر خوانده می‌شوند.</p>
+            <p className="font-black text-cyan-100">{isFa ? "اجرا و بازتاب ژورنال از سرور معتبر خوانده می‌شوند." : "Execution and journal reflections are read from server authority."}</p>
             <p className="mt-1 text-xs font-bold leading-6 text-slate-400">
-              موقعیت‌ها، سفارش‌ها، معاملات بسته‌شده و یادداشت‌های پس از معامله به حساب آکادمی متصل‌اند و در دستگاه‌های مختلف در دسترس می‌مانند.
+              {isFa ? "موقعیت‌ها، سفارش‌ها، معاملات بسته‌شده و یادداشت‌های پس از معامله به حساب آکادمی متصل‌اند و در دستگاه‌های مختلف در دسترس می‌مانند." : "Positions, orders, closed trades and post-trade notes stay bound to the Academy account and remain available across devices."}
             </p>
           </div>
         </div>
@@ -737,31 +776,31 @@ export function JournalView() {
 
       {snapshot && (
         <>
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="خلاصه ژورنال">
-            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black">{snapshot.state.openPositions.length}</p><p className="text-xs font-bold text-slate-500">موقعیت باز</p></div>
-            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black">{snapshot.state.pendingOrders.length}</p><p className="text-xs font-bold text-slate-500">سفارش در انتظار</p></div>
-            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black text-emerald-300">{stats.closed ? Math.round((stats.wins / stats.closed) * 100) : 0}٪</p><p className="text-xs font-bold text-slate-500">نرخ برد بسته‌شده</p></div>
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-center"><p className="text-xl font-black text-amber-300">{stats.riskFlags}</p><p className="text-xs font-bold text-slate-500">معامله با هشدار رفتاری</p></div>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label={isFa ? "خلاصه ژورنال" : "Journal summary"}>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black">{snapshot.state.openPositions.length}</p><p className="text-xs font-bold text-slate-500">{isFa ? "موقعیت باز" : "Open positions"}</p></div>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black">{snapshot.state.pendingOrders.length}</p><p className="text-xs font-bold text-slate-500">{isFa ? "سفارش در انتظار" : "Pending orders"}</p></div>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black text-emerald-300">{stats.closed ? Math.round((stats.wins / stats.closed) * 100) : 0}{isFa ? "٪" : "%"}</p><p className="text-xs font-bold text-slate-500">{isFa ? "نرخ برد بسته‌شده" : "Closed-trade win rate"}</p></div>
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-center"><p className="text-xl font-black text-amber-300">{stats.riskFlags}</p><p className="text-xs font-bold text-slate-500">{isFa ? "معامله با هشدار رفتاری" : "Trades with behavioural warnings"}</p></div>
           </section>
 
           {snapshot.state.openPositions.length > 0 && (
             <section>
-              <div className="mb-3 flex items-center gap-2"><Target className="h-4 w-4 text-cyan-300" /><h2 className="text-xs font-black uppercase tracking-widest text-slate-500">برنامه‌های فعال</h2></div>
-              <div className="grid gap-4 lg:grid-cols-2">{snapshot.state.openPositions.map((position) => <OpenEvidence key={position.id} position={position} />)}</div>
+              <div className="mb-3 flex items-center gap-2"><Target className="h-4 w-4 text-cyan-300" /><h2 className="text-xs font-black uppercase tracking-widest text-slate-500">{isFa ? "برنامه‌های فعال" : "Active plans"}</h2></div>
+              <div className="grid gap-4 lg:grid-cols-2">{snapshot.state.openPositions.map((position) => <OpenEvidence key={position.id} position={position} locale={locale} />)}</div>
             </section>
           )}
 
           {snapshot.state.pendingOrders.length > 0 && (
             <section>
-              <div className="mb-3 flex items-center gap-2"><FileClock className="h-4 w-4 text-amber-300" /><h2 className="text-xs font-black uppercase tracking-widest text-slate-500">تصمیم‌های در انتظار اجرا</h2></div>
-              <div className="grid gap-4 lg:grid-cols-2">{snapshot.state.pendingOrders.map((order) => <PendingEvidence key={order.id} order={order} />)}</div>
+              <div className="mb-3 flex items-center gap-2"><FileClock className="h-4 w-4 text-amber-300" /><h2 className="text-xs font-black uppercase tracking-widest text-slate-500">{isFa ? "تصمیم‌های در انتظار اجرا" : "Decisions awaiting execution"}</h2></div>
+              <div className="grid gap-4 lg:grid-cols-2">{snapshot.state.pendingOrders.map((order) => <PendingEvidence key={order.id} order={order} locale={locale} />)}</div>
             </section>
           )}
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-violet-300" /><h2 className="text-xs font-black uppercase tracking-widest text-slate-500">تاریخچه اجرای قطعی و بازتاب‌ها</h2></div>
-              <span className="text-xs font-black text-slate-600">{stats.closed} رکورد</span>
+              <div className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-violet-300" /><h2 className="text-xs font-black uppercase tracking-widest text-slate-500">{isFa ? "تاریخچه اجرای قطعی و بازتاب‌ها" : "Authoritative execution and reflection history"}</h2></div>
+              <span className="text-xs font-black text-slate-600">{stats.closed} {isFa ? "رکورد" : "records"}</span>
             </div>
             {snapshot.state.closedTrades.length > 0 ? (
               <div className="space-y-4">
@@ -769,6 +808,7 @@ export function JournalView() {
                   <ClosedEvidence
                     key={trade.id}
                     trade={trade}
+                    locale={locale}
                     reflection={reflections[trade.id] ?? null}
                     draft={drafts[trade.id] ?? reflectionDraftFromAuthoritative(reflections[trade.id] ?? null)}
                     pending={pendingIdentities[trade.id] ?? null}
@@ -783,9 +823,9 @@ export function JournalView() {
             ) : (
               <div className="rounded-[24px] border border-dashed border-white/10 p-10 text-center">
                 <BookOpen className="mx-auto h-8 w-8 text-slate-700" />
-                <p className="mt-3 font-black text-slate-500">هنوز معامله بسته‌شده‌ای ثبت نشده است.</p>
-                <Link href="/academy/trading-arena" className="mt-4 inline-flex items-center gap-1 rounded-xl bg-slate-800 px-4 py-2 text-sm font-black text-slate-300">
-                  بازگشت به آرنا <ChevronRight className="h-4 w-4" />
+                <p className="mt-3 font-black text-slate-500">{isFa ? "هنوز معامله بسته‌شده‌ای ثبت نشده است." : "No closed trade has been recorded yet."}</p>
+                <Link href={isFa ? "/academy/trading-arena" : "/en/academy/trading-arena"} className="mt-4 inline-flex items-center gap-1 rounded-xl bg-slate-800 px-4 py-2 text-sm font-black text-slate-300">
+                  {isFa ? "بازگشت به آرنا" : "Return to Arena"} <ChevronRight className={`h-4 w-4 ${isFa ? "rotate-180" : ""}`} />
                 </Link>
               </div>
             )}
@@ -793,7 +833,7 @@ export function JournalView() {
 
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-4 text-[11px] font-bold text-slate-600">
             <span>Attempt #{snapshot.activeAttempt.attemptNumber} · revision {snapshot.revision}</span>
-            <span>آخرین state: {faDateTime(snapshot.state.updatedAt)}</span>
+            <span>{isFa ? "آخرین وضعیت" : "Latest state"}: {dateTime(snapshot.state.updatedAt, locale)}</span>
           </footer>
         </>
       )}
@@ -801,8 +841,8 @@ export function JournalView() {
       {!loading && !snapshot && (
         <div className="rounded-[24px] border border-dashed border-white/10 p-10 text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-amber-300" />
-          <p className="mt-3 font-black text-slate-400">ژورنال سروری بازیابی نشد.</p>
-          <button type="button" onClick={() => void load()} className="mt-4 rounded-xl bg-slate-800 px-4 py-2 text-sm font-black text-white">تلاش دوباره</button>
+          <p className="mt-3 font-black text-slate-400">{isFa ? "ژورنال سروری بازیابی نشد." : "The server journal could not be restored."}</p>
+          <button type="button" onClick={() => void load()} className="mt-4 rounded-xl bg-slate-800 px-4 py-2 text-sm font-black text-white">{isFa ? "تلاش دوباره" : "Try again"}</button>
         </div>
       )}
     </div>
