@@ -104,7 +104,7 @@ const COPY = {
     kicker: "The TecPey learning system",
     title: "Not four separate features. One connected learning loop.",
     body:
-      "Academy builds understanding, Mentor clears ambiguity, Arena turns decisions into risk-free virtual practice, and market intelligence adds context.",
+      "Academy builds understanding, Mentor clears ambiguity, Arena turns decisions into virtual-capital practice, and market intelligence adds context.",
     modules: [
       {
         label: "1",
