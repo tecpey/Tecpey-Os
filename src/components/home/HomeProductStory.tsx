@@ -248,7 +248,7 @@ export function HomeProductStory({ locale }: { locale: Locale }) {
             <p className="mt-5 text-pretty text-base font-semibold leading-8 text-[color:var(--tp-muted)]">
               {copy.academyBody}
             </p>
-            <Link href={\`\${prefix}/academy/curriculum\`} className="tecpey-action-primary mt-7">
+            <Link href={`${prefix}/academy/curriculum`} className="tecpey-action-primary mt-7">
               {copy.academyCta}
               <Arrow className="h-5 w-5" aria-hidden="true" />
             </Link>
@@ -329,7 +329,7 @@ export function HomeProductStory({ locale }: { locale: Locale }) {
                     <ShieldCheck className="h-4 w-4 text-cyan-200" aria-hidden="true" />
                     {copy.arenaRisk}
                   </div>
-                  <Link href={\`\${prefix}/academy/trading-arena\`} className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-black text-cyan-200">
+                  <Link href={`${prefix}/academy/trading-arena`} className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-black text-cyan-200">
                     {copy.arenaCta}
                     <Arrow className="h-4 w-4" aria-hidden="true" />
                   </Link>
@@ -399,10 +399,10 @@ export function HomeProductStory({ locale }: { locale: Locale }) {
               {copy.trustBody}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href={\`\${prefix}/risk-disclosure\`} className="tecpey-action-secondary tecpey-action-compact">
+              <Link href={`${prefix}/risk-disclosure`} className="tecpey-action-secondary tecpey-action-compact">
                 {copy.riskLink}
               </Link>
-              <Link href={\`\${prefix}/security\`} className="tecpey-action-ghost tecpey-action-compact">
+              <Link href={`${prefix}/security`} className="tecpey-action-ghost tecpey-action-compact">
                 {copy.securityLink}
               </Link>
             </div>
