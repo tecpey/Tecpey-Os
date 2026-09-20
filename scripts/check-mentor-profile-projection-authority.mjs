@@ -31,6 +31,26 @@ requirePattern(
   "outbox provenance must be database-bound to the exact tenant/workspace pair",
 );
 
+const evidenceEventMigration = await source(
+  "src/lib/db-migrate-mentor-profile-evidence-event.ts",
+);
+for (const needle of [
+  "academy.lesson_assessment",
+  "academy.flashcards_updated",
+  "academy.reflection_updated",
+  "authoritative_lesson_assessment",
+  "authoritative_flashcards_updated",
+  "authoritative_reflection_updated",
+  "mentor_profile_update_outbox_event_reason_check",
+]) {
+  requireText(
+    "evidence-event-migration",
+    evidenceEventMigration,
+    needle,
+    `missing evidence event database invariant: ${needle}`,
+  );
+}
+
 const outbox = await source("src/lib/mentor-profile-update-outbox.ts");
 for (const needle of [
   "createMentorProfileEventId",
@@ -232,6 +252,13 @@ for (const needle of [
 
 const registry = await source("src/lib/db-migration-registry.ts");
 requireText("registry", registry, "migration-step-089", "outbox migration must be in the canonical ledger");
+requireText("registry", registry, "migration-step-095", "evidence event migration must be in the canonical ledger");
+requireText(
+  "registry",
+  registry,
+  "runMentorProfileEvidenceEventMigrations",
+  "evidence event migration runner must be governed",
+);
 requireText(
   "registry",
   registry,
@@ -289,6 +316,7 @@ for (const needle of [
   "append-only dead-letter evidence",
   "expired leases recover",
   "producer transaction rollback",
+  "accepts governed Academy evidence events and rejects event/reason drift",
 ]) {
   requireText("postgres-test", postgresTest, needle, `missing adversarial proof: ${needle}`);
 }
