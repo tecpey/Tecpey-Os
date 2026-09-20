@@ -121,8 +121,10 @@ test(
         enqueueMentorProfileUpdateTx(client, {
           ...scope,
           eventType: "academy.term_progress",
-          reason: "mentor_conversation_migrated",
+          reason: "authoritative_term_assessment",
           sourceReference: "assessment-replay-0001",
+          occurredAt: "2026-09-18T00:00:00.000Z",
+          payload: { semanticDrift: true },
         }),
         /mentor_profile_event_identity_conflict/,
       );
