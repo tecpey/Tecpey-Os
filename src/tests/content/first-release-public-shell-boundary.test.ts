@@ -10,11 +10,12 @@ const faLanding = read(
   "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx",
 );
 const enLanding = read("src/app/en/EnglishLandingClient.tsx");
+const sharedHero = read("src/components/home/CalmLandingHero.tsx");
 
 test("public navbar is Academy-first and exposes Mentor before market discovery", () => {
   for (const [academy, mentor, market] of [
     ['{ label: "آکادمی"', '{ label: "منتور هوشمند"', '{ label: "بازارها"'],
-    ['{ label: "Academy"', '{ label: "AI Learning Mentor"', '{ label: "Markets"'],
+    ['{ label: "Academy"', '{ label: "AI Mentor"', '{ label: "Markets"'],
   ]) {
     const academyIndex = navbar.indexOf(academy);
     const mentorIndex = navbar.indexOf(mentor);
@@ -82,11 +83,12 @@ test("both public landings remain free of exchange execution CTAs", () => {
 });
 
 test("English landing preserves Academy-first and Mentor-second conversion", () => {
-  const academy = enLanding.indexOf('href="/en/academy"');
-  const mentor = enLanding.indexOf('href="/en/academy/ai-guide"');
+  const academy = sharedHero.indexOf('href={`${prefix}/academy`}');
+  const mentor = sharedHero.indexOf('href={`${prefix}/academy/ai-guide`}');
 
   assert.ok(academy >= 0);
   assert.ok(mentor > academy);
-  assert.match(enLanding, /Academy/);
-  assert.match(enLanding, /Mentor/);
+  assert.match(sharedHero, /Start Free Academy/);
+  assert.match(sharedHero, /Talk to AI Mentor/);
+  assert.match(enLanding, /<CalmLandingHero locale="en" \/>/);
 });
