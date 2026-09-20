@@ -27,7 +27,21 @@ ALTER TABLE mentor_profile_update_outbox
       'trading_trade_created',
       'mentor_conversation_saved',
       'mentor_conversation_migrated'
-    ));
+    )),
+  DROP CONSTRAINT IF EXISTS mentor_profile_update_outbox_event_reason_check,
+  ADD CONSTRAINT mentor_profile_update_outbox_event_reason_check
+    CHECK (
+      (event_type = 'academy.term_progress' AND reason = 'authoritative_term_assessment')
+      OR (event_type = 'academy.lesson_assessment' AND reason = 'authoritative_lesson_assessment')
+      OR (event_type = 'academy.flashcards_updated' AND reason = 'authoritative_flashcards_updated')
+      OR (event_type = 'academy.reflection_updated' AND reason = 'authoritative_reflection_updated')
+      OR (event_type = 'mentor.challenge_attempt' AND reason = 'mentor_challenge_answered')
+      OR (event_type = 'arena.trade_signal' AND reason = 'trading_trade_created')
+      OR (
+        event_type = 'mentor.conversation'
+        AND reason IN ('mentor_conversation_saved', 'mentor_conversation_migrated')
+      )
+    );
 `;
 
 function checksum(sql: string): string {
