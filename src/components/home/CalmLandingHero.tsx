@@ -88,7 +88,7 @@ export function CalmLandingHero({ locale = "fa" }: { locale?: "fa" | "en" }) {
                 className="grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 backdrop-blur"
               >
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-300/10 text-cyan-200">
-                  <item.icon className="h-4.5 w-4.5" aria-hidden="true" />
+                  <item.icon className="h-[18px] w-[18px]" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-xs font-black text-white">{item.label}</span>
