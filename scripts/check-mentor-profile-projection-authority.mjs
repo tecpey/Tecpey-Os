@@ -63,6 +63,8 @@ requirePattern(
 const producerPaths = [
   "src/app/api/academy-term-progress/route.ts",
   "src/app/api/academy-lesson-assessment/route.ts",
+  "src/app/api/academy-flashcards/route.ts",
+  "src/app/api/academy-reflections/route.ts",
   "src/app/api/mentor-challenge/route.ts",
   "src/app/api/trading-arena/route.ts",
   "src/app/api/trading-arena/execution/route.ts",
@@ -88,12 +90,26 @@ for (const needle of [
   );
 }
 
+for (const [path, eventType, reason] of [
+  ["src/app/api/academy-flashcards/route.ts", "academy.flashcards_updated", "authoritative_flashcards_updated"],
+  ["src/app/api/academy-reflections/route.ts", "academy.reflection_updated", "authoritative_reflection_updated"],
+]) {
+  const producer = await source(path);
+  requireText(path, producer, eventType, `learning-state event missing: ${eventType}`);
+  requireText(path, producer, reason, `learning-state reason missing: ${reason}`);
+}
+
 const mentorSignals = await source("src/lib/mentor-signals.ts");
 for (const needle of [
   "academy_lesson_assessments",
   "lessonAssessmentCount",
   "avgLessonAssessmentScore",
   "passedLessonAssessments",
+  "normalizeDeck",
+  "normalizeReflectionMap",
+  "flashcardReviewed",
+  "flashcardAvgGrade",
+  "reflectionCount",
 ]) {
   requireText(
     "mentor-signals",
