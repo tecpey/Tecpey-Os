@@ -5,7 +5,7 @@
     {
       "route": "/api/mentor-memory",
       "method": "DELETE",
-      "previousSourceHash": "b1e3be23ffc06c6ed81c5f01",
+      "previousSourceHash": "77716eecce523431e5856c00",
       "issue": "#689",
       "owner": "mentor-ai",
       "reason": "Trusted Mentor Memory v1 adds verified tenant authority and hardens persistent memory controls; exact generated operation evidence reviewed for this branch.",
@@ -74,7 +74,7 @@
     {
       "route": "/api/mentor-memory",
       "method": "POST",
-      "previousSourceHash": "b1e3be23ffc06c6ed81c5f01",
+      "previousSourceHash": "77716eecce523431e5856c00",
       "issue": "#689",
       "owner": "mentor-ai",
       "reason": "Trusted Mentor Memory v1 adds verified tenant authority and hardens persistent memory controls; exact generated operation evidence reviewed for this branch.",
