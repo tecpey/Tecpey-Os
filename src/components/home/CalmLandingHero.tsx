@@ -68,7 +68,7 @@ export function CalmLandingHero({ locale = "fa" }: { locale?: "fa" | "en" }) {
 
       <figure className={styles.visual} aria-label={fa ? "نمای سیستم یادگیری تک‌پی" : "TecPey learning system preview"}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(34,211,238,.22),transparent_34%),radial-gradient(circle_at_90%_85%,rgba(37,99,235,.28),transparent_38%)]" aria-hidden="true" />
-        <div className="relative flex h-full flex-col p-4 pb-16 sm:p-6 sm:pb-16">
+        <div className="relative flex h-full flex-col p-4 pb-24 sm:p-6 sm:pb-24">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[.16em] text-cyan-200/80">TecPey OS</p>
