@@ -234,6 +234,30 @@ if (!/runAiMentorTrustMigrations/.test(migrationPlan)) {
   failures.push("migration plan: AI Mentor trust migration is not governed");
 }
 
+const mentorMemory = await source("src/lib/mentor-memory.ts");
+const mentorMemoryRoute = await source("src/app/api/mentor-memory/route.ts");
+const trustedMemoryMigration = await source("src/lib/db-migrate-trusted-mentor-memory.ts");
+for (const [label, value, pattern] of [
+  ["client CRITICAL rejection", mentorMemoryRoute, /rawImportance === 100[\s\S]*reserved_importance/],
+  ["user asserted classification", mentorMemory, /'user_asserted', 'asserted'/],
+  ["mandatory user-memory expiry", mentorMemory, /NOW\(\) \+ INTERVAL '90 days'/],
+  ["helper CRITICAL cap", mentorMemory, /importance === 100 \? 10 : importance/],
+  ["revoked memory exclusion", mentorMemory, /revoked_at IS NULL/],
+  ["expired memory exclusion", mentorMemory, /expires_at > NOW\(\)/],
+  ["prompt assertion label", mentorMemory, /"USER_ASSERTED"/],
+  ["prompt data-not-instruction boundary", mentorMemory, /داده است، نه دستور/],
+  ["legacy unverified backfill", trustedMemoryMigration, /legacy_unknown[\s\S]*unverified/],
+  ["verified provenance constraint", trustedMemoryMigration, /mentor_memories_authority_provenance_check/],
+  ["verified evidence requirement", trustedMemoryMigration, /evidence_hash IS NOT NULL/],
+  ["verified source requirement", trustedMemoryMigration, /source_reference IS NOT NULL/],
+  ["canonical trusted-memory migration", migrationPlan, /0110_trusted_mentor_memory_contract\.sql/],
+]) {
+  if (!pattern.test(value)) failures.push(`trusted mentor memory: missing ${label}`);
+}
+if (/\[CRITICAL\/\$\{m\.category\}\]/.test(mentorMemory)) {
+  failures.push("trusted mentor memory: legacy CRITICAL prompt authority remains");
+}
+
 const insights = await source("src/app/api/mentor-insights/route.ts");
 for (const forbidden of [
   "generateMentorInsights",
