@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import {
+  ABANDONED_PROFILE_AVATAR_GRACE_MS,
   deleteAcademyProfileAvatar,
   isOwnedAcademyProfileAvatarUrl,
   profileAvatarOwnerKey,
@@ -117,6 +118,32 @@ describe("academy profile avatar lifecycle", () => {
       profileAvatarOwnerKey(alice),
       stored.url.split("/").at(-1)!,
     ));
+  });
+
+  it("keeps fresh pending uploads while collecting abandoned files after the grace window", async () => {
+    await tempStorage();
+    const studentId = "99999999-9999-4999-8999-999999999999";
+    const abandoned = await storeAcademyProfileAvatar({ studentId, file: jpegFile(11) });
+    const pending = await storeAcademyProfileAvatar({ studentId, file: jpegFile(12) });
+
+    const beforeGrace = await reconcileAcademyProfileAvatars({
+      studentId,
+      keepUrl: null,
+      minAgeMs: ABANDONED_PROFILE_AVATAR_GRACE_MS,
+      nowMs: Date.now(),
+    });
+    assert.equal(beforeGrace.removed, 0);
+    assert.ok(await readAcademyProfileAvatar(profileAvatarOwnerKey(studentId), pending.url.split("/").at(-1)!));
+
+    const afterGrace = await reconcileAcademyProfileAvatars({
+      studentId,
+      keepUrl: pending.url,
+      minAgeMs: ABANDONED_PROFILE_AVATAR_GRACE_MS,
+      nowMs: Date.now() + ABANDONED_PROFILE_AVATAR_GRACE_MS + 1_000,
+    });
+    assert.equal(afterGrace.removed, 1);
+    assert.equal(await readAcademyProfileAvatar(profileAvatarOwnerKey(studentId), abandoned.url.split("/").at(-1)!), null);
+    assert.ok(await readAcademyProfileAvatar(profileAvatarOwnerKey(studentId), pending.url.split("/").at(-1)!));
   });
 
 });

@@ -19,7 +19,8 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
-import { deleteAcademyProfileAvatar, isOwnedAcademyProfileAvatarUrl } from "@/lib/academy-profile-avatar-storage";
+import { ABANDONED_PROFILE_AVATAR_GRACE_MS, deleteAcademyProfileAvatar, isOwnedAcademyProfileAvatarUrl, reconcileAcademyProfileAvatars } from "@/lib/academy-profile-avatar-storage";
+import { logger } from "@/lib/logger";
 
 type LocalProfile = {
   id: string;
@@ -336,9 +337,8 @@ export async function POST(req: NextRequest) {
         let previousPhotoUrl: string | null = null;
         const result = await withTx(async (client) => {
           // Serialize profile mutations per student across every application
-          // instance. File reconciliation happens after this transaction
-          // commits, so the final durable profile value cannot be overtaken by
-          // an older concurrent writer.
+          // instance. The exact predecessor is captured while this lock is held;
+          // cleanup runs only after commit and never changes authoritative state.
           if (session.studentId) {
             await client.query(
               `SELECT pg_advisory_xact_lock(
@@ -396,10 +396,31 @@ export async function POST(req: NextRequest) {
             previousPhotoUrl &&
             previousPhotoUrl !== photoUrl
           ) {
-            await deleteAcademyProfileAvatar({
-              studentId: session.studentId,
-              url: previousPhotoUrl,
-            });
+            try {
+              await deleteAcademyProfileAvatar({
+                studentId: session.studentId,
+                url: previousPhotoUrl,
+              });
+            } catch (error) {
+              logger.warn("[academy-profile] post-commit avatar predecessor cleanup deferred", {
+                studentId: session.studentId,
+                error: String(error),
+              });
+            }
+          }
+          if (session.studentId && photoUrl !== undefined) {
+            try {
+              await reconcileAcademyProfileAvatars({
+                studentId: session.studentId,
+                keepUrl: photoUrl,
+                minAgeMs: ABANDONED_PROFILE_AVATAR_GRACE_MS,
+              });
+            } catch (error) {
+              logger.warn("[academy-profile] abandoned avatar cleanup deferred", {
+                studentId: session.studentId,
+                error: String(error),
+              });
+            }
           }
           const response = apiOk({
             storage: "cloud" as const,
@@ -447,10 +468,31 @@ export async function POST(req: NextRequest) {
           previousLocalPhotoUrl &&
           previousLocalPhotoUrl !== photoUrl
         ) {
-          await deleteAcademyProfileAvatar({
-            studentId: local.studentId,
-            url: previousLocalPhotoUrl,
-          });
+          try {
+            await deleteAcademyProfileAvatar({
+              studentId: local.studentId,
+              url: previousLocalPhotoUrl,
+            });
+          } catch (error) {
+            logger.warn("[academy-profile] local post-commit avatar cleanup deferred", {
+              studentId: local.studentId,
+              error: String(error),
+            });
+          }
+        }
+        if (local.studentId && photoUrl !== undefined) {
+          try {
+            await reconcileAcademyProfileAvatars({
+              studentId: local.studentId,
+              keepUrl: photoUrl,
+              minAgeMs: ABANDONED_PROFILE_AVATAR_GRACE_MS,
+            });
+          } catch (error) {
+            logger.warn("[academy-profile] local abandoned avatar cleanup deferred", {
+              studentId: local.studentId,
+              error: String(error),
+            });
+          }
         }
         const response = apiOk({
           storage: "local-dev" as const,

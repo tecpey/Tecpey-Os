@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { Award, BadgeCheck, BriefcaseBusiness, CalendarDays, ExternalLink, EyeOff, GraduationCap, Medal, ShieldCheck, Sparkles, Trophy, XCircle } from "lucide-react";
 import { getPublicProfile } from "@/lib/community-career";
 import { publicCredentialVerificationPath } from "@/lib/public-credential-verification-id";
@@ -64,10 +65,10 @@ export default async function StudentPublicProfilePage({ params }: { params: Pro
           <div className="flex flex-wrap items-center justify-between gap-5">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-100"><ShieldCheck className="h-4 w-4" /> Verified Learning Identity</div>
-              <h1 className="mt-5 text-4xl font-black sm:text-6xl">{profile.avatar} {profile.displayName}</h1>
+              <h1 className="mt-5 text-4xl font-black sm:text-6xl">{profile.displayName}</h1>
               <p className="mt-3 text-sm font-bold text-slate-300">@{profile.username} · {profile.level}</p>
             </div>
-            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-400/10 text-5xl">{profile.avatar}</div>
+            <div className="relative h-24 w-24 overflow-hidden rounded-full border border-cyan-300/25 bg-cyan-400/10"><Image src={profile.avatar || "/assets/tecpey-default-profile.svg"} alt="" fill sizes="96px" className="object-cover" priority /></div>
           </div>
         </section>
         <section className="grid gap-4 md:grid-cols-4">

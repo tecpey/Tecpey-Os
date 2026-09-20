@@ -14,6 +14,7 @@ import {
 
 export const COMMUNITY_PROFILE_CONSENT_VERSION = "community-profile-consent-v1";
 export const COMMUNITY_PROFILE_POLICY_VERSION = "community-profile-authority-v1";
+export const COMMUNITY_DEFAULT_AVATAR_URL = "/assets/tecpey-default-profile.svg";
 
 export type CommunityProfileVisibility = "private" | "public";
 
@@ -235,7 +236,7 @@ function mapProfile(row: CommunityProfileRow): CommunityOwnedProfile {
     username:
       normalizeUsername(row.username) ||
       `learner-${row.public_profile_id.replaceAll("-", "").slice(0, 8)}`,
-    avatar: "",
+    avatar: COMMUNITY_DEFAULT_AVATAR_URL,
     level:
       completedTerms >= 5
         ? "Advanced Learner"

@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const MAX_PROFILE_AVATAR_BYTES = 2 * 1024 * 1024;
+export const ABANDONED_PROFILE_AVATAR_GRACE_MS = 24 * 60 * 60 * 1000;
 
 type ProfileAvatarMime = "image/jpeg" | "image/png" | "image/webp";
 
@@ -151,6 +152,8 @@ export async function deleteAcademyProfileAvatar(input: {
 export async function reconcileAcademyProfileAvatars(input: {
   studentId: string;
   keepUrl?: string | null;
+  minAgeMs?: number;
+  nowMs?: number;
 }): Promise<{ removed: number }> {
   const owner = profileAvatarOwnerKey(input.studentId);
   const keep = input.keepUrl ? filenameFromOwnedAvatarUrl(input.keepUrl, input.studentId) : null;
@@ -165,11 +168,22 @@ export async function reconcileAcademyProfileAvatars(input: {
     throw error;
   }
 
+  const minAgeMs = Math.max(0, input.minAgeMs ?? 0);
+  const nowMs = input.nowMs ?? Date.now();
   let removed = 0;
   for (const filename of entries) {
     if (!FILE_RE.test(filename) || filename === keep) continue;
+    const filePath = path.join(ownerDir, filename);
+    if (minAgeMs > 0) {
+      try {
+        const metadata = await stat(filePath);
+        if (nowMs - metadata.mtimeMs < minAgeMs) continue;
+      } catch {
+        continue;
+      }
+    }
     try {
-      await rm(path.join(ownerDir, filename), { force: true });
+      await rm(filePath, { force: true });
       removed += 1;
     } catch {
       // Profile persistence is authoritative. Cleanup is best-effort here and
