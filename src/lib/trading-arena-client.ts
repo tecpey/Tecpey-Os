@@ -169,7 +169,8 @@ export function parseArenaExecutionSnapshot(value: unknown): ArenaExecutionSnaps
   }
   const responseMarket = market(source.market);
   const parsedMarket = responseMarket ?? state.lastMarket;
-  const marketStatus = source.marketStatus === "unavailable" || !parsedMarket
+  const idempotentReplay = source.idempotentReplay === true;
+  const marketStatus = idempotentReplay || source.marketStatus === "unavailable" || !parsedMarket
     ? "unavailable"
     : "available";
   const projectedEquity = amount(source.projectedEquity) ?? state.equity;
@@ -185,7 +186,7 @@ export function parseArenaExecutionSnapshot(value: unknown): ArenaExecutionSnaps
     projectedEquity,
     marketStatus,
     eventType,
-    idempotentReplay: source.idempotentReplay === true,
+    idempotentReplay,
   };
 }
 

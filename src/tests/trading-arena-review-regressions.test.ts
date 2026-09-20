@@ -37,5 +37,7 @@ describe("Trading Arena review regressions", () => {
       client,
       /livePrice=\{snapshot\.marketStatus === "available" \? market\?\.prices\[selectedAsset\] \?\? null : null\}/,
     );
+    const parser = readFileSync("src/lib/trading-arena-client.ts", "utf8");
+    assert.match(parser, /const marketStatus = idempotentReplay \|\|/);
   });
 });
