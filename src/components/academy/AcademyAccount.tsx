@@ -102,7 +102,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
             <h2 id="account-pro" className="mt-3 text-2xl font-bold leading-relaxed">{isFa ? "عمق بیشتر برای یادگیری، تحقیق و درک بازار" : "Go deeper in learning, research and market understanding"}</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">{isFa ? "Pro فقط «چت بیشتر» نیست؛ لایه هوشمند پیشرفته تک‌پی برای منتور شخصی‌تر، پژوهش مستند، تحلیل زمینه بازار و فهم گفتگوهای اجتماعی است." : "Pro is not simply more chat. It is TecPey’s advanced intelligence layer for a more personal mentor, sourced research, market context and social conversation intelligence."}</p>
           </div>
-          <LivingMentorAvatar act="proud" locale={locale} size="stage" decorative />
+          <LivingMentorAvatar act="celebrate_effort" locale={locale} size="stage" decorative />
         </div>
         <div className="relative z-10 mt-6 grid gap-3 sm:grid-cols-2">
           {[
