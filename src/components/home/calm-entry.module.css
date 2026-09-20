@@ -83,7 +83,7 @@
   .learningGrid { gap: 2rem; }
   .hero { grid-template-columns: minmax(0, 1fr); gap: 2rem; padding: 2rem 1.25rem; }
   .hero h1 { font-size: clamp(2rem, 8vw, 2.9rem); }
-  .visual { aspect-ratio: 1.7; }
+  .visual { aspect-ratio: 4 / 5; }
   .actions { align-items: stretch; flex-direction: column; }
   .auth { padding-top: 1rem; }
   .authShell { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
