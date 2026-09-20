@@ -97,7 +97,7 @@ function MarketLearningSnapshot() {
                 loading="eager"
               />
               <div>
-                <p className="text-xs font-black text-[color:var(--tp-text)]">USD / USDT</p>
+                <p className="text-xs font-black text-[color:var(--tp-text)]">USD/USDT</p>
                 <p className="text-[10px] font-bold text-[color:var(--tp-muted)]">
                   Reference data · educational practice
                 </p>
