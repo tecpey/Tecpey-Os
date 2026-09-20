@@ -75,8 +75,8 @@ test("connected product story preserves the governed learning loop", () => {
 });
 
 test("closing conversion remains inside the learning account boundary", () => {
-  assert.match(close, /href={`${prefix}\/academy\/signup`}/);
-  assert.match(close, /href={`${prefix}\/academy\/login`}/);
+  assert.ok(close.includes('href={`${prefix}/academy/signup`}'));
+  assert.ok(close.includes('href={`${prefix}/academy/login`}'));
   assert.match(close, /ساخت حساب آموزشی/);
   assert.match(close, /Create a learning account/);
 
