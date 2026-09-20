@@ -438,9 +438,6 @@ export function computeMentorProfileUpdate(
   if (academy.totalChallengeAttempts > 0) {
     academyScores.push({ score: academy.challengeAccuracy, weight: 0.15 });
   }
-  if (academy.flashcardReviewed > 0) {
-    academyScores.push({ score: academy.flashcardAvgGrade, weight: 0.1 });
-  }
   const academyWeight = academyScores.reduce((sum, item) => sum + item.weight, 0);
   const academyScore =
     academyWeight > 0
@@ -513,10 +510,10 @@ export function computeMentorProfileUpdate(
   if (academy.avgLessonAssessmentScore >= 85 && academy.lessonAssessmentCount >= 5) {
     strongAreas.push("lesson_assessment_mastery");
   }
-  if (academy.flashcardAvgGrade >= 80 && academy.flashcardReviewed >= 10) {
-    strongAreas.push("flashcard_recall");
-  }
-  if (academy.reflectionCount >= 5) strongAreas.push("reflection_consistency");
+  // Flashcard grades/review timestamps and reflection bodies are client-managed
+  // learning state. They may trigger a fresh projection and remain available as
+  // engagement context, but must not manufacture verified mastery/confidence or
+  // strong-area authority. Only server-graded Academy evidence can do that.
   if (trading.tradeCount >= 10) strongAreas.push("practice_commitment");
 
   // ── Primary goal ──────────────────────────────────────────────────────────
