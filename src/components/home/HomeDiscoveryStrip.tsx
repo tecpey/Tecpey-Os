@@ -11,17 +11,17 @@ type DiscoveryMode = "coins" | "tools";
 
 const copy = {
   fa: {
-    badge: "کشف سریع",
-    title: "۵ مسیر برتر در یک نگاه",
-    partialTitle: "مسیرهای معتبرِ در دسترس",
-    description: "۵ کوین و ۵ ابزار منتخب؛ فشرده، قابل مقایسه و به‌روز.",
+    badge: "کشف امروز",
+    title: "کوین‌ها، ابزارها و خبرها؛ بدون شلوغی",
+    partialTitle: "مسیرهای معتبرِ امروز",
+    description: "چند مسیر منتخب برای ادامهٔ بررسی؛ فشرده، قابل پیگیری و به‌روز.",
     partialDescription: "فقط مسیرهای دارای شواهد معتبر نمایش داده می‌شوند؛ موارد دیگر پس از تکمیل بررسی اضافه خواهند شد.",
     groupLabel: "انتخاب نوع مسیرهای کشف",
     coins: "کوین‌ها",
     tools: "ابزارها",
     news: "خبرها",
-    rank: "رتبه",
-    score: "امتیاز",
+    rank: "مسیر",
+    score: "شاخص",
     updated: "به‌روزرسانی شواهد",
     ready: "آماده",
     degraded: "نیازمند تکمیل",
@@ -29,20 +29,20 @@ const copy = {
     viewCoins: "همه کوین‌ها",
     viewTools: "همه ابزارها",
     viewNews: "خبرهای روز",
-    educational: "رتبه‌بندی آموزشی؛ نه توصیه مالی.",
+    educational: "انتخاب آموزشی؛ نه توصیه مالی.",
   },
   en: {
-    badge: "Quick discovery",
-    title: "Five top routes at a glance",
-    partialTitle: "Verified routes currently available",
-    description: "Five coins and five tools—compact, comparable and current.",
+    badge: "Explore today",
+    title: "Coins, tools and news—without the noise",
+    partialTitle: "Verified routes available today",
+    description: "A small set of current routes for deeper research, kept compact and traceable.",
     partialDescription: "Only routes backed by current evidence are shown; additional routes appear after review is complete.",
     groupLabel: "Choose a discovery route type",
     coins: "Coins",
     tools: "Tools",
     news: "News",
-    rank: "Rank",
-    score: "Score",
+    rank: "Route",
+    score: "Indicator",
     updated: "Evidence updated",
     ready: "Ready",
     degraded: "Needs review",
@@ -50,17 +50,9 @@ const copy = {
     viewCoins: "All coins",
     viewTools: "All tools",
     viewNews: "Live news",
-    educational: "Educational ranking; not financial advice.",
+    educational: "Educational selection; not financial advice.",
   },
 } as const;
-
-const rankTone = [
-  "border-cyan-300/45 bg-cyan-400/18 text-cyan-800 dark:text-cyan-100",
-  "border-sky-300/40 bg-sky-400/15 text-sky-800 dark:text-sky-100",
-  "border-blue-300/35 bg-blue-400/14 text-blue-800 dark:text-blue-100",
-  "border-slate-300/30 bg-slate-400/12 text-slate-700 dark:text-slate-200",
-  "border-slate-300/25 bg-slate-400/10 text-slate-700 dark:text-slate-200",
-] as const;
 
 function rankLabel(rank: number, locale: ContentLocale) {
   return new Intl.NumberFormat(locale === "fa" ? "fa-IR" : "en-US").format(rank);
@@ -178,7 +170,7 @@ export function HomeDiscoveryStrip({
                   <Link
                     key={coin.symbol}
                     href={href}
-                    aria-label={`${strings.rank} ${rankLabel(rank, locale)}: ${name} (${coin.symbol})`}
+                    aria-label={`${name} (${coin.symbol})`}
                     className="tecpey-pressable group flex min-h-24 min-w-0 flex-col items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-500/[0.045] px-2 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px]"
                   >
                     <CoinVisual
@@ -192,22 +184,18 @@ export function HomeDiscoveryStrip({
                     <span className="mt-1.5 truncate text-xs font-black text-[color:var(--tp-text)]">
                       {coin.symbol}
                     </span>
-                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[10px] font-black sm:text-[11px] ${rankTone[index]}`}>
-                      <span aria-hidden="true">#{rankLabel(rank, locale)}</span>
-                      <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
-                    </span>
+                    <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
                   </Link>
                 );
               })
             : tools.map((tool, index) => {
                 const rank = index + 1;
-                const score = Math.round(tool.growthRank.rankScore * 100);
                 const href = isFa ? `/trading-tools/${tool.slug}` : `/en/trading-tools/${tool.slug}`;
                 return (
                   <Link
                     key={tool.slug}
                     href={href}
-                    aria-label={`${strings.rank} ${rankLabel(rank, locale)}: ${tool.name}; ${strings.score} ${score}`}
+                    aria-label={tool.name}
                     className="tecpey-pressable group flex min-h-24 min-w-0 flex-col items-center justify-center rounded-2xl border border-blue-300/15 bg-blue-500/[0.045] px-2 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px]"
                   >
                     <span
@@ -235,10 +223,7 @@ export function HomeDiscoveryStrip({
                     <span dir="ltr" className="mt-1.5 w-full truncate text-xs font-black text-[color:var(--tp-text)]">
                       {tool.name}
                     </span>
-                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[10px] font-black sm:text-[11px] ${rankTone[index]}`}>
-                      <span aria-hidden="true">#{rankLabel(rank, locale)}</span>
-                      <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
-                    </span>
+                    <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
                   </Link>
                 );
               })}
