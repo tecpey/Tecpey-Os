@@ -100,7 +100,7 @@ const lessonAssessment = await source("src/app/api/academy-lesson-assessment/rou
 for (const needle of [
   'eventType: "academy.lesson_assessment"',
   'reason: "authoritative_lesson_assessment"',
-  "sourceReference: idempotencyKey",
+  "sourceReference: `lesson:${command.requestHash}`",
 ]) {
   requireText(
     "academy-lesson-assessment",
