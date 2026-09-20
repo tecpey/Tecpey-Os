@@ -76,7 +76,7 @@ function MarketLearningSnapshot() {
       <div className="mx-auto grid max-w-7xl gap-8 border-y border-[color:var(--tp-border)] py-8 lg:grid-cols-[.72fr_1.28fr] lg:items-center lg:py-10">
         <div>
           <div className="tecpey-kicker">
-            <LineChart className="h-4 w-4" aria-hidden="true" />
+            <LineChart className="h-4 w-4 text-[color:var(--tp-primary)]" aria-hidden="true" />
             نمای آموزشی بازار
           </div>
           <h2
