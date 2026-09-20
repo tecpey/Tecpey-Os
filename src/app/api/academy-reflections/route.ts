@@ -6,6 +6,7 @@ import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import {
   normalizeLessonId,
   normalizeReflectionMap,
@@ -209,11 +210,23 @@ export async function PUT(req: NextRequest) {
         })],
       );
 
+      const nextCollectionRevision = Number(
+        saved.rows[0]?.reflection_revision ?? collectionRevision + 1,
+      );
+      await enqueueMentorProfileUpdateTx(client, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
+        studentId,
+        eventType: "academy.reflection_updated",
+        reason: "authoritative_reflection_updated",
+        sourceReference: `reflection:${locale}:${lessonId}:${reflection.revision}`,
+      });
+
       return {
         conflict: false as const,
         reflection,
         revision: reflection.revision,
-        collectionRevision: Number(saved.rows[0]?.reflection_revision ?? collectionRevision + 1),
+        collectionRevision: nextCollectionRevision,
         updatedAt: saved.rows[0]?.memory_updated_at ?? new Date().toISOString(),
       };
     });
