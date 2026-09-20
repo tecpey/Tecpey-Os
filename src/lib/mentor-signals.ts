@@ -156,9 +156,23 @@ export async function collectAcademySignals(
     const passedLessonAssessments = lessonAssessments.filter(
       (row) => Boolean(row.passed_at),
     ).length;
-    const reviewedCards = learningStateRes.rows
-      .flatMap((row) => normalizeDeck(row.flashcards))
-      .filter((card) => card.lastReviewedAt !== null);
+    const reviewedByCardId = new Map<
+      string,
+      ReturnType<typeof normalizeDeck>[number]
+    >();
+    for (const row of learningStateRes.rows) {
+      for (const card of normalizeDeck(row.flashcards)) {
+        if (card.lastReviewedAt === null) continue;
+        const previous = reviewedByCardId.get(card.cardId);
+        if (
+          !previous ||
+          (card.lastReviewedAt ?? 0) >= (previous.lastReviewedAt ?? 0)
+        ) {
+          reviewedByCardId.set(card.cardId, card);
+        }
+      }
+    }
+    const reviewedCards = [...reviewedByCardId.values()];
     const flashcardReviewed = reviewedCards.length;
     const flashcardAvgGrade =
       flashcardReviewed > 0
@@ -172,14 +186,21 @@ export async function collectAcademySignals(
               100,
           )
         : 0;
-    const reflectionCount = learningStateRes.rows.reduce(
-      (count, row) =>
-        count +
-        Object.values(normalizeReflectionMap(row.reflections)).filter(
-          (entry) => entry.text.trim().length > 20,
-        ).length,
-      0,
-    );
+
+    const reflectionByLessonId = new Map<
+      string,
+      ReturnType<typeof normalizeReflectionMap>[string]
+    >();
+    for (const row of learningStateRes.rows) {
+      for (const entry of Object.values(normalizeReflectionMap(row.reflections))) {
+        if (entry.text.trim().length <= 20) continue;
+        const previous = reflectionByLessonId.get(entry.lessonId);
+        if (!previous || entry.updatedAt >= previous.updatedAt) {
+          reflectionByLessonId.set(entry.lessonId, entry);
+        }
+      }
+    }
+    const reflectionCount = reflectionByLessonId.size;
 
     return {
       authorityAvailable: true,
