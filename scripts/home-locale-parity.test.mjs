@@ -29,6 +29,7 @@ test("FA and EN homes share the governed core section order", async () => {
     "<HomeAiMentorSpotlight",
     "<HomeLearningJourney",
     "<LandingGrowthRadar",
+    "<HomeProductStory",
   ];
 
   const hero = await source("src/components/home/CalmLandingHero.tsx");
@@ -41,6 +42,8 @@ test("FA and EN homes share the governed core section order", async () => {
   assertInOrder(en, sharedOrder, "EN home");
   assert.match(fa, /<HomeDiscoveryStrip locale="fa" radar=\{growthRadar\} \/>/);
   assert.match(en, /<HomeDiscoveryStrip locale="en" radar=\{growthRadar\} \/>/);
+  assert.match(fa, /<HomeProductStory locale="fa" \/>/);
+  assert.match(en, /<HomeProductStory locale="en" \/>/);
   assert.doesNotMatch(fa, /TopDiscoveryGateway/);
 });
 
