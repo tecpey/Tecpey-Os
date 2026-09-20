@@ -423,6 +423,10 @@ export async function POST(req: NextRequest) {
         if (!canUseLocalProfileStorage()) {
           return apiError("academy_profile_service_unavailable", 503);
         }
+        const previousLocalProfile = await getLocalProfile(
+          session.studentId,
+          session.academyAccountId,
+        );
         const local = await upsertLocalProfile({
           accountKey: session.academyAccountId || null,
           studentId: session.studentId || null,
@@ -436,19 +440,16 @@ export async function POST(req: NextRequest) {
           country,
           locale: typeof body.locale === "string" ? body.locale : undefined,
         });
-        const previousLocalPhotoUrl = await getLocalProfile(
-          local.studentId,
-          session.academyAccountId,
-        );
+        const previousLocalPhotoUrl = previousLocalProfile?.photo_url ?? null;
         if (
           photoUrl !== undefined &&
           local.studentId &&
-          previousLocalPhotoUrl?.photo_url &&
-          previousLocalPhotoUrl.photo_url !== photoUrl
+          previousLocalPhotoUrl &&
+          previousLocalPhotoUrl !== photoUrl
         ) {
           await deleteAcademyProfileAvatar({
             studentId: local.studentId,
-            url: previousLocalPhotoUrl.photo_url,
+            url: previousLocalPhotoUrl,
           });
         }
         const response = apiOk({
