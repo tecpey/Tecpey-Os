@@ -6,6 +6,7 @@ import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import { normalizeDeck } from "@/lib/spaced-repetition";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
@@ -157,10 +158,22 @@ export async function PUT(req: NextRequest) {
         [studentId, JSON.stringify({ locale, cardCount: cards.length, ip: getClientIp(req) })],
       );
 
+      const revision = Number(
+        saved.rows[0]?.flashcard_revision ?? currentRevision + 1,
+      );
+      await enqueueMentorProfileUpdateTx(client, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
+        studentId,
+        eventType: "academy.flashcards_updated",
+        reason: "authoritative_flashcards_updated",
+        sourceReference: `flashcards:${locale}:${revision}`,
+      });
+
       return {
         conflict: false as const,
         cards,
-        revision: Number(saved.rows[0]?.flashcard_revision ?? currentRevision + 1),
+        revision,
         updatedAt: saved.rows[0]?.memory_updated_at ?? new Date().toISOString(),
       };
     });
