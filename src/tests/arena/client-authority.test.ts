@@ -109,6 +109,18 @@ describe("Trading Arena UI authority parser", () => {
     assert.equal(conflict?.marketStatus, "available");
   });
 
+  it("requires explicit current-market authority before exposing a live price", () => {
+    const missingStatus = payload();
+    delete (missingStatus as { marketStatus?: unknown }).marketStatus;
+    const parsedMissingStatus = parseArenaExecutionSnapshot(missingStatus);
+    const unavailable = parsed({ marketStatus: "unavailable" });
+
+    assert.equal(parsedMissingStatus?.marketStatus, "unavailable");
+    assert.ok(parsedMissingStatus?.market, "historical market remains available as provenance");
+    assert.equal(unavailable.marketStatus, "unavailable");
+    assert.ok(unavailable.market, "explicitly unavailable market remains available as provenance");
+  });
+
   it("withholds a stored replay market from live-price consumers", () => {
     const replay = parsed({ idempotentReplay: true, marketStatus: "available" });
 

@@ -170,9 +170,9 @@ export function parseArenaExecutionSnapshot(value: unknown): ArenaExecutionSnaps
   const responseMarket = market(source.market);
   const parsedMarket = responseMarket ?? state.lastMarket;
   const idempotentReplay = source.idempotentReplay === true;
-  const marketStatus = idempotentReplay || source.marketStatus === "unavailable" || !parsedMarket
-    ? "unavailable"
-    : "available";
+  const marketStatus = !idempotentReplay && source.marketStatus === "available" && responseMarket
+    ? "available"
+    : "unavailable";
   const projectedEquity = amount(source.projectedEquity) ?? state.equity;
   if (numberValue(projectedEquity) < 0) return null;
   const eventType = typeof source.eventType === "string" ? source.eventType.slice(0, 160) : null;

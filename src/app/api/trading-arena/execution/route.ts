@@ -509,6 +509,7 @@ export async function POST(request: NextRequest) {
               account: context.account,
               attempts: context.attempts,
               activeAttempt: context.activeAttempt,
+              marketStatus: "unavailable" as const,
             },
           };
         }
@@ -626,6 +627,7 @@ export async function POST(request: NextRequest) {
           revision: nextRevision,
           eventType: applied.eventType,
           market,
+          marketStatus: requestedMarket ? "available" as const : "unavailable" as const,
         };
 
         await client.query(

@@ -38,6 +38,21 @@ describe("Trading Arena review regressions", () => {
       /livePrice=\{snapshot\.marketStatus === "available" \? market\?\.prices\[selectedAsset\] \?\? null : null\}/,
     );
     const parser = readFileSync("src/lib/trading-arena-client.ts", "utf8");
-    assert.match(parser, /const marketStatus = idempotentReplay \|\|/);
+    assert.match(
+      parser,
+      /source\.marketStatus === "available" && responseMarket/,
+    );
+    const route = readFileSync(
+      "src/app/api/trading-arena/execution/route.ts",
+      "utf8",
+    );
+    assert.match(
+      route,
+      /marketStatus: requestedMarket \? "available" as const : "unavailable" as const/,
+    );
+    assert.match(
+      route,
+      /error: "revision_conflict"[\s\S]*?marketStatus: "unavailable" as const/,
+    );
   });
 });
