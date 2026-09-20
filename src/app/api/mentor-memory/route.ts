@@ -72,9 +72,13 @@ export async function GET(req: NextRequest) {
           : "";
 
       const rows = await client.query(
-        `SELECT id, category, content, importance, created_at, updated_at
+        `SELECT id, category, content, importance, source_type, trust_level, policy_version,
+                retention_class, expires_at, created_at, updated_at
          FROM mentor_memories
-         WHERE student_id = $1::uuid AND importance >= $2 ${categoryClause}
+         WHERE student_id = $1::uuid
+           AND importance >= $2
+           AND revoked_at IS NULL
+           AND (expires_at IS NULL OR expires_at > NOW()) ${categoryClause}
          ORDER BY importance DESC, created_at DESC
          LIMIT 100`,
         params,
@@ -84,6 +88,11 @@ export async function GET(req: NextRequest) {
         category: r.category,
         content: r.content,
         importance: Number(r.importance),
+        sourceType: r.source_type,
+        trustLevel: r.trust_level,
+        policyVersion: r.policy_version,
+        retentionClass: r.retention_class,
+        expiresAt: r.expires_at ? new Date(r.expires_at).toISOString() : null,
         createdAt: new Date(r.created_at).toISOString(),
         updatedAt: new Date(r.updated_at).toISOString(),
       }));
@@ -151,7 +160,12 @@ export async function POST(req: NextRequest) {
     }
 
     const rawImportance = Number(body.importance ?? 5);
-    const importance: ImportanceLevel = (IMPORTANCE_LEVELS as readonly number[]).includes(rawImportance)
+    // 100 was historically rendered as CRITICAL. Client-authored data must
+    // never select that authority-shaped tier; salience is capped at 10.
+    if (rawImportance === 100) return apiError("reserved_importance", 400);
+    const importance: ImportanceLevel = (IMPORTANCE_LEVELS as readonly number[])
+      .filter((value) => value < 100)
+      .includes(rawImportance)
       ? (rawImportance as ImportanceLevel)
       : 5;
 

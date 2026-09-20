@@ -142,6 +142,119 @@ after(async () => {
   pool = null;
 });
 
+describe("Trusted Mentor Memory PostgreSQL authority", () => {
+  it(
+    "defaults direct rows to user-asserted trust and requires a retention class",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-memory-default"));
+      try {
+        await withClient(async (client) => {
+          const inserted = await client.query<{
+            source_type: string;
+            trust_level: string;
+            policy_version: string;
+            retention_class: string;
+          }>(
+            `INSERT INTO mentor_memories (student_id, category, content, importance, expires_at)
+             VALUES ($1::uuid, 'goals', 'user assertion', 5, NOW() + INTERVAL '90 days')
+             RETURNING source_type, trust_level, policy_version, retention_class`,
+            [studentId],
+          );
+          assert.deepEqual(inserted.rows[0], {
+            source_type: "user_asserted",
+            trust_level: "asserted",
+            policy_version: "mentor-memory-v1",
+            retention_class: "user_asserted_90d",
+          });
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+
+  it(
+    "rejects verified or authoritative memory without evidence-bound provenance",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-memory-provenance"));
+      try {
+        await withClient(async (client) => {
+          await assert.rejects(
+            client.query(
+              `INSERT INTO mentor_memories
+                 (student_id, category, content, importance, source_type, trust_level,
+                  policy_version, retention_class, expires_at)
+               VALUES
+                 ($1::uuid, 'academy', 'forged verified claim', 10,
+                  'academy_verified', 'verified', 'mentor-memory-v1',
+                  'verified_learning_365d', NOW() + INTERVAL '365 days')`,
+              [studentId],
+            ),
+            /mentor_memories_authority_provenance_check/,
+          );
+          await assert.rejects(
+            client.query(
+              `INSERT INTO mentor_memories
+                 (student_id, category, content, importance, source_type, trust_level,
+                  source_reference, evidence_hash, policy_version, retention_class, expires_at)
+               VALUES
+                 ($1::uuid, 'academy', 'bad evidence hash', 10,
+                  'academy_verified', 'verified', 'assessment:1', 'not-a-hash',
+                  'mentor-memory-v1', 'verified_learning_365d', NOW() + INTERVAL '365 days')`,
+              [studentId],
+            ),
+            /mentor_memories_evidence_hash_check/,
+          );
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+
+  it(
+    "accepts evidence-bound verified memory and preserves revocation as explicit state",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-memory-verified"));
+      try {
+        await withClient(async (client) => {
+          const inserted = await client.query<{ id: string; trust_level: string }>(
+            `INSERT INTO mentor_memories
+               (student_id, category, content, importance, source_type, trust_level,
+                source_reference, evidence_hash, policy_version, retention_class, expires_at)
+             VALUES
+               ($1::uuid, 'academy', 'verified learning evidence', 10,
+                'academy_verified', 'verified', 'assessment:term-4',
+                $2, 'mentor-memory-v1', 'verified_learning_365d',
+                NOW() + INTERVAL '365 days')
+             RETURNING id::text AS id, trust_level`,
+            [studentId, "a".repeat(64)],
+          );
+          assert.equal(inserted.rows[0]?.trust_level, "verified");
+          await client.query(
+            `UPDATE mentor_memories SET revoked_at = NOW() WHERE id = $1::uuid`,
+            [inserted.rows[0]?.id],
+          );
+          const active = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM mentor_memories
+              WHERE student_id = $1::uuid
+                AND revoked_at IS NULL
+                AND (expires_at IS NULL OR expires_at > NOW())`,
+            [studentId],
+          );
+          assert.equal(Number(active.rows[0]?.count ?? "0"), 0);
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+});
+
 describe("AI Mentor durable trust store", () => {
   it("rejects per-call input and output token caps before provider admission", async () => {
     const limits = {
