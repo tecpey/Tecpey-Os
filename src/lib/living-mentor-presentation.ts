@@ -12,15 +12,6 @@ export const LIVING_MENTOR_ACTS = [
   "privacy_notice",
   "data_unavailable",
   "error_recover",
-  "curious",
-  "supportive",
-  "proud",
-  "focused",
-  "surprised",
-  "reviewing",
-  "reading_news",
-  "arena_coach",
-  "streak_rescue",
 ] as const;
 
 export type LivingMentorAct = (typeof LIVING_MENTOR_ACTS)[number];
@@ -38,10 +29,6 @@ export type LivingMentorPresentationSignals = Readonly<{
  *
  * Safety always wins. Speaking then wins over request loading because a reply
  * may begin streaming before the request lifecycle has fully settled.
- *
- * Product surfaces may explicitly request the additional semantic acts above,
- * but raw learning evidence, private content and model reasoning must never
- * cross into the character renderer.
  */
 export function selectLivingMentorAct({
   isComposing,
