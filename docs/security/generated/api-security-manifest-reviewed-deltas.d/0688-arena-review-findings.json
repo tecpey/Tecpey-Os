@@ -1,0 +1,377 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "previousSourceHash": "cf7c396675cfd5311ca897a2",
+      "issue": "#688",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed after the optional Arena evidence loader was isolated from the canonical Mentor request path. Arena storage or snapshot-validation failures now degrade only the optional risk context to null, while the established strict session, tenant binding, capability, entitlement, CSRF, rate-limit, safety, spend, evidence, audit/redaction and private no-store controls remain unchanged. The new regression test proves the optional integration cannot take down an otherwise valid Mentor request; no authentication, authorization or provider permission is relaxed.",
+      "replacement": {
+        "route": "/api/ai-mentor",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "sourceHash": "03a6b63fbd77f1549663e04a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor",
+        "testReferences": [
+          "src/tests/content/ai-mentor-locale-error-contract.test.ts",
+          "src/tests/security/ai-control-plane-source.test.ts",
+          "src/tests/security/ai-mentor-capability-authority.test.ts",
+          "src/tests/security/ai-mentor-preference-egress-gate.test.ts",
+          "src/tests/security/ai-mentor-provider.test.ts",
+          "src/tests/security/ai-mentor-trust-boundary.test.ts",
+          "src/tests/security/ai-mentor-trust-store-postgres.test.ts",
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/managed-ai-launch-containment-source.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-review-regressions.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "previousSourceHash": "f5b3b1803e1c60699a8fcc18",
+      "issue": "#688",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed the compatibility alias after the canonical Mentor handler isolated failures in its optional Arena evidence loader. The alias source and controls are unchanged; only delegatedSourceHash is re-pinned to the reviewed canonical handler, inheriting the same tenant-bound and fail-closed security controls.",
+      "replacement": {
+        "route": "/api/ai-mentor-v2",
+        "method": "POST",
+        "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
+        "sourceHash": "f5b3b1803e1c60699a8fcc18",
+        "delegatedTo": "src/app/api/ai-mentor/route.ts",
+        "delegatedSourceHash": "03a6b63fbd77f1549663e04a",
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "canonical /api/ai-mentor handler",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "ai-memory"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "ai-mentor",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "ai-mentor-v2",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/ai-mentor/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-alias",
+          "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+          "issue": "#108"
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena",
+      "method": "POST",
+      "previousSourceHash": "4eea40b2fbbe14b91ad2ee7a",
+      "issue": "#688",
+      "owner": "academy-arena-security",
+      "reason": "Reviewed the unchanged Arena decision-journal operation after the new Arena regression suite became discoverable as evidence for its route domain. This ledger update adds only that exact test reference; the route source hash and all strict session, tenant-context, CSRF, bounded-body, rate-limit, transaction, audit/redaction and private no-store controls remain unchanged.",
+      "replacement": {
+        "route": "/api/trading-arena",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/route.ts",
+        "sourceHash": "4eea40b2fbbe14b91ad2ee7a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "trading-arena-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/arena/reflection-authority.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts",
+          "src/tests/trading-arena-review-regressions.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena/reflections",
+      "method": "POST",
+      "previousSourceHash": "f9b80f26571ce4ddb88c2944",
+      "issue": "#688",
+      "owner": "academy-arena-security",
+      "reason": "Reviewed the unchanged Arena reflections operation after the new Arena regression suite became discoverable as evidence for its route domain. This ledger update adds only that exact test reference; the route source hash and all strict session, tenant-context, CSRF, bounded-body, rate-limit, idempotency, transaction, audit/redaction and private no-store controls remain unchanged.",
+      "replacement": {
+        "route": "/api/trading-arena/reflections",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
+        "sourceHash": "f9b80f26571ce4ddb88c2944",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-reflections-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/arena/reflection-authority.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts",
+          "src/tests/trading-arena-review-regressions.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena/execution",
+      "method": "POST",
+      "previousSourceHash": "ade2f90231c0293542bb22a3",
+      "issue": "#688",
+      "owner": "academy-arena-security",
+      "reason": "Reviewed after the shared route module added a read-only GET projection that rolls the UTC daily ledger in the response without mutating persisted state. The manifest source hash covers the whole route file, so the POST operation hash changes even though its verified-principal, tenant-context, CSRF, bounded-body, idempotency, transaction, audit/redaction and private no-store controls remain unchanged. Regression coverage now records this review and verifies the adjacent Arena fixes.",
+      "replacement": {
+        "route": "/api/trading-arena/execution",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+        "sourceHash": "78ebf97eb682f4fa17513418",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-execution-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts",
+          "src/tests/trading-arena-review-regressions.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}

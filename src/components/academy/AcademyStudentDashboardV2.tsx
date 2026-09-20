@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
-import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
+import { isAcademyProfileEstablished, resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
 import { ACADEMY_CORE_TERM_COUNT } from "@/lib/academy-infinite-growth-policy";
 
 type Locale = "fa" | "en";
@@ -17,6 +18,7 @@ type Profile = {
   display_name?: string | null;
   username?: string | null;
   avatar?: string | null;
+  photo_url?: string | null;
   learning_goal?: string | null;
   streak_days?: number | null;
   total_xp?: number | null;
@@ -247,7 +249,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     return <Gate title={t.needLogin} description={isFa ? "داشبورد، ترم‌ها، منتور و Trading Arena فقط به حساب اختصاصی آکادمی وصل هستند." : "Dashboard, terms, mentor and Trading Arena belong to your dedicated academy account."} primary={{ href: isFa ? "/academy/login" : "/en/academy/login", label: t.login }} secondary={{ href: isFa ? "/academy/signup" : "/en/academy/signup", label: t.signup }} />;
   }
 
-  if (!profile?.display_name) {
+  if (!isAcademyProfileEstablished(profile)) {
     return <Gate title={t.needProfile} description={isFa ? "برای شروع ترم‌ها، اول نام نمایشی، username و هویت آموزشی خودت را بساز." : "Before starting terms, create your display name, username and learning identity."} primary={{ href: isFa ? "/academy/onboarding" : "/en/academy/onboarding", label: t.createProfile }} />;
   }
 
@@ -258,7 +260,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{avatar}</div>
+              <div className="grid h-16 w-16 overflow-hidden place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{profile?.photo_url ? <Image src={profile.photo_url} alt="" width={64} height={64} unoptimized className="h-full w-full object-cover" /> : avatar}</div>
               <div>
                 <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
                 <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
@@ -290,7 +292,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           <aside className="space-y-4">
             <div className="rounded-[32px] border border-white/10 bg-white/[0.055] p-5">
               <p className="text-xs font-black text-slate-400">{t.tecpeyId}</p>
-              <p className="mt-2 break-all font-mono text-lg font-semibold text-cyan-200"><bdi>{profile.public_student_id}</bdi></p>
+              <p className="mt-2 break-all font-mono text-lg font-semibold text-cyan-200"><bdi>{profile?.public_student_id || "—"}</bdi></p>
               <p className="mt-3 text-xs font-bold leading-6 text-slate-400">{t.noIndex}</p>
             </div>
             <Quick href={`${termBase}/ai-guide`} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "گفت‌وگو درباره مسیر یادگیری و تمرین بعدی" : "Talk through your learning journey and next practice"} />

@@ -1,4 +1,10 @@
 import { NextRequest } from "next/server";
+import {
+  ArenaMarketBarsError,
+  getArenaMarketBars,
+  parseArenaBarAsset,
+  parseArenaBarResolution,
+} from "@/lib/arena-market-bars";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
@@ -504,6 +510,32 @@ async function publicMarketResponse(request: NextRequest) {
   return response;
 }
 
+async function arenaBarsResponse(req: NextRequest) {
+  const asset = parseArenaBarAsset(req.nextUrl.searchParams.get("asset"));
+  const resolution = parseArenaBarResolution(req.nextUrl.searchParams.get("resolution"));
+  if (!asset || !resolution) return apiError("invalid_market_bars_request", 400);
+
+  const boundedPositiveInteger = (value: string | null, max: number): number | undefined => {
+    if (!value) return undefined;
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? Math.min(parsed, max) : undefined;
+  };
+  const from = boundedPositiveInteger(req.nextUrl.searchParams.get("from"), 4_102_444_800);
+  const to = boundedPositiveInteger(req.nextUrl.searchParams.get("to"), 4_102_444_800);
+  const countBack = boundedPositiveInteger(req.nextUrl.searchParams.get("countBack"), 1_000) ?? 300;
+  if (from && to && from >= to) return apiError("invalid_market_bars_range", 400);
+
+  try {
+    const snapshot = await getArenaMarketBars({ asset, resolution, from, to, countBack });
+    const response = apiOk(snapshot);
+    response.headers.set("Cache-Control", "public, s-maxage=5, stale-while-revalidate=10");
+    return response;
+  } catch (error) {
+    const code = error instanceof ArenaMarketBarsError ? error.message : "arena_market_bars_unavailable";
+    return apiError(code, 503);
+  }
+}
+
 async function iranMarketResponse() {
   const apiKey = process.env.BITYCLE_API_KEY?.trim();
   if (!apiKey) return apiError("market_intelligence_not_configured", 503);
@@ -574,6 +606,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const source = url.searchParams.get("source");
     if (source === "public") return publicMarketResponse(req);
+    if (source === "arena-bars") return arenaBarsResponse(req);
     if (source === "iran") return iranMarketResponse();
     const symbol = url.searchParams.get("symbol");
 

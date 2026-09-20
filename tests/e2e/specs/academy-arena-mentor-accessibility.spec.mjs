@@ -66,8 +66,8 @@ function contractFor(testInfo) {
             key: "arena",
             path: "/en/academy/trading-arena",
             requiresSession: true,
-            heading: /Learn the decision process before risking real capital/i,
-            cta: /Create Academy profile|Explore the Academy/i,
+            heading: /TecPey Trading Arena|Sign in to continue practising|Review your Academy profile|Arena is unavailable/i,
+            cta: /Create Academy profile|Explore the Academy|Review plan and send to server/i,
           },
           {
             key: "mentor",
@@ -135,6 +135,7 @@ function arenaSnapshot() {
     },
     createdAt: NOW,
     updatedAt: NOW,
+    peakEquity: "100000.0000000000",
   };
 
   return {
@@ -550,6 +551,22 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
     await expect(page.locator("html"), `${surface.path}: html lang`).toHaveAttribute("lang", contract.lang);
     await expect(page.locator("html"), `${surface.path}: html dir`).toHaveAttribute("dir", contract.dir);
     await expect(page.getByRole("heading", { level: 1, name: surface.heading })).toBeVisible();
+
+    if (contract.locale === "en" && surface.key === "arena") {
+      const renderedText = await page.locator("body").innerText();
+      expect(
+        renderedText,
+        `${surface.path}: English Arena rendered Persian or Arabic-script UI copy`,
+      ).not.toMatch(/[\u0600-\u06ff]/);
+      await expect(page.getByRole("link", { name: "Scenarios" })).toHaveAttribute(
+        "href",
+        "/en/academy/trading-arena/scenarios",
+      );
+      await expect(page.getByRole("link", { name: "Server journal", exact: true })).toHaveAttribute(
+        "href",
+        "/en/academy/trading-arena/journal",
+      );
+    }
 
     await expectNoHorizontalOverflow(page, surface.path);
     await expectPrimaryTargetSize(page, surface);

@@ -25,6 +25,21 @@ const PROFILE_UNAVAILABLE = "academy_profile_service_unavailable";
 const ACADEMY_RETURN_ORIGIN = "https://academy.tecpey.invalid";
 const MAX_ACADEMY_RETURN_PATH_LENGTH = 512;
 
+export type AcademyEstablishedProfile = {
+  id?: string | null;
+  public_student_id?: string | null;
+  display_name?: string | null;
+};
+
+/** A persisted Academy identity, not a mutable presentation field, is the onboarding authority. */
+export function isAcademyProfileEstablished(profile: AcademyEstablishedProfile | null | undefined): boolean {
+  if (!profile) return false;
+  return Boolean(
+    (typeof profile.id === "string" && profile.id.trim()) ||
+    (typeof profile.public_student_id === "string" && profile.public_student_id.trim()),
+  );
+}
+
 function isProfileValue<TProfile>(value: unknown): value is TProfile | null {
   return value === null || (typeof value === "object" && !Array.isArray(value));
 }
@@ -109,13 +124,13 @@ export function resolveSafeAcademyReturnPath(
  * After a successful login, onboarding is safe only when the profile authority
  * explicitly confirms an authenticated account with no completed profile.
  */
-export function resolveAcademyPostAuthPath<TProfile extends { display_name?: string | null }>(
+export function resolveAcademyPostAuthPath<TProfile extends AcademyEstablishedProfile>(
   locale: AcademyProfileLocale,
   state: AcademyProfileReadState<TProfile>,
   requestedPath?: string | null,
 ): string {
   const base = locale === "en" ? "/en/academy" : "/academy";
-  if (state.status === "authenticated" && !state.profile?.display_name) {
+  if (state.status === "authenticated" && !isAcademyProfileEstablished(state.profile)) {
     return `${base}/onboarding`;
   }
   if (state.status === "authenticated") {

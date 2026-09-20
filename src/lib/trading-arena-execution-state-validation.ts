@@ -206,16 +206,33 @@ export function validateArenaExecutionStateV2(value: unknown): ArenaExecutionSta
     if (!new Decimal(equity).eq(expectedEquity)) invalid();
   }
 
+  const initialBalance = amount(row.initialBalance, true, false, 10);
+  const peakEquity = row.peakEquity === undefined
+    ? Decimal.max(initialBalance, equity).toDecimalPlaces(10, Decimal.ROUND_DOWN).toFixed(10)
+    : amount(row.peakEquity, true, false, 10);
+  if (new Decimal(peakEquity).lt(equity) || new Decimal(peakEquity).lt(initialBalance)) invalid();
+
   const createdAt = time(row.createdAt);
   const updatedAt = time(row.updatedAt);
+  const dailyLossRow = row.dailyLoss === undefined ? null : object(row.dailyLoss);
+  const dailyLoss = dailyLossRow
+    ? {
+        day: typeof dailyLossRow.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dailyLossRow.day)
+          ? dailyLossRow.day
+          : invalid(),
+        realizedLoss: amount(dailyLossRow.realizedLoss, false, false, 10),
+        realizedPnl: dailyLossRow.realizedPnl === undefined ? "0.0000000000" : amount(dailyLossRow.realizedPnl, false, true, 10),
+        complete: dailyLossRow.complete === true && dailyLossRow.realizedPnl !== undefined,
+      }
+    : { day: updatedAt.slice(0, 10), realizedLoss: "0.0000000000", realizedPnl: "0.0000000000", complete: false };
   if (Date.parse(updatedAt) < Date.parse(createdAt)) invalid();
   return {
     version: 2,
-    initialBalance: amount(row.initialBalance, true, false, 10),
+    initialBalance,
     cashBalance, reservedBalance, equity, holdings, openPositions, pendingOrders, closedTrades,
     totalRealizedPnl: amount(row.totalRealizedPnl, false, true, 10),
     totalFeesPaid: amount(row.totalFeesPaid, false, false, 10),
     lastTradeAt: nullableTime(row.lastTradeAt), lastLossAt: nullableTime(row.lastLossAt),
-    lastMarket, createdAt, updatedAt,
+    lastMarket, createdAt, updatedAt, peakEquity, dailyLoss,
   };
 }
