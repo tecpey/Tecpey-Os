@@ -120,6 +120,10 @@ import {
   OPERATIONAL_SIGNAL_EVIDENCE_SQL,
   runOperationalSignalEvidenceMigrations,
 } from "./db-migrate-operational-signal-evidence";
+import {
+  TRUSTED_MENTOR_MEMORY_SQL,
+  runTrustedMentorMemoryMigrations,
+} from "./db-migrate-trusted-mentor-memory";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -240,6 +244,15 @@ const OPERATIONAL_SIGNAL_EVIDENCE_MIGRATION: CanonicalMigrationContent =
     identity: "0109_operational_signal_evidence.sql",
     content: OPERATIONAL_SIGNAL_EVIDENCE_SQL,
     checksum: canonicalMigrationChecksum(OPERATIONAL_SIGNAL_EVIDENCE_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const TRUSTED_MENTOR_MEMORY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0110_trusted_mentor_memory_contract.sql",
+    content: TRUSTED_MENTOR_MEMORY_SQL,
+    checksum: canonicalMigrationChecksum(TRUSTED_MENTOR_MEMORY_SQL),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
   });
