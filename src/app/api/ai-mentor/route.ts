@@ -11,6 +11,7 @@ import {
 import { collectBehavioralInputs } from "@/lib/behavioral-context-server";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getMentorContext } from "@/lib/mentor-memory";
+import { loadArenaMentorRiskContext } from "@/lib/arena-mentor-context-server";
 import { ensureMentorThread, isMentorThreadId } from "@/lib/mentor-threads";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { withObservability } from "@/lib/observe";
@@ -716,7 +717,7 @@ export async function POST(request: NextRequest) {
     const publicResearchRequested = body.researchMode === "public";
     const selectedResearchRoute = publicResearchRoute(question);
 
-    const [mentorContext, behavioralInputs, verifiedKnowledgeResult] =
+    const [mentorContext, behavioralInputs, verifiedKnowledgeResult, arenaRiskContext] =
       await Promise.all([
         !publicResearchRequested && authorizedStudentId
           ? getMentorContext(authorizedStudentId, activeThreadId)
@@ -734,6 +735,10 @@ export async function POST(request: NextRequest) {
               limit: 6,
             })
           : Promise.resolve([]),
+        !publicResearchRequested && authorizedStudentId && activeTenantId && activeWorkspaceId
+          ? loadArenaMentorRiskContext(authorizedStudentId, activeTenantId, activeWorkspaceId)
+              .catch(() => null)
+          : Promise.resolve(null),
       ]);
     const verifiedKnowledgeStatus = Array.isArray(verifiedKnowledgeResult)
       ? "loaded"
@@ -769,6 +774,7 @@ export async function POST(request: NextRequest) {
         sourceUrls: item.evidenceRefs.map((source) => source.url),
       })),
       mentorContext,
+      arenaRiskContext,
       behavioralContext: behavioralSnapshot
         ? behavioralEgress(behavioralSnapshot)
         : null,

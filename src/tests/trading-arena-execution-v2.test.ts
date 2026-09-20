@@ -3,9 +3,17 @@ import assert from "node:assert/strict";
 import Decimal from "decimal.js";
 import {
   applyArenaExecutionActionV2,
+  buildArenaMentorRiskContext,
   computeArenaExecutionEquity,
+  computeArenaPortfolioStopRisk,
+  computeArenaPortfolioRiskTelemetry,
+  computeArenaDrawdownRate,
+  computeArenaProjectedDrawdownTelemetry,
+  computeArenaMentorRiskSignals,
+  computeArenaMentorCapabilities,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
+  projectArenaExecutionStateForRead,
   type ArenaExecutionContext,
   type ArenaPriceSnapshot,
 } from "@/lib/trading-arena-execution-v2";
@@ -75,6 +83,103 @@ describe("authoritative Arena execution aggregate", () => {
     }, context("operation-over-risk"));
 
     assert.deepEqual(result, { ok: false, error: "arena_risk_limit_exceeded" });
+  });
+
+  it("separates allocation from stop-defined capital risk", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const accepted = applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "10000",
+      stopLoss: "60000",
+    }, context("operation-stop-risk-ok"));
+    assert.equal(accepted.ok, true);
+
+    const rejected = applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "20000",
+      stopLoss: "50000",
+    }, context("operation-stop-risk-too-high"));
+    assert.deepEqual(rejected, { ok: false, error: "arena_stop_risk_limit_exceeded" });
+  });
+
+  it("applies the same stop-defined risk authority to pending limit orders", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const rejected = applyArenaExecutionActionV2(initial, {
+      type: "limit_buy",
+      asset: "BTC",
+      quoteAmount: "20000",
+      limitPrice: "60000",
+      stopLoss: "50000",
+    }, context("operation-limit-stop-risk"));
+    assert.deepEqual(rejected, { ok: false, error: "arena_stop_risk_limit_exceeded" });
+  });
+
+  it("caps aggregate planned stop risk across simultaneous positions", () => {
+    let state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    for (let index = 0; index < 3; index += 1) {
+      const opened = success(applyArenaExecutionActionV2(state, {
+        type: "market_buy",
+        asset: "BTC",
+        quoteAmount: "10000",
+        stopLoss: "52150",
+      }, { ...context(`operation-portfolio-risk-${index}`), slippageBps: "0" }));
+      state = opened.state;
+    }
+    assert.ok(new Decimal(computeArenaPortfolioStopRisk(state)).gt("5900"));
+    assert.ok(new Decimal(computeArenaPortfolioStopRisk(state)).lte("6000"));
+    const rejected = applyArenaExecutionActionV2(state, {
+      type: "market_buy",
+      asset: "ETH",
+      quoteAmount: "10000",
+      stopLoss: "2820",
+    }, { ...context("operation-portfolio-risk-reject"), slippageBps: "0" });
+    assert.deepEqual(rejected, { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" });
+  });
+
+  it("includes pending-order stop risk in the aggregate portfolio budget", () => {
+    let state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    for (let index = 0; index < 3; index += 1) {
+      const placed = success(applyArenaExecutionActionV2(state, {
+        type: "limit_buy",
+        asset: "BTC",
+        quoteAmount: "10000",
+        limitPrice: "64000",
+        stopLoss: "51520",
+      }, context(`operation-pending-risk-${index}`)));
+      state = placed.state;
+    }
+    const rejected = applyArenaExecutionActionV2(state, {
+      type: "limit_buy",
+      asset: "ETH",
+      quoteAmount: "10000",
+      limitPrice: "3400",
+      stopLoss: "2750",
+    }, context("operation-pending-risk-reject"));
+    assert.deepEqual(rejected, { ok: false, error: "arena_portfolio_stop_risk_limit_exceeded" });
+  });
+
+  it("never reports no-stop exposure as zero defined portfolio risk", () => {
+    let state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    state = success(applyArenaExecutionActionV2(state, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "5000",
+    }, context("operation-unprotected-position"))).state;
+    state = success(applyArenaExecutionActionV2(state, {
+      type: "limit_buy",
+      asset: "ETH",
+      quoteAmount: "3000",
+      limitPrice: "3400",
+    }, context("operation-unprotected-order"))).state;
+
+    const telemetry = computeArenaPortfolioRiskTelemetry(state);
+    assert.equal(telemetry.definedStopRisk, "0.0000000000");
+    assert.equal(telemetry.unboundedExposure, "8000.0000000000");
+    assert.equal(telemetry.unprotectedPositions, 1);
+    assert.equal(telemetry.unprotectedPendingOrders, 1);
+    assert.equal(telemetry.fullyStopDefined, false);
   });
 
   it("reserves limit-order cash and restores it exactly on cancellation", () => {
@@ -163,6 +268,23 @@ describe("authoritative Arena execution aggregate", () => {
     assert.ok(new Decimal(closed.state.cashBalance).gt(100000));
   });
 
+  it("updates daily net PnL on a profitable close without increasing gross loss", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200",
+    }, context("operation-daily-profit-open")));
+    const positionId = opened.state.openPositions[0]?.id ?? "";
+    const higherMarket: ArenaPriceSnapshot = {
+      ...MARKET, prices: { ...MARKET.prices, ETH: "3850.0000000000" }, observedAt: "2026-07-19T00:05:00.000Z",
+    };
+    const closed = success(applyArenaExecutionActionV2(opened.state, {
+      type: "close_position", positionId, reason: "manual",
+    }, { ...context("operation-daily-profit-close", higherMarket), now: "2026-07-19T00:05:00.000Z" }));
+    assert.ok(new Decimal(closed.state.dailyLoss.realizedPnl).gt(0));
+    assert.equal(closed.state.dailyLoss.realizedLoss, "0.0000000000");
+    assert.equal(closed.state.dailyLoss.complete, true);
+  });
+
   it("automatically executes stop-loss from a server market refresh", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const opened = success(applyArenaExecutionActionV2(initial, {
@@ -188,6 +310,396 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.state.closedTrades[0]?.closureReason, "stop-loss");
     assert.ok(new Decimal(refreshed.state.totalRealizedPnl).lt(0));
     assert.equal(refreshed.state.lastLossAt, "2026-07-19T00:10:00.000Z");
+  });
+
+  it("updates daily net PnL and gross loss together on a losing close", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "BTC", quoteAmount: "5000", stopLoss: "60000",
+    }, context("operation-daily-loss-open")));
+    const lowerMarket: ArenaPriceSnapshot = {
+      ...MARKET, prices: { ...MARKET.prices, BTC: "59000.0000000000" }, observedAt: "2026-07-19T00:10:00.000Z",
+    };
+    const refreshed = success(applyArenaExecutionActionV2(opened.state, {
+      type: "refresh_market",
+    }, { ...context("operation-daily-loss-close", lowerMarket), now: "2026-07-19T00:10:00.000Z" }));
+    assert.ok(new Decimal(refreshed.state.dailyLoss.realizedPnl).lt(0));
+    assert.ok(new Decimal(refreshed.state.dailyLoss.realizedLoss).gt(0));
+    assert.equal(new Decimal(refreshed.state.dailyLoss.realizedLoss).eq(new Decimal(refreshed.state.dailyLoss.realizedPnl).abs()), true);
+  });
+
+  it("tracks peak equity and opens a drawdown circuit without trapping risk-reducing actions", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const stressed = {
+      ...initial,
+      cashBalance: "89000.0000000000",
+      equity: "89000.0000000000",
+      peakEquity: "100000.0000000000",
+    };
+    assert.equal(computeArenaDrawdownRate(stressed), "0.11000000");
+
+    const blocked = applyArenaExecutionActionV2(stressed, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+    }, context("operation-drawdown-block"));
+    assert.deepEqual(blocked, { ok: false, error: "arena_drawdown_circuit_open" });
+
+    const refreshed = success(applyArenaExecutionActionV2(stressed, {
+      type: "refresh_market",
+    }, context("operation-drawdown-refresh")));
+    assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("derives read telemetry from projected equity and advances the projected peak", () => {
+    assert.deepEqual(
+      computeArenaProjectedDrawdownTelemetry({ peakEquity: "100000.0000000000" }, "89000.0000000000"),
+      {
+        equity: "89000.0000000000",
+        peakEquity: "100000.0000000000",
+        drawdownRate: "0.11000000",
+      },
+    );
+    assert.deepEqual(
+      computeArenaProjectedDrawdownTelemetry({ peakEquity: "100000.0000000000" }, "101000.0000000000"),
+      {
+        equity: "101000.0000000000",
+        peakEquity: "101000.0000000000",
+        drawdownRate: "0.00000000",
+      },
+    );
+  });
+
+  it("evaluates the drawdown circuit against the current request market", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "20000",
+    }, context("operation-live-drawdown-open")));
+    assert.ok(new Decimal(opened.state.equity).gt(99000));
+
+    const crashedMarket: ArenaPriceSnapshot = {
+      ...MARKET,
+      prices: { ...MARKET.prices, BTC: "30000.0000000000" },
+      observedAt: "2026-07-19T00:01:00.000Z",
+    };
+    const blocked = applyArenaExecutionActionV2(opened.state, {
+      type: "market_buy",
+      asset: "ETH",
+      quoteAmount: "1000",
+    }, {
+      ...context("operation-live-drawdown-block", crashedMarket),
+      now: "2026-07-19T00:01:00.000Z",
+    });
+
+    assert.deepEqual(blocked, { ok: false, error: "arena_drawdown_circuit_open" });
+  });
+
+  it("withholds Mentor live-market and daily-PnL claims when their authorities are unavailable", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({ ...initial, dailyLoss: undefined }, "100000");
+    const capabilities = computeArenaMentorCapabilities(
+      buildArenaMentorRiskContext(legacy, "2026-07-19T00:00:10.000Z"),
+    );
+    assert.equal(capabilities.marketObservation, "unavailable");
+    assert.equal(capabilities.dailyPerformanceInterpretation, "withhold");
+    assert.equal(capabilities.mayReferenceLiveMarket, false);
+    assert.equal(capabilities.mayInterpretDailyPnl, false);
+    assert.deepEqual(capabilities.reasons, ["market-missing", "daily-accounting-incomplete"]);
+  });
+
+  it("allows authoritative Mentor interpretation only when market and accounting provenance are complete", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const context = buildArenaMentorRiskContext({ ...initial, lastMarket: MARKET }, "2026-07-19T00:00:10.000Z");
+    const capabilities = computeArenaMentorCapabilities(context);
+    assert.equal(capabilities.marketObservation, "authoritative");
+    assert.equal(capabilities.dailyPerformanceInterpretation, "authoritative");
+    assert.equal(capabilities.riskCoaching, "authoritative");
+    assert.equal(capabilities.mayReferenceLiveMarket, true);
+    assert.equal(capabilities.mayInterpretDailyPnl, true);
+    assert.deepEqual(capabilities.reasons, []);
+  });
+
+  it("degrades Mentor market coaching for stale or future observations", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const withMarket = { ...initial, lastMarket: MARKET };
+    for (const generatedAt of ["2026-07-19T00:00:16.000Z", "2026-07-18T23:59:54.000Z"]) {
+      const capabilities = computeArenaMentorCapabilities(buildArenaMentorRiskContext(withMarket, generatedAt));
+      assert.equal(capabilities.marketObservation, "degraded");
+      assert.equal(capabilities.riskCoaching, "degraded");
+      assert.equal(capabilities.mayReferenceLiveMarket, false);
+    }
+  });
+
+  it("classifies Mentor market provenance as fresh, stale or future without hiding its age", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const withMarket = { ...initial, lastMarket: MARKET };
+    const fresh = buildArenaMentorRiskContext(withMarket, "2026-07-19T00:00:10.000Z");
+    const stale = buildArenaMentorRiskContext(withMarket, "2026-07-19T00:00:16.000Z");
+    const future = buildArenaMentorRiskContext(withMarket, "2026-07-18T23:59:54.000Z");
+    assert.deepEqual(fresh.market, { source: "test_feed", observedAt: MARKET.observedAt, ageMs: 10_000, freshness: "fresh" });
+    assert.equal(stale.market?.freshness, "stale");
+    assert.equal(stale.market?.ageMs, 16_000);
+    assert.equal(future.market?.freshness, "future");
+    assert.equal(future.market?.ageMs, -6_000);
+  });
+
+  it("redacts incomplete daily accounting values from the Mentor context", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({ ...initial, dailyLoss: undefined }, "100000");
+    const riskContext = buildArenaMentorRiskContext(legacy, "2026-07-19T00:05:00.000Z");
+    assert.deepEqual(riskContext.accounting, {
+      day: "2026-07-19",
+      complete: false,
+      realizedPnl: null,
+      grossRealizedLoss: null,
+    });
+    assert.equal(riskContext.version, 2);
+    assert.equal(riskContext.generatedAt, "2026-07-19T00:05:00.000Z");
+  });
+
+  it("rejects an invalid Mentor context timestamp instead of manufacturing provenance", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    assert.throws(() => buildArenaMentorRiskContext(initial, "not-a-time"), /arena_mentor_context_time_invalid/);
+  });
+
+  it("keeps incomplete daily accounting informational and never fabricates a net-loss signal", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "2500.0000000000", complete: true },
+    }, "100000");
+    const signals = computeArenaMentorRiskSignals(legacy);
+    assert.equal(signals.some((signal) => signal.code === "daily-accounting-incomplete"), true);
+    assert.equal(signals.some((signal) => signal.code === "daily-net-loss"), false);
+  });
+
+  it("derives daily net-loss evidence only from a complete signed ledger", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const observed = {
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "2500.0000000000", realizedPnl: "-1250.0000000000", complete: true },
+    };
+    const signal = computeArenaMentorRiskSignals(observed).find((item) => item.code === "daily-net-loss");
+    assert.equal(signal?.severity, "warning");
+    assert.deepEqual(signal?.evidence, {
+      day: "2026-07-19",
+      realizedPnl: "-1250.0000000000",
+      grossRealizedLoss: "2500.0000000000",
+    });
+  });
+
+  it("escalates drawdown evidence to critical only at the governed circuit boundary", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const warning = computeArenaMentorRiskSignals({ ...initial, equity: "95000.0000000000", peakEquity: "100000.0000000000" })
+      .find((signal) => signal.code === "drawdown-pressure");
+    const critical = computeArenaMentorRiskSignals({ ...initial, equity: "90000.0000000000", peakEquity: "100000.0000000000" })
+      .find((signal) => signal.code === "drawdown-pressure");
+    assert.equal(warning?.severity, "warning");
+    assert.equal(critical?.severity, "critical");
+  });
+
+  it("surfaces unprotected exposure without converting it into an invented hard gate", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "BTC", quoteAmount: "1000",
+    }, context("operation-mentor-unprotected")));
+    const signal = computeArenaMentorRiskSignals(opened.state).find((item) => item.code === "unprotected-exposure");
+    assert.equal(signal?.severity, "warning");
+    assert.equal(signal?.evidence.unprotectedPositions, 1);
+    assert.ok(new Decimal(String(signal?.evidence.unboundedExposure ?? 0)).gt(0));
+  });
+
+  it("persists daily realized loss as telemetry without inventing an ungoverned hard gate", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const observed = {
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", realizedPnl: "-3000.0000000000", complete: true },
+      closedTrades: [],
+    };
+    const accepted = applyArenaExecutionActionV2(observed, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+      stopLoss: "60000",
+    }, context("operation-daily-loss-telemetry"));
+    assert.equal(accepted.ok, true);
+  });
+
+  it("tracks signed daily realized PnL independently from gross realized loss", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    assert.equal(initial.dailyLoss.realizedPnl, "0.0000000000");
+    assert.equal(initial.dailyLoss.realizedLoss, "0.0000000000");
+    assert.equal(initial.dailyLoss.complete, true);
+  });
+
+  it("reconciles mixed same-day wins and losses to the signed and gross daily ledgers", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const firstOpen = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200",
+    }, context("operation-mixed-win-open")));
+    const firstPositionId = firstOpen.state.openPositions[0]?.id ?? "";
+    const higherEth: ArenaPriceSnapshot = {
+      ...MARKET,
+      prices: { ...MARKET.prices, ETH: "3850.0000000000" },
+      observedAt: "2026-07-19T00:05:00.000Z",
+    };
+    const firstClose = success(applyArenaExecutionActionV2(firstOpen.state, {
+      type: "close_position", positionId: firstPositionId, reason: "manual",
+    }, { ...context("operation-mixed-win-close", higherEth), now: "2026-07-19T00:05:00.000Z" }));
+
+    const secondOpen = success(applyArenaExecutionActionV2(firstClose.state, {
+      type: "market_buy", asset: "BTC", quoteAmount: "10000", stopLoss: "55000",
+    }, { ...context("operation-mixed-loss-open", higherEth), now: "2026-07-19T00:06:00.000Z" }));
+    const secondPositionId = secondOpen.state.openPositions[0]?.id ?? "";
+    const lowerBtc: ArenaPriceSnapshot = {
+      ...MARKET,
+      prices: { ...MARKET.prices, BTC: "57000.0000000000" },
+      observedAt: "2026-07-19T00:10:00.000Z",
+    };
+    const secondClose = success(applyArenaExecutionActionV2(secondOpen.state, {
+      type: "close_position", positionId: secondPositionId, reason: "manual",
+    }, { ...context("operation-mixed-loss-close", lowerBtc), now: "2026-07-19T00:10:00.000Z" }));
+
+    const realized = secondClose.state.closedTrades.map((trade) => new Decimal(trade.realizedPnl));
+    const expectedNet = realized.reduce((sum, pnl) => sum.plus(pnl), new Decimal(0));
+    const expectedGrossLoss = realized
+      .filter((pnl) => pnl.lt(0))
+      .reduce((sum, pnl) => sum.plus(pnl.abs()), new Decimal(0));
+
+    assert.equal(realized.length, 2);
+    assert.equal(realized.some((pnl) => pnl.gt(0)), true);
+    assert.equal(realized.some((pnl) => pnl.lt(0)), true);
+    assert.equal(new Decimal(secondClose.state.dailyLoss.realizedPnl).eq(expectedNet), true);
+    assert.equal(new Decimal(secondClose.state.dailyLoss.realizedLoss).eq(expectedGrossLoss), true);
+    assert.equal(secondClose.state.dailyLoss.complete, true);
+  });
+
+  it("preserves incomplete provenance when a legacy same-day state records a new close", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: undefined,
+      updatedAt: "2026-07-19T00:01:00.000Z",
+    }, "100000");
+    const opened = success(applyArenaExecutionActionV2(legacy, {
+      type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200",
+    }, { ...context("operation-legacy-open"), now: "2026-07-19T00:02:00.000Z" }));
+    const positionId = opened.state.openPositions[0]?.id ?? "";
+    const higherMarket: ArenaPriceSnapshot = {
+      ...MARKET, prices: { ...MARKET.prices, ETH: "3850.0000000000" }, observedAt: "2026-07-19T00:05:00.000Z",
+    };
+    const closed = success(applyArenaExecutionActionV2(opened.state, {
+      type: "close_position", positionId, reason: "manual",
+    }, { ...context("operation-legacy-close", higherMarket), now: "2026-07-19T00:05:00.000Z" }));
+    assert.equal(closed.state.dailyLoss.complete, false);
+    assert.ok(new Decimal(closed.state.dailyLoss.realizedPnl).gt(0));
+  });
+
+  it("starts a complete zero daily ledger after an incomplete legacy state crosses the UTC boundary", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: undefined,
+      updatedAt: "2026-07-19T23:59:00.000Z",
+    }, "100000");
+    const nextDayMarket: ArenaPriceSnapshot = { ...MARKET, observedAt: "2026-07-20T00:00:01.000Z" };
+    const refreshed = success(applyArenaExecutionActionV2(legacy, { type: "refresh_market" }, {
+      ...context("operation-legacy-rollover", nextDayMarket), now: "2026-07-20T00:00:01.000Z",
+    }));
+    assert.deepEqual(refreshed.state.dailyLoss, {
+      day: "2026-07-20",
+      realizedLoss: "0.0000000000",
+      realizedPnl: "0.0000000000",
+      complete: true,
+    });
+  });
+
+  it("rolls the daily ledger forward for read projections and Mentor context", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:00.000Z");
+    const previousDay = {
+      ...initial,
+      dailyLoss: {
+        day: "2026-07-19",
+        realizedLoss: "3000.0000000000",
+        realizedPnl: "-3000.0000000000",
+        complete: true,
+      },
+    };
+    const projected = projectArenaExecutionStateForRead(
+      previousDay,
+      "2026-07-20T00:00:01.000Z",
+    );
+    assert.deepEqual(projected.dailyLoss, {
+      day: "2026-07-20",
+      realizedLoss: "0.0000000000",
+      realizedPnl: "0.0000000000",
+      complete: true,
+    });
+    assert.equal(previousDay.dailyLoss.day, "2026-07-19");
+
+    const mentorContext = buildArenaMentorRiskContext(
+      previousDay,
+      "2026-07-20T00:00:01.000Z",
+    );
+    assert.equal(mentorContext.accounting.day, "2026-07-20");
+    assert.equal(mentorContext.accounting.realizedPnl, "0.0000000000");
+  });
+
+  it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const legacy = normalizeArenaExecutionStateV2({
+      ...initial,
+      dailyLoss: undefined,
+      updatedAt: "2026-07-19T12:00:00.000Z",
+    }, "100000");
+    assert.deepEqual(legacy.dailyLoss, {
+      day: "2026-07-19",
+      realizedLoss: "0.0000000000",
+      realizedPnl: "0.0000000000",
+      complete: false,
+    });
+    const accepted = applyArenaExecutionActionV2(legacy, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+      stopLoss: "60000",
+    }, context("operation-legacy-incomplete-daily-loss"));
+    assert.equal(accepted.ok, true);
+  });
+
+  it("rolls the UTC daily-loss authority at the deterministic day boundary", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:59.000Z");
+    const previousDayLimited = {
+      ...initial,
+      dailyLoss: { day: "2026-07-19", realizedLoss: "3000.0000000000", realizedPnl: "-3000.0000000000", complete: true },
+    };
+    const nextDay = {
+      ...context("operation-next-day"),
+      now: "2026-07-20T00:00:01.000Z",
+      market: { ...MARKET, observedAt: "2026-07-20T00:00:00.000Z" },
+    };
+    const accepted = applyArenaExecutionActionV2(previousDayLimited, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "1000",
+      stopLoss: "60000",
+    }, nextDay);
+    assert.equal(accepted.ok, true);
+  });
+
+  it("never lowers peak equity after a later market drawdown", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "10000",
+      stopLoss: "60000",
+    }, context("operation-peak-open")));
+    assert.equal(opened.state.peakEquity, "100000.0000000000");
+    assert.ok(new Decimal(opened.state.equity).lt(opened.state.peakEquity));
+    assert.ok(new Decimal(computeArenaDrawdownRate(opened.state)).gt(0));
   });
 
   it("rejects legacy or malformed execution snapshots instead of silently resetting them", () => {

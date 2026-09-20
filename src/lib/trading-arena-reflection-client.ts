@@ -286,9 +286,13 @@ export function reflectionDraftFromAuthoritative(
       };
 }
 
-export function arenaReflectionUiError(error: unknown, status?: number): string {
+export function arenaReflectionUiError(
+  error: unknown,
+  status?: number,
+  locale: "fa" | "en" = "fa",
+): string {
   const code = typeof error === "string" ? error : "arena_reflections_unavailable";
-  const messages: Record<string, string> = {
+  const faMessages: Record<string, string> = {
     academy_profile_required: "برای ثبت ژورنال ابتدا پروفایل آکادمی را کامل کنید.",
     invalid_arena_reflection: "همه بخش‌های ضروری بازتاب را کامل و دوباره بررسی کنید.",
     idempotency_key_required: "شناسه امن ذخیره‌سازی ساخته نشد؛ صفحه را تازه‌سازی کنید.",
@@ -300,7 +304,22 @@ export function arenaReflectionUiError(error: unknown, status?: number): string 
     forbidden: "درخواست ذخیره‌سازی معتبر نیست. صفحه را تازه‌سازی کنید.",
     arena_reflections_unavailable: "ژورنال سروری موقتاً در دسترس نیست؛ متن شما در همین صفحه حفظ شده است.",
   };
+  const enMessages: Record<string, string> = {
+    academy_profile_required: "Complete your Academy profile before saving journal reflections.",
+    invalid_arena_reflection: "Complete and review every required reflection field.",
+    idempotency_key_required: "A secure save identity could not be created. Refresh the page and try again.",
+    idempotency_key_reused: "The previous request identity was used for different content. Refresh the journal before retrying.",
+    revision_conflict: "This reflection changed in another session or device. The server version was restored and your current text was preserved.",
+    arena_attempt_not_found: "The trading attempt does not belong to this account.",
+    arena_closed_trade_not_found: "The closed trade was not found in the authoritative server state.",
+    rate_limited: "Too many requests were submitted. Try again shortly.",
+    forbidden: "The save request is not valid. Refresh the page and sign in again if needed.",
+    arena_reflections_unavailable: "The server journal is temporarily unavailable. Your text remains preserved on this page.",
+  };
+  const messages = locale === "en" ? enMessages : faMessages;
   return messages[code] ?? (status && status >= 500
     ? messages.arena_reflections_unavailable
-    : "ذخیره بازتاب انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.");
+    : locale === "en"
+      ? "The reflection could not be saved. Review the fields and try again."
+      : "ذخیره بازتاب انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.");
 }

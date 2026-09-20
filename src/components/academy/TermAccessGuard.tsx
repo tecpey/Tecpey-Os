@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Lock, ShieldCheck } from "lucide-react";
+import { isAcademyProfileEstablished } from "@/lib/academy-profile-read-state";
 
 export function TermAccessGuard({ termNumber, locale = "fa", children }: { termNumber: number; locale?: "fa" | "en"; children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -16,7 +17,7 @@ export function TermAccessGuard({ termNumber, locale = "fa", children }: { termN
       try {
         const profileResponse = await fetch("/api/academy-student-profile", { cache: "no-store" });
         const profileData = await profileResponse.json();
-        const profileReady = Boolean(profileData?.profile?.display_name);
+        const profileReady = isAcademyProfileEstablished(profileData?.profile);
         if (!active) return;
         setHasAcademyProfile(profileReady);
         if (!profileReady) {

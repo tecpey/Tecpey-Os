@@ -70,6 +70,15 @@ describe("Arena persisted-state validation", () => {
     assert.deepEqual(validateArenaExecutionStateV2(closed), closed);
   });
 
+  it("upgrades a profitable legacy snapshot without peak equity", () => {
+    const legacy = copy(closedState()) as unknown as Record<string, unknown>;
+    delete legacy.peakEquity;
+
+    const validated = validateArenaExecutionStateV2(legacy);
+    assert.ok(Number(validated.equity) > Number(validated.initialBalance));
+    assert.equal(validated.peakEquity, validated.equity);
+  });
+
   it("rejects a malformed position instead of silently dropping it", () => {
     const corrupted = copy(openedState()) as unknown as Record<string, unknown>;
     const positions = corrupted.openPositions as Array<Record<string, unknown>>;

@@ -9,6 +9,7 @@ import {
   type ArenaReflectionRow,
 } from "@/lib/trading-arena-reflections";
 import {
+  arenaReflectionUiError,
   createArenaReflectionIdempotencyKey,
   parseArenaReflection,
   parseArenaReflectionList,
@@ -83,6 +84,21 @@ function reflectionRow(overrides: Partial<ArenaReflectionRow> = {}): ArenaReflec
 }
 
 describe("Trading Arena reflection domain authority", () => {
+  it("localizes governed reflection errors without changing the Persian default", () => {
+    assert.equal(
+      arenaReflectionUiError("invalid_arena_reflection"),
+      "همه بخش‌های ضروری بازتاب را کامل و دوباره بررسی کنید.",
+    );
+    assert.equal(
+      arenaReflectionUiError("invalid_arena_reflection", 400, "en"),
+      "Complete and review every required reflection field.",
+    );
+    assert.equal(
+      arenaReflectionUiError("unknown", 503, "en"),
+      "The server journal is temporarily unavailable. Your text remains preserved on this page.",
+    );
+  });
+
   it("normalizes controlled mistake tags and rejects unsafe combinations", () => {
     assert.deepEqual(
       normalizeArenaReflectionMistakeTags(["late-entry", "early-exit", "late-entry"]),
