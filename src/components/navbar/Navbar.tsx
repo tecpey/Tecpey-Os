@@ -36,50 +36,42 @@ export interface User {
 const primaryLinks = [
   { label: "خانه", href: "/" },
   { label: "آکادمی", href: "/academy" },
+  { label: "تریدینگ آرنا", href: "/academy/trading-arena" },
   { label: "منتور هوشمند", href: "/academy/ai-guide" },
   { label: "بازارها", href: "/markets" },
-  { label: "رمزارزها", href: "/coins" },
-  { label: "ابزارها", href: "/trading-tools" },
-  { label: "اخبار", href: "/crypto-news" },
-  { label: "امنیت", href: "/security" },
-  { label: "تماس", href: "/contact-us" },
 ];
 
 const primaryLinksEn = [
   { label: "Home", href: "/en" },
   { label: "Academy", href: "/en/academy" },
-  { label: "AI Learning Mentor", href: "/en/academy/ai-guide" },
+  { label: "Trading Arena", href: "/en/academy/trading-arena" },
+  { label: "AI Mentor", href: "/en/academy/ai-guide" },
   { label: "Markets", href: "/en/markets" },
-  { label: "Coins", href: "/en/coins" },
-  { label: "Tools", href: "/en/trading-tools" },
-  { label: "News", href: "/en/crypto-news" },
-  { label: "Security", href: "/en/security" },
-  { label: "Contact", href: "/en/contact-us" },
 ];
 
 const knowledgeLinks = [
-  { label: "تریدینگ آرنا", href: "/academy/trading-arena" },
-  { label: "منتور هوشمند", href: "/academy/ai-guide" },
+  { label: "اخبار بازار", href: "/crypto-news" },
+  { label: "رمزارزها", href: "/coins" },
+  { label: "ابزارهای معامله‌گر", href: "/trading-tools" },
   { label: "راهنمای شروع", href: "/start-guide" },
-  { label: "سؤالات پرتکرار", href: "/faq" },
+  { label: "امنیت", href: "/security" },
   { label: "واژه‌نامه رمزارز", href: "/glossary" },
-  { label: "جعبه ابزار معامله‌گر", href: "/trading-tools" },
+  { label: "سؤالات پرتکرار", href: "/faq" },
   { label: "مقایسه صرافی‌ها", href: "/compare" },
   { label: "کارمزدها", href: "/fees" },
-  { label: "قوانین", href: "/rules" },
   { label: "بیانیه ریسک", href: "/risk-disclosure" },
 ];
 
 const knowledgeLinksEn = [
-  { label: "Trading Arena", href: "/en/academy/trading-arena" },
-  { label: "AI Learning Mentor", href: "/en/academy/ai-guide" },
+  { label: "Market News", href: "/en/crypto-news" },
+  { label: "Coins", href: "/en/coins" },
+  { label: "Trader Tools", href: "/en/trading-tools" },
   { label: "Start Guide", href: "/en/start-guide" },
-  { label: "FAQ", href: "/en/faq" },
+  { label: "Security", href: "/en/security" },
   { label: "Glossary", href: "/en/glossary" },
-  { label: "Trader Toolbox", href: "/en/trading-tools" },
+  { label: "FAQ", href: "/en/faq" },
   { label: "Exchange Comparisons", href: "/en/compare" },
   { label: "Fees", href: "/en/fees" },
-  { label: "Rules", href: "/en/rules" },
   { label: "Risk Disclosure", href: "/en/risk-disclosure" },
 ];
 
@@ -124,7 +116,7 @@ export default function Navbar({
   const activePrimaryLinks = isEnglish ? primaryLinksEn : primaryLinks;
   const activeKnowledgeLinks = isEnglish ? knowledgeLinksEn : knowledgeLinks;
   const homeHref = isEnglish ? "/en" : "/";
-  const knowledgeLabel = isEnglish ? "Knowledge Center" : "مرکز دانش";
+  const knowledgeLabel = isEnglish ? "Explore" : "کشف و یادگیری";
   const loginLabel = isEnglish ? "Login" : "ورود";
   const signupLabel = isEnglish ? "Sign Up" : "ثبت‌نام";
   const accountLabel = isEnglish ? "Account" : "حساب کاربری";
