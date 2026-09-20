@@ -139,6 +139,18 @@ for (const needle of [
   );
 }
 
+for (const forbidden of [
+  "academyScores.push({ score: academy.flashcardAvgGrade",
+  'strongAreas.push("flashcard_recall")',
+  'strongAreas.push("reflection_consistency")',
+]) {
+  if (mentorSignals.includes(forbidden)) {
+    failures.push(
+      `mentor-signals: client-managed learning state must not gain mastery authority: ${forbidden}`,
+    );
+  }
+}
+
 const migrationRoute = await source("src/app/api/mentor-conversations/migrate/route.ts");
 for (const needle of [
   "pg_advisory_xact_lock",
