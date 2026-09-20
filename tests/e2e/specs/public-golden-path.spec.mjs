@@ -629,17 +629,14 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     expect(bodyText, `unsupported public claim matched ${forbidden}`).not.toMatch(forbidden);
   }
 
-  // The shorter landing keeps its full guide behind a keyboard-operable
-  // disclosure. Verify that entry point before inspecting retained sections.
-  const guideSummary = page.locator("main > details > summary");
-  const guide = page.locator("main > details");
-  await expect(guideSummary).toBeVisible();
-  await expect(guide).not.toHaveAttribute("open", "");
-  await guideSummary.focus();
-  await page.keyboard.press("Enter");
-  await expect(guide).toHaveAttribute("open", "");
+  // The redesigned landing keeps the core product story in the primary
+  // document flow instead of hiding the majority of the experience in a disclosure.
+  const productStory = page.locator("[data-home-product-story]");
+  await productStory.scrollIntoViewIfNeeded();
+  await expect(productStory).toBeVisible();
+  await expect(productStory.locator('[data-home-section="system"]')).toBeVisible();
+  await expect(productStory.locator('[data-home-section="trust-boundary"]')).toBeVisible();
 
-  // A dedicated Trading Arena section must be part of the public landing
   // The connected product story must expose Arena as virtual-capital practice
   // and provide a direct route into the governed Arena workspace.
   const arenaSection = page.locator('[data-home-section="mentor-arena"]');
