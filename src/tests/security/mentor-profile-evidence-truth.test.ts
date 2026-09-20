@@ -20,6 +20,9 @@ function academy(overrides: Partial<AcademySignals> = {}): AcademySignals {
     lessonAssessmentCount: 0,
     avgLessonAssessmentScore: 0,
     passedLessonAssessments: 0,
+    flashcardReviewed: 0,
+    flashcardAvgGrade: 0,
+    reflectionCount: 0,
     ...overrides,
   };
 }
@@ -168,4 +171,30 @@ test("Academy evidence fusion renormalizes only over observed authoritative moda
   // (90*0.5 + 80*0.35) / 0.85 = 85.88, plus 2 completion points.
   assert.equal(fused.confidenceScore, 88);
   assert.equal(fused.strongAreas.includes("lesson_assessment_mastery"), false);
+});
+
+
+test("flashcard recall contributes only when review evidence exists", () => {
+  const update = computeMentorProfileUpdate(
+    academy({
+      flashcardReviewed: 12,
+      flashcardAvgGrade: 85,
+    }),
+    trading(),
+    conversation(),
+  );
+
+  assert.equal(update.confidenceScore, 85);
+  assert.equal(update.strongAreas.includes("flashcard_recall"), true);
+});
+
+test("reflection activity can establish consistency but cannot fabricate mastery confidence", () => {
+  const update = computeMentorProfileUpdate(
+    academy({ reflectionCount: 6 }),
+    trading(),
+    conversation(),
+  );
+
+  assert.equal(update.confidenceScore, 0);
+  assert.equal(update.strongAreas.includes("reflection_consistency"), true);
 });
