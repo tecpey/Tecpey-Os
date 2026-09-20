@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-flashcards",
+      "method": "PUT",
+      "previousSourceHash": "0e3c7f9085383e260b7d174c",
+      "issue": "#690",
+      "owner": "mentor-ai",
+      "reason": "Mentor Evidence Fusion v1 binds authoritative Academy mutations to verified tenant context and transaction-coupled durable Mentor projection evidence; exact generated operation evidence reviewed for this branch.",
+      "replacement": {
+        "route": "/api/academy-flashcards",
+        "method": "PUT",
+        "sourcePath": "src/app/api/academy-flashcards/route.ts",
+        "sourceHash": "c9c8a30b9fcefae7d7709c8b",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-flashcards-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-flashcards",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-flashcards/route.ts",
+          "method": "PUT",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy-lesson-assessment",
+      "method": "POST",
+      "previousSourceHash": "e49252cc97db2f16d7ccff97",
+      "issue": "#690",
+      "owner": "mentor-ai",
+      "reason": "Mentor Evidence Fusion v1 binds authoritative Academy mutations to verified tenant context and transaction-coupled durable Mentor projection evidence; exact generated operation evidence reviewed for this branch.",
+      "replacement": {
+        "route": "/api/academy-lesson-assessment",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
+        "sourceHash": "9f4a92b85b533773c7ac1245",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-lesson-assessment",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-lesson-assessment",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy-reflections",
+      "method": "PUT",
+      "previousSourceHash": "951a86d5a66c596805a6775a",
+      "issue": "#690",
+      "owner": "mentor-ai",
+      "reason": "Mentor Evidence Fusion v1 binds authoritative Academy mutations to verified tenant context and transaction-coupled durable Mentor projection evidence; exact generated operation evidence reviewed for this branch.",
+      "replacement": {
+        "route": "/api/academy-reflections",
+        "method": "PUT",
+        "sourcePath": "src/app/api/academy-reflections/route.ts",
+        "sourceHash": "a039fbeeb83220dd64480769",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-reflection-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-reflections",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-reflections/route.ts",
+          "method": "PUT",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}

@@ -117,15 +117,49 @@ test(
         "2026-09-18T00:00:00.000Z",
       );
 
+    });
+  },
+);
+
+test(
+  "Mentor profile outbox accepts governed Academy evidence events and rejects event/reason drift",
+  { skip: !databaseUrl },
+  async () => {
+    await withRolledBackTest(async (client) => {
+      const scope = await seedScope(client, "mentor-evidence-contract");
+      const pairs = [
+        ["academy.lesson_assessment", "authoritative_lesson_assessment", "lesson:fa:term-1:lesson-1:1"],
+        ["academy.flashcards_updated", "authoritative_flashcards_updated", "flashcards:fa:1"],
+        ["academy.reflection_updated", "authoritative_reflection_updated", "reflection:fa:lesson-1:1"],
+      ] as const;
+
+      for (const [eventType, reason, sourceReference] of pairs) {
+        const queued = await enqueueMentorProfileUpdateTx(client, {
+          ...scope,
+          eventType,
+          reason,
+          sourceReference,
+        });
+        assert.equal(queued.replayed, false);
+      }
+
+      await client.query("SAVEPOINT mentor_event_reason_drift");
       await assert.rejects(
         enqueueMentorProfileUpdateTx(client, {
           ...scope,
-          eventType: "academy.term_progress",
-          reason: "mentor_conversation_migrated",
-          sourceReference: "assessment-replay-0001",
+          eventType: "academy.lesson_assessment",
+          reason: "authoritative_flashcards_updated",
+          sourceReference: "invalid-cross-pair-0001",
         }),
-        /mentor_profile_event_identity_conflict/,
+        (error: unknown) =>
+          Boolean(
+            error &&
+              typeof error === "object" &&
+              "code" in error &&
+              (error as { code?: string }).code === "23514",
+          ),
       );
+      await client.query("ROLLBACK TO SAVEPOINT mentor_event_reason_drift");
     });
   },
 );

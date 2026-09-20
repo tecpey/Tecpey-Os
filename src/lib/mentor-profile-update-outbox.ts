@@ -9,12 +9,18 @@ export const MENTOR_PROFILE_EVENT_VERSION = 1 as const;
 
 export type MentorProfileEventType =
   | "academy.term_progress"
+  | "academy.lesson_assessment"
+  | "academy.flashcards_updated"
+  | "academy.reflection_updated"
   | "mentor.challenge_attempt"
   | "arena.trade_signal"
   | "mentor.conversation";
 
 export type MentorProfileUpdateReason =
   | "authoritative_term_assessment"
+  | "authoritative_lesson_assessment"
+  | "authoritative_flashcards_updated"
+  | "authoritative_reflection_updated"
   | "mentor_challenge_answered"
   | "trading_trade_created"
   | "mentor_conversation_saved"

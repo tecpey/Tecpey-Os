@@ -3,6 +3,8 @@
 
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
+import { normalizeReflectionMap } from "@/lib/academy-reflections";
+import { normalizeDeck } from "@/lib/spaced-repetition";
 import { cleanText } from "@/lib/student-cartax";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -15,6 +17,12 @@ export type AcademySignals = {
   weakTopics: string[];         // topics with low success rate from challenge_attempts
   challengeAccuracy: number;    // 0-100 across all mentor_challenge_attempts
   totalChallengeAttempts: number;
+  lessonAssessmentCount: number; // authoritative lesson-level assessment attempts
+  avgLessonAssessmentScore: number; // 0-100 across persisted lesson assessments
+  passedLessonAssessments: number;
+  flashcardReviewed: number;
+  flashcardAvgGrade: number;
+  reflectionCount: number;
 };
 
 export type TradingSignals = {
@@ -64,6 +72,12 @@ export async function collectAcademySignals(
     weakTopics: [],
     challengeAccuracy: 0,
     totalChallengeAttempts: 0,
+    lessonAssessmentCount: 0,
+    avgLessonAssessmentScore: 0,
+    passedLessonAssessments: 0,
+    flashcardReviewed: 0,
+    flashcardAvgGrade: 0,
+    reflectionCount: 0,
   };
 
   const collect = async (client: PoolClient): Promise<AcademySignals> => {
@@ -78,6 +92,25 @@ export async function collectAcademySignals(
       `SELECT question_id, lesson_slug, is_correct, attempt_number
          FROM mentor_challenge_attempts WHERE student_id = $1::uuid
          ORDER BY created_at DESC LIMIT 200`,
+      [studentId],
+    );
+    const lessonAssessmentRes = await client.query(
+      `SELECT best_score, passed_at
+         FROM academy_lesson_assessments
+        WHERE student_id = $1::uuid
+        ORDER BY updated_at DESC
+        LIMIT 200`,
+      [studentId],
+    );
+    const learningStateRes = await client.query<{
+      flashcards: unknown;
+      reflections: unknown;
+    }>(
+      `SELECT flashcards, reflections
+         FROM academy_state_documents
+        WHERE student_id = $1::uuid
+        ORDER BY updated_at DESC
+        LIMIT 2`,
       [studentId],
     );
 
@@ -109,6 +142,65 @@ export async function collectAcademySignals(
     const totalAttempts = challengeRes.rows.length;
     const totalCorrect = challengeRes.rows.filter((r) => r.is_correct).length;
     const challengeAccuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+    const lessonAssessments = lessonAssessmentRes.rows;
+    const lessonAssessmentCount = lessonAssessments.length;
+    const avgLessonAssessmentScore =
+      lessonAssessmentCount > 0
+        ? Math.round(
+            lessonAssessments.reduce(
+              (sum, row) => sum + Number(row.best_score || 0),
+              0,
+            ) / lessonAssessmentCount,
+          )
+        : 0;
+    const passedLessonAssessments = lessonAssessments.filter(
+      (row) => Boolean(row.passed_at),
+    ).length;
+    const reviewedByCardId = new Map<
+      string,
+      ReturnType<typeof normalizeDeck>[number]
+    >();
+    for (const row of learningStateRes.rows) {
+      for (const card of normalizeDeck(row.flashcards)) {
+        if (card.lastReviewedAt === null) continue;
+        const previous = reviewedByCardId.get(card.cardId);
+        if (
+          !previous ||
+          (card.lastReviewedAt ?? 0) >= (previous.lastReviewedAt ?? 0)
+        ) {
+          reviewedByCardId.set(card.cardId, card);
+        }
+      }
+    }
+    const reviewedCards = [...reviewedByCardId.values()];
+    const flashcardReviewed = reviewedCards.length;
+    const flashcardAvgGrade =
+      flashcardReviewed > 0
+        ? Math.round(
+            (reviewedCards.reduce(
+              (sum, card) => sum + Math.max(0, card.lastGrade),
+              0,
+            ) /
+              flashcardReviewed /
+              5) *
+              100,
+          )
+        : 0;
+
+    const reflectionByLessonId = new Map<
+      string,
+      ReturnType<typeof normalizeReflectionMap>[string]
+    >();
+    for (const row of learningStateRes.rows) {
+      for (const entry of Object.values(normalizeReflectionMap(row.reflections))) {
+        if (entry.text.trim().length <= 20) continue;
+        const previous = reflectionByLessonId.get(entry.lessonId);
+        if (!previous || entry.updatedAt >= previous.updatedAt) {
+          reflectionByLessonId.set(entry.lessonId, entry);
+        }
+      }
+    }
+    const reflectionCount = reflectionByLessonId.size;
 
     return {
       authorityAvailable: true,
@@ -118,6 +210,12 @@ export async function collectAcademySignals(
       weakTopics,
       challengeAccuracy,
       totalChallengeAttempts: totalAttempts,
+      lessonAssessmentCount,
+      avgLessonAssessmentScore,
+      passedLessonAssessments,
+      flashcardReviewed,
+      flashcardAvgGrade,
+      reflectionCount,
     };
   };
 
@@ -322,13 +420,32 @@ export function computeMentorProfileUpdate(
   // No-data is not a neutral score. If one evidence domain is absent, the
   // available domain is normalized rather than padded with a fabricated value.
   const academyEvidence =
-    academy.completedTerms > 0 || academy.totalChallengeAttempts > 0;
+    academy.completedTerms > 0 ||
+    academy.totalChallengeAttempts > 0 ||
+    academy.lessonAssessmentCount > 0 ||
+    academy.flashcardReviewed > 0 ||
+    academy.reflectionCount > 0;
+  const academyScores: Array<{ score: number; weight: number }> = [];
+  if (academy.completedTerms > 0) {
+    academyScores.push({ score: academy.avgPassedPercent, weight: 0.5 });
+  }
+  if (academy.lessonAssessmentCount > 0) {
+    academyScores.push({
+      score: academy.avgLessonAssessmentScore,
+      weight: 0.35,
+    });
+  }
+  if (academy.totalChallengeAttempts > 0) {
+    academyScores.push({ score: academy.challengeAccuracy, weight: 0.15 });
+  }
+  const academyWeight = academyScores.reduce((sum, item) => sum + item.weight, 0);
   const academyScore =
-    academy.completedTerms > 0
-      ? academy.avgPassedPercent
-      : academy.totalChallengeAttempts > 0
-        ? academy.challengeAccuracy
-        : null;
+    academyWeight > 0
+      ? academyScores.reduce(
+          (sum, item) => sum + item.score * item.weight,
+          0,
+        ) / academyWeight
+      : null;
   const tradingScore =
     trading.tradeCount > 0 ? clamp(trading.avgDiscipline) : null;
 
@@ -370,6 +487,9 @@ export function computeMentorProfileUpdate(
   // ── Weak areas ────────────────────────────────────────────────────────────
   const weakAreas: string[] = [];
   if (academy.avgPassedPercent < 70 && academy.completedTerms > 0) weakAreas.push("quiz_review");
+  if (academy.avgLessonAssessmentScore < 70 && academy.lessonAssessmentCount >= 2) {
+    weakAreas.push("lesson_assessment_review");
+  }
   if (academy.failedTermNumbers.length > 0)
     academy.failedTermNumbers.slice(0, 3).forEach((n) => weakAreas.push(`term_${n}_retry`));
   for (const topic of academy.weakTopics.slice(0, 3)) weakAreas.push(`topic_${topic}`);
@@ -387,6 +507,13 @@ export function computeMentorProfileUpdate(
   if (trading.journalQuality >= 65 && trading.tradeCount >= 3) strongAreas.push("journal_quality");
   if (trading.riskFlagRate < 0.1 && trading.tradeCount >= 5) strongAreas.push("clean_risk_record");
   if (academy.challengeAccuracy >= 75 && academy.totalChallengeAttempts >= 5) strongAreas.push("quiz_mastery");
+  if (academy.avgLessonAssessmentScore >= 85 && academy.lessonAssessmentCount >= 5) {
+    strongAreas.push("lesson_assessment_mastery");
+  }
+  // Flashcard grades/review timestamps and reflection bodies are client-managed
+  // learning state. They may trigger a fresh projection and remain available as
+  // engagement context, but must not manufacture verified mastery/confidence or
+  // strong-area authority. Only server-graded Academy evidence can do that.
   if (trading.tradeCount >= 10) strongAreas.push("practice_commitment");
 
   // ── Primary goal ──────────────────────────────────────────────────────────

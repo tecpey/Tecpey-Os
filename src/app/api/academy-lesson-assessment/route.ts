@@ -11,6 +11,7 @@ import { awardAcademyReward, readLearningCommand, storeLearningCommand } from "@
 import { ACADEMY_XP } from "@/lib/academy-reward-policy";
 import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { enqueueMentorProfileUpdateTx } from "@/lib/mentor-profile-update-outbox";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
@@ -253,6 +254,14 @@ export async function POST(req: NextRequest) {
         requestHash: command.requestHash,
         idempotencyKey,
         result: response,
+      });
+      await enqueueMentorProfileUpdateTx(client, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
+        studentId: session.studentId as string,
+        eventType: "academy.lesson_assessment",
+        reason: "authoritative_lesson_assessment",
+        sourceReference: `lesson:${command.requestHash}`,
       });
       return { ...response, replayed: false };
     });

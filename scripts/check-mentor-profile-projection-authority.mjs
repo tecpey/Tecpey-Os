@@ -31,6 +31,26 @@ requirePattern(
   "outbox provenance must be database-bound to the exact tenant/workspace pair",
 );
 
+const evidenceEventMigration = await source(
+  "src/lib/db-migrate-mentor-profile-evidence-event.ts",
+);
+for (const needle of [
+  "academy.lesson_assessment",
+  "academy.flashcards_updated",
+  "academy.reflection_updated",
+  "authoritative_lesson_assessment",
+  "authoritative_flashcards_updated",
+  "authoritative_reflection_updated",
+  "mentor_profile_update_outbox_event_reason_check",
+]) {
+  requireText(
+    "evidence-event-migration",
+    evidenceEventMigration,
+    needle,
+    `missing evidence event database invariant: ${needle}`,
+  );
+}
+
 const outbox = await source("src/lib/mentor-profile-update-outbox.ts");
 for (const needle of [
   "createMentorProfileEventId",
@@ -62,6 +82,9 @@ requirePattern(
 
 const producerPaths = [
   "src/app/api/academy-term-progress/route.ts",
+  "src/app/api/academy-lesson-assessment/route.ts",
+  "src/app/api/academy-flashcards/route.ts",
+  "src/app/api/academy-reflections/route.ts",
   "src/app/api/mentor-challenge/route.ts",
   "src/app/api/trading-arena/route.ts",
   "src/app/api/trading-arena/execution/route.ts",
@@ -71,6 +94,61 @@ for (const path of producerPaths) {
   const producer = await source(path);
   requireText(path, producer, "withTx(async (client)", "producer must use an authoritative transaction");
   requireText(path, producer, "enqueueMentorProfileUpdateTx(client", "producer mutation must durably enqueue inside its transaction");
+}
+
+const lessonAssessment = await source("src/app/api/academy-lesson-assessment/route.ts");
+for (const needle of [
+  'eventType: "academy.lesson_assessment"',
+  'reason: "authoritative_lesson_assessment"',
+  "sourceReference: `lesson:${command.requestHash}`",
+]) {
+  requireText(
+    "academy-lesson-assessment",
+    lessonAssessment,
+    needle,
+    `lesson assessment evidence must remain durable and replay-bound: ${needle}`,
+  );
+}
+
+for (const [path, eventType, reason] of [
+  ["src/app/api/academy-flashcards/route.ts", "academy.flashcards_updated", "authoritative_flashcards_updated"],
+  ["src/app/api/academy-reflections/route.ts", "academy.reflection_updated", "authoritative_reflection_updated"],
+]) {
+  const producer = await source(path);
+  requireText(path, producer, eventType, `learning-state event missing: ${eventType}`);
+  requireText(path, producer, reason, `learning-state reason missing: ${reason}`);
+}
+
+const mentorSignals = await source("src/lib/mentor-signals.ts");
+for (const needle of [
+  "academy_lesson_assessments",
+  "lessonAssessmentCount",
+  "avgLessonAssessmentScore",
+  "passedLessonAssessments",
+  "normalizeDeck",
+  "normalizeReflectionMap",
+  "flashcardReviewed",
+  "flashcardAvgGrade",
+  "reflectionCount",
+]) {
+  requireText(
+    "mentor-signals",
+    mentorSignals,
+    needle,
+    `lesson assessment evidence fusion missing: ${needle}`,
+  );
+}
+
+for (const forbidden of [
+  "academyScores.push({ score: academy.flashcardAvgGrade",
+  'strongAreas.push("flashcard_recall")',
+  'strongAreas.push("reflection_consistency")',
+]) {
+  if (mentorSignals.includes(forbidden)) {
+    failures.push(
+      `mentor-signals: client-managed learning state must not gain mastery authority: ${forbidden}`,
+    );
+  }
 }
 
 const migrationRoute = await source("src/app/api/mentor-conversations/migrate/route.ts");
@@ -186,6 +264,13 @@ for (const needle of [
 
 const registry = await source("src/lib/db-migration-registry.ts");
 requireText("registry", registry, "migration-step-089", "outbox migration must be in the canonical ledger");
+requireText("registry", registry, "migration-step-095", "evidence event migration must be in the canonical ledger");
+requireText(
+  "registry",
+  registry,
+  "runMentorProfileEvidenceEventMigrations",
+  "evidence event migration runner must be governed",
+);
 requireText(
   "registry",
   registry,
@@ -243,6 +328,7 @@ for (const needle of [
   "append-only dead-letter evidence",
   "expired leases recover",
   "producer transaction rollback",
+  "accepts governed Academy evidence events and rejects event/reason drift",
 ]) {
   requireText("postgres-test", postgresTest, needle, `missing adversarial proof: ${needle}`);
 }

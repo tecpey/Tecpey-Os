@@ -156,7 +156,7 @@ export async function reconcileMentorProfiles(options: {
     // only narrows the scan.
     //
     // The signal union must be exactly the set of tables applyMentorProfileUpdate
-    // derives from — academy_term_progress, academy_trading_arena_trades,
+    // derives from — academy_term_progress, academy_lesson_assessments, academy_state_documents, academy_trading_arena_trades,
     // mentor_challenge_attempts and mentor_conversations. Anything narrower leaves
     // lost updates unrepaired: the AI mentor and term-progress paths write to
     // their own stores, so a student whose activity is a conversation would never
@@ -179,6 +179,10 @@ export async function reconcileMentorProfiles(options: {
                   COALESCE(started_at, to_timestamp(0))
                 ) AS signal_at
            FROM academy_term_progress
+         UNION ALL
+         SELECT student_id, updated_at AS signal_at FROM academy_lesson_assessments
+         UNION ALL
+         SELECT student_id, updated_at AS signal_at FROM academy_state_documents
          UNION ALL
          SELECT student_id, created_at AS signal_at FROM academy_trading_arena_trades
          UNION ALL

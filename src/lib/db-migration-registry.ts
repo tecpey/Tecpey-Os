@@ -124,6 +124,10 @@ import {
   TRUSTED_MENTOR_MEMORY_SQL,
   runTrustedMentorMemoryMigrations,
 } from "./db-migrate-trusted-mentor-memory";
+import {
+  MENTOR_PROFILE_EVIDENCE_EVENT_SQL,
+  runMentorProfileEvidenceEventMigrations,
+} from "./db-migrate-mentor-profile-evidence-event";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -253,6 +257,15 @@ const TRUSTED_MENTOR_MEMORY_MIGRATION: CanonicalMigrationContent =
     identity: "0110_trusted_mentor_memory_contract.sql",
     content: TRUSTED_MENTOR_MEMORY_SQL,
     checksum: canonicalMigrationChecksum(TRUSTED_MENTOR_MEMORY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const MENTOR_PROFILE_EVIDENCE_EVENT_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0111_mentor_profile_evidence_event_contract.sql",
+    content: MENTOR_PROFILE_EVIDENCE_EVENT_SQL,
+    checksum: canonicalMigrationChecksum(MENTOR_PROFILE_EVIDENCE_EVENT_SQL),
     acceptsHistoricalChecksumPrefix: false,
     compatibleHistoricalChecksums: Object.freeze([]),
   });
@@ -407,6 +420,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-platform-security",
     "ai-mentor",
     runTrustedMentorMemoryMigrations,
+  ),
+  entry(
+    95,
+    "migration-step-095",
+    [MENTOR_PROFILE_EVIDENCE_EVENT_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runMentorProfileEvidenceEventMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
