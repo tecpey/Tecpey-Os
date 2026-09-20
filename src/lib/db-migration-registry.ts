@@ -387,6 +387,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "operations",
     runOperationalSignalEvidenceMigrations,
   ),
+  entry(
+    94,
+    "migration-step-094",
+    [TRUSTED_MENTOR_MEMORY_MIGRATION],
+    "ai-platform-security",
+    "ai-mentor",
+    runTrustedMentorMemoryMigrations,
+  ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
