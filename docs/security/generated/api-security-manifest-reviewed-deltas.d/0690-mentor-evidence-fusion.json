@@ -5,7 +5,7 @@
     {
       "route": "/api/academy-flashcards",
       "method": "PUT",
-      "previousSourceHash": "543bc9224fa4cf22d0886a4c",
+      "previousSourceHash": "0e3c7f9085383e260b7d174c",
       "issue": "#690",
       "owner": "mentor-ai",
       "reason": "Mentor Evidence Fusion v1 binds authoritative Academy mutations to verified tenant context and transaction-coupled durable Mentor projection evidence; exact generated operation evidence reviewed for this branch.",
@@ -71,7 +71,7 @@
     {
       "route": "/api/academy-lesson-assessment",
       "method": "POST",
-      "previousSourceHash": "4f4fc3cd81da86571b080060",
+      "previousSourceHash": "e49252cc97db2f16d7ccff97",
       "issue": "#690",
       "owner": "mentor-ai",
       "reason": "Mentor Evidence Fusion v1 binds authoritative Academy mutations to verified tenant context and transaction-coupled durable Mentor projection evidence; exact generated operation evidence reviewed for this branch.",
@@ -139,7 +139,7 @@
     {
       "route": "/api/academy-reflections",
       "method": "PUT",
-      "previousSourceHash": "d6b7e3bb1f41973f5dc79a01",
+      "previousSourceHash": "951a86d5a66c596805a6775a",
       "issue": "#690",
       "owner": "mentor-ai",
       "reason": "Mentor Evidence Fusion v1 binds authoritative Academy mutations to verified tenant context and transaction-coupled durable Mentor projection evidence; exact generated operation evidence reviewed for this branch.",
