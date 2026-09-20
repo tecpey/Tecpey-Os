@@ -123,6 +123,31 @@ function filenameFromOwnedAvatarUrl(value: string, studentId: string): string | 
  * Backup/restore contract: TECPEY_PROFILE_AVATAR_DIR is persistent application
  * data and must be snapshotted/restored together with the database.
  */
+/**
+ * Deletes one exact previously-authoritative avatar after a newer profile
+ * value has committed. Never scans the owner directory, so an older request
+ * cannot delete a newer concurrent upload/commit.
+ */
+export async function deleteAcademyProfileAvatar(input: {
+  studentId: string;
+  url?: string | null;
+}): Promise<{ removed: boolean }> {
+  if (!input.url) return { removed: false };
+  const filename = filenameFromOwnedAvatarUrl(input.url, input.studentId);
+  if (!filename) throw new Error("profile_avatar_not_owned");
+  const ownerDir = path.join(storageRoot(), profileAvatarOwnerKey(input.studentId));
+  try {
+    await rm(path.join(ownerDir, filename), { force: true });
+    return { removed: true };
+  } catch {
+    return { removed: false };
+  }
+}
+
+/**
+ * Broad reconciliation is reserved for explicit maintenance/GC. Request-path
+ * replacement must use deleteAcademyProfileAvatar with the exact previous URL.
+ */
 export async function reconcileAcademyProfileAvatars(input: {
   studentId: string;
   keepUrl?: string | null;

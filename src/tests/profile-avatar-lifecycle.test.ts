@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import {
+  deleteAcademyProfileAvatar,
   isOwnedAcademyProfileAvatarUrl,
   profileAvatarOwnerKey,
   readAcademyProfileAvatar,
@@ -34,6 +35,38 @@ afterEach(async () => {
   if (originalDir === undefined) delete process.env.TECPEY_PROFILE_AVATAR_DIR;
   else process.env.TECPEY_PROFILE_AVATAR_DIR = originalDir;
   await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  it("cannot delete a newer committed avatar when an older cleanup runs late", async () => {
+    await tempStorage();
+    const studentId = "66666666-6666-4666-8666-666666666666";
+    const original = await storeAcademyProfileAvatar({ studentId, file: jpegFile(7) });
+    const firstReplacement = await storeAcademyProfileAvatar({ studentId, file: jpegFile(8) });
+    const newest = await storeAcademyProfileAvatar({ studentId, file: jpegFile(9) });
+
+    // Simulate adversarial completion order: B commits newest, then A's older
+    // post-commit cleanup finally runs. A may delete only its exact predecessor.
+    await deleteAcademyProfileAvatar({ studentId, url: firstReplacement.url });
+    await deleteAcademyProfileAvatar({ studentId, url: original.url });
+
+    assert.ok(await readAcademyProfileAvatar(
+      profileAvatarOwnerKey(studentId),
+      newest.url.split("/").at(-1)!,
+    ));
+  });
+
+  it("exact deletion remains owner-scoped", async () => {
+    await tempStorage();
+    const alice = "77777777-7777-4777-8777-777777777777";
+    const bob = "88888888-8888-4888-8888-888888888888";
+    const stored = await storeAcademyProfileAvatar({ studentId: alice, file: jpegFile(10) });
+    await assert.rejects(
+      deleteAcademyProfileAvatar({ studentId: bob, url: stored.url }),
+      /profile_avatar_not_owned/,
+    );
+    assert.ok(await readAcademyProfileAvatar(
+      profileAvatarOwnerKey(alice),
+      stored.url.split("/").at(-1)!,
+    ));
+  });
 });
 
 describe("academy profile avatar lifecycle", () => {

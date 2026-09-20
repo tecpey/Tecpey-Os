@@ -19,7 +19,7 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
-import { isOwnedAcademyProfileAvatarUrl, reconcileAcademyProfileAvatars } from "@/lib/academy-profile-avatar-storage";
+import { deleteAcademyProfileAvatar, isOwnedAcademyProfileAvatarUrl } from "@/lib/academy-profile-avatar-storage";
 
 type LocalProfile = {
   id: string;
@@ -333,6 +333,7 @@ export async function POST(req: NextRequest) {
         // Email and mobile are identity-provider claims. They are displayed in
         // the profile editor but never accepted from the presentation form.
         const email = session.email ?? undefined;
+        let previousPhotoUrl: string | null = null;
         const result = await withTx(async (client) => {
           // Serialize profile mutations per student across every application
           // instance. File reconciliation happens after this transaction
@@ -346,6 +347,13 @@ export async function POST(req: NextRequest) {
                )`,
               [session.studentId],
             );
+          }
+          if (session.studentId && photoUrl !== undefined) {
+            const current = await client.query<{ photo_url: string | null }>(
+              `SELECT photo_url FROM academy_students WHERE id = $1::uuid LIMIT 1`,
+              [session.studentId],
+            );
+            previousPhotoUrl = current.rows[0]?.photo_url ?? null;
           }
           const verifiedPhone = session.academyAccountId
             ? await client.query<{ phone_e164: string | null }>(
@@ -379,15 +387,19 @@ export async function POST(req: NextRequest) {
         });
 
         if (result.enabled && result.value) {
-          // The database commit is the authority boundary. Reconcile files only
-          // afterwards so a failed profile save can never delete the last
-          // committed photo. A later successful mutation also removes orphans
-          // left by an earlier upload whose save did not complete.
-          if (photoUrl !== undefined && session.studentId) {
-            await reconcileAcademyProfileAvatars({
+          // Cleanup is exact, owner-scoped, and post-commit. An older request can
+          // therefore delete only the photo it actually replaced, never a newer
+          // concurrent upload that became authoritative afterwards.
+          if (
+            photoUrl !== undefined &&
+            session.studentId &&
+            previousPhotoUrl &&
+            previousPhotoUrl !== photoUrl
+          ) {
+            await deleteAcademyProfileAvatar({
               studentId: session.studentId,
-              keepUrl: photoUrl,
-            }).catch(() => undefined);
+              url: previousPhotoUrl,
+            });
           }
           const response = apiOk({
             storage: "cloud" as const,
@@ -424,11 +436,20 @@ export async function POST(req: NextRequest) {
           country,
           locale: typeof body.locale === "string" ? body.locale : undefined,
         });
-        if (photoUrl !== undefined && local.studentId) {
-          await reconcileAcademyProfileAvatars({
+        const previousLocalPhotoUrl = await getLocalProfile(
+          local.studentId,
+          session.academyAccountId,
+        );
+        if (
+          photoUrl !== undefined &&
+          local.studentId &&
+          previousLocalPhotoUrl?.photo_url &&
+          previousLocalPhotoUrl.photo_url !== photoUrl
+        ) {
+          await deleteAcademyProfileAvatar({
             studentId: local.studentId,
-            keepUrl: photoUrl,
-          }).catch(() => undefined);
+            url: previousLocalPhotoUrl.photo_url,
+          });
         }
         const response = apiOk({
           storage: "local-dev" as const,
