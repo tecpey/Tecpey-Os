@@ -35,6 +35,6 @@ test("product-led hero reserves enough mobile vertical space", () => {
     css.indexOf("@media (max-width: 420px)"),
   );
 
-  assert.match(mobile, /\.visual \{ aspect-ratio: 4 \/ 5; \}/);
-  assert.doesNotMatch(mobile, /\.visual \{ aspect-ratio: 1\.7; \}/);
+  assert.match(mobile, /\.visual \{ aspect-ratio: auto; height: clamp\(430px, 112vw, 560px\); \}/);
+  assert.doesNotMatch(mobile, /\.visual \{ aspect-ratio: 1\.7; \}/);\n  assert.match(mobile, /430px/);
 });
