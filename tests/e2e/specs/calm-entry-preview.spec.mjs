@@ -35,14 +35,27 @@ for (const screen of ["landing", "login", "signup"]) {
       const widths = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
       expect(widths[0]).toBeLessThanOrEqual(widths[1] + 1);
       await page.evaluate(() => document.fonts.ready);
-      const artwork = page.locator('main img[src*="academy-auth-crystal"]');
-      await artwork.scrollIntoViewIfNeeded();
-      await expect.poll(() => artwork.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
-      const resolution = await artwork.evaluate(img => ({
-        selectedWidth: Number(new URL(img.currentSrc).searchParams.get("w")) || img.naturalWidth,
-        renderedWidth: img.getBoundingClientRect().width,
-      }));
-      expect(resolution.selectedWidth, "Artwork must not upscale a tiny mobile source").toBeGreaterThanOrEqual(resolution.renderedWidth);
+      if (screen === "landing") {
+        const hero = page.locator('main [data-home-section="hero"]');
+        await expect(hero).toBeVisible();
+        await expect(hero.locator("figure")).toBeVisible();
+        await expect(hero.locator('img[src*="academy-auth-crystal"]')).toHaveCount(0);
+        await expect(
+          hero.getByRole("link", {
+            name: en ? "Start Free Academy" : "شروع آکادمی رایگان",
+            exact: false,
+          }),
+        ).toBeVisible();
+      } else {
+        const artwork = page.locator('main img[src*="academy-auth-crystal"]');
+        await artwork.scrollIntoViewIfNeeded();
+        await expect.poll(() => artwork.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+        const resolution = await artwork.evaluate(img => ({
+          selectedWidth: Number(new URL(img.currentSrc).searchParams.get("w")) || img.naturalWidth,
+          renderedWidth: img.getBoundingClientRect().width,
+        }));
+        expect(resolution.selectedWidth, "Artwork must not upscale a tiny mobile source").toBeGreaterThanOrEqual(resolution.renderedWidth);
+      }
       await page.evaluate(() => window.scrollTo(0, 0));
       await testInfo.attach(`${screen}-${theme}-${testInfo.project.name}`, {
         body: await page.screenshot({ fullPage: screen !== "landing", animations: "disabled" }),
