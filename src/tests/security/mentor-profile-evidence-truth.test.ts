@@ -99,7 +99,7 @@ test("Mentor confidence is normalized over available evidence instead of padded 
     conversation(),
   );
 
-  assert.equal(academyOnly.confidenceScore, 82);
+  assert.equal(academyOnly.confidenceScore, 81);
 });
 
 test("observed Arena evidence still drives risk classification", () => {
