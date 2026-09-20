@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
         studentId: session.studentId as string,
         eventType: "academy.lesson_assessment",
         reason: "authoritative_lesson_assessment",
-        sourceReference: idempotencyKey,
+        sourceReference: `lesson:${command.requestHash}`,
       });
       return { ...response, replayed: false };
     });
