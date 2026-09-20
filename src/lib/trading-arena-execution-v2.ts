@@ -226,6 +226,16 @@ function dailyLossForNow(state: ArenaExecutionStateV2, now: string): ArenaDailyL
   return state.dailyLoss.day === day ? state.dailyLoss : { day, realizedLoss: fixed(0), realizedPnl: fixed(0), complete: true };
 }
 
+export function projectArenaExecutionStateForRead(
+  state: ArenaExecutionStateV2,
+  now: string,
+): ArenaExecutionStateV2 {
+  const timestamp = iso(now);
+  if (!timestamp) throw new Error("arena_execution_projection_time_invalid");
+  const dailyLoss = dailyLossForNow(state, timestamp);
+  return dailyLoss === state.dailyLoss ? state : { ...state, dailyLoss };
+}
+
 function iso(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const time = Date.parse(value);
@@ -591,6 +601,7 @@ export function buildArenaMentorRiskContext(
 ): ArenaMentorRiskContextV2 {
   const at = iso(generatedAt);
   if (!at) throw new Error("arena_mentor_context_time_invalid");
+  state = projectArenaExecutionStateForRead(state, at);
   const risk = computeArenaPortfolioRiskTelemetry(state);
   return {
     version: 2,
@@ -911,14 +922,16 @@ export function applyArenaExecutionActionV2(
     };
   }
 
-  if (drawdownCircuitOpen(state)) return { ok: false, error: "arena_drawdown_circuit_open" };
-
   const quoteAmount = positive(action.quoteAmount);
   if (!quoteAmount || quoteAmount.lt(ARENA_EXECUTION_MIN_TRADE)) {
     return { ok: false, error: "arena_trade_below_minimum" };
   }
   if (quoteAmount.gt(state.cashBalance)) return { ok: false, error: "arena_insufficient_cash" };
   const currentEquity = decimal(computeArenaExecutionEquity(state, market));
+  const currentRiskState = updatePeakEquity({ ...state, equity: fixed(currentEquity) });
+  if (drawdownCircuitOpen(currentRiskState)) {
+    return { ok: false, error: "arena_drawdown_circuit_open" };
+  }
   if (currentEquity.lte(0) || quoteAmount.div(currentEquity).gt(ARENA_EXECUTION_MAX_ALLOCATION_RATE)) {
     return { ok: false, error: "arena_risk_limit_exceeded" };
   }

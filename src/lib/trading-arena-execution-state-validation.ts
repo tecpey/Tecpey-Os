@@ -207,7 +207,9 @@ export function validateArenaExecutionStateV2(value: unknown): ArenaExecutionSta
   }
 
   const initialBalance = amount(row.initialBalance, true, false, 10);
-  const peakEquity = amount(row.peakEquity ?? row.initialBalance, true, false, 10);
+  const peakEquity = row.peakEquity === undefined
+    ? Decimal.max(initialBalance, equity).toDecimalPlaces(10, Decimal.ROUND_DOWN).toFixed(10)
+    : amount(row.peakEquity, true, false, 10);
   if (new Decimal(peakEquity).lt(equity) || new Decimal(peakEquity).lt(initialBalance)) invalid();
 
   const createdAt = time(row.createdAt);

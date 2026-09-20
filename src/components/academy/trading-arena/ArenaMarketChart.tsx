@@ -30,6 +30,8 @@ export function ArenaMarketChart({ asset, livePrice, locale = "fa" }: {
   const [bars, setBars] = useState<Bar[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [refresh, setRefresh] = useState(0);
+  const queryKey = `${asset}:${resolution}:${refresh}`;
+  const [settledQueryKey, setSettledQueryKey] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,15 +45,19 @@ export function ArenaMarketChart({ asset, livePrice, locale = "fa" }: {
         const next = payload.details?.bars ?? payload.bars;
         if (!Array.isArray(next) || next.length === 0) throw new Error("market-bars");
         setBars(next);
+        setSettledQueryKey(queryKey);
         setState("ready");
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setBars([]);
+        setSettledQueryKey(queryKey);
         setState("error");
       });
     return () => controller.abort();
-  }, [asset, resolution, refresh]);
+  }, [asset, queryKey, resolution]);
+
+  const displayState = settledQueryKey === queryKey ? state : "loading";
 
   const displayBars = useMemo(() => {
     if (!livePrice || bars.length === 0) return bars;
@@ -79,9 +85,9 @@ export function ArenaMarketChart({ asset, livePrice, locale = "fa" }: {
           {RESOLUTIONS.map((item) => <button key={item} type="button" onClick={() => setResolution(item)} aria-pressed={resolution === item} className={`rounded-lg px-2.5 py-1.5 text-xs font-black ${resolution === item ? "bg-cyan-300 text-slate-950" : "bg-white/5 text-slate-300"}`}>{item}</button>)}
         </div>
       </div>
-      {state === "loading" && <div className="grid h-64 place-items-center text-slate-400"><LoaderCircle className="h-6 w-6 animate-spin" aria-label={isFa ? "در حال بارگذاری نمودار" : "Loading chart"} /></div>}
-      {state === "error" && <div className="grid h-64 place-items-center rounded-2xl border border-amber-300/20 bg-amber-400/5 text-center"><div><AlertTriangle className="mx-auto h-6 w-6 text-amber-300" /><p className="mt-3 text-sm font-bold">{isFa ? "تاریخچه بازار موقتاً در دسترس نیست؛ اجرای معامله همچنان فقط با قیمت معتبر سرور انجام می‌شود." : "Market history is temporarily unavailable. Trading remains protected by server-authoritative prices."}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black"><RefreshCw className="h-3.5 w-3.5" />{isFa ? "تلاش دوباره" : "Retry"}</button></div></div>}
-      {state === "ready" && <div>
+      {displayState === "loading" && <div className="grid h-64 place-items-center text-slate-400"><LoaderCircle className="h-6 w-6 animate-spin" aria-label={isFa ? "در حال بارگذاری نمودار" : "Loading chart"} /></div>}
+      {displayState === "error" && <div className="grid h-64 place-items-center rounded-2xl border border-amber-300/20 bg-amber-400/5 text-center"><div><AlertTriangle className="mx-auto h-6 w-6 text-amber-300" /><p className="mt-3 text-sm font-bold">{isFa ? "تاریخچه بازار موقتاً در دسترس نیست؛ اجرای معامله همچنان فقط با قیمت معتبر سرور انجام می‌شود." : "Market history is temporarily unavailable. Trading remains protected by server-authoritative prices."}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-black"><RefreshCw className="h-3.5 w-3.5" />{isFa ? "تلاش دوباره" : "Retry"}</button></div></div>}
+      {displayState === "ready" && <div>
         <div className="mb-2 flex items-end justify-between"><strong className="text-xl">{last.toLocaleString("en-US", { maximumFractionDigits: 2 })}</strong><span className={`text-xs font-black ${delta >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{delta >= 0 ? "+" : ""}{delta.toFixed(2)}%</span></div>
         <svg viewBox="0 0 1000 260" role="img" aria-label={isFa ? `نمودار قیمت ${asset}` : `${asset} price chart`} className="h-64 w-full overflow-visible">
           <path d={path} fill="none" stroke="currentColor" strokeWidth="3" vectorEffect="non-scaling-stroke" className="text-cyan-300" />

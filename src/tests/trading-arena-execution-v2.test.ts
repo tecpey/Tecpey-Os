@@ -12,6 +12,7 @@ import {
   computeArenaMentorCapabilities,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
+  projectArenaExecutionStateForRead,
   type ArenaExecutionContext,
   type ArenaPriceSnapshot,
 } from "@/lib/trading-arena-execution-v2";
@@ -349,6 +350,32 @@ describe("authoritative Arena execution aggregate", () => {
     assert.equal(refreshed.eventType, "arena.market_refreshed");
   });
 
+  it("evaluates the drawdown circuit against the current request market", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
+    const opened = success(applyArenaExecutionActionV2(initial, {
+      type: "market_buy",
+      asset: "BTC",
+      quoteAmount: "20000",
+    }, context("operation-live-drawdown-open")));
+    assert.ok(new Decimal(opened.state.equity).gt(99000));
+
+    const crashedMarket: ArenaPriceSnapshot = {
+      ...MARKET,
+      prices: { ...MARKET.prices, BTC: "30000.0000000000" },
+      observedAt: "2026-07-19T00:01:00.000Z",
+    };
+    const blocked = applyArenaExecutionActionV2(opened.state, {
+      type: "market_buy",
+      asset: "ETH",
+      quoteAmount: "1000",
+    }, {
+      ...context("operation-live-drawdown-block", crashedMarket),
+      now: "2026-07-19T00:01:00.000Z",
+    });
+
+    assert.deepEqual(blocked, { ok: false, error: "arena_drawdown_circuit_open" });
+  });
+
   it("withholds Mentor live-market and daily-PnL claims when their authorities are unavailable", () => {
     const initial = createArenaExecutionStateV2("100000", "2026-07-19T00:00:00.000Z");
     const legacy = normalizeArenaExecutionStateV2({ ...initial, dailyLoss: undefined }, "100000");
@@ -567,6 +594,37 @@ describe("authoritative Arena execution aggregate", () => {
       realizedPnl: "0.0000000000",
       complete: true,
     });
+  });
+
+  it("rolls the daily ledger forward for read projections and Mentor context", () => {
+    const initial = createArenaExecutionStateV2("100000", "2026-07-19T23:59:00.000Z");
+    const previousDay = {
+      ...initial,
+      dailyLoss: {
+        day: "2026-07-19",
+        realizedLoss: "3000.0000000000",
+        realizedPnl: "-3000.0000000000",
+        complete: true,
+      },
+    };
+    const projected = projectArenaExecutionStateForRead(
+      previousDay,
+      "2026-07-20T00:00:01.000Z",
+    );
+    assert.deepEqual(projected.dailyLoss, {
+      day: "2026-07-20",
+      realizedLoss: "0.0000000000",
+      realizedPnl: "0.0000000000",
+      complete: true,
+    });
+    assert.equal(previousDay.dailyLoss.day, "2026-07-19");
+
+    const mentorContext = buildArenaMentorRiskContext(
+      previousDay,
+      "2026-07-20T00:00:01.000Z",
+    );
+    assert.equal(mentorContext.accounting.day, "2026-07-20");
+    assert.equal(mentorContext.accounting.realizedPnl, "0.0000000000");
   });
 
   it("does not invent a complete zero-loss authority for a legacy same-day snapshot", () => {

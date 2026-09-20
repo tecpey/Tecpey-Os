@@ -25,6 +25,7 @@ import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
   createArenaExecutionStateV2,
+  projectArenaExecutionStateForRead,
   type ArenaExecutionActionV2,
   type ArenaExecutionStateV2,
   type ArenaPriceSnapshot,
@@ -377,15 +378,19 @@ export async function GET(request: NextRequest) {
           return { error: "arena_no_active_attempt" as const };
         }
         const execution = loadExecution(context.activeRow);
+        const projectedState = projectArenaExecutionStateForRead(
+          execution.state,
+          new Date().toISOString(),
+        );
         const projectedEquity = market
-          ? computeArenaExecutionEquity(execution.state, market)
-          : execution.state.equity;
+          ? computeArenaExecutionEquity(projectedState, market)
+          : projectedState.equity;
         return {
           error: null,
           account: context.account,
           attempts: context.attempts,
           activeAttempt: context.activeAttempt,
-          state: execution.state,
+          state: projectedState,
           revision: execution.revision,
           market,
           projectedEquity,

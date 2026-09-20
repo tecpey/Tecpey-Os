@@ -737,6 +737,7 @@ export async function POST(request: NextRequest) {
           : Promise.resolve([]),
         !publicResearchRequested && authorizedStudentId && activeTenantId && activeWorkspaceId
           ? loadArenaMentorRiskContext(authorizedStudentId, activeTenantId, activeWorkspaceId)
+              .catch(() => null)
           : Promise.resolve(null),
       ]);
     const verifiedKnowledgeStatus = Array.isArray(verifiedKnowledgeResult)
