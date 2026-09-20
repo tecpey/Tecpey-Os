@@ -549,6 +549,19 @@ export function computeArenaDrawdownRate(state: Pick<ArenaExecutionStateV2, "equ
   return drawdown.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed(8);
 }
 
+export function computeArenaProjectedDrawdownTelemetry(
+  state: Pick<ArenaExecutionStateV2, "peakEquity">,
+  projectedEquity: string,
+): { equity: string; peakEquity: string; drawdownRate: string } {
+  const equity = fixed(projectedEquity);
+  const peakEquity = fixed(Decimal.max(state.peakEquity, equity));
+  return {
+    equity,
+    peakEquity,
+    drawdownRate: computeArenaDrawdownRate({ equity, peakEquity }),
+  };
+}
+
 function drawdownCircuitOpen(state: ArenaExecutionStateV2): boolean {
   return decimal(computeArenaDrawdownRate(state)).gte(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
 }

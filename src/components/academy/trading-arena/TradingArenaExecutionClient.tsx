@@ -38,7 +38,7 @@ import {
   ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE,
   ARENA_EXECUTION_MAX_DRAWDOWN_RATE,
   computeArenaPortfolioRiskTelemetry,
-  computeArenaDrawdownRate,
+  computeArenaProjectedDrawdownTelemetry,
   type ArenaClosedTradeV2,
   type ArenaExecutionAsset,
   type ArenaExecutionMentorFlag,
@@ -822,7 +822,11 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
   const portfolioRiskRate = equity > 0 ? portfolioStopRisk / equity : 0;
   const portfolioRiskLimit = number(ARENA_EXECUTION_MAX_PORTFOLIO_STOP_RISK_RATE);
   const portfolioRiskRemaining = Math.max(0, portfolioRiskLimit - portfolioRiskRate);
-  const drawdownRate = number(computeArenaDrawdownRate(snapshot.state));
+  const drawdownTelemetry = computeArenaProjectedDrawdownTelemetry(
+    snapshot.state,
+    snapshot.projectedEquity,
+  );
+  const drawdownRate = number(drawdownTelemetry.drawdownRate);
   const drawdownLimit = number(ARENA_EXECUTION_MAX_DRAWDOWN_RATE);
   const drawdownRemaining = Math.max(0, drawdownLimit - drawdownRate);
   const drawdownCircuitOpen = drawdownRate >= drawdownLimit;
@@ -880,7 +884,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
           </span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "اوج ارزش حساب" : "Peak equity"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(snapshot.state.peakEquity)}</p></div>
+          <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "اوج ارزش حساب" : "Peak equity"}</p><p className="mt-1 text-lg font-black tabular-nums">{usd(drawdownTelemetry.peakEquity)}</p></div>
           <div className="rounded-2xl border border-white/10 bg-black/10 p-3"><p className="text-[11px] font-black text-slate-400">{isFa ? "افت از اوج" : "Current drawdown"}</p><p className="mt-1 text-lg font-black tabular-nums">{percent(drawdownRate, locale)}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{isFa ? `تا توقف: ${percent(drawdownRemaining, locale)}` : `To circuit: ${percent(drawdownRemaining, locale)}`}</p></div>
           <div className={`rounded-2xl border p-3 ${dailyLossComplete ? "border-white/10 bg-black/10" : "border-amber-400/30 bg-amber-400/5"}`}><p className="text-[11px] font-black text-slate-400">{isFa ? "زیان ناخالص تحقق‌یافته امروز (UTC)" : "Gross realized loss today (UTC)"}</p><p className="mt-1 text-lg font-black tabular-nums">{dailyLossComplete ? <>{usd(dailyLoss)} · {percent(dailyLossRate, locale)}<span className="mt-1 block text-xs font-bold text-slate-400">{isFa ? `P&L خالص: ${signedUsd(dailyRealizedPnl)}` : `Net P&L: ${signedUsd(dailyRealizedPnl)}`}</span></> : (isFa ? "داده روزانه ناقص" : "Incomplete daily data")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{!dailyLossComplete ? (isFa ? "snapshot قدیمی است؛ صفر به‌عنوان زیان قطعی فرض نمی‌شود." : "Legacy snapshot: zero is not treated as authoritative loss data.") : (isFa ? "تلومتری آموزشی؛ هنوز هیچ سقف روزانه اجرایی برای آن تصویب نشده است." : "Training telemetry; no governed daily execution limit is active yet.")}</p></div>
           <div className={`rounded-2xl border p-3 ${portfolioRiskTelemetry.fullyStopDefined ? "border-white/10 bg-black/10" : "border-amber-400/30 bg-amber-400/5"}`}><p className="text-[11px] font-black text-slate-400">{isFa ? "ریسک برنامه‌ریزی‌شده پرتفوی" : "Planned portfolio risk"}</p><p className="mt-1 text-lg font-black tabular-nums">{portfolioRiskTelemetry.fullyStopDefined ? `${usd(portfolioStopRisk)} · ${percent(portfolioRiskRate, locale)}` : (isFa ? "نامحدود / تعریف‌نشده" : "Unbounded / undefined")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{portfolioRiskTelemetry.fullyStopDefined ? (isFa ? `ظرفیت باقی‌مانده: ${percent(portfolioRiskRemaining, locale)}` : `Remaining budget: ${percent(portfolioRiskRemaining, locale)}`) : (isFa ? `${portfolioRiskTelemetry.unprotectedPositions} موقعیت و ${portfolioRiskTelemetry.unprotectedPendingOrders} سفارش بدون حد ضرر · ${usd(portfolioRiskTelemetry.unboundedExposure)} اکسپوژر بدون حفاظت` : `${portfolioRiskTelemetry.unprotectedPositions} position(s) and ${portfolioRiskTelemetry.unprotectedPendingOrders} order(s) without a stop · ${usd(portfolioRiskTelemetry.unboundedExposure)} unprotected exposure`)}</p></div>
@@ -898,7 +902,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
 
       <ArenaMarketChart
         asset={selectedAsset}
-        livePrice={market?.prices[selectedAsset] ?? null}
+        livePrice={snapshot.marketStatus === "available" ? market?.prices[selectedAsset] ?? null : null}
         locale={locale}
       />
 

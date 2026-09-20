@@ -23,4 +23,19 @@ describe("Trading Arena review regressions", () => {
     );
     assert.doesNotMatch(chart, /\{state === "ready"/);
   });
+
+  it("uses projected equity for drawdown telemetry and withholds unavailable execution prices", () => {
+    const client = readFileSync(
+      "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx",
+      "utf8",
+    );
+    assert.match(
+      client,
+      /computeArenaProjectedDrawdownTelemetry\(\s*snapshot\.state,\s*snapshot\.projectedEquity,?\s*\)/,
+    );
+    assert.match(
+      client,
+      /livePrice=\{snapshot\.marketStatus === "available" \? market\?\.prices\[selectedAsset\] \?\? null : null\}/,
+    );
+  });
 });

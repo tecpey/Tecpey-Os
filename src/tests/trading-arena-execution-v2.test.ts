@@ -8,6 +8,7 @@ import {
   computeArenaPortfolioStopRisk,
   computeArenaPortfolioRiskTelemetry,
   computeArenaDrawdownRate,
+  computeArenaProjectedDrawdownTelemetry,
   computeArenaMentorRiskSignals,
   computeArenaMentorCapabilities,
   createArenaExecutionStateV2,
@@ -348,6 +349,25 @@ describe("authoritative Arena execution aggregate", () => {
       type: "refresh_market",
     }, context("operation-drawdown-refresh")));
     assert.equal(refreshed.eventType, "arena.market_refreshed");
+  });
+
+  it("derives read telemetry from projected equity and advances the projected peak", () => {
+    assert.deepEqual(
+      computeArenaProjectedDrawdownTelemetry({ peakEquity: "100000.0000000000" }, "89000.0000000000"),
+      {
+        equity: "89000.0000000000",
+        peakEquity: "100000.0000000000",
+        drawdownRate: "0.11000000",
+      },
+    );
+    assert.deepEqual(
+      computeArenaProjectedDrawdownTelemetry({ peakEquity: "100000.0000000000" }, "101000.0000000000"),
+      {
+        equity: "101000.0000000000",
+        peakEquity: "101000.0000000000",
+        drawdownRate: "0.00000000",
+      },
+    );
   });
 
   it("evaluates the drawdown circuit against the current request market", () => {
