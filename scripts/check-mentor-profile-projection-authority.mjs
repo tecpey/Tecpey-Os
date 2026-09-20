@@ -62,6 +62,7 @@ requirePattern(
 
 const producerPaths = [
   "src/app/api/academy-term-progress/route.ts",
+  "src/app/api/academy-lesson-assessment/route.ts",
   "src/app/api/mentor-challenge/route.ts",
   "src/app/api/trading-arena/route.ts",
   "src/app/api/trading-arena/execution/route.ts",
@@ -71,6 +72,35 @@ for (const path of producerPaths) {
   const producer = await source(path);
   requireText(path, producer, "withTx(async (client)", "producer must use an authoritative transaction");
   requireText(path, producer, "enqueueMentorProfileUpdateTx(client", "producer mutation must durably enqueue inside its transaction");
+}
+
+const lessonAssessment = await source("src/app/api/academy-lesson-assessment/route.ts");
+for (const needle of [
+  'eventType: "academy.lesson_assessment"',
+  'reason: "authoritative_lesson_assessment"',
+  "sourceReference: idempotencyKey",
+]) {
+  requireText(
+    "academy-lesson-assessment",
+    lessonAssessment,
+    needle,
+    `lesson assessment evidence must remain durable and replay-bound: ${needle}`,
+  );
+}
+
+const mentorSignals = await source("src/lib/mentor-signals.ts");
+for (const needle of [
+  "academy_lesson_assessments",
+  "lessonAssessmentCount",
+  "avgLessonAssessmentScore",
+  "passedLessonAssessments",
+]) {
+  requireText(
+    "mentor-signals",
+    mentorSignals,
+    needle,
+    `lesson assessment evidence fusion missing: ${needle}`,
+  );
 }
 
 const migrationRoute = await source("src/app/api/mentor-conversations/migrate/route.ts");
