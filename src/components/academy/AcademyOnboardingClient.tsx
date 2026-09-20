@@ -22,7 +22,6 @@ type ProfileResponse = {
   profile?: {
     display_name?: string | null;
     username?: string | null;
-    avatar?: string | null;
     photo_url?: string | null;
     public_student_id?: string | null;
     learning_goal?: string | null;
@@ -34,7 +33,6 @@ type ProfileResponse = {
   } | null;
 };
 
-const avatarOptions = ["🟦", "🟣", "🟢", "🟠", "⚡", "🎓", "🧠", "📈"];
 const goalsFa = ["ورود امن به بازار", "یادگیری سرمایه‌گذاری", "تمرین ترید", "ساخت مسیر حرفه‌ای"];
 const goalsEn = ["Safe market entry", "Learn investing", "Practice trading", "Build a professional path"];
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -58,7 +56,6 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
-  const [avatar, setAvatar] = useState(avatarOptions[0]);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [goal, setGoal] = useState(isFa ? goalsFa[0] : goalsEn[0]);
   const [email, setEmail] = useState("");
@@ -105,7 +102,6 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
         setExistingProfile(true);
         setDisplayName(state.profile.display_name);
         setUsername(state.profile.username || "");
-        setAvatar(state.profile.avatar || avatarOptions[0]);
         setPhotoUrl(state.profile.photo_url || null);
         setGoal(state.profile.learning_goal || (locale === "fa" ? goalsFa[0] : goalsEn[0]));
       }
@@ -170,7 +166,6 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
         body: JSON.stringify({
           displayName: cleanDisplay,
           username: cleanUser,
-          avatar,
           photoUrl,
           learningGoal: goal,
           birthDate: birthDate || null,
@@ -252,7 +247,10 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
               {photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- #619: authenticated user photo is served by the governed same-origin avatar endpoint.
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-              ) : avatar}
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- #687: static same-origin TecPey identity fallback.
+                <img src="/assets/tecpey-default-profile.svg" alt="" className="h-full w-full object-cover" />
+              )}
             </div>
             <p className="mt-4 text-center text-lg font-black">{displayName.trim() || (isFa ? "نام تو" : "Your name")}</p>
             <p className="mt-1 text-center text-xs font-bold text-slate-400"><bdi>@{usernameHint || "username"}</bdi></p>
@@ -266,10 +264,7 @@ export function AcademyOnboardingClient({ locale = "fa" }: { locale?: Locale }) 
             <p className="mt-2 text-center text-[11px] leading-5 text-slate-500">JPG / PNG / WebP · max 2 MB</p>
             {photoUrl ? <button type="button" onClick={() => setPhotoUrl(null)} disabled={saving || uploadingPhoto} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl text-xs font-black text-rose-300 hover:bg-rose-400/10"><Trash2 className="h-4 w-4" />{isFa ? "حذف عکس" : "Remove photo"}</button> : null}
 
-            <p className="mt-5 text-xs font-black text-slate-300">{isFa ? "آواتار عمومی" : "Public avatar"}</p>
-            <div role="group" aria-label={isFa ? "انتخاب آواتار عمومی" : "Choose public avatar"} className="mt-2 grid grid-cols-4 gap-2">
-              {avatarOptions.map((item) => <button key={item} type="button" aria-pressed={avatar === item} onClick={() => setAvatar(item)} disabled={saving} className={`grid min-h-10 place-items-center rounded-xl border text-lg ${avatar === item ? "border-cyan-300 bg-cyan-300/20" : "border-white/10 bg-white/5"}`}>{item}</button>)}
-            </div>
+            <p className="mt-4 text-center text-[11px] font-bold leading-5 text-slate-400">{isFa ? "در صورت نداشتن عکس، تصویر پیش‌فرض رسمی تک‌پی نمایش داده می‌شود." : "TecPey’s official default profile image is shown when no photo is uploaded."}</p>
           </aside>
 
           <section className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 sm:p-7">

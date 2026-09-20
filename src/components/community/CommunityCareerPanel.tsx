@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Award, BriefcaseBusiness, Crown, Eye, Lock, Medal, ShieldCheck, Sparkles, Target, Trophy, UserRound } from "lucide-react";
 
 type Profile = {
@@ -116,7 +117,7 @@ export function CommunityCareerPanel({ mode }: { mode: "community" | "career" | 
         <section className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
           <article className="rounded-[34px] border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.06]">
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-500/10 text-3xl">{profile.avatar}</div>
+              <div className="relative h-16 w-16 overflow-hidden rounded-3xl bg-cyan-500/10"><Image src={profile.avatar || "/assets/tecpey-default-profile.svg"} alt="" fill sizes="64px" className="object-cover" /></div>
               <div>
                 <p className="text-xs font-black text-cyan-500">@{profile.username}</p>
                 <h2 className="text-3xl font-black">سلام {profile.displayName} 👋</h2>
@@ -159,7 +160,7 @@ export function CommunityCareerPanel({ mode }: { mode: "community" | "career" | 
 
       <section className="rounded-[34px] border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.06]">
         <div className="flex items-center gap-3"><Crown className="h-7 w-7 text-amber-500"/><h2 className="text-2xl font-black">تالار افتخار زنده</h2></div>
-        {hall.length ? <div className="mt-5 grid gap-4 md:grid-cols-3">{hall.map((student,index)=><Link key={student.publicStudentId} href={`/student/${student.username || student.publicStudentId}`} className="rounded-3xl border border-amber-300/20 bg-amber-400/10 p-5"><p className="text-xs font-black text-amber-600">#{index+1}</p><p className="mt-2 text-xl font-black">{student.avatar} {student.displayName}</p><p className="mt-1 text-xs font-bold text-[color:var(--tp-muted)]">@{student.username} · {student.xp} XP</p></Link>)}</div> : <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-bold text-[color:var(--tp-muted)] dark:bg-white/[0.04]"><UserRound className="mx-auto h-10 w-10 text-cyan-500"/> هنوز داده عمومی کافی برای تالار افتخار وجود ندارد.</div>}
+        {hall.length ? <div className="mt-5 grid gap-4 md:grid-cols-3">{hall.map((student,index)=><Link key={student.publicStudentId} href={`/student/${student.username || student.publicStudentId}`} className="rounded-3xl border border-amber-300/20 bg-amber-400/10 p-5"><p className="text-xs font-black text-amber-600">#{index+1}</p><div className="mt-2 flex items-center gap-3"><span className="relative h-10 w-10 overflow-hidden rounded-2xl"><Image src={student.avatar || "/assets/tecpey-default-profile.svg"} alt="" fill sizes="40px" className="object-cover" /></span><p className="text-xl font-black">{student.displayName}</p></div><p className="mt-1 text-xs font-bold text-[color:var(--tp-muted)]">@{student.username} · {student.xp} XP</p></Link>)}</div> : <div className="mt-5 rounded-3xl bg-slate-50 p-6 text-center text-sm font-bold text-[color:var(--tp-muted)] dark:bg-white/[0.04]"><UserRound className="mx-auto h-10 w-10 text-cyan-500"/> هنوز داده عمومی کافی برای تالار افتخار وجود ندارد.</div>}
       </section>
 
       <section className="rounded-[34px] border border-cyan-300/20 bg-cyan-500/10 p-6"><div className="flex gap-3"><ShieldCheck className="h-6 w-6 text-cyan-500"/><p className="text-sm font-black leading-8">همه رتبه‌ها، مسیرها و چالش‌ها باید از داده آموزشی، ژورنال، آزمون و تمرین رسمی ساخته شوند؛ نه از ادعای کاربر و نه از وعده سود.</p></div></section>

@@ -13,7 +13,7 @@ test("returning learners can review their profile without a redirect loop", asyn
   const load = source.slice(source.indexOf("async function loadProfile"), source.indexOf("async function uploadPhoto"));
   assert.doesNotMatch(load, /router\.(replace|push)\(/);
   assert.doesNotMatch(load, /method:\s*["']POST["']/);
-  for (const setter of ["setDisplayName", "setUsername", "setAvatar", "setGoal"]) {
+  for (const setter of ["setDisplayName", "setUsername", "setPhotoUrl", "setGoal"]) {
     assert.ok(load.includes(setter), `hydrate ${setter} from the existing profile`);
   }
   assert.match(source, /state\.profile\.learning_goal/);
@@ -21,7 +21,7 @@ test("returning learners can review their profile without a redirect loop", asyn
   assert.match(source, /type="submit"/);
 });
 
-test("profile form keeps semantic labels, announced errors and selected avatar state", async () => {
+test("profile form keeps semantic labels, announced errors and governed photo state", async () => {
   const source = await component("AcademyOnboardingClient");
   assert.match(source, /نام نمایشی/);
   assert.match(source, /نام کاربری/);
@@ -31,7 +31,9 @@ test("profile form keeps semantic labels, announced errors and selected avatar s
   assert.match(source, /<label[^>]*>[^<]*\{isFa \? "هدف فعلی یادگیری" : "Current learning goal"\}<select/);
   assert.match(source, /role="alert"/);
   assert.match(source, /aria-busy=\{saving \|\| uploadingPhoto\}/);
-  assert.match(source, /aria-pressed=\{avatar === item\}/);
+  assert.doesNotMatch(source, /aria-pressed=\{avatar === item\}|avatarOptions/);
+  assert.match(source, /tecpey-default-profile\.svg/);
+  assert.match(source, /setPhotoUrl\(state\.profile\.photo_url \|\| null\)/);
   assert.match(source, /type="file"[^>]*className="sr-only"/);
 });
 

@@ -9,7 +9,7 @@ import {
   findStudentCartaxProfile,
   upsertStudentCartax,
 } from "@/lib/student-cartax";
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
 import { isSessionConfigured } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
@@ -19,7 +19,8 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
-import { isOwnedAcademyProfileAvatarUrl } from "@/lib/academy-profile-avatar-storage";
+import { ABANDONED_PROFILE_AVATAR_GRACE_MS, deleteAcademyProfileAvatar, isOwnedAcademyProfileAvatarUrl, reconcileAcademyProfileAvatars } from "@/lib/academy-profile-avatar-storage";
+import { logger } from "@/lib/logger";
 
 type LocalProfile = {
   id: string;
@@ -54,7 +55,6 @@ type LocalStore = {
   profiles: Record<string, LocalProfile>;
 };
 
-const AVATAR_OPTIONS = new Set(["🟦", "🟣", "🟢", "🟠", "⚡", "🎓", "🧠", "📈"]);
 const GENDERS = new Set(["female", "male", "nonbinary", "prefer_not_to_say"]);
 
 function publicIdFromUuid(id: string) {
@@ -172,7 +172,7 @@ async function upsertLocalProfile(input: {
         .slice(0, 32) ||
       existing.username ||
       null,
-    avatar: cleanText(input.avatar, 40) || existing.avatar || "🟦",
+    avatar: null,
     photo_url: input.photoUrl === undefined ? existing.photo_url || null : input.photoUrl,
     learning_goal:
       cleanText(input.learningGoal, 120) || existing.learning_goal || null,
@@ -314,11 +314,6 @@ export async function POST(req: NextRequest) {
         const birthDate = parseOptionalBirthDate(body.birthDate);
         const gender = parseOptionalGender(body.gender);
         const country = parseOptionalCountry(body.country);
-        const requestedAvatar = typeof body.avatar === "string" ? body.avatar.trim() : undefined;
-        if (requestedAvatar && !AVATAR_OPTIONS.has(requestedAvatar)) {
-          return apiError("academy_avatar_invalid", 400);
-        }
-
         let photoUrl: string | null | undefined;
         if (body.photoUrl === undefined) {
           photoUrl = undefined;
@@ -339,7 +334,27 @@ export async function POST(req: NextRequest) {
         // Email and mobile are identity-provider claims. They are displayed in
         // the profile editor but never accepted from the presentation form.
         const email = session.email ?? undefined;
-        const result = await withDb(async (client) => {
+        let previousPhotoUrl: string | null = null;
+        const result = await withTx(async (client) => {
+          // Serialize profile mutations per student across every application
+          // instance. The exact predecessor is captured while this lock is held;
+          // cleanup runs only after commit and never changes authoritative state.
+          if (session.studentId) {
+            await client.query(
+              `SELECT pg_advisory_xact_lock(
+                 hashtext('academy_student_profile_command'),
+                 hashtext($1)
+               )`,
+              [session.studentId],
+            );
+          }
+          if (session.studentId && photoUrl !== undefined) {
+            const current = await client.query<{ photo_url: string | null }>(
+              `SELECT photo_url FROM academy_students WHERE id = $1::uuid LIMIT 1`,
+              [session.studentId],
+            );
+            previousPhotoUrl = current.rows[0]?.photo_url ?? null;
+          }
           const verifiedPhone = session.academyAccountId
             ? await client.query<{ phone_e164: string | null }>(
                 `SELECT phone_e164
@@ -358,7 +373,6 @@ export async function POST(req: NextRequest) {
               phone: verifiedPhone?.rows[0]?.phone_e164 ?? undefined,
               displayName: typeof body.displayName === "string" ? body.displayName : session.displayName ?? undefined,
               username: typeof body.username === "string" ? body.username : session.username ?? undefined,
-              avatar: requestedAvatar,
               photoUrl,
               learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
               birthDate,
@@ -373,6 +387,41 @@ export async function POST(req: NextRequest) {
         });
 
         if (result.enabled && result.value) {
+          // Cleanup is exact, owner-scoped, and post-commit. An older request can
+          // therefore delete only the photo it actually replaced, never a newer
+          // concurrent upload that became authoritative afterwards.
+          if (
+            photoUrl !== undefined &&
+            session.studentId &&
+            previousPhotoUrl &&
+            previousPhotoUrl !== photoUrl
+          ) {
+            try {
+              await deleteAcademyProfileAvatar({
+                studentId: session.studentId,
+                url: previousPhotoUrl,
+              });
+            } catch (error) {
+              logger.warn("[academy-profile] post-commit avatar predecessor cleanup deferred", {
+                studentId: session.studentId,
+                error: String(error),
+              });
+            }
+          }
+          if (session.studentId && photoUrl !== undefined) {
+            try {
+              await reconcileAcademyProfileAvatars({
+                studentId: session.studentId,
+                keepUrl: photoUrl,
+                minAgeMs: ABANDONED_PROFILE_AVATAR_GRACE_MS,
+              });
+            } catch (error) {
+              logger.warn("[academy-profile] abandoned avatar cleanup deferred", {
+                studentId: session.studentId,
+                error: String(error),
+              });
+            }
+          }
           const response = apiOk({
             storage: "cloud" as const,
             authenticated: true as const,
@@ -395,13 +444,16 @@ export async function POST(req: NextRequest) {
         if (!canUseLocalProfileStorage()) {
           return apiError("academy_profile_service_unavailable", 503);
         }
+        const previousLocalProfile = await getLocalProfile(
+          session.studentId,
+          session.academyAccountId,
+        );
         const local = await upsertLocalProfile({
           accountKey: session.academyAccountId || null,
           studentId: session.studentId || null,
           email,
           displayName: typeof body.displayName === "string" ? body.displayName : session.displayName ?? undefined,
           username: typeof body.username === "string" ? body.username : session.username ?? undefined,
-          avatar: requestedAvatar,
           photoUrl,
           learningGoal: typeof body.learningGoal === "string" ? body.learningGoal : undefined,
           birthDate,
@@ -409,6 +461,39 @@ export async function POST(req: NextRequest) {
           country,
           locale: typeof body.locale === "string" ? body.locale : undefined,
         });
+        const previousLocalPhotoUrl = previousLocalProfile?.photo_url ?? null;
+        if (
+          photoUrl !== undefined &&
+          local.studentId &&
+          previousLocalPhotoUrl &&
+          previousLocalPhotoUrl !== photoUrl
+        ) {
+          try {
+            await deleteAcademyProfileAvatar({
+              studentId: local.studentId,
+              url: previousLocalPhotoUrl,
+            });
+          } catch (error) {
+            logger.warn("[academy-profile] local post-commit avatar cleanup deferred", {
+              studentId: local.studentId,
+              error: String(error),
+            });
+          }
+        }
+        if (local.studentId && photoUrl !== undefined) {
+          try {
+            await reconcileAcademyProfileAvatars({
+              studentId: local.studentId,
+              keepUrl: photoUrl,
+              minAgeMs: ABANDONED_PROFILE_AVATAR_GRACE_MS,
+            });
+          } catch (error) {
+            logger.warn("[academy-profile] local abandoned avatar cleanup deferred", {
+              studentId: local.studentId,
+              error: String(error),
+            });
+          }
+        }
         const response = apiOk({
           storage: "local-dev" as const,
           authenticated: true as const,
