@@ -78,7 +78,7 @@
     "auth:check": "node scripts/check-auth-session-authority.mjs && node scripts/check-session-authority-completion.mjs && node scripts/check-strict-revocation-authority.mjs",
     "test:auth-session": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/auth-*.test.ts'",
     "auth:revocations:repair": "tsx scripts/reconcile-session-revocations.ts",
-    "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs && node scripts/check-mentor-preferences-authority.mjs && npm run ai:database:runtime-evidence:check && npm run mentor:vector:source:check && npm run mentor:rive:activation:check && node scripts/check-mentor-retention-authority.mjs && npm run mentor:profiles:authority:check && npm run mentor:evals:authority:check",
+    "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs && npm run mentor:memory:authority:check && node scripts/check-mentor-preferences-authority.mjs && npm run ai:database:runtime-evidence:check && npm run mentor:vector:source:check && npm run mentor:rive:activation:check && node scripts/check-mentor-retention-authority.mjs && npm run mentor:profiles:authority:check && npm run mentor:evals:authority:check",
     "ai:automation:worker": "tsx scripts/run-ai-automation-worker.ts",
     "ai:automation:internal-executor": "tsx scripts/run-ai-automation-internal-executor.ts",
     "ai:database:ci-roles": "tsx scripts/provision-ai-database-ci-roles.ts",
@@ -237,7 +237,8 @@
     "test:mentor-profile-freshness": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-profile-freshness.test.ts src/tests/security/mentor-profile-freshness-postgres.test.ts",
     "mentor:evals:authority:check": "node scripts/check-mentor-eval-promotion-authority.mjs",
     "test:mentor-eval-promotion": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-eval-promotion-authority.test.ts src/tests/security/mentor-eval-promotion-postgres.test.ts",
-    "ops:installer:env-check": "node dist/check-operational-installer-env.cjs"
+    "ops:installer:env-check": "node dist/check-operational-installer-env.cjs",
+    "mentor:memory:authority:check": "node scripts/check-trusted-mentor-memory-authority.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
