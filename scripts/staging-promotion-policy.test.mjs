@@ -325,10 +325,10 @@ test("classifies migration-authority changes as forward-fix/restore only", () =>
 
 test("every db-migration source file is classified as rollback-sensitive authority", () => {
   const files = readdirSync("src/lib")
-    .filter((name) => /^db-migration-.*\.ts$/.test(name))
+    .filter((name) => /^db-(?:migrate(?:-[A-Za-z0-9-]+)?|migration-[A-Za-z0-9-]+)\.ts$/.test(name))
     .map((name) => `src/lib/${name}`)
     .sort();
-  assert.ok(files.length >= 4, "expected governed db-migration authority files");
+  assert.ok(files.length >= 4, "expected governed db-migrate/db-migration authority files");
   for (const file of files) {
     const classification = classifyMigrationRollbackSafety([file]);
     assert.equal(
