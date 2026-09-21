@@ -98,7 +98,8 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
 
   return (
     <section
-      className="mt-8 rounded-2xl border border-cyan-400/20 p-6"
+      id="mentor-privacy"
+      className="mt-8 scroll-mt-28 rounded-2xl border border-cyan-400/20 p-6"
       aria-labelledby="mentor-ai-privacy"
     >
       <h2
