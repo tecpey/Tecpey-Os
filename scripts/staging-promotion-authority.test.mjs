@@ -1,0 +1,115 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+import assert from "node:assert/strict";
+
+const workflow = readFileSync(".github/workflows/protected-staging-promotion.yml", "utf8");
+const promotion = readFileSync("scripts/promote-staging-release.sh", "utf8");
+const policy = readFileSync("scripts/staging-promotion-policy.mjs", "utf8");
+
+function requireText(source, token, label) {
+  assert.ok(source.includes(token), `${label} is missing: ${token}`);
+}
+
+test("protected staging promotion workflow preserves exact-SHA and protected-environment authority", () => {
+  for (const token of [
+    "workflow_dispatch:",
+    "release_sha:",
+    "I_APPROVE_STAGING_PROMOTION",
+    "rollback_drill:",
+    "permissions:",
+    "contents: read",
+    "packages: read",
+    "attestations: read",
+    "cancel-in-progress: false",
+    "git merge-base --is-ancestor",
+    "environment: staging",
+    "runs-on: [self-hosted, linux, x64, tecpey-staging]",
+    "TECPEY_STAGING_ENV_FILE",
+    "TECPEY_STAGING_PUBLIC_BASE_URL",
+    "TECPEY_STAGING_RUN_USER",
+    "TECPEY_STAGING_RUN_GROUP",
+    "protected-staging-promotion-",
+  ]) {
+    requireText(workflow, token, "promotion workflow");
+  }
+  assert.doesNotMatch(
+    workflow,
+    /uses:\s+[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@(?![0-9a-f]{40}\b)/,
+    "all external actions must be pinned to immutable commit SHAs",
+  );
+  assert.doesNotMatch(workflow, /continue-on-error:\s*true/, "promotion must fail closed");
+  assert.doesNotMatch(
+    workflow,
+    /systemctl[^\n]*(?:production|tecpey\.service)|\/var\/www\/tecpey|\/srv\/tecpey\/production/i,
+    "workflow must not contain a production service/path mutation",
+  );
+});
+
+test("supply verification binds signature and provenance to the main supply-chain workflow", () => {
+  for (const token of [
+    "ghcr.io/tecpey/tecpey-os:",
+    "cosign verify",
+    "container-supply-chain.yml@refs/heads/main",
+    "--certificate-oidc-issuer 'https://token.actions.githubusercontent.com'",
+    "gh attestation verify",
+    "--repo tecpey/Tecpey-Os",
+    "--signer-workflow tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml",
+    "--source-ref refs/heads/main",
+    '--source-digest "$RELEASE_SHA"',
+    "--deny-self-hosted-runners",
+  ]) {
+    requireText(workflow, token, "supply verification");
+  }
+});
+
+test("host promotion uses immutable release paths, existing preflight and bounded rollback", () => {
+  for (const token of [
+    'readonly SERVICE="tecpey-staging.service"',
+    'readonly RELEASE_ROOT="/srv/tecpey/releases"',
+    'systemctl show "$SERVICE" --property=WorkingDirectory --value',
+    'git -C "$CURRENT" merge-base --is-ancestor "$RELEASE_SHA" origin/main',
+    'git -C "$CURRENT" worktree add --detach "$NEXT" "$RELEASE_SHA"',
+    'install -m 0600 "$TECPEY_STAGING_ENV_FILE" "$NEXT/.env.production"',
+    "bash scripts/ubuntu24-preflight.sh candidate",
+    "bash scripts/ubuntu24-preflight.sh migrate",
+    "bash scripts/ubuntu24-preflight.sh runtime",
+    "Expected exactly one governed staging unit file",
+    'sudo systemctl daemon-reload',
+    'sudo systemctl restart "$SERVICE"',
+    "restore_previous_runtime",
+    "run-staging-promotion-smoke.mjs",
+    "completed_and_repromoted",
+    "verified_already_active",
+  ]) {
+    requireText(promotion, token, "promotion script");
+  }
+  assert.doesNotMatch(promotion, /\brm\s+-rf\b/, "promotion must not recursively delete releases");
+  assert.doesNotMatch(
+    promotion,
+    /tecpey-production\.service|\/srv\/tecpey\/production/i,
+    "promotion script must not target production",
+  );
+  execFileSync("bash", ["-n", "scripts/promote-staging-release.sh"], {
+    cwd: process.cwd(),
+    stdio: "pipe",
+  });
+});
+
+test("promotion policy owns route matrix and production-host denial", () => {
+  for (const token of [
+    'STAGING_SERVICE = "tecpey-staging.service"',
+    'RELEASE_ROOT = "/srv/tecpey/releases"',
+    '"/academy/profile"',
+    '"/en/academy/profile"',
+    '"/academy/market-intelligence"',
+    '"/en/academy/market-intelligence"',
+    '"/academy/trading-arena"',
+    '"/en/academy/trading-arena"',
+    "staging_public_base_url_must_not_target_production",
+    "staging_smoke_redirected_off_staging_origin",
+    "staging_health_commit_mismatch",
+  ]) {
+    requireText(policy, token, "promotion policy");
+  }
+});
