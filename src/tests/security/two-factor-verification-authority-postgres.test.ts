@@ -20,6 +20,7 @@ import {
   peekPreAuthToken,
   storePreAuthToken,
 } from "../../lib/security/totp";
+import { requireRecentSessionStepUpAuthority } from "../../lib/security/session-authority";
 import {
   hashSensitiveAuditRequest,
   writeSensitiveMutationAuditTx,
@@ -259,6 +260,12 @@ describe("Two-factor verification authority", { concurrency: 1 }, () => {
         audit: auditContext({ userId, tenant }),
       });
       assert.equal(verified.ok, true);
+      const fresh = await requireRecentSessionStepUpAuthority({
+        userId,
+        sessionJti,
+        maxAgeSeconds: 300,
+      });
+      assert.equal(fresh.ok, true);
 
       await withClient(async (client) => {
         const state = await client.query<{ step_up_at: Date | null }>(
