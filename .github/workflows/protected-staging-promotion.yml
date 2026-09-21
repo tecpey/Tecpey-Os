@@ -1,0 +1,254 @@
+name: Protected Staging Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact reviewed 40-character main-branch commit to promote
+        required: true
+        type: string
+      promotion_approval:
+        description: Type I_APPROVE_STAGING_PROMOTION
+        required: true
+        default: DENIED
+        type: string
+      rollback_drill:
+        description: Prove rollback to previous healthy release, then re-promote target
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: read
+  attestations: read
+
+concurrency:
+  group: protected-staging-promotion
+  cancel-in-progress: false
+
+jobs:
+  verify-supply:
+    name: Verify exact main SHA and signed supply chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      image_digest: ${{ steps.image.outputs.digest }}
+
+    steps:
+      - name: Validate explicit staging approval
+        shell: bash
+        env:
+          APPROVAL: ${{ inputs.promotion_approval }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$APPROVAL" = "I_APPROVE_STAGING_PROMOTION"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Checkout exact selected release
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify selected release belongs to main
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve immutable image digest
+        id: image
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          IMAGE_TAG="ghcr.io/tecpey/tecpey-os:$RELEASE_SHA"
+          docker pull "$IMAGE_TAG" >/dev/null
+          REPO_DIGEST="$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE_TAG")"
+          case "$REPO_DIGEST" in
+            ghcr.io/tecpey/tecpey-os@sha256:[0-9a-f]*) ;;
+            *) echo "Unexpected repository digest: $REPO_DIGEST" >&2; exit 1 ;;
+          esac
+          DIGEST="${REPO_DIGEST#*@}"
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$DIGEST" > image-digest.txt
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
+
+      - name: Verify exact image signature identity
+        shell: bash
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+          cosign verify             --certificate-identity-regexp '^https://github.com/tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml@refs/heads/main$'             --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'             "ghcr.io/tecpey/tecpey-os@$DIGEST"             > signature-verification.json
+
+      - name: Verify GitHub build provenance attestation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          gh attestation verify             "oci://ghcr.io/tecpey/tecpey-os@$DIGEST"             --repo tecpey/Tecpey-Os             --signer-workflow tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml             --source-ref refs/heads/main             --source-digest "$RELEASE_SHA"             --deny-self-hosted-runners             --format json             > provenance-verification.json
+          test -s provenance-verification.json
+
+      - name: Upload bounded supply verification
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: staging-promotion-supply-${{ inputs.release_sha }}
+          path: |
+            image-digest.txt
+            signature-verification.json
+            provenance-verification.json
+          if-no-files-found: error
+          retention-days: 30
+
+  promote:
+    name: Promote exact release on protected staging
+    needs: verify-supply
+    environment: staging
+    runs-on: [self-hosted, linux, x64, tecpey-staging]
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout promotion authority from main
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: authority
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify workflow authority and target membership
+        shell: bash
+        env:
+          AUTHORITY_SHA: ${{ github.sha }}
+          AUTHORITY_REF: ${{ github.ref }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+        run: |
+          set -Eeuo pipefail
+          test "$AUTHORITY_REF" = refs/heads/main
+          [[ "$AUTHORITY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test -n "$EXPECTED_USER"
+          test -n "$EXPECTED_GROUP"
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$(id -gn)" = "$EXPECTED_GROUP"
+          test "$(git -C authority rev-parse HEAD)" = "$AUTHORITY_SHA"
+          git -C authority merge-base --is-ancestor "$RELEASE_SHA" "$AUTHORITY_SHA"
+
+      - name: Verify required protected staging configuration
+        shell: bash
+        env:
+          ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          PUBLIC_BASE_URL: ${{ vars.TECPEY_STAGING_PUBLIC_BASE_URL }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$ENV_FILE"
+          test -n "$PUBLIC_BASE_URL"
+          test -f "$ENV_FILE"
+          test ! -L "$ENV_FILE"
+          node --input-type=module <<'NODE'
+          import { pathToFileURL } from "node:url";
+          const policy = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/authority/scripts/staging-promotion-policy.mjs`));
+          policy.assertSafeEnvironmentFilePath(process.env.ENV_FILE);
+          policy.assertSafeStagingPublicBaseUrl(process.env.PUBLIC_BASE_URL);
+          NODE
+
+      - name: Promote with automatic rollback
+        id: promote
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          IMAGE_DIGEST: ${{ needs.verify-supply.outputs.image_digest }}
+          TECPEY_STAGING_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          TECPEY_STAGING_PUBLIC_BASE_URL: ${{ vars.TECPEY_STAGING_PUBLIC_BASE_URL }}
+          TECPEY_STAGING_RUN_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          TECPEY_STAGING_RUN_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+          TECPEY_STAGING_ROLLBACK_DRILL: ${{ inputs.rollback_drill && '1' || '0' }}
+          TECPEY_PROMOTION_AUTHORITY_DIR: ${{ github.workspace }}/authority
+          TECPEY_PROMOTION_RESULT_FILE: ${{ runner.temp }}/tecpey-staging-promotion-runtime.json
+          TECPEY_PROMOTION_SMOKE_FILE: ${{ runner.temp }}/tecpey-staging-promotion-smoke.json
+        run: bash authority/scripts/promote-staging-release.sh
+
+      - name: Write and verify accepted promotion evidence
+        if: success()
+        shell: bash
+        env:
+          TECPEY_PROMOTION_SMOKE_FILE: ${{ runner.temp }}/tecpey-staging-promotion-smoke.json
+          TECPEY_PROMOTION_RESULT_FILE: ${{ runner.temp }}/tecpey-staging-promotion-runtime.json
+          TECPEY_PROMOTION_EVIDENCE_FILE: ${{ runner.temp }}/tecpey-staging-promotion-evidence.json
+        run: |
+          set -Eeuo pipefail
+          node authority/scripts/write-staging-promotion-evidence.mjs
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum --check tecpey-staging-promotion-evidence.json.sha256
+          )
+
+      - name: Publish promotion summary
+        if: success()
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          DIGEST: ${{ needs.verify-supply.outputs.image_digest }}
+          ROLLBACK_DRILL: ${{ inputs.rollback_drill }}
+        run: |
+          {
+            echo "## Protected staging promotion"
+            echo ""
+            echo "- Release: `$RELEASE_SHA`"
+            echo "- Environment: `staging`"
+            echo "- Service: `tecpey-staging.service`"
+            echo "- Immutable image digest verified: `$DIGEST`"
+            echo "- GitHub provenance attestation: `verified`"
+            echo "- Runtime health exact-SHA: `passed`"
+            echo "- FA/EN smoke matrix: `passed`"
+            echo "- Rollback drill requested: `$ROLLBACK_DRILL`"
+            echo "- Production mutation: `none`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accepted promotion evidence
+        if: success()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: protected-staging-promotion-${{ inputs.release_sha }}
+          path: |
+            ${{ runner.temp }}/tecpey-staging-promotion-runtime.json
+            ${{ runner.temp }}/tecpey-staging-promotion-smoke.json
+            ${{ runner.temp }}/tecpey-staging-promotion-evidence.json
+            ${{ runner.temp }}/tecpey-staging-promotion-evidence.json.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload bounded failed-promotion evidence
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: failed-staging-promotion-${{ inputs.release_sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/tecpey-staging-promotion-runtime.json
+            ${{ runner.temp }}/tecpey-staging-promotion-smoke.json
+          if-no-files-found: ignore
+          retention-days: 7
