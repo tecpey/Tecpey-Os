@@ -11,6 +11,7 @@ import {
   assertStagingService,
   buildPromotionEvidence,
   classifyMigrationRollbackSafety,
+  evaluateMigrationCutover,
   releasePathForSha,
   replaceReleasePathInUnit,
   validateSmokeResult,
@@ -314,6 +315,57 @@ test("classifies migration-authority changes as forward-fix/restore only", () =>
   assert.throws(
     () => classifyMigrationRollbackSafety(["ok.ts", null]),
     /migration_changed_paths_invalid/,
+  );
+});
+
+test("migration cutover policy requires explicit schema authority and forbids schema-changing downgrade", () => {
+  assert.equal(
+    evaluateMigrationCutover({
+      isDowngrade: false,
+      rollbackMode: "app_rollback_safe_no_migration_authority_change",
+      allowSchemaChange: false,
+    }),
+    "allowed",
+  );
+  assert.equal(
+    evaluateMigrationCutover({
+      isDowngrade: false,
+      rollbackMode: "forward_fix_or_restore_required",
+      allowSchemaChange: false,
+    }),
+    "require_schema_change_approval",
+  );
+  assert.equal(
+    evaluateMigrationCutover({
+      isDowngrade: false,
+      rollbackMode: "forward_fix_or_restore_required",
+      allowSchemaChange: true,
+    }),
+    "allowed",
+  );
+  assert.equal(
+    evaluateMigrationCutover({
+      isDowngrade: true,
+      rollbackMode: "app_rollback_safe_no_migration_authority_change",
+      allowSchemaChange: false,
+    }),
+    "allowed",
+  );
+  assert.equal(
+    evaluateMigrationCutover({
+      isDowngrade: true,
+      rollbackMode: "forward_fix_or_restore_required",
+      allowSchemaChange: true,
+    }),
+    "reject_schema_change_downgrade",
+  );
+  assert.throws(
+    () => evaluateMigrationCutover({
+      isDowngrade: "yes",
+      rollbackMode: "forward_fix_or_restore_required",
+      allowSchemaChange: true,
+    }),
+    /migration_cutover_flags_invalid/,
   );
 });
 
