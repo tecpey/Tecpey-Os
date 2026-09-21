@@ -26,15 +26,25 @@ for (const [name, value] of [
 const smoke = JSON.parse(await readFile(smokeFile, "utf8"));
 const result = JSON.parse(await readFile(resultFile, "utf8"));
 const runtimeHealth = JSON.parse(await readFile(healthFile, "utf8"));
+if (!["promoted", "verified_already_active"].includes(result.finalDisposition)) {
+  throw new Error("staging_promotion_result_not_accepted");
+}
+if (result.finalDisposition === "promoted") {
+  for (const [name, value] of [
+    ["previous_health_file", previousHealthFile],
+    ["backup_manifest_file", backupManifestFile],
+  ]) {
+    if (!value || !path.isAbsolute(value)) {
+      throw new Error(`staging_promotion_${name}_must_be_absolute`);
+    }
+  }
+}
 const previousHealth = result.finalDisposition === "promoted"
   ? JSON.parse(await readFile(previousHealthFile, "utf8"))
   : null;
 const backupManifest = result.finalDisposition === "promoted"
   ? JSON.parse(await readFile(backupManifestFile, "utf8"))
   : null;
-if (!["promoted", "verified_already_active"].includes(result.finalDisposition)) {
-  throw new Error("staging_promotion_result_not_accepted");
-}
 
 const evidence = buildPromotionEvidence({
   previousSha: result.previousSha,
