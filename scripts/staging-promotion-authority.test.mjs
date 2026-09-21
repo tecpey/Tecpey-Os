@@ -6,6 +6,9 @@ import assert from "node:assert/strict";
 const workflow = readFileSync(".github/workflows/protected-staging-promotion.yml", "utf8");
 const promotion = readFileSync("scripts/promote-staging-release.sh", "utf8");
 const policy = readFileSync("scripts/staging-promotion-policy.mjs", "utf8");
+const protectedEnvPolicy = readFileSync("scripts/protected-runtime-env-policy.mjs", "utf8");
+const protectedEnvRunner = readFileSync("scripts/run-with-protected-runtime-env.mjs", "utf8");
+const preflight = readFileSync("scripts/ubuntu24-preflight.sh", "utf8");
 const packageJson = readFileSync("package.json", "utf8");
 
 function requireText(source, token, label) {
@@ -78,7 +81,11 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     'test "$SERVICE_USER" = "$TECPEY_STAGING_RUN_USER"',
     'git -C "$CURRENT" merge-base --is-ancestor "$RELEASE_SHA" origin/main',
     'git -C "$CURRENT" worktree add --detach "$NEXT" "$RELEASE_SHA"',
-    'install -m 0600 "$TECPEY_STAGING_ENV_FILE" "$NEXT/.env.production"',
+    'test ! -e "$NEXT/.env.production"',
+    'PATH=/usr/bin:/bin /usr/bin/npm ci --no-audit --no-fund',
+    'run_with_protected_env /usr/bin/npm run env:check',
+    "TECPEY_PREFLIGHT_NPM_CI_DONE=1",
+    "TECPEY_PREFLIGHT_ENV_CHECK_DONE=1",
     "bash scripts/ubuntu24-preflight.sh candidate",
     "bash scripts/ubuntu24-preflight.sh migrate",
     "bash scripts/ubuntu24-preflight.sh runtime",
@@ -99,7 +106,8 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     "require_schema_change_approval",
     "diff --name-only -z",
     "MIGRATION_AUTHORITY_CHANGE_COUNT",
-    "staging_environment_file_unsafe",
+    "run-with-protected-runtime-env.mjs",
+    'run_with_protected_env /bin/bash scripts/ubuntu24-preflight.sh migrate',
     '"$TECPEY_STAGING_HEALTH_URL"',
     "Schema-changing promotion failed; staging remains stopped",
     'sudo systemctl stop "$SERVICE"',
@@ -111,11 +119,42 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     /Refusing non-monotonic staging promotion/,
     "older-main promotion must require explicit downgrade intent",
   );
-  assert.match(
+  assert.doesNotMatch(
     promotion,
-    /\(stat\.mode & 0o007\) !== 0[\s\S]*\(stat\.mode & 0o030\) !== 0/,
-    "environment file must reject world access and group write/execute permissions",
+    /install[^\n]*\.env\.production/,
+    "protected staging secrets must never be copied into immutable release directories",
   );
+  assert.doesNotMatch(
+    promotion,
+    /(?:^|\n)\s*(?:source|\.)\s+[^\n]*TECPEY_STAGING_ENV_FILE/m,
+    "protected staging env must never be shell-sourced",
+  );
+  const installIndex = promotion.indexOf("PATH=/usr/bin:/bin /usr/bin/npm ci --no-audit --no-fund");
+  const envCheckIndex = promotion.indexOf("run_with_protected_env /usr/bin/npm run env:check");
+  const candidateIndex = promotion.indexOf("bash scripts/ubuntu24-preflight.sh candidate");
+  assert.ok(installIndex >= 0 && installIndex < envCheckIndex && envCheckIndex < candidateIndex,
+    "dependency install must happen before protected env exposure, then candidate build");
+  for (const token of [
+    "TECPEY_ENV_VALIDATION_SOURCE",
+    "TECPEY_PREFLIGHT_NPM_CI_DONE",
+    "TECPEY_PREFLIGHT_ENV_CHECK_DONE",
+    "TECPEY_PREFLIGHT_HEALTH_URL",
+  ]) {
+    requireText(preflight, token, "governed host preflight");
+  }
+  for (const token of [
+    "NODE_OPTIONS",
+    "LD_PRELOAD",
+    "NPM_CONFIG_",
+    "TECPEY_PROMOTION_",
+    "TECPEY_STAGING_",
+    "protected_runtime_env_permissions_unsafe",
+    "protected_runtime_env_owner_invalid",
+  ]) {
+    requireText(protectedEnvPolicy, token, "protected runtime env policy");
+  }
+  requireText(protectedEnvRunner, 'shell: false', "protected runtime env runner");
+  requireText(protectedEnvRunner, "protected_runtime_command_must_be_absolute", "protected runtime env runner");
   assert.doesNotMatch(promotion, /\brm\s+-rf\b/, "promotion must not recursively delete releases");
   assert.doesNotMatch(
     promotion,
