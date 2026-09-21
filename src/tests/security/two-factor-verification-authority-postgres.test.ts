@@ -166,6 +166,17 @@ describe("Two-factor verification authority", { concurrency: 1 }, () => {
       const userId = `two-factor-verify-user-${randomUUID()}`;
       const tenant = tenantId();
       const factor = await seedEnabledFactor({ userId, tenant });
+      // Enrollment confirmation intentionally consumes its TOTP step. Move the
+      // persisted replay watermark back one step so this legacy success-path
+      // assertion exercises a fresh verification step without a 30s sleep.
+      await withClient(async (client) => {
+        await client.query(
+          `UPDATE user_2fa
+              SET last_accepted_totp_step = last_accepted_totp_step - 1
+            WHERE user_id = $1`,
+          [userId],
+        );
+      });
       const beforeValue = await lastUsedAt(userId);
       await new Promise((resolve) => setTimeout(resolve, 10));
 
