@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+async function waitForStablePaint(page) {
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
+}
+
 // Uses the existing isolated CI runtime and report uploader, not staging data.
 // Each attached image is evidence for one route/theme/viewport, not approval.
 for (const screen of ["landing", "login", "signup"]) {
@@ -73,6 +79,7 @@ for (const screen of ["landing", "login", "signup"]) {
       const widths = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
       expect(widths[0]).toBeLessThanOrEqual(widths[1] + 1);
       await page.evaluate(() => document.fonts.ready);
+      await waitForStablePaint(page);
       if (screen === "landing") {
         const hero = page.locator('main [data-home-section="hero"]');
         await expect(hero).toBeVisible();
@@ -84,6 +91,15 @@ for (const screen of ["landing", "login", "signup"]) {
             exact: false,
           }),
         ).toBeVisible();
+        await expect(
+          hero.getByRole("link", {
+            name: en ? "Talk to AI Mentor" : "گفتگو با منتور هوشمند",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(hero).toContainText(en ? "Your learning path today" : "مسیر امروز تو");
+        await expect(hero).toContainText(en ? "Academy" : "آکادمی");
+        await waitForStablePaint(page);
       } else {
         const artwork = page.locator('main img[src*="academy-auth-crystal"]');
         await artwork.scrollIntoViewIfNeeded();
@@ -102,6 +118,7 @@ for (const screen of ["landing", "login", "signup"]) {
       if (screen === "landing") {
         const news = page.locator('[data-home-section="news-carousel"]');
         await news.scrollIntoViewIfNeeded();
+        await waitForStablePaint(page);
         await expect(news).toBeVisible();
         await expect(news.locator('[aria-roledescription="slide"]').first().locator("img")).toBeVisible();
         await testInfo.attach(`landing-news-${theme}-${testInfo.project.name}`, {
