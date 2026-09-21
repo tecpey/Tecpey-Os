@@ -28,6 +28,7 @@ readonly RESTORED_HEALTH_FILE="$RUNNER_TEMP/tecpey-staging-promotion-restored-he
 readonly BACKUP_MANIFEST_FILE="$RUNNER_TEMP/tecpey-staging-promotion-backup-manifest.json"
 readonly STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
 readonly ROLLBACK_DRILL="${TECPEY_STAGING_ROLLBACK_DRILL:-0}"
+readonly ALLOW_DOWNGRADE="${TECPEY_STAGING_ALLOW_DOWNGRADE:-0}"
 
 node --input-type=module <<'NODE'
 import { pathToFileURL } from "node:url";
@@ -42,6 +43,9 @@ if (!/^sha256:[0-9a-f]{64}$/.test(process.env.IMAGE_DIGEST ?? "")) {
 }
 if (!["0", "1"].includes(process.env.TECPEY_STAGING_ROLLBACK_DRILL ?? "0")) {
   throw new Error("staging_promotion_rollback_drill_invalid");
+}
+if (!["0", "1"].includes(process.env.TECPEY_STAGING_ALLOW_DOWNGRADE ?? "0")) {
+  throw new Error("staging_promotion_allow_downgrade_invalid");
 }
 NODE
 
@@ -86,7 +90,9 @@ if (
   !stat.isFile() ||
   stat.size < 1 ||
   stat.size > 128 * 1024 ||
-  (stat.mode & 0o022) !== 0
+  (stat.mode & 0o007) !== 0 ||
+  (stat.mode & 0o030) !== 0 ||
+  (stat.mode & 0o111) !== 0
 ) {
   throw new Error("staging_environment_file_unsafe");
 }
@@ -98,8 +104,10 @@ write_result() {
   local rollback_disposition="$2"
   local completed_at
   completed_at="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
-  PREVIOUS_SHA="$PREVIOUS_SHA"   TARGET_SHA="$RELEASE_SHA"   IMAGE_DIGEST="$IMAGE_DIGEST"   PUBLIC_BASE_URL="$TECPEY_STAGING_PUBLIC_BASE_URL"   STARTED_AT="$STARTED_AT"   COMPLETED_AT="$completed_at"   FINAL_DISPOSITION="$final_disposition"   ROLLBACK_DISPOSITION="$rollback_disposition"   PREVIOUS_PLAN_HASH="$PREVIOUS_PLAN_HASH"   TARGET_PLAN_HASH="$TARGET_PLAN_HASH"   MIGRATION_ROLLBACK_MODE="$MIGRATION_ROLLBACK_MODE"   RESULT_FILE="$RESULT_FILE"     node <<'NODE'
+  PREVIOUS_SHA="$PREVIOUS_SHA"   TARGET_SHA="$RELEASE_SHA"   IMAGE_DIGEST="$IMAGE_DIGEST"   PUBLIC_BASE_URL="$TECPEY_STAGING_PUBLIC_BASE_URL"   STARTED_AT="$STARTED_AT"   COMPLETED_AT="$completed_at"   FINAL_DISPOSITION="$final_disposition"   ROLLBACK_DISPOSITION="$rollback_disposition"   PREVIOUS_PLAN_HASH="$PREVIOUS_PLAN_HASH"   TARGET_PLAN_HASH="$TARGET_PLAN_HASH"   MIGRATION_ROLLBACK_MODE="$MIGRATION_ROLLBACK_MODE"   MIGRATION_CLASSIFICATION_FILE="$MIGRATION_CLASSIFICATION_FILE"   RESULT_FILE="$RESULT_FILE"     node <<'NODE'
 const { writeFileSync } = require("node:fs");
+const { readFileSync } = require("node:fs");
+const migrationClassification = JSON.parse(readFileSync(process.env.MIGRATION_CLASSIFICATION_FILE, "utf8"));
 const result = {
   schemaVersion: 1,
   evidenceClass: "tecpey-staging-promotion-runtime-v1",
@@ -114,6 +122,7 @@ const result = {
   rollbackDisposition: process.env.ROLLBACK_DISPOSITION,
   previousPlanHash: process.env.PREVIOUS_PLAN_HASH,
   targetPlanHash: process.env.TARGET_PLAN_HASH,
+  migrationAuthorityChanges: migrationClassification.migrationAuthorityChanges,
   migrationRollbackMode: process.env.MIGRATION_ROLLBACK_MODE,
 };
 writeFileSync(process.env.RESULT_FILE, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
@@ -154,6 +163,8 @@ NODE
 )"
 TARGET_PLAN_HASH="$PREVIOUS_PLAN_HASH"
 MIGRATION_ROLLBACK_MODE="app_rollback_safe_no_migration_authority_change"
+readonly MIGRATION_CLASSIFICATION_FILE="$RUNNER_TEMP/tecpey-staging-migration-classification.json"
+printf '%s\n' '{"mode":"app_rollback_safe_no_migration_authority_change","migrationAuthorityChanges":[]}' > "$MIGRATION_CLASSIFICATION_FILE"
 SCHEMA_CUTOVER_ACTIVE=0
 
 if [ "$PREVIOUS_SHA" = "$RELEASE_SHA" ]; then
@@ -167,8 +178,32 @@ fi
 validate_environment_file
 
 git -C "$CURRENT" fetch --no-tags origin main
+git -C "$CURRENT" merge-base --is-ancestor "$PREVIOUS_SHA" origin/main
 git -C "$CURRENT" merge-base --is-ancestor "$RELEASE_SHA" origin/main
 git -C "$CURRENT" cat-file -e "$RELEASE_SHA^{commit}"
+
+if [ "$ALLOW_DOWNGRADE" != "1" ] && ! git -C "$CURRENT" merge-base --is-ancestor "$PREVIOUS_SHA" "$RELEASE_SHA"; then
+  echo "Refusing non-monotonic staging promotion; set allow_downgrade explicitly for an intentional older-main release." >&2
+  exit 1
+fi
+
+readonly CHANGED_PATHS_FILE="$RUNNER_TEMP/tecpey-staging-changed-paths.bin"
+git -C "$CURRENT" diff --name-only -z "$PREVIOUS_SHA" "$RELEASE_SHA" -- > "$CHANGED_PATHS_FILE"
+CHANGED_PATHS_FILE="$CHANGED_PATHS_FILE" MIGRATION_CLASSIFICATION_FILE="$MIGRATION_CLASSIFICATION_FILE" node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const policy = await import(pathToFileURL(`${process.env.TECPEY_PROMOTION_AUTHORITY_DIR}/scripts/staging-promotion-policy.mjs`));
+const changedPaths = readFileSync(process.env.CHANGED_PATHS_FILE)
+  .toString("utf8")
+  .split("\0")
+  .filter(Boolean);
+const classification = policy.classifyMigrationRollbackSafety(changedPaths);
+writeFileSync(
+  process.env.MIGRATION_CLASSIFICATION_FILE,
+  `${JSON.stringify(classification)}\n`,
+  { mode: 0o600 },
+);
+NODE
 
 if [ -e "$NEXT" ]; then
   test -d "$NEXT"
@@ -189,7 +224,15 @@ install -m 0600 "$TECPEY_STAGING_ENV_FILE" "$NEXT/.env.production"
 
 TARGET_PLAN_HASH="$(cd "$NEXT" && node dist/print-database-migration-plan-hash.cjs)"
 [[ "$TARGET_PLAN_HASH" =~ ^[0-9a-f]{64}$ ]]
-if [ "$TARGET_PLAN_HASH" = "$PREVIOUS_PLAN_HASH" ]; then
+readonly MIGRATION_AUTHORITY_CHANGE_COUNT="$(MIGRATION_CLASSIFICATION_FILE="$MIGRATION_CLASSIFICATION_FILE" node <<'NODE'
+const { readFileSync } = require("node:fs");
+const value = JSON.parse(readFileSync(process.env.MIGRATION_CLASSIFICATION_FILE, "utf8"));
+if (!Array.isArray(value.migrationAuthorityChanges)) throw new Error("staging_migration_classification_invalid");
+process.stdout.write(String(value.migrationAuthorityChanges.length));
+NODE
+)"
+[[ "$MIGRATION_AUTHORITY_CHANGE_COUNT" =~ ^[0-9]+$ ]]
+if [ "$TARGET_PLAN_HASH" = "$PREVIOUS_PLAN_HASH" ] && [ "$MIGRATION_AUTHORITY_CHANGE_COUNT" -eq 0 ]; then
   MIGRATION_ROLLBACK_MODE="app_rollback_safe_no_migration_authority_change"
 else
   MIGRATION_ROLLBACK_MODE="forward_fix_or_restore_required"
