@@ -391,7 +391,7 @@ function CompactNewsCarousel({
       role="region"
       aria-roledescription="carousel"
       aria-label={isFa ? "آخرین اخبار تک‌پی" : "Latest TecPey news"}
-      className="relative overflow-hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8 lg:pb-24"
+      className="relative scroll-mt-24 overflow-hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:scroll-mt-28 sm:px-6 lg:px-8 lg:pb-24"
       aria-labelledby="home-news-carousel-title"
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto h-72 max-w-6xl bg-[radial-gradient(circle_at_50%_10%,rgba(34,211,238,.16),transparent_62%)]" aria-hidden="true" />
