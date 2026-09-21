@@ -22,6 +22,9 @@ test("educational market snapshot stays within its mobile container", () => {
   assert.match(snapshot, /grid-cols-\[42px_1fr_auto\]/);
   assert.match(snapshot, /min-w-0/);
   assert.match(snapshot, /tabular-nums/);
+  assert.match(snapshot, /role="list"/);
+  assert.match(snapshot, /role="listitem"/);
+  assert.doesNotMatch(snapshot, /<dl|<dt|<dd/);
 });
 
 
