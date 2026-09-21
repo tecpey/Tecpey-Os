@@ -219,6 +219,18 @@ restore_previous_runtime() {
   )
 }
 
+promote_next_runtime() {
+  install_unit_bytes "$UNIT_NEXT"
+  sudo systemctl daemon-reload
+  verify_working_directory "$NEXT"
+  sudo systemctl restart "$SERVICE"
+  (
+    cd "$NEXT"
+    bash scripts/ubuntu24-preflight.sh runtime
+  )
+  run_smoke
+}
+
 MUTATION_ACTIVE=0
 rollback_on_error() {
   local code=$?
@@ -239,32 +251,34 @@ rollback_on_error() {
 }
 trap rollback_on_error ERR
 
-install_unit_bytes "$UNIT_NEXT"
 MUTATION_ACTIVE=1
-sudo systemctl daemon-reload
-verify_working_directory "$NEXT"
-sudo systemctl restart "$SERVICE"
-(
-  cd "$NEXT"
-  bash scripts/ubuntu24-preflight.sh runtime
-)
-run_smoke
+promote_next_runtime
 
 ROLLBACK_DISPOSITION="not_needed"
 if [ "$ROLLBACK_DRILL" = "1" ]; then
   echo "Executing protected rollback drill before final re-promotion."
   trap - ERR
-  restore_previous_runtime
 
-  install_unit_bytes "$UNIT_NEXT"
-  sudo systemctl daemon-reload
-  verify_working_directory "$NEXT"
-  sudo systemctl restart "$SERVICE"
-  (
-    cd "$NEXT"
-    bash scripts/ubuntu24-preflight.sh runtime
-  )
-  run_smoke
+  if ! restore_previous_runtime; then
+    echo "Rollback drill could not prove the previous runtime; attempting to restore the target runtime." >&2
+    if promote_next_runtime; then
+      write_result "rollback_drill_failed_target_restored" "armed"
+    else
+      write_result "rollback_drill_failed_runtime_unhealthy" "armed"
+    fi
+    exit 1
+  fi
+
+  if ! promote_next_runtime; then
+    echo "Rollback drill proved the previous runtime, but target re-promotion failed; restoring previous runtime." >&2
+    if restore_previous_runtime; then
+      write_result "rolled_back_after_drill_repromotion_failure" "completed"
+    else
+      write_result "rollback_failed_after_drill_repromotion_failure" "armed"
+    fi
+    exit 1
+  fi
+
   trap rollback_on_error ERR
   ROLLBACK_DISPOSITION="completed_and_repromoted"
 fi
