@@ -25,6 +25,29 @@ export const DEFAULT_STAGING_SMOKE_PATHS = Object.freeze([
   "/en/academy/notifications",
 ]);
 
+const MIGRATION_AUTHORITY_PATHS = Object.freeze([
+  /^migrations\//,
+  /^src\/lib\/db-migrate\.ts$/,
+  /^src\/lib\/db-migration-(?:registry|readiness)\.ts$/,
+  /^scripts\/(?:run-database-migrations|check-database-migration-authority)\.(?:ts|mjs)$/,
+]);
+
+export function classifyMigrationRollbackSafety(changedPaths) {
+  if (!Array.isArray(changedPaths) || changedPaths.some((value) => typeof value !== "string")) {
+    throw new Error("migration_changed_paths_invalid");
+  }
+  const migrationAuthorityChanges = changedPaths.filter((file) =>
+    MIGRATION_AUTHORITY_PATHS.some((pattern) => pattern.test(file)),
+  );
+  return Object.freeze({
+    mode:
+      migrationAuthorityChanges.length === 0
+        ? "app_rollback_safe_no_migration_authority_change"
+        : "forward_fix_or_restore_required",
+    migrationAuthorityChanges: Object.freeze([...migrationAuthorityChanges].sort()),
+  });
+}
+
 const EXACT_SHA = /^[0-9a-f]{40}$/;
 const RELEASE_PATH = /^\/srv\/tecpey\/releases\/([0-9a-f]{40})$/;
 const SYSTEMD_DROP_IN =
@@ -257,7 +280,7 @@ export function buildPromotionEvidence(input) {
       throw new Error(`promotion_${name}_invalid`);
     }
   }
-  if (!rollback || !["armed", "not_needed", "completed", "completed_and_repromoted"].includes(rollback.disposition)) {
+  if (!rollback || !["armed", "not_needed", "completed", "completed_and_repromoted", "not_permitted_schema_authority_changed"].includes(rollback.disposition)) {
     throw new Error("promotion_rollback_evidence_invalid");
   }
   validateStagingHealth(runtimeHealth, targetSha);
