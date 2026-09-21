@@ -9,6 +9,7 @@ import {
   assertSafeSystemdMutationPath,
   assertStagingService,
   buildPromotionEvidence,
+  classifyMigrationRollbackSafety,
   releasePathForSha,
   replaceReleasePathInUnit,
   validateSmokeResult,
@@ -256,3 +257,33 @@ test("new promotion evidence fails closed without previous health or a unit back
   );
 });
 
+
+
+test("classifies migration-authority changes as forward-fix/restore only", () => {
+  assert.deepEqual(
+    classifyMigrationRollbackSafety([
+      "src/components/navbar/Navbar.tsx",
+      "docs/program/01_STAGING_RELEASE_AUTOMATION_CONTRACT.md",
+    ]),
+    {
+      mode: "app_rollback_safe_no_migration_authority_change",
+      migrationAuthorityChanges: [],
+    },
+  );
+
+  const changed = classifyMigrationRollbackSafety([
+    "src/components/navbar/Navbar.tsx",
+    "migrations/0112_example.sql",
+    "src/lib/db-migration-registry.ts",
+  ]);
+  assert.equal(changed.mode, "forward_fix_or_restore_required");
+  assert.deepEqual(changed.migrationAuthorityChanges, [
+    "migrations/0112_example.sql",
+    "src/lib/db-migration-registry.ts",
+  ]);
+
+  assert.throws(
+    () => classifyMigrationRollbackSafety(["ok.ts", null]),
+    /migration_changed_paths_invalid/,
+  );
+});
