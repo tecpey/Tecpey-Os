@@ -120,7 +120,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
 
       {status === "loading" ? (
         <p className="mt-5 flex items-center gap-2 text-sm text-muted" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
           {isFa ? "در حال دریافت تنظیمات…" : "Loading Mentor settings…"}
         </p>
       ) : status === "error" ? (
@@ -193,7 +193,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-700 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "saving" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               ) : status === "saved" ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
               ) : (
