@@ -245,7 +245,7 @@ export function buildPromotionEvidence(input) {
     environment: "staging",
     previousSha,
     targetSha,
-    imageDigest,
+    supplyChainImageDigest: imageDigest,
     publicOrigin: origin,
     smokeResults: smokeResults.map(({ path: smokePath, finalStatus }) => ({
       path: smokePath,
