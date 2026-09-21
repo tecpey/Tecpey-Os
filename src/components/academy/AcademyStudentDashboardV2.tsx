@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, Orbit, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
+import { ArrowUpRight, Award, CheckCircle2, Crown, Flame, GraduationCap, Loader2, Lock, Orbit, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
@@ -223,6 +223,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const coreComplete = completedCoreTerms === ACADEMY_CORE_TERM_COUNT;
   const currentTermNumber = coreComplete ? 8 : Math.min(ACADEMY_CORE_TERM_COUNT, completedCoreTerms + 1);
   const currentTerm = terms.find((term) => term.number === currentTermNumber) || null;
+  const currentTermProgressRow = progressRows.find((row) => Number(row.term_number) === currentTermNumber);
+  const currentTermPercent = currentTermProgressRow?.percent == null ? null : Math.min(100, Math.max(0, numberOr(currentTermProgressRow.percent)));
   const overall = Math.min(100, Math.max(numberOr(profile?.overall_progress), Math.round((completedCoreTerms / ACADEMY_CORE_TERM_COUNT) * 100)));
   const displayName = profile?.display_name || (isFa ? "دانشجوی تک‌پی" : "TecPey learner");
   const username = profile?.username ? `@${profile.username}` : "";
@@ -268,6 +270,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <p className="mt-5 max-w-3xl text-sm font-medium leading-8 text-slate-300">{isFa ? "اینجا فقط یک صفحه حساب نیست؛ نمای زنده‌ای از مسیر یادگیری، تداوم، دستاوردهای تأییدشده و قدم بعدی توست." : "This is more than an account page: it is a live view of your learning journey, consistency, verified achievements and next step."}</p>
               <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold">
                 <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-2 text-cyan-100">{isFa ? `ترم فعلی: ${coreComplete ? "۸ · ∞" : currentTermNumber}` : `Current term: ${coreComplete ? "8 · ∞" : currentTermNumber}`}</span>
+                {currentTermPercent !== null ? <span className="rounded-full border border-cyan-200/15 bg-cyan-300/[.06] px-3 py-2 text-cyan-50">{isFa ? `پیشرفت همین ترم: ${currentTermPercent.toLocaleString("fa-IR")}٪` : `Current term: ${currentTermPercent}%`}</span> : null}
                 <span className="rounded-full border border-white/10 bg-white/[.045] px-3 py-2 text-slate-200">{isFa ? `پیشرفت هسته: ${overall.toLocaleString("fa-IR")}٪` : `Core progress: ${overall}%`}</span>
                 {streakDays !== null ? <span className="rounded-full border border-orange-200/15 bg-orange-300/[.08] px-3 py-2 text-orange-100">{isFa ? `${streakDays.toLocaleString("fa-IR")} روز تداوم` : `${streakDays} day streak`}</span> : null}
               </div>
@@ -311,6 +314,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             <Quick href={`${termBase}/ai-guide`} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "گفت‌وگو درباره مسیر یادگیری و تمرین بعدی" : "Talk through your learning journey and next practice"} />
             <Quick href={`${termBase}/trading-arena`} icon={<TrendingUp />} title={t.arena} text={isFa ? "تمرین تصمیم‌گیری با سرمایه مجازی" : "Practice decisions with virtual capital"} />
             <Quick href={isFa ? "/academy/certificates" : "/en/academy/certificates"} icon={<ShieldCheck />} title={t.certs} text={isFa ? "مشاهده مدارک قابل استعلام" : "View verifiable certificates"} />
+            <Quick href={`${termBase}/account#pro`} icon={<Crown />} title="TecPey Pro" text={isFa ? "پیش‌نمایش قابلیت‌های هوشمند پیشرفته؛ خرید هنوز فعال نیست" : "Preview advanced intelligence capabilities; purchasing is not active yet"} />
           </aside>
         </div>
 
