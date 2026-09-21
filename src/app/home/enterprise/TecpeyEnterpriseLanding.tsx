@@ -120,7 +120,7 @@ function MarketLearningSnapshot() {
             </span>
           </div>
 
-          <dl className="grid sm:grid-cols-2">
+          <div role="list" className="grid sm:grid-cols-2">
             {rows.map((row, index) => {
               const symbol = normalizeSymbol(row);
               const faName =
@@ -134,20 +134,21 @@ function MarketLearningSnapshot() {
               return (
                 <div
                   key={`${symbol}-${index}`}
+                  role="listitem"
                   className="grid grid-cols-[42px_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] p-4 odd:sm:border-e sm:[&:nth-last-child(-n+2)]:border-b-0"
                 >
                   <CoinVisual symbol={symbol} name={name} faName={faName} variant="avatar" />
-                  <dt className="min-w-0">
+                  <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[color:var(--tp-text)]">{faName}</span>
                     <span dir="ltr" className="mt-0.5 block text-[10px] font-bold text-[color:var(--tp-muted)]">{symbol}</span>
-                  </dt>
-                  <dd dir="ltr" className="text-sm font-black tabular-nums text-[color:var(--tp-text)]">
+                  </span>
+                  <span dir="ltr" className="text-sm font-black tabular-nums text-[color:var(--tp-text)]">
                     {formatUsdPrice(price)}
-                  </dd>
+                  </span>
                 </div>
               );
             })}
-          </dl>
+          </div>
         </div>
       </div>
     </section>
