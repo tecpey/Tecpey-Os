@@ -335,11 +335,6 @@ function CompactNewsCarousel({
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
   const scrollFrameRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const firstId = ordered[0]?.id ?? "";
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [firstId]);
 
   useEffect(() => () => {
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
@@ -631,7 +626,16 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
   const sections = useMemo(() => newsSections(orderedItems), [orderedItems]);
 
   if (compact) {
-    return <CompactNewsCarousel locale={locale} items={topItems} loading={loading} mode={state.mode} updatedAt={state.updatedAt} />;
+    return (
+      <CompactNewsCarousel
+        key={topItems[0]?.id ?? "empty-news-carousel"}
+        locale={locale}
+        items={topItems}
+        loading={loading}
+        mode={state.mode}
+        updatedAt={state.updatedAt}
+      />
+    );
   }
 
   return (
