@@ -321,12 +321,17 @@ function CompactNewsCarousel({
   const ordered = useMemo(() => latestNewsFirst(items).slice(0, 6), [items]);
   const railRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLElement | null>>([]);
+  const scrollFrameRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const firstId = ordered[0]?.id ?? "";
 
   useEffect(() => {
     setActiveIndex(0);
   }, [firstId]);
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+  }, []);
 
   function scrollToSlide(index: number) {
     const bounded = Math.max(0, Math.min(ordered.length - 1, index));
@@ -346,7 +351,7 @@ function CompactNewsCarousel({
     if (!rail || ordered.length === 0) return;
     const railBox = rail.getBoundingClientRect();
     const center = railBox.left + railBox.width / 2;
-    let nextIndex = activeIndex;
+    let nextIndex = 0;
     let closest = Number.POSITIVE_INFINITY;
 
     cardRefs.current.forEach((node, index) => {
@@ -359,7 +364,15 @@ function CompactNewsCarousel({
       }
     });
 
-    if (nextIndex !== activeIndex) setActiveIndex(nextIndex);
+    setActiveIndex((current) => current === nextIndex ? current : nextIndex);
+  }
+
+  function scheduleActiveSlideSync() {
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      syncActiveSlide();
+    });
   }
 
   const OlderIcon = isFa ? ArrowLeft : ArrowRight;
@@ -439,7 +452,7 @@ function CompactNewsCarousel({
 
             <div
               ref={railRef}
-              onScroll={syncActiveSlide}
+              onScroll={scheduleActiveSlideSync}
               className="flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-5 pe-[12%] [scroll-padding-inline:1rem] [scrollbar-width:none] sm:gap-5 sm:pe-[18%] lg:pe-[22%] [&::-webkit-scrollbar]:hidden"
             >
               {ordered.map((item, index) => {
@@ -482,7 +495,7 @@ function CompactNewsCarousel({
                           <img
                             src={thumbnail}
                             alt={item.thumbnailAlt || ""}
-                            loading={featured ? "eager" : "lazy"}
+                            loading="lazy"
                             decoding="async"
                             referrerPolicy="no-referrer"
                             onError={(event) => { event.currentTarget.style.display = "none"; }}
