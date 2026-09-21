@@ -8,7 +8,12 @@
 Move from “tenant-aware data model” to an enforceable tenant runtime/product contract and audited enterprise administration.
 
 ## Research anchors
-AWS SaaS guidance emphasizes that authentication/authorization alone is not tenant isolation, and isolation should be applied through shared mechanisms rather than relying on every developer. PostgreSQL RLS defaults to deny when RLS is enabled with no applicable policy, while table owners/BYPASSRLS require explicit care. citeturn553278search0turn553278search5turn124818search2
+AWS SaaS guidance emphasizes that authentication/authorization alone is not tenant isolation, and isolation should be applied through shared mechanisms rather than relying on every developer. PostgreSQL RLS defaults to deny when RLS is enabled with no applicable policy, while table owners/BYPASSRLS require explicit care.
+
+Primary references:
+- https://docs.aws.amazon.com/whitepapers/latest/saas-architecture-fundamentals/tenant-isolation.html
+- https://docs.aws.amazon.com/whitepapers/latest/saas-tenant-isolation-strategies/the-isolation-mindset.html
+- https://www.postgresql.org/docs/17/ddl-rowsecurity.html
 
 ## Runtime tenant authority
 - host/custom-domain → tenant/workspace resolution;
