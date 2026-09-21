@@ -206,6 +206,67 @@ describe("Two-factor verification authority", { concurrency: 1 }, () => {
   );
 
   it(
+    "allows one success per TOTP time step and rejects concurrent replay",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const userId = `two-factor-verify-user-${randomUUID()}`;
+      const tenant = tenantId();
+      const factor = await seedEnabledFactor({ userId, tenant });
+      // Enrollment confirmation consumes its RFC-6238 step. Advance the stored
+      // authority one step backwards so this test can exercise a fresh step
+      // without sleeping for the next 30-second boundary.
+      await withClient(async (client) => {
+        await client.query(
+          `UPDATE user_2fa
+              SET last_accepted_totp_step = last_accepted_totp_step - 1
+            WHERE user_id = $1`,
+          [userId],
+        );
+      });
+      const code = generateTotp(factor.rawSecret);
+      const [first, second] = await Promise.all([
+        verifyTwoFactorCredential({
+          userId,
+          code,
+          audit: auditContext({ userId, tenant }),
+        }),
+        verifyTwoFactorCredential({
+          userId,
+          code,
+          audit: auditContext({ userId, tenant }),
+        }),
+      ]);
+      assert.equal([first, second].filter((result) => result.ok).length, 1);
+      assert.equal(
+        [first, second].filter(
+          (result) => !result.ok && result.status === "invalid_code",
+        ).length,
+        1,
+      );
+
+      await withClient(async (client) => {
+        const evidence = await client.query<{ outcome: string; metadata: { resultCategory?: string } }>(
+          `SELECT outcome, metadata
+             FROM sensitive_mutation_audit_events
+            WHERE tenant_id = $1
+              AND actor_id = $2
+              AND action = 'credential.2fa.verify'
+            ORDER BY created_at ASC`,
+          [tenant, userId],
+        );
+        assert.equal(evidence.rows.filter((row) => row.outcome === "success").length, 1);
+        assert.equal(
+          evidence.rows.filter(
+            (row) => row.outcome === "rejected"
+              && row.metadata?.resultCategory === "totp_replay",
+          ).length,
+          1,
+        );
+      });
+    },
+  );
+
+  it(
     "records invalid verification without changing credential usage state",
     { skip: !databaseConfigured, timeout: 30_000 },
     async () => {
