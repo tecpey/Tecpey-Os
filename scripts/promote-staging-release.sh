@@ -94,23 +94,13 @@ test -z "$(git -C "$CURRENT" status --porcelain --untracked-files=no)"
 
 readonly NEXT="$RELEASE_ROOT/$RELEASE_SHA"
 
-validate_environment_file() {
-  ENV_FILE="$TECPEY_STAGING_ENV_FILE" node <<'NODE'
-const { lstatSync } = require("node:fs");
-const value = process.env.ENV_FILE;
-const stat = lstatSync(value);
-if (
-  stat.isSymbolicLink() ||
-  !stat.isFile() ||
-  stat.size < 1 ||
-  stat.size > 128 * 1024 ||
-  (stat.mode & 0o007) !== 0 ||
-  (stat.mode & 0o030) !== 0 ||
-  (stat.mode & 0o111) !== 0
-) {
-  throw new Error("staging_environment_file_unsafe");
-}
-NODE
+readonly PROTECTED_ENV_RUNNER="$AUTHORITY_DIR/scripts/run-with-protected-runtime-env.mjs"
+test -f "$PROTECTED_ENV_RUNNER"
+
+run_with_protected_env() {
+  TECPEY_PROTECTED_ENV_EXPECTED_UID="$(id -u)" \
+  TECPEY_PROTECTED_ENV_EXPECTED_GID="$(id -g)" \
+    /usr/bin/node "$PROTECTED_ENV_RUNNER" "$TECPEY_STAGING_ENV_FILE" -- "$@"
 }
 
 write_result() {
@@ -162,7 +152,9 @@ NODE
 
 (
   cd "$CURRENT"
-  bash scripts/ubuntu24-preflight.sh runtime
+  TECPEY_PREFLIGHT_HEALTH_URL="$TECPEY_STAGING_HEALTH_URL" \
+    TECPEY_PREFLIGHT_HEALTH_URL="$TECPEY_STAGING_HEALTH_URL" \
+      bash scripts/ubuntu24-preflight.sh runtime
 )
 capture_health "$PREVIOUS_SHA" "$PREVIOUS_HEALTH_FILE"
 readonly PREVIOUS_PLAN_HASH="$(HEALTH_FILE="$PREVIOUS_HEALTH_FILE" node <<'NODE'
@@ -189,7 +181,7 @@ if [ "$PREVIOUS_SHA" = "$RELEASE_SHA" ]; then
   exit 0
 fi
 
-validate_environment_file
+run_with_protected_env /usr/bin/true
 
 git -C "$CURRENT" fetch --no-tags origin main
 git -C "$CURRENT" merge-base --is-ancestor "$PREVIOUS_SHA" origin/main
@@ -233,11 +225,18 @@ else
   git -C "$CURRENT" worktree add --detach "$NEXT" "$RELEASE_SHA"
 fi
 
-install -m 0600 "$TECPEY_STAGING_ENV_FILE" "$NEXT/.env.production"
+test ! -e "$NEXT/.env.production"
 
 (
   cd "$NEXT"
-  bash scripts/ubuntu24-preflight.sh candidate
+  PATH=/usr/bin:/bin /usr/bin/npm ci --no-audit --no-fund
+  run_with_protected_env /usr/bin/npm run env:check
+  NODE_ENV=production \
+  TECPEY_ENV_VALIDATION_SOURCE=process \
+  TECPEY_PREFLIGHT_NPM_CI_DONE=1 \
+  TECPEY_PREFLIGHT_ENV_CHECK_DONE=1 \
+    bash scripts/ubuntu24-preflight.sh candidate
+  test ! -e .env.production
 )
 
 TARGET_PLAN_HASH="$(cd "$NEXT" && node dist/print-database-migration-plan-hash.cjs)"
@@ -313,7 +312,7 @@ fi
 
 (
   cd "$NEXT"
-  bash scripts/ubuntu24-preflight.sh migrate
+  run_with_protected_env /bin/bash scripts/ubuntu24-preflight.sh migrate
 )
 
 readonly FRAGMENT_PATH="$(systemctl show "$SERVICE" --property=FragmentPath --value)"
@@ -411,7 +410,8 @@ restore_previous_runtime() {
   sudo systemctl restart "$SERVICE"
   (
     cd "$CURRENT"
-    bash scripts/ubuntu24-preflight.sh runtime
+    TECPEY_PREFLIGHT_HEALTH_URL="$TECPEY_STAGING_HEALTH_URL" \
+      bash scripts/ubuntu24-preflight.sh runtime
   )
   capture_health "$PREVIOUS_SHA" "$RESTORED_HEALTH_FILE"
 }
@@ -423,7 +423,8 @@ promote_next_runtime() {
   sudo systemctl restart "$SERVICE"
   (
     cd "$NEXT"
-    bash scripts/ubuntu24-preflight.sh runtime
+    TECPEY_PREFLIGHT_HEALTH_URL="$TECPEY_STAGING_HEALTH_URL" \
+      bash scripts/ubuntu24-preflight.sh runtime
   )
   capture_health "$RELEASE_SHA" "$POST_HEALTH_FILE"
   run_smoke
