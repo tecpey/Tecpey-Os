@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 const workflow = readFileSync(".github/workflows/protected-staging-promotion.yml", "utf8");
 const promotion = readFileSync("scripts/promote-staging-release.sh", "utf8");
 const policy = readFileSync("scripts/staging-promotion-policy.mjs", "utf8");
+const packageJson = readFileSync("package.json", "utf8");
 
 function requireText(source, token, label) {
   assert.ok(source.includes(token), `${label} is missing: ${token}`);
@@ -119,4 +120,23 @@ test("promotion policy owns route matrix and production-host denial", () => {
   ]) {
     requireText(policy, token, "promotion policy");
   }
+});
+
+
+test("production build bundles the migration plan hash probe used before DDL", () => {
+  requireText(
+    packageJson,
+    "scripts/print-database-migration-plan-hash.ts",
+    "build:server migration plan probe",
+  );
+  requireText(
+    promotion,
+    "dist/print-database-migration-plan-hash.cjs",
+    "promotion migration plan probe",
+  );
+  assert.match(
+    promotion,
+    /if \[ "\$TARGET_PLAN_HASH" = "\$PREVIOUS_PLAN_HASH" \]/,
+    "promotion must compare canonical plan hashes before selecting rollback mode",
+  );
 });
