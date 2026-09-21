@@ -49,7 +49,7 @@ test ! -L "$RELEASE_ROOT"
 test -w "$RELEASE_ROOT"
 
 readonly CURRENT="$(systemctl show "$SERVICE" --property=WorkingDirectory --value)"
-node --input-type=module <<'NODE'
+CURRENT_RELEASE_PATH="$CURRENT" node --input-type=module <<'NODE'
 import { pathToFileURL } from "node:url";
 const policy = await import(pathToFileURL(`${process.env.TECPEY_PROMOTION_AUTHORITY_DIR}/scripts/staging-promotion-policy.mjs`));
 policy.assertReleasePath(process.env.CURRENT_RELEASE_PATH);
