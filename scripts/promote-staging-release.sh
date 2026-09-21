@@ -29,6 +29,7 @@ readonly BACKUP_MANIFEST_FILE="$RUNNER_TEMP/tecpey-staging-promotion-backup-mani
 readonly STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
 readonly ROLLBACK_DRILL="${TECPEY_STAGING_ROLLBACK_DRILL:-0}"
 readonly ALLOW_DOWNGRADE="${TECPEY_STAGING_ALLOW_DOWNGRADE:-0}"
+readonly ALLOW_SCHEMA_CHANGE="${TECPEY_STAGING_ALLOW_SCHEMA_CHANGE:-0}"
 
 node --input-type=module <<'NODE'
 import { pathToFileURL } from "node:url";
@@ -47,6 +48,9 @@ if (!["0", "1"].includes(process.env.TECPEY_STAGING_ROLLBACK_DRILL ?? "0")) {
 }
 if (!["0", "1"].includes(process.env.TECPEY_STAGING_ALLOW_DOWNGRADE ?? "0")) {
   throw new Error("staging_promotion_allow_downgrade_invalid");
+}
+if (!["0", "1"].includes(process.env.TECPEY_STAGING_ALLOW_SCHEMA_CHANGE ?? "0")) {
+  throw new Error("staging_promotion_allow_schema_change_invalid");
 }
 NODE
 
@@ -183,9 +187,13 @@ git -C "$CURRENT" merge-base --is-ancestor "$PREVIOUS_SHA" origin/main
 git -C "$CURRENT" merge-base --is-ancestor "$RELEASE_SHA" origin/main
 git -C "$CURRENT" cat-file -e "$RELEASE_SHA^{commit}"
 
-if [ "$ALLOW_DOWNGRADE" != "1" ] && ! git -C "$CURRENT" merge-base --is-ancestor "$PREVIOUS_SHA" "$RELEASE_SHA"; then
-  echo "Refusing non-monotonic staging promotion; set allow_downgrade explicitly for an intentional older-main release." >&2
-  exit 1
+IS_DOWNGRADE=0
+if ! git -C "$CURRENT" merge-base --is-ancestor "$PREVIOUS_SHA" "$RELEASE_SHA"; then
+  IS_DOWNGRADE=1
+  if [ "$ALLOW_DOWNGRADE" != "1" ]; then
+    echo "Refusing non-monotonic staging promotion; set allow_downgrade explicitly for an intentional older-main release." >&2
+    exit 1
+  fi
 fi
 
 readonly CHANGED_PATHS_FILE="$RUNNER_TEMP/tecpey-staging-changed-paths.bin"
@@ -237,6 +245,18 @@ if [ "$TARGET_PLAN_HASH" = "$PREVIOUS_PLAN_HASH" ] && [ "$MIGRATION_AUTHORITY_CH
   MIGRATION_ROLLBACK_MODE="app_rollback_safe_no_migration_authority_change"
 else
   MIGRATION_ROLLBACK_MODE="forward_fix_or_restore_required"
+fi
+
+if [ "$IS_DOWNGRADE" = "1" ] && [ "$MIGRATION_ROLLBACK_MODE" != "app_rollback_safe_no_migration_authority_change" ]; then
+  write_result "rejected_schema_change_downgrade" "not_permitted_schema_authority_changed"
+  echo "Downgrade refused because migration/schema authority differs from the active release; use verified restore or a forward fix instead of running older migration authority." >&2
+  exit 1
+fi
+
+if [ "$MIGRATION_ROLLBACK_MODE" = "forward_fix_or_restore_required" ] && [ "$ALLOW_SCHEMA_CHANGE" != "1" ]; then
+  write_result "rejected_unapproved_schema_change" "not_permitted_schema_authority_changed"
+  echo "Schema-changing promotion requires explicit allow_schema_change approval before DDL." >&2
+  exit 1
 fi
 
 if [ "$ROLLBACK_DRILL" = "1" ] && [ "$MIGRATION_ROLLBACK_MODE" != "app_rollback_safe_no_migration_authority_change" ]; then
