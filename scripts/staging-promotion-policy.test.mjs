@@ -6,6 +6,7 @@ import {
   assertExactReleaseSha,
   assertReleasePath,
   assertSafeStagingPublicBaseUrl,
+  assertSafeStagingHealthUrl,
   assertSafeSystemdMutationPath,
   assertStagingService,
   buildPromotionEvidence,
@@ -97,6 +98,29 @@ test("public staging origin must be HTTPS and cannot target production TecPey ho
     "https://tecp.ir/path",
   ]) {
     assert.throws(() => assertSafeStagingPublicBaseUrl(invalid), /staging_public_base_url/);
+  }
+});
+
+test("staging health URL is governed and cannot target production or arbitrary hosts", () => {
+  assert.equal(
+    assertSafeStagingHealthUrl("http://127.0.0.1:3000/api/health"),
+    "http://127.0.0.1:3000/api/health",
+  );
+  assert.equal(
+    assertSafeStagingHealthUrl("https://tecp.ir/api/health"),
+    "https://tecp.ir/api/health",
+  );
+  for (const invalid of [
+    "http://127.0.0.1/api/health",
+    "http://tecp.ir:3000/api/health",
+    "https://tecpey.ir/api/health",
+    "https://my.tecpey.ir/api/health",
+    "https://example.com/api/health",
+    "https://tecp.ir/health",
+    "https://user:pass@tecp.ir/api/health",
+    "https://tecp.ir/api/health?deep=1",
+  ]) {
+    assert.throws(() => assertSafeStagingHealthUrl(invalid), /staging_health_url/);
   }
 });
 
