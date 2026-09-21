@@ -45,6 +45,11 @@ const evidence = buildPromotionEvidence({
   startedAt: result.startedAt,
   completedAt: result.completedAt,
   rollback: { disposition: result.rollbackDisposition },
+  migration: {
+    previousPlanHash: result.previousPlanHash,
+    targetPlanHash: result.targetPlanHash,
+    rollbackMode: result.migrationRollbackMode,
+  },
   operation: result.finalDisposition,
   runtimeHealth,
   previousHealth,
