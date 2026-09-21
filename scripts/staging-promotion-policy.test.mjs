@@ -153,6 +153,8 @@ test("promotion evidence is complete, redacted and bound to the full FA/EN smoke
   });
   assert.equal(evidence.environment, "staging");
   assert.equal(evidence.targetSha, TARGET);
+  assert.equal(evidence.supplyChainImageDigest, `sha256:${"a".repeat(64)}`);
+  assert.equal("imageDigest" in evidence, false);
   assert.equal(evidence.smokeResults.length, DEFAULT_STAGING_SMOKE_PATHS.length);
   assert.equal(JSON.stringify(evidence).includes("secret"), false);
   assert.throws(
@@ -167,5 +169,41 @@ test("promotion evidence is complete, redacted and bound to the full FA/EN smoke
       rollback: { disposition: "not_needed" },
     }),
     /smoke_matrix_incomplete/,
+  );
+});
+
+test("already-active verification is an idempotent accepted operation", () => {
+  const smokeResults = DEFAULT_STAGING_SMOKE_PATHS.map((smokePath) => ({
+    path: smokePath,
+    finalStatus: 200,
+    finalUrl: `https://tecp.ir${smokePath}`,
+  }));
+  const evidence = buildPromotionEvidence({
+    previousSha: TARGET,
+    targetSha: TARGET,
+    imageDigest: `sha256:${"b".repeat(64)}`,
+    publicBaseUrl: "https://tecp.ir",
+    smokeResults,
+    startedAt: "2026-09-21T10:00:00.000Z",
+    completedAt: "2026-09-21T10:01:00.000Z",
+    rollback: { disposition: "not_needed" },
+    operation: "verified_already_active",
+  });
+  assert.equal(evidence.operation, "verified_already_active");
+  assert.equal(evidence.previousSha, TARGET);
+  assert.equal(evidence.targetSha, TARGET);
+  assert.throws(
+    () => buildPromotionEvidence({
+      previousSha: PREVIOUS,
+      targetSha: TARGET,
+      imageDigest: `sha256:${"b".repeat(64)}`,
+      publicBaseUrl: "https://tecp.ir",
+      smokeResults,
+      startedAt: "2026-09-21T10:00:00.000Z",
+      completedAt: "2026-09-21T10:01:00.000Z",
+      rollback: { disposition: "not_needed" },
+      operation: "verified_already_active",
+    }),
+    /already_active_sha_mismatch/,
   );
 });
