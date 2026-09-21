@@ -6,6 +6,29 @@ async function waitForStablePaint(page) {
   }));
 }
 
+async function keepBelowStickyNav(page, section) {
+  await section.scrollIntoViewIfNeeded();
+  await section.evaluate((element) => {
+    const nav = document.querySelector("nav");
+    const navHeight = nav?.getBoundingClientRect().height ?? 0;
+    window.scrollBy({ top: -(navHeight + 24), behavior: "auto" });
+  });
+  await waitForStablePaint(page);
+
+  const [sectionBox, navBox] = await Promise.all([
+    section.boundingBox(),
+    page.locator("nav").boundingBox(),
+  ]);
+  expect(sectionBox, "review section must have a rendered box").not.toBeNull();
+  expect(navBox, "sticky navigation must have a rendered box").not.toBeNull();
+  if (sectionBox && navBox) {
+    expect(
+      sectionBox.y,
+      "review section must remain visibly clear of the sticky navigation",
+    ).toBeGreaterThanOrEqual(navBox.y + navBox.height + 8);
+  }
+}
+
 // Uses the existing isolated CI runtime and report uploader, not staging data.
 // Each attached image is evidence for one route/theme/viewport, not approval.
 for (const screen of ["landing", "login", "signup"]) {
@@ -112,17 +135,18 @@ for (const screen of ["landing", "login", "signup"]) {
       }
       await page.evaluate(() => window.scrollTo(0, 0));
       await testInfo.attach(`${screen}-${theme}-${testInfo.project.name}`, {
-        body: await page.screenshot({ fullPage: screen !== "landing", animations: "disabled" }),
+        body: screen === "landing"
+          ? await page.screenshot()
+          : await page.screenshot({ fullPage: true, animations: "disabled" }),
         contentType: "image/png",
       });
       if (screen === "landing") {
         const news = page.locator('[data-home-section="news-carousel"]');
-        await news.scrollIntoViewIfNeeded();
-        await waitForStablePaint(page);
+        await keepBelowStickyNav(page, news);
         await expect(news).toBeVisible();
         await expect(news.locator('[aria-roledescription="slide"]').first().locator("img")).toBeVisible();
         await testInfo.attach(`landing-news-${theme}-${testInfo.project.name}`, {
-          body: await news.screenshot({ animations: "disabled" }),
+          body: await page.screenshot(),
           contentType: "image/png",
         });
       }
