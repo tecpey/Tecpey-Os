@@ -404,8 +404,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
                   {mentorSignals.length ? mentorSignals.map((signal) => <div key={signal.key} className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[.055] p-3"><p className="text-[11px] font-semibold text-emerald-200">{mentorSignalLabel(signal.key, isFa)}</p><p className="mt-1 text-sm font-bold text-white"><bdi>{mentorSignalValue(signal.key, signal.value, isFa)}</bdi></p></div>) : <p className="sm:col-span-2 rounded-2xl border border-dashed border-white/15 p-4 text-sm font-medium leading-7 text-slate-400">{isFa ? "هنوز هیچ ویژگی رفتاری با سطح «مشاهده‌شده» نداریم؛ این یک نبودِ داده است، نه ضعف کاربر." : "No behavioural attribute has reached observed evidence yet; this is missing evidence, not a learner weakness."}</p>}
                 </div>
                 {(mentorProfile.strongAreas.length || mentorProfile.weakAreas.length) ? <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <EvidenceList title={isFa ? "نقاط قوت ثبت‌شده" : "Recorded strengths"} items={mentorProfile.strongAreas} empty={isFa ? "هنوز شواهد کافی نیست" : "Not enough evidence yet"} />
-                  <EvidenceList title={isFa ? "نیازمند تمرین بیشتر" : "Needs more practice"} items={mentorProfile.weakAreas} empty={isFa ? "هنوز شواهد کافی نیست" : "Not enough evidence yet"} />
+                  <EvidenceList title={isFa ? "نقاط قوت ثبت‌شده" : "Recorded strengths"} items={mentorProfile.strongAreas} empty={isFa ? "هنوز شواهد کافی نیست" : "Not enough evidence yet"} isFa={isFa} />
+                  <EvidenceList title={isFa ? "نیازمند تمرین بیشتر" : "Needs more practice"} items={mentorProfile.weakAreas} empty={isFa ? "هنوز شواهد کافی نیست" : "Not enough evidence yet"} isFa={isFa} />
                 </div> : null}
                 <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-slate-400 sm:grid-cols-3">
                   <EvidenceState label={isFa ? "سطح" : "Level"} state={mentorProfile.levelEvidenceState} isFa={isFa} />
@@ -608,8 +608,34 @@ function EvidenceState({ label, state, isFa }: { label: string; state: MentorEvi
   return <div className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2"><span>{label}</span><p className="mt-1 font-semibold text-slate-200">{evidenceStateCopy(state, isFa)}</p></div>;
 }
 
-function EvidenceList({ title, items, empty }: { title: string; items: readonly string[]; empty: string }) {
-  return <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4"><p className="text-[11px] font-semibold text-slate-500">{title}</p>{items.length ? <ul className="mt-2 space-y-1 text-sm font-medium leading-6 text-slate-200">{items.slice(0, 3).map((item) => <li key={item} className="before:me-2 before:text-cyan-300 before:content-['•']">{item}</li>)}</ul> : <p className="mt-2 text-sm text-slate-500">{empty}</p>}</div>;
+function mentorAreaLabel(value: string, isFa: boolean) {
+  const labels: Record<string, readonly [string, string]> = {
+    learning_consistency: ["تداوم در یادگیری", "Learning consistency"],
+    trade_discipline: ["انضباط در تمرین معامله", "Trading practice discipline"],
+    journal_quality: ["کیفیت ژورنال", "Journal quality"],
+    clean_risk_record: ["سابقه کنترل ریسک", "Risk-control record"],
+    quiz_mastery: ["عملکرد قوی در چالش‌ها", "Strong challenge performance"],
+    lesson_assessment_mastery: ["عملکرد قوی در ارزیابی درس", "Strong lesson-assessment performance"],
+    practice_commitment: ["تعهد به تمرین", "Practice commitment"],
+    quiz_review: ["مرور کوییزها", "Quiz review"],
+    lesson_assessment_review: ["مرور ارزیابی درس", "Lesson-assessment review"],
+    risk_control: ["کنترل ریسک", "Risk control"],
+    risk_discipline: ["انضباط ریسک", "Risk discipline"],
+    fomo_management: ["مدیریت FOMO", "FOMO management"],
+    revenge_trading: ["کنترل معامله انتقامی", "Revenge-trading control"],
+    emotional_control: ["کنترل تصمیم هیجانی", "Emotional decision control"],
+  };
+  const direct = labels[value];
+  if (direct) return direct[isFa ? 0 : 1];
+  const term = /^term_(\d+)_retry$/.exec(value);
+  if (term) return isFa ? `مرور دوباره ترم ${Number(term[1]).toLocaleString("fa-IR")}` : `Retry term ${term[1]}`;
+  const topic = /^topic_(.+)$/.exec(value);
+  if (topic) return isFa ? `تمرین بیشتر: ${topic[1].replaceAll("_", " ")}` : `More practice: ${topic[1].replaceAll("_", " ")}`;
+  return value.replaceAll("_", " ");
+}
+
+function EvidenceList({ title, items, empty, isFa }: { title: string; items: readonly string[]; empty: string; isFa: boolean }) {
+  return <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4"><p className="text-[11px] font-semibold text-slate-500">{title}</p>{items.length ? <ul className="mt-2 space-y-1 text-sm font-medium leading-6 text-slate-200">{items.slice(0, 3).map((item) => <li key={item} className="before:me-2 before:text-cyan-300 before:content-['•']">{mentorAreaLabel(item, isFa)}</li>)}</ul> : <p className="mt-2 text-sm text-slate-500">{empty}</p>}</div>;
 }
 
 function GrowthSignal({ label, value, note }: { label: string; value: string; note: string }) {
