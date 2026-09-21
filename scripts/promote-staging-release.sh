@@ -15,13 +15,17 @@ require_env() {
   fi
 }
 
-for name in   RELEASE_SHA   IMAGE_DIGEST   TECPEY_STAGING_ENV_FILE   TECPEY_STAGING_PUBLIC_BASE_URL   TECPEY_STAGING_RUN_USER   TECPEY_STAGING_RUN_GROUP   TECPEY_PROMOTION_AUTHORITY_DIR   TECPEY_PROMOTION_RESULT_FILE   TECPEY_PROMOTION_SMOKE_FILE; do
+for name in   RELEASE_SHA   IMAGE_DIGEST   TECPEY_STAGING_ENV_FILE   TECPEY_STAGING_PUBLIC_BASE_URL   TECPEY_STAGING_RUN_USER   TECPEY_STAGING_RUN_GROUP   TECPEY_PROMOTION_AUTHORITY_DIR   TECPEY_PROMOTION_RESULT_FILE   TECPEY_PROMOTION_SMOKE_FILE   RUNNER_TEMP; do
   require_env "$name"
 done
 
 readonly AUTHORITY_DIR="$(cd "$TECPEY_PROMOTION_AUTHORITY_DIR" && pwd -P)"
 readonly RESULT_FILE="$TECPEY_PROMOTION_RESULT_FILE"
 readonly SMOKE_FILE="$TECPEY_PROMOTION_SMOKE_FILE"
+readonly PREVIOUS_HEALTH_FILE="$RUNNER_TEMP/tecpey-staging-promotion-previous-health.json"
+readonly POST_HEALTH_FILE="$RUNNER_TEMP/tecpey-staging-promotion-health.json"
+readonly RESTORED_HEALTH_FILE="$RUNNER_TEMP/tecpey-staging-promotion-restored-health.json"
+readonly BACKUP_MANIFEST_FILE="$RUNNER_TEMP/tecpey-staging-promotion-backup-manifest.json"
 readonly STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
 readonly ROLLBACK_DRILL="${TECPEY_STAGING_ROLLBACK_DRILL:-0}"
 
@@ -47,6 +51,14 @@ test "$(systemctl is-active "$SERVICE")" = "active"
 test -d "$RELEASE_ROOT"
 test ! -L "$RELEASE_ROOT"
 test -w "$RELEASE_ROOT"
+readonly MIN_FREE_MB="${TECPEY_STAGING_MIN_FREE_MB:-2048}"
+[[ "$MIN_FREE_MB" =~ ^[1-9][0-9]*$ ]]
+readonly AVAILABLE_KB="$(df -Pk "$RELEASE_ROOT" | awk 'NR==2 {print $4}')"
+[[ "$AVAILABLE_KB" =~ ^[0-9]+$ ]]
+if [ "$AVAILABLE_KB" -lt "$((MIN_FREE_MB * 1024))" ]; then
+  echo "Insufficient staging release disk space: need at least ${MIN_FREE_MB} MiB free." >&2
+  exit 1
+fi
 
 readonly CURRENT="$(systemctl show "$SERVICE" --property=WorkingDirectory --value)"
 CURRENT_RELEASE_PATH="$CURRENT" node --input-type=module <<'NODE'
