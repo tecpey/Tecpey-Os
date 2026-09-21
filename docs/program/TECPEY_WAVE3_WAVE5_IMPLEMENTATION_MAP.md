@@ -45,6 +45,13 @@ The implementation contracts are not based on visual trend-following or vendor m
 - **xAI Web Search / X Search:** web and X are distinct retrieval surfaces; TecPey therefore models social narrative as a separate evidence channel rather than treating it as market truth.  
   https://docs.x.ai/developers/tools/web-search  
   https://docs.x.ai/developers/tools/x-search
+- **NIST SP 800-63B-4 (2025):** current authentication/authenticator guidance superseding the older 800-63B; TecPey therefore treats authenticator lifecycle, recovery and assurance as explicit authority rather than a login-screen concern.  
+  https://csrc.nist.gov/pubs/sp/800/63/b/4/final
+- **OWASP Session Management / Authentication:** sessions are security credentials, require secure cookie handling, server-side timeout/invalidation, rotation after privilege changes and reauthentication around high-risk events.  
+  https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html  
+  https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+- **Stripe idempotency guidance (used as a provider-quality reference, not a provider lock-in):** mutating payment calls must be safely retryable and external commercial events reconciled/idempotent.  
+  https://docs.stripe.com/api/idempotent_requests
 - **Learning science:** retrieval practice and spaced relearning improve durable retention; optimal schedules are context-dependent rather than universally “one SM-2 formula.” Relevant evidence includes Karpicke & Roediger and Cepeda et al.  
   https://pubmed.ncbi.nlm.nih.gov/17576148/  
   https://pubmed.ncbi.nlm.nih.gov/19439395/  
@@ -59,6 +66,9 @@ The implementation contracts are not based on visual trend-following or vendor m
 4. **No universal spaced-repetition superstition:** Academy stores evidence and scheduling rationale so spacing/retrieval policy can evolve without corrupting historical learning state.
 5. **No citation theater:** research reports bind claims to source objects and surface missing/conflicting evidence instead of merely adding a bibliography.
 6. **No accessibility afterthought:** focus, target size, reduced motion/transparency and sticky-layer behavior are acceptance criteria, not final-polish tasks.
+7. **No session-as-UI-state:** login success, privilege changes, recovery and session revocation are server-side lifecycle events with rotation/invalidation semantics.
+8. **No payment-by-redirect:** checkout return pages never create entitlement; commercial state is reconciled from provider-neutral, idempotent server authority.
+9. **No trend-as-truth:** social/news popularity is an input channel, not factual market authority; #709 preserves source/freshness/conflict and #710 cannot convert virality into expertise.
 
 ## Objective
 
@@ -77,7 +87,9 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 9. **Arena & League v2** — governed scoring, seasons, fairness, ranks, replay and reward-policy authority.
 10. **Living Profile Wave 3** — journey, league/achievement intelligence, identity/KYC status, next-best-action.
 11. **Notification Orchestrator v2** — relevance/urgency/fatigue/quiet-hours/caps/dedupe/channel consent.
-12. **Global Experience & Launch Hardening** — FA/EN, mobile Safari/PWA, accessibility, visual/perf regression and launch gate.
+13. **News & Market Intelligence v2** — governed latest-first news, source/freshness truth, dedupe/clustering, accessible horizontal discovery and stale market-data handling.
+14. **Organic Growth OS v2** — trend intelligence, canonical entity/locale architecture, SEO/AEO/GEO answerability, distribution, measurement and refresh/retire lifecycle.
+12. **Global Experience & Launch Hardening** — final FA/EN, mobile Safari/PWA, accessibility, visual/perf regression and launch gate. Track IDs reflect creation order; dependency order governs execution.
 
 ## Dependency graph
 
@@ -88,8 +100,10 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 - 6 is the motion contract; 7 consumes it and must not invent states outside it.
 - 8 and 9 produce governed learning/practice evidence consumed by 10 and 11.
 - 10 consumes 2/3/8/9 but must still degrade correctly before all optional authorities are available.
-- 11 consumes durable events from 8/9/10.
-- 12 is the final cross-platform acceptance layer after feature PRs are stable.
+- 11 consumes durable events from 4/8/9/10/13.
+- 13 consumes the existing news/market pipelines and the provenance contract from 4; it emits governed content/notification candidates.
+- 14 consumes governed trend/news inputs from 13 plus existing Growth Profile/content automation foundations.
+- 12 is the final cross-platform acceptance layer after feature PRs, including 13/14, are stable.
 
 ## Live PR graph
 
@@ -106,8 +120,10 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 | 08 Academy Infinite Growth | #704 | existing Academy/Mentor evidence |
 | 09 Arena & League v2 | #705 | existing Arena authority + #699 for paid entitlement |
 | 10 Living Profile Wave 3 | #706 | #698 + #704 + #705; #699 enriches Pro state |
-| 11 Notification Orchestrator v2 | #707 | durable events from #700/#704/#705/#706 |
-| 12 Global Experience & Launch Gate | #708 | final integration across #697–#707 |
+| 11 Notification Orchestrator v2 | #707 | durable events from #700/#704/#705/#706/#709 |
+| 13 News & Market Intelligence v2 | #709 | existing pipelines + #700 provenance; feeds #707/#710/#708 |
+| 14 Organic Growth OS v2 | #710 | #709 + existing Growth Profile/content automation; feeds #708 |
+| 12 Global Experience & Launch Gate | #708 | final integration across #697–#707 plus #709/#710 |
 
 ### Critical path
 
@@ -119,7 +135,9 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 
 **Learning/competition → profile:** #704 and #705 can progress in parallel; #706 consumes their governed evidence.
 
-**Engagement → launch:** #707 consumes durable events; #708 is the cross-product launch gate after upstream behavior stabilizes.
+**Content intelligence → growth:** #709 builds governed latest-first news/market discovery on #700 provenance; #710 consumes those trend inputs for canonical SEO/AEO/GEO content operations.
+
+**Engagement → launch:** #707 consumes durable events, including eligible #709 candidates; #708 is the cross-product launch gate only after #697–#707 and #709/#710 stabilize.
 
 ### Parallelism rules
 
@@ -128,6 +146,7 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 - #700/#701 may implement fail-closed scaffolding before #699, but premium execution cannot become live.
 - #703 must not invent Rive states while #702 is unfinished.
 - #706 may render explicit “authority unavailable” placeholders before #704/#705 land, but cannot fabricate journey/rank evidence.
+- #709 owns news/market behavior; #710 owns organic-growth behavior. Neither may be hidden inside #708.
 - #708 never becomes a dumping ground for unfinished product logic; it is for integration hardening, not feature completion.
 
 ## Execution waves
@@ -150,8 +169,12 @@ Run in parallel where files/contracts do not overlap:
 - **#706 Living Profile Wave 3** composes #698 + #704 + #705, with #699 enriching premium state.
 - **#707 Notification Orchestrator v2** consumes durable, versioned events from research/academy/arena/profile.
 
-### Wave D — integration and launch hardening
-- **#708 Global Experience & Launch Gate** begins audits earlier but cannot be declared complete until upstream behavior stabilizes.
+### Wave D — content intelligence + organic growth
+- **#709 News & Market Intelligence v2** follows #700's source/provenance contract but can build pipeline hardening in parallel.
+- **#710 Organic Growth OS v2** consumes governed trend/content inputs from #709 and existing growth foundations.
+
+### Wave E — integration and launch hardening
+- **#708 Global Experience & Launch Gate** begins audits earlier but cannot be declared complete until all upstream behavior, including #709/#710, stabilizes.
 - Final staging candidate must be produced by the governed exact-SHA path from #697.
 
 ## Risk classes
@@ -160,7 +183,7 @@ Run in parallel where files/contracts do not overlap:
 | --- | --- | --- | --- |
 | P0 | Security / identity / commercial / release authority | #697, #698, #699 | negative tests, audit trail, rollback/recovery proof, independent review |
 | P1 | Learning / competition / AI authority | #700, #701, #704, #705 | provenance/versioning, failure-mode tests, deterministic replay where applicable |
-| P2 | Composite product experience | #702, #703, #706, #707 | authority-bound UX, degraded states, FA/EN + accessibility/browser evidence |
+| P2 | Composite product experience | #702, #703, #706, #707, #709, #710 | authority-bound UX, degraded states, FA/EN + accessibility/browser/content evidence |
 | P3 | Cross-product integration | #708 | no P0/P1 blockers, staging smoke, performance/accessibility/visual evidence |
 
 Risk class does **not** rank business value; it sets the minimum evidence burden.
