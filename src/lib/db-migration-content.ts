@@ -103,6 +103,7 @@ import { ACADEMY_PROFILE_DETAILS_SQL } from "./db-migrate-academy-profile-detail
 import { ACADEMY_QUESTION_BANK_BASELINE_SQL } from "./db-migrate-academy-question-bank-baseline";
 import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";
 import { PRO_COMMERCE_AUTHORITY_SQL } from "./db-migrate-pro-commerce-authority";
+import { PRO_COMMERCE_LEDGER_HARDENING_SQL } from "./db-migrate-pro-commerce-ledger-hardening";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -466,5 +467,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   proCommerceAuthority: one(
     "0113_pro_commerce_authority.sql",
     PRO_COMMERCE_AUTHORITY_SQL,
+  ),
+  proCommerceLedgerHardening: one(
+    "0114_pro_commerce_ledger_hardening.sql",
+    PRO_COMMERCE_LEDGER_HARDENING_SQL,
   ),
 });
