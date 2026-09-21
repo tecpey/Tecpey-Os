@@ -88,6 +88,7 @@ const DOMAIN_RULES = [
     patterns: [
       /(?:^|\/)(?:commerce|billing|subscription|entitlement|payment|checkout|refund)(?:[./_-]|$)/i,
       /^src\/lib\/commerce\//,
+      /^src\/lib\/db-migrate-pro-commerce-authority\.ts$/,
     ],
   },
   {
@@ -272,7 +273,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 25,
+  version: 26,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
