@@ -19,6 +19,7 @@ test("protected staging promotion workflow preserves exact-SHA and protected-env
     "I_APPROVE_STAGING_PROMOTION",
     "rollback_drill:",
     "allow_downgrade:",
+    "allow_schema_change:",
     "permissions:",
     "contents: read",
     "packages: read",
@@ -88,6 +89,10 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     "forward_fix_or_restore_required",
     "not_permitted_schema_authority_changed",
     "TECPEY_STAGING_ALLOW_DOWNGRADE",
+    "TECPEY_STAGING_ALLOW_SCHEMA_CHANGE",
+    "evaluateMigrationCutover",
+    "reject_schema_change_downgrade",
+    "require_schema_change_approval",
     "diff --name-only -z",
     "MIGRATION_AUTHORITY_CHANGE_COUNT",
     "staging_environment_file_unsafe",
@@ -136,6 +141,7 @@ test("promotion policy owns route matrix and production-host denial", () => {
     "staging_health_url_host_not_allowed",
     "classifyMigrationRollbackSafety",
     "promotion_migration_rollback_mode_mismatch",
+    "evaluateMigrationCutover",
   ]) {
     requireText(policy, token, "promotion policy");
   }
