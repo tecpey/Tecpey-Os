@@ -305,10 +305,14 @@ test("classifies migration-authority changes as forward-fix/restore only", () =>
     "src/components/navbar/Navbar.tsx",
     "migrations/0112_example.sql",
     "src/lib/db-migration-registry.ts",
+    "src/lib/db-migration-plan.ts",
+    "src/lib/db-migration-governance.ts",
   ]);
   assert.equal(changed.mode, "forward_fix_or_restore_required");
   assert.deepEqual(changed.migrationAuthorityChanges, [
     "migrations/0112_example.sql",
+    "src/lib/db-migration-governance.ts",
+    "src/lib/db-migration-plan.ts",
     "src/lib/db-migration-registry.ts",
   ]);
 
