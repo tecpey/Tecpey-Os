@@ -15,12 +15,23 @@ type Profile = {
   public_student_id?: string;
 };
 
+type ProCapabilitySnapshot = {
+  plan: "free" | "premium";
+  premiumRuntimeEnabled: boolean;
+  publicResearchEnabled: boolean;
+  webResearchEnabled: boolean;
+  socialResearchEnabled: boolean;
+  reason: string;
+};
+
 export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
   const isFa = locale === "fa";
   const base = isFa ? "/academy" : "/en/academy";
   const [profile, setProfile] = useState<Profile | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState("loading");
+  const [proCapabilities, setProCapabilities] = useState<ProCapabilitySnapshot | null>(null);
+  const [proAuthorityAvailable, setProAuthorityAvailable] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -37,6 +48,42 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
     }).catch(() => { if (active) setStatus("error"); });
     return () => { active = false; };
   }, [attempt]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/mentor-preferences", {
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => ({ response, data: await response.json().catch(() => null) }))
+      .then(({ response, data }) => {
+        if (controller.signal.aborted) return;
+        if (!response.ok || !data?.capabilities) {
+          setProCapabilities(null);
+          setProAuthorityAvailable(false);
+          return;
+        }
+        setProCapabilities(data.capabilities as ProCapabilitySnapshot);
+        setProAuthorityAvailable(true);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setProCapabilities(null);
+          setProAuthorityAvailable(false);
+        }
+      });
+    return () => controller.abort();
+  }, [attempt]);
+
+  const publicResearchLive = Boolean(
+    proCapabilities?.plan === "premium" &&
+    proCapabilities.premiumRuntimeEnabled &&
+    proCapabilities.publicResearchEnabled,
+  );
+  const socialResearchLive = Boolean(
+    publicResearchLive && proCapabilities?.socialResearchEnabled,
+  );
 
   const rows = [
     {
@@ -118,15 +165,15 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
             Icon={Search}
             title={isFa ? "پژوهش عمومی عمیق" : "Deep public research"}
             text={isFa ? "مسیر پژوهش منبع‌دار در backend پیاده شده، اما تا فعال‌شدن entitlement سروری Pro عمداً قفل است." : "The source-grounded research path exists in the backend, but stays deliberately locked until server-side Pro entitlement is live."}
-            state="locked"
-            stateLabel={isFa ? "قفل سروری" : "Server gated"}
+            state={publicResearchLive ? "live" : "locked"}
+            stateLabel={publicResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "قفل سروری" : "Server gated")}
           />
           <CapabilityCard
             Icon={Radio}
             title={isFa ? "هوشمندی خبر و شبکه‌های اجتماعی" : "News & social intelligence"}
             text={isFa ? "زیرساخت پژوهش وب و X در کنترل‌پلین وجود دارد؛ خروجی برای فهم روایت‌هاست، نه سیگنال خرید و فروش." : "Web/X research infrastructure exists in the control plane; its purpose is narrative understanding, not buy/sell signals."}
-            state="preview"
-            stateLabel={isFa ? "پیش‌نمایش محصول" : "Product preview"}
+            state={socialResearchLive ? "live" : "preview"}
+            stateLabel={socialResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "پیش‌نمایش محصول" : "Product preview")}
           />
           <CapabilityCard
             Icon={Sparkles}
@@ -157,9 +204,13 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
         <div className="relative z-10 mt-6 grid gap-3 rounded-2xl border border-fg/10 bg-bg/70 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <p className="text-sm font-semibold">{isFa ? "مرز شفاف Pro" : "Clear Pro boundary"}</p>
-            <p className="mt-1 text-xs leading-6 text-muted">{isFa ? "خرید، تمدید و لغو اشتراک عمومی Pro هنوز authority سروری فعال ندارد. بنابراین هیچ دکمه‌ای در این صفحه نمی‌تواند Pro را روی کلاینت فعال کند و پژوهش Premium هم fail-closed باقی می‌ماند." : "Public Pro purchase, renewal and cancellation do not yet have live server authority. No client control on this page can unlock Pro, and premium research remains fail-closed."}</p>
+            <p className="mt-1 text-xs leading-6 text-muted">{!proAuthorityAvailable
+              ? (isFa ? "مرجع قابلیت‌های Pro موقتاً در دسترس نیست؛ تک‌پی در این وضعیت هیچ قابلیت Premium را فعال فرض نمی‌کند." : "The Pro capability authority is temporarily unavailable; TecPey does not assume any premium capability is enabled.")
+              : publicResearchLive
+                ? (isFa ? "این وضعیت مستقیماً از authority سرور خوانده شده است. کنترل کلاینت به‌تنهایی نمی‌تواند قابلیت Premium را فعال کند." : "This status is read directly from server authority. A client-side control alone cannot unlock premium capability.")
+                : (isFa ? "خرید، تمدید و لغو اشتراک عمومی Pro هنوز authority سروری فعال ندارد. بنابراین هیچ دکمه‌ای در این صفحه نمی‌تواند Pro را روی کلاینت فعال کند و پژوهش Premium هم fail-closed باقی می‌ماند." : "Public Pro purchase, renewal and cancellation do not yet have live server authority. No client control on this page can unlock Pro, and premium research remains fail-closed.")}</p>
           </div>
-          <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-200 lg:mt-0"><Lock className="h-4 w-4" aria-hidden="true"/>{isFa ? "پرداخت غیرفعال" : "Payments inactive"}</div>
+          <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-200 lg:mt-0"><Lock className="h-4 w-4" aria-hidden="true"/>{!proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "مجوز سروری فعال" : "Server entitlement active") : (isFa ? "پرداخت غیرفعال" : "Payments inactive")}</div>
         </div>
       </section>
     </div>
