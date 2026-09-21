@@ -30,19 +30,19 @@ Eliminate fragile manual release steps while preserving the existing protected s
 
 ## Deliverables
 
-- Manual protected workflow accepting only a 40-char commit that is proven to be an ancestor/member of current `main`.
+- Manual protected workflow accepting only a 40-char commit that is proven to be an ancestor/member of current `main`; non-monotonic promotion to an older main commit requires an explicit `allow_downgrade` opt-in.
 - Resolve signed immutable container release artifact for that exact SHA; verify provenance/attestation before host mutation.
 - Protected `staging` environment + approved self-hosted runner only.
-- Preflight: runtime versions, disk, service/unit state, env-file permissions, DB/Redis connectivity, migration authority, current release SHA.
+- Preflight: runtime versions, disk, service/unit state, **private env-file permissions** (no world access, no group write/execute, no execute bits), DB/Redis connectivity, migration authority, current release SHA.
 - Backup manifest capturing prior immutable release path, service unit/drop-in hashes and health snapshot.
 - Atomic promotion to `/srv/tecpey/releases/<SHA>`; no moving source checkout.
 - Build/launch identity must expose exact SHA in `/api/health`.
 - Bounded migrations with lock/idempotency proof.
 - Restart only staging service/unit set.
-- **Schema-aware failure policy:** compare the active health `migrations.planHash` with the target release's canonical `DATABASE_MIGRATION_PLAN_HASH` before DDL.
-  - If hashes match, failed cutover/health/smoke may automatically restore the previous app release and an optional rollback drill may prove previous→target round-trip.
-  - If hashes differ, stop staging before migration; previous-app rollback is forbidden after DDL. Any migration/cutover/health failure leaves staging stopped and requires a governed forward-fix or verified database restore under the recovery authority.
-- Smoke matrix: FA/EN landing, login, Academy, Profile/Living Identity, Account/Pro capability map, Mentor, Market Intelligence, Arena entry, notifications shell.
+- **Schema-aware failure policy:** before DDL, compare both (a) active health `migrations.planHash` vs target canonical `DATABASE_MIGRATION_PLAN_HASH`, and (b) the source delta against the governed migration-authority path registry. App rollback is safe only when plan hashes are equal **and** no migration-authority source changed.
+  - If plan hashes match **and** the migration-authority delta is empty, failed cutover/health/smoke may automatically restore the previous app release and an optional rollback drill may prove previous→target round-trip.
+  - If hashes differ **or migration-authority code changed**, stop staging before migration; previous-app rollback is forbidden after DDL. Any migration/cutover/health failure leaves staging stopped and requires a governed forward-fix or verified database restore under the recovery authority.
+- Smoke matrix: FA/EN landing, login, Academy, Profile/Living Identity, Account/Pro capability map, Mentor, Market Intelligence, Arena entry, notifications shell. Same-origin verification is bound to the governed staging host **`tecp.ir`**, not merely “any HTTPS host that is not production”.
 - Release workflow owns bounded HTTP FA/EN smoke only. Safari/PWA/reduced-motion and full visual/accessibility browser evidence are explicitly owned by #708 after the exact SHA is active on staging; #697 must not pretend curl smoke is browser acceptance.
 - Upload redacted digest-verified JSON evidence: previous SHA, target SHA, signed/attested supply-chain image digest, previous/target migration plan hashes, migration rollback mode, previous/target health summaries, smoke results, unit backup digests, rollback disposition and timestamps. The evidence JSON itself is SHA-256 detached-digest verified; its supply-chain image identity is separately cryptographically signed/attested.
 - Production hostnames/services/secrets must be unaddressable from this workflow.
@@ -54,9 +54,11 @@ Eliminate fragile manual release steps while preserving the existing protected s
 - reject symlink/mutable release directory;
 - reject health commit mismatch;
 - reject dirty checkout;
-- reject environment file with unsafe permissions;
+- reject environment file with world permissions, group write/execute, execute bits, symlink/malformed state;
+- reject unrelated HTTPS smoke origin;
+- reject accidental downgrade to an older main release unless explicitly approved;
 - prove rollback restores prior service working directory and health when migration plan hashes are equal;
-- prove schema-plan drift forbids rollback drill and previous-app rollback after DDL;
+- prove schema-plan drift **or migration-authority source drift** forbids rollback drill and previous-app rollback after DDL;
 - prove a schema-changing failure leaves staging stopped with `forward_fix_or_restore_required`;
 - prove no production service name/path is referenced.
 
