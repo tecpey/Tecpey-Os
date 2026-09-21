@@ -217,6 +217,73 @@ describe("Two-factor verification authority", { concurrency: 1 }, () => {
   );
 
   it(
+    "commits TOTP consumption and session step-up atomically",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const userId = `two-factor-step-up-user-${randomUUID()}`;
+      const tenant = tenantId();
+      const factor = await seedEnabledFactor({ userId, tenant });
+      const sessionJti = `step-up-${randomUUID()}`;
+      await withClient(async (client) => {
+        await client.query(
+          `UPDATE user_2fa
+              SET last_accepted_totp_step = last_accepted_totp_step - 1
+            WHERE user_id = $1`,
+          [userId],
+        );
+        await client.query(
+          `INSERT INTO user_sessions
+             (id, user_id, device_info, ip, expires_at)
+           VALUES ($1, $2, 'step-up-test', '127.0.0.1', NOW() + INTERVAL '15 minutes')`,
+          [sessionJti, userId],
+        );
+      });
+      const code = generateTotp(factor.rawSecret);
+
+      await assert.rejects(
+        verifyTwoFactorCredential({
+          userId,
+          code,
+          sessionJti: `missing-${randomUUID()}`,
+          audit: auditContext({ userId, tenant }),
+        }),
+        /step_up_session_not_authoritative/,
+      );
+
+      // The failed session binding must have rolled back the replay watermark,
+      // so the exact same code remains usable for the real current session.
+      const verified = await verifyTwoFactorCredential({
+        userId,
+        code,
+        sessionJti,
+        audit: auditContext({ userId, tenant }),
+      });
+      assert.equal(verified.ok, true);
+
+      await withClient(async (client) => {
+        const state = await client.query<{ step_up_at: Date | null }>(
+          `SELECT step_up_at FROM user_sessions WHERE id = $1 AND user_id = $2`,
+          [sessionJti, userId],
+        );
+        assert.ok(state.rows[0]?.step_up_at instanceof Date);
+        const evidence = await client.query<{ action: string; outcome: string }>(
+          `SELECT action, outcome
+             FROM sensitive_mutation_audit_events
+            WHERE tenant_id = $1
+              AND actor_id = $2
+              AND action IN ('credential.2fa.verify', 'session.step_up')
+            ORDER BY created_at ASC`,
+          [tenant, userId],
+        );
+        assert.equal(evidence.rows.filter((row) => row.action === "credential.2fa.verify").length, 1);
+        assert.equal(evidence.rows.filter((row) => row.action === "session.step_up").length, 1);
+        assert.equal(evidence.rows.every((row) => row.outcome === "success"), true);
+        await client.query("DELETE FROM user_sessions WHERE id = $1", [sessionJti]);
+      });
+    },
+  );
+
+  it(
     "allows one success per TOTP time step and rejects concurrent replay",
     { skip: !databaseConfigured, timeout: 30_000 },
     async () => {
