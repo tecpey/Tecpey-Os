@@ -15,8 +15,8 @@ import {
   validateStagingHealth,
 } from "./staging-promotion-policy.mjs";
 
-const PREVIOUS = "1111111111111111111111111111111111111111";
-const TARGET = "2222222222222222222222222222222222222222";
+const PREVIOUS = "b".repeat(40);
+const TARGET = "a".repeat(40);
 
 function healthy(sha, current = 123) {
   return {
