@@ -21,8 +21,8 @@ for (const [name, value] of [
 
 const smoke = JSON.parse(await readFile(smokeFile, "utf8"));
 const result = JSON.parse(await readFile(resultFile, "utf8"));
-if (result.finalDisposition !== "promoted") {
-  throw new Error("staging_promotion_result_not_promoted");
+if (!["promoted", "verified_already_active"].includes(result.finalDisposition)) {
+  throw new Error("staging_promotion_result_not_accepted");
 }
 
 const evidence = buildPromotionEvidence({
@@ -34,6 +34,7 @@ const evidence = buildPromotionEvidence({
   startedAt: result.startedAt,
   completedAt: result.completedAt,
   rollback: { disposition: result.rollbackDisposition },
+  operation: result.finalDisposition,
 });
 
 const content = `${JSON.stringify(evidence, null, 2)}\n`;
