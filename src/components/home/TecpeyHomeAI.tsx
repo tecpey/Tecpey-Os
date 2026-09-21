@@ -491,7 +491,7 @@ function CompactNewsCarousel({
                         </div>
                         {thumbnail ? (
                           // Governed source thumbnails are exposed by the same news authority used by the archive.
-                          // eslint-disable-next-line @next/next/no-img-element -- source media uses native failure fallback.
+                          // eslint-disable-next-line @next/next/no-img-element -- #643: governed news media requires native same-origin redirect fallback handling.
                           <img
                             src={thumbnail}
                             alt={item.thumbnailAlt || ""}
