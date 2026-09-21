@@ -92,6 +92,7 @@ test("public staging origin must be HTTPS and cannot target production TecPey ho
     "https://tecpey.ir",
     "https://my.tecpey.ir",
     "https://preview.tecpey.ir",
+    "https://example.com",
     "https://user:pass@tecp.ir",
     "https://tecp.ir/path",
   ]) {
@@ -165,7 +166,7 @@ test("promotion evidence is complete, redacted and bound to the full FA/EN smoke
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:04:00.000Z",
     rollback: { disposition: "not_needed" },
-    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, rollbackMode: "app_rollback_safe_no_migration_authority_change" },
+    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, authorityChanges: [], rollbackMode: "app_rollback_safe_no_migration_authority_change" },
     previousHealth: healthy(PREVIOUS, 122),
     runtimeHealth: healthy(TARGET, 123),
     backupManifest: BACKUP_MANIFEST,
@@ -209,7 +210,7 @@ test("already-active verification is an idempotent accepted operation", () => {
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:01:00.000Z",
     rollback: { disposition: "not_needed" },
-    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, rollbackMode: "app_rollback_safe_no_migration_authority_change" },
+    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, authorityChanges: [], rollbackMode: "app_rollback_safe_no_migration_authority_change" },
     operation: "verified_already_active",
     runtimeHealth: healthy(TARGET, 123),
   });
@@ -248,7 +249,7 @@ test("new promotion evidence fails closed without previous health or a unit back
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:04:00.000Z",
     rollback: { disposition: "not_needed" },
-    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, rollbackMode: "app_rollback_safe_no_migration_authority_change" },
+    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, authorityChanges: [], rollbackMode: "app_rollback_safe_no_migration_authority_change" },
     runtimeHealth: healthy(TARGET, 123),
   };
   assert.throws(
@@ -318,6 +319,7 @@ test("rejects migration rollback mode that disagrees with plan-hash equality", (
       migration: {
         previousPlanHash: "1".repeat(64),
         targetPlanHash: "2".repeat(64),
+        authorityChanges: [],
         rollbackMode: "app_rollback_safe_no_migration_authority_change",
       },
     }),
@@ -329,8 +331,56 @@ test("rejects migration rollback mode that disagrees with plan-hash equality", (
     migration: {
       previousPlanHash: "1".repeat(64),
       targetPlanHash: "2".repeat(64),
+      authorityChanges: [],
       rollbackMode: "forward_fix_or_restore_required",
     },
   });
+  assert.equal(evidence.migration.rollbackMode, "forward_fix_or_restore_required");
+});
+
+
+test("migration authority source changes forbid app rollback even when the plan hash is unchanged", () => {
+  const smokeResults = DEFAULT_STAGING_SMOKE_PATHS.map((smokePath) => ({
+    path: smokePath,
+    finalStatus: 200,
+    finalUrl: `https://tecp.ir${smokePath}`,
+  }));
+  const base = {
+    previousSha: PREVIOUS,
+    targetSha: TARGET,
+    imageDigest: `sha256:${"7".repeat(64)}`,
+    publicBaseUrl: "https://tecp.ir",
+    smokeResults,
+    startedAt: "2026-09-21T10:00:00.000Z",
+    completedAt: "2026-09-21T10:04:00.000Z",
+    rollback: { disposition: "not_permitted_schema_authority_changed" },
+    previousHealth: healthy(PREVIOUS, 122),
+    runtimeHealth: healthy(TARGET, 123),
+    backupManifest: BACKUP_MANIFEST,
+  };
+
+  assert.throws(
+    () => buildPromotionEvidence({
+      ...base,
+      migration: {
+        previousPlanHash: PLAN,
+        targetPlanHash: PLAN,
+        authorityChanges: ["scripts/run-database-migrations.ts"],
+        rollbackMode: "app_rollback_safe_no_migration_authority_change",
+      },
+    }),
+    /migration_rollback_mode_mismatch/,
+  );
+
+  const evidence = buildPromotionEvidence({
+    ...base,
+    migration: {
+      previousPlanHash: PLAN,
+      targetPlanHash: PLAN,
+      authorityChanges: ["scripts/run-database-migrations.ts"],
+      rollbackMode: "forward_fix_or_restore_required",
+    },
+  });
+  assert.deepEqual(evidence.migration.authorityChanges, ["scripts/run-database-migrations.ts"]);
   assert.equal(evidence.migration.rollbackMode, "forward_fix_or_restore_required");
 });
