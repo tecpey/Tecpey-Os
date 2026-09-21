@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -320,6 +321,23 @@ test("classifies migration-authority changes as forward-fix/restore only", () =>
     () => classifyMigrationRollbackSafety(["ok.ts", null]),
     /migration_changed_paths_invalid/,
   );
+});
+
+test("every db-migration source file is classified as rollback-sensitive authority", () => {
+  const files = readdirSync("src/lib")
+    .filter((name) => /^db-migration-.*\.ts$/.test(name))
+    .map((name) => `src/lib/${name}`)
+    .sort();
+  assert.ok(files.length >= 4, "expected governed db-migration authority files");
+  for (const file of files) {
+    const classification = classifyMigrationRollbackSafety([file]);
+    assert.equal(
+      classification.mode,
+      "forward_fix_or_restore_required",
+      `${file} must invalidate automatic app rollback`,
+    );
+    assert.deepEqual(classification.migrationAuthorityChanges, [file]);
+  }
 });
 
 test("migration cutover policy requires explicit schema authority and forbids schema-changing downgrade", () => {
