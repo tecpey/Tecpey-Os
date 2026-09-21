@@ -47,13 +47,15 @@ case "$ENV_VALIDATION_SOURCE" in
     exit 64
     ;;
 esac
-if [ "$ENV_VALIDATION_SOURCE" = "project-production-file" ] && [ ! -f .env.production ]; then
-  echo "Missing .env.production. Copy from .env.production.example first." >&2
-  exit 1
-fi
-if [ "$ENV_VALIDATION_SOURCE" = "process" ] && [ -e .env.production ]; then
-  echo "Process-authority preflight refuses a candidate-local .env.production to prevent secret/source ambiguity." >&2
-  exit 1
+if [ "$VERIFICATION_PHASE" != "runtime" ]; then
+  if [ "$ENV_VALIDATION_SOURCE" = "project-production-file" ] && [ ! -f .env.production ]; then
+    echo "Missing .env.production. Copy from .env.production.example first." >&2
+    exit 1
+  fi
+  if [ "$ENV_VALIDATION_SOURCE" = "process" ] && [ -e .env.production ]; then
+    echo "Process-authority preflight refuses a candidate-local .env.production to prevent secret/source ambiguity." >&2
+    exit 1
+  fi
 fi
 candidate_worktree=$(pwd -P)
 if [ -d "$SYSTEMD_LIVE_WORKTREE" ]; then
