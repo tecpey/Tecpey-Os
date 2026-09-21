@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CalmMentorSection, CalmLearningSection } from "./CalmProductSections";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -39,6 +39,8 @@ type NewsItem = {
   trendScore?: number;
   editorPick?: boolean;
   relatedLesson?: string;
+  thumbnailUrl?: string | null;
+  thumbnailAlt?: string | null;
 };
 
 type NewsResponse = {
@@ -281,6 +283,298 @@ function LiveMarketIntelligence({ locale, intelligence }: { locale: Locale; inte
   );
 }
 
+
+function latestNewsFirst(items: NewsItem[]) {
+  return [...items].sort((left, right) => {
+    const leftTime = Date.parse(left.publishedAt);
+    const rightTime = Date.parse(right.publishedAt);
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  });
+}
+
+function safeNewsThumbnail(item: NewsItem) {
+  const value = item.thumbnailUrl?.trim();
+  if (!value) return null;
+  if (value.startsWith("/")) return value;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function fallbackNewsThumbnail(item: NewsItem) {
+  const haystack = `${item.category} ${item.title} ${item.summary}`.toLowerCase();
+  if (/bitcoin|btc|بیت.?کوین/.test(haystack)) return "/images/tecpey/covers/what-is-bitcoin.jpg";
+  if (/phish|scam|security|امنیت|فیشینگ|کلاهبرداری/.test(haystack)) return "/images/tecpey/covers/crypto-scam-and-phishing.jpg";
+  if (/risk|ریسک/.test(haystack)) return "/images/tecpey/covers/risk-management-in-crypto.jpg";
+  if (/usdt|tether|stablecoin|تتر|استیبل/.test(haystack)) return "/images/tecpey/covers/what-is-usdt.jpg";
+  if (/blockchain|بلاک.?چین/.test(haystack)) return "/images/tecpey/covers/what-is-blockchain.jpg";
+  if (/exchange|صرافی/.test(haystack)) return "/images/tecpey/covers/how-to-choose-crypto-exchange.jpg";
+  if (/price|market|بازار|قیمت/.test(haystack)) return "/images/tecpey/covers/live-crypto-price-guide.jpg";
+  return "/images/tecpey/covers/technical-analysis-basics.jpg";
+}
+
+function CompactNewsCarousel({
+  locale,
+  items,
+  loading,
+  mode,
+  updatedAt,
+}: {
+  locale: Locale;
+  items: NewsItem[];
+  loading: boolean;
+  mode: NewsResponse["mode"];
+  updatedAt: string;
+}) {
+  const isFa = locale === "fa";
+  const ordered = useMemo(() => latestNewsFirst(items).slice(0, 6), [items]);
+  const railRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Array<HTMLElement | null>>([]);
+  const scrollFrameRef = useRef<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+  }, []);
+
+  function scrollToSlide(index: number) {
+    const bounded = Math.max(0, Math.min(ordered.length - 1, index));
+    const node = cardRefs.current[bounded];
+    if (!node) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    node.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+    setActiveIndex(bounded);
+  }
+
+  function syncActiveSlide() {
+    const rail = railRef.current;
+    if (!rail || ordered.length === 0) return;
+    const railBox = rail.getBoundingClientRect();
+    const center = railBox.left + railBox.width / 2;
+    let nextIndex = 0;
+    let closest = Number.POSITIVE_INFINITY;
+
+    cardRefs.current.forEach((node, index) => {
+      if (!node) return;
+      const box = node.getBoundingClientRect();
+      const distance = Math.abs((box.left + box.width / 2) - center);
+      if (distance < closest) {
+        closest = distance;
+        nextIndex = index;
+      }
+    });
+
+    setActiveIndex((current) => current === nextIndex ? current : nextIndex);
+  }
+
+  function scheduleActiveSlideSync() {
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      syncActiveSlide();
+    });
+  }
+
+  const OlderIcon = isFa ? ArrowLeft : ArrowRight;
+  const NewerIcon = isFa ? ArrowRight : ArrowLeft;
+
+  return (
+    <section
+      data-home-section="news-carousel"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={isFa ? "آخرین اخبار تک‌پی" : "Latest TecPey news"}
+      className="relative scroll-mt-24 overflow-hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:scroll-mt-28 sm:px-6 lg:px-8 lg:pb-24"
+      aria-labelledby="home-news-carousel-title"
+    >
+      <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto h-72 max-w-6xl bg-[radial-gradient(circle_at_50%_10%,rgba(34,211,238,.16),transparent_62%)]" aria-hidden="true" />
+      <div className="relative mx-auto max-w-7xl">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-3xl">
+            <div className="tecpey-kicker">
+              <Newspaper className="h-4 w-4 text-[color:var(--tp-primary)]" aria-hidden="true" />
+              {isFa ? "اخبار امروز بازار" : "Today’s market news"}
+            </div>
+            <h2 id="home-news-carousel-title" className="mt-5 text-balance text-3xl font-black leading-tight text-[color:var(--tp-text)] sm:text-5xl">
+              {isFa ? "جدیدترین خبر، اول. زمینه و منبع، همیشه همراهش." : "Newest first. Context and source stay with every story."}
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[color:var(--tp-muted)] sm:text-base">
+              {isFa
+                ? "با سوایپ، اسکرول یا دکمه‌های قبلی و بعدی بین خبرها حرکت کن. تصویر هر خبر فقط در صورت مجاز بودن منبع نمایش داده می‌شود."
+                : "Swipe, scroll, or use the previous and next controls. Story images appear only when the source policy allows them."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex min-h-11 items-center rounded-full border border-[color:var(--tp-border)] bg-white/62 px-4 text-xs font-black text-[color:var(--tp-muted)] shadow-[var(--tp-shadow-card)] backdrop-blur-2xl dark:bg-slate-900/55">
+              {loading
+                ? (isFa ? "در حال همگام‌سازی…" : "Syncing…")
+                : mode === "live"
+                  ? (isFa ? "به‌روزرسانی · " : "Updated · ") + formatTime(updatedAt, locale)
+                  : (isFa ? "فید تازه در دسترس نیست" : "Fresh feed unavailable")}
+            </span>
+            <Link href={isFa ? "/crypto-news" : "/en/crypto-news"} className="tecpey-action-secondary tecpey-action-compact">
+              {isFa ? "همه اخبار" : "All news"}
+              {isFa ? <ArrowLeft className="h-4 w-4" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+            </Link>
+          </div>
+        </div>
+
+        {ordered.length > 0 ? (
+          <div className="mt-8">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <span className="text-xs font-black tabular-nums text-[color:var(--tp-muted)]" aria-live="polite">
+                {new Intl.NumberFormat(isFa ? "fa-IR" : "en-US").format(activeIndex + 1)}
+                {" / "}
+                {new Intl.NumberFormat(isFa ? "fa-IR" : "en-US").format(ordered.length)}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => scrollToSlide(activeIndex - 1)}
+                  disabled={activeIndex === 0}
+                  className="grid min-h-11 min-w-11 place-items-center rounded-full border border-white/45 bg-white/65 text-slate-800 shadow-[0_12px_36px_rgba(15,23,42,.12)] backdrop-blur-2xl transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:bg-white/85 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-35 motion-reduce:transform-none motion-reduce:transition-none dark:border-white/10 dark:bg-slate-900/65 dark:text-white dark:hover:bg-slate-900/85"
+                  aria-label={isFa ? "خبر جدیدتر" : "Newer story"}
+                >
+                  <NewerIcon className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToSlide(activeIndex + 1)}
+                  disabled={activeIndex === ordered.length - 1}
+                  className="grid min-h-11 min-w-11 place-items-center rounded-full border border-white/45 bg-white/65 text-slate-800 shadow-[0_12px_36px_rgba(15,23,42,.12)] backdrop-blur-2xl transition-[transform,background-color,border-color,opacity] duration-200 hover:-translate-y-0.5 hover:bg-white/85 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-35 motion-reduce:transform-none motion-reduce:transition-none dark:border-white/10 dark:bg-slate-900/65 dark:text-white dark:hover:bg-slate-900/85"
+                  aria-label={isFa ? "خبر قدیمی‌تر" : "Older story"}
+                >
+                  <OlderIcon className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              ref={railRef}
+              onScroll={scheduleActiveSlideSync}
+              className="flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-5 pe-[12%] [scroll-padding-inline:1rem] [scrollbar-width:none] sm:gap-5 sm:pe-[18%] lg:pe-[22%] [&::-webkit-scrollbar]:hidden"
+            >
+              {ordered.map((item, index) => {
+                const sourceThumbnail = safeNewsThumbnail(item);
+                const thumbnail = sourceThumbnail || fallbackNewsThumbnail(item);
+                const featured = index === 0;
+                const href = item.url || (isFa ? "/crypto-news" : "/en/crypto-news");
+                const slideLabel = new Intl.NumberFormat(isFa ? "fa-IR" : "en-US").format(index + 1)
+                  + (isFa ? " از " : " of ")
+                  + new Intl.NumberFormat(isFa ? "fa-IR" : "en-US").format(ordered.length);
+
+                return (
+                  <article
+                    key={item.id}
+                    ref={(node) => { cardRefs.current[index] = node; }}
+                    role="group"
+                    aria-roledescription="slide"
+                    aria-label={slideLabel}
+                    className={"relative shrink-0 snap-center " + (featured ? "w-[88%] sm:w-[66%] lg:w-[45%]" : "w-[82%] sm:w-[50%] lg:w-[31%]")}
+                  >
+                    <a
+                      href={href}
+                      target={isExternal(item.url) ? "_blank" : undefined}
+                      rel={isExternal(item.url) ? "noreferrer" : undefined}
+                      className="group relative flex h-full min-h-[430px] flex-col overflow-hidden rounded-[34px] border border-white/55 bg-white/68 shadow-[0_24px_80px_rgba(15,23,42,.14)] backdrop-blur-2xl transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-cyan-300/60 hover:shadow-[0_28px_90px_rgba(8,145,178,.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)] focus-visible:ring-offset-4 focus-visible:ring-offset-[color:var(--tp-bg)] motion-reduce:transform-none motion-reduce:transition-none dark:border-white/10 dark:bg-slate-900/62"
+                    >
+                      <span className="pointer-events-none absolute inset-x-8 top-0 z-20 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent opacity-80" aria-hidden="true" />
+                      <div className={"relative overflow-hidden " + (featured ? "h-56 sm:h-64" : "h-48 sm:h-52")}>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,.35),transparent_35%),linear-gradient(145deg,#06111f,#0b2034)]" aria-hidden="true" />
+                        <div className="absolute inset-0 grid place-items-center text-center text-white/75" aria-hidden="true">
+                          <div>
+                            <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-white/15 bg-white/10 backdrop-blur-xl">
+                              <Newspaper className="h-6 w-6" />
+                            </div>
+                            <p className="mt-3 px-5 text-xs font-black">{item.source}</p>
+                          </div>
+                        </div>
+                        {thumbnail ? (
+                          // Governed source thumbnails are exposed by the same news authority used by the archive.
+                          // eslint-disable-next-line @next/next/no-img-element -- #643: governed news media requires native same-origin redirect fallback handling.
+                          <img
+                            src={thumbnail}
+                            alt={sourceThumbnail ? (item.thumbnailAlt || "") : ""}
+                            loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                            onError={(event) => { event.currentTarget.style.display = "none"; }}
+                            className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.025] motion-reduce:transform-none motion-reduce:transition-none"
+                          />
+                        ) : null}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/10 to-transparent" aria-hidden="true" />
+                        <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3">
+                          <span className="rounded-full border border-white/20 bg-slate-950/55 px-3 py-1.5 text-[10px] font-black text-white backdrop-blur-xl">{item.category}</span>
+                          {featured ? (
+                            <span className="rounded-full border border-cyan-200/35 bg-cyan-300/20 px-3 py-1.5 text-[10px] font-black text-cyan-50 backdrop-blur-xl">
+                              {isFa ? "جدیدترین خبر" : "Latest"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 text-[11px] font-black text-white/90">
+                          <span>{item.source}</span>
+                          <span>{formatTime(item.publishedAt, locale)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-1 flex-col p-5 sm:p-6">
+                        <h3 className={"text-pretty font-black leading-8 text-slate-950 dark:text-white " + (featured ? "text-xl sm:text-2xl" : "text-lg")}>{item.title}</h3>
+                        <p className="mt-3 line-clamp-3 text-sm font-semibold leading-7 text-slate-600 dark:text-slate-300">{item.summary}</p>
+                        <div className="mt-auto flex items-end justify-between gap-4 pt-5">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-600 dark:text-slate-400">{isFa ? "زمینه آموزشی" : "Learning context"}</p>
+                            <p className="mt-1 line-clamp-1 text-xs font-black text-cyan-700 dark:text-cyan-200">{item.relatedLesson || (isFa ? "آکادمی تک‌پی" : "TecPey Academy")}</p>
+                          </div>
+                          <span className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-4 text-xs font-black text-cyan-800 transition-colors group-hover:bg-cyan-600 group-hover:text-white dark:text-cyan-100 dark:group-hover:bg-cyan-400 dark:group-hover:text-slate-950">
+                            {isFa ? "خواندن خبر" : "Read story"}
+                            {isFa ? <ArrowLeft className="h-4 w-4" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+                          </span>
+                        </div>
+                      </div>
+                    </a>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="mt-1 flex items-center justify-center gap-1" aria-label={isFa ? "انتخاب خبر" : "Choose story"}>
+              {ordered.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => scrollToSlide(index)}
+                  className="grid min-h-11 min-w-11 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)]"
+                  aria-label={isFa ? "رفتن به خبر " + new Intl.NumberFormat("fa-IR").format(index + 1) : "Go to story " + (index + 1)}
+                  aria-current={activeIndex === index ? "true" : undefined}
+                >
+                  <span className={"block h-1.5 rounded-full transition-[width,background-color] duration-200 motion-reduce:transition-none " + (activeIndex === index ? "w-5 bg-[color:var(--tp-primary)]" : "w-1.5 bg-slate-300 dark:bg-slate-700")} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-8 rounded-[30px] border border-amber-300/25 bg-amber-400/10 p-6 text-center" role="status">
+            <p className="text-sm font-black text-[color:var(--tp-text)]">
+              {loading
+                ? (isFa ? "در حال دریافت تازه‌ترین خبرها…" : "Fetching the latest stories…")
+                : (isFa ? "در حال حاضر خبر تازه و تاریخ‌دار از منابع تأییدشده دریافت نشد." : "No fresh, dated headline is currently available from the verified feeds.")}
+            </p>
+            {!loading ? <p className="mt-2 text-xs font-bold leading-6 text-[color:var(--tp-muted)]">{isFa ? "برای حفظ اعتماد، خبر قدیمی یا متن آموزشی را به‌جای خبر زنده نمایش نمی‌دهیم." : "To preserve trust, we do not present old headlines or educational copy as live news."}</p> : null}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
   const isFa = locale === "fa";
   // The initial state renders during SSR and again on the first client render.
@@ -294,23 +588,55 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    fetch(`/api/crypto-news?locale=${locale}&limit=${compact ? 4 : 8}`)
-      .then((res) => res.ok ? res.json() : Promise.reject(new Error("news failed")))
-      .then((data: NewsResponse) => {
+
+    async function loadNews(initial: boolean) {
+      if (initial) setLoading(true);
+      try {
+        const response = await fetch(
+          "/api/crypto-news?locale=" + locale + "&limit=" + (compact ? 6 : 8),
+          { cache: "no-store", headers: { accept: "application/json" } },
+        );
+        if (!response.ok) throw new Error("news failed");
+        const data = await response.json() as NewsResponse;
         if (active && Array.isArray(data.items)) setState(data);
-      })
-      .catch(() => {
-        if (active) setState({ mode: "fallback", updatedAt: new Date().toISOString(), items: [] });
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
+      } catch {
+        if (active) {
+          setState((current) => current.items.length
+            ? current
+            : { mode: "fallback", updatedAt: new Date().toISOString(), items: [] });
+        }
+      } finally {
+        if (active && initial) setLoading(false);
+      }
+    }
+
+    void loadNews(true);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadNews(false);
+    }, 10 * 60 * 1_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [compact, locale]);
 
-  const topItems = useMemo(() => state.items.slice(0, compact ? 4 : 8), [compact, state.items]);
-  const sections = useMemo(() => newsSections(state.items), [state.items]);
+  const orderedItems = useMemo(() => latestNewsFirst(state.items), [state.items]);
+  const topItems = useMemo(() => orderedItems.slice(0, compact ? 6 : 8), [compact, orderedItems]);
+  const sections = useMemo(() => newsSections(orderedItems), [orderedItems]);
+
+  if (compact) {
+    return (
+      <CompactNewsCarousel
+        key={topItems[0]?.id ?? "empty-news-carousel"}
+        locale={locale}
+        items={topItems}
+        loading={loading}
+        mode={state.mode}
+        updatedAt={state.updatedAt}
+      />
+    );
+  }
 
   return (
     <section className="bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8">

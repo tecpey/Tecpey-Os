@@ -34,6 +34,7 @@ type NewsItem = {
   editorPick?: boolean;
   relatedLesson?: string;
   thumbnailUrl?: string | null;
+  thumbnailAlt?: string | null;
   translationPending?: boolean;
 };
 
@@ -91,6 +92,7 @@ function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now:
     editorPick: impact >= 8,
     relatedLesson: relatedLesson(item, locale),
     thumbnailUrl: item.thumbnailUrl,
+    thumbnailAlt: item.thumbnailAlt,
     translationPending: item.translationPending,
   };
 }
@@ -171,7 +173,15 @@ export async function GET(request: NextRequest) {
     const downstreamArchiveItems = locale === "fa"
       ? archiveItems.filter((item) => !item.translationPending)
       : archiveItems;
-    const allItems = downstreamArchiveItems.map((item) => toNewsItem(item, locale, now));
+    const allItems = downstreamArchiveItems
+      .map((item) => toNewsItem(item, locale, now))
+      .sort((left, right) => {
+        const leftTime = Date.parse(left.publishedAt);
+        const rightTime = Date.parse(right.publishedAt);
+        const leftSafe = Number.isFinite(leftTime) ? leftTime : 0;
+        const rightSafe = Number.isFinite(rightTime) ? rightTime : 0;
+        return rightSafe - leftSafe;
+      });
     const items = allItems.slice(0, limit);
     const updatedAt = new Date().toISOString();
     const availableDays = Array.from(new Set([today, requestedDay, ...historicalDays]))

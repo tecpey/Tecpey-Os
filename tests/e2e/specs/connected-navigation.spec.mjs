@@ -43,19 +43,20 @@ test("shared mobile navigation keeps Home centered and follows the selected rout
   expect(Math.abs((home.x + home.width / 2) - (bar.x + bar.width / 2))).toBeLessThan(2);
 
   {
-    const cta = page.locator("[data-mobile-learning-cta]");
-    await cta.scrollIntoViewIfNeeded();
-    await expect(cta).toBeVisible();
-    expect(await cta.evaluate(el => getComputedStyle(el).position)).toBe("relative");
-    await expect(cta.getByRole("link")).toHaveCount(2);
-    for (const link of await cta.getByRole("link").all()) {
-      await link.scrollIntoViewIfNeeded();
-      await link.click({ trial: true });
-      const target = await link.boundingBox();
-      const navBounds = await nav.boundingBox();
-      expect(target.y + target.height, "Learning action must be reachable above navigation").toBeLessThanOrEqual(navBounds.y);
-      expect(target.height).toBeGreaterThanOrEqual(44);
-    }
+    // Home must not mount a second fixed learning CTA above the persistent
+    // mobile navigation. The product-led hero owns the entry actions.
+    await expect(page.locator("[data-mobile-learning-cta]")).toHaveCount(0);
+    const hero = page.locator('[data-home-section="hero"]');
+    const academyCta = hero.getByRole("link", {
+      name: isEn ? "Start Free Academy" : "شروع آکادمی رایگان",
+      exact: false,
+    });
+    await academyCta.scrollIntoViewIfNeeded();
+    await academyCta.click({ trial: true });
+    const target = await academyCta.boundingBox();
+    const navBounds = await nav.boundingBox();
+    expect(target.y + target.height, "Hero learning action must be reachable above navigation").toBeLessThanOrEqual(navBounds.y);
+    expect(target.height).toBeGreaterThanOrEqual(44);
   }
   await installLocalUiSession(page.context());
   await page.goto(`${base}/academy/account`, { waitUntil: "domcontentloaded" });

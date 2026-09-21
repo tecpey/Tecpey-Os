@@ -11,13 +11,22 @@ const heroPath = path.join(
   process.cwd(),
   "src/components/home/CalmLandingHero.tsx",
 );
+const storyPath = path.join(
+  process.cwd(),
+  "src/components/home/HomeProductStory.tsx",
+);
+const closePath = path.join(
+  process.cwd(),
+  "src/components/home/CalmProductSections.tsx",
+);
 
 const landing = fs.readFileSync(landingPath, "utf8");
 const sharedHero = fs.readFileSync(heroPath, "utf8");
+const productStory = fs.readFileSync(storyPath, "utf8");
+const close = fs.readFileSync(closePath, "utf8");
 
 test("first-release landing has no exchange execution CTA", () => {
   const forbidden = [
-    /my\.tecpey\.ir/,
     /\bexchangeHref\b/,
     /\bexchangeSignupHref\b/,
     /ورود به صرافی/,
@@ -28,6 +37,7 @@ test("first-release landing has no exchange execution CTA", () => {
   for (const pattern of forbidden) {
     assert.doesNotMatch(landing, pattern);
     assert.doesNotMatch(sharedHero, pattern);
+    assert.doesNotMatch(productStory, pattern);
   }
 });
 
@@ -44,52 +54,41 @@ test("shared hero is Academy-first and Mentor-second in FA and EN", () => {
   assert.match(sharedHero, /const prefix = fa \? "" : "\/en"/);
 });
 
-test("product focus preserves the learning loop", () => {
-  const start = landing.indexOf("function SoftLaunchProductFocus()");
-  const end = landing.indexOf("\nfunction ", start + 1);
+test("connected product story preserves the governed learning loop", () => {
+  const learn = productStory.indexOf('title: "یاد بگیر"');
+  const ask = productStory.indexOf('title: "بپرس"');
+  const practice = productStory.indexOf('title: "تمرین کن"');
+  const context = productStory.indexOf('title: "زمینه را ببین"');
 
-  assert.ok(start >= 0);
-  assert.ok(end > start);
+  assert.ok(learn >= 0);
+  assert.ok(ask > learn);
+  assert.ok(practice > ask);
+  assert.ok(context > practice);
 
-  const section = landing.slice(start, end);
+  assert.match(productStory, /href: "\/academy"/);
+  assert.match(productStory, /href: "\/academy\/ai-guide"/);
+  assert.match(productStory, /href: "\/academy\/trading-arena"/);
+  assert.match(productStory, /href: "\/crypto-news"/);
 
-  const academy = section.indexOf('title: "آکادمی رایگان"');
-  const mentor = section.indexOf('title: "منتور هوشمند"');
-  const market = section.indexOf('title: "نمای آموزشی بازار"');
-  const arena = section.indexOf('title: "تریدینگ آرنا"');
-
-  assert.ok(academy >= 0);
-  assert.ok(mentor > academy);
-  assert.ok(market > mentor);
-  assert.ok(arena > market);
-
-  assert.match(section, /href: academyHref/);
-  assert.match(section, /href: mentorHref/);
-  assert.match(section, /href: "\/markets"/);
-  assert.match(section, /href: tradingArenaHref/);
+  assert.match(productStory, /۷ ترم پایه \+ ترم رشد بی‌پایان/);
+  assert.match(productStory, /7 foundation terms \+ continuous growth/);
 });
 
-test("final and sticky CTAs remain Academy and Mentor only", () => {
-  const finalStart = landing.indexOf("function FinalCta()");
-  const arenaStart = landing.indexOf("function TradingArenaSection()", finalStart);
+test("closing conversion remains inside the learning account boundary", () => {
+  assert.ok(close.includes('href={`${prefix}/academy/signup`}'));
+  assert.ok(close.includes('href={`${prefix}/academy/login`}'));
+  assert.match(close, /ساخت حساب آموزشی/);
+  assert.match(close, /Create a learning account/);
 
-  assert.ok(finalStart >= 0);
-  assert.ok(arenaStart > finalStart);
-
-  const closingJourney = landing.slice(finalStart, arenaStart);
-
-  assert.match(closingJourney, /href=\{academyHref\}/);
-  assert.match(closingJourney, /href=\{mentorHref\}/);
-  assert.match(closingJourney, /شروع آکادمی رایگان/);
-  assert.match(closingJourney, /گفتگو با منتور هوشمند/);
-  assert.match(closingJourney, /شروع آکادمی/);
-  assert.match(closingJourney, /منتور هوشمند/);
-
-  assert.doesNotMatch(closingJourney, /my\.tecpey\.ir/);
-  assert.doesNotMatch(closingJourney, /ورود به صرافی/);
+  assert.doesNotMatch(close, /href=.*my\.tecpey\.ir/);
+  assert.doesNotMatch(close, /ورود به صرافی/);
+  assert.doesNotMatch(close, /Enter Exchange/);
 });
 
-test("educational exchange references may remain without execution links", () => {
-  assert.match(landing, /کار با صرافی/);
-  assert.doesNotMatch(landing, /href=.*my\.tecpey\.ir/);
+test("launch-gated product boundary remains explicit", () => {
+  assert.match(productStory, /خدمات پول واقعی تا عبور از گیت‌های راه‌اندازی فعال نمی‌شود/);
+  assert.match(productStory, /Real-money services remain launch-gated/);
+  assert.match(productStory, /وعدهٔ سود/);
+  assert.match(productStory, /does not promise returns/);
+  assert.doesNotMatch(productStory, /href=.*my\.tecpey\.ir/);
 });

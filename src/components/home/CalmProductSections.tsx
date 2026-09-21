@@ -69,12 +69,12 @@ export function CalmLandingClose({ locale }: Props) {
   const faq = fa ? [
     ["آموزش آکادمی رایگان است؟", "بله، مسیر پایه آکادمی رایگان است. برنامه‌های تخصصی و گواهی‌های رسمی ممکن است شرایط جداگانه داشته باشند."],
     ["آرنا با پول واقعی کار می‌کند؟", "خیر. تریدینگ آرنا محیط تمرین با سرمایه مجازی است؛ نتیجه تمرین، سود یا زیان واقعی ایجاد نمی‌کند."],
-    ["حساب آموزشی همان حساب صرافی است؟", "خیر. ورود آموزشی از این سایت انجام می‌شود. ورود حساب صرافی در دامنه رسمی my.tecpey.ir جداست."],
+    ["حساب آموزشی همان حساب صرافی است؟", "خیر. حساب آموزشی مستقل است. در حال ساخت و توسعه صرافی اختصاصی تک‌پی هستیم و قابلیت‌های پول واقعی این نسخه فعال نیستند."],
     ["منتور توصیه خرید و فروش می‌دهد؟", "منتور برای توضیح و یادگیری است، نه مشاوره سرمایه‌گذاری یا تضمین سود. پاسخ‌های مهم را بررسی کن."],
   ] : [
     ["Is Academy free?", "Yes, the foundation learning path is free. Specialist programs and official certificates may have separate terms."],
     ["Does Arena use real money?", "No. Trading Arena uses virtual funds. Practice results do not create real profits or losses."],
-    ["Is this also my exchange account?", "No. Learning accounts use this site. Exchange sign-in is separate at the official my.tecpey.ir domain."],
+    ["Is this also my exchange account?", "No. The learning account is separate. TecPey is building its dedicated exchange, and real-money capabilities are not active in this release."],
     ["Does the mentor give buy or sell advice?", "The mentor supports learning, not investment advice or guaranteed returns. Verify important answers."],
   ];
   return <div className={styles.landingClose} dir={fa ? "rtl" : "ltr"}>

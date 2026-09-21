@@ -25,7 +25,7 @@ test("news pages read the database archive and never activate RSS ingestion on m
   const stagingGuard = read("scripts/check-news-materialization-staging-evidence-authority.mjs");
   assert.match(fa, /getNewsArchiveDayForPresentation/);
   assert.doesNotMatch(fa, /CryptoNewsCenter/);
-  assert.match(home, /fetch\(`\/api\/crypto-news/);
+  assert.match(home, /fetch\(\s*["\x27`]\/api\/crypto-news\?locale=/);
   assert.match(api, /getNewsArchiveDayForPresentation/);
   assert.doesNotMatch(api, /readSource|outboundfeeds|cointelegraph\.com\/rss|decrypt\.co\/feed/);
   assert.match(timer, /OnActiveSec=2min/);

@@ -56,8 +56,8 @@ requireText(navbar, "role=\"menuitem\"", "Knowledge Center links must use menu-i
 requireText(navbar, "absolute end-0", "Knowledge Center must use locale-aware logical alignment");
 requireText(navbar, "event.key !== \"Escape\"", "Knowledge Center must support Escape dismissal");
 requireText(navbar, "loading=\"eager\"", "Above-the-fold TecPey mark must not lazy-load");
-requireText(navbar, "تریدینگ آرنا", "Knowledge navigation must expose Trading Arena");
-requireText(navbar, "منتور هوشمند", "Knowledge navigation must expose the AI Mentor");
+requireText(navbar, '{ label: "تریدینگ آرنا", href: "/academy/trading-arena" }', "Primary navigation must expose Trading Arena");
+requireText(navbar, '{ label: "منتور هوشمند", href: "/academy/ai-guide" }', "Primary navigation must expose the AI Mentor");
 
 rejectText(footer, "useScrollReveal", "Footer content must not depend on IntersectionObserver visibility");
 rejectText(footer, "opacity: isVisible", "Footer content must never start hidden behind animation state");
@@ -75,4 +75,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Public UI foundation check passed: theme, dedicated Mentor entry orchestration, Knowledge Center and Footer visibility contracts are present.");
+console.log("Public UI foundation check passed: theme, dedicated Mentor entry orchestration, core product navigation, Explore menu and Footer visibility contracts are present.");
