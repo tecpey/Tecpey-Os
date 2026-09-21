@@ -23,6 +23,23 @@ Perform the final cross-product quality pass so TecPey behaves as one coherent s
 ## Surfaces
 Landing, Login/Register, Academy, Living Profile, Account/KYC/Pro, Mentor Workspace, Market/Research Intelligence, Arena/League, Notifications, News/Markets and core navigation.
 
+## Research-derived experience gates
+
+Primary references:
+- Apple Liquid Glass overview: https://developer.apple.com/documentation/technologyoverviews/liquid-glass
+- WCAG 2.2: https://www.w3.org/TR/wcag/
+- WCAG 2.2 focus appearance: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance
+
+Implementation consequences:
+- translucent/glass styling establishes hierarchy around navigation/controls; it is not a default content-card material;
+- primary product content remains readable when transparency/reduced-transparency preferences remove visual effects;
+- WCAG 2.5.8's 24×24 CSS px minimum/spacing rule is the compliance floor; TecPey uses 44px preferred primary mobile targets;
+- any drag/swipe interaction has a single-pointer non-drag alternative (WCAG 2.5.7), including news carousels and chart controls;
+- sticky headers/bottom bars are tested against focus-not-obscured behavior at mobile keyboard and browser zoom states;
+- focus appearance is measured in browser tests; glow/shadow alone is not treated as a reliable focus indicator;
+- reduced motion preserves semantic state and task completion, not merely “slower animation”;
+- visual regression captures normal, loading, empty, error, degraded, locked, offline and reduced-motion states where applicable.
+
 ## Design acceptance
 - Content hierarchy first; Liquid Glass-like treatment limited to functional navigation/control layer.
 - Shared spacing/radius/type/icon/action-placement tokens.
