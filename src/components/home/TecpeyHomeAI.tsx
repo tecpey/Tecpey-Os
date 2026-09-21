@@ -400,8 +400,8 @@ function CompactNewsCarousel({
             </h2>
             <p className="mt-4 max-w-2xl text-sm font-semibold leading-7 text-[color:var(--tp-muted)] sm:text-base">
               {isFa
-                ? "با سوایپ، اسکرول یا دکمه‌های قبلی و بعدی بین خبرها حرکت کن. تصویر هر خبر فقط از مسیر رسانهٔ governed تک‌پی نمایش داده می‌شود."
-                : "Swipe, scroll, or use the previous and next controls. Story media is rendered only through TecPey’s governed news-media path."}
+                ? "با سوایپ، اسکرول یا دکمه‌های قبلی و بعدی بین خبرها حرکت کن. تصویر هر خبر فقط در صورت مجاز بودن منبع نمایش داده می‌شود."
+                : "Swipe, scroll, or use the previous and next controls. Story images appear only when the source policy allows them."}
             </p>
           </div>
 
