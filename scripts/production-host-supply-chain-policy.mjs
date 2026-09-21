@@ -3,7 +3,7 @@ const RETIREMENT_EXIT = 'exit "$HOST_DEPLOYMENT_RETIRED"';
 const LOCKFILE_INSTALL =
   'PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund';
 const READINESS_PROBE =
-  "curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health";
+  'curl --fail --silent --show-error --max-time 10 "$RUNTIME_HEALTH_URL"';
 const READINESS_ATTEMPTS = "readonly READINESS_ATTEMPTS=5";
 const READINESS_LOOP = "for attempt in 1 2 3 4 5; do";
 const NODE_VERSION_CONTRACT = "readonly EXPECTED_NODE_MAJOR=22";
