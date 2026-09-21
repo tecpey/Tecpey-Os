@@ -173,6 +173,24 @@ export function validateStagingHealth(payload, expectedSha) {
   return true;
 }
 
+function sanitizeHealthEvidence(payload) {
+  const migrationStatus = payload.migrations?.status ?? payload.checks?.schema ?? null;
+  const migrationCurrent = Number.isInteger(payload.migrations?.current)
+    ? payload.migrations.current
+    : null;
+  return {
+    commit: payload.build.commit,
+    database: payload.checks.database,
+    schema: payload.checks.schema,
+    redis: payload.checks.redis,
+    runtime: payload.checks.runtime,
+    email: payload.checks.email,
+    requiredWorkers: payload.checks.requiredWorkers,
+    migrationStatus,
+    migrationCurrent,
+  };
+}
+
 export function validateSmokeResult({ path: routePath, finalStatus, finalUrl }, expectedOrigin) {
   if (!DEFAULT_STAGING_SMOKE_PATHS.includes(routePath)) {
     throw new Error("staging_smoke_path_not_governed");
@@ -204,6 +222,7 @@ export function buildPromotionEvidence(input) {
     rollback,
     operation = "promoted",
     runtimeHealth,
+    previousHealth = null,
     backupManifest = null,
   } = input;
   assertExactReleaseSha(previousSha, "previous_sha");
@@ -242,10 +261,13 @@ export function buildPromotionEvidence(input) {
     throw new Error("promotion_rollback_evidence_invalid");
   }
   validateStagingHealth(runtimeHealth, targetSha);
-  const migrationStatus = runtimeHealth.migrations?.status ?? runtimeHealth.checks?.schema ?? null;
-  const migrationCurrent = Number.isInteger(runtimeHealth.migrations?.current)
-    ? runtimeHealth.migrations.current
-    : null;
+  const sanitizedRuntime = sanitizeHealthEvidence(runtimeHealth);
+
+  let sanitizedPreviousRuntime = null;
+  if (operation === "promoted") {
+    validateStagingHealth(previousHealth, previousSha);
+    sanitizedPreviousRuntime = sanitizeHealthEvidence(previousHealth);
+  }
 
   let sanitizedBackup = null;
   if (operation === "promoted") {
@@ -280,17 +302,8 @@ export function buildPromotionEvidence(input) {
     targetSha,
     supplyChainImageDigest: imageDigest,
     publicOrigin: origin,
-    runtime: {
-      commit: runtimeHealth.build.commit,
-      database: runtimeHealth.checks.database,
-      schema: runtimeHealth.checks.schema,
-      redis: runtimeHealth.checks.redis,
-      runtime: runtimeHealth.checks.runtime,
-      email: runtimeHealth.checks.email,
-      requiredWorkers: runtimeHealth.checks.requiredWorkers,
-      migrationStatus,
-      migrationCurrent,
-    },
+    previousRuntime: sanitizedPreviousRuntime,
+    runtime: sanitizedRuntime,
     backup: sanitizedBackup,
     smokeResults: smokeResults.map(({ path: smokePath, finalStatus }) => ({
       path: smokePath,
