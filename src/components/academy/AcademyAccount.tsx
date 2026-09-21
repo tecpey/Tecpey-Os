@@ -157,7 +157,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
             title="Mentor Intelligence"
             text={isFa ? "منتور، حافظه سروری و شخصی‌سازی مبتنی بر شواهد همین حالا در معماری محصول وجود دارند." : "Mentor, server memory and evidence-aware personalization already exist in the product architecture."}
             state="live"
-            stateLabel={isFa ? "فعال" : "Live"}
+            stateLabel={isFa ? "فونداسیون فعال" : "Foundation live"}
             href={`${base}/ai-guide`}
             hrefLabel={isFa ? "باز کردن منتور" : "Open Mentor"}
           />
@@ -166,14 +166,14 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
             title={isFa ? "پژوهش عمومی عمیق" : "Deep public research"}
             text={isFa ? "مسیر پژوهش منبع‌دار در backend پیاده شده، اما تا فعال‌شدن entitlement سروری Pro عمداً قفل است." : "The source-grounded research path exists in the backend, but stays deliberately locked until server-side Pro entitlement is live."}
             state={publicResearchLive ? "live" : "locked"}
-            stateLabel={publicResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "قفل سروری" : "Server gated")}
+            stateLabel={!proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "قفل سروری" : "Server gated")}
           />
           <CapabilityCard
             Icon={Radio}
             title={isFa ? "هوشمندی خبر و شبکه‌های اجتماعی" : "News & social intelligence"}
             text={isFa ? "زیرساخت پژوهش وب و X در کنترل‌پلین وجود دارد؛ خروجی برای فهم روایت‌هاست، نه سیگنال خرید و فروش." : "Web/X research infrastructure exists in the control plane; its purpose is narrative understanding, not buy/sell signals."}
-            state={socialResearchLive ? "live" : "preview"}
-            stateLabel={socialResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "پیش‌نمایش محصول" : "Product preview")}
+            state={socialResearchLive ? "live" : proAuthorityAvailable ? "preview" : "locked"}
+            stateLabel={!proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : socialResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "پیش‌نمایش محصول" : "Product preview")}
           />
           <CapabilityCard
             Icon={Sparkles}
