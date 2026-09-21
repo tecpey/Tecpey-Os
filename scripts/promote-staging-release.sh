@@ -219,6 +219,30 @@ const rendered = policy.replaceReleasePathInUnit(source, current, next);
 writeFileSync(process.env.OUTPUT_UNIT, rendered, { mode: 0o600 });
 NODE
 
+readonly PREVIOUS_UNIT_DIGEST="sha256:$(sha256sum "$UNIT_BACKUP" | awk '{print $1}')"
+readonly TARGET_UNIT_DIGEST="sha256:$(sha256sum "$UNIT_NEXT" | awk '{print $1}')"
+TARGET_UNIT="$TARGET_UNIT" PREVIOUS_RELEASE_PATH="$CURRENT" TARGET_RELEASE_PATH="$NEXT" PREVIOUS_UNIT_DIGEST="$PREVIOUS_UNIT_DIGEST" TARGET_UNIT_DIGEST="$TARGET_UNIT_DIGEST" BACKUP_MANIFEST_FILE="$BACKUP_MANIFEST_FILE"   node --input-type=module <<'NODE'
+import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const policy = await import(pathToFileURL(`${process.env.TECPEY_PROMOTION_AUTHORITY_DIR}/scripts/staging-promotion-policy.mjs`));
+policy.assertReleasePath(process.env.PREVIOUS_RELEASE_PATH);
+policy.assertReleasePath(process.env.TARGET_RELEASE_PATH, process.env.RELEASE_SHA);
+policy.assertSafeSystemdMutationPath(process.env.TARGET_UNIT);
+for (const value of [process.env.PREVIOUS_UNIT_DIGEST, process.env.TARGET_UNIT_DIGEST]) {
+  if (!/^sha256:[0-9a-f]{64}$/.test(value ?? "")) throw new Error("staging_unit_digest_invalid");
+}
+const manifest = {
+  schemaVersion: 1,
+  evidenceClass: "tecpey-staging-promotion-backup-v1",
+  previousReleasePath: process.env.PREVIOUS_RELEASE_PATH,
+  targetReleasePath: process.env.TARGET_RELEASE_PATH,
+  unitPath: process.env.TARGET_UNIT,
+  previousUnitDigest: process.env.PREVIOUS_UNIT_DIGEST,
+  targetUnitDigest: process.env.TARGET_UNIT_DIGEST,
+};
+writeFileSync(process.env.BACKUP_MANIFEST_FILE, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
+NODE
+
 readonly UNIT_UID="$(stat -c %u "$TARGET_UNIT")"
 readonly UNIT_GID="$(stat -c %g "$TARGET_UNIT")"
 readonly UNIT_MODE="$(stat -c %a "$TARGET_UNIT")"
