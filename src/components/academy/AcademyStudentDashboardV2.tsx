@@ -350,7 +350,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             })}
             <Link
               href={`${termBase}/term-8`}
-              className={`rounded-[28px] border p-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1" : "border-white/10 bg-white/[0.035] opacity-70"}`}
+              className={`rounded-[28px] border p-5 transition motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1 motion-reduce:hover:translate-y-0" : "border-white/10 bg-white/[0.035] opacity-70"}`}
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">
@@ -405,7 +405,7 @@ function MedalCabinet({ locale, achievements, credentials, degraded }: {
           <h2 id="academy-medal-cabinet-title" className="mt-3 text-2xl font-black sm:text-3xl">{isFa ? "ویترین مدارک و مدال‌های من" : "My credentials and medals"}</h2>
           <p className="mt-3 text-sm font-bold leading-7 text-slate-300">{isFa ? "فقط افتخاراتی نمایش داده می‌شوند که از شواهد رسمی آکادمی، لیگ یا مسابقه صادر شده باشند." : "Only honors issued from official Academy, league or competition evidence appear here."}</p>
         </div>
-        <Link href={href} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100 transition-[transform,border-color,background-color] duration-150 ease-out hover:border-amber-200/60 hover:bg-amber-300/15 active:scale-[.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+        <Link href={href} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100 transition-[transform,border-color,background-color] duration-150 ease-out hover:border-amber-200/60 hover:bg-amber-300/15 active:scale-[.97] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />{isFa ? "مشاهده سابقه کامل" : "View full record"}
         </Link>
       </div>
