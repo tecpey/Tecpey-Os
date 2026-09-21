@@ -17,6 +17,11 @@ on:
         required: true
         default: false
         type: boolean
+      allow_downgrade:
+        description: Explicitly allow promotion to an older main commit than the currently active staging release
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -187,6 +192,7 @@ jobs:
           TECPEY_STAGING_RUN_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
           TECPEY_STAGING_RUN_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
           TECPEY_STAGING_ROLLBACK_DRILL: ${{ inputs.rollback_drill && '1' || '0' }}
+          TECPEY_STAGING_ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade && '1' || '0' }}
           TECPEY_PROMOTION_AUTHORITY_DIR: ${{ github.workspace }}/authority
           TECPEY_PROMOTION_RESULT_FILE: ${{ runner.temp }}/tecpey-staging-promotion-runtime.json
           TECPEY_PROMOTION_SMOKE_FILE: ${{ runner.temp }}/tecpey-staging-promotion-smoke.json
@@ -217,6 +223,7 @@ jobs:
           RELEASE_SHA: ${{ inputs.release_sha }}
           DIGEST: ${{ needs.verify-supply.outputs.image_digest }}
           ROLLBACK_DRILL: ${{ inputs.rollback_drill }}
+          ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
         run: |
           {
             echo "## Protected staging promotion"
@@ -229,6 +236,7 @@ jobs:
             echo "- Runtime health exact-SHA: `passed`"
             echo "- FA/EN smoke matrix: `passed`"
             echo "- Rollback drill requested: `$ROLLBACK_DRILL`"
+            echo "- Explicit downgrade allowed: `$ALLOW_DOWNGRADE`"
             echo "- Production mutation: `none`"
           } >> "$GITHUB_STEP_SUMMARY"
 
