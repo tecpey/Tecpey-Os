@@ -18,6 +18,31 @@ import {
 const PREVIOUS = "1111111111111111111111111111111111111111";
 const TARGET = "2222222222222222222222222222222222222222";
 
+function healthy(sha, current = 123) {
+  return {
+    ok: true,
+    health: "ok",
+    build: { commit: sha },
+    checks: {
+      database: "ok",
+      schema: "current",
+      redis: "ok",
+      runtime: "ready",
+      email: "configured",
+      requiredWorkers: "disabled",
+    },
+    migrations: { status: "current", current },
+  };
+}
+
+const BACKUP_MANIFEST = {
+  previousReleasePath: `/srv/tecpey/releases/${PREVIOUS}`,
+  targetReleasePath: `/srv/tecpey/releases/${TARGET}`,
+  unitPath: "/etc/systemd/system/tecpey-staging.service.d/release.conf",
+  previousUnitDigest: `sha256:${"c".repeat(64)}`,
+  targetUnitDigest: `sha256:${"d".repeat(64)}`,
+};
+
 test("exact release SHA rejects mutable refs, uppercase and short SHAs", () => {
   assert.equal(assertExactReleaseSha(TARGET), TARGET);
   for (const invalid of ["main", "abc123", TARGET.toUpperCase(), `${TARGET}x`, ""]) {
@@ -90,19 +115,7 @@ test("unit release replacement is bounded, exact and production-safe", () => {
 });
 
 test("health authority requires exact commit and all governed dependencies", () => {
-  const health = {
-    ok: true,
-    health: "ok",
-    build: { commit: TARGET },
-    checks: {
-      database: "ok",
-      schema: "current",
-      redis: "ok",
-      runtime: "ready",
-      email: "configured",
-      requiredWorkers: "disabled",
-    },
-  };
+  const health = healthy(TARGET);
   assert.equal(validateStagingHealth(health, TARGET), true);
   assert.throws(() => validateStagingHealth({ ...health, build: { commit: PREVIOUS } }, TARGET), /commit_mismatch/);
   assert.throws(
@@ -150,6 +163,9 @@ test("promotion evidence is complete, redacted and bound to the full FA/EN smoke
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:04:00.000Z",
     rollback: { disposition: "not_needed" },
+    previousHealth: healthy(PREVIOUS, 122),
+    runtimeHealth: healthy(TARGET, 123),
+    backupManifest: BACKUP_MANIFEST,
   });
   assert.equal(evidence.environment, "staging");
   assert.equal(evidence.targetSha, TARGET);
@@ -167,6 +183,9 @@ test("promotion evidence is complete, redacted and bound to the full FA/EN smoke
       startedAt: "2026-09-21T10:00:00.000Z",
       completedAt: "2026-09-21T10:04:00.000Z",
       rollback: { disposition: "not_needed" },
+      previousHealth: healthy(PREVIOUS, 122),
+      runtimeHealth: healthy(TARGET, 123),
+      backupManifest: BACKUP_MANIFEST,
     }),
     /smoke_matrix_incomplete/,
   );
@@ -188,6 +207,7 @@ test("already-active verification is an idempotent accepted operation", () => {
     completedAt: "2026-09-21T10:01:00.000Z",
     rollback: { disposition: "not_needed" },
     operation: "verified_already_active",
+    runtimeHealth: healthy(TARGET, 123),
   });
   assert.equal(evidence.operation, "verified_already_active");
   assert.equal(evidence.previousSha, TARGET);
@@ -203,7 +223,36 @@ test("already-active verification is an idempotent accepted operation", () => {
       completedAt: "2026-09-21T10:01:00.000Z",
       rollback: { disposition: "not_needed" },
       operation: "verified_already_active",
+      runtimeHealth: healthy(TARGET, 123),
     }),
     /already_active_sha_mismatch/,
   );
 });
+
+test("new promotion evidence fails closed without previous health or a unit backup manifest", () => {
+  const smokeResults = DEFAULT_STAGING_SMOKE_PATHS.map((smokePath) => ({
+    path: smokePath,
+    finalStatus: 200,
+    finalUrl: `https://tecp.ir${smokePath}`,
+  }));
+  const base = {
+    previousSha: PREVIOUS,
+    targetSha: TARGET,
+    imageDigest: `sha256:${"e".repeat(64)}`,
+    publicBaseUrl: "https://tecp.ir",
+    smokeResults,
+    startedAt: "2026-09-21T10:00:00.000Z",
+    completedAt: "2026-09-21T10:04:00.000Z",
+    rollback: { disposition: "not_needed" },
+    runtimeHealth: healthy(TARGET, 123),
+  };
+  assert.throws(
+    () => buildPromotionEvidence({ ...base, backupManifest: BACKUP_MANIFEST }),
+    /staging_health_invalid/,
+  );
+  assert.throws(
+    () => buildPromotionEvidence({ ...base, previousHealth: healthy(PREVIOUS, 122) }),
+    /backup_manifest_missing/,
+  );
+});
+
