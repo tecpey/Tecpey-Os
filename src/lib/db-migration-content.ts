@@ -462,4 +462,8 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
     "0112_identity_auth_kyc_v2.sql",
     IDENTITY_AUTH_KYC_V2_SQL,
   ),
+  proCommerceAuthority: one(
+    "0113_pro_commerce_authority.sql",
+    PRO_COMMERCE_AUTHORITY_SQL,
+  ),
 });
