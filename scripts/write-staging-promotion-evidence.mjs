@@ -8,6 +8,7 @@ const {
   TECPEY_PROMOTION_RESULT_FILE: resultFile,
   TECPEY_PROMOTION_EVIDENCE_FILE: evidenceFile,
   TECPEY_PROMOTION_HEALTH_FILE: healthFile,
+  TECPEY_PROMOTION_PREVIOUS_HEALTH_FILE: previousHealthFile,
   TECPEY_PROMOTION_BACKUP_MANIFEST_FILE: backupManifestFile,
 } = process.env;
 
@@ -25,6 +26,9 @@ for (const [name, value] of [
 const smoke = JSON.parse(await readFile(smokeFile, "utf8"));
 const result = JSON.parse(await readFile(resultFile, "utf8"));
 const runtimeHealth = JSON.parse(await readFile(healthFile, "utf8"));
+const previousHealth = result.finalDisposition === "promoted"
+  ? JSON.parse(await readFile(previousHealthFile, "utf8"))
+  : null;
 const backupManifest = result.finalDisposition === "promoted"
   ? JSON.parse(await readFile(backupManifestFile, "utf8"))
   : null;
@@ -43,6 +47,7 @@ const evidence = buildPromotionEvidence({
   rollback: { disposition: result.rollbackDisposition },
   operation: result.finalDisposition,
   runtimeHealth,
+  previousHealth,
   backupManifest,
 });
 
