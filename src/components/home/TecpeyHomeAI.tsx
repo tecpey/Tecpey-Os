@@ -530,7 +530,7 @@ function CompactNewsCarousel({
                         <p className="mt-3 line-clamp-3 text-sm font-semibold leading-7 text-slate-600 dark:text-slate-300">{item.summary}</p>
                         <div className="mt-auto flex items-end justify-between gap-4 pt-5">
                           <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-[.12em] text-slate-400 dark:text-slate-500">{isFa ? "زمینه آموزشی" : "Learning context"}</p>
+                            <p className="text-[11px] font-black uppercase tracking-[.12em] text-slate-600 dark:text-slate-400">{isFa ? "زمینه آموزشی" : "Learning context"}</p>
                             <p className="mt-1 line-clamp-1 text-xs font-black text-cyan-700 dark:text-cyan-200">{item.relatedLesson || (isFa ? "آکادمی تک‌پی" : "TecPey Academy")}</p>
                           </div>
                           <span className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-4 text-xs font-black text-cyan-800 transition-colors group-hover:bg-cyan-600 group-hover:text-white dark:text-cyan-100 dark:group-hover:bg-cyan-400 dark:group-hover:text-slate-950">
