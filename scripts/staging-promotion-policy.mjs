@@ -203,6 +203,8 @@ export function buildPromotionEvidence(input) {
     completedAt,
     rollback,
     operation = "promoted",
+    runtimeHealth,
+    backupManifest = null,
   } = input;
   assertExactReleaseSha(previousSha, "previous_sha");
   assertExactReleaseSha(targetSha, "target_sha");
@@ -239,6 +241,37 @@ export function buildPromotionEvidence(input) {
   if (!rollback || !["armed", "not_needed", "completed", "completed_and_repromoted"].includes(rollback.disposition)) {
     throw new Error("promotion_rollback_evidence_invalid");
   }
+  validateStagingHealth(runtimeHealth, targetSha);
+  const migrationStatus = runtimeHealth.migrations?.status ?? runtimeHealth.checks?.schema ?? null;
+  const migrationCurrent = Number.isInteger(runtimeHealth.migrations?.current)
+    ? runtimeHealth.migrations.current
+    : null;
+
+  let sanitizedBackup = null;
+  if (operation === "promoted") {
+    if (!backupManifest || typeof backupManifest !== "object") {
+      throw new Error("promotion_backup_manifest_missing");
+    }
+    assertReleasePath(backupManifest.previousReleasePath, previousSha);
+    assertReleasePath(backupManifest.targetReleasePath, targetSha);
+    assertSafeSystemdMutationPath(backupManifest.unitPath);
+    for (const [name, digest] of [
+      ["previous_unit_digest", backupManifest.previousUnitDigest],
+      ["target_unit_digest", backupManifest.targetUnitDigest],
+    ]) {
+      if (!/^sha256:[0-9a-f]{64}$/.test(digest ?? "")) {
+        throw new Error(`promotion_${name}_invalid`);
+      }
+    }
+    sanitizedBackup = {
+      previousReleasePath: backupManifest.previousReleasePath,
+      targetReleasePath: backupManifest.targetReleasePath,
+      unitPath: backupManifest.unitPath,
+      previousUnitDigest: backupManifest.previousUnitDigest,
+      targetUnitDigest: backupManifest.targetUnitDigest,
+    };
+  }
+
   return {
     schemaVersion: 1,
     evidenceClass: "tecpey-staging-promotion-v1",
@@ -247,6 +280,18 @@ export function buildPromotionEvidence(input) {
     targetSha,
     supplyChainImageDigest: imageDigest,
     publicOrigin: origin,
+    runtime: {
+      commit: runtimeHealth.build.commit,
+      database: runtimeHealth.checks.database,
+      schema: runtimeHealth.checks.schema,
+      redis: runtimeHealth.checks.redis,
+      runtime: runtimeHealth.checks.runtime,
+      email: runtimeHealth.checks.email,
+      requiredWorkers: runtimeHealth.checks.requiredWorkers,
+      migrationStatus,
+      migrationCurrent,
+    },
+    backup: sanitizedBackup,
     smokeResults: smokeResults.map(({ path: smokePath, finalStatus }) => ({
       path: smokePath,
       finalStatus,
