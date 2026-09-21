@@ -34,6 +34,25 @@ Backend evidence → host-owned intent/safety policy → semantic presentation s
 
 The LLM never selects animation, mood or safety state directly.
 
+## Research-derived Rive contract rules
+
+Rive describes Data Binding as a contract between engineering data and design, with View Models acting as the MVVM bridge. That maps directly to TecPey's requirement that presentation remain downstream of governed product state.
+
+Primary references:
+- https://www.rive.app/blog/data-binding-in-rive-a-shared-language-for-designers-and-developers
+- https://rive.app/blog/getting-started-with-data-binding
+- https://rive.app/features
+
+Implementation consequences:
+- the exported ViewModel schema is versioned in-repo and machine-validated against the accepted `.riv`;
+- semantic enums are preferred over magic numeric/boolean trigger combinations for durable state naming;
+- nested ViewModels may represent room/mentor/user subdomains, but no Rive-side mutation can grant entitlement, mastery, risk authority, trade state or privacy consent;
+- Rive listeners/events may emit bounded UI interaction intents only; host code revalidates any action before business logic;
+- one governed semantic field may drive multiple visual targets, avoiding duplicated animation truth;
+- runtime support/version is part of asset acceptance; an Editor-working feature is not accepted until the deployed web runtime proves it;
+- asset performance budget includes file size, first-render time, CPU/frame behavior on representative iPhone-class hardware and memory under repeated mount/unmount;
+- RTL/localized dynamic text is tested inside the real asset, not assumed from DOM-only tests.
+
 ## Deliverables
 
 - New renderer contract version; v1 13-act contract remains supported during migration.
