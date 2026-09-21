@@ -120,6 +120,7 @@ export type SensitiveMutationAuditAction =
   | "credential.webauthn.rename"
   | "credential.webauthn.revoke"
   | "session.issue"
+  | "session.step_up"
   | "session.refresh.rotate"
   | "session.refresh.reuse_detected"
   | "session.revoke"
