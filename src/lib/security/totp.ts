@@ -3,7 +3,7 @@
 //
 // Secret encryption: AES-256-GCM with TECPEY_2FA_SECRET.
 // TOTP: HMAC-SHA1 with 30-second time step, 6-digit code, ±1 window.
-// Backup codes: 10 × 8-char codes, SHA-256 hashed with server salt.
+// Backup codes: 10 × 24-char (120-bit) codes, HMAC-SHA256 protected at rest.
 // QR: otpauth:// URI compatible with Google Authenticator, Authy, 1Password.
 
 import {

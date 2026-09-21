@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     );
     const isPreAuthFlow = Boolean(preAuthToken);
     let userId: string | null = null;
+    let currentSessionJti: string | null = null;
     let actorType: VerificationActorType = "user";
 
     if (isPreAuthFlow) {
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
       const session = await getCanonicalSession(req, { strictRevocation: true });
       userId = session.academyAccountId ?? session.userId ?? session.studentId ?? null;
       if (!userId) return apiError("authentication_required", 401);
+      currentSessionJti = session.sessionJti ?? null;
+      if (!currentSessionJti) return apiError("session_authority_required", 401);
       actorType = session.isAdmin
         ? "admin"
         : session.studentId && !session.userId && !session.academyAccountId
@@ -101,6 +104,7 @@ export async function POST(req: NextRequest) {
       verification = await verifyTwoFactorCredential({
         userId,
         code,
+        sessionJti: isPreAuthFlow ? undefined : currentSessionJti ?? undefined,
         audit: {
           tenantId: PLATFORM.DEFAULT_TENANT_ID,
           actorType,
@@ -130,7 +134,13 @@ export async function POST(req: NextRequest) {
     }
 
     trackAuthEvent("2fa_success");
-    if (!isPreAuthFlow) return apiOk({ verified: true, userId });
+    if (!isPreAuthFlow) {
+      return apiOk({
+        verified: true,
+        userId,
+        stepUp: { method: "totp", maxAgeSeconds: 300 },
+      });
+    }
 
     const claimed = await claimPreAuthToken(preAuthToken);
     if (!claimed.available) {

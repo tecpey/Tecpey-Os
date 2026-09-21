@@ -39,7 +39,24 @@ if [ "$npm_major" != "$EXPECTED_NPM_MAJOR" ]; then
   exit 1
 fi
 if [ ! -f package.json ]; then echo "package.json not found. Run from project root."; exit 1; fi
-if [ ! -f .env.production ]; then echo "Missing .env.production. Copy from .env.production.example first."; exit 1; fi
+readonly ENV_VALIDATION_SOURCE="${TECPEY_ENV_VALIDATION_SOURCE:-project-production-file}"
+case "$ENV_VALIDATION_SOURCE" in
+  project-production-file|process) ;;
+  *)
+    echo "Unsupported TECPEY_ENV_VALIDATION_SOURCE for governed host preflight." >&2
+    exit 64
+    ;;
+esac
+if [ "$VERIFICATION_PHASE" != "runtime" ]; then
+  if [ "$ENV_VALIDATION_SOURCE" = "project-production-file" ] && [ ! -f .env.production ]; then
+    echo "Missing .env.production. Copy from .env.production.example first." >&2
+    exit 1
+  fi
+  if [ "$ENV_VALIDATION_SOURCE" = "process" ] && [ -e .env.production ]; then
+    echo "Process-authority preflight refuses a candidate-local .env.production to prevent secret/source ambiguity." >&2
+    exit 1
+  fi
+fi
 candidate_worktree=$(pwd -P)
 if [ -d "$SYSTEMD_LIVE_WORKTREE" ]; then
   live_worktree=$(cd "$SYSTEMD_LIVE_WORKTREE" && pwd -P)
@@ -97,12 +114,34 @@ read_baked_release_sha() {
 }
 
 if [ "$VERIFICATION_PHASE" = "candidate" ]; then
-  PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund
-  # A governed candidate is production by authority, even if the candidate file
-  # accidentally omits NODE_ENV or contains a weaker value. Bind validation to
-  # this checkout's .env.production instead of inherited operator-shell values.
-  NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE=project-production-file \
-    PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
+  readonly NPM_CI_DONE="${TECPEY_PREFLIGHT_NPM_CI_DONE:-0}"
+  readonly ENV_CHECK_DONE="${TECPEY_PREFLIGHT_ENV_CHECK_DONE:-0}"
+  if [ "$NPM_CI_DONE" = "1" ]; then
+    if [ "$ENV_VALIDATION_SOURCE" != "process" ] || [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ]; then
+      echo "External npm ci proof is valid only for process-authority candidates with an installed lockfile tree." >&2
+      exit 1
+    fi
+  elif [ "$NPM_CI_DONE" = "0" ]; then
+    PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund
+  else
+    echo "TECPEY_PREFLIGHT_NPM_CI_DONE must be 0 or 1." >&2
+    exit 64
+  fi
+
+  if [ "$ENV_CHECK_DONE" = "1" ]; then
+    if [ "$ENV_VALIDATION_SOURCE" != "process" ]; then
+      echo "External environment-check proof is valid only for process authority." >&2
+      exit 1
+    fi
+  elif [ "$ENV_CHECK_DONE" = "0" ]; then
+    # Legacy support-bundle flow: validate the selected project production file.
+    NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE=project-production-file \
+      PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
+  else
+    echo "TECPEY_PREFLIGHT_ENV_CHECK_DONE must be 0 or 1." >&2
+    exit 64
+  fi
+
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run check
   TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" \
     PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run build
@@ -122,18 +161,23 @@ if [ "$baked_release_sha" != "$expected_release_sha" ]; then
 fi
 
 if [ "$VERIFICATION_PHASE" = "migrate" ]; then
-  NODE_ENV=production "$SYSTEMD_NODE_BIN" --env-file=.env.production \
-    dist/run-production-bootstrap.cjs migrate
+  if [ "$ENV_VALIDATION_SOURCE" = "process" ]; then
+    NODE_ENV=production "$SYSTEMD_NODE_BIN" dist/run-production-bootstrap.cjs migrate
+  else
+    NODE_ENV=production "$SYSTEMD_NODE_BIN" --env-file=.env.production \
+      dist/run-production-bootstrap.cjs migrate
+  fi
   echo "Exact candidate migration passed for $expected_release_sha."
   exit 0
 fi
 
 readonly READINESS_ATTEMPTS=5
+readonly RUNTIME_HEALTH_URL="${TECPEY_PREFLIGHT_HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 health_payload=$(mktemp)
 trap 'rm -f "$health_payload"' EXIT
 readiness_ok=0
 for attempt in 1 2 3 4 5; do
-  if curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health > "$health_payload" &&
+  if curl --fail --silent --show-error --max-time 10 "$RUNTIME_HEALTH_URL" > "$health_payload" &&
     EXPECTED_RELEASE_SHA="$baked_release_sha" "$SYSTEMD_NODE_BIN" -e '
       const fs = require("node:fs");
       const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
