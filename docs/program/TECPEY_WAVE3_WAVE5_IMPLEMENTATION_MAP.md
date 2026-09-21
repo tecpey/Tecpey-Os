@@ -52,6 +52,9 @@ The implementation contracts are not based on visual trend-following or vendor m
   https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
 - **Stripe idempotency guidance (used as a provider-quality reference, not a provider lock-in):** mutating payment calls must be safely retryable and external commercial events reconciled/idempotent.  
   https://docs.stripe.com/api/idempotent_requests
+- **Google Search Central – structured data / localized versions:** structured data must represent visible main content, and multilingual alternates require coherent reciprocal hreflang/canonical handling; this is the basis of #710's anti-cloaking/anti-schema-spam rules.  
+  https://developers.google.com/search/docs/appearance/structured-data/sd-policies  
+  https://developers.google.com/search/docs/specialty/international/localized-versions
 - **Learning science:** retrieval practice and spaced relearning improve durable retention; optimal schedules are context-dependent rather than universally “one SM-2 formula.” Relevant evidence includes Karpicke & Roediger and Cepeda et al.  
   https://pubmed.ncbi.nlm.nih.gov/17576148/  
   https://pubmed.ncbi.nlm.nih.gov/19439395/  
@@ -69,6 +72,7 @@ The implementation contracts are not based on visual trend-following or vendor m
 7. **No session-as-UI-state:** login success, privilege changes, recovery and session revocation are server-side lifecycle events with rotation/invalidation semantics.
 8. **No payment-by-redirect:** checkout return pages never create entitlement; commercial state is reconciled from provider-neutral, idempotent server authority.
 9. **No trend-as-truth:** social/news popularity is an input channel, not factual market authority; #709 preserves source/freshness/conflict and #710 cannot convert virality into expertise.
+10. **No crawler-only authority:** structured data, AEO/GEO summaries and machine-readable content must mirror visible canonical content; no hidden claims, cloaking or schema inflation.
 
 ## Objective
 
