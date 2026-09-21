@@ -121,12 +121,28 @@ run_smoke() {
   node "$AUTHORITY_DIR/$SMOKE_REL"     "$TECPEY_STAGING_PUBLIC_BASE_URL"     "$SMOKE_FILE"
 }
 
+capture_health() {
+  local expected_sha="$1"
+  local output_file="$2"
+  curl --fail --silent --show-error --max-time 10     http://127.0.0.1:3000/api/health > "$output_file"
+  EXPECTED_SHA="$expected_sha" HEALTH_FILE="$output_file" node --input-type=module <<'NODE'
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const policy = await import(pathToFileURL(`${process.env.TECPEY_PROMOTION_AUTHORITY_DIR}/scripts/staging-promotion-policy.mjs`));
+const payload = JSON.parse(readFileSync(process.env.HEALTH_FILE, "utf8"));
+policy.validateStagingHealth(payload, process.env.EXPECTED_SHA);
+NODE
+}
+
+(
+  cd "$CURRENT"
+  bash scripts/ubuntu24-preflight.sh runtime
+)
+capture_health "$PREVIOUS_SHA" "$PREVIOUS_HEALTH_FILE"
+
 if [ "$PREVIOUS_SHA" = "$RELEASE_SHA" ]; then
   echo "Selected release is already active; verifying without mutation."
-  (
-    cd "$CURRENT"
-    bash scripts/ubuntu24-preflight.sh runtime
-  )
+  cp "$PREVIOUS_HEALTH_FILE" "$POST_HEALTH_FILE"
   run_smoke
   write_result "verified_already_active" "not_needed"
   exit 0
@@ -229,6 +245,7 @@ restore_previous_runtime() {
     cd "$CURRENT"
     bash scripts/ubuntu24-preflight.sh runtime
   )
+  capture_health "$PREVIOUS_SHA" "$RESTORED_HEALTH_FILE"
 }
 
 promote_next_runtime() {
@@ -240,6 +257,7 @@ promote_next_runtime() {
     cd "$NEXT"
     bash scripts/ubuntu24-preflight.sh runtime
   )
+  capture_health "$RELEASE_SHA" "$POST_HEALTH_FILE"
   run_smoke
 }
 
