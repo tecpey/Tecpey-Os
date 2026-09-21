@@ -44,6 +44,7 @@ type TwoFactorRow = {
   encrypted_secret: string;
   backup_code_hashes: string[];
   enabled: boolean;
+  last_accepted_totp_step: string | number | null;
 };
 
 function assertAuditActor(userId: string, audit: TwoFactorAuditContext): void {
@@ -88,7 +89,7 @@ export async function verifyTwoFactorCredential(input: {
 
   const result = await withTx(async (client) => {
     const rowResult = await client.query<TwoFactorRow>(
-      `SELECT encrypted_secret, backup_code_hashes, enabled
+      `SELECT encrypted_secret, backup_code_hashes, enabled, last_accepted_totp_step
          FROM user_2fa
         WHERE user_id = $1
         FOR UPDATE`,
@@ -122,15 +123,38 @@ export async function verifyTwoFactorCredential(input: {
       return { ok: false, status: "invalid_code" } as const;
     }
 
+    const previousAcceptedStep = row.last_accepted_totp_step === null
+      ? null
+      : Number(row.last_accepted_totp_step);
+    if (
+      previousAcceptedStep !== null
+      && Number.isSafeInteger(previousAcceptedStep)
+      && acceptedStep <= previousAcceptedStep
+    ) {
+      await writeSensitiveMutationAuditTx(client, {
+        ...input.audit,
+        action: "credential.2fa.verify",
+        resourceType: "credential_2fa",
+        resourceId: input.userId,
+        outcome: "rejected",
+        metadata: {
+          policyVersion: "2fa-verification-v2",
+          resultCategory: "totp_replay",
+        },
+      });
+      return { ok: false, status: "invalid_code" } as const;
+    }
+
     const acceptedStepFingerprint = fingerprintAcceptedTotpStep({
       userId: input.userId,
       step: acceptedStep,
     });
     await client.query(
       `UPDATE user_2fa
-          SET last_used_at = NOW()
+          SET last_used_at = NOW(),
+              last_accepted_totp_step = $2
         WHERE user_id = $1`,
-      [input.userId],
+      [input.userId, acceptedStep],
     );
     await writeSensitiveMutationAuditTx(client, {
       ...input.audit,
@@ -139,7 +163,7 @@ export async function verifyTwoFactorCredential(input: {
       resourceId: input.userId,
       outcome: "success",
       metadata: {
-        policyVersion: "2fa-verification-v1",
+        policyVersion: "2fa-verification-v2",
         resultCategory: "verified",
         acceptedStepFingerprint,
       },
@@ -186,7 +210,8 @@ export async function startTwoFactorEnrollment(input: {
              backup_code_hashes = EXCLUDED.backup_code_hashes,
              enabled = FALSE,
              enabled_at = NULL,
-             last_used_at = NULL`,
+             last_used_at = NULL,
+             last_accepted_totp_step = NULL`,
       [input.userId, input.encryptedSecret, input.backupCodeHashes],
     );
 
@@ -219,7 +244,7 @@ export async function enableTwoFactor(input: {
 
   const result = await withTx(async (client) => {
     const rowResult = await client.query<TwoFactorRow>(
-      `SELECT encrypted_secret, backup_code_hashes, enabled
+      `SELECT encrypted_secret, backup_code_hashes, enabled, last_accepted_totp_step
          FROM user_2fa
         WHERE user_id = $1
         FOR UPDATE`,
@@ -236,7 +261,8 @@ export async function enableTwoFactor(input: {
       return { ok: false, status: "secret_corrupt" } as const;
     }
 
-    if (!verifyTotp(rawSecret, input.code)) {
+    const acceptedStep = verifyTotpStep(rawSecret, input.code);
+    if (acceptedStep === null) {
       await writeSensitiveMutationAuditTx(client, {
         ...input.audit,
         action: "credential.2fa.enable",
@@ -255,9 +281,10 @@ export async function enableTwoFactor(input: {
       `UPDATE user_2fa
           SET enabled = TRUE,
               enabled_at = NOW(),
-              last_used_at = NOW()
+              last_used_at = NOW(),
+              last_accepted_totp_step = $2
         WHERE user_id = $1`,
-      [input.userId],
+      [input.userId, acceptedStep],
     );
     await writeSensitiveMutationAuditTx(client, {
       ...input.audit,
@@ -290,7 +317,7 @@ export async function disableTwoFactor(input: {
 
   const result = await withTx(async (client) => {
     const rowResult = await client.query<TwoFactorRow>(
-      `SELECT encrypted_secret, backup_code_hashes, enabled
+      `SELECT encrypted_secret, backup_code_hashes, enabled, last_accepted_totp_step
          FROM user_2fa
         WHERE user_id = $1
         FOR UPDATE`,
@@ -366,7 +393,7 @@ export async function consumeTwoFactorBackupCode(input: {
 
   const result = await withTx(async (client) => {
     const rowResult = await client.query<TwoFactorRow>(
-      `SELECT encrypted_secret, backup_code_hashes, enabled
+      `SELECT encrypted_secret, backup_code_hashes, enabled, last_accepted_totp_step
          FROM user_2fa
         WHERE user_id = $1
         FOR UPDATE`,
