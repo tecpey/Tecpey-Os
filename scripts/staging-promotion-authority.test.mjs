@@ -81,6 +81,11 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     "run-staging-promotion-smoke.mjs",
     "completed_and_repromoted",
     "verified_already_active",
+    "dist/print-database-migration-plan-hash.cjs",
+    "forward_fix_or_restore_required",
+    "not_permitted_schema_authority_changed",
+    "Schema-changing promotion failed; staging remains stopped",
+    'sudo systemctl stop "$SERVICE"',
   ]) {
     requireText(promotion, token, "promotion script");
   }
@@ -109,6 +114,8 @@ test("promotion policy owns route matrix and production-host denial", () => {
     "staging_public_base_url_must_not_target_production",
     "staging_smoke_redirected_off_staging_origin",
     "staging_health_commit_mismatch",
+    "classifyMigrationRollbackSafety",
+    "promotion_migration_rollback_mode_mismatch",
   ]) {
     requireText(policy, token, "promotion policy");
   }
