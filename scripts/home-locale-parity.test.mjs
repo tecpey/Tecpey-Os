@@ -157,6 +157,9 @@ test("landing news is a governed latest-first accessible horizontal carousel", a
   assert.match(news, /prefers-reduced-motion: reduce/);
   assert.match(news, /thumbnailUrl/);
   assert.match(news, /thumbnailAlt/);
+  assert.match(news, /fallbackNewsThumbnail/);
+  assert.match(news, /what-is-bitcoin\.jpg/);
+  assert.match(news, /crypto-scam-and-phishing\.jpg/);
   assert.match(news, /جدیدترین خبر/);
   assert.match(news, /Latest/);
   assert.match(news, /10 \* 60 \* 1_000/);
