@@ -427,7 +427,40 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           <GrowthSignal label={isFa ? "سابقه تأییدشده" : "Verified record"} value={verifiedRecordCount === null ? "—" : String(verifiedRecordCount)} note={verifiedRecordCount === null ? (isFa ? "مرجع صدور در دسترس نیست" : "Issuing authority unavailable") : (isFa ? "مدرک و نشان رسمی" : "Official credentials and achievements")} />
         </section>
 
-        <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
+        <section className="mt-8 grid gap-4 lg:grid-cols-2" aria-label={isFa ? "هوشمندی تمرین و حریم خصوصی" : "Practice intelligence and privacy"}>
+          <article className="rounded-[30px] border border-cyan-300/15 bg-[linear-gradient(145deg,rgba(8,47,73,.38),rgba(255,255,255,.025))] p-6">
+            <div className="flex items-center gap-3 text-cyan-200"><TrendingUp className="h-5 w-5" aria-hidden="true"/><p className="text-xs font-semibold">{isFa ? "Arena Practice Intelligence" : "Arena Practice Intelligence"}</p></div>
+            <h2 className="mt-2 text-xl font-bold">{isFa ? "تمرین را به شواهد تصمیم‌گیری وصل کن" : "Connect practice to decision evidence"}</h2>
+            {mentorProfile?.riskEvidenceState === "observed" || mentorProfile?.disciplineEvidenceState === "observed" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+                  <p className="text-[11px] font-semibold text-slate-500">{isFa ? "پروفایل ریسک آموزشی" : "Learning risk profile"}</p>
+                  <p className="mt-2 text-sm font-bold text-white">{mentorProfile?.riskEvidenceState === "observed" && mentorProfile.riskProfile ? mentorSignalValue("risk", mentorProfile.riskProfile, isFa) : (isFa ? "شواهد ناکافی" : "Insufficient evidence")}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+                  <p className="text-[11px] font-semibold text-slate-500">{isFa ? "انضباط تمرین" : "Practice discipline"}</p>
+                  <p className="mt-2 text-sm font-bold text-white">{mentorProfile?.disciplineEvidenceState === "observed" && mentorProfile.disciplineScore !== null ? mentorSignalValue("discipline", mentorProfile.disciplineScore, isFa) : (isFa ? "شواهد ناکافی" : "Insufficient evidence")}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-2xl border border-dashed border-white/15 p-4 text-sm font-medium leading-7 text-slate-400">{isFa ? "هنوز نمونه کافی از تمرین معتبر آرنا برای نمایش الگوی ریسک یا انضباط نداریم. تک‌پی از چند معامله محدود نتیجه‌گیری شخصیتی نمی‌کند." : "There are not enough governed Arena practice samples to show a risk or discipline pattern yet. TecPey does not infer a learner trait from a few trades."}</p>
+            )}
+            <p className="mt-4 text-xs font-medium leading-6 text-slate-500">{isFa ? "این داده برای coaching آموزشی است؛ وضعیت ریسک به معنی سیگنال بازار، توصیه سرمایه‌گذاری یا پیش‌بینی قیمت نیست." : "This evidence is for learning coaching; a risk profile is not a market signal, investment recommendation or price forecast."}</p>
+            <Link href={`${termBase}/trading-arena`} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-cyan-200 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "تمرین در آرنا" : "Practice in Arena"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+          </article>
+
+          <article className="rounded-[30px] border border-violet-300/15 bg-[linear-gradient(145deg,rgba(76,29,149,.2),rgba(255,255,255,.025))] p-6">
+            <div className="flex items-center gap-3 text-violet-200"><Crown className="h-5 w-5" aria-hidden="true"/><p className="text-xs font-semibold">{isFa ? "Research & Pro boundary" : "Research & Pro boundary"}</p></div>
+            <h2 className="mt-2 text-xl font-bold">{isFa ? "هوش بیشتر، فقط با مجوز واقعی" : "More intelligence, only with real authority"}</h2>
+            <p className="mt-3 text-sm font-medium leading-7 text-slate-300">{isFa ? "پژوهش عمومی چندمنبعی و هوشمندی خبر/X در معماری تک‌پی وجود دارد، اما اجرای Premium تا entitlement معتبر سمت سرور قفل می‌ماند. پروفایل یا مرورگر نمی‌تواند این مرز را دور بزند." : "Multi-source public research and news/X intelligence exist in TecPey's architecture, but premium execution stays locked until a valid server-side entitlement exists. Profile or browser state cannot bypass that boundary."}</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href={`${termBase}/market-intelligence`} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-violet-200 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "Market Intelligence" : "Market Intelligence"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+              <Link href={`${termBase}/account#pro`} className="inline-flex min-h-11 items-center rounded-xl px-1 text-sm font-semibold text-slate-300 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "نقشه قابلیت‌های Pro" : "Pro capability map"}</Link>
+            </div>
+          </article>
+        </section>
+
+                <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
 
         <section className="mt-10 border-t border-white/10 pt-8" aria-labelledby="academy-term-path-title">
           <h2 id="academy-term-path-title" className="text-2xl font-bold">{t.terms}</h2>
