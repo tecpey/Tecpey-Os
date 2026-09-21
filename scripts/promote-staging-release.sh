@@ -153,8 +153,7 @@ NODE
 (
   cd "$CURRENT"
   TECPEY_PREFLIGHT_HEALTH_URL="$TECPEY_STAGING_HEALTH_URL" \
-    TECPEY_PREFLIGHT_HEALTH_URL="$TECPEY_STAGING_HEALTH_URL" \
-      bash scripts/ubuntu24-preflight.sh runtime
+    bash scripts/ubuntu24-preflight.sh runtime
 )
 capture_health "$PREVIOUS_SHA" "$PREVIOUS_HEALTH_FILE"
 readonly PREVIOUS_PLAN_HASH="$(HEALTH_FILE="$PREVIOUS_HEALTH_FILE" node <<'NODE'
