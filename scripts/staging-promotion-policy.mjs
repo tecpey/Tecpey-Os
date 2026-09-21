@@ -243,6 +243,7 @@ export function buildPromotionEvidence(input) {
     startedAt,
     completedAt,
     rollback,
+    migration,
     operation = "promoted",
     runtimeHealth,
     previousHealth = null,
