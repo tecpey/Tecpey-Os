@@ -527,7 +527,7 @@ function CompactNewsCarousel({
                   key={item.id}
                   type="button"
                   onClick={() => scrollToSlide(index)}
-                  className="grid h-8 w-8 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)]"
+                  className="grid min-h-11 min-w-11 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tp-focus)]"
                   aria-label={isFa ? "رفتن به خبر " + new Intl.NumberFormat("fa-IR").format(index + 1) : "Go to story " + (index + 1)}
                   aria-current={activeIndex === index ? "true" : undefined}
                 >
