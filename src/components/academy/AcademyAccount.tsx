@@ -85,8 +85,8 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
       ) : (
         <p role="status" className="mt-6 text-sm leading-7">
           {status === "guest" ? (isFa ? "برای مدیریت حساب وارد شو." : "Sign in to manage your account.") : (isFa ? "اطلاعات حساب دریافت نشد. دوباره تلاش کن." : "Account information is unavailable. Please retry.")}
-          <button type="button" className="min-h-11 px-2 underline" onClick={() => { setStatus("loading"); setAttempt(value => value + 1); }}>{isFa ? "تلاش دوباره" : "Retry"}</button>
-          {status === "guest" || status === "missing" ? <Link className="underline" href={status === "guest" ? `${base}/login` : `${base}/onboarding`}>{isFa ? "ادامه" : "Continue"}</Link> : null}
+          <button type="button" className="inline-flex min-h-11 items-center rounded-lg px-2 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" onClick={() => { setStatus("loading"); setAttempt(value => value + 1); }}>{isFa ? "تلاش دوباره" : "Retry"}</button>
+          {status === "guest" || status === "missing" ? <Link className="inline-flex min-h-11 items-center rounded-lg px-2 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" href={status === "guest" ? `${base}/login` : `${base}/onboarding`}>{isFa ? "ادامه" : "Continue"}</Link> : null}
         </p>
       )}
       <div className="mt-6 divide-y divide-fg/10">{rows.map(({href,Icon,title,text}) => <Link key={href} href={href} className="flex min-h-20 items-center gap-4 rounded-xl px-3 py-4 transition-colors hover:bg-fg/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><Icon className="h-5 w-5 shrink-0 text-cyan-600 dark:text-cyan-200" aria-hidden="true"/><div><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm leading-6 text-muted">{text}</p></div></Link>)}</div>
