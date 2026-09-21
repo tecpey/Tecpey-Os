@@ -35,6 +35,23 @@ Turn News/Markets into a governed, current, source-transparent intelligence surf
 - Deep Research escalation reuses #700 claim/source/citation/freshness contract;
 - Mentor may explain a story but cannot invent a source or silently turn sentiment into advice.
 
+## Research-derived freshness/search controls
+
+Primary references:
+- Google publication-date guidance: https://developers.google.com/search/docs/appearance/publication-dates
+- xAI X Search as a distinct social retrieval surface: https://docs.x.ai/developers/tools/x-search
+- Deep Research provider provenance contract from #700.
+
+Implementation consequences:
+- `published_at`, `modified_at`, `event_at` and `ingested_at` are distinct fields; sorting policy names which one wins for each surface;
+- user-visible publication/modified dates must be consistent with structured metadata when emitted;
+- no future publication timestamp is accepted without an explicit scheduled-content state;
+- “latest” means latest by governed publication/event policy, not latest ingestion retry;
+- social/X posts retain author/time/thread/channel metadata and are labeled social evidence;
+- source corrections/updated stories create a lineage relationship instead of destructive replacement;
+- story clustering never collapses materially contradictory accounts into one unqualified summary;
+- stale-price thresholds are data-source-specific and testable.
+
 ## Pipeline and authority
 
 - normalized source registry with canonical source ID, language, trust metadata and allowed usage;
