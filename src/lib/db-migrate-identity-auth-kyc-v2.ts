@@ -9,6 +9,11 @@ export const IDENTITY_AUTH_KYC_V2_SQL = `
 ALTER TABLE user_2fa
   ADD COLUMN IF NOT EXISTS last_accepted_totp_step BIGINT;
 
+-- Step-up is RP/session-local authority. It deliberately does not live in the
+-- browser token and is not inherited by a replacement access session.
+ALTER TABLE user_sessions
+  ADD COLUMN IF NOT EXISTS step_up_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS academy_external_identities (
   provider TEXT NOT NULL CHECK (provider IN ('google', 'apple', 'github')),
   provider_subject TEXT NOT NULL CHECK (char_length(provider_subject) BETWEEN 1 AND 255),
@@ -27,7 +32,7 @@ CREATE INDEX IF NOT EXISTS academy_external_identities_account_idx
 
 CREATE TABLE IF NOT EXISTS academy_external_identity_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider TEXT NOT NULL CHECK (provider IN ('google', 'apple')),
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'apple', 'github')),
   provider_subject_fingerprint TEXT NOT NULL
     CHECK (provider_subject_fingerprint ~ '^[0-9a-f]{64}$'),
   account_id TEXT NOT NULL REFERENCES academy_auth_accounts(id) ON DELETE CASCADE,
