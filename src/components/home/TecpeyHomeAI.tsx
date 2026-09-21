@@ -368,6 +368,9 @@ function CompactNewsCarousel({
   return (
     <section
       data-home-section="news-carousel"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={isFa ? "آخرین اخبار تک‌پی" : "Latest TecPey news"}
       className="relative overflow-hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8 lg:pb-24"
       aria-labelledby="home-news-carousel-title"
     >
@@ -405,7 +408,7 @@ function CompactNewsCarousel({
         </div>
 
         {ordered.length > 0 ? (
-          <div className="mt-8" role="region" aria-roledescription="carousel" aria-label={isFa ? "آخرین اخبار تک‌پی" : "Latest TecPey news"}>
+          <div className="mt-8">
             <div className="mb-4 flex items-center justify-between gap-3">
               <span className="text-xs font-black tabular-nums text-[color:var(--tp-muted)]" aria-live="polite">
                 {new Intl.NumberFormat(isFa ? "fa-IR" : "en-US").format(activeIndex + 1)}
