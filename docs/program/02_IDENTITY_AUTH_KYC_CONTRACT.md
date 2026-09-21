@@ -43,6 +43,27 @@ Unify login/register, second-factor choices, identity verification and certifica
 - Login/Register redesign using content-first hierarchy, predictable social actions, clear regional fallback and accessible error/retry states.
 - KYC must not block Academy learning unless a downstream regulated capability explicitly requires it.
 
+## Research-derived identity/session controls
+
+Current NIST SP 800-63B-4 (2025) supersedes the older SP 800-63B and reinforces that authentication is an authenticator **lifecycle**, not merely a login form. OWASP likewise treats a session token as equivalent to the strongest authenticator used and recommends strict server-side lifecycle controls.
+
+Primary references:
+- https://csrc.nist.gov/pubs/sp/800/63/b/4/final
+- https://www.nist.gov/identity-access-management/projects/nist-special-publication-800-63-digital-identity-guidelines
+- https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+- https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+
+Implementation consequences:
+- session IDs/tokens are opaque and never contain PII or authorization truth;
+- browser session transport uses secure HttpOnly cookies with explicit SameSite policy; auth/session secrets never live in localStorage/sessionStorage;
+- sessions rotate after login, MFA enrollment/change, password/email change, recovery and privilege/role changes;
+- idle + absolute timeout are enforced server-side; revoke-one/revoke-all invalidates server authority, not only a browser cookie;
+- sensitive account recovery and identity changes require step-up/reauthentication and generate high-risk audit events;
+- concurrent-session inventory exposes bounded device/time metadata and allows remote revocation without leaking raw session IDs;
+- SMS/email OTP are recovery/verification channels with explicit assurance limits; they do not silently become stronger authenticators than policy permits;
+- passkey/WebAuthn support is capability-based and optional by region/device; lack of platform availability cannot lock a legitimate user out of secure TOTP/password/SMS/email recovery paths;
+- KYC/identity-proofing state is separate from authentication assurance: “authenticated” never implies “identity verified”.
+
 ## Security / abuse
 
 - CSRF/rate-limit all mutations; brute-force protection; session rotation after privilege/2FA changes.
