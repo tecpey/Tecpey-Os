@@ -128,6 +128,48 @@ export function assertSafeStagingPublicBaseUrl(value) {
   return url.origin;
 }
 
+export function assertSafeStagingHealthUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("staging_health_url_invalid");
+  }
+  if (
+    url.username ||
+    url.password ||
+    url.pathname !== "/api/health" ||
+    url.search ||
+    url.hash ||
+    !url.hostname
+  ) {
+    throw new Error("staging_health_url_invalid");
+  }
+
+  const hostname = url.hostname.toLowerCase();
+  const loopback = hostname === "127.0.0.1" || hostname === "[::1]";
+  if (url.protocol === "http:" && loopback) {
+    const port = Number(url.port);
+    if (!url.port || !Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("staging_health_url_loopback_port_invalid");
+    }
+    return url.toString();
+  }
+
+  if (
+    url.protocol === "https:" &&
+    STAGING_PUBLIC_HOSTS.has(hostname) &&
+    (url.port === "" || url.port === "443")
+  ) {
+    return url.toString();
+  }
+
+  if (PRODUCTION_HOSTS.has(hostname) || hostname.endsWith(".tecpey.ir")) {
+    throw new Error("staging_health_url_must_not_target_production");
+  }
+  throw new Error("staging_health_url_host_not_allowed");
+}
+
 export function assertSafeEnvironmentFilePath(value) {
   if (
     typeof value !== "string" ||
