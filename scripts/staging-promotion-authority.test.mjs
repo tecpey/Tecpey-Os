@@ -29,6 +29,7 @@ test("protected staging promotion workflow preserves exact-SHA and protected-env
     "runs-on: [self-hosted, linux, x64, tecpey-staging]",
     "TECPEY_STAGING_ENV_FILE",
     "TECPEY_STAGING_PUBLIC_BASE_URL",
+    "TECPEY_STAGING_HEALTH_URL",
     "TECPEY_STAGING_RUN_USER",
     "TECPEY_STAGING_RUN_GROUP",
     "protected-staging-promotion-",
@@ -90,6 +91,7 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     "diff --name-only -z",
     "MIGRATION_AUTHORITY_CHANGE_COUNT",
     "staging_environment_file_unsafe",
+    '"$TECPEY_STAGING_HEALTH_URL"',
     "Schema-changing promotion failed; staging remains stopped",
     'sudo systemctl stop "$SERVICE"',
   ]) {
@@ -130,6 +132,8 @@ test("promotion policy owns route matrix and production-host denial", () => {
     "staging_public_base_url_must_not_target_production",
     "staging_smoke_redirected_off_staging_origin",
     "staging_health_commit_mismatch",
+    "staging_health_url_must_not_target_production",
+    "staging_health_url_host_not_allowed",
     "classifyMigrationRollbackSafety",
     "promotion_migration_rollback_mode_mismatch",
   ]) {
