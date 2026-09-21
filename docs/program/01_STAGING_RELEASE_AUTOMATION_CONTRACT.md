@@ -36,12 +36,14 @@ Eliminate fragile manual release steps while preserving the existing protected s
 - Preflight: runtime versions, disk, service/unit state, **private env-file permissions** (no world access, no group write/execute, no execute bits), DB/Redis connectivity, migration authority, current release SHA.
 - Backup manifest capturing prior immutable release path, service unit/drop-in hashes and health snapshot.
 - Atomic promotion to `/srv/tecpey/releases/<SHA>`; no moving source checkout.
-- Build/launch identity must expose exact SHA in `/api/health`.
+- Build/launch identity must expose exact SHA in `/api/health`; the probe URL comes from protected `TECPEY_STAGING_HEALTH_URL` and is policy-limited to explicit loopback HTTP or HTTPS `tecp.ir/api/health`—never a hard-coded port, production hostname or arbitrary external URL.
 - Bounded migrations with lock/idempotency proof.
 - Restart only staging service/unit set.
 - **Schema-aware failure policy:** before DDL, compare both (a) active health `migrations.planHash` vs target canonical `DATABASE_MIGRATION_PLAN_HASH`, and (b) the source delta against the governed migration-authority path registry. App rollback is safe only when plan hashes are equal **and** no migration-authority source changed.
   - If plan hashes match **and** the migration-authority delta is empty, failed cutover/health/smoke may automatically restore the previous app release and an optional rollback drill may prove previous→target round-trip.
-  - If hashes differ **or migration-authority code changed**, stop staging before migration; previous-app rollback is forbidden after DDL. Any migration/cutover/health failure leaves staging stopped and requires a governed forward-fix or verified database restore under the recovery authority.
+  - If hashes differ **or migration-authority code changed**, the operator must additionally set explicit `allow_schema_change` authority before DDL. Without it, promotion stops before migration.
+  - A non-monotonic downgrade is allowed only when explicitly requested **and** migration plan/authority is rollback-safe. A schema-changing downgrade is always rejected; an older migration authority is never executed against a newer schema.
+  - Once an approved schema-changing cutover begins, previous-app rollback is forbidden after DDL. Any migration/cutover/health failure leaves staging stopped and requires a governed forward-fix or verified database restore under the recovery authority.
 - Smoke matrix: FA/EN landing, login, Academy, Profile/Living Identity, Account/Pro capability map, Mentor, Market Intelligence, Arena entry, notifications shell. Same-origin verification is bound to the governed staging host **`tecp.ir`**, not merely “any HTTPS host that is not production”.
 - Release workflow owns bounded HTTP FA/EN smoke only. Safari/PWA/reduced-motion and full visual/accessibility browser evidence are explicitly owned by #708 after the exact SHA is active on staging; #697 must not pretend curl smoke is browser acceptance.
 - Upload redacted digest-verified JSON evidence: previous SHA, target SHA, signed/attested supply-chain image digest, previous/target migration plan hashes, migration rollback mode, previous/target health summaries, smoke results, unit backup digests, rollback disposition and timestamps. The evidence JSON itself is SHA-256 detached-digest verified; its supply-chain image identity is separately cryptographically signed/attested.
@@ -53,12 +55,15 @@ Eliminate fragile manual release steps while preserving the existing protected s
 - reject missing/invalid image attestation;
 - reject symlink/mutable release directory;
 - reject health commit mismatch;
+- reject health probes aimed at production, arbitrary external hosts, wrong paths, credential-bearing URLs or unsafe loopback forms;
 - reject dirty checkout;
 - reject environment file with world permissions, group write/execute, execute bits, symlink/malformed state;
 - reject unrelated HTTPS smoke origin;
 - reject accidental downgrade to an older main release unless explicitly approved;
+- reject **all** schema-changing downgrades even when downgrade is explicitly approved;
+- reject schema-changing upgrades unless `allow_schema_change` is explicitly approved before DDL;
 - prove rollback restores prior service working directory and health when migration plan hashes are equal;
-- prove schema-plan drift **or migration-authority source drift** forbids rollback drill and previous-app rollback after DDL;
+- prove schema-plan drift **or migration-authority source drift**—including registry, readiness, plan and governance code—requires explicit schema authority and forbids rollback drill / previous-app rollback after DDL;
 - prove a schema-changing failure leaves staging stopped with `forward_fix_or_restore_required`;
 - prove no production service name/path is referenced.
 
