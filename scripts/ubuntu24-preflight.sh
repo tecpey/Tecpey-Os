@@ -135,7 +135,7 @@ if [ "$VERIFICATION_PHASE" = "candidate" ]; then
     fi
   elif [ "$ENV_CHECK_DONE" = "0" ]; then
     # Legacy support-bundle flow: validate the selected project production file.
-    NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE="$ENV_VALIDATION_SOURCE" \
+    NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE=project-production-file \
       PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
   else
     echo "TECPEY_PREFLIGHT_ENV_CHECK_DONE must be 0 or 1." >&2
