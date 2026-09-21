@@ -98,7 +98,7 @@ write_result() {
   local rollback_disposition="$2"
   local completed_at
   completed_at="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")"
-  PREVIOUS_SHA="$PREVIOUS_SHA"   TARGET_SHA="$RELEASE_SHA"   IMAGE_DIGEST="$IMAGE_DIGEST"   PUBLIC_BASE_URL="$TECPEY_STAGING_PUBLIC_BASE_URL"   STARTED_AT="$STARTED_AT"   COMPLETED_AT="$completed_at"   FINAL_DISPOSITION="$final_disposition"   ROLLBACK_DISPOSITION="$rollback_disposition"   RESULT_FILE="$RESULT_FILE"     node <<'NODE'
+  PREVIOUS_SHA="$PREVIOUS_SHA"   TARGET_SHA="$RELEASE_SHA"   IMAGE_DIGEST="$IMAGE_DIGEST"   PUBLIC_BASE_URL="$TECPEY_STAGING_PUBLIC_BASE_URL"   STARTED_AT="$STARTED_AT"   COMPLETED_AT="$completed_at"   FINAL_DISPOSITION="$final_disposition"   ROLLBACK_DISPOSITION="$rollback_disposition"   PREVIOUS_PLAN_HASH="$PREVIOUS_PLAN_HASH"   TARGET_PLAN_HASH="$TARGET_PLAN_HASH"   MIGRATION_ROLLBACK_MODE="$MIGRATION_ROLLBACK_MODE"   RESULT_FILE="$RESULT_FILE"     node <<'NODE'
 const { writeFileSync } = require("node:fs");
 const result = {
   schemaVersion: 1,
@@ -112,6 +112,9 @@ const result = {
   completedAt: process.env.COMPLETED_AT,
   finalDisposition: process.env.FINAL_DISPOSITION,
   rollbackDisposition: process.env.ROLLBACK_DISPOSITION,
+  previousPlanHash: process.env.PREVIOUS_PLAN_HASH,
+  targetPlanHash: process.env.TARGET_PLAN_HASH,
+  migrationRollbackMode: process.env.MIGRATION_ROLLBACK_MODE,
 };
 writeFileSync(process.env.RESULT_FILE, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
 NODE
@@ -139,6 +142,19 @@ NODE
   bash scripts/ubuntu24-preflight.sh runtime
 )
 capture_health "$PREVIOUS_SHA" "$PREVIOUS_HEALTH_FILE"
+readonly PREVIOUS_PLAN_HASH="$(HEALTH_FILE="$PREVIOUS_HEALTH_FILE" node <<'NODE'
+const { readFileSync } = require("node:fs");
+const payload = JSON.parse(readFileSync(process.env.HEALTH_FILE, "utf8"));
+const value = payload?.migrations?.planHash;
+if (!/^[0-9a-f]{64}$/.test(value ?? "")) {
+  throw new Error("staging_previous_migration_plan_hash_invalid");
+}
+process.stdout.write(value);
+NODE
+)"
+TARGET_PLAN_HASH="$PREVIOUS_PLAN_HASH"
+MIGRATION_ROLLBACK_MODE="app_rollback_safe_no_migration_authority_change"
+SCHEMA_CUTOVER_ACTIVE=0
 
 if [ "$PREVIOUS_SHA" = "$RELEASE_SHA" ]; then
   echo "Selected release is already active; verifying without mutation."
@@ -169,6 +185,43 @@ install -m 0600 "$TECPEY_STAGING_ENV_FILE" "$NEXT/.env.production"
 (
   cd "$NEXT"
   bash scripts/ubuntu24-preflight.sh candidate
+)
+
+TARGET_PLAN_HASH="$(cd "$NEXT" && node dist/print-database-migration-plan-hash.cjs)"
+[[ "$TARGET_PLAN_HASH" =~ ^[0-9a-f]{64}$ ]]
+if [ "$TARGET_PLAN_HASH" = "$PREVIOUS_PLAN_HASH" ]; then
+  MIGRATION_ROLLBACK_MODE="app_rollback_safe_no_migration_authority_change"
+else
+  MIGRATION_ROLLBACK_MODE="forward_fix_or_restore_required"
+fi
+
+if [ "$ROLLBACK_DRILL" = "1" ] && [ "$MIGRATION_ROLLBACK_MODE" != "app_rollback_safe_no_migration_authority_change" ]; then
+  write_result "rejected_schema_change_rollback_drill" "not_permitted_schema_authority_changed"
+  echo "Rollback drill is forbidden because the migration plan changed; use forward-fix or verified restore authority." >&2
+  exit 1
+fi
+
+schema_cutover_error() {
+  local code=$?
+  trap - ERR
+  if [ "$SCHEMA_CUTOVER_ACTIVE" = "1" ]; then
+    set +e
+    sudo systemctl stop "$SERVICE"
+    set -e
+    write_result "halted_forward_fix_required" "not_permitted_schema_authority_changed"
+    echo "Schema-changing promotion failed; staging remains stopped pending forward-fix or verified restore." >&2
+  fi
+  exit "$code"
+}
+trap schema_cutover_error ERR
+
+if [ "$MIGRATION_ROLLBACK_MODE" = "forward_fix_or_restore_required" ]; then
+  sudo systemctl stop "$SERVICE"
+  SCHEMA_CUTOVER_ACTIVE=1
+fi
+
+(
+  cd "$NEXT"
   bash scripts/ubuntu24-preflight.sh migrate
 )
 
@@ -289,7 +342,13 @@ MUTATION_ACTIVE=0
 rollback_on_error() {
   local code=$?
   trap - ERR
-  if [ "$MUTATION_ACTIVE" = "1" ]; then
+  if [ "$MIGRATION_ROLLBACK_MODE" = "forward_fix_or_restore_required" ]; then
+    set +e
+    sudo systemctl stop "$SERVICE"
+    set -e
+    write_result "halted_forward_fix_required" "not_permitted_schema_authority_changed"
+    echo "Target failed after a schema-plan change; previous app rollback is forbidden. Staging is stopped pending forward-fix or verified restore." >&2
+  elif [ "$MUTATION_ACTIVE" = "1" ]; then
     set +e
     restore_previous_runtime
     local rollback_code=$?
@@ -338,6 +397,7 @@ if [ "$ROLLBACK_DRILL" = "1" ]; then
 fi
 
 MUTATION_ACTIVE=0
+SCHEMA_CUTOVER_ACTIVE=0
 trap - ERR
 write_result "promoted" "$ROLLBACK_DISPOSITION"
 echo "Staging promotion completed for $RELEASE_SHA."
