@@ -10,7 +10,7 @@ ALTER TABLE user_2fa
   ADD COLUMN IF NOT EXISTS last_accepted_totp_step BIGINT;
 
 CREATE TABLE IF NOT EXISTS academy_external_identities (
-  provider TEXT NOT NULL CHECK (provider IN ('google', 'apple')),
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'apple', 'github')),
   provider_subject TEXT NOT NULL CHECK (char_length(provider_subject) BETWEEN 1 AND 255),
   account_id TEXT NOT NULL REFERENCES academy_auth_accounts(id) ON DELETE CASCADE,
   provider_email TEXT,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS academy_external_identity_events (
     CHECK (provider_subject_fingerprint ~ '^[0-9a-f]{64}$'),
   account_id TEXT NOT NULL REFERENCES academy_auth_accounts(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL
-    CHECK (event_type IN ('created', 'linked', 'login', 'link_rejected')),
+    CHECK (event_type IN ('created', 'linked', 'login', 'link_rejected', 'unlinked')),
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (jsonb_typeof(metadata) = 'object'),
