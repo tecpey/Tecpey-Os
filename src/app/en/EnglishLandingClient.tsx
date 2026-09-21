@@ -75,6 +75,9 @@ function MarketLearningSnapshot() {
             These prices are reference data for learning and virtual practice.
             A price move by itself is not a reason to buy or sell.
           </p>
+          <p className="mt-3 max-w-xl text-xs font-semibold leading-6 text-[color:var(--tp-muted)]">
+            There is no real money involved here; no real money, real profit or real trade takes place in it, and it does not sell buy or sell signals.
+          </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/en/markets" className="tecpey-action-secondary tecpey-action-compact">
               Explore markets
@@ -109,7 +112,7 @@ function MarketLearningSnapshot() {
             </span>
           </div>
 
-          <dl className="grid sm:grid-cols-2">
+          <div role="list" className="grid sm:grid-cols-2">
             {rows.map((coin, index) => {
               const symbol = normalizeMarketSymbol(
                 coin?.symbol ?? coin?.priceData?.symbol,
@@ -117,6 +120,7 @@ function MarketLearningSnapshot() {
               return (
                 <div
                   key={`${symbol}-${index}`}
+                  role="listitem"
                   className="grid grid-cols-[42px_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] p-4 sm:odd:border-e sm:[&:nth-last-child(-n+2)]:border-b-0"
                 >
                   <CoinVisual
@@ -125,24 +129,24 @@ function MarketLearningSnapshot() {
                     faName={coin.faName || coin.name || symbol}
                     variant="avatar"
                   />
-                  <dt className="min-w-0">
+                  <span className="min-w-0">
                     <span className="block truncate text-sm font-black text-[color:var(--tp-text)]">
                       {coin.name || symbol}
                     </span>
                     <span className="mt-0.5 block text-[10px] font-bold text-[color:var(--tp-muted)]">
                       {symbol}
                     </span>
-                  </dt>
-                  <dd
+                  </span>
+                  <span
                     dir="ltr"
                     className="text-sm font-black tabular-nums text-[color:var(--tp-text)]"
                   >
                     {usd(resolveUsdPrice(coin))}
-                  </dd>
+                  </span>
                 </div>
               );
             })}
-          </dl>
+          </div>
         </div>
       </div>
     </section>
