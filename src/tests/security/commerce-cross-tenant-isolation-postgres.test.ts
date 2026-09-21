@@ -27,7 +27,7 @@ test("commerce authority enforces tenant/workspace RLS fail-closed", { skip: !da
     await admin.query("SELECT set_config('app.tenant_id',$1,false), set_config('app.workspace_id',$2,false)", [tenantA,wsA]);
     const visible = await admin.query("SELECT tenant_id, workspace_id FROM commerce_plan_versions ORDER BY tenant_id");
     assert.deepEqual(visible.rows, [{ tenant_id: tenantA, workspace_id: wsA }]);
-    const eventA = await admin.query("INSERT INTO commerce_provider_events (tenant_id,workspace_id,provider,provider_account_scope,provider_event_id,event_type,signature_verified,payload_sha256,redacted_payload,occurred_at) VALUES ($1,$2,'test','acct-a','evt-a','subscription.updated',TRUE,$3,'{}',NOW()) RETURNING id", [tenantA,wsA,"a".repeat(64)]);
+    const eventA = await admin.query("INSERT INTO commerce_provider_events (tenant_id,workspace_id,provider,provider_account_scope,provider_event_id,event_type,signature_verified,payload_sha256,payload_redacted,payload_expires_at,occurred_at) VALUES ($1,$2,'test','acct-a','evt-a','subscription.updated',TRUE,$3,'{}',NOW() + INTERVAL '1 day',NOW()) RETURNING id", [tenantA,wsA,"a".repeat(64)]);
     await admin.query("INSERT INTO commerce_reconciliation_records (tenant_id,workspace_id,provider_event_id,decision,reason_code) VALUES ($1,$2,$3,'applied','accepted_event')", [tenantA,wsA,eventA.rows[0].id]);
     assert.equal((await admin.query("SELECT count(*)::int AS count FROM commerce_reconciliation_records")).rows[0].count, 1);
     await assert.rejects(admin.query("INSERT INTO commerce_reconciliation_records (tenant_id,workspace_id,provider_event_id,decision,reason_code) VALUES ($1,$2,$3,'applied','forged_scope')", [tenantB,wsB,eventA.rows[0].id]), /row-level security|foreign key/i);
