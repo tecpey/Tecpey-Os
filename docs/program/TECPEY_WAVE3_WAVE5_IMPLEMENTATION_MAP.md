@@ -55,6 +55,45 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 - 11 consumes durable events from 8/9/10.
 - 12 is the final cross-platform acceptance layer after feature PRs are stable.
 
+## Live PR graph
+
+| Track | PR | Dependency |
+| --- | --- | --- |
+| 00 Program Map | #696 | coordination root |
+| 01 Release & Staging Automation | #697 | #696 |
+| 02 Identity / Auth / KYC | #698 | #696 |
+| 03 Pro Commerce Authority | #699 | #698 |
+| 04 Deep Research Workspace | #700 | #699 + existing AI control plane |
+| 05 AI Model Lab & Council | #701 | #700 + #699 |
+| 06 Mentor Rive v2 Contract | #702 | #696 |
+| 07 Mentor Workspace v2 | #703 | #702 + #701 + #699 |
+| 08 Academy Infinite Growth | #704 | existing Academy/Mentor evidence |
+| 09 Arena & League v2 | #705 | existing Arena authority + #699 for paid entitlement |
+| 10 Living Profile Wave 3 | #706 | #698 + #704 + #705; #699 enriches Pro state |
+| 11 Notification Orchestrator v2 | #707 | durable events from #700/#704/#705/#706 |
+| 12 Global Experience & Launch Gate | #708 | final integration across #697–#707 |
+
+### Critical path
+
+**Release safety:** #697 can progress independently and should be landed before broad staging cycles.
+
+**Identity → monetization → research intelligence:** #698 → #699 → #700 → #701.
+
+**Mentor motion/workspace:** #702 can progress in parallel, then #703 consumes #702 plus #701/#699.
+
+**Learning/competition → profile:** #704 and #705 can progress in parallel; #706 consumes their governed evidence.
+
+**Engagement → launch:** #707 consumes durable events; #708 is the cross-product launch gate after upstream behavior stabilizes.
+
+### Parallelism rules
+
+- #697, #698, #702, #704 and #705 are the safest first parallel implementation set.
+- #699 must not merge before #698's session/identity boundaries are compatible.
+- #700/#701 may implement fail-closed scaffolding before #699, but premium execution cannot become live.
+- #703 must not invent Rive states while #702 is unfinished.
+- #706 may render explicit “authority unavailable” placeholders before #704/#705 land, but cannot fabricate journey/rank evidence.
+- #708 never becomes a dumping ground for unfinished product logic; it is for integration hardening, not feature completion.
+
 ## Program rules
 
 - PRs remain Draft until their own acceptance gates are implemented and green.
