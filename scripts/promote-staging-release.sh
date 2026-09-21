@@ -94,7 +94,7 @@ const result = {
   environment: "staging",
   previousSha: process.env.PREVIOUS_SHA,
   targetSha: process.env.TARGET_SHA,
-  imageDigest: process.env.IMAGE_DIGEST,
+  supplyChainImageDigest: process.env.IMAGE_DIGEST,
   publicBaseUrl: process.env.PUBLIC_BASE_URL,
   startedAt: process.env.STARTED_AT,
   completedAt: process.env.COMPLETED_AT,
