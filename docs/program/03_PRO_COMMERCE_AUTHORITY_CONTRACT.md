@@ -41,6 +41,22 @@ Create a provider-neutral commercial authority for TecPey Pro without letting pa
 - Feature flags keep purchasing disabled until provider credentials, pricing, refund/cancellation terms and legal disclosures are configured.
 - Existing Arena entitlement grants must remain compatible but clearly distinguished from global Pro commercial entitlements.
 
+## Research-derived commercial/event controls
+
+Stripe's public idempotency guidance is used as a quality reference for safe retry semantics, not as a provider commitment:
+- https://docs.stripe.com/api/idempotent_requests
+
+Implementation consequences:
+- every outbound mutating provider request receives a TecPey-generated idempotency key bound to the intended commercial operation;
+- inbound provider events are deduplicated by provider + event ID + account scope before any entitlement projection;
+- HTTP redirect/return success is **never** payment or entitlement authority;
+- provider events may arrive late, duplicated or out of order; projection logic must reconcile by effective event timestamps/version and current provider object state where supported;
+- money amounts use exact integer minor-unit/currency semantics or an explicitly versioned equivalent—never floating-point arithmetic;
+- provider-specific status values normalize into a TecPey subscription state machine; unknown values fail closed and are observable;
+- manual grants/refunds/revocations are separate audited commands and cannot overwrite raw provider history;
+- commercial event retention, PII minimization and log redaction are explicit;
+- reconciliation jobs compare provider truth, TecPey commercial ledger and entitlement projection and emit bounded mismatch reason codes.
+
 ## Security
 
 - no card/payment secrets stored by TecPey;
