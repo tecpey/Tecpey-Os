@@ -17,7 +17,9 @@ test("commerce authority enforces tenant/workspace RLS fail-closed", { skip: !da
     await admin.query("INSERT INTO platform_tenants (id, name) VALUES ($1,$2),($3,$4)", [tenantA,tenantA,tenantB,tenantB]);
     await admin.query("INSERT INTO platform_workspaces (id, tenant_id, name) VALUES ($1,$2,$3),($4,$5,$6)", [wsA,tenantA,wsA,wsB,tenantB,wsB]);
     await admin.query(`CREATE ROLE "${role}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
-    await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON commerce_plan_versions TO "${role}"`);
+    for (const table of ["commerce_plan_versions","commerce_subscriptions","commerce_provider_events","commerce_entitlement_snapshots","commerce_provider_operations"]) {
+      await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${table} TO "${role}"`);
+    }
     await admin.query("INSERT INTO commerce_plan_versions (tenant_id,workspace_id,plan_key,version,status,currency,unit_amount_minor,billing_interval,capability_grants,legal_copy_version,effective_from) VALUES ($1,$2,'pro',1,'active','USD',1000,'month','{}','v1',NOW()),($3,$4,'pro',1,'active','USD',1000,'month','{}','v1',NOW())", [tenantA,wsA,tenantB,wsB]);
     await admin.query(`SET ROLE "${role}"`);
     await admin.query("SELECT set_config('app.tenant_id',$1,false), set_config('app.workspace_id',$2,false)", [tenantA,wsA]);
