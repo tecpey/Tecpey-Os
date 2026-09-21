@@ -76,7 +76,7 @@ The implementation contracts are not based on visual trend-following or vendor m
 
 ## Objective
 
-Turn every material remaining product/release gap after Profile VNext Wave 2 and the landing foundation into an explicit, reviewable delivery graph.
+Turn every material remaining product, release, operational, security, financial-activation and platform-maturity gap after Profile VNext Wave 2 and the landing foundation into an explicit, reviewable delivery graph.
 
 ## Workstreams and merge order
 
@@ -256,3 +256,116 @@ This Draft PR starts as an implementation contract. Code, migrations, tests and 
 ## Release boundary
 
 No merge, Staging mutation or Production mutation is authorized merely by opening this Draft PR.
+
+
+## Completeness Gate v2 — full 25-track program
+
+The earlier 14-track map covered the controlled education-first product path but did not yet give independent PR ownership to every official NO-GO or maturity boundary. A second repository audit against the protected staging NO-GO register, Go-readiness audit, issue #20/#29/#50/#100/#109/#110 context, API docs and long-term product commitments expands the program to **25 implementation tracks** plus this coordination PR.
+
+### Full live PR registry
+
+| Track | PR | Domain | Launch relationship |
+| --- | --- | --- | --- |
+| 00 | #696 | Program Map | coordination root |
+| 01 | #697 | Exact-SHA Staging Promotion | controlled-launch P0 |
+| 02 | #698 | Identity/Auth/KYC | controlled-launch/product foundation |
+| 03 | #699 | Pro Commerce Authority | monetization foundation; purchasing remains gated |
+| 04 | #700 | Deep Research | product intelligence |
+| 05 | #701 | Model Lab / AI Council | product intelligence |
+| 06 | #702 | Mentor Rive v2 | presentation contract |
+| 07 | #703 | Mentor Workspace v2 | composed product experience |
+| 08 | #704 | Academy Infinite Growth | learning authority |
+| 09 | #705 | Arena & League v2 | virtual competition authority |
+| 10 | #706 | Living Profile Wave 3 | composed identity/growth experience |
+| 11 | #707 | Notification Orchestrator | engagement authority |
+| 12 | #708 | Global Experience / Launch Hardening | controlled-launch integration |
+| 13 | #709 | News & Market Intelligence | content intelligence |
+| 14 | #710 | Organic Growth OS | growth/content distribution |
+| 15 | #711 | Protected Recovery + Incident Closure | closes NOG-05/NOG-07 |
+| 16 | #712 | Candidate Packet / Risks / Go Matrix | closes NOG-08/NOG-09 after prerequisites |
+| 17 | #713 | Financial Compliance Control Plane | required before regulated financial activation |
+| 18 | #714 | Real-Money Exchange Certification | future activation; stays NO-GO until certified |
+| 19 | #715 | Custody/Deposits/Withdrawals Certification | future activation; stays NO-GO until certified |
+| 20 | #716 | Enterprise/Multi-tenant/White-label/Admin | future SaaS activation; stays NO-GO until certified |
+| 21 | #717 | Public API / SDK / OAuth / Webhooks | developer-platform maturity; public exposure gated |
+| 22 | #718 | Editorial CMS / Content Governance | content operations foundation |
+| 23 | #719 | Security Red Team / Abuse Resilience | cross-program adversarial certification |
+| 24 | #720 | Public Rewards Governance | future activation; financial rewards stay NO-GO |
+| 25 | #721 | Free/Pro Ads, Trials & Grants | monetization experience built on #699 |
+
+### Controlled education-first Soft Launch critical path
+
+The following must be treated as the critical release program for a credible Academy/Mentor/virtual-Arena controlled launch:
+
+1. **#697** exact-SHA staging promotion + protected environment evidence.
+2. **#698** identity/auth regional fallback and governed KYC/certificate state needed by user/account surfaces.
+3. Product authorities required by selected scope: **#702/#704/#705/#709** plus composed surfaces **#703/#706/#707** as their dependencies stabilize.
+4. **#708** global FA/EN, accessibility, PWA, performance and product-truth hardening.
+5. **#711** protected recovery reconciliation + incident readiness evidence.
+6. **#719** adversarial Red Team for the selected launch scope; no unresolved P0/P1.
+7. **#712** exact-candidate risk sign-offs + final Go approval matrix.
+
+A feature PR may be omitted from the initial controlled cohort only if the launch packet explicitly excludes the capability and its UI/API remains fail-closed or absent.
+
+### Monetization / intelligence path
+
+- #698 → #699 → #721 for Free/Pro commercial packaging, trials/grants and ad-free authority.
+- #699 + #700 → #701 for premium research/model capabilities.
+- #702 + #701 + #699 → #703 Mentor Workspace v2.
+- Purchasing remains disabled until #699's provider/legal authority is live; product previews must not imply a purchasable subscription before then.
+
+### Financial activation path — independent NO-GO until complete
+
+Financial capabilities are **not** a prerequisite for the education-first controlled launch:
+
+- #698 → #713 financial compliance authority.
+- #713 + exchange core + operational evidence → #714 real-money Exchange certification.
+- #713 + key/chain/withdrawal operations + #711 drills → #715 custody/deposit/withdrawal certification.
+- #714/#715 cannot be activated merely because their UI exists or because controlled Soft Launch is GO.
+- #720 public financial rewards depends on #705 competition truth + #713 compliance + approved accounting/legal/fraud policy.
+
+### Enterprise / developer platform path
+
+- #716 closes runtime tenant isolation, white-label and enterprise admin boundaries; it consumes existing tenant/RLS foundations and must close remaining cross-tenant proof gaps.
+- #717 public developer APIs require deliberate public inventory, OAuth/scopes, OpenAPI contract, SDK compatibility and webhook security; internal Next.js routes are not public API by default.
+- #718 provides editorial publication authority; #710 Growth OS consumes approved canonical content rather than becoming an uncontrolled CMS.
+
+### Security path
+
+#719 is not “one final pentest”. It is a continuous cross-track adversarial program. Each high-risk track contributes threat model + negative tests; #719 owns independent attack coverage, mutation/load-bearing evidence and release-scope residual findings.
+
+### Dependency invariants
+
+- **No circular activation:** a downstream UI can render a locked/degraded state before its upstream authority lands, but it cannot create substitute truth.
+- **Disabled is a valid safe state:** #714/#715/#716/#717/#720 can remain Draft/disabled while controlled launch proceeds if #712 proves product-truth gates.
+- **Operational evidence is candidate-specific:** #711/#712 evidence cannot be copied to a different SHA.
+- **Compliance is not authentication:** #713 is separate from #698 and remains independently versioned.
+- **Tenant isolation is not ordinary authorization:** #716 must preserve a shared isolation mechanism and database negative proof.
+- **Public API is opt-in:** #717 starts from deny-by-default inventory; existing internal routes remain internal until explicitly versioned.
+- **CMS is not auto-publish AI:** #718 requires review/publication authority; #710 and AI tooling cannot bypass it.
+- **Rewards are not leaderboard copy:** #720 separates provisional rank from eligibility and fulfillment.
+
+### Current research/standards anchors for added tracks
+
+- OWASP API Security Top 10 2023: https://owasp.org/projects/api-security-project
+- OWASP ASVS 5.0 (released May 2025): https://owasp.org/
+- NIST SSDF SP 800-218 final 1.1; Rev.1/1.2 currently draft: https://csrc.nist.gov/projects/ssdf/publications
+- NIST SP 800-57 key-management family: https://csrc.nist.gov/projects/key-management/key-management-guidelines
+- PostgreSQL Row Security: https://www.postgresql.org/docs/17/ddl-rowsecurity.html
+- AWS SaaS tenant isolation fundamentals: https://docs.aws.amazon.com/whitepapers/latest/saas-architecture-fundamentals/tenant-isolation.html
+- OpenAPI Specification (current 3.2.x/3.1.x family): https://spec.openapis.org/oas/
+- OAuth 2.0 Security BCP RFC 9700: https://www.rfc-editor.org/rfc/rfc9700
+- HTTP Problem Details RFC 9457: https://www.rfc-editor.org/rfc/rfc9457
+- CloudEvents: https://cloudevents.io/
+
+### Program-level completeness conclusion
+
+As of this map revision, every material remaining item found in:
+- the protected staging NO-GO register,
+- controlled-launch Go-readiness audit,
+- real-money/custody/enterprise hard boundaries,
+- Product/AI/Profile/Arena/Academy/News/Growth requirements discussed for TecPey,
+- public API/SDK and CMS maturity gaps,
+- security/red-team and public-reward activation boundaries,
+
+has an explicit Draft PR owner. New scope discovered later must receive a new named track or an explicit documented addition to the owning contract; it may not silently disappear into #708 or #712.
