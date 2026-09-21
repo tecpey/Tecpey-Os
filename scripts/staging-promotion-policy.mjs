@@ -27,8 +27,8 @@ export const DEFAULT_STAGING_SMOKE_PATHS = Object.freeze([
 
 const MIGRATION_AUTHORITY_PATHS = Object.freeze([
   /^migrations\//,
-  /^src\/lib\/db-migrate\.ts$/,
-  /^src\/lib\/db-migration-(?:registry|readiness|plan|governance)\.ts$/,
+  /^src\/lib\/db-migrate(?:-[A-Za-z0-9-]+)?\.ts$/,
+  /^src\/lib\/db-migration-[A-Za-z0-9-]+\.ts$/,
   /^scripts\/(?:run-database-migrations|check-database-migration-authority)\.(?:ts|mjs)$/,
 ]);
 
