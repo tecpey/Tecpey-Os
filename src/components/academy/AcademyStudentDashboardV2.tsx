@@ -314,7 +314,18 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           </aside>
         </div>
 
-        <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
+        <section className="mt-8 grid gap-4 lg:grid-cols-[1.15fr_.85fr]" aria-label={isFa ? "بینش منتور و مسیر هوشمند" : "Mentor insight and intelligent path"}>
+          <article className="relative overflow-hidden rounded-[34px] border border-violet-300/20 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,.15),transparent_45%),rgba(255,255,255,.035)] p-6">
+            <div className="flex items-start gap-4"><LivingMentorAvatar act={streakDays !== null && streakDays >= 7 ? "celebrate_effort" : "idle_attentive"} locale={locale} size="stage" decorative /><div className="min-w-0"><p className="text-xs font-semibold text-violet-200">{isFa ? "بینش منتور" : "Mentor insight"}</p><h2 className="mt-2 text-xl font-bold leading-8">{isFa ? "قدم بعدی باید از شواهد واقعی مسیر تو بیاید" : "Your next step should come from real journey evidence"}</h2><p className="mt-2 text-sm font-medium leading-7 text-slate-300">{isFa ? "منتور فقط از پیشرفت ثبت‌شده، ارزیابی‌های معتبر و فعالیت‌های مجاز برای پیشنهاد مسیر استفاده می‌کند؛ یادداشت شخصی یا پاسخ خوداظهاری به‌تنهایی به «تسلط» تبدیل نمی‌شود." : "Mentor uses recorded progress, governed assessments and permitted activity to guide the journey; private notes or self-reported answers never become mastery on their own."}</p></div></div>
+            <Link href={`${termBase}/ai-guide`} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200/25 bg-violet-300/10 px-5 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "گفت‌وگو با منتور" : "Talk to Mentor"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+          </article>
+          <article className="rounded-[34px] border border-white/10 bg-white/[.035] p-6">
+            <p className="text-xs font-semibold text-cyan-200">{isFa ? "امروز چه چیزی مهم است؟" : "What matters today?"}</p><h2 className="mt-2 text-xl font-bold leading-8">{coreComplete ? (isFa ? "چرخه رشد بی‌نهایت را ادامه بده" : "Continue your Infinite Growth cycle") : (currentTerm?.title || t.currentTerm)}</h2><p className="mt-3 text-sm font-medium leading-7 text-slate-300">{coreComplete ? (isFa ? "یک چرخه کوتاه ارزیابی، تمرین و بازتاب را کامل کن؛ کیفیت تصمیم مهم‌تر از سرعت است." : "Complete a short assess, practice and reflect cycle; decision quality matters more than speed.") : (isFa ? "به‌جای پراکندگی، یک قدم معتبر در ترم فعلی بردار. پیشرفت این صفحه فقط از وضعیت ثبت‌شده به‌روزرسانی می‌شود." : "Instead of scattering attention, take one governed step in the current term. This profile updates only from recorded state.")}</p>
+            <div className="mt-5 flex items-center gap-2 text-xs font-medium text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true"/>{isFa ? "بدون امتیاز یا تسلط ساختگی" : "No fabricated score or mastery"}</div>
+          </article>
+        </section>
+
+                <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
 
         <section className="mt-10 border-t border-white/10 pt-8" aria-labelledby="academy-term-path-title">
           <h2 id="academy-term-path-title" className="text-2xl font-bold">{t.terms}</h2>
