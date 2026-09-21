@@ -101,6 +101,7 @@ import { AI_TENANT_RLS_SQL } from "./db-migrate-ai-tenant-rls";
 import { IDENTITY_PRODUCT_LINKING_SQL } from "./db-migrate-identity-product-linking";
 import { ACADEMY_PROFILE_DETAILS_SQL } from "./db-migrate-academy-profile-details";
 import { ACADEMY_QUESTION_BANK_BASELINE_SQL } from "./db-migrate-academy-question-bank-baseline";
+import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -456,5 +457,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyQuestionBankBaseline: one(
     "0101_academy_question_bank_baseline.sql",
     ACADEMY_QUESTION_BANK_BASELINE_SQL,
+  ),
+  identityAuthKycV2: one(
+    "0112_identity_auth_kyc_v2.sql",
+    IDENTITY_AUTH_KYC_V2_SQL,
   ),
 });
