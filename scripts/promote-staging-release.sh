@@ -247,17 +247,35 @@ else
   MIGRATION_ROLLBACK_MODE="forward_fix_or_restore_required"
 fi
 
-if [ "$IS_DOWNGRADE" = "1" ] && [ "$MIGRATION_ROLLBACK_MODE" != "app_rollback_safe_no_migration_authority_change" ]; then
-  write_result "rejected_schema_change_downgrade" "not_permitted_schema_authority_changed"
-  echo "Downgrade refused because migration/schema authority differs from the active release; use verified restore or a forward fix instead of running older migration authority." >&2
-  exit 1
-fi
+readonly MIGRATION_CUTOVER_DECISION="$(IS_DOWNGRADE="$IS_DOWNGRADE" ALLOW_SCHEMA_CHANGE="$ALLOW_SCHEMA_CHANGE" MIGRATION_ROLLBACK_MODE="$MIGRATION_ROLLBACK_MODE" node --input-type=module <<'NODE'
+import { pathToFileURL } from "node:url";
+const policy = await import(pathToFileURL(`${process.env.TECPEY_PROMOTION_AUTHORITY_DIR}/scripts/staging-promotion-policy.mjs`));
+const decision = policy.evaluateMigrationCutover({
+  isDowngrade: process.env.IS_DOWNGRADE === "1",
+  allowSchemaChange: process.env.ALLOW_SCHEMA_CHANGE === "1",
+  rollbackMode: process.env.MIGRATION_ROLLBACK_MODE,
+});
+process.stdout.write(decision);
+NODE
+)"
 
-if [ "$MIGRATION_ROLLBACK_MODE" = "forward_fix_or_restore_required" ] && [ "$ALLOW_SCHEMA_CHANGE" != "1" ]; then
-  write_result "rejected_unapproved_schema_change" "not_permitted_schema_authority_changed"
-  echo "Schema-changing promotion requires explicit allow_schema_change approval before DDL." >&2
-  exit 1
-fi
+case "$MIGRATION_CUTOVER_DECISION" in
+  allowed) ;;
+  reject_schema_change_downgrade)
+    write_result "rejected_schema_change_downgrade" "not_permitted_schema_authority_changed"
+    echo "Downgrade refused because migration/schema authority differs from the active release; use verified restore or a forward fix instead of running older migration authority." >&2
+    exit 1
+    ;;
+  require_schema_change_approval)
+    write_result "rejected_unapproved_schema_change" "not_permitted_schema_authority_changed"
+    echo "Schema-changing promotion requires explicit allow_schema_change approval before DDL." >&2
+    exit 1
+    ;;
+  *)
+    echo "Unexpected migration cutover decision: $MIGRATION_CUTOVER_DECISION" >&2
+    exit 1
+    ;;
+esac
 
 if [ "$ROLLBACK_DRILL" = "1" ] && [ "$MIGRATION_ROLLBACK_MODE" != "app_rollback_safe_no_migration_authority_change" ]; then
   write_result "rejected_schema_change_rollback_drill" "not_permitted_schema_authority_changed"
