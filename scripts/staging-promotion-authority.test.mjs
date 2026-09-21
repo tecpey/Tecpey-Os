@@ -18,6 +18,7 @@ test("protected staging promotion workflow preserves exact-SHA and protected-env
     "release_sha:",
     "I_APPROVE_STAGING_PROMOTION",
     "rollback_drill:",
+    "allow_downgrade:",
     "permissions:",
     "contents: read",
     "packages: read",
@@ -85,11 +86,25 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     "dist/print-database-migration-plan-hash.cjs",
     "forward_fix_or_restore_required",
     "not_permitted_schema_authority_changed",
+    "TECPEY_STAGING_ALLOW_DOWNGRADE",
+    "git diff --name-only -z",
+    "MIGRATION_AUTHORITY_CHANGE_COUNT",
+    "staging_environment_file_unsafe",
     "Schema-changing promotion failed; staging remains stopped",
     'sudo systemctl stop "$SERVICE"',
   ]) {
     requireText(promotion, token, "promotion script");
   }
+  assert.match(
+    promotion,
+    /Refusing non-monotonic staging promotion/,
+    "older-main promotion must require explicit downgrade intent",
+  );
+  assert.match(
+    promotion,
+    /\(stat\.mode & 0o007\) !== 0[\s\S]*\(stat\.mode & 0o030\) !== 0/,
+    "environment file must reject world access and group write/execute permissions",
+  );
   assert.doesNotMatch(promotion, /\brm\s+-rf\b/, "promotion must not recursively delete releases");
   assert.doesNotMatch(
     promotion,
