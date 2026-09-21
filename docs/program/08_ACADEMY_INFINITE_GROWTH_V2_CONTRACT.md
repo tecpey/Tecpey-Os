@@ -33,6 +33,23 @@ Make Academy defensible as a serious learning system: high-quality assessment, d
 - Certificates/final exam governed; scholarship/job/funded-account eligibility is separate authority.
 - No opaque intelligence/mastery score.
 
+## Research-derived learning controls
+
+A 2024 systematic review in health-professions education found that many included experiments showed benefit from distributed and/or retrieval practice, while intervention design and outcomes varied. TecPey therefore treats spacing/retrieval as evidence-informed mechanisms whose policy is versioned—not as a universal fixed formula.
+
+Primary reference:
+- https://pubmed.ncbi.nlm.nih.gov/37615780/
+
+Implementation consequences:
+- every review/retrieval event records concept/item, evidence type, timestamp, policy version and outcome;
+- scheduling parameters are versioned and observable so policy can evolve without rewriting historical learning evidence;
+- “harder feeling” retrieval is not interpreted as poorer learning by itself; learner-facing copy explains the purpose of recall/reassessment;
+- spacing is concept/evidence-aware and bounded; it must not create notification spam or punitive streak pressure;
+- retrieval success is distinct from one-time recognition/multiple-choice exposure;
+- interleaving is introduced only where concept boundaries make comparison useful, with experiment/quality metrics rather than blanket mixing;
+- mastery decisions require multiple governed evidence types/thresholds defined by curriculum policy, not one flashcard answer or self-report;
+- assessment analytics include item-position bias, discrimination/difficulty where sample size is sufficient, and an explicit “insufficient sample” state rather than unstable pseudo-precision.
+
 ## Acceptance
 Validators catch duplicates, invalid explanations, answer bias and broken FA/EN parity. Infinite Growth can reproduce a bounded personalized cycle from governed evidence and explicitly handles insufficient evidence.
 
