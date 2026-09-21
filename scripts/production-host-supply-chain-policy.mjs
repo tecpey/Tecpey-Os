@@ -3,6 +3,8 @@ const RETIREMENT_EXIT = 'exit "$HOST_DEPLOYMENT_RETIRED"';
 const LOCKFILE_INSTALL =
   'PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund';
 const READINESS_PROBE =
+  "curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health";
+const GOVERNED_RUNTIME_READINESS_PROBE =
   'curl --fail --silent --show-error --max-time 10 "$RUNTIME_HEALTH_URL"';
 const READINESS_ATTEMPTS = "readonly READINESS_ATTEMPTS=5";
 const READINESS_LOOP = "for attempt in 1 2 3 4 5; do";
@@ -578,7 +580,7 @@ export function productionHostSupplyChainFindings({
       `Ubuntu preflight must enforce runtime readiness contract: ${readinessContract}`,
     );
   }
-  requireText(findings, preflight, READINESS_PROBE, "Ubuntu preflight must fail on an unhealthy runtime");
+  requireText(findings, preflight, GOVERNED_RUNTIME_READINESS_PROBE, "Ubuntu preflight must fail on an unhealthy runtime");
   requireText(findings, preflight, READINESS_ATTEMPTS, "Ubuntu preflight must bound readiness attempts");
   requireText(findings, preflight, READINESS_LOOP, "Ubuntu preflight must retry readiness deterministically");
   reject(
