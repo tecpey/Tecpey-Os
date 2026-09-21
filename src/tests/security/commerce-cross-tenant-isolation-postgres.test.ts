@@ -14,8 +14,8 @@ test("commerce authority enforces tenant/workspace RLS fail-closed", { skip: !da
   const role = `commerce_rls_${suffix}`;
   try {
     await runProCommerceAuthorityMigrations(admin);
-    await admin.query("INSERT INTO platform_tenants (id, name) VALUES ($1,$2),($3,$4)", [tenantA,tenantA,tenantB,tenantB]);
-    await admin.query("INSERT INTO platform_workspaces (id, tenant_id, name) VALUES ($1,$2,$3),($4,$5,$6)", [wsA,tenantA,wsA,wsB,tenantB,wsB]);
+    await admin.query("INSERT INTO platform_tenants (id, slug, display_name, plan, products) VALUES ($1,$2,$3,\'enterprise\',\'{}\'),($4,$5,$6,\'enterprise\',\'{}\')", [tenantA,tenantA,tenantA,tenantB,tenantB,tenantB]);
+    await admin.query("INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products) VALUES ($1,$2,$3,$4,\'{}\'),($5,$6,$7,$8,\'{}\')", [wsA,tenantA,wsA,wsA,wsB,tenantB,wsB,wsB]);
     await admin.query(`CREATE ROLE "${role}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
     for (const table of ["commerce_plan_versions","commerce_subscriptions","commerce_provider_events","commerce_entitlement_snapshots","commerce_provider_operations"]) {
       await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ${table} TO "${role}"`);
