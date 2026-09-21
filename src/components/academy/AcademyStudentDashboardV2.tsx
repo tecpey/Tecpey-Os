@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
+import { ArrowUpRight, Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, Orbit, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
@@ -257,17 +257,30 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     <main className="min-h-screen bg-slate-950 px-4 pb-32 pt-8 text-white sm:px-6 lg:px-8 lg:pb-12" dir={isFa ? "rtl" : "ltr"}>
       <section className="mx-auto max-w-7xl">
         <p className="mb-6 text-sm font-medium text-cyan-200">{isFa ? "آکادمی تک‌پی / مسیر من" : "TecPey Academy / My journey"}</p>
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="min-w-0">
-            <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 overflow-hidden place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{profile?.photo_url ? <Image src={profile.photo_url} alt="" width={64} height={64} unoptimized className="h-full w-full object-cover" /> : avatar}</div>
-              <div>
-                <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
-                <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
+        <section className="relative mb-8 overflow-hidden rounded-[40px] border border-cyan-300/20 bg-[radial-gradient(circle_at_85%_10%,rgba(34,211,238,.16),transparent_32%),linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025))] p-6 shadow-2xl shadow-cyan-950/20 sm:p-8" aria-labelledby="living-profile-title">
+          <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true"><div className="absolute -end-20 -top-24 h-64 w-64 rounded-full border border-cyan-300/10"/><div className="absolute -end-5 top-4 h-36 w-36 rounded-full border border-violet-300/10"/></div>
+          <div className="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
+            <div>
+              <div className="flex items-center gap-4">
+                <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[26px] border border-cyan-200/25 bg-cyan-300/10 text-4xl shadow-lg shadow-cyan-950/20">{profile?.photo_url ? <Image src={profile.photo_url} alt="" width={80} height={80} unoptimized className="h-full w-full object-cover" /> : avatar}</div>
+                <div className="min-w-0"><p className="text-xs font-semibold tracking-wide text-cyan-200">{isFa ? "پروفایل زنده تک‌پی" : "TECPey Living Profile"}</p><h1 id="living-profile-title" className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1><p className="mt-1 text-sm text-slate-400"><bdi>{username}</bdi></p></div>
+              </div>
+              <p className="mt-5 max-w-3xl text-sm font-medium leading-8 text-slate-300">{isFa ? "اینجا فقط یک صفحه حساب نیست؛ نمای زنده‌ای از مسیر یادگیری، تداوم، دستاوردهای تأییدشده و قدم بعدی توست." : "This is more than an account page: it is a live view of your learning journey, consistency, verified achievements and next step."}</p>
+              <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold">
+                <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-2 text-cyan-100">{isFa ? `ترم فعلی: ${coreComplete ? "۸ · ∞" : currentTermNumber}` : `Current term: ${coreComplete ? "8 · ∞" : currentTermNumber}`}</span>
+                <span className="rounded-full border border-white/10 bg-white/[.045] px-3 py-2 text-slate-200">{isFa ? `پیشرفت هسته: ${overall.toLocaleString("fa-IR")}٪` : `Core progress: ${overall}%`}</span>
+                {streakDays !== null ? <span className="rounded-full border border-orange-200/15 bg-orange-300/[.08] px-3 py-2 text-orange-100">{isFa ? `${streakDays.toLocaleString("fa-IR")} روز تداوم` : `${streakDays} day streak`}</span> : null}
               </div>
             </div>
-            <p className="mt-5 max-w-3xl text-sm font-bold leading-8 text-slate-300">{t.welcome}</p>
-
+            <div className="relative mx-auto grid h-56 w-56 place-items-center">
+              <div className="absolute inset-0 rounded-full border border-cyan-200/15" aria-hidden="true"/><div className="absolute inset-5 rounded-full border border-dashed border-violet-200/15" aria-hidden="true"/><div className="absolute inset-10 rounded-full bg-cyan-300/[.06] blur-xl" aria-hidden="true"/>
+              <div className="relative text-center"><Orbit className="mx-auto h-7 w-7 text-cyan-200" aria-hidden="true"/><p className="mt-2 text-4xl font-semibold tabular-nums"><bdi dir="ltr">{overall}%</bdi></p><p className="mt-1 text-xs font-medium text-slate-400">{isFa ? "رشد هسته آکادمی" : "Academy core growth"}</p></div>
+              <span className="absolute start-0 top-1/2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1.5 text-[11px] font-semibold">{isFa ? "یادگیری" : "Learn"}</span><span className="absolute end-1 top-8 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1.5 text-[11px] font-semibold">{isFa ? "تمرین" : "Practice"}</span><span className="absolute bottom-2 end-8 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1.5 text-[11px] font-semibold">{isFa ? "تداوم" : "Consistency"}</span>
+            </div>
+          </div>
+        </section>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0">
             <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Metric icon={<GraduationCap />} label={t.currentTerm} value={coreComplete ? "8 · ∞" : `${currentTermNumber} / 7`} note={coreComplete ? (isFa ? "ترم رشد بی‌نهایت" : "Infinite Growth") : (currentTerm?.title || "Term")} />
               <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedCoreTerms} / 7 ${isFa ? "ترم هسته تکمیل‌شده" : "core terms completed"}`} />
@@ -275,7 +288,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length + credentials.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
 
-            <div className="mt-7 rounded-3xl border border-cyan-300/25 bg-slate-900 p-6 sm:p-8">
+            <div className="mt-7 rounded-[32px] border border-cyan-300/25 bg-[linear-gradient(145deg,rgba(8,47,73,.55),rgba(15,23,42,.9))] p-6 shadow-xl shadow-cyan-950/10 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-cyan-200">{isFa ? "قدم بعدی تو" : "Your next step"}</p>
@@ -283,7 +296,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
                   <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-slate-300">{coreComplete ? (isFa ? "ارزیابی، برنامه‌ریزی، تمرین، بازتاب و اعتبارسنجی در چرخه‌ای شخصی‌سازی‌شده؛ بدون وعده مالی یا دسترسی ویژه خودکار." : "A personalized assess, plan, practice, reflect and verify cycle—with no automatic financial or privileged entitlement.") : currentTerm?.subtitle}</p>
                 </div>
                 <Link href={`${termBase}/term-${currentTermNumber}`} className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-cyan-300 px-6 py-4 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-slate-900 sm:w-auto">
-                  {completedCoreTerms === 0 ? t.startTerm : t.continueTerm}
+                  {completedCoreTerms === 0 ? t.startTerm : t.continueTerm}<ArrowUpRight className="ms-2 h-4 w-4" aria-hidden="true" />
                 </Link>
               </div>
             </div>
