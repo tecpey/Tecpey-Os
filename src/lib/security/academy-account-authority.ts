@@ -2,7 +2,6 @@ import {
   createHash,
   pbkdf2Sync,
   randomBytes,
-  scryptSync,
   timingSafeEqual,
 } from "node:crypto";
 import type { PoolClient } from "pg";
@@ -46,115 +45,22 @@ type AcademyAccountRow = {
   password_hash: string;
   phone_e164: string | null;
 };
-
-const PASSWORD_SCRYPT_N = 1 << 17;
-const PASSWORD_SCRYPT_R = 8;
-const PASSWORD_SCRYPT_P = 1;
-const PASSWORD_KEY_LENGTH = 32;
-const LEGACY_PBKDF2_MIN_ROUNDS = 50_000;
 
 export function hashAcademyPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
-  const digest = scryptSync(password, salt, PASSWORD_KEY_LENGTH, {
-    N: PASSWORD_SCRYPT_N,
-    r: PASSWORD_SCRYPT_R,
-    p: PASSWORD_SCRYPT_P,
-    maxmem: 256 * 1024 * 1024,
-  }).toString("hex");
-  return `scrypt$N=${PASSWORD_SCRYPT_N},r=${PASSWORD_SCRYPT_R},p=${PASSWORD_SCRYPT_P}${salt}${digest}`;
-}
-
-function safeEqualHex(expectedHex: string, actualHex: string): boolean {
-  if (!/^[0-9a-f]+$/i.test(expectedHex) || !/^[0-9a-f]+$/i.test(actualHex)) return false;
-  const expected = Buffer.from(expectedHex, "hex");
-  const actual = Buffer.from(actualHex, "hex");
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+  const digest = pbkdf2Sync(password, salt, 120_000, 32, "sha256").toString("hex");
+  return `pbkdf2_sha256$120000$${salt}$${digest}`;
 }
 
 export function verifyAcademyPassword(password: string, stored: string): boolean {
-  const [algorithm, parameters, salt, digest] = stored.split("$");
-  if (!algorithm || !parameters || !salt || !digest) return false;
-
-  if (algorithm === "scrypt") {
-    const match = /^N=(\\d+),r=(\\d+),p=(\\d+)$/.exec(parameters);
-    if (!match) return false;
-    const N = Number(match[1]);
-    const r = Number(match[2]);
-    const p = Number(match[3]);
-    if (N < PASSWORD_SCRYPT_N || r < PASSWORD_SCRYPT_R || p < PASSWORD_SCRYPT_P) return false;
-    if (N > PASSWORD_SCRYPT_N * 4 || r > 32 || p > 8) return false;
-    const calculated = scryptSync(password, salt, PASSWORD_KEY_LENGTH, {
-      N,
-      r,
-      p,
-      maxmem: 512 * 1024 * 1024,
-    }).toString("hex");
-    return safeEqualHex(digest, calculated);
-  }
-
-  // Backward-compatible verification only. Successful legacy logins are upgraded in-transaction.
-  if (algorithm === "pbkdf2_sha256") {
-    const rounds = Number(parameters);
-    if (!Number.isSafeInteger(rounds) || rounds < LEGACY_PBKDF2_MIN_ROUNDS || rounds > 2_000_000) {
-      return false;
-    }
-    const calculated = pbkdf2Sync(password, salt, rounds, PASSWORD_KEY_LENGTH, "sha256").toString("hex");
-    return safeEqualHex(digest, calculated);
-  }
-  return false;
-}
-
-export function academyPasswordHashNeedsUpgrade(stored: string): boolean {
-  return !stored.startsWith(`scrypt$N=${PASSWORD_SCRYPT_N},r=${PASSWORD_SCRYPT_R},p=${PASSWORD_SCRYPT_P}import {
-  createHash,
-  pbkdf2Sync,
-  randomBytes,
-  scryptSync,
-  timingSafeEqual,
-} from "node:crypto";
-import type { PoolClient } from "pg";
-import { withTx } from "@/lib/db";
-import {
-  writeSensitiveMutationAuditTx,
-  type SensitiveMutationAuditEvent,
-} from "@/lib/security/sensitive-mutation-audit";
-import {
-  consumeVerifiedPhoneChallengeTx,
-  lockVerifiedPhoneChallengeTx,
-} from "@/lib/security/phone-otp-authority";
-
-export type AcademyAccountAuditContext = Pick<
-  SensitiveMutationAuditEvent,
-  "tenantId" | "actorType" | "actorId" | "correlationId" | "requestHash"
->;
-
-export type AcademyCredentialAccount = {
-  accountId: string;
-  email: string;
-  username: string;
-  displayName: string;
-  phoneE164?: string;
-};
-
-export type AcademyAccountAuthorityResult =
-  | {
-      status: "created" | "authenticated";
-      account: AcademyCredentialAccount;
-    }
-  | {
-      status: "invalid_credentials" | "username_taken" | "phone_taken" | "phone_mismatch" | "phone_verification_required" | "unavailable";
-    };
-
-type AcademyAccountRow = {
-  id: string;
-  email: string;
-  username: string;
-  display_name: string;
-  password_hash: string;
-  phone_e164: string | null;
-};
-
-);
+  const [algorithm, roundsText, salt, digest] = stored.split("$");
+  if (algorithm !== "pbkdf2_sha256" || !roundsText || !salt || !digest) return false;
+  const rounds = Number(roundsText);
+  if (!Number.isFinite(rounds) || rounds < 50_000) return false;
+  const calculated = pbkdf2Sync(password, salt, rounds, 32, "sha256").toString("hex");
+  const expected = Buffer.from(digest, "hex");
+  const actual = Buffer.from(calculated, "hex");
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 export function fingerprintAcademyAccount(accountId: string): string {
@@ -243,12 +149,6 @@ export async function authenticateOrRegisterAcademyAccount(input: {
       const existing = selected.rows[0];
       if (!existing || !verifyAcademyPassword(input.password, existing.password_hash)) {
         return { status: "invalid_credentials" } as const;
-      }
-      if (academyPasswordHashNeedsUpgrade(existing.password_hash)) {
-        await client.query("UPDATE academy_auth_accounts SET password_hash = $1 WHERE id = $2", [
-          hashAcademyPassword(input.password),
-          existing.id,
-        ]);
       }
       return {
         status: "authenticated",
