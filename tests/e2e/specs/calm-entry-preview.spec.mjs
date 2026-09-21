@@ -13,9 +13,47 @@ for (const screen of ["landing", "login", "signup"]) {
     await context.route("**/api/academy-student-profile", route => route.fulfill({
       contentType: "application/json", body: JSON.stringify({ authenticated: false, profile: null }),
     }));
-    await context.route("**/api/crypto-news**", route => route.fulfill({
-      contentType: "application/json", body: JSON.stringify({ mode: "fallback", items: [] }),
-    }));
+    await context.route("**/api/crypto-news**", route => {
+      const locale = new URL(route.request().url()).searchParams.get("locale") === "fa" ? "fa" : "en";
+      const isFa = locale === "fa";
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          mode: "live",
+          updatedAt: "2026-09-20T12:05:00.000Z",
+          items: [
+            {
+              id: "preview-older",
+              title: isFa ? "خبر دوم برای پیش‌نمایش" : "Second preview story",
+              summary: isFa ? "خبر قدیمی‌تر برای نمایش ادامهٔ افقی carousel." : "An older story that proves the carousel continues horizontally.",
+              source: "TecPey Fixture",
+              url: isFa ? "/crypto-news" : "/en/crypto-news",
+              publishedAt: "2026-09-20T10:00:00.000Z",
+              category: isFa ? "ریسک" : "Risk",
+              tone: "neutral",
+              impact: 5,
+              relatedLesson: isFa ? "مدیریت ریسک" : "Risk management",
+              thumbnailUrl: "/images/tecpey/covers/risk-management-in-crypto.jpg",
+              thumbnailAlt: isFa ? "تصویر خبر دوم" : "Second story thumbnail",
+            },
+            {
+              id: "preview-latest",
+              title: isFa ? "تازه‌ترین خبر برای پیش‌نمایش" : "Latest preview story",
+              summary: isFa ? "کارت اول با تصویر اختصاصی و زمینهٔ آموزشی." : "The first card carries governed media and learning context.",
+              source: "TecPey Fixture",
+              url: isFa ? "/crypto-news" : "/en/crypto-news",
+              publishedAt: "2026-09-20T12:00:00.000Z",
+              category: isFa ? "بیت‌کوین" : "Bitcoin",
+              tone: "neutral",
+              impact: 7,
+              relatedLesson: isFa ? "فاندامنتال و خبر" : "Fundamentals and news",
+              thumbnailUrl: "/images/tecpey/covers/what-is-bitcoin.jpg",
+              thumbnailAlt: isFa ? "تصویر تازه‌ترین خبر" : "Latest story thumbnail",
+            },
+          ],
+        }),
+      });
+    });
     await context.route("**/api/v1/user/currency/list**", route => route.fulfill({
       contentType: "application/json", body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1 } }),
     }));
@@ -61,6 +99,16 @@ for (const screen of ["landing", "login", "signup"]) {
         body: await page.screenshot({ fullPage: screen !== "landing", animations: "disabled" }),
         contentType: "image/png",
       });
+      if (screen === "landing") {
+        const news = page.locator('[data-home-section="news-carousel"]');
+        await news.scrollIntoViewIfNeeded();
+        await expect(news).toBeVisible();
+        await expect(news.locator('[aria-roledescription="slide"]').first().locator("img")).toBeVisible();
+        await testInfo.attach(`landing-news-${theme}-${testInfo.project.name}`, {
+          body: await news.screenshot({ animations: "disabled" }),
+          contentType: "image/png",
+        });
+      }
       if (screen !== "landing") {
         const field = page.locator('main form input:not([type="hidden"])').first();
         await field.scrollIntoViewIfNeeded();
