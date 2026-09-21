@@ -12,7 +12,7 @@
     "dev": "tsx server.ts",
     "dev:next": "next dev",
     "build": "next build && npm run build:server",
-    "build:server": "esbuild server.ts scripts/run-database-migrations.ts scripts/run-production-bootstrap.ts scripts/run-ai-automation-worker.ts scripts/run-ai-automation-internal-executor.ts scripts/run-mentor-profile-worker.ts scripts/check-mentor-profile-health.ts scripts/collect-mentor-profile-freshness-calibration.ts scripts/deliver-operational-alerts.ts scripts/check-operational-installer-env.ts --bundle --platform=node --format=cjs --packages=external --outdir=dist --entry-names=[name] --out-extension:.js=.cjs --log-level=warning",
+    "build:server": "esbuild server.ts scripts/run-database-migrations.ts scripts/print-database-migration-plan-hash.ts scripts/run-production-bootstrap.ts scripts/run-ai-automation-worker.ts scripts/run-ai-automation-internal-executor.ts scripts/run-mentor-profile-worker.ts scripts/check-mentor-profile-health.ts scripts/collect-mentor-profile-freshness-calibration.ts scripts/deliver-operational-alerts.ts scripts/check-operational-installer-env.ts --bundle --platform=node --format=cjs --packages=external --outdir=dist --entry-names=[name] --out-extension:.js=.cjs --log-level=warning",
     "start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
