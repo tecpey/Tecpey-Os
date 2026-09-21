@@ -37,6 +37,45 @@ const MARKET_RESPONSE = {
   meta: { current_page: 1, last_page: 1 },
 };
 
+function deterministicNews(locale) {
+  const isFa = locale === "fa";
+  return {
+    mode: "live",
+    updatedAt: "2026-09-20T12:05:00.000Z",
+    items: [
+      {
+        id: "older-story",
+        title: isFa ? "خبر قدیمی‌تر کنترل‌شده" : "Older governed story",
+        summary: isFa ? "این کارت عمداً قدیمی‌تر است تا ترتیب زمانی carousel آزموده شود." : "This card is intentionally older so carousel chronology is verified.",
+        source: "TecPey Fixture",
+        url: isFa ? "/crypto-news" : "/en/crypto-news",
+        publishedAt: "2026-09-20T10:00:00.000Z",
+        category: isFa ? "آموزش" : "Learning",
+        tone: "neutral",
+        impact: 5,
+        relatedLesson: isFa ? "آکادمی تک‌پی" : "TecPey Academy",
+        thumbnailUrl: "/images/tecpey/covers/risk-management-in-crypto.jpg",
+        thumbnailAlt: isFa ? "تصویر خبر قدیمی‌تر" : "Older story thumbnail",
+      },
+      {
+        id: "latest-story",
+        title: isFa ? "تازه‌ترین خبر کنترل‌شده" : "Newest governed story",
+        summary: isFa ? "این خبر باید همیشه کارت اول لندینگ باشد." : "This story must always render as the first landing card.",
+        source: "TecPey Fixture",
+        url: isFa ? "/crypto-news" : "/en/crypto-news",
+        publishedAt: "2026-09-20T12:00:00.000Z",
+        category: isFa ? "بیت‌کوین" : "Bitcoin",
+        tone: "neutral",
+        impact: 7,
+        isBreaking: true,
+        relatedLesson: isFa ? "ترم ۵ · فاندامنتال و خبر" : "Term 5 · Fundamentals and news",
+        thumbnailUrl: "/images/tecpey/covers/what-is-bitcoin.jpg",
+        thumbnailAlt: isFa ? "تصویر تازه‌ترین خبر" : "Latest story thumbnail",
+      },
+    ],
+  };
+}
+
 function projectContract(testInfo) {
   const locale = testInfo.project.metadata.locale === "en" ? "en" : "fa";
   const formFactor = testInfo.project.metadata.formFactor === "mobile" ? "mobile" : "desktop";
@@ -62,6 +101,8 @@ function projectContract(testInfo) {
         academyPath: "/en/academy",
         arenaPath: "/en/academy/trading-arena",
         primaryCtas: ["Start Free Academy", "Talk to AI Mentor"],
+        latestNewsTitle: "Newest governed story",
+        olderStoryControl: "Older story",
         forbiddenCopy: [
           /Online Market Board/i,
           /Live market prices/i,
@@ -89,6 +130,8 @@ function projectContract(testInfo) {
         academyPath: "/academy",
         arenaPath: "/academy/trading-arena",
         primaryCtas: ["شروع آکادمی رایگان", "گفتگو با منتور هوشمند"],
+        latestNewsTitle: "تازه‌ترین خبر کنترل‌شده",
+        olderStoryControl: "خبر قدیمی‌تر",
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
           /اولین معامله واقعی/,
@@ -117,15 +160,13 @@ async function installDeterministicApi(context) {
   await context.route("**/api/v1/user/currency/list**", (route) =>
     json(route, MARKET_RESPONSE),
   );
-  // The public landing's CryptoNewsCenter fetches /api/crypto-news on mount.
-  // That route resolves live upstream news and can take ~60s in CI, which stalls
-  // the server worker and turns the theme-persistence page.reload below into a
-  // 60s navigation timeout (a recurring firefox-fa-desktop flake). Returning a
-  // response with no `items` array makes the component keep its deterministic
-  // built-in fallback, so the news surface still renders without the slow call.
-  await context.route("**/api/crypto-news**", (route) =>
-    json(route, { mode: "fallback", updatedAt: "2026-01-01T00:00:00.000Z" }),
-  );
+  // Keep landing news deterministic while exercising the real carousel.
+  // Items are intentionally returned out of chronological order so the browser
+  // test proves the landing renders the newest story first.
+  await context.route("**/api/crypto-news**", (route) => {
+    const locale = new URL(route.request().url()).searchParams.get("locale") === "fa" ? "fa" : "en";
+    return json(route, deterministicNews(locale));
+  });
 }
 
 function trackRuntimeErrors(page, errors) {
@@ -628,6 +669,20 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   for (const forbidden of contract.forbiddenCopy) {
     expect(bodyText, `unsupported public claim matched ${forbidden}`).not.toMatch(forbidden);
   }
+
+  const newsCarousel = page.locator('[data-home-section="news-carousel"]');
+  await newsCarousel.scrollIntoViewIfNeeded();
+  await expect(newsCarousel).toBeVisible();
+  await expect(newsCarousel).toHaveAttribute("aria-roledescription", "carousel");
+  const newsSlides = newsCarousel.locator('[aria-roledescription="slide"]');
+  await expect(newsSlides).toHaveCount(2);
+  await expect(newsSlides.first()).toContainText(contract.latestNewsTitle);
+  await expect(newsSlides.first().locator("img")).toBeVisible();
+  const olderStoryButton = newsCarousel.getByRole("button", { name: contract.olderStoryControl, exact: true });
+  await expect(olderStoryButton).toBeEnabled();
+  await olderStoryButton.click();
+  await expect(newsCarousel.locator('[aria-current="true"]')).toHaveCount(1);
+  await expectNoHorizontalOverflow(page);
 
   // The redesigned landing keeps the core product story in the primary
   // document flow instead of hiding the majority of the experience in a disclosure.
