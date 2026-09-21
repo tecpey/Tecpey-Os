@@ -101,7 +101,7 @@ import { AI_TENANT_RLS_SQL } from "./db-migrate-ai-tenant-rls";
 import { IDENTITY_PRODUCT_LINKING_SQL } from "./db-migrate-identity-product-linking";
 import { ACADEMY_PROFILE_DETAILS_SQL } from "./db-migrate-academy-profile-details";
 import { ACADEMY_QUESTION_BANK_BASELINE_SQL } from "./db-migrate-academy-question-bank-baseline";
-import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";
+import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";\nimport { PRO_COMMERCE_AUTHORITY_SQL } from "./db-migrate-pro-commerce-authority";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;

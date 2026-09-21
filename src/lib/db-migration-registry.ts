@@ -128,7 +128,7 @@ import {
   MENTOR_PROFILE_EVIDENCE_EVENT_SQL,
   runMentorProfileEvidenceEventMigrations,
 } from "./db-migrate-mentor-profile-evidence-event";
-import { runIdentityAuthKycV2Migrations } from "./db-migrate-identity-auth-kyc-v2";
+import { runIdentityAuthKycV2Migrations } from "./db-migrate-identity-auth-kyc-v2";\nimport { runProCommerceAuthorityMigrations } from "./db-migrate-pro-commerce-authority";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
