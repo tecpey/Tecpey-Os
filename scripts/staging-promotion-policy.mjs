@@ -202,10 +202,19 @@ export function buildPromotionEvidence(input) {
     startedAt,
     completedAt,
     rollback,
+    operation = "promoted",
   } = input;
   assertExactReleaseSha(previousSha, "previous_sha");
   assertExactReleaseSha(targetSha, "target_sha");
-  if (previousSha === targetSha) throw new Error("promotion_target_equals_previous");
+  if (!["promoted", "verified_already_active"].includes(operation)) {
+    throw new Error("promotion_operation_invalid");
+  }
+  if (previousSha === targetSha && operation !== "verified_already_active") {
+    throw new Error("promotion_target_equals_previous");
+  }
+  if (previousSha !== targetSha && operation === "verified_already_active") {
+    throw new Error("promotion_already_active_sha_mismatch");
+  }
   if (!/^sha256:[0-9a-f]{64}$/.test(imageDigest ?? "")) {
     throw new Error("promotion_image_digest_invalid");
   }
@@ -242,6 +251,7 @@ export function buildPromotionEvidence(input) {
       path: smokePath,
       finalStatus,
     })),
+    operation,
     rollback: { disposition: rollback.disposition },
     startedAt,
     completedAt,
