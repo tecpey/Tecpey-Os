@@ -302,7 +302,7 @@ export function NotificationCenter({
         className={triggerClass}
         aria-label={isFa ? "مرکز اعلان‌های تک‌پی" : "TecPey notification center"}
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
       >
         <Bell className={`h-5 w-5 ${isNavbar ? "" : "text-cyan-200"}`} aria-hidden="true" />

@@ -495,6 +495,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
   assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
   assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
+  assert.deepEqual(classifyDomain("src/lib/living-profile-intelligence.ts"), {
+    domain: "mentor-ai",
+    riskTier: "P2",
+    reviewBatch: 8,
+    classificationRule: "mentor-ai",
+  });
   assert.equal(classifyDomain("src/lib/notifications/policy.ts").reviewBatch, 9);
   assert.deepEqual(classifyDomain("src/lib/coin-growth-automation.ts"), {
     domain: "product-ui",

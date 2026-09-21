@@ -306,6 +306,29 @@ async function expectPrimaryTargetSize(page, surface) {
   expect(box?.height ?? 0, `${surface.path}: primary target is too short`).toBeGreaterThanOrEqual(32);
 }
 
+async function expectAriaControlsTargetsMounted(page, label) {
+  const dangling = await page.evaluate(() =>
+    [...document.querySelectorAll("[aria-controls]")]
+      .flatMap((element) => {
+        const ids = (element.getAttribute("aria-controls") || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        return ids
+          .filter((id) => !document.getElementById(id))
+          .map((id) => ({
+            tag: element.tagName.toLowerCase(),
+            label:
+              element.getAttribute("aria-label") ||
+              element.textContent?.trim().replace(/\s+/g, " ").slice(0, 80) ||
+              null,
+            controls: id,
+          }));
+      }),
+  );
+  expect(dangling, `${label}: aria-controls must reference mounted DOM targets`).toEqual([]);
+}
+
 // ── QA-051 evidence recording ────────────────────────────────────────────────
 // The checks below already ran; until now they only produced Playwright
 // attachments, which live inside a report rather than as something anyone can
@@ -570,6 +593,7 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
 
     await expectNoHorizontalOverflow(page, surface.path);
     await expectPrimaryTargetSize(page, surface);
+    await expectAriaControlsTargetsMounted(page, surface.path);
 
     // QA-051 names keyboard and focus separately, and they are separate
     // properties: reaching every control says nothing about the order focus

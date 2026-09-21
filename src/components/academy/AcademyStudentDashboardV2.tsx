@@ -4,13 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Award, CheckCircle2, Crown, Flame, GraduationCap, Loader2, Lock, Orbit, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
+import { ArrowUpRight, Award, BrainCircuit, CheckCircle2, Crown, Flame, GraduationCap, Loader2, Lock, Orbit, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { isAcademyProfileEstablished, resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
 import { ACADEMY_CORE_TERM_COUNT } from "@/lib/academy-infinite-growth-policy";
+import {
+  observedMentorSignals,
+  resolveLivingProfileMentorPresentation,
+  type LivingProfileMentorInsight,
+  type LivingProfileMentorProfile,
+  type MentorEvidenceState,
+} from "@/lib/living-profile-intelligence";
 
 type Locale = "fa" | "en";
 type Profile = {
@@ -143,13 +150,16 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [credentials, setCredentials] = useState<GovernedCredential[]>([]);
   const [achievementsDegraded, setAchievementsDegraded] = useState(false);
+  const [mentorInsights, setMentorInsights] = useState<LivingProfileMentorInsight[]>([]);
+  const [mentorProfile, setMentorProfile] = useState<LivingProfileMentorProfile | null>(null);
+  const [mentorAuthorityUnavailable, setMentorAuthorityUnavailable] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       try {
-        const [profileResult, progressData, achievementData] = await Promise.all([
+        const [profileResult, progressData, achievementData, mentorData] = await Promise.all([
           fetch("/api/academy-student-profile", {
             cache: "no-store",
             credentials: "include",
@@ -168,6 +178,14 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             )
             .catch(() => null),
           fetch(`/api/achievements?locale=${locale}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
+            .then(async (response) =>
+              response.ok ? response.json().catch(() => null) : null,
+            )
+            .catch(() => null),
+          fetch("/api/mentor-insights", {
             cache: "no-store",
             credentials: "include",
           })
@@ -198,6 +216,18 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             (!item.expires_at || Date.parse(item.expires_at) > Date.now()))
           : []);
         setAchievementsDegraded(!achievementAuthorityAvailable);
+        const mentorUnavailable = mentorData?.ok === true && mentorData?.storage === "unavailable";
+        setMentorAuthorityUnavailable(Boolean(mentorUnavailable));
+        setMentorInsights(
+          mentorData?.ok === true && !mentorUnavailable && Array.isArray(mentorData?.insights)
+            ? mentorData.insights
+            : [],
+        );
+        setMentorProfile(
+          mentorData?.ok === true && !mentorUnavailable && mentorData?.profile
+            ? mentorData.profile as LivingProfileMentorProfile
+            : null,
+        );
       } catch {
         if (active) setProfileStatus("unavailable");
       } finally {
@@ -233,6 +263,16 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     ? null
     : Math.max(0, numberOr(profile.streak_days));
   const termBase = isFa ? "/academy" : "/en/academy";
+  const latestMentorInsight = mentorInsights[0] ?? null;
+  const mentorPresentation = resolveLivingProfileMentorPresentation({
+    authorityUnavailable: mentorAuthorityUnavailable,
+    latestInsight: latestMentorInsight,
+    coreComplete,
+    streakDays,
+    currentTermPercent,
+  });
+  const mentorSignals = observedMentorSignals(mentorProfile);
+  const verifiedRecordCount = achievementsDegraded ? null : achievements.length + credentials.length;
 
   if (loading) {
     return <main className="min-h-screen bg-slate-950 px-4 py-16 text-white"><div className="mx-auto max-w-3xl rounded-[32px] border border-cyan-300/20 bg-white/[0.06] p-8 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-300" /><p className="mt-4 font-black">{t.checking}</p></div></main>;
@@ -318,14 +358,105 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           </aside>
         </div>
 
-        <section className="mt-8 grid gap-4 lg:grid-cols-[1.15fr_.85fr]" aria-label={isFa ? "بینش منتور و مسیر هوشمند" : "Mentor insight and intelligent path"}>
-          <article className="relative overflow-hidden rounded-[34px] border border-violet-300/20 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,.15),transparent_45%),rgba(255,255,255,.035)] p-6">
-            <div className="flex items-start gap-4"><LivingMentorAvatar act={streakDays !== null && streakDays >= 7 ? "celebrate_effort" : "idle_attentive"} locale={locale} size="stage" decorative /><div className="min-w-0"><p className="text-xs font-semibold text-violet-200">{isFa ? "بینش منتور" : "Mentor insight"}</p><h2 className="mt-2 text-xl font-bold leading-8">{isFa ? "قدم بعدی باید از شواهد واقعی مسیر تو بیاید" : "Your next step should come from real journey evidence"}</h2><p className="mt-2 text-sm font-medium leading-7 text-slate-300">{isFa ? "منتور فقط از پیشرفت ثبت‌شده، ارزیابی‌های معتبر و فعالیت‌های مجاز برای پیشنهاد مسیر استفاده می‌کند؛ یادداشت شخصی یا پاسخ خوداظهاری به‌تنهایی به «تسلط» تبدیل نمی‌شود." : "Mentor uses recorded progress, governed assessments and permitted activity to guide the journey; private notes or self-reported answers never become mastery on their own."}</p></div></div>
-            <Link href={`${termBase}/ai-guide`} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200/25 bg-violet-300/10 px-5 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "گفت‌وگو با منتور" : "Talk to Mentor"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+        <section className="mt-8 grid gap-4 xl:grid-cols-[1.1fr_.9fr]" aria-label={isFa ? "بینش منتور و DNA یادگیری" : "Mentor insight and learning DNA"}>
+          <article className="relative overflow-hidden rounded-[34px] border border-violet-300/20 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,.15),transparent_45%),rgba(255,255,255,.035)] p-6 sm:p-7">
+            <div className="flex items-start gap-4">
+              <LivingMentorAvatar act={mentorPresentation.act} locale={locale} size="stage" decorative />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-violet-200">{isFa ? "بینش منتور · مبتنی بر شواهد" : "Mentor insight · evidence grounded"}</p>
+                <h2 className="mt-2 text-xl font-bold leading-8">
+                  {mentorPresentation.mode === "authority_unavailable"
+                    ? (isFa ? "مرجع بینش منتور موقتاً در دسترس نیست" : "Mentor insight authority is temporarily unavailable")
+                    : mentorPresentation.mode === "evidence_insight"
+                      ? (isFa ? "آخرین بینش ثبت‌شده برای مسیر تو" : "Your latest recorded learning insight")
+                      : mentorPresentation.mode === "core_complete"
+                        ? (isFa ? "هفت ترم هسته را پشت سر گذاشتی؛ حالا رشد پیوسته مهم است" : "You completed the seven core terms; continuous growth comes next")
+                        : mentorPresentation.mode === "consistency"
+                          ? (isFa ? "تداوم تو قابل مشاهده است؛ قدم بعدی را کوچک و مشخص نگه دار" : "Your consistency is visible; keep the next step small and specific")
+                          : mentorPresentation.mode === "continue_term"
+                            ? (isFa ? "مسیر فعلی را ادامه بده؛ هنوز برای نتیجه‌گیری عجله نمی‌کنیم" : "Continue the current path; there is no need to over-interpret early evidence")
+                            : (isFa ? "اولین شواهد مسیرت را بساز" : "Build the first evidence in your learning journey")}
+                </h2>
+                <p className="mt-3 text-sm font-medium leading-7 text-slate-300">
+                  {mentorPresentation.insight?.content
+                    || (mentorPresentation.mode === "authority_unavailable"
+                      ? (isFa ? "تا بازگشت مرجع داده، تک‌پی هیچ پروفایل یا توصیه شخصی ساختگی نمایش نمی‌دهد." : "Until the authority recovers, TecPey does not invent a personal profile or recommendation.")
+                      : (isFa ? "منتور فقط از پیشرفت ثبت‌شده، ارزیابی معتبر و فعالیت‌های مجاز برای شخصی‌سازی استفاده می‌کند؛ یادداشت یا پاسخ خوداظهاری به‌تنهایی «تسلط» نیست." : "Mentor personalizes only from recorded progress, governed assessments and permitted activity; a private note or self-report alone is not mastery."))}
+                </p>
+                {mentorPresentation.insight?.generatedAt ? <p className="mt-3 text-xs font-medium text-slate-500">{isFa ? "به‌روزرسانی بینش: " : "Insight updated: "}<time dateTime={mentorPresentation.insight.generatedAt}>{formatProfileTime(mentorPresentation.insight.generatedAt, locale)}</time></p> : null}
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href={`${termBase}/ai-guide`} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200/25 bg-violet-300/10 px-5 py-3 text-sm font-semibold text-violet-100 transition-colors motion-reduce:transition-none hover:bg-violet-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "گفت‌وگو با منتور" : "Talk to Mentor"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+              <Link href={`${termBase}/account#mentor-privacy`} className="inline-flex min-h-11 items-center rounded-2xl px-4 py-3 text-sm font-semibold text-slate-300 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "کنترل حریم خصوصی منتور" : "Mentor privacy controls"}</Link>
+            </div>
           </article>
-          <article className="rounded-[34px] border border-white/10 bg-white/[.035] p-6">
-            <p className="text-xs font-semibold text-cyan-200">{isFa ? "امروز چه چیزی مهم است؟" : "What matters today?"}</p><h2 className="mt-2 text-xl font-bold leading-8">{coreComplete ? (isFa ? "چرخه رشد بی‌نهایت را ادامه بده" : "Continue your Infinite Growth cycle") : (currentTerm?.title || t.currentTerm)}</h2><p className="mt-3 text-sm font-medium leading-7 text-slate-300">{coreComplete ? (isFa ? "یک چرخه کوتاه ارزیابی، تمرین و بازتاب را کامل کن؛ کیفیت تصمیم مهم‌تر از سرعت است." : "Complete a short assess, practice and reflect cycle; decision quality matters more than speed.") : (isFa ? "به‌جای پراکندگی، یک قدم معتبر در ترم فعلی بردار. پیشرفت این صفحه فقط از وضعیت ثبت‌شده به‌روزرسانی می‌شود." : "Instead of scattering attention, take one governed step in the current term. This profile updates only from recorded state.")}</p>
-            <div className="mt-5 flex items-center gap-2 text-xs font-medium text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true"/>{isFa ? "بدون امتیاز یا تسلط ساختگی" : "No fabricated score or mastery"}</div>
+
+          <article className="rounded-[34px] border border-white/10 bg-white/[.035] p-6 sm:p-7" aria-labelledby="learning-dna-title">
+            <div className="flex items-center gap-3 text-cyan-200"><BrainCircuit className="h-5 w-5" aria-hidden="true"/><p className="text-xs font-semibold">{isFa ? "Learning DNA" : "Learning DNA"}</p></div>
+            <h2 id="learning-dna-title" className="mt-2 text-xl font-bold leading-8">{isFa ? "تصویری که فقط با شواهد کافی کامل می‌شود" : "A profile that only fills in when evidence is sufficient"}</h2>
+            {mentorAuthorityUnavailable ? (
+              <p role="status" className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/[.06] p-4 text-sm font-medium leading-7 text-amber-100">{isFa ? "مرجع Mentor Profile موقتاً در دسترس نیست؛ داده قبلی به‌عنوان حقیقت نمایش داده نمی‌شود." : "Mentor Profile authority is temporarily unavailable; stale values are not presented as facts."}</p>
+            ) : mentorProfile ? (
+              <>
+                {mentorProfile.primaryGoal ? <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/35 p-4"><p className="text-[11px] font-semibold text-slate-500">{isFa ? "هدف ثبت‌شده توسط تو" : "Your recorded goal"}</p><p className="mt-2 text-sm font-semibold leading-7 text-slate-200">{mentorProfile.primaryGoal}</p></div> : null}
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {mentorSignals.length ? mentorSignals.map((signal) => <div key={signal.key} className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[.055] p-3"><p className="text-[11px] font-semibold text-emerald-200">{mentorSignalLabel(signal.key, isFa)}</p><p className="mt-1 text-sm font-bold text-white"><bdi>{mentorSignalValue(signal.key, signal.value, isFa)}</bdi></p></div>) : <p className="sm:col-span-2 rounded-2xl border border-dashed border-white/15 p-4 text-sm font-medium leading-7 text-slate-400">{isFa ? "هنوز هیچ ویژگی رفتاری با سطح «مشاهده‌شده» نداریم؛ این یک نبودِ داده است، نه ضعف کاربر." : "No behavioural attribute has reached observed evidence yet; this is missing evidence, not a learner weakness."}</p>}
+                </div>
+                {(mentorProfile.strongAreas.length || mentorProfile.weakAreas.length) ? <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <EvidenceList title={isFa ? "نقاط قوت ثبت‌شده" : "Recorded strengths"} items={mentorProfile.strongAreas} empty={isFa ? "هنوز شواهد کافی نیست" : "Not enough evidence yet"} isFa={isFa} />
+                  <EvidenceList title={isFa ? "نیازمند تمرین بیشتر" : "Needs more practice"} items={mentorProfile.weakAreas} empty={isFa ? "هنوز شواهد کافی نیست" : "Not enough evidence yet"} isFa={isFa} />
+                </div> : null}
+                <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-slate-400 sm:grid-cols-3">
+                  <EvidenceState label={isFa ? "سطح" : "Level"} state={mentorProfile.levelEvidenceState} isFa={isFa} />
+                  <EvidenceState label={isFa ? "ریسک" : "Risk"} state={mentorProfile.riskEvidenceState} isFa={isFa} />
+                  <EvidenceState label={isFa ? "انضباط" : "Discipline"} state={mentorProfile.disciplineEvidenceState} isFa={isFa} />
+                </div>
+                {mentorProfile.updatedAt ? <p className="mt-4 text-xs text-slate-500">{isFa ? "آخرین بازسازی پروفایل: " : "Profile last recomputed: "}<time dateTime={mentorProfile.updatedAt}>{formatProfileTime(mentorProfile.updatedAt, locale)}</time></p> : null}
+              </>
+            ) : (
+              <p className="mt-4 rounded-2xl border border-dashed border-white/15 p-4 text-sm font-medium leading-7 text-slate-400">{isFa ? "با تکمیل درس‌ها، ارزیابی‌ها و تمرین‌های معتبر، DNA یادگیری به‌تدریج شکل می‌گیرد." : "Learning DNA gradually forms from completed lessons, governed assessments and valid practice."}</p>
+            )}
+          </article>
+        </section>
+
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label={isFa ? "سیگنال‌های رشد معتبر" : "Governed growth signals"}>
+          <GrowthSignal label={isFa ? "هسته آکادمی" : "Academy core"} value={`${overall}%`} note={isFa ? "از پیشرفت ترم‌های ثبت‌شده" : "From recorded term progress"} />
+          <GrowthSignal label={isFa ? "ترم جاری" : "Current term"} value={currentTermPercent === null ? "—" : `${currentTermPercent}%`} note={currentTermPercent === null ? (isFa ? "هنوز داده پیشرفت ثبت نشده" : "No recorded progress yet") : (isFa ? "پیشرفت همین ترم" : "Progress in this term")} />
+          <GrowthSignal label={isFa ? "تداوم" : "Consistency"} value={streakDays === null ? "—" : (isFa ? `${streakDays.toLocaleString("fa-IR")} روز` : `${streakDays} days`)} note={isFa ? "روزهای فعال ثبت‌شده" : "Recorded active days"} />
+          <GrowthSignal label={isFa ? "سابقه تأییدشده" : "Verified record"} value={verifiedRecordCount === null ? "—" : String(verifiedRecordCount)} note={verifiedRecordCount === null ? (isFa ? "مرجع صدور در دسترس نیست" : "Issuing authority unavailable") : (isFa ? "مدرک و نشان رسمی" : "Official credentials and achievements")} />
+        </section>
+
+        <section className="mt-8 grid gap-4 lg:grid-cols-2" aria-label={isFa ? "هوشمندی تمرین و حریم خصوصی" : "Practice intelligence and privacy"}>
+          <article className="rounded-[30px] border border-cyan-300/15 bg-[linear-gradient(145deg,rgba(8,47,73,.38),rgba(255,255,255,.025))] p-6">
+            <div className="flex items-center gap-3 text-cyan-200"><TrendingUp className="h-5 w-5" aria-hidden="true"/><p className="text-xs font-semibold">{isFa ? "Arena Practice Intelligence" : "Arena Practice Intelligence"}</p></div>
+            <h2 className="mt-2 text-xl font-bold">{isFa ? "تمرین را به شواهد تصمیم‌گیری وصل کن" : "Connect practice to decision evidence"}</h2>
+            {mentorProfile?.riskEvidenceState === "observed" || mentorProfile?.disciplineEvidenceState === "observed" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+                  <p className="text-[11px] font-semibold text-slate-500">{isFa ? "پروفایل ریسک آموزشی" : "Learning risk profile"}</p>
+                  <p className="mt-2 text-sm font-bold text-white">{mentorProfile?.riskEvidenceState === "observed" && mentorProfile.riskProfile ? mentorSignalValue("risk", mentorProfile.riskProfile, isFa) : (isFa ? "شواهد ناکافی" : "Insufficient evidence")}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+                  <p className="text-[11px] font-semibold text-slate-500">{isFa ? "انضباط تمرین" : "Practice discipline"}</p>
+                  <p className="mt-2 text-sm font-bold text-white">{mentorProfile?.disciplineEvidenceState === "observed" && mentorProfile.disciplineScore !== null ? mentorSignalValue("discipline", mentorProfile.disciplineScore, isFa) : (isFa ? "شواهد ناکافی" : "Insufficient evidence")}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 rounded-2xl border border-dashed border-white/15 p-4 text-sm font-medium leading-7 text-slate-400">{isFa ? "هنوز نمونه کافی از تمرین معتبر آرنا برای نمایش الگوی ریسک یا انضباط نداریم. تک‌پی از چند معامله محدود نتیجه‌گیری شخصیتی نمی‌کند." : "There are not enough governed Arena practice samples to show a risk or discipline pattern yet. TecPey does not infer a learner trait from a few trades."}</p>
+            )}
+            <p className="mt-4 text-xs font-medium leading-6 text-slate-500">{isFa ? "این داده برای coaching آموزشی است؛ وضعیت ریسک به معنی سیگنال بازار، توصیه سرمایه‌گذاری یا پیش‌بینی قیمت نیست." : "This evidence is for learning coaching; a risk profile is not a market signal, investment recommendation or price forecast."}</p>
+            <Link href={`${termBase}/trading-arena`} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-cyan-200 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "تمرین در آرنا" : "Practice in Arena"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+          </article>
+
+          <article className="rounded-[30px] border border-violet-300/15 bg-[linear-gradient(145deg,rgba(76,29,149,.2),rgba(255,255,255,.025))] p-6">
+            <div className="flex items-center gap-3 text-violet-200"><Crown className="h-5 w-5" aria-hidden="true"/><p className="text-xs font-semibold">{isFa ? "Research & Pro boundary" : "Research & Pro boundary"}</p></div>
+            <h2 className="mt-2 text-xl font-bold">{isFa ? "هوش بیشتر، فقط با مجوز واقعی" : "More intelligence, only with real authority"}</h2>
+            <p className="mt-3 text-sm font-medium leading-7 text-slate-300">{isFa ? "پژوهش عمومی چندمنبعی و هوشمندی خبر/X در معماری تک‌پی وجود دارد، اما اجرای Premium تا entitlement معتبر سمت سرور قفل می‌ماند. پروفایل یا مرورگر نمی‌تواند این مرز را دور بزند." : "Multi-source public research and news/X intelligence exist in TecPey's architecture, but premium execution stays locked until a valid server-side entitlement exists. Profile or browser state cannot bypass that boundary."}</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href={`${termBase}/market-intelligence`} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-violet-200 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "Market Intelligence" : "Market Intelligence"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+              <Link href={`${termBase}/account#pro`} className="inline-flex min-h-11 items-center rounded-xl px-1 text-sm font-semibold text-slate-300 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "نقشه قابلیت‌های Pro" : "Pro capability map"}</Link>
+            </div>
           </article>
         </section>
 
@@ -430,6 +561,85 @@ function MedalCabinet({ locale, achievements, credentials, degraded }: {
       )}
     </section>
   );
+}
+
+function formatProfileTime(value: string, locale: Locale) {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return locale === "fa" ? "نامشخص" : "Unknown";
+  return new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(parsed));
+}
+
+function mentorSignalLabel(key: "level" | "risk" | "confidence" | "discipline" | "learningStyle", isFa: boolean) {
+  const labels = {
+    level: isFa ? "سطح یادگیری" : "Learning level",
+    risk: isFa ? "پروفایل ریسک آموزشی" : "Learning risk profile",
+    confidence: isFa ? "اعتماد در تصمیم" : "Decision confidence",
+    discipline: isFa ? "انضباط تمرین" : "Practice discipline",
+    learningStyle: isFa ? "سبک یادگیری" : "Learning style",
+  };
+  return labels[key];
+}
+
+function mentorSignalValue(key: "level" | "risk" | "confidence" | "discipline" | "learningStyle", value: string | number, isFa: boolean) {
+  if (typeof value === "number") return isFa ? `${value.toLocaleString("fa-IR")} از ۱۰۰` : `${value}/100`;
+  if (!isFa) return value;
+  const localized: Record<string, string> = {
+    beginner: "مقدماتی",
+    intermediate: "میانی",
+    advanced: "پیشرفته",
+    low: "کم",
+    medium: "متوسط",
+    high: "بالا",
+    mixed: "ترکیبی",
+  };
+  return localized[value] || value;
+}
+
+function evidenceStateCopy(state: MentorEvidenceState, isFa: boolean) {
+  if (state === "observed") return isFa ? "مشاهده‌شده" : "Observed";
+  if (state === "provisional") return isFa ? "در حال شکل‌گیری" : "Provisional";
+  return isFa ? "شواهد ناکافی" : "Insufficient evidence";
+}
+
+function EvidenceState({ label, state, isFa }: { label: string; state: MentorEvidenceState; isFa: boolean }) {
+  return <div className="rounded-xl border border-white/10 bg-slate-950/30 px-3 py-2"><span>{label}</span><p className="mt-1 font-semibold text-slate-200">{evidenceStateCopy(state, isFa)}</p></div>;
+}
+
+function mentorAreaLabel(value: string, isFa: boolean) {
+  const labels: Record<string, readonly [string, string]> = {
+    learning_consistency: ["تداوم در یادگیری", "Learning consistency"],
+    trade_discipline: ["انضباط در تمرین معامله", "Trading practice discipline"],
+    journal_quality: ["کیفیت ژورنال", "Journal quality"],
+    clean_risk_record: ["سابقه کنترل ریسک", "Risk-control record"],
+    quiz_mastery: ["عملکرد قوی در چالش‌ها", "Strong challenge performance"],
+    lesson_assessment_mastery: ["عملکرد قوی در ارزیابی درس", "Strong lesson-assessment performance"],
+    practice_commitment: ["تعهد به تمرین", "Practice commitment"],
+    quiz_review: ["مرور کوییزها", "Quiz review"],
+    lesson_assessment_review: ["مرور ارزیابی درس", "Lesson-assessment review"],
+    risk_control: ["کنترل ریسک", "Risk control"],
+    risk_discipline: ["انضباط ریسک", "Risk discipline"],
+    fomo_management: ["مدیریت FOMO", "FOMO management"],
+    revenge_trading: ["کنترل معامله انتقامی", "Revenge-trading control"],
+    emotional_control: ["کنترل تصمیم هیجانی", "Emotional decision control"],
+  };
+  const direct = labels[value];
+  if (direct) return direct[isFa ? 0 : 1];
+  const term = /^term_(\d+)_retry$/.exec(value);
+  if (term) return isFa ? `مرور دوباره ترم ${Number(term[1]).toLocaleString("fa-IR")}` : `Retry term ${term[1]}`;
+  const topic = /^topic_(.+)$/.exec(value);
+  if (topic) return isFa ? `تمرین بیشتر: ${topic[1].replaceAll("_", " ")}` : `More practice: ${topic[1].replaceAll("_", " ")}`;
+  return value.replaceAll("_", " ");
+}
+
+function EvidenceList({ title, items, empty, isFa }: { title: string; items: readonly string[]; empty: string; isFa: boolean }) {
+  return <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4"><p className="text-[11px] font-semibold text-slate-500">{title}</p>{items.length ? <ul className="mt-2 space-y-1 text-sm font-medium leading-6 text-slate-200">{items.slice(0, 3).map((item) => <li key={item} className="before:me-2 before:text-cyan-300 before:content-['•']">{mentorAreaLabel(item, isFa)}</li>)}</ul> : <p className="mt-2 text-sm text-slate-500">{empty}</p>}</div>;
+}
+
+function GrowthSignal({ label, value, note }: { label: string; value: string; note: string }) {
+  return <article className="rounded-[24px] border border-white/10 bg-white/[.03] p-4"><p className="text-[11px] font-semibold text-slate-500">{label}</p><p className="mt-2 text-xl font-bold tabular-nums text-white"><bdi dir="ltr">{value}</bdi></p><p className="mt-1 text-xs leading-5 text-slate-400">{note}</p></article>;
 }
 
 function Metric({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {

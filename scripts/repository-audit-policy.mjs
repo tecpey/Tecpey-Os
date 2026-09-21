@@ -120,6 +120,7 @@ const DOMAIN_RULES = [
     reviewBatch: 8,
     patterns: [
       /(?:^|\/)(?:living-mentor|mentor|ai|model-provider|prompt)(?:[./_-]|$)/i,
+      /^src\/lib\/living-profile-intelligence\.ts$/,
       /^src\/lib\/(?:coaching-engine|knowledge-graph|smart-review)\.ts$/,
     ],
   },
@@ -262,7 +263,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 23,
+  version: 24,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
