@@ -48,6 +48,7 @@ const evidence = buildPromotionEvidence({
   migration: {
     previousPlanHash: result.previousPlanHash,
     targetPlanHash: result.targetPlanHash,
+    authorityChanges: result.migrationAuthorityChanges,
     rollbackMode: result.migrationRollbackMode,
   },
   operation: result.finalDisposition,
