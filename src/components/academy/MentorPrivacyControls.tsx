@@ -135,7 +135,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
             <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border border-fg/10 p-4">
               <input
                 type="checkbox"
-                className="mt-1 h-5 w-5 accent-cyan-600"
+                className="mt-1 h-5 w-5 accent-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
                 checked={draft.externalProviderEnabled}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -161,7 +161,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
             <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border border-fg/10 p-4">
               <input
                 type="checkbox"
-                className="mt-1 h-5 w-5 accent-cyan-600"
+                className="mt-1 h-5 w-5 accent-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
                 checked={draft.behavioralPersonalizationEnabled}
                 onChange={(event) =>
                   setDraft((current) => ({
