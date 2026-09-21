@@ -12,6 +12,24 @@ Build a durable organic-growth operating system that converts real audience ques
 
 Trend Intelligence → Topic/Intent Map → Content Brief → Human/AI Production → Experience/Internal Linking → Distribution → Measurement → Refresh/Retire.
 
+## Research-derived search/answerability controls
+
+Primary references:
+- Google structured-data policies: https://developers.google.com/search/docs/appearance/structured-data/sd-policies
+- Structured-data introduction: https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data
+- Localized versions / hreflang: https://developers.google.com/search/docs/specialty/international/localized-versions
+
+Implementation consequences:
+- structured data must represent visible/main page content; hidden or misleading schema is a release blocker;
+- JSON-LD is preferred when appropriate, but eligibility for rich results is never treated as guaranteed ranking/traffic;
+- every FA/EN alternate set is reciprocal/self-referential and uses one maintained hreflang strategy rather than contradictory HTML/header/sitemap implementations;
+- canonical and hreflang semantics are tested together for localized pages;
+- FA and EN main content must be genuinely localized; translating chrome/navigation alone does not qualify as content parity;
+- publication/modified dates shown to users and machine-readable metadata stay consistent;
+- AEO/GEO summaries are derived from canonical visible content and cannot contain claims/qualifiers absent from the page;
+- no crawler/LLM-only copy, cloaking, doorway generation or schema inflation;
+- sitemap/indexability validation is coupled to canonical content state so draft/retired content cannot leak as active authority.
+
 ## Entity / information architecture
 
 - one canonical entity profile for each important TecPey concept/product/course/coin/topic;
