@@ -164,8 +164,8 @@ export default function TecpeyEnterpriseLanding({
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] text-[color:var(--tp-text)]">
       <Hero />
       <HomeDiscoveryStrip locale="fa" radar={growthRadar} />
-      <MarketLearningSnapshot />
       <CryptoNewsCenter locale="fa" compact />
+      <MarketLearningSnapshot />
       <HomeAiMentorSpotlight locale="fa" compact />
       <HomeLearningJourney locale="fa" compact />
       <LandingGrowthRadar locale="fa" radar={growthRadar} />
