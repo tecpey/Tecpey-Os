@@ -227,7 +227,7 @@ export function buildPromotionEvidence(input) {
       throw new Error(`promotion_${name}_invalid`);
     }
   }
-  if (!rollback || !["armed", "not_needed", "completed"].includes(rollback.disposition)) {
+  if (!rollback || !["armed", "not_needed", "completed", "completed_and_repromoted"].includes(rollback.disposition)) {
     throw new Error("promotion_rollback_evidence_invalid");
   }
   return {
