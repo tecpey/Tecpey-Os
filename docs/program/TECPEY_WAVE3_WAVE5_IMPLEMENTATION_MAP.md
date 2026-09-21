@@ -130,6 +130,88 @@ Turn every material remaining product/release gap after Profile VNext Wave 2 and
 - #706 may render explicit “authority unavailable” placeholders before #704/#705 land, but cannot fabricate journey/rank evidence.
 - #708 never becomes a dumping ground for unfinished product logic; it is for integration hardening, not feature completion.
 
+## Execution waves
+
+### Wave A — release safety + foundational authorities
+Run in parallel where files/contracts do not overlap:
+- **#697 Release/Staging Automation** — P0 operational foundation.
+- **#698 Identity/Auth/KYC** — P0 identity/session foundation.
+- **#702 Mentor Rive v2 Contract** — P1 independent presentation contract.
+- **#704 Academy Infinite Growth** — P1 learning authority.
+- **#705 Arena & League v2** — P1 competition authority.
+
+### Wave B — monetization + research intelligence
+- **#699 Pro Commerce** follows identity/session compatibility from #698.
+- **#700 Deep Research** can build provider-neutral job/provenance scaffolding early, but premium execution remains disabled until #699.
+- **#701 Model Lab & AI Council** follows the normalized research/tool contracts from #700 and entitlement authority from #699.
+
+### Wave C — composed experiences
+- **#703 Mentor Workspace v2** composes #702 + #701 + #699.
+- **#706 Living Profile Wave 3** composes #698 + #704 + #705, with #699 enriching premium state.
+- **#707 Notification Orchestrator v2** consumes durable, versioned events from research/academy/arena/profile.
+
+### Wave D — integration and launch hardening
+- **#708 Global Experience & Launch Gate** begins audits earlier but cannot be declared complete until upstream behavior stabilizes.
+- Final staging candidate must be produced by the governed exact-SHA path from #697.
+
+## Risk classes
+
+| Class | Meaning | Examples | Merge requirement |
+| --- | --- | --- | --- |
+| P0 | Security / identity / commercial / release authority | #697, #698, #699 | negative tests, audit trail, rollback/recovery proof, independent review |
+| P1 | Learning / competition / AI authority | #700, #701, #704, #705 | provenance/versioning, failure-mode tests, deterministic replay where applicable |
+| P2 | Composite product experience | #702, #703, #706, #707 | authority-bound UX, degraded states, FA/EN + accessibility/browser evidence |
+| P3 | Cross-product integration | #708 | no P0/P1 blockers, staging smoke, performance/accessibility/visual evidence |
+
+Risk class does **not** rank business value; it sets the minimum evidence burden.
+
+## Program Definition of Ready
+
+A track may move from contract-only drafting into implementation when:
+1. its upstream authority contract is present or an explicit fail-closed interface is defined;
+2. database ownership and tenant/workspace key are known for every new durable entity;
+3. mutations, idempotency semantics and audit events are specified;
+4. FA/EN information architecture and degraded/locked/guest states are sketched for user-facing work;
+5. success metrics are product-quality metrics, not vanity engagement metrics;
+6. rollout/rollback shape is known before destructive or externally visible changes start.
+
+## Program Definition of Done
+
+A track cannot become Ready-for-Review merely because TypeScript/build passes. It requires all applicable items below:
+
+| Dimension | Required evidence |
+| --- | --- |
+| Product | acceptance scenarios mapped to real authority; no placeholder claim presented as live |
+| Data | migrations idempotent; ownership/retention/versioning documented; downgrade/rollback considered |
+| Security | authorization, CSRF/rate limit, replay/idempotency, secret/PII boundaries, negative tests |
+| AI | provider/model is policy-routed; citations/provenance/freshness where factual; bounded cost/tool use; no direct sensitive mutation |
+| UX | mobile/desktop, FA/EN, RTL/LTR, loading/error/empty/degraded/locked/guest/offline states |
+| Accessibility | WCAG 2.2 AA; preferred 44px primary targets; keyboard/focus; reduced motion/transparency; popup ownership |
+| Observability | structured reason codes, correlation ID, freshness/version, safe telemetry |
+| Tests | unit + integration + security/negative + exact-head full suite + browser evidence |
+| Release | immutable SHA/artifact, staging checklist, health/smoke, rollback path |
+| Review | zero unresolved review threads and required independent approval |
+
+## Migration and rollback policy
+
+- New schemas are introduced forward-only; no destructive cleanup in the same PR that introduces a replacement authority.
+- Dual-read/dual-write is permitted only with a bounded migration window, explicit source-of-truth precedence and tests preventing divergence.
+- Historical assessment, season, payment, entitlement and research records keep the policy/version that produced them.
+- Rollback must restore executable behavior without pretending a partially applied external action never occurred. Payment/provider events are reconciled, not deleted.
+- Feature flags may disable exposure, but they may not substitute for server authorization.
+- Production rollback instructions are documented but never executed by these Draft PRs without a separate explicit release decision.
+
+## Research-to-product translation
+
+| Evidence/guidance | TecPey implementation consequence |
+| --- | --- |
+| Apple: Liquid Glass is a controls/navigation layer | no “glass everywhere”; content remains visually stable and readable |
+| WCAG 2.2 target/focus guidance | measurable target/focus gates in browser tests, not screenshot judgement alone |
+| Rive Data Binding/ViewModel | versioned Mentor ViewModel contract; LLM output never wires directly to animation |
+| Current web-search APIs with citations/tools | provider-neutral search/citation objects; provider features map into TecPey contracts |
+| Retrieval/spacing/interleaving evidence | adaptive scheduling is evidence/version driven, not frozen to one universal algorithm |
+| Fintech-grade event authority | commercial/rank/KYC state is event/audit driven and reconciliable, never UI-derived |
+
 ## Program rules
 
 - PRs remain Draft until their own acceptance gates are implemented and green.
