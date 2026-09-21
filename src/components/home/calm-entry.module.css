@@ -15,11 +15,53 @@
 .description { margin-top: 1.5rem; max-width: 36rem; font-size: 1.0625rem; line-height: 1.95; color: var(--tp-muted); text-wrap: pretty; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 2rem; }
 .primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: .65rem; min-height: 48px; padding: .8rem 1.4rem; border-radius: 999px; font-size: .9375rem; font-weight: 650; transition: background-color 160ms ease-out, transform 120ms ease-out; }
-.primary { color: #fff; background: #0866ce; }
-.secondary { color: var(--tp-text); border: 1px solid var(--tp-border); background: var(--tp-surface); }
+.primary { color: #fff; background: linear-gradient(135deg, #0878e6, #0756b8); box-shadow: 0 12px 30px rgb(8 102 206 / .22), inset 0 1px 0 rgb(255 255 255 / .22); }
+.secondary {
+  color: var(--tp-text);
+  border: 1px solid color-mix(in srgb, var(--tp-border) 72%, white 28%);
+  background: color-mix(in srgb, var(--tp-surface) 76%, transparent);
+  box-shadow: 0 12px 34px rgb(7 30 60 / .08), inset 0 1px 0 rgb(255 255 255 / .28);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
+}
 .primary:focus-visible, .secondary:focus-visible { outline: 3px solid var(--tp-primary); outline-offset: 4px; }
 .primary:active, .secondary:active { transform: scale(.98); }
-.visual { position: relative; min-width: 0; margin: 0; aspect-ratio: 1 / 1.08; overflow: hidden; border-radius: 2rem; background: #071221; }
+.visual {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  aspect-ratio: 1 / 1.08;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgb(125 211 252 / .18);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 18% 0%, rgb(34 211 238 / .14), transparent 34%),
+    linear-gradient(145deg, rgb(7 18 33 / .96), rgb(5 14 27 / .90));
+  box-shadow:
+    0 32px 90px rgb(2 8 23 / .24),
+    inset 0 1px 0 rgb(255 255 255 / .12);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  backdrop-filter: blur(24px) saturate(135%);
+}
+.visual::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(118deg, rgb(255 255 255 / .12), transparent 22%, transparent 76%, rgb(34 211 238 / .07));
+}
+.visual::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset-inline: 10%;
+  top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / .72), transparent);
+}
 .visual img { object-fit: cover; }
 .visual figcaption { position: absolute; inset-inline: 0; bottom: 0; padding: 3rem 1.5rem 1.5rem; color: #f4f7fb; background: linear-gradient(transparent, #071221); font-size: .9375rem; text-align: center; }
 .auth { background: var(--tp-bg); padding: 2rem 1.25rem 6rem; color: var(--tp-text); }
@@ -76,7 +118,7 @@
 .closingCta h2 { margin-top: 1.25rem; }
 .closingCta .textLink { margin-top: .75rem; }
 .textLink:focus-visible, .faq summary:focus-visible, .extendedDetails > summary:focus-visible { outline: 3px solid var(--tp-primary); outline-offset: 4px; border-radius: .5rem; }
-@media (hover: hover) and (pointer: fine) { .primary:hover { background: #0756ad; } .secondary:hover { background: var(--tp-primary-soft); } }
+@media (hover: hover) and (pointer: fine) { .primary:hover { transform: translateY(-1px); filter: brightness(1.04); } .secondary:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--tp-primary-soft) 62%, transparent); } }
 @media (max-width: 760px) {
   .productSection, .learningGrid { grid-template-columns: minmax(0, 1fr); }
   .productSection, .learningSection, .landingClose, .extendedDetails { padding-inline: 1.25rem; }
@@ -96,5 +138,5 @@
   .authForm { padding-inline: 1rem; }
   .visual { border-radius: 1.5rem; }
 }
-@media (prefers-reduced-motion: reduce) { .primary, .secondary, .extendedDetails > summary > svg, .faq summary > svg { transition: none; } .primary:active, .secondary:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .primary, .secondary, .extendedDetails > summary > svg, .faq summary > svg { transition: none; } .primary:hover, .secondary:hover, .primary:active, .secondary:active { transform: none; } }
 @media (prefers-contrast: more) { .secondary, .authForm { border-color: currentColor; } .description, .authIntro p { color: var(--tp-text); } }
