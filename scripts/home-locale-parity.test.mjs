@@ -6,6 +6,8 @@ const faPath = "src/app/home/enterprise/TecpeyEnterpriseLanding.tsx";
 const enPath = "src/app/en/EnglishLandingClient.tsx";
 const stripPath = "src/components/home/HomeDiscoveryStrip.tsx";
 const radarPath = "src/components/home/LandingGrowthRadar.tsx";
+const newsPath = "src/components/home/TecpeyHomeAI.tsx";
+const newsApiPath = "src/app/api/crypto-news/route.ts";
 
 async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -141,4 +143,50 @@ test("interface language does not force an Iran-only market unit", async () => {
   assert.doesNotMatch(fa, /USDT_IRT|\/ IRT/);
   assert.match(fa, /USD\/USDT/);
   assert.match(en, /USD\/USDT/);
+});
+
+
+test("landing news is a governed latest-first accessible horizontal carousel", async () => {
+  const [news, api] = await Promise.all([source(newsPath), source(newsApiPath)]);
+
+  assert.match(news, /data-home-section="news-carousel"/);
+  assert.match(news, /aria-roledescription="carousel"/);
+  assert.match(news, /aria-roledescription="slide"/);
+  assert.match(news, /snap-x snap-mandatory/);
+  assert.match(news, /overflow-x-auto/);
+  assert.match(news, /prefers-reduced-motion: reduce/);
+  assert.match(news, /thumbnailUrl/);
+  assert.match(news, /thumbnailAlt/);
+  assert.match(news, /جدیدترین خبر/);
+  assert.match(news, /Latest/);
+  assert.match(news, /10 \* 60 \* 1_000/);
+  assert.match(news, /min-h-11 min-w-11/);
+  assert.doesNotMatch(news, /setInterval\([^)]*scrollToSlide/);
+
+  assert.match(api, /\.sort\(\(left, right\) =>/);
+  assert.match(api, /Date\.parse\(left\.publishedAt\)/);
+  assert.match(api, /Date\.parse\(right\.publishedAt\)/);
+  assert.match(api, /thumbnailAlt: item\.thumbnailAlt/);
+});
+
+test("market snapshot avoids definition-list semantics around decorative coin visuals", async () => {
+  const [fa, en] = await Promise.all([source(faPath), source(enPath)]);
+
+  for (const landing of [fa, en]) {
+    const start = landing.indexOf("function MarketLearningSnapshot()");
+    const end = landing.indexOf("\nexport default function", start);
+    const snapshot = landing.slice(start, end);
+    assert.match(snapshot, /role="list"/);
+    assert.match(snapshot, /role="listitem"/);
+    assert.doesNotMatch(snapshot, /<dl/);
+    assert.doesNotMatch(snapshot, /<dt/);
+    assert.doesNotMatch(snapshot, /<dd/);
+  }
+});
+
+test("English home keeps explicit disabled-capability boundaries", async () => {
+  const en = await source(enPath);
+  assert.match(en, /no real money involved/);
+  assert.match(en, /no real money, real profit or real trade takes place in it/);
+  assert.match(en, /it does not sell buy or sell signals/);
 });
