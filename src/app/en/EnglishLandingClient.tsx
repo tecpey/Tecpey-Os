@@ -165,8 +165,8 @@ export default function EnglishLandingClient({
       {schema}
       <CalmLandingHero locale="en" />
       <HomeDiscoveryStrip locale="en" radar={growthRadar} />
-      <MarketLearningSnapshot />
       <CryptoNewsCenter locale="en" compact />
+      <MarketLearningSnapshot />
       <HomeAiMentorSpotlight locale="en" compact />
       <HomeLearningJourney locale="en" compact />
       <LandingGrowthRadar locale="en" radar={growthRadar} />
