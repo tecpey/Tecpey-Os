@@ -168,10 +168,12 @@ jobs:
         env:
           ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
           PUBLIC_BASE_URL: ${{ vars.TECPEY_STAGING_PUBLIC_BASE_URL }}
+          HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
         run: |
           set -Eeuo pipefail
           test -n "$ENV_FILE"
           test -n "$PUBLIC_BASE_URL"
+          test -n "$HEALTH_URL"
           test -f "$ENV_FILE"
           test ! -L "$ENV_FILE"
           node --input-type=module <<'NODE'
@@ -179,6 +181,7 @@ jobs:
           const policy = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/authority/scripts/staging-promotion-policy.mjs`));
           policy.assertSafeEnvironmentFilePath(process.env.ENV_FILE);
           policy.assertSafeStagingPublicBaseUrl(process.env.PUBLIC_BASE_URL);
+          policy.assertSafeStagingHealthUrl(process.env.HEALTH_URL);
           NODE
 
       - name: Promote with automatic rollback
@@ -189,6 +192,7 @@ jobs:
           IMAGE_DIGEST: ${{ needs.verify-supply.outputs.image_digest }}
           TECPEY_STAGING_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
           TECPEY_STAGING_PUBLIC_BASE_URL: ${{ vars.TECPEY_STAGING_PUBLIC_BASE_URL }}
+          TECPEY_STAGING_HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
           TECPEY_STAGING_RUN_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
           TECPEY_STAGING_RUN_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
           TECPEY_STAGING_ROLLBACK_DRILL: ${{ inputs.rollback_drill && '1' || '0' }}
