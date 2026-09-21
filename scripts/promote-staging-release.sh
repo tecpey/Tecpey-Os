@@ -15,7 +15,7 @@ require_env() {
   fi
 }
 
-for name in   RELEASE_SHA   IMAGE_DIGEST   TECPEY_STAGING_ENV_FILE   TECPEY_STAGING_PUBLIC_BASE_URL   TECPEY_STAGING_RUN_USER   TECPEY_STAGING_RUN_GROUP   TECPEY_PROMOTION_AUTHORITY_DIR   TECPEY_PROMOTION_RESULT_FILE   TECPEY_PROMOTION_SMOKE_FILE   RUNNER_TEMP; do
+for name in   RELEASE_SHA   IMAGE_DIGEST   TECPEY_STAGING_ENV_FILE   TECPEY_STAGING_PUBLIC_BASE_URL   TECPEY_STAGING_HEALTH_URL   TECPEY_STAGING_RUN_USER   TECPEY_STAGING_RUN_GROUP   TECPEY_PROMOTION_AUTHORITY_DIR   TECPEY_PROMOTION_RESULT_FILE   TECPEY_PROMOTION_SMOKE_FILE   RUNNER_TEMP; do
   require_env "$name"
 done
 
@@ -37,6 +37,7 @@ const policy = await import(pathToFileURL(`${authority}/scripts/staging-promotio
 policy.assertExactReleaseSha(process.env.RELEASE_SHA);
 policy.assertStagingService("tecpey-staging.service");
 policy.assertSafeStagingPublicBaseUrl(process.env.TECPEY_STAGING_PUBLIC_BASE_URL);
+policy.assertSafeStagingHealthUrl(process.env.TECPEY_STAGING_HEALTH_URL);
 policy.assertSafeEnvironmentFilePath(process.env.TECPEY_STAGING_ENV_FILE);
 if (!/^sha256:[0-9a-f]{64}$/.test(process.env.IMAGE_DIGEST ?? "")) {
   throw new Error("staging_promotion_image_digest_invalid");
@@ -136,7 +137,7 @@ run_smoke() {
 capture_health() {
   local expected_sha="$1"
   local output_file="$2"
-  curl --fail --silent --show-error --max-time 10     http://127.0.0.1:3000/api/health > "$output_file"
+  curl --fail --silent --show-error --max-time 10     "$TECPEY_STAGING_HEALTH_URL" > "$output_file"
   EXPECTED_SHA="$expected_sha" HEALTH_FILE="$output_file" node --input-type=module <<'NODE'
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
