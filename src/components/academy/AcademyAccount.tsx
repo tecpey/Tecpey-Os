@@ -31,7 +31,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState("loading");
   const [proCapabilities, setProCapabilities] = useState<ProCapabilitySnapshot | null>(null);
-  const [proAuthorityAvailable, setProAuthorityAvailable] = useState(true);
+  const [proCapabilityStatus, setProCapabilityStatus] = useState<"loading" | "ready" | "guest" | "unentitled" | "unavailable">("loading");
 
   useEffect(() => {
     let active = true;
@@ -61,21 +61,22 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
         if (controller.signal.aborted) return;
         if (!response.ok || !data?.capabilities) {
           setProCapabilities(null);
-          setProAuthorityAvailable(false);
+          setProCapabilityStatus(response.status === 401 ? "guest" : response.status === 403 ? "unentitled" : "unavailable");
           return;
         }
         setProCapabilities(data.capabilities as ProCapabilitySnapshot);
-        setProAuthorityAvailable(true);
+        setProCapabilityStatus("ready");
       })
       .catch(() => {
         if (!controller.signal.aborted) {
           setProCapabilities(null);
-          setProAuthorityAvailable(false);
+          setProCapabilityStatus("unavailable");
         }
       });
     return () => controller.abort();
   }, [attempt]);
 
+  const proAuthorityAvailable = proCapabilityStatus === "ready";
   const publicResearchLive = Boolean(
     proCapabilities?.plan === "premium" &&
     proCapabilities.premiumRuntimeEnabled &&
@@ -166,14 +167,14 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
             title={isFa ? "پژوهش عمومی عمیق" : "Deep public research"}
             text={isFa ? "مسیر پژوهش منبع‌دار در backend پیاده شده، اما تا فعال‌شدن entitlement سروری Pro عمداً قفل است." : "The source-grounded research path exists in the backend, but stays deliberately locked until server-side Pro entitlement is live."}
             state={publicResearchLive ? "live" : "locked"}
-            stateLabel={!proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "قفل سروری" : "Server gated")}
+            stateLabel={proCapabilityStatus === "guest" ? (isFa ? "ورود لازم" : "Sign-in required") : proCapabilityStatus === "unentitled" ? (isFa ? "بدون entitlement" : "Not entitled") : !proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "قفل سروری" : "Server gated")}
           />
           <CapabilityCard
             Icon={Radio}
             title={isFa ? "هوشمندی خبر و شبکه‌های اجتماعی" : "News & social intelligence"}
             text={isFa ? "زیرساخت پژوهش وب و X در کنترل‌پلین وجود دارد؛ خروجی برای فهم روایت‌هاست، نه سیگنال خرید و فروش." : "Web/X research infrastructure exists in the control plane; its purpose is narrative understanding, not buy/sell signals."}
             state={socialResearchLive ? "live" : proAuthorityAvailable ? "preview" : "locked"}
-            stateLabel={!proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : socialResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "پیش‌نمایش محصول" : "Product preview")}
+            stateLabel={proCapabilityStatus === "guest" ? (isFa ? "ورود لازم" : "Sign-in required") : proCapabilityStatus === "unentitled" ? (isFa ? "بدون entitlement" : "Not entitled") : !proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : socialResearchLive ? (isFa ? "فعال با مجوز سرور" : "Server-authorized") : (isFa ? "پیش‌نمایش محصول" : "Product preview")}
           />
           <CapabilityCard
             Icon={Sparkles}
@@ -204,13 +205,17 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
         <div className="relative z-10 mt-6 grid gap-3 rounded-2xl border border-fg/10 bg-bg/70 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
             <p className="text-sm font-semibold">{isFa ? "مرز شفاف Pro" : "Clear Pro boundary"}</p>
-            <p className="mt-1 text-xs leading-6 text-muted">{!proAuthorityAvailable
-              ? (isFa ? "مرجع قابلیت‌های Pro موقتاً در دسترس نیست؛ تک‌پی در این وضعیت هیچ قابلیت Premium را فعال فرض نمی‌کند." : "The Pro capability authority is temporarily unavailable; TecPey does not assume any premium capability is enabled.")
-              : publicResearchLive
-                ? (isFa ? "این وضعیت مستقیماً از authority سرور خوانده شده است. کنترل کلاینت به‌تنهایی نمی‌تواند قابلیت Premium را فعال کند." : "This status is read directly from server authority. A client-side control alone cannot unlock premium capability.")
-                : (isFa ? "خرید، تمدید و لغو اشتراک عمومی Pro هنوز authority سروری فعال ندارد. بنابراین هیچ دکمه‌ای در این صفحه نمی‌تواند Pro را روی کلاینت فعال کند و پژوهش Premium هم fail-closed باقی می‌ماند." : "Public Pro purchase, renewal and cancellation do not yet have live server authority. No client control on this page can unlock Pro, and premium research remains fail-closed.")}</p>
+            <p className="mt-1 text-xs leading-6 text-muted">{proCapabilityStatus === "guest"
+              ? (isFa ? "برای مشاهده وضعیت مجوزهای شخصی Pro باید وارد حساب شوی؛ در حالت مهمان هیچ entitlement شخصی فرض نمی‌شود." : "Sign in to view personal Pro capability status; no personal entitlement is assumed for a guest.")
+              : proCapabilityStatus === "unentitled"
+                ? (isFa ? "Mentor/Pro در فضای کاری فعلی برای این حساب مجاز نیست؛ تک‌پی این وضعیت را با outage یا اشتراک فعال اشتباه نمی‌گیرد." : "Mentor/Pro is not entitled in the current workspace for this account; TecPey does not confuse that state with an outage or active subscription.")
+                : proCapabilityStatus === "unavailable" || proCapabilityStatus === "loading"
+                  ? (isFa ? "مرجع قابلیت‌های Pro موقتاً در دسترس یا هنوز بارگذاری نشده است؛ تک‌پی در این وضعیت هیچ قابلیت Premium را فعال فرض نمی‌کند." : "The Pro capability authority is unavailable or still loading; TecPey does not assume any premium capability is enabled.")
+                  : publicResearchLive
+                    ? (isFa ? "این وضعیت مستقیماً از authority سرور خوانده شده است. کنترل کلاینت به‌تنهایی نمی‌تواند قابلیت Premium را فعال کند." : "This status is read directly from server authority. A client-side control alone cannot unlock premium capability.")
+                    : (isFa ? "خرید، تمدید و لغو اشتراک عمومی Pro هنوز authority سروری فعال ندارد. بنابراین هیچ دکمه‌ای در این صفحه نمی‌تواند Pro را روی کلاینت فعال کند و پژوهش Premium هم fail-closed باقی می‌ماند." : "Public Pro purchase, renewal and cancellation do not yet have live server authority. No client control on this page can unlock Pro, and premium research remains fail-closed.")}</p>
           </div>
-          <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-200 lg:mt-0"><Lock className="h-4 w-4" aria-hidden="true"/>{!proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "مجوز سروری فعال" : "Server entitlement active") : (isFa ? "پرداخت غیرفعال" : "Payments inactive")}</div>
+          <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-200 lg:mt-0"><Lock className="h-4 w-4" aria-hidden="true"/>{proCapabilityStatus === "guest" ? (isFa ? "ورود لازم" : "Sign-in required") : proCapabilityStatus === "unentitled" ? (isFa ? "بدون entitlement" : "Not entitled") : !proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "مجوز سروری فعال" : "Server entitlement active") : (isFa ? "پرداخت غیرفعال" : "Payments inactive")}</div>
         </div>
       </section>
     </div>
