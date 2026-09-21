@@ -4,6 +4,11 @@ import type { PoolClient } from "pg";
 const FILENAME = "0112_identity_auth_kyc_v2.sql";
 
 export const IDENTITY_AUTH_KYC_V2_SQL = `
+-- TOTP replay authority: persisted on the credential row so concurrent verifiers
+-- serialize on the existing FOR UPDATE lock and one RFC-6238 step succeeds once.
+ALTER TABLE user_2fa
+  ADD COLUMN IF NOT EXISTS last_accepted_totp_step BIGINT;
+
 CREATE TABLE IF NOT EXISTS academy_external_identities (
   provider TEXT NOT NULL CHECK (provider IN ('google', 'apple')),
   provider_subject TEXT NOT NULL CHECK (char_length(provider_subject) BETWEEN 1 AND 255),
