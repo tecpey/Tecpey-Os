@@ -162,13 +162,13 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "ae2500119199581ff39bf3a6ad3f77f0c08657c1",
-      "sha256": "a5c216c2cbe7e939959a4d564e7898fb6f838c193937a8b5eb1afd804f9cdf85",
-      "lines": 613,
+      "gitObjectId": "a084cee6424fc663f0c69fc912688457c452ba89",
+      "sha256": "cc4c5975e12a24f17822cefb0d88cfde3028cd6a7a756de374074fd3f26ad02f",
+      "lines": 615,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 613
+          "endLine": 615
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -176,7 +176,7 @@
         "Retired-script fail-closed behavior, mutable installer rejection, production documentation constraints, environment-template completeness, exact Node/npm/systemd contracts, clean candidate binding, immutable build identity, Compose/public inputs, container trigger coverage, readiness probes and production-verification delegation were reviewed line by line.",
         "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
-        "2026-09-21: re-reviewed the complete 613-line policy after the runtime readiness probe was generalized from a hard-coded loopback URL to the governed RUNTIME_HEALTH_URL variable used by the preflight. The policy still requires curl --fail/--silent/--show-error, bounded timeout and deterministic retries; production defaults remain loopback, staging URL admissibility is enforced by the separate staging promotion policy, and no fail-open, arbitrary-host, deployment or Production mutation authority is introduced."
+        "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced."
       ],
       "findings": []
     }
