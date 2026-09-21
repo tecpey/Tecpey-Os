@@ -48,6 +48,37 @@ export function classifyMigrationRollbackSafety(changedPaths) {
   });
 }
 
+export function evaluateMigrationCutover({
+  isDowngrade,
+  rollbackMode,
+  allowSchemaChange,
+}) {
+  if (typeof isDowngrade !== "boolean" || typeof allowSchemaChange !== "boolean") {
+    throw new Error("migration_cutover_flags_invalid");
+  }
+  if (
+    ![
+      "app_rollback_safe_no_migration_authority_change",
+      "forward_fix_or_restore_required",
+    ].includes(rollbackMode)
+  ) {
+    throw new Error("migration_cutover_rollback_mode_invalid");
+  }
+  if (
+    isDowngrade &&
+    rollbackMode === "forward_fix_or_restore_required"
+  ) {
+    return "reject_schema_change_downgrade";
+  }
+  if (
+    rollbackMode === "forward_fix_or_restore_required" &&
+    !allowSchemaChange
+  ) {
+    return "require_schema_change_approval";
+  }
+  return "allowed";
+}
+
 const EXACT_SHA = /^[0-9a-f]{40}$/;
 const RELEASE_PATH = /^\/srv\/tecpey\/releases\/([0-9a-f]{40})$/;
 const SYSTEMD_DROP_IN =
