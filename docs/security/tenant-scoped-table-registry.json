@@ -8,6 +8,15 @@
   },
   "tables": [
     {
+      "table": "academy_arena_entitlement_grants",
+      "domain": "trading-arena",
+      "sourceFile": "src/lib/db-migrate-arena-entitlement-grants.ts",
+      "isolationModel": "tenant_id and workspace_id lead source uniqueness, idempotency and active-entitlement lookup. Each grant constrains principal_id to student_id::text, requires the exact platform_principal_bindings tuple through a deferred composite foreign key and is append-only, so replaying a finalized Arena snapshot in another tenant cannot grant or extend another tenant's Arena Pro entitlement.",
+      "adversarialProof": "proven",
+      "issue": "#460",
+      "testReference": "src/tests/monthly-league/arena-league-entitlement-authority.test.ts"
+    },
+    {
       "table": "academy_arena_league_rankings",
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-rankings.ts",
@@ -26,15 +35,6 @@
       "testReference": "src/tests/security/arena-leaderboard-cross-tenant-postgres.test.ts"
     },
     {
-      "table": "academy_arena_entitlement_grants",
-      "domain": "trading-arena",
-      "sourceFile": "src/lib/db-migrate-arena-entitlement-grants.ts",
-      "isolationModel": "tenant_id and workspace_id lead source uniqueness, idempotency and active-entitlement lookup. Each grant constrains principal_id to student_id::text, requires the exact platform_principal_bindings tuple through a deferred composite foreign key and is append-only, so replaying a finalized Arena snapshot in another tenant cannot grant or extend another tenant's Arena Pro entitlement.",
-      "adversarialProof": "proven",
-      "issue": "#460",
-      "testReference": "src/tests/monthly-league/arena-league-entitlement-authority.test.ts"
-    },
-    {
       "table": "academy_arena_trade_score_ledger",
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-score-ledger.ts",
@@ -42,34 +42,6 @@
       "adversarialProof": "proven",
       "issue": "#460",
       "testReference": "src/tests/security/arena-leaderboard-cross-tenant-postgres.test.ts"
-    },
-    {
-      "table": "admin_auth_provider_evidence",
-      "domain": "admin-security",
-      "sourceFile": "src/lib/db-migrate-admin-auth-provider-evidence.ts",
-      "isolationModel": "tenant_id + workspace_id lead the primary key with provider_id and gate_id; both evidence load paths filter WHERE tenant_id = $1 AND workspace_id = $2 before returning ready evidence, and mutations UPSERT on (tenant_id, workspace_id, provider_id, gate_id), so the same provider/gate evidence in a second tenant cannot replay or overwrite the first tenant's readiness state.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
-    },
-    {
-      "table": "admin_auth_provider_evidence_events",
-      "domain": "admin-security",
-      "sourceFile": "src/lib/db-migrate-admin-auth-provider-evidence.ts",
-      "isolationModel": "tenant_id + workspace_id are written into every append-only evidence event beside provider_id and gate_id; the write path inserts the authorized admin principal's tenant/workspace scope and the migration installs UPDATE/DELETE rejection triggers, so one tenant's provider evidence audit trail cannot be mutated or collapsed into another tenant's event stream.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
-    },
-    {
-      "table": "academy_credential_records",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-credential-ledger.ts",
-      "isolationModel": "tenant_id + workspace_id + generated student principal_id are bound by composite foreign keys to platform_workspaces and platform_principal_bindings; credential uniqueness includes tenant, workspace and student, so the same monthly league key remains independent across tenants while a tenant cannot attribute a credential to another tenant's workspace or an unbound student.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "isolationNote": "Proven by academy-credential-cross-tenant-isolation-postgres.test.ts: it binds one student to two tenants, issues the same credential key in both, verifies scoped cabinet/history reads, and proves tenant B cannot change tenant A visibility or append tenant A lifecycle events by credential id.",
-      "testReference": "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_certificates",
@@ -106,6 +78,34 @@
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/community-reputation-scoring-consent-postgres.integration.ts"
+    },
+    {
+      "table": "academy_credential_records",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-credential-ledger.ts",
+      "isolationModel": "tenant_id + workspace_id + generated student principal_id are bound by composite foreign keys to platform_workspaces and platform_principal_bindings; credential uniqueness includes tenant, workspace and student, so the same monthly league key remains independent across tenants while a tenant cannot attribute a credential to another tenant's workspace or an unbound student.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "isolationNote": "Proven by academy-credential-cross-tenant-isolation-postgres.test.ts: it binds one student to two tenants, issues the same credential key in both, verifies scoped cabinet/history reads, and proves tenant B cannot change tenant A visibility or append tenant A lifecycle events by credential id.",
+      "testReference": "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "academy_daily_repair_challenge_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-daily-repair-challenges.ts",
+      "isolationModel": "tenant_id + workspace_id lead the completion idempotency boundary and every event carries the same student principal binding as its challenge. The completion authority selects the challenge under tenant/workspace/student/locale before inserting an append-only graded event, so a second tenant cannot submit or replay completion evidence against another tenant's challenge.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/product/daily-repair-challenge-authority.test.ts"
+    },
+    {
+      "table": "academy_daily_repair_challenges",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-daily-repair-challenges.ts",
+      "isolationModel": "tenant_id + workspace_id lead the one-challenge-per-day uniqueness rule, idempotency boundary and learner lookup. Each challenge constrains principal_id to student_id::text, requires the exact platform_principal_bindings tuple through a deferred composite foreign key and is append-only, so a weakness signal in one tenant cannot assign or replay a daily repair challenge in another.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/product/daily-repair-challenge-authority.test.ts"
     },
     {
       "table": "academy_learning_commands",
@@ -163,24 +163,6 @@
       "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
     },
     {
-      "table": "academy_daily_repair_challenges",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-daily-repair-challenges.ts",
-      "isolationModel": "tenant_id + workspace_id lead the one-challenge-per-day uniqueness rule, idempotency boundary and learner lookup. Each challenge constrains principal_id to student_id::text, requires the exact platform_principal_bindings tuple through a deferred composite foreign key and is append-only, so a weakness signal in one tenant cannot assign or replay a daily repair challenge in another.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/product/daily-repair-challenge-authority.test.ts"
-    },
-    {
-      "table": "academy_daily_repair_challenge_events",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-daily-repair-challenges.ts",
-      "isolationModel": "tenant_id + workspace_id lead the completion idempotency boundary and every event carries the same student principal binding as its challenge. The completion authority selects the challenge under tenant/workspace/student/locale before inserting an append-only graded event, so a second tenant cannot submit or replay completion evidence against another tenant's challenge.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/product/daily-repair-challenge-authority.test.ts"
-    },
-    {
       "table": "academy_public_profiles",
       "domain": "community",
       "sourceFile": "src/lib/db-migrate-community-profile-consent.ts; src/lib/db-migrate-community-profile-tenant-primary-key.ts",
@@ -210,6 +192,24 @@
       "isolationNote": "Gates are tenant-scoped; four derived-analytics readers are not yet and remain global: academy-progress-projection.ts, mentor-memory.ts, mentor-signals.ts and student-cartax.ts. None of them gates progression, issuance or eligibility — they compute XP/level projections, mentor context and profile summaries — and each also reads other tables whose own tenant status differs, so threading a scope through them is tracked as a separate slice under #20 rather than being half-applied here."
     },
     {
+      "table": "admin_auth_provider_evidence",
+      "domain": "admin-security",
+      "sourceFile": "src/lib/db-migrate-admin-auth-provider-evidence.ts",
+      "isolationModel": "tenant_id + workspace_id lead the primary key with provider_id and gate_id; both evidence load paths filter WHERE tenant_id = $1 AND workspace_id = $2 before returning ready evidence, and mutations UPSERT on (tenant_id, workspace_id, provider_id, gate_id), so the same provider/gate evidence in a second tenant cannot replay or overwrite the first tenant's readiness state.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "admin_auth_provider_evidence_events",
+      "domain": "admin-security",
+      "sourceFile": "src/lib/db-migrate-admin-auth-provider-evidence.ts",
+      "isolationModel": "tenant_id + workspace_id are written into every append-only evidence event beside provider_id and gate_id; the write path inserts the authorized admin principal's tenant/workspace scope and the migration installs UPDATE/DELETE rejection triggers, so one tenant's provider evidence audit trail cannot be mutated or collapsed into another tenant's event stream.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "admin_users",
       "domain": "platform",
       "sourceFile": "src/lib/db-migrate-admin-tenant-binding.ts",
@@ -217,6 +217,141 @@
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "ai_agent_binding_events",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Agent binding events copy tenant_id + workspace_id from the authorized mutation, are indexed by that scope and agent_id, and are append-only under database UPDATE/DELETE rejection triggers.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_agent_bindings",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "tenant_id + workspace_id + agent_id form the primary key. The selected provider is a composite foreign key to a provider configuration in the same tenant/workspace, preventing an agent from binding to another tenant's credential; all runtime resolution filters on the complete scope.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_agent_route_candidate_events",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-route-candidates.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Every append-only route replacement event carries tenant_id and workspace_id, is foreign-key bound to the matching platform workspace and is indexed by that complete scope plus agent and revision. Database triggers reject UPDATE and DELETE, so one tenant cannot rewrite or collapse another tenant's routing history.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-route-candidates-postgres.integration.ts"
+    },
+    {
+      "table": "ai_agent_route_candidates",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-route-candidates.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "tenant_id + workspace_id + agent_id + priority form the route identity and bind every candidate to an agent configuration in the same tenant/workspace. Reads and replacements filter the full acting scope, while schema checks prevent private data classes or external effects from using an unsafe free route.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-route-candidates-postgres.integration.ts"
+    },
+    {
+      "table": "ai_agent_spend_monthly",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Monthly reserved and settled spend is keyed by tenant_id + workspace_id + agent_id + month. Admission takes a transaction-scoped advisory lock derived from that complete scope before updating counters, so concurrent usage in one tenant cannot consume or overwrite another tenant's budget.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-routing-budget-postgres.integration.ts"
+    },
+    {
+      "table": "ai_agent_usage_daily",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Daily request and token reservations use tenant_id + workspace_id + agent_id + usage_date as the primary key and every atomic admission filters or conflicts on that complete scope. Concurrent workers can reserve only inside the authorized tenant/workspace counter, so activity in one white-label tenant cannot consume another tenant's agent allowance.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_automation_policies",
+      "domain": "ai-automation",
+      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
+      "isolationModel": "tenant_id + workspace_id + workflow_id form the primary key and bind each activation, schedule and concurrency limit to one platform workspace. Admin reads and mutations use the authenticated tenant/workspace pair, while due-work selection joins runs and policy on the same full scope.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_automation_policy_events",
+      "domain": "ai-automation",
+      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
+      "isolationModel": "Policy events use a composite foreign key to the exact tenant/workspace/workflow policy, copy the authorized scope in the same transaction and reject UPDATE and DELETE, preserving independently attributable policy changes.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_automation_reviews",
+      "domain": "ai-automation",
+      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
+      "isolationModel": "Each review carries tenant_id + workspace_id and the validation trigger locks and resolves the referenced run under the same pair before admitting the reviewer. Human and AI identities are mutually exclusive, one reviewer can count once per run, and evidence is append-only.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_automation_run_events",
+      "domain": "ai-automation",
+      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
+      "isolationModel": "Run lifecycle evidence carries the run's tenant/workspace scope, is indexed by that scope and run id, accepts only secret-free bounded metadata, and rejects UPDATE and DELETE at the database layer.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_automation_runs",
+      "domain": "ai-automation",
+      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
+      "isolationModel": "Every durable workflow run is foreign-key bound to platform_workspaces, idempotency is unique inside tenant + workspace, all admin operations filter by both scope values and worker selection joins the policy on the identical tenant/workspace/workflow tuple. Immutable policy snapshots and a database transition trigger prevent cross-scope or post-admission authority changes.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_knowledge_item_events",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Knowledge lifecycle evidence carries tenant_id + workspace_id and a knowledge_item_id selected under that same scope. UPDATE and DELETE are rejected, preserving independently attributable human promotion decisions per tenant.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_knowledge_items",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Every governed knowledge item is tenant/workspace owned and foreign-key bound to platform_workspaces. Retrieval and review filter by both values; content-hash uniqueness is also scoped by tenant/workspace so one tenant cannot verify, reject or supersede another tenant's candidate.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_mentor_eval_metric_results",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
+      "isolationModel": "Metric rows carry the run tenant/workspace pair and are composite-FK-bound to the exact eval run. FORCE RLS uses the same signed tenant context and append-only triggers prevent post-hoc threshold, baseline or outcome rewriting.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
+    },
+    {
+      "table": "ai_mentor_eval_runs",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
+      "isolationModel": "Every finalized Mentor eval run is bound to tenant_id + workspace_id by a platform_workspaces foreign key and FORCE RLS using the signed AI tenant context. Candidate commit/tree, model, policy/dataset versions and hashes are immutable; UPDATE and DELETE are rejected.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
     },
     {
       "table": "ai_mentor_request_evidence",
@@ -228,6 +363,60 @@
       "testReference": "src/tests/security/ai-mentor-trust-store-postgres.test.ts"
     },
     {
+      "table": "ai_provider_config_events",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Every provider event copies the authorized tenant/workspace/provider scope inside the same transaction as the configuration change. The event stream is indexed by that full scope and rejects UPDATE and DELETE at the database layer.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_provider_configs",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "tenant_id + workspace_id + provider_id form the primary key and are foreign-key bound to platform_workspaces. Every read, advisory lock, update and runtime secret resolution uses that complete scope; encrypted credentials use the same scope as authenticated encryption AAD, so ciphertext cannot be moved between tenants, workspaces or providers.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_provider_quota_snapshots",
+      "domain": "ai-automation",
+      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
+      "isolationModel": "Every append-only provider quota observation carries tenant_id + workspace_id, is foreign-key bound to platform_workspaces and is queried as a scoped routing signal. Only hashes and bounded numeric quota fields are retained; UPDATE and DELETE are rejected by database triggers.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_routing_decision_events",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Every routing decision event records tenant_id and workspace_id beside agent, provider, model, bounded cost and outcome evidence. The event identity and lookup indexes are tenant/workspace leading and UPDATE/DELETE are rejected, retaining independently attributable routing evidence per tenant.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
+      "table": "ai_spend_reservations",
+      "domain": "ai-routing",
+      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Each spend reservation carries tenant_id + workspace_id + agent_id, uses a scope-leading idempotency boundary and can be settled or released only when all three acting-scope values match. A wrong-tenant settlement returns scope_mismatch without changing the reservation or monthly ledger.",
+      "adversarialProof": "proven",
+      "issue": "#84",
+      "testReference": "src/tests/security/ai-routing-budget-postgres.integration.ts"
+    },
+    {
+      "table": "ai_workflow_run_evidence",
+      "domain": "ai-control-plane",
+      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
+      "isolationModel": "Each workflow evidence row carries the admitted tenant/workspace scope and only hashes, bounded source references and operational counters. The uniqueness boundary includes tenant_id + run_id + status and database triggers reject UPDATE/DELETE, so equal run identifiers cannot collapse evidence across tenants.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
+    },
+    {
       "table": "api_command_receipts",
       "domain": "api",
       "sourceFile": "src/lib/db-migrate-api-command-idempotency.ts",
@@ -235,6 +424,78 @@
       "adversarialProof": "proven",
       "testReference": "src/tests/security/api-command-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
+    },
+    {
+      "table": "certificate_share_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-certificate-share-events-tenant.ts",
+      "isolationModel": "tenant_id/workspace_id are derived from the parent academy_certificates by the 0084 migration and bound as one composite FK (certificate_id, tenant_id, workspace_id) -> academy_certificates (id, tenant_id, workspace_id) ON DELETE CASCADE. certificate_id is FK-bound for the first time, so a share's tenant cannot diverge from its certificate's and a dangling certificate_id is rejected; tenant_id/workspace_id also carry platform_tenants / platform_workspaces FKs.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/certificate-share-events-cross-tenant-isolation-postgres.test.ts",
+      "issue": "#20"
+    },
+    {
+      "table": "commerce_entitlement_snapshots",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
+      "isolationModel": "Entitlement snapshots composite-bind to a subscription in the same tenant/workspace and ENABLE+FORCE RLS prevents cross-tenant Pro state access.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "commerce_plan_versions",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
+      "isolationModel": "Versioned plan rows are composite-FK bound to platform_workspaces; ENABLE+FORCE RLS uses exact app.tenant_id/app.workspace_id for read and write.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "commerce_provider_events",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
+      "isolationModel": "Verified provider-event evidence is tenant/workspace scoped, deduplicated inside that scope, append-only and protected by ENABLE+FORCE RLS.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "commerce_provider_operations",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
+      "isolationModel": "Provider operation idempotency is tenant/workspace/provider scoped and ENABLE+FORCE RLS prevents cross-tenant replay.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "commerce_subscriptions",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
+      "isolationModel": "Subscription identity/provider uniqueness is tenant/workspace scoped; composite FKs and ENABLE+FORCE RLS reject cross-tenant access.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "communication_provider_config_events",
+      "domain": "communications",
+      "sourceFile": "src/lib/db-migrate-communication-provider-config.ts; src/lib/communication-provider-store.ts",
+      "isolationModel": "Every event copies tenant_id + workspace_id + provider_id from the authorized configuration mutation or test operation, and the table is indexed by that full scope. UPDATE and DELETE triggers make the audit stream append-only, while all event creation occurs inside the same transaction and tenant/workspace scope as the provider configuration change.",
+      "adversarialProof": "pending",
+      "issue": "#109",
+      "isolationNote": "The append-only trigger is source-tested, but a PostgreSQL tenant A/B negative test has not yet proven that two tenant event streams remain independently attributable through the real store. Keep this entry pending until that proof exists."
+    },
+    {
+      "table": "communication_provider_configs",
+      "domain": "communications",
+      "sourceFile": "src/lib/db-migrate-communication-provider-config.ts; src/lib/communication-provider-store.ts",
+      "isolationModel": "tenant_id + workspace_id + provider_id form the primary key; every admin read, lock, insert, conflict update, test-status update and runtime lookup filters or writes the same tenant/workspace scope. Provider ciphertext authenticated data also includes tenant_id, workspace_id and provider_id, so a stored credential cannot be decrypted under another tenant or provider scope.",
+      "adversarialProof": "pending",
+      "issue": "#109",
+      "isolationNote": "The source-level communication provider boundary tests cover scoped encryption, masked responses and append-only evidence, but no PostgreSQL tenant A/B negative test currently exercises the real store. Keep this entry pending until that database proof is added."
     },
     {
       "table": "crm_lead_audit_events",
@@ -298,6 +559,42 @@
       "adversarialProof": "proven",
       "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
+    },
+    {
+      "table": "mentor_profile_dead_letter_resolutions",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-dead-letter-resolution.ts; src/lib/mentor-profile-dead-letter-resolution.ts",
+      "isolationModel": "Each repair resolution copies tenant_id + workspace_id + outbox_id from the exact append-only dead-letter source and is database-bound to that scoped dead letter. The row stores only a one-way student fingerprint plus bounded repair evidence, is unique per dead letter, and rejects UPDATE/DELETE so historical terminal evidence is preserved while operational health can distinguish unresolved from resolved incidents.",
+      "adversarialProof": "proven",
+      "issue": "#673",
+      "testReference": "src/tests/security/mentor-profile-health-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_attempts",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Every worker attempt copies tenant_id + workspace_id from the claimed outbox row and is composite-FK-bound back to that exact (outbox_id, tenant_id, workspace_id). Callers cannot manufacture attempt scope independently; claim coordinates are payload-free and the processing transaction reloads the authoritative outbox row.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_dead_letters",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Terminal evidence copies tenant_id + workspace_id from the locked outbox source and is composite-FK-bound to the same scoped event. Dead letters are append-only, retain only bounded error identity plus hashes and a one-way student fingerprint, and reject UPDATE/DELETE.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
+    },
+    {
+      "table": "mentor_profile_update_outbox",
+      "domain": "ai-mentor",
+      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
+      "isolationModel": "Durable Mentor projection events carry tenant_id + workspace_id from the already-resolved acting student context. A composite foreign key to platform_workspaces(tenant_id, id) makes a foreign workspace pair impossible, event identity hashes tenant + workspace + student + source reference, and the system worker never accepts tenant/workspace coordinates from a client payload. The projected mentor_profiles row remains intentionally student_global; the outbox scope is immutable provenance for the tenant-authorized source event rather than a partition of the learner model.",
+      "adversarialProof": "proven",
+      "issue": "#671",
+      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
     },
     {
       "table": "notification_brain_snapshots",
@@ -438,6 +735,15 @@
       "issue": "#109"
     },
     {
+      "table": "support_messages",
+      "domain": "engagement-platform",
+      "sourceFile": "src/lib/db-migrate-support-messages.ts; src/lib/crm/support-message-authority.ts",
+      "isolationModel": "Every row carries tenant_id, and the only uniqueness constraint is (tenant_id, idempotency_key) so one tenant's replay key cannot resolve to another tenant's message. Both read indexes lead with tenant_id, the advisory lock taken before insert is namespaced by tenant, and the PII envelope's authenticated data binds tenant_id together with the row id — so a stored message cannot be decrypted under another tenant's scope even if the ciphertext were copied across.",
+      "adversarialProof": "proven",
+      "issue": "#577",
+      "testReference": "src/tests/security/support-messages-postgres.test.ts"
+    },
+    {
       "table": "withdrawal_broadcast_attempts",
       "domain": "wallet",
       "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
@@ -472,267 +778,6 @@
       "adversarialProof": "proven",
       "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
       "issue": "#109"
-    },
-    {
-      "table": "certificate_share_events",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-certificate-share-events-tenant.ts",
-      "isolationModel": "tenant_id/workspace_id are derived from the parent academy_certificates by the 0084 migration and bound as one composite FK (certificate_id, tenant_id, workspace_id) -> academy_certificates (id, tenant_id, workspace_id) ON DELETE CASCADE. certificate_id is FK-bound for the first time, so a share's tenant cannot diverge from its certificate's and a dangling certificate_id is rejected; tenant_id/workspace_id also carry platform_tenants / platform_workspaces FKs.",
-      "adversarialProof": "proven",
-      "testReference": "src/tests/security/certificate-share-events-cross-tenant-isolation-postgres.test.ts",
-      "issue": "#20"
-    },
-    {
-      "table": "communication_provider_configs",
-      "domain": "communications",
-      "sourceFile": "src/lib/db-migrate-communication-provider-config.ts; src/lib/communication-provider-store.ts",
-      "isolationModel": "tenant_id + workspace_id + provider_id form the primary key; every admin read, lock, insert, conflict update, test-status update and runtime lookup filters or writes the same tenant/workspace scope. Provider ciphertext authenticated data also includes tenant_id, workspace_id and provider_id, so a stored credential cannot be decrypted under another tenant or provider scope.",
-      "adversarialProof": "pending",
-      "issue": "#109",
-      "isolationNote": "The source-level communication provider boundary tests cover scoped encryption, masked responses and append-only evidence, but no PostgreSQL tenant A/B negative test currently exercises the real store. Keep this entry pending until that database proof is added."
-    },
-    {
-      "table": "communication_provider_config_events",
-      "domain": "communications",
-      "sourceFile": "src/lib/db-migrate-communication-provider-config.ts; src/lib/communication-provider-store.ts",
-      "isolationModel": "Every event copies tenant_id + workspace_id + provider_id from the authorized configuration mutation or test operation, and the table is indexed by that full scope. UPDATE and DELETE triggers make the audit stream append-only, while all event creation occurs inside the same transaction and tenant/workspace scope as the provider configuration change.",
-      "adversarialProof": "pending",
-      "issue": "#109",
-      "isolationNote": "The append-only trigger is source-tested, but a PostgreSQL tenant A/B negative test has not yet proven that two tenant event streams remain independently attributable through the real store. Keep this entry pending until that proof exists."
-    },
-    {
-      "table": "ai_agent_route_candidate_events",
-      "domain": "ai-routing",
-      "sourceFile": "src/lib/db-migrate-ai-route-candidates.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Every append-only route replacement event carries tenant_id and workspace_id, is foreign-key bound to the matching platform workspace and is indexed by that complete scope plus agent and revision. Database triggers reject UPDATE and DELETE, so one tenant cannot rewrite or collapse another tenant's routing history.",
-      "adversarialProof": "proven",
-      "issue": "#84",
-      "testReference": "src/tests/security/ai-route-candidates-postgres.integration.ts"
-    },
-    {
-      "table": "ai_agent_route_candidates",
-      "domain": "ai-routing",
-      "sourceFile": "src/lib/db-migrate-ai-route-candidates.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "tenant_id + workspace_id + agent_id + priority form the route identity and bind every candidate to an agent configuration in the same tenant/workspace. Reads and replacements filter the full acting scope, while schema checks prevent private data classes or external effects from using an unsafe free route.",
-      "adversarialProof": "proven",
-      "issue": "#84",
-      "testReference": "src/tests/security/ai-route-candidates-postgres.integration.ts"
-    },
-    {
-      "table": "ai_agent_spend_monthly",
-      "domain": "ai-routing",
-      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Monthly reserved and settled spend is keyed by tenant_id + workspace_id + agent_id + month. Admission takes a transaction-scoped advisory lock derived from that complete scope before updating counters, so concurrent usage in one tenant cannot consume or overwrite another tenant's budget.",
-      "adversarialProof": "proven",
-      "issue": "#84",
-      "testReference": "src/tests/security/ai-routing-budget-postgres.integration.ts"
-    },
-    {
-      "table": "ai_routing_decision_events",
-      "domain": "ai-routing",
-      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Every routing decision event records tenant_id and workspace_id beside agent, provider, model, bounded cost and outcome evidence. The event identity and lookup indexes are tenant/workspace leading and UPDATE/DELETE are rejected, retaining independently attributable routing evidence per tenant.",
-      "adversarialProof": "proven",
-      "issue": "#84",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_spend_reservations",
-      "domain": "ai-routing",
-      "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Each spend reservation carries tenant_id + workspace_id + agent_id, uses a scope-leading idempotency boundary and can be settled or released only when all three acting-scope values match. A wrong-tenant settlement returns scope_mismatch without changing the reservation or monthly ledger.",
-      "adversarialProof": "proven",
-      "issue": "#84",
-      "testReference": "src/tests/security/ai-routing-budget-postgres.integration.ts"
-    },
-    {
-      "table": "ai_provider_configs",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "tenant_id + workspace_id + provider_id form the primary key and are foreign-key bound to platform_workspaces. Every read, advisory lock, update and runtime secret resolution uses that complete scope; encrypted credentials use the same scope as authenticated encryption AAD, so ciphertext cannot be moved between tenants, workspaces or providers.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_provider_config_events",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Every provider event copies the authorized tenant/workspace/provider scope inside the same transaction as the configuration change. The event stream is indexed by that full scope and rejects UPDATE and DELETE at the database layer.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_agent_bindings",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "tenant_id + workspace_id + agent_id form the primary key. The selected provider is a composite foreign key to a provider configuration in the same tenant/workspace, preventing an agent from binding to another tenant's credential; all runtime resolution filters on the complete scope.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_agent_usage_daily",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Daily request and token reservations use tenant_id + workspace_id + agent_id + usage_date as the primary key and every atomic admission filters or conflicts on that complete scope. Concurrent workers can reserve only inside the authorized tenant/workspace counter, so activity in one white-label tenant cannot consume another tenant's agent allowance.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_agent_binding_events",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Agent binding events copy tenant_id + workspace_id from the authorized mutation, are indexed by that scope and agent_id, and are append-only under database UPDATE/DELETE rejection triggers.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_knowledge_items",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Every governed knowledge item is tenant/workspace owned and foreign-key bound to platform_workspaces. Retrieval and review filter by both values; content-hash uniqueness is also scoped by tenant/workspace so one tenant cannot verify, reject or supersede another tenant's candidate.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_knowledge_item_events",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Knowledge lifecycle evidence carries tenant_id + workspace_id and a knowledge_item_id selected under that same scope. UPDATE and DELETE are rejected, preserving independently attributable human promotion decisions per tenant.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_workflow_run_evidence",
-      "domain": "ai-control-plane",
-      "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
-      "isolationModel": "Each workflow evidence row carries the admitted tenant/workspace scope and only hashes, bounded source references and operational counters. The uniqueness boundary includes tenant_id + run_id + status and database triggers reject UPDATE/DELETE, so equal run identifiers cannot collapse evidence across tenants.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_provider_quota_snapshots",
-      "domain": "ai-automation",
-      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
-      "isolationModel": "Every append-only provider quota observation carries tenant_id + workspace_id, is foreign-key bound to platform_workspaces and is queried as a scoped routing signal. Only hashes and bounded numeric quota fields are retained; UPDATE and DELETE are rejected by database triggers.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_automation_policies",
-      "domain": "ai-automation",
-      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
-      "isolationModel": "tenant_id + workspace_id + workflow_id form the primary key and bind each activation, schedule and concurrency limit to one platform workspace. Admin reads and mutations use the authenticated tenant/workspace pair, while due-work selection joins runs and policy on the same full scope.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_automation_policy_events",
-      "domain": "ai-automation",
-      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
-      "isolationModel": "Policy events use a composite foreign key to the exact tenant/workspace/workflow policy, copy the authorized scope in the same transaction and reject UPDATE and DELETE, preserving independently attributable policy changes.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_automation_runs",
-      "domain": "ai-automation",
-      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
-      "isolationModel": "Every durable workflow run is foreign-key bound to platform_workspaces, idempotency is unique inside tenant + workspace, all admin operations filter by both scope values and worker selection joins the policy on the identical tenant/workspace/workflow tuple. Immutable policy snapshots and a database transition trigger prevent cross-scope or post-admission authority changes.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_automation_reviews",
-      "domain": "ai-automation",
-      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
-      "isolationModel": "Each review carries tenant_id + workspace_id and the validation trigger locks and resolves the referenced run under the same pair before admitting the reviewer. Human and AI identities are mutually exclusive, one reviewer can count once per run, and evidence is append-only.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "ai_automation_run_events",
-      "domain": "ai-automation",
-      "sourceFile": "src/lib/db-migrate-ai-automation.ts; src/lib/ai/automation-store.ts",
-      "isolationModel": "Run lifecycle evidence carries the run's tenant/workspace scope, is indexed by that scope and run id, accepts only secret-free bounded metadata, and rejects UPDATE and DELETE at the database layer.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
-    },
-    {
-      "table": "support_messages",
-      "domain": "engagement-platform",
-      "sourceFile": "src/lib/db-migrate-support-messages.ts; src/lib/crm/support-message-authority.ts",
-      "isolationModel": "Every row carries tenant_id, and the only uniqueness constraint is (tenant_id, idempotency_key) so one tenant's replay key cannot resolve to another tenant's message. Both read indexes lead with tenant_id, the advisory lock taken before insert is namespaced by tenant, and the PII envelope's authenticated data binds tenant_id together with the row id — so a stored message cannot be decrypted under another tenant's scope even if the ciphertext were copied across.",
-      "adversarialProof": "proven",
-      "issue": "#577",
-      "testReference": "src/tests/security/support-messages-postgres.test.ts"
-    },
-    {
-      "table": "mentor_profile_update_outbox",
-      "domain": "ai-mentor",
-      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
-      "isolationModel": "Durable Mentor projection events carry tenant_id + workspace_id from the already-resolved acting student context. A composite foreign key to platform_workspaces(tenant_id, id) makes a foreign workspace pair impossible, event identity hashes tenant + workspace + student + source reference, and the system worker never accepts tenant/workspace coordinates from a client payload. The projected mentor_profiles row remains intentionally student_global; the outbox scope is immutable provenance for the tenant-authorized source event rather than a partition of the learner model.",
-      "adversarialProof": "proven",
-      "issue": "#671",
-      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
-    },
-    {
-      "table": "mentor_profile_update_attempts",
-      "domain": "ai-mentor",
-      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
-      "isolationModel": "Every worker attempt copies tenant_id + workspace_id from the claimed outbox row and is composite-FK-bound back to that exact (outbox_id, tenant_id, workspace_id). Callers cannot manufacture attempt scope independently; claim coordinates are payload-free and the processing transaction reloads the authoritative outbox row.",
-      "adversarialProof": "proven",
-      "issue": "#671",
-      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
-    },
-    {
-      "table": "mentor_profile_update_dead_letters",
-      "domain": "ai-mentor",
-      "sourceFile": "src/lib/db-migrate-mentor-profile-update-outbox.ts; src/lib/mentor-profile-update-outbox.ts",
-      "isolationModel": "Terminal evidence copies tenant_id + workspace_id from the locked outbox source and is composite-FK-bound to the same scoped event. Dead letters are append-only, retain only bounded error identity plus hashes and a one-way student fingerprint, and reject UPDATE/DELETE.",
-      "adversarialProof": "proven",
-      "issue": "#671",
-      "testReference": "src/tests/security/mentor-profile-update-outbox-postgres.test.ts"
-    },
-    {
-      "table": "ai_mentor_eval_runs",
-      "domain": "ai-mentor",
-      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
-      "isolationModel": "Every finalized Mentor eval run is bound to tenant_id + workspace_id by a platform_workspaces foreign key and FORCE RLS using the signed AI tenant context. Candidate commit/tree, model, policy/dataset versions and hashes are immutable; UPDATE and DELETE are rejected.",
-      "adversarialProof": "proven",
-      "issue": "#673",
-      "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
-    },
-    {
-      "table": "ai_mentor_eval_metric_results",
-      "domain": "ai-mentor",
-      "sourceFile": "src/lib/db-migrate-mentor-eval-promotion-authority.ts; src/lib/ai/mentor-eval-store.ts",
-      "isolationModel": "Metric rows carry the run tenant/workspace pair and are composite-FK-bound to the exact eval run. FORCE RLS uses the same signed tenant context and append-only triggers prevent post-hoc threshold, baseline or outcome rewriting.",
-      "adversarialProof": "proven",
-      "issue": "#673",
-      "testReference": "src/tests/security/mentor-eval-promotion-postgres.test.ts"
-    },
-    {
-      "table": "mentor_profile_dead_letter_resolutions",
-      "domain": "ai-mentor",
-      "sourceFile": "src/lib/db-migrate-mentor-profile-dead-letter-resolution.ts; src/lib/mentor-profile-dead-letter-resolution.ts",
-      "isolationModel": "Each repair resolution copies tenant_id + workspace_id + outbox_id from the exact append-only dead-letter source and is database-bound to that scoped dead letter. The row stores only a one-way student fingerprint plus bounded repair evidence, is unique per dead letter, and rejects UPDATE/DELETE so historical terminal evidence is preserved while operational health can distinguish unresolved from resolved incidents.",
-      "adversarialProof": "proven",
-      "issue": "#673",
-      "testReference": "src/tests/security/mentor-profile-health-postgres.test.ts"
     }
   ]
 }

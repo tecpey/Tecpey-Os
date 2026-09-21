@@ -116,6 +116,28 @@ CREATE TABLE IF NOT EXISTS commerce_provider_operations (
   UNIQUE (tenant_id, workspace_id, provider, idempotency_key)
 );
 
+ALTER TABLE commerce_plan_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE commerce_plan_versions FORCE ROW LEVEL SECURITY;
+ALTER TABLE commerce_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE commerce_subscriptions FORCE ROW LEVEL SECURITY;
+ALTER TABLE commerce_provider_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE commerce_provider_events FORCE ROW LEVEL SECURITY;
+ALTER TABLE commerce_entitlement_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE commerce_entitlement_snapshots FORCE ROW LEVEL SECURITY;
+ALTER TABLE commerce_provider_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE commerce_provider_operations FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS commerce_plan_versions_tenant_scope ON commerce_plan_versions;
+CREATE POLICY commerce_plan_versions_tenant_scope ON commerce_plan_versions USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')) WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), ''));
+DROP POLICY IF EXISTS commerce_subscriptions_tenant_scope ON commerce_subscriptions;
+CREATE POLICY commerce_subscriptions_tenant_scope ON commerce_subscriptions USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')) WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), ''));
+DROP POLICY IF EXISTS commerce_provider_events_tenant_scope ON commerce_provider_events;
+CREATE POLICY commerce_provider_events_tenant_scope ON commerce_provider_events USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')) WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), ''));
+DROP POLICY IF EXISTS commerce_entitlement_snapshots_tenant_scope ON commerce_entitlement_snapshots;
+CREATE POLICY commerce_entitlement_snapshots_tenant_scope ON commerce_entitlement_snapshots USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')) WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), ''));
+DROP POLICY IF EXISTS commerce_provider_operations_tenant_scope ON commerce_provider_operations;
+CREATE POLICY commerce_provider_operations_tenant_scope ON commerce_provider_operations USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')) WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '') AND workspace_id = NULLIF(current_setting('app.workspace_id', true), ''));
+
 CREATE OR REPLACE FUNCTION tecpey_reject_commerce_event_mutation()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
