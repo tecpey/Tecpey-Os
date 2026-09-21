@@ -83,6 +83,8 @@ export function fingerprintAcceptedTotpStep(input: {
 export async function verifyTwoFactorCredential(input: {
   userId: string;
   code: string;
+  /** Present only for authenticated step-up. Must be the verified current JTI. */
+  sessionJti?: string;
   audit: TwoFactorAuditContext;
 }): Promise<TwoFactorVerificationResult> {
   assertAuditActor(input.userId, input.audit);
@@ -116,7 +118,7 @@ export async function verifyTwoFactorCredential(input: {
         resourceId: input.userId,
         outcome: "rejected",
         metadata: {
-          policyVersion: "2fa-verification-v1",
+          policyVersion: "2fa-verification-v2",
           resultCategory: "invalid_totp",
         },
       });
@@ -168,6 +170,41 @@ export async function verifyTwoFactorCredential(input: {
         acceptedStepFingerprint,
       },
     });
+
+    if (input.sessionJti) {
+      const steppedUp = await client.query<{ step_up_at: Date }>(
+        `UPDATE user_sessions
+            SET step_up_at = NOW(),
+                last_used_at = NOW()
+          WHERE id = $1
+            AND user_id = $2
+            AND is_revoked = FALSE
+            AND expires_at > NOW()
+        RETURNING step_up_at`,
+        [input.sessionJti, input.userId],
+      );
+      const evidence = steppedUp.rows[0];
+      if (!evidence) {
+        // Throwing rolls back both the TOTP replay watermark and audit event:
+        // a code is never burned for a session that cannot prove authority.
+        throw new Error("step_up_session_not_authoritative");
+      }
+      await writeSensitiveMutationAuditTx(client, {
+        ...input.audit,
+        action: "session.step_up",
+        resourceType: "auth_session",
+        resourceId: createHash("sha256")
+          .update("tecpey-auth-session-v1\0")
+          .update(input.sessionJti)
+          .digest("hex"),
+        outcome: "success",
+        metadata: {
+          policyVersion: "session-step-up-v1",
+          method: "totp",
+          acceptedStepFingerprint,
+        },
+      });
+    }
 
     return {
       ok: true,
