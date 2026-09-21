@@ -39,10 +39,12 @@ Eliminate fragile manual release steps while preserving the existing protected s
 - Build/launch identity must expose exact SHA in `/api/health`.
 - Bounded migrations with lock/idempotency proof.
 - Restart only staging service/unit set.
-- Automatic rollback on failed health/smoke within bounded window.
+- **Schema-aware failure policy:** compare the active health `migrations.planHash` with the target release's canonical `DATABASE_MIGRATION_PLAN_HASH` before DDL.
+  - If hashes match, failed cutover/health/smoke may automatically restore the previous app release and an optional rollback drill may prove previous→target round-trip.
+  - If hashes differ, stop staging before migration; previous-app rollback is forbidden after DDL. Any migration/cutover/health failure leaves staging stopped and requires a governed forward-fix or verified database restore under the recovery authority.
 - Smoke matrix: FA/EN landing, login, Academy, Profile/Living Identity, Account/Pro capability map, Mentor, Market Intelligence, Arena entry, notifications shell.
-- Safari/PWA/reduced-motion browser evidence.
-- Upload signed JSON evidence: previous SHA, target SHA, digest, health, migration count, smoke results, rollback readiness, timestamps.
+- Release workflow owns bounded HTTP FA/EN smoke only. Safari/PWA/reduced-motion and full visual/accessibility browser evidence are explicitly owned by #708 after the exact SHA is active on staging; #697 must not pretend curl smoke is browser acceptance.
+- Upload redacted digest-verified JSON evidence: previous SHA, target SHA, signed/attested supply-chain image digest, previous/target migration plan hashes, migration rollback mode, previous/target health summaries, smoke results, unit backup digests, rollback disposition and timestamps. The evidence JSON itself is SHA-256 detached-digest verified; its supply-chain image identity is separately cryptographically signed/attested.
 - Production hostnames/services/secrets must be unaddressable from this workflow.
 
 ## Negative tests
@@ -53,12 +55,14 @@ Eliminate fragile manual release steps while preserving the existing protected s
 - reject health commit mismatch;
 - reject dirty checkout;
 - reject environment file with unsafe permissions;
-- prove rollback restores prior service working directory and health;
+- prove rollback restores prior service working directory and health when migration plan hashes are equal;
+- prove schema-plan drift forbids rollback drill and previous-app rollback after DDL;
+- prove a schema-changing failure leaves staging stopped with `forward_fix_or_restore_required`;
 - prove no production service name/path is referenced.
 
 ## Acceptance
 
-A successful run leaves staging reporting the target SHA and all smoke probes green. A forced smoke failure proves rollback to the prior SHA without manual repair.
+A successful run leaves staging reporting the target SHA and all governed HTTP smoke probes green. For a release with identical migration plan hash, a forced cutover/smoke failure proves rollback to the prior SHA without manual repair. For a release with a changed migration plan hash, tests prove that app rollback is refused and the failed staging service is halted pending forward-fix or verified restore. Full Safari/PWA/reduced-motion acceptance follows in #708 against the active exact SHA.
 
 
 ## Delivery discipline
