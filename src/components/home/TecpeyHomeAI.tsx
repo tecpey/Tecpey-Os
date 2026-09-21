@@ -304,6 +304,18 @@ function safeNewsThumbnail(item: NewsItem) {
   }
 }
 
+function fallbackNewsThumbnail(item: NewsItem) {
+  const haystack = `${item.category} ${item.title} ${item.summary}`.toLowerCase();
+  if (/bitcoin|btc|بیت.?کوین/.test(haystack)) return "/images/tecpey/covers/what-is-bitcoin.jpg";
+  if (/phish|scam|security|امنیت|فیشینگ|کلاهبرداری/.test(haystack)) return "/images/tecpey/covers/crypto-scam-and-phishing.jpg";
+  if (/risk|ریسک/.test(haystack)) return "/images/tecpey/covers/risk-management-in-crypto.jpg";
+  if (/usdt|tether|stablecoin|تتر|استیبل/.test(haystack)) return "/images/tecpey/covers/what-is-usdt.jpg";
+  if (/blockchain|بلاک.?چین/.test(haystack)) return "/images/tecpey/covers/what-is-blockchain.jpg";
+  if (/exchange|صرافی/.test(haystack)) return "/images/tecpey/covers/how-to-choose-crypto-exchange.jpg";
+  if (/price|market|بازار|قیمت/.test(haystack)) return "/images/tecpey/covers/live-crypto-price-guide.jpg";
+  return "/images/tecpey/covers/technical-analysis-basics.jpg";
+}
+
 function CompactNewsCarousel({
   locale,
   items,
@@ -456,7 +468,8 @@ function CompactNewsCarousel({
               className="flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-5 pe-[12%] [scroll-padding-inline:1rem] [scrollbar-width:none] sm:gap-5 sm:pe-[18%] lg:pe-[22%] [&::-webkit-scrollbar]:hidden"
             >
               {ordered.map((item, index) => {
-                const thumbnail = safeNewsThumbnail(item);
+                const sourceThumbnail = safeNewsThumbnail(item);
+                const thumbnail = sourceThumbnail || fallbackNewsThumbnail(item);
                 const featured = index === 0;
                 const href = item.url || (isFa ? "/crypto-news" : "/en/crypto-news");
                 const slideLabel = new Intl.NumberFormat(isFa ? "fa-IR" : "en-US").format(index + 1)
@@ -494,7 +507,7 @@ function CompactNewsCarousel({
                           // eslint-disable-next-line @next/next/no-img-element -- #643: governed news media requires native same-origin redirect fallback handling.
                           <img
                             src={thumbnail}
-                            alt={item.thumbnailAlt || ""}
+                            alt={sourceThumbnail ? (item.thumbnailAlt || "") : ""}
                             loading="lazy"
                             decoding="async"
                             referrerPolicy="no-referrer"
