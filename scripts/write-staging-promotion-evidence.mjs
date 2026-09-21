@@ -28,7 +28,7 @@ if (!["promoted", "verified_already_active"].includes(result.finalDisposition)) 
 const evidence = buildPromotionEvidence({
   previousSha: result.previousSha,
   targetSha: result.targetSha,
-  imageDigest: result.imageDigest,
+  imageDigest: result.supplyChainImageDigest,
   publicBaseUrl: result.publicBaseUrl,
   smokeResults: smoke.results,
   startedAt: result.startedAt,
