@@ -42,13 +42,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "3eda867293a3272d8bf9c6b104caace17f5ec1c4",
-      "sha256": "b58db187fa32eac963552ac1592b83e05dc1ae955d0e5e559ed5d492c1e543b5",
-      "lines": 293,
+      "gitObjectId": "73c8d1fe6ac184dfd30f6b03a2b2bc7978f10637",
+      "sha256": "1781b61829b691cbad48005fdfff1d096bc592c6504e4a887c6a26a5cd68997b",
+      "lines": 294,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 293
+          "endLine": 294
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -140,16 +140,17 @@
         "2026-09-18: re-reviewed the complete 285-line package after adding the bundled Mentor profile health probe, health authority/test commands, and PostgreSQL-backed health evidence to the existing profile projection suite. The delta adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch action; the probe is read-only, emits aggregate queue health only, and keeps the existing AI trust path fail-closed through mentor:profiles:authority:check.",
         "2026-09-18: re-reviewed the complete 289-line package after adding the production-bundled Mentor profile freshness calibration collector, freshness source-authority command and focused unit/PostgreSQL calibration tests, then composing the read-only calibration authority into mentor:profiles:authority:check. The collector reads aggregate create-to-processed latency evidence only, declares observed/insufficient/invalid calibration states rather than an SLO pass, adds no dependency, engine or override, opens no new product/provider/spend/exchange/custody authority, and does not merge, deploy, page or activate production.",
         "2026-09-18: re-reviewed the complete 292-line package after adding the generic operational-signal authority/test commands, composing the signal guard into both Mentor profile and Ops scheduler authority, production-bundling the operational alert delivery runner, and replacing its dev-only tsx execution path with the bundled artifact plus standalone outage-safe environment preflight. The delta adds no dependency, engine or override, introduces no product/provider/spend/exchange/custody authority, keeps delivery HTTPS/idempotent/fail-closed, and grants no merge, deploy, paging/SLA or production-launch authorization.",
-        "2026-09-18: re-reviewed the complete 293-line package after production-bundling the governed operational installer EnvironmentFile validator, exposing ops:installer:env-check, and extending the focused operational-signal test command with installer/parser evidence. The delta adds no dependency, engine or override; it removes ad-hoc shell secret parsing from the Mentor/Community installers, keeps secret values out of output, preserves release authority composition, and adds no product/provider/spend/exchange/custody activation, merge, deploy or production-launch authority."
+        "2026-09-18: re-reviewed the complete 293-line package after production-bundling the governed operational installer EnvironmentFile validator, exposing ops:installer:env-check, and extending the focused operational-signal test command with installer/parser evidence. The delta adds no dependency, engine or override; it removes ad-hoc shell secret parsing from the Mentor/Community installers, keeps secret values out of output, preserves release authority composition, and adds no product/provider/spend/exchange/custody activation, merge, deploy or production-launch authority.",
+        "2026-09-21: re-reviewed the complete 294-line package after adding test:staging-promotion and composing it into test:ops-staging-evidence. The new command runs only local node:test policy/authority checks for the protected staging promotion workflow and script; it adds no dependency, engine or override, performs no workflow dispatch or host mutation itself, preserves the existing release/launch composition, and does not authorize merge, staging promotion or Production deployment."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 187,
+          "line": 191,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 187 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 191 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
