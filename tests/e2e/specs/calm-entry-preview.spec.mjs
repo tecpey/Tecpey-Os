@@ -11,7 +11,9 @@ async function keepBelowStickyNav(page, section) {
   await section.evaluate((element) => {
     const nav = document.querySelector("nav");
     const navHeight = nav?.getBoundingClientRect().height ?? 0;
-    window.scrollBy({ top: -(navHeight + 24), behavior: "auto" });
+    const targetTop =
+      element.getBoundingClientRect().top + window.scrollY - navHeight - 24;
+    window.scrollTo({ top: Math.max(0, targetTop), behavior: "auto" });
   });
   await waitForStablePaint(page);
 
