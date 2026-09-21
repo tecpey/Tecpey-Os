@@ -24,6 +24,42 @@ Every implementation under this program is governed by the following non-negotia
 This program is informed by current primary guidance: Apple Liquid Glass/HIG content-first hierarchy and reduced motion/transparency; WCAG 2.2 focus/target criteria; Rive Data Binding/ViewModel/MVVM; current OpenAI Responses web-search/citation patterns; Anthropic citation-enabled web search with dynamic filtering; xAI Web/X Search; and evidence on spacing + retrieval practice for durable learning. External provider names/models remain registry data, not hard-coded product architecture.
 
 
+## Verified research basis — 2026-09-21
+
+The implementation contracts are not based on visual trend-following or vendor marketing alone. The following current primary/authoritative references were checked before defining the program:
+
+- **Apple Human Interface Guidelines / Materials:** Liquid Glass is a functional layer for controls and navigation above content; Apple explicitly advises against using Liquid Glass throughout the content layer and recommends sparing use.  
+  https://developer.apple.com/design/human-interface-guidelines/materials
+- **Apple Liquid Glass technology overview:** prioritize important content, adaptable layouts, standard iconography and predictable action placement.  
+  https://developer.apple.com/documentation/TechnologyOverviews/liquid-glass
+- **WCAG 2.2 – Target Size (Minimum):** 24×24 CSS px minimum or sufficient spacing; TecPey intentionally adopts a stricter 44px preferred target for primary/mobile actions.  
+  https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum
+- **WCAG 2.2 – Focus Appearance / Focus Not Obscured:** visible, sufficiently contrasted keyboard focus and sticky-layer behavior that never hides focused controls.  
+  https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance
+- **Rive Data Binding / View Models:** use a ViewModel contract between runtime data and animation/UI, keeping model data separate from presentation wiring.  
+  https://rive.app/docs/runtimes/data-binding
+- **OpenAI web search / Responses tools:** web retrieval is a tool capability and citation/freshness should remain explicit product metadata rather than becoming implicit prose.  
+  https://developers.openai.com/api/docs/guides/tools-web-search
+- **Anthropic web search:** source citations, domain controls and dynamic filtering reinforce the provider-neutral research contract used in #700.  
+  https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool
+- **xAI Web Search / X Search:** web and X are distinct retrieval surfaces; TecPey therefore models social narrative as a separate evidence channel rather than treating it as market truth.  
+  https://docs.x.ai/developers/tools/web-search  
+  https://docs.x.ai/developers/tools/x-search
+- **Learning science:** retrieval practice and spaced relearning improve durable retention; optimal schedules are context-dependent rather than universally “one SM-2 formula.” Relevant evidence includes Karpicke & Roediger and Cepeda et al.  
+  https://pubmed.ncbi.nlm.nih.gov/17576148/  
+  https://pubmed.ncbi.nlm.nih.gov/19439395/  
+  https://pubmed.ncbi.nlm.nih.gov/21707204/  
+  https://pubmed.ncbi.nlm.nih.gov/35436145/
+
+### Architectural implications
+
+1. **No design-by-glass:** glass is not a content-card default. Content surfaces prefer solid/standard materials, with translucency reserved for navigation, controls and transient overlays.
+2. **No provider-shaped architecture:** OpenAI/Anthropic/xAI capabilities map into TecPey-owned contracts for research, citations, search channels and freshness.
+3. **No LLM-owned character state:** Rive receives a host-owned semantic ViewModel; text generation never directly chooses animation or safety state.
+4. **No universal spaced-repetition superstition:** Academy stores evidence and scheduling rationale so spacing/retrieval policy can evolve without corrupting historical learning state.
+5. **No citation theater:** research reports bind claims to source objects and surface missing/conflicting evidence instead of merely adding a bibliography.
+6. **No accessibility afterthought:** focus, target size, reduced motion/transparency and sticky-layer behavior are acceptance criteria, not final-polish tasks.
+
 ## Objective
 
 Turn every material remaining product/release gap after Profile VNext Wave 2 and the landing foundation into an explicit, reviewable delivery graph.
