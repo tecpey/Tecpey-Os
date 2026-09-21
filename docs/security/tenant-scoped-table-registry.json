@@ -444,6 +444,15 @@
       "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
     },
     {
+      "table": "commerce_manual_entitlement_commands",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-ledger-hardening.ts",
+      "isolationModel": "Manual grant/revoke commands composite-bind tenant_id/workspace_id to platform_workspaces, use tenant-leading idempotency, ENABLE+FORCE RLS on exact app.tenant_id/app.workspace_id, and are append-only so an operator command cannot be replayed, moved, updated or deleted across tenant boundaries.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "commerce_plan_versions",
       "domain": "commerce",
       "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
@@ -466,6 +475,15 @@
       "domain": "commerce",
       "sourceFile": "src/lib/db-migrate-pro-commerce-authority.ts",
       "isolationModel": "Provider operation idempotency is tenant/workspace/provider scoped and ENABLE+FORCE RLS prevents cross-tenant replay.",
+      "adversarialProof": "proven",
+      "issue": "#699",
+      "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "commerce_reconciliation_records",
+      "domain": "commerce",
+      "sourceFile": "src/lib/db-migrate-pro-commerce-ledger-hardening.ts",
+      "isolationModel": "Each immutable reconciliation decision carries tenant_id/workspace_id, composite-binds any subscription to the same scope, is unique per scoped provider event, and ENABLE+FORCE RLS restricts reads/writes to exact app.tenant_id/app.workspace_id.",
       "adversarialProof": "proven",
       "issue": "#699",
       "testReference": "src/tests/security/commerce-cross-tenant-isolation-postgres.test.ts"
