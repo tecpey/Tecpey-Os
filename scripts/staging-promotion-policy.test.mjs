@@ -18,6 +18,7 @@ import {
 
 const PREVIOUS = "b".repeat(40);
 const TARGET = "a".repeat(40);
+const PLAN = "f".repeat(64);
 
 function healthy(sha, current = 123) {
   return {
@@ -164,6 +165,7 @@ test("promotion evidence is complete, redacted and bound to the full FA/EN smoke
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:04:00.000Z",
     rollback: { disposition: "not_needed" },
+    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, rollbackMode: "app_rollback_safe_no_migration_authority_change" },
     previousHealth: healthy(PREVIOUS, 122),
     runtimeHealth: healthy(TARGET, 123),
     backupManifest: BACKUP_MANIFEST,
@@ -207,6 +209,7 @@ test("already-active verification is an idempotent accepted operation", () => {
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:01:00.000Z",
     rollback: { disposition: "not_needed" },
+    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, rollbackMode: "app_rollback_safe_no_migration_authority_change" },
     operation: "verified_already_active",
     runtimeHealth: healthy(TARGET, 123),
   });
@@ -245,6 +248,7 @@ test("new promotion evidence fails closed without previous health or a unit back
     startedAt: "2026-09-21T10:00:00.000Z",
     completedAt: "2026-09-21T10:04:00.000Z",
     rollback: { disposition: "not_needed" },
+    migration: { previousPlanHash: PLAN, targetPlanHash: PLAN, rollbackMode: "app_rollback_safe_no_migration_authority_change" },
     runtimeHealth: healthy(TARGET, 123),
   };
   assert.throws(
@@ -286,4 +290,47 @@ test("classifies migration-authority changes as forward-fix/restore only", () =>
     () => classifyMigrationRollbackSafety(["ok.ts", null]),
     /migration_changed_paths_invalid/,
   );
+});
+
+test("rejects migration rollback mode that disagrees with plan-hash equality", () => {
+  const smokeResults = DEFAULT_STAGING_SMOKE_PATHS.map((smokePath) => ({
+    path: smokePath,
+    finalStatus: 200,
+    finalUrl: `https://tecp.ir${smokePath}`,
+  }));
+  const base = {
+    previousSha: PREVIOUS,
+    targetSha: TARGET,
+    imageDigest: `sha256:${"9".repeat(64)}`,
+    publicBaseUrl: "https://tecp.ir",
+    smokeResults,
+    startedAt: "2026-09-21T10:00:00.000Z",
+    completedAt: "2026-09-21T10:04:00.000Z",
+    rollback: { disposition: "not_needed" },
+    previousHealth: healthy(PREVIOUS, 122),
+    runtimeHealth: healthy(TARGET, 123),
+    backupManifest: BACKUP_MANIFEST,
+  };
+
+  assert.throws(
+    () => buildPromotionEvidence({
+      ...base,
+      migration: {
+        previousPlanHash: "1".repeat(64),
+        targetPlanHash: "2".repeat(64),
+        rollbackMode: "app_rollback_safe_no_migration_authority_change",
+      },
+    }),
+    /migration_rollback_mode_mismatch/,
+  );
+
+  const evidence = buildPromotionEvidence({
+    ...base,
+    migration: {
+      previousPlanHash: "1".repeat(64),
+      targetPlanHash: "2".repeat(64),
+      rollbackMode: "forward_fix_or_restore_required",
+    },
+  });
+  assert.equal(evidence.migration.rollbackMode, "forward_fix_or_restore_required");
 });
