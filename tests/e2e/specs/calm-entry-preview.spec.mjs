@@ -135,7 +135,31 @@ for (const screen of ["landing", "login", "signup"]) {
         }));
         expect(resolution.selectedWidth, "Artwork must not upscale a tiny mobile source").toBeGreaterThanOrEqual(resolution.renderedWidth);
       }
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "auto" }));
+      await waitForStablePaint(page);
+      if (screen === "landing") {
+        const hero = page.locator('main [data-home-section="hero"]');
+        const preview = hero.locator("figure");
+        await expect(hero).toBeVisible();
+        await expect(
+          hero.getByRole("link", {
+            name: en ? "Talk to AI Mentor" : "گفتگو با منتور هوشمند",
+            exact: true,
+          }),
+        ).toBeVisible();
+        for (const label of en
+          ? ["Academy", "AI Mentor", "Trading Arena", "Market intelligence"]
+          : ["آکادمی", "منتور هوشمند", "تریدینگ آرنا", "هوش بازار"]) {
+          await expect(preview).toContainText(label);
+        }
+        const heroBox = await hero.boundingBox();
+        expect(heroBox, "landing hero must have a rendered viewport box").not.toBeNull();
+        if (heroBox) {
+          expect(heroBox.y, "landing hero must be positioned in the captured viewport").toBeGreaterThanOrEqual(0);
+          expect(heroBox.y, "landing hero must start near the top of the captured viewport").toBeLessThan(160);
+        }
+        await waitForStablePaint(page);
+      }
       await testInfo.attach(`${screen}-${theme}-${testInfo.project.name}`, {
         body: screen === "landing"
           ? await page.screenshot()
