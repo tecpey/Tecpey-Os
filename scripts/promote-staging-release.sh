@@ -56,6 +56,15 @@ NODE
 
 test "$(id -un)" = "$TECPEY_STAGING_RUN_USER"
 test "$(id -gn)" = "$TECPEY_STAGING_RUN_GROUP"
+readonly SERVICE_USER="$(systemctl show "$SERVICE" --property=User --value)"
+readonly SERVICE_GROUP="$(systemctl show "$SERVICE" --property=Group --value)"
+test -n "$SERVICE_USER"
+test "$SERVICE_USER" != "root"
+test "$SERVICE_USER" = "$TECPEY_STAGING_RUN_USER"
+if [ -n "$SERVICE_GROUP" ]; then
+  test "$SERVICE_GROUP" != "root"
+  test "$SERVICE_GROUP" = "$TECPEY_STAGING_RUN_GROUP"
+fi
 test "$(systemctl is-active "$SERVICE")" = "active"
 test -d "$RELEASE_ROOT"
 test ! -L "$RELEASE_ROOT"
