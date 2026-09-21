@@ -391,14 +391,20 @@ describe("Official journal challenge PostgreSQL authority", () => {
     const ctx = context(identity);
     const now = await databaseNow();
     const cycle = deriveOfficialJournalChallengeCycle(now);
+    // Keep every seeded close at or before authoritative database time. Using
+    // minute spacing made this test fail during the first minutes of a new ISO
+    // week because the fifth synthetic trade landed in the future and was
+    // correctly excluded by production authority.
+    const cycleStartMs = new Date(cycle.startsAt).getTime();
     const startedMs = Math.max(
-      new Date(cycle.startsAt).getTime() + 1_000,
-      now.getTime() - 60 * 60_000,
+      cycleStartMs + 1_000,
+      now.getTime() - 10_000,
     );
+    const tradeSpacingMs = 1_000;
     const startedAt = new Date(startedMs).toISOString();
     const enrollmentId = await seedEnrollment({ identity, startedAt, cycle });
     const firstFour = [1, 2, 3, 4].map((index) =>
-      trade(index, new Date(startedMs + index * 60_000).toISOString()),
+      trade(index, new Date(startedMs + index * tradeSpacingMs).toISOString()),
     );
     const attemptId = await seedAttempt(identity.studentId, firstFour);
     for (const selected of firstFour.slice(0, 3)) {
@@ -418,7 +424,7 @@ describe("Official journal challenge PostgreSQL authority", () => {
     assert.equal(firstEvaluation.state.progress.coverageRate, 0.75);
     assert.equal(firstEvaluation.state.progress.eligibleToComplete, false);
 
-    const fifth = trade(5, new Date(startedMs + 5 * 60_000).toISOString());
+    const fifth = trade(5, new Date(startedMs + 5 * tradeSpacingMs).toISOString());
     await seedAttempt(identity.studentId, [...firstFour, fifth]);
     await seedReflection({ studentId: identity.studentId, attemptId, trade: firstFour[3] });
 

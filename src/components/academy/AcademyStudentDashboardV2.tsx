@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Award, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
+import { ArrowUpRight, Award, CheckCircle2, Crown, Flame, GraduationCap, Loader2, Lock, Orbit, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
@@ -223,6 +223,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const coreComplete = completedCoreTerms === ACADEMY_CORE_TERM_COUNT;
   const currentTermNumber = coreComplete ? 8 : Math.min(ACADEMY_CORE_TERM_COUNT, completedCoreTerms + 1);
   const currentTerm = terms.find((term) => term.number === currentTermNumber) || null;
+  const currentTermProgressRow = progressRows.find((row) => Number(row.term_number) === currentTermNumber);
+  const currentTermPercent = currentTermProgressRow?.percent == null ? null : Math.min(100, Math.max(0, numberOr(currentTermProgressRow.percent)));
   const overall = Math.min(100, Math.max(numberOr(profile?.overall_progress), Math.round((completedCoreTerms / ACADEMY_CORE_TERM_COUNT) * 100)));
   const displayName = profile?.display_name || (isFa ? "دانشجوی تک‌پی" : "TecPey learner");
   const username = profile?.username ? `@${profile.username}` : "";
@@ -257,17 +259,31 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     <main className="min-h-screen bg-slate-950 px-4 pb-32 pt-8 text-white sm:px-6 lg:px-8 lg:pb-12" dir={isFa ? "rtl" : "ltr"}>
       <section className="mx-auto max-w-7xl">
         <p className="mb-6 text-sm font-medium text-cyan-200">{isFa ? "آکادمی تک‌پی / مسیر من" : "TecPey Academy / My journey"}</p>
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="min-w-0">
-            <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 overflow-hidden place-items-center rounded-3xl border border-cyan-300/25 bg-cyan-300/10 text-3xl">{profile?.photo_url ? <Image src={profile.photo_url} alt="" width={64} height={64} unoptimized className="h-full w-full object-cover" /> : avatar}</div>
-              <div>
-                <p className="text-sm font-medium text-slate-400"><bdi>{username}</bdi></p>
-                <h1 className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1>
+        <section className="relative mb-8 overflow-hidden rounded-[40px] border border-cyan-300/20 bg-[radial-gradient(circle_at_85%_10%,rgba(34,211,238,.16),transparent_32%),linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025))] p-6 shadow-2xl shadow-cyan-950/20 sm:p-8" aria-labelledby="living-profile-title">
+          <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true"><div className="absolute -end-20 -top-24 h-64 w-64 rounded-full border border-cyan-300/10"/><div className="absolute -end-5 top-4 h-36 w-36 rounded-full border border-violet-300/10"/></div>
+          <div className="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
+            <div>
+              <div className="flex items-center gap-4">
+                <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-[26px] border border-cyan-200/25 bg-cyan-300/10 text-4xl shadow-lg shadow-cyan-950/20">{profile?.photo_url ? <Image src={profile.photo_url} alt="" width={80} height={80} unoptimized className="h-full w-full object-cover" /> : avatar}</div>
+                <div className="min-w-0"><p className="text-xs font-semibold tracking-wide text-cyan-200">{isFa ? "پروفایل زنده تک‌پی" : "TECPey Living Profile"}</p><h1 id="living-profile-title" className="mt-1 break-words text-3xl font-bold leading-relaxed sm:text-4xl">{t.hello} <bdi>{displayName}</bdi></h1><p className="mt-1 text-sm text-slate-400"><bdi>{username}</bdi></p></div>
+              </div>
+              <p className="mt-5 max-w-3xl text-sm font-medium leading-8 text-slate-300">{isFa ? "اینجا فقط یک صفحه حساب نیست؛ نمای زنده‌ای از مسیر یادگیری، تداوم، دستاوردهای تأییدشده و قدم بعدی توست." : "This is more than an account page: it is a live view of your learning journey, consistency, verified achievements and next step."}</p>
+              <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold">
+                <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-2 text-cyan-100">{isFa ? `ترم فعلی: ${coreComplete ? "۸ · ∞" : currentTermNumber}` : `Current term: ${coreComplete ? "8 · ∞" : currentTermNumber}`}</span>
+                {currentTermPercent !== null ? <span className="rounded-full border border-cyan-200/15 bg-cyan-300/[.06] px-3 py-2 text-cyan-50">{isFa ? `پیشرفت همین ترم: ${currentTermPercent.toLocaleString("fa-IR")}٪` : `Current term: ${currentTermPercent}%`}</span> : null}
+                <span className="rounded-full border border-white/10 bg-white/[.045] px-3 py-2 text-slate-200">{isFa ? `پیشرفت هسته: ${overall.toLocaleString("fa-IR")}٪` : `Core progress: ${overall}%`}</span>
+                {streakDays !== null ? <span className="rounded-full border border-orange-200/15 bg-orange-300/[.08] px-3 py-2 text-orange-100">{isFa ? `${streakDays.toLocaleString("fa-IR")} روز تداوم` : `${streakDays} day streak`}</span> : null}
               </div>
             </div>
-            <p className="mt-5 max-w-3xl text-sm font-bold leading-8 text-slate-300">{t.welcome}</p>
-
+            <div className="relative mx-auto grid h-56 w-56 place-items-center">
+              <div className="absolute inset-0 rounded-full border border-cyan-200/15" aria-hidden="true"/><div className="absolute inset-5 rounded-full border border-dashed border-violet-200/15" aria-hidden="true"/><div className="absolute inset-10 rounded-full bg-cyan-300/[.06] blur-xl" aria-hidden="true"/>
+              <div className="relative text-center"><Orbit className="mx-auto h-7 w-7 text-cyan-200" aria-hidden="true"/><p className="mt-2 text-4xl font-semibold tabular-nums"><bdi dir="ltr">{overall}%</bdi></p><p className="mt-1 text-xs font-medium text-slate-400">{isFa ? "رشد هسته آکادمی" : "Academy core growth"}</p></div>
+              <span className="absolute start-0 top-1/2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1.5 text-[11px] font-semibold">{isFa ? "یادگیری" : "Learn"}</span><span className="absolute end-1 top-8 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1.5 text-[11px] font-semibold">{isFa ? "تمرین" : "Practice"}</span><span className="absolute bottom-2 end-8 rounded-full border border-white/10 bg-slate-950/90 px-3 py-1.5 text-[11px] font-semibold">{isFa ? "تداوم" : "Consistency"}</span>
+            </div>
+          </div>
+        </section>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0">
             <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Metric icon={<GraduationCap />} label={t.currentTerm} value={coreComplete ? "8 · ∞" : `${currentTermNumber} / 7`} note={coreComplete ? (isFa ? "ترم رشد بی‌نهایت" : "Infinite Growth") : (currentTerm?.title || "Term")} />
               <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedCoreTerms} / 7 ${isFa ? "ترم هسته تکمیل‌شده" : "core terms completed"}`} />
@@ -275,7 +291,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length + credentials.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
 
-            <div className="mt-7 rounded-3xl border border-cyan-300/25 bg-slate-900 p-6 sm:p-8">
+            <div className="mt-7 rounded-[32px] border border-cyan-300/25 bg-[linear-gradient(145deg,rgba(8,47,73,.55),rgba(15,23,42,.9))] p-6 shadow-xl shadow-cyan-950/10 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-cyan-200">{isFa ? "قدم بعدی تو" : "Your next step"}</p>
@@ -283,7 +299,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
                   <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-slate-300">{coreComplete ? (isFa ? "ارزیابی، برنامه‌ریزی، تمرین، بازتاب و اعتبارسنجی در چرخه‌ای شخصی‌سازی‌شده؛ بدون وعده مالی یا دسترسی ویژه خودکار." : "A personalized assess, plan, practice, reflect and verify cycle—with no automatic financial or privileged entitlement.") : currentTerm?.subtitle}</p>
                 </div>
                 <Link href={`${termBase}/term-${currentTermNumber}`} className="inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-cyan-300 px-6 py-4 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-4 focus-visible:ring-offset-slate-900 sm:w-auto">
-                  {completedCoreTerms === 0 ? t.startTerm : t.continueTerm}
+                  {completedCoreTerms === 0 ? t.startTerm : t.continueTerm}<ArrowUpRight className="ms-2 h-4 w-4" aria-hidden="true" />
                 </Link>
               </div>
             </div>
@@ -298,10 +314,22 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             <Quick href={`${termBase}/ai-guide`} icon={<LivingMentorAvatar act="idle_attentive" decorative locale={locale} size="header" />} title={t.mentor} text={isFa ? "گفت‌وگو درباره مسیر یادگیری و تمرین بعدی" : "Talk through your learning journey and next practice"} />
             <Quick href={`${termBase}/trading-arena`} icon={<TrendingUp />} title={t.arena} text={isFa ? "تمرین تصمیم‌گیری با سرمایه مجازی" : "Practice decisions with virtual capital"} />
             <Quick href={isFa ? "/academy/certificates" : "/en/academy/certificates"} icon={<ShieldCheck />} title={t.certs} text={isFa ? "مشاهده مدارک قابل استعلام" : "View verifiable certificates"} />
+            <Quick href={`${termBase}/account#pro`} icon={<Crown />} title="TecPey Pro" text={isFa ? "پیش‌نمایش قابلیت‌های هوشمند پیشرفته؛ خرید هنوز فعال نیست" : "Preview advanced intelligence capabilities; purchasing is not active yet"} />
           </aside>
         </div>
 
-        <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
+        <section className="mt-8 grid gap-4 lg:grid-cols-[1.15fr_.85fr]" aria-label={isFa ? "بینش منتور و مسیر هوشمند" : "Mentor insight and intelligent path"}>
+          <article className="relative overflow-hidden rounded-[34px] border border-violet-300/20 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,.15),transparent_45%),rgba(255,255,255,.035)] p-6">
+            <div className="flex items-start gap-4"><LivingMentorAvatar act={streakDays !== null && streakDays >= 7 ? "celebrate_effort" : "idle_attentive"} locale={locale} size="stage" decorative /><div className="min-w-0"><p className="text-xs font-semibold text-violet-200">{isFa ? "بینش منتور" : "Mentor insight"}</p><h2 className="mt-2 text-xl font-bold leading-8">{isFa ? "قدم بعدی باید از شواهد واقعی مسیر تو بیاید" : "Your next step should come from real journey evidence"}</h2><p className="mt-2 text-sm font-medium leading-7 text-slate-300">{isFa ? "منتور فقط از پیشرفت ثبت‌شده، ارزیابی‌های معتبر و فعالیت‌های مجاز برای پیشنهاد مسیر استفاده می‌کند؛ یادداشت شخصی یا پاسخ خوداظهاری به‌تنهایی به «تسلط» تبدیل نمی‌شود." : "Mentor uses recorded progress, governed assessments and permitted activity to guide the journey; private notes or self-reported answers never become mastery on their own."}</p></div></div>
+            <Link href={`${termBase}/ai-guide`} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200/25 bg-violet-300/10 px-5 py-3 text-sm font-semibold text-violet-100 transition-colors hover:bg-violet-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">{isFa ? "گفت‌وگو با منتور" : "Talk to Mentor"}<ArrowUpRight className="h-4 w-4" aria-hidden="true"/></Link>
+          </article>
+          <article className="rounded-[34px] border border-white/10 bg-white/[.035] p-6">
+            <p className="text-xs font-semibold text-cyan-200">{isFa ? "امروز چه چیزی مهم است؟" : "What matters today?"}</p><h2 className="mt-2 text-xl font-bold leading-8">{coreComplete ? (isFa ? "چرخه رشد بی‌نهایت را ادامه بده" : "Continue your Infinite Growth cycle") : (currentTerm?.title || t.currentTerm)}</h2><p className="mt-3 text-sm font-medium leading-7 text-slate-300">{coreComplete ? (isFa ? "یک چرخه کوتاه ارزیابی، تمرین و بازتاب را کامل کن؛ کیفیت تصمیم مهم‌تر از سرعت است." : "Complete a short assess, practice and reflect cycle; decision quality matters more than speed.") : (isFa ? "به‌جای پراکندگی، یک قدم معتبر در ترم فعلی بردار. پیشرفت این صفحه فقط از وضعیت ثبت‌شده به‌روزرسانی می‌شود." : "Instead of scattering attention, take one governed step in the current term. This profile updates only from recorded state.")}</p>
+            <div className="mt-5 flex items-center gap-2 text-xs font-medium text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-300" aria-hidden="true"/>{isFa ? "بدون امتیاز یا تسلط ساختگی" : "No fabricated score or mastery"}</div>
+          </article>
+        </section>
+
+                <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
 
         <section className="mt-10 border-t border-white/10 pt-8" aria-labelledby="academy-term-path-title">
           <h2 id="academy-term-path-title" className="text-2xl font-bold">{t.terms}</h2>
@@ -322,7 +350,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             })}
             <Link
               href={`${termBase}/term-8`}
-              className={`rounded-[28px] border p-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1" : "border-white/10 bg-white/[0.035] opacity-70"}`}
+              className={`rounded-[28px] border p-5 transition motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${coreComplete ? "border-violet-300/30 bg-gradient-to-br from-violet-400/15 to-cyan-400/10 hover:-translate-y-1 motion-reduce:hover:translate-y-0" : "border-white/10 bg-white/[0.035] opacity-70"}`}
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black">
@@ -377,7 +405,7 @@ function MedalCabinet({ locale, achievements, credentials, degraded }: {
           <h2 id="academy-medal-cabinet-title" className="mt-3 text-2xl font-black sm:text-3xl">{isFa ? "ویترین مدارک و مدال‌های من" : "My credentials and medals"}</h2>
           <p className="mt-3 text-sm font-bold leading-7 text-slate-300">{isFa ? "فقط افتخاراتی نمایش داده می‌شوند که از شواهد رسمی آکادمی، لیگ یا مسابقه صادر شده باشند." : "Only honors issued from official Academy, league or competition evidence appear here."}</p>
         </div>
-        <Link href={href} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100 transition-[transform,border-color,background-color] duration-150 ease-out hover:border-amber-200/60 hover:bg-amber-300/15 active:scale-[.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+        <Link href={href} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100 transition-[transform,border-color,background-color] duration-150 ease-out hover:border-amber-200/60 hover:bg-amber-300/15 active:scale-[.97] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />{isFa ? "مشاهده سابقه کامل" : "View full record"}
         </Link>
       </div>
