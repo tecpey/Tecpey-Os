@@ -128,6 +128,7 @@ import {
   MENTOR_PROFILE_EVIDENCE_EVENT_SQL,
   runMentorProfileEvidenceEventMigrations,
 } from "./db-migrate-mentor-profile-evidence-event";
+import { runIdentityAuthKycV2Migrations } from "./db-migrate-identity-auth-kyc-v2";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -429,6 +430,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "ai-mentor",
     runMentorProfileEvidenceEventMigrations,
   ),
+  entry(96, "migration-step-096", CANONICAL_MIGRATION_CONTENT.identityAuthKycV2, "security-platform", "identity", runIdentityAuthKycV2Migrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
