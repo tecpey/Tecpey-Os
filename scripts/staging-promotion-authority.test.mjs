@@ -87,7 +87,7 @@ test("host promotion uses immutable release paths, existing preflight and bounde
     "forward_fix_or_restore_required",
     "not_permitted_schema_authority_changed",
     "TECPEY_STAGING_ALLOW_DOWNGRADE",
-    "git diff --name-only -z",
+    "diff --name-only -z",
     "MIGRATION_AUTHORITY_CHANGE_COUNT",
     "staging_environment_file_unsafe",
     "Schema-changing promotion failed; staging remains stopped",
