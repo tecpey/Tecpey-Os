@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Client } from "pg";
+import { Pool } from "pg";
 import { runProCommerceAuthorityMigrations } from "../../lib/db-migrate-pro-commerce-authority";
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 
 test("commerce authority enforces tenant/workspace RLS fail-closed", { skip: !databaseUrl }, async () => {
-  const admin = new Client({ connectionString: databaseUrl });
-  await admin.connect();
+  const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+  const admin = await pool.connect();
   const suffix = Math.random().toString(16).slice(2, 10);
   const tenantA = `commerce-a-${suffix}`, tenantB = `commerce-b-${suffix}`;
   const wsA = `commerce-wsa-${suffix}`, wsB = `commerce-wsb-${suffix}`;
@@ -30,6 +30,7 @@ test("commerce authority enforces tenant/workspace RLS fail-closed", { skip: !da
     await admin.query("DELETE FROM commerce_plan_versions WHERE tenant_id = ANY($1::text[])", [[tenantA,tenantB]]).catch(()=>{});
     await admin.query("DELETE FROM platform_workspaces WHERE tenant_id = ANY($1::text[])", [[tenantA,tenantB]]).catch(()=>{});
     await admin.query("DELETE FROM platform_tenants WHERE id = ANY($1::text[])", [[tenantA,tenantB]]).catch(()=>{});
-    await admin.end();
+    admin.release();
+    await pool.end();
   }
 });
