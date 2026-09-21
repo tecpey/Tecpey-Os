@@ -60,6 +60,7 @@ const PRODUCTION_HOSTS = new Set([
   "api.tecpey.ir",
   "stream.tecpey.ir",
 ]);
+const STAGING_PUBLIC_HOSTS = new Set(["tecp.ir"]);
 
 export function assertExactReleaseSha(value, label = "release_sha") {
   if (typeof value !== "string" || !EXACT_SHA.test(value)) {
@@ -120,6 +121,9 @@ export function assertSafeStagingPublicBaseUrl(value) {
   const hostname = url.hostname.toLowerCase();
   if (PRODUCTION_HOSTS.has(hostname) || hostname.endsWith(".tecpey.ir")) {
     throw new Error("staging_public_base_url_must_not_target_production");
+  }
+  if (!STAGING_PUBLIC_HOSTS.has(hostname)) {
+    throw new Error("staging_public_base_url_host_not_allowed");
   }
   return url.origin;
 }
@@ -288,15 +292,20 @@ export function buildPromotionEvidence(input) {
     !migration ||
     !/^[0-9a-f]{64}$/.test(migration.previousPlanHash ?? "") ||
     !/^[0-9a-f]{64}$/.test(migration.targetPlanHash ?? "") ||
+    !Array.isArray(migration.authorityChanges) ||
+    migration.authorityChanges.some((value) => typeof value !== "string") ||
     !["app_rollback_safe_no_migration_authority_change", "forward_fix_or_restore_required"].includes(migration.rollbackMode)
   ) {
     throw new Error("promotion_migration_evidence_invalid");
   }
   const hashesEqual = migration.previousPlanHash === migration.targetPlanHash;
-  if (
-    (hashesEqual && migration.rollbackMode !== "app_rollback_safe_no_migration_authority_change") ||
-    (!hashesEqual && migration.rollbackMode !== "forward_fix_or_restore_required")
-  ) {
+  const authorityClassification = classifyMigrationRollbackSafety(migration.authorityChanges);
+  const expectedRollbackMode =
+    hashesEqual &&
+    authorityClassification.mode === "app_rollback_safe_no_migration_authority_change"
+      ? "app_rollback_safe_no_migration_authority_change"
+      : "forward_fix_or_restore_required";
+  if (migration.rollbackMode !== expectedRollbackMode) {
     throw new Error("promotion_migration_rollback_mode_mismatch");
   }
   validateStagingHealth(runtimeHealth, targetSha);
@@ -352,6 +361,7 @@ export function buildPromotionEvidence(input) {
     migration: {
       previousPlanHash: migration.previousPlanHash,
       targetPlanHash: migration.targetPlanHash,
+      authorityChanges: [...authorityClassification.migrationAuthorityChanges],
       rollbackMode: migration.rollbackMode,
     },
     rollback: { disposition: rollback.disposition },
