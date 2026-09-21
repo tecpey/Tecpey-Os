@@ -98,7 +98,8 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
 
   return (
     <section
-      className="mt-8 rounded-2xl border border-cyan-400/20 p-6"
+      id="mentor-privacy"
+      className="mt-8 scroll-mt-28 rounded-2xl border border-cyan-400/20 p-6"
       aria-labelledby="mentor-ai-privacy"
     >
       <h2
@@ -119,7 +120,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
 
       {status === "loading" ? (
         <p className="mt-5 flex items-center gap-2 text-sm text-muted" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
           {isFa ? "در حال دریافت تنظیمات…" : "Loading Mentor settings…"}
         </p>
       ) : status === "error" ? (
@@ -134,7 +135,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
             <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border border-fg/10 p-4">
               <input
                 type="checkbox"
-                className="mt-1 h-5 w-5 accent-cyan-600"
+                className="mt-1 h-5 w-5 accent-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
                 checked={draft.externalProviderEnabled}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -160,7 +161,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
             <label className="flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border border-fg/10 p-4">
               <input
                 type="checkbox"
-                className="mt-1 h-5 w-5 accent-cyan-600"
+                className="mt-1 h-5 w-5 accent-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
                 checked={draft.behavioralPersonalizationEnabled}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -192,7 +193,7 @@ export function MentorPrivacyControls({ locale }: { locale: "fa" | "en" }) {
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-cyan-700 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {status === "saving" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               ) : status === "saved" ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
               ) : (

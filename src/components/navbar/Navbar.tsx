@@ -326,7 +326,7 @@ export default function Navbar({
                 className="flex items-center gap-1 rounded-full px-2 py-1 transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-haspopup="menu"
                 aria-expanded={knowledgeOpen}
-                aria-controls={knowledgeMenuId}
+                aria-controls={knowledgeOpen ? knowledgeMenuId : undefined}
               >
                 {knowledgeLabel}
                 <ChevronDown
@@ -500,7 +500,7 @@ export default function Navbar({
             className="rounded-xl p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label={menuAriaLabel}
             aria-expanded={isOpen}
-            aria-controls={mobileMenuId}
+            aria-controls={isOpen ? mobileMenuId : undefined}
           >
             {isOpen ? <X size={28} /> : <Menu size={28} />}
           </button>
@@ -529,7 +529,7 @@ export default function Navbar({
                 onClick={() => setMobileKnowledgeOpen((prev) => !prev)}
                 className="flex w-full items-center justify-between p-4 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-expanded={mobileKnowledgeOpen}
-                aria-controls={mobileKnowledgeMenuId}
+                aria-controls={mobileKnowledgeOpen ? mobileKnowledgeMenuId : undefined}
               >
                 {knowledgeLabel}
                 <ChevronDown

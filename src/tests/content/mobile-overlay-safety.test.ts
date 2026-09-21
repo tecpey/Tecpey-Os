@@ -25,7 +25,16 @@ describe("mobile overlay safety", () => {
     const navbar = fs.readFileSync(navbarPath, "utf8");
 
     assert.match(navbar, /document\.body\.style\.overflow = "hidden"/);
-    assert.match(navbar, /aria-controls=\{mobileMenuId\}/);
+    assert.match(
+      navbar,
+      /aria-controls=\{isOpen \? mobileMenuId : undefined\}/,
+      "the mobile trigger must reference its controlled region only while that region is mounted",
+    );
+    assert.doesNotMatch(
+      navbar,
+      /aria-controls=\{mobileMenuId\}/,
+      "an always-present aria-controls would point at a non-existent element while the overlay is closed",
+    );
     assert.match(navbar, /isOpen[\s\S]*?"Close menu"/);
     assert.match(navbar, /isOpen[\s\S]*?"بستن منو"/);
   });
