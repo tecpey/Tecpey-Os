@@ -19,7 +19,7 @@ async function keepBelowStickyNav(page, section) {
 
   const [sectionBox, navBox] = await Promise.all([
     section.boundingBox(),
-    page.locator("nav").boundingBox(),
+    page.locator("nav.sticky.top-0").first().boundingBox(),
   ]);
   expect(sectionBox, "review section must have a rendered box").not.toBeNull();
   expect(navBox, "sticky navigation must have a rendered box").not.toBeNull();
