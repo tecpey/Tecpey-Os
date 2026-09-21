@@ -283,6 +283,21 @@ export function buildPromotionEvidence(input) {
   if (!rollback || !["armed", "not_needed", "completed", "completed_and_repromoted", "not_permitted_schema_authority_changed"].includes(rollback.disposition)) {
     throw new Error("promotion_rollback_evidence_invalid");
   }
+  if (
+    !migration ||
+    !/^[0-9a-f]{64}$/.test(migration.previousPlanHash ?? "") ||
+    !/^[0-9a-f]{64}$/.test(migration.targetPlanHash ?? "") ||
+    !["app_rollback_safe_no_migration_authority_change", "forward_fix_or_restore_required"].includes(migration.rollbackMode)
+  ) {
+    throw new Error("promotion_migration_evidence_invalid");
+  }
+  const hashesEqual = migration.previousPlanHash === migration.targetPlanHash;
+  if (
+    (hashesEqual && migration.rollbackMode !== "app_rollback_safe_no_migration_authority_change") ||
+    (!hashesEqual && migration.rollbackMode !== "forward_fix_or_restore_required")
+  ) {
+    throw new Error("promotion_migration_rollback_mode_mismatch");
+  }
   validateStagingHealth(runtimeHealth, targetSha);
   const sanitizedRuntime = sanitizeHealthEvidence(runtimeHealth);
 
@@ -333,6 +348,11 @@ export function buildPromotionEvidence(input) {
       finalStatus,
     })),
     operation,
+    migration: {
+      previousPlanHash: migration.previousPlanHash,
+      targetPlanHash: migration.targetPlanHash,
+      rollbackMode: migration.rollbackMode,
+    },
     rollback: { disposition: rollback.disposition },
     startedAt,
     completedAt,
