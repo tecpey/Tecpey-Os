@@ -353,7 +353,9 @@ const EXEMPT_REASON: Readonly<Record<string, string>> = {
   // Offline sync is transport infrastructure shared by every product, with no
   // single product to gate on.
   "src/app/api/offline-sync/route.ts": "cross-product sync transport",
-  // Billing is commercial account infrastructure shared by products. Its Pro capability\n  // decision is made by the server-side commerce entitlement projection, not platform_tenants.products[].\n  "src/app/api/commerce/billing/route.ts": "cross-product commercial account authority",
+  // Billing is commercial account infrastructure shared by products. Its Pro capability
+  // decision is made by the server-side commerce entitlement projection, not platform_tenants.products[].
+  "src/app/api/commerce/billing/route.ts": "cross-product commercial account authority",
 };
 
 describe("Tenant product entitlement route guards", () => {
