@@ -4,10 +4,10 @@ import { DEEP_RESEARCH_PROVENANCE_SQL, DEEP_RESEARCH_TABLES } from "@/lib/db-mig
 
 describe("deep research provenance database authority", () => {
   it("protects every research relation with FORCE RLS and signed AI context", () => {
-    assert.equal(DEEP_RESEARCH_TABLES.length, 6);
+    assert.equal(DEEP_RESEARCH_TABLES.length, 7);
     assert.deepEqual(DEEP_RESEARCH_TABLES, [
       "ai_research_runs", "ai_research_sources", "ai_research_claims",
-      "ai_research_claim_citations", "ai_research_conflict_sets", "ai_research_artifacts",
+      "ai_research_claim_citations", "ai_research_conflict_sets", "ai_research_conflict_members", "ai_research_artifacts",
     ]);
     for (const table of DEEP_RESEARCH_TABLES) assert.match(DEEP_RESEARCH_PROVENANCE_SQL, new RegExp(table));
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FORCE ROW LEVEL SECURITY/u);
@@ -24,6 +24,13 @@ describe("deep research provenance database authority", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /UNIQUE \(tenant_id, workspace_id, run_id, claim_id, source_id\)/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /GRANT SELECT, INSERT ON TABLE ai_research_sources/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /'reporting'/u);
+  });
+  it("normalizes conflict membership and binds every member to the exact run", () => {
+    assert.doesNotMatch(DEEP_RESEARCH_PROVENANCE_SQL, /claim_ids UUID\[\]/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /CREATE TABLE IF NOT EXISTS ai_research_conflict_members/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(conflict_set_id, tenant_id, workspace_id, run_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(claim_id, tenant_id, workspace_id, run_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /UNIQUE \(tenant_id, workspace_id, run_id, conflict_set_id, claim_id\)/u);
   });
   it("makes finalized artifacts immutable and records provider provenance", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /final research artifacts are immutable/u);

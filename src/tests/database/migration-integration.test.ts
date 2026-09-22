@@ -121,6 +121,7 @@ const REQUIRED_TABLES = [
   "ai_research_claims",
   "ai_research_claim_citations",
   "ai_research_conflict_sets",
+  "ai_research_conflict_members",
   "ai_research_artifacts",
 ] as const;
 

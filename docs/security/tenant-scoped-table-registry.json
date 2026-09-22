@@ -426,6 +426,15 @@
       "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
     },
     {
+      "table": "ai_research_conflict_members",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "Each conflict member is composite-FK bound to the exact tenant_id + workspace_id + run_id for both its conflict set and claim. FORCE RLS authorizes only the signed tenant/workspace context, and membership is append-only for the tenant runtime, preventing cross-run or cross-tenant conflict injection.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
       "table": "ai_research_runs",
       "domain": "deep-research",
       "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",

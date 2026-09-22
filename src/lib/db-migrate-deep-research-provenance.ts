@@ -9,6 +9,7 @@ export const DEEP_RESEARCH_TABLES = Object.freeze([
   "ai_research_claims",
   "ai_research_claim_citations",
   "ai_research_conflict_sets",
+  "ai_research_conflict_members",
   "ai_research_artifacts",
 ] as const);
 
@@ -86,11 +87,22 @@ CREATE TABLE IF NOT EXISTS ai_research_conflict_sets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, run_id UUID NOT NULL,
   summary TEXT NOT NULL CHECK (length(btrim(summary)) BETWEEN 1 AND 12000),
-  claim_ids UUID[] NOT NULL CHECK (cardinality(claim_ids) >= 2 AND cardinality(claim_ids) <= 64),
   resolution_state TEXT NOT NULL DEFAULT 'unresolved' CHECK (resolution_state IN ('unresolved','partially_resolved','resolved')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  UNIQUE (id, tenant_id, workspace_id)
+  UNIQUE (id, tenant_id, workspace_id),
+  UNIQUE (id, tenant_id, workspace_id, run_id)
+);
+
+CREATE TABLE IF NOT EXISTS ai_research_conflict_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, run_id UUID NOT NULL,
+  conflict_set_id UUID NOT NULL, claim_id UUID NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
+  FOREIGN KEY (conflict_set_id, tenant_id, workspace_id, run_id) REFERENCES ai_research_conflict_sets(id, tenant_id, workspace_id, run_id) ON DELETE RESTRICT,
+  FOREIGN KEY (claim_id, tenant_id, workspace_id, run_id) REFERENCES ai_research_claims(id, tenant_id, workspace_id, run_id) ON DELETE RESTRICT,
+  UNIQUE (tenant_id, workspace_id, run_id, conflict_set_id, claim_id)
 );
 
 CREATE TABLE IF NOT EXISTS ai_research_artifacts (
@@ -113,17 +125,18 @@ CREATE INDEX IF NOT EXISTS ai_research_runs_scope_created_idx ON ai_research_run
 CREATE INDEX IF NOT EXISTS ai_research_sources_run_idx ON ai_research_sources (tenant_id, workspace_id, run_id, retrieved_at DESC);
 CREATE INDEX IF NOT EXISTS ai_research_claims_run_idx ON ai_research_claims (tenant_id, workspace_id, run_id, created_at);
 CREATE INDEX IF NOT EXISTS ai_research_citations_claim_idx ON ai_research_claim_citations (tenant_id, workspace_id, claim_id);
+CREATE INDEX IF NOT EXISTS ai_research_conflict_members_set_idx ON ai_research_conflict_members (tenant_id, workspace_id, run_id, conflict_set_id);
 CREATE INDEX IF NOT EXISTS ai_research_artifacts_run_idx ON ai_research_artifacts (tenant_id, workspace_id, run_id, version DESC);
 
-REVOKE ALL ON TABLE ai_research_runs, ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets, ai_research_artifacts
+REVOKE ALL ON TABLE ai_research_runs, ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets, ai_research_conflict_members, ai_research_artifacts
 FROM PUBLIC, tecpey_ai_tenant_runtime, tecpey_ai_worker;
 GRANT SELECT, INSERT, UPDATE ON TABLE ai_research_runs, ai_research_artifacts TO tecpey_ai_tenant_runtime;
-GRANT SELECT, INSERT ON TABLE ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets TO tecpey_ai_tenant_runtime;
+GRANT SELECT, INSERT ON TABLE ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets, ai_research_conflict_members TO tecpey_ai_tenant_runtime;
 
 DO $research_rls$
 DECLARE relation_name TEXT;
 BEGIN
-  FOREACH relation_name IN ARRAY ARRAY['ai_research_runs','ai_research_sources','ai_research_claims','ai_research_claim_citations','ai_research_conflict_sets','ai_research_artifacts'] LOOP
+  FOREACH relation_name IN ARRAY ARRAY['ai_research_runs','ai_research_sources','ai_research_claims','ai_research_claim_citations','ai_research_conflict_sets','ai_research_conflict_members','ai_research_artifacts'] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', relation_name);
     EXECUTE format('ALTER TABLE public.%I FORCE ROW LEVEL SECURITY', relation_name);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', relation_name || '_tenant_scope', relation_name);
