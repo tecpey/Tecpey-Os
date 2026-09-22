@@ -494,6 +494,18 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
   });
   assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
+  assert.deepEqual(classifyDomain("src/lib/commerce/commerce-authority.ts"), {
+    domain: "commerce-payments",
+    riskTier: "P0",
+    reviewBatch: 6,
+    classificationRule: "commerce-payments",
+  });
+  assert.deepEqual(classifyDomain("src/lib/db-migrate-pro-commerce-authority.ts"), {
+    domain: "commerce-payments",
+    riskTier: "P0",
+    reviewBatch: 6,
+    classificationRule: "commerce-payments",
+  });
   assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
   assert.deepEqual(classifyDomain("src/lib/living-profile-intelligence.ts"), {
     domain: "mentor-ai",
