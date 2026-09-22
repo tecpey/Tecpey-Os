@@ -11,5 +11,10 @@ test("commerce billing API derives account and tenant authority from strict serv
   assert.match(route,/request: req/);
   assert.match(route,/readCommerceBillingAuthority/);
   assert.match(route,/set_config\('app\.tenant_id'/);
-  assert.doesNotMatch(route,/searchParams|get\("tenant|x-tenant|body\.accountId/);
+  // Query inspection is allowed only to enforce the route's zero-query surface.
+  // It must never become an authority source for tenant/workspace/account selection.
+  assert.match(route,/req\.nextUrl\.searchParams\.keys\(\)/);
+  assert.match(route,/billingError\("invalid_query", 400\)/);
+  assert.doesNotMatch(route,/searchParams\.(?:get|getAll|has)\s*\(/);
+  assert.doesNotMatch(route,/get\("tenant|x-tenant|body\.accountId/);
 });
