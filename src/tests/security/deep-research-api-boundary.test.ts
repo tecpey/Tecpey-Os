@@ -22,7 +22,7 @@ describe("deep research API security boundary",()=>{
     assert.equal((routeSource.match(/verifyCsrfOrigin\(req\)/gu)??[]).length,2);
     assert.match(routeSource,/readJsonBody\(req,\{maxBytes:64\*1024\}\)/u);
     assert.match(routeSource,/readJsonBody\(req,\{maxBytes:2\*1024\}\)/u);
-    assert.match(routeSource,/identity=\`\$\{auth\.context\.tenantId\}:\$\{auth\.context\.workspaceId\}:\$\{auth\.accountId\}\`/u);
+    assert.ok(routeSource.includes("const identity=`${auth.context.tenantId}:${auth.context.workspaceId}:${auth.accountId}`;"), "rate-limit identity must bind tenant, workspace and account");
     assert.equal((routeSource.match(/validDeepResearchIdempotencyKey\(req\.headers\.get\("idempotency-key"\)\)/gu)??[]).length,2);
     assert.equal((routeSource.match(/claimDeepResearchCommand\(client,scope\)/gu)??[]).length,2);
     assert.equal((routeSource.match(/completeDeepResearchCommand\(client,scope/gu)??[]).length,2);
