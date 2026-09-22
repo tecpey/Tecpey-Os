@@ -174,7 +174,7 @@ export async function markCommerceProviderOperationUnknownTx(
   const result = await client.query(
     `UPDATE commerce_provider_operations SET status='unknown', updated_at=NOW()
       WHERE tenant_id=$1 AND workspace_id=$2 AND provider=$3 AND idempotency_key=$4
-        AND request_sha256=$5 AND status='started'`,
+        AND request_sha256=$5 AND status IN ('started','unknown')`,
     [input.tenantId, input.workspaceId, input.provider, input.idempotencyKey, input.requestHash],
   );
   if (result.rowCount !== 1) throw new Error("commerce_provider_operation_unknown_conflict");
