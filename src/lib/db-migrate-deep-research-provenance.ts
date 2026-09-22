@@ -50,7 +50,27 @@ CREATE TABLE IF NOT EXISTS ai_research_api_commands (
   account_id TEXT NOT NULL,
   operation TEXT NOT NULL CHECK (operation IN ('create','cancel')),
   idempotency_key TEXT NOT NULL
-    CHECK (char_length(idempotency_key) BETWEEN 16 AND 120 AND idempotency_key ~ '^[A-Za-z0-9._:-]+
+    CHECK (char_length(idempotency_key) BETWEEN 16 AND 120 AND idempotency_key ~ '^[A-Za-z0-9._:-]+$'),
+  request_hash CHAR(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  correlation_id TEXT NOT NULL
+    CHECK (char_length(correlation_id) BETWEEN 8 AND 160 AND correlation_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]+$'),
+  status TEXT NOT NULL DEFAULT 'processing' CHECK (status IN ('processing','completed')),
+  http_status INTEGER CHECK (http_status IS NULL OR http_status BETWEEN 200 AND 499),
+  response_body JSONB,
+  resource_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  FOREIGN KEY (tenant_id, workspace_id) REFERENCES platform_workspaces(tenant_id, id) ON DELETE RESTRICT,
+  UNIQUE (tenant_id, workspace_id, account_id, operation, idempotency_key),
+  CHECK (
+    (status = 'processing' AND http_status IS NULL AND response_body IS NULL AND completed_at IS NULL)
+    OR
+    (status = 'completed' AND http_status IS NOT NULL AND jsonb_typeof(response_body) = 'object' AND completed_at IS NOT NULL)
+  ),
+  CHECK (response_body IS NULL OR octet_length(response_body::text) <= 16384)
+);
+
+CREATE TABLE IF NOT EXISTS ai_research_sources (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, run_id UUID NOT NULL,
   url TEXT NOT NULL CHECK (length(url) BETWEEN 1 AND 8192),
@@ -228,23 +248,6 @@ export async function runDeepResearchProvenanceMigrations(client: PoolClient): P
     await client.query("COMMIT");
   } catch (error) { await client.query("ROLLBACK"); throw error; }
 }
-),
-  request_hash CHAR(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, run_id UUID NOT NULL,
-  url TEXT NOT NULL CHECK (length(url) BETWEEN 1 AND 8192),
-  publisher TEXT, domain TEXT, title TEXT,
-  retrieved_at TIMESTAMPTZ NOT NULL, published_at TIMESTAMPTZ, locale TEXT,
-  source_channel TEXT NOT NULL CHECK (source_channel IN ('public_web','connected_private','social_x','other')),
-  provider_id TEXT NOT NULL, provider_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  content_digest TEXT CHECK (content_digest IS NULL OR content_digest ~ '^[0-9a-f]{64}$'),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  UNIQUE (id, tenant_id, workspace_id),
-  UNIQUE (id, tenant_id, workspace_id, run_id),
-  CHECK (octet_length(provider_metadata::text) <= 32768)
-);
-
 CREATE TABLE IF NOT EXISTS ai_research_claims (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, run_id UUID NOT NULL,
