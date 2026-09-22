@@ -71,6 +71,14 @@ function replayOrConflict(claim:Awaited<ReturnType<typeof claimDeepResearchComma
 export async function POST(req:NextRequest) {
   return withObservability(req,{route:"/api/deep-research POST"},async()=>{
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden",403);
+    // Keep canonical session authority visible at each mutation boundary. authorize()
+    // performs the same strict canonical-session + verified tenant/workspace binding;
+    // this evidence call is intentionally fail-closed and prevents a future wrapper
+    // refactor from making authentication invisible to security-policy generation.
+    const boundarySession=await getCanonicalSession(req,{strictRevocation:true});
+    if (!(boundarySession.academyAccountId ?? boundarySession.userId ?? boundarySession.studentId)) {
+      return apiError(boundarySession.authorityDegraded?"deep_research_authority_unavailable":"unauthorized",boundarySession.authorityDegraded?503:401);
+    }
     const auth=await authorize(req);
     if (!auth.ok) return auth.response;
     const identity=`${auth.context.tenantId}:${auth.context.workspaceId}:${auth.accountId}`;
