@@ -390,6 +390,60 @@
       "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
+      "table": "ai_research_artifacts",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
+      "table": "ai_research_claim_citations",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
+      "table": "ai_research_claims",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
+      "table": "ai_research_conflict_sets",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
+      "table": "ai_research_runs",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
+      "table": "ai_research_sources",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
       "table": "ai_routing_decision_events",
       "domain": "ai-routing",
       "sourceFile": "src/lib/db-migrate-ai-routing-budget.ts; src/lib/ai/control-plane-store.ts",

@@ -5,6 +5,10 @@ import { DEEP_RESEARCH_PROVENANCE_SQL, DEEP_RESEARCH_TABLES } from "@/lib/db-mig
 describe("deep research provenance database authority", () => {
   it("protects every research relation with FORCE RLS and signed AI context", () => {
     assert.equal(DEEP_RESEARCH_TABLES.length, 6);
+    assert.deepEqual(DEEP_RESEARCH_TABLES, [
+      "ai_research_runs", "ai_research_sources", "ai_research_claims",
+      "ai_research_claim_citations", "ai_research_conflict_sets", "ai_research_artifacts",
+    ]);
     for (const table of DEEP_RESEARCH_TABLES) assert.match(DEEP_RESEARCH_PROVENANCE_SQL, new RegExp(table));
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FORCE ROW LEVEL SECURITY/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /tecpey_ai_authorized_context\(\)/u);
