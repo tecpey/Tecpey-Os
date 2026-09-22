@@ -390,6 +390,15 @@
       "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
+      "table": "ai_research_api_commands",
+      "domain": "deep-research",
+      "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
+      "isolationModel": "tenant_id + workspace_id are composite-FK bound to platform_workspaces and every command receipt is scoped by tenant, workspace, account, operation and idempotency key. FORCE RLS authorizes reads/writes only through tecpey_ai_authorized_context(); the tenant runtime has no cross-tenant worker grant. Command identity is tenant-leading and completed receipts are immutable/replay evidence.",
+      "adversarialProof": "proven",
+      "issue": "#700",
+      "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
+    },
+    {
       "table": "ai_research_artifacts",
       "domain": "deep-research",
       "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
@@ -417,19 +426,19 @@
       "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
     },
     {
-      "table": "ai_research_conflict_sets",
+      "table": "ai_research_conflict_members",
       "domain": "deep-research",
       "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
-      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
+      "isolationModel": "Each conflict member is composite-FK bound to the exact tenant_id + workspace_id + run_id for both its conflict set and claim. FORCE RLS authorizes only the signed tenant/workspace context, and membership is append-only for the tenant runtime, preventing cross-run or cross-tenant conflict injection.",
       "adversarialProof": "proven",
       "issue": "#700",
       "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
     },
     {
-      "table": "ai_research_conflict_members",
+      "table": "ai_research_conflict_sets",
       "domain": "deep-research",
       "sourceFile": "src/lib/db-migrate-deep-research-provenance.ts",
-      "isolationModel": "Each conflict member is composite-FK bound to the exact tenant_id + workspace_id + run_id for both its conflict set and claim. FORCE RLS authorizes only the signed tenant/workspace context, and membership is append-only for the tenant runtime, preventing cross-run or cross-tenant conflict injection.",
+      "isolationModel": "tenant_id + workspace_id are bound by composite foreign keys; FORCE RLS authorizes the pair only through tecpey_ai_authorized_context(), and tenant runtime writes are checked by the same signed context. Cross-tenant worker access is not granted.",
       "adversarialProof": "proven",
       "issue": "#700",
       "testReference": "src/tests/security/deep-research-provenance-authority.test.ts"
