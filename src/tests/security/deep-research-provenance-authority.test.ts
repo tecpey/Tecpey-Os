@@ -4,10 +4,10 @@ import { DEEP_RESEARCH_PROVENANCE_SQL, DEEP_RESEARCH_TABLES } from "@/lib/db-mig
 
 describe("deep research provenance database authority", () => {
   it("protects every research relation with FORCE RLS and signed AI context", () => {
-    assert.equal(DEEP_RESEARCH_TABLES.length, 7);
+    assert.equal(DEEP_RESEARCH_TABLES.length, 8);
     assert.deepEqual(DEEP_RESEARCH_TABLES, [
       "ai_research_runs", "ai_research_sources", "ai_research_claims",
-      "ai_research_claim_citations", "ai_research_conflict_sets", "ai_research_conflict_members", "ai_research_artifacts",
+      "ai_research_claim_citations", "ai_research_conflict_sets", "ai_research_conflict_members", "ai_research_artifacts", "ai_research_api_commands",
     ]);
     for (const table of DEEP_RESEARCH_TABLES) assert.match(DEEP_RESEARCH_PROVENANCE_SQL, new RegExp(table));
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FORCE ROW LEVEL SECURITY/u);
@@ -43,6 +43,13 @@ describe("deep research provenance database authority", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /final research artifacts are immutable/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /provider_id TEXT NOT NULL/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /cited_source_count INTEGER NOT NULL/u);
+  });
+  it("persists replay-safe API command and correlation evidence inside the tenant RLS boundary", () => {
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /CREATE TABLE IF NOT EXISTS ai_research_api_commands/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /UNIQUE \(tenant_id, workspace_id, account_id, operation, idempotency_key\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /request_hash CHAR\(64\) NOT NULL/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /correlation_id TEXT NOT NULL/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /GRANT SELECT, INSERT, UPDATE ON TABLE ai_research_runs, ai_research_artifacts, ai_research_api_commands TO tecpey_ai_tenant_runtime/u);
   });
   it("does not grant the cross-tenant worker broad research access", () => {
     assert.doesNotMatch(DEEP_RESEARCH_PROVENANCE_SQL, /GRANT (?:SELECT|INSERT|UPDATE|DELETE)[\s\S]{0,500}TO tecpey_ai_worker/u);
