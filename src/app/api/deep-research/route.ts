@@ -53,9 +53,6 @@ async function authorize(req:NextRequest) {
   }
   return {ok:true as const,accountId,context};
 }
-async function mutationRateLimit(req:NextRequest,identity:string,operation:"create"|"cancel") {
-  return rateLimit(req,{namespace:`deep-research-${operation}`,limit:operation==="create"?8:20,windowMs:60_000,identity});
-}
 function commandScope(input:{
   req:NextRequest;tenantId:string;workspaceId:string;accountId:string;operation:"create"|"cancel";idempotencyKey:string;request:unknown;
 }):DeepResearchCommandScope {
@@ -77,7 +74,9 @@ export async function POST(req:NextRequest) {
     const auth=await authorize(req);
     if (!auth.ok) return auth.response;
     const identity=`${auth.context.tenantId}:${auth.context.workspaceId}:${auth.accountId}`;
-    const limited=await mutationRateLimit(req,identity,"create");
+    // Keep the canonical rateLimit call in the mutation handler so the API-security
+    // manifest can statically prove resource-consumption protection at the boundary.
+    const limited=await rateLimit(req,{namespace:"deep-research-create",limit:8,windowMs:60_000,identity});
     if (!limited.ok) return apiRateLimited(limited.retryAfterSeconds);
 
     const idempotencyKey=validDeepResearchIdempotencyKey(req.headers.get("idempotency-key"));
@@ -125,7 +124,9 @@ export async function DELETE(req:NextRequest) {
     const auth=await authorize(req);
     if (!auth.ok) return auth.response;
     const identity=`${auth.context.tenantId}:${auth.context.workspaceId}:${auth.accountId}`;
-    const limited=await mutationRateLimit(req,identity,"cancel");
+    // DELETE is independently bounded; do not rely on a helper that static policy
+    // evidence cannot resolve.
+    const limited=await rateLimit(req,{namespace:"deep-research-cancel",limit:20,windowMs:60_000,identity});
     if (!limited.ok) return apiRateLimited(limited.retryAfterSeconds);
 
     const idempotencyKey=validDeepResearchIdempotencyKey(req.headers.get("idempotency-key"));
