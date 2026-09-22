@@ -152,6 +152,43 @@ BEGIN
   IF TG_OP = 'UPDATE' AND OLD.status = 'final' THEN RAISE EXCEPTION 'final research artifacts are immutable' USING ERRCODE = '55000'; END IF;
   IF TG_OP = 'UPDATE' AND OLD.status = 'draft' AND NEW.status = 'final' THEN
     IF NEW.finalized_at IS NULL THEN RAISE EXCEPTION 'finalized_at is required for final research artifacts' USING ERRCODE = '23514'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM ai_research_claims c
+      WHERE c.tenant_id = NEW.tenant_id AND c.workspace_id = NEW.workspace_id AND c.run_id = NEW.run_id
+        AND c.claim_type = 'externally_factual'
+        AND NOT EXISTS (
+          SELECT 1 FROM ai_research_claim_citations cc
+          WHERE cc.tenant_id = c.tenant_id AND cc.workspace_id = c.workspace_id
+            AND cc.run_id = c.run_id AND cc.claim_id = c.id
+        )
+    ) THEN RAISE EXCEPTION 'externally factual research claims require citations before finalization' USING ERRCODE = '23514'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM ai_research_claims c
+      WHERE c.tenant_id = NEW.tenant_id AND c.workspace_id = NEW.workspace_id AND c.run_id = NEW.run_id
+        AND c.claim_type = 'externally_factual'
+        AND c.freshness_class IN ('live','day','week','month')
+        AND NOT EXISTS (
+          SELECT 1 FROM ai_research_claim_citations cc
+          JOIN ai_research_sources s ON s.id = cc.source_id AND s.tenant_id = cc.tenant_id
+            AND s.workspace_id = cc.workspace_id AND s.run_id = cc.run_id
+          WHERE cc.tenant_id = c.tenant_id AND cc.workspace_id = c.workspace_id
+            AND cc.run_id = c.run_id AND cc.claim_id = c.id
+            AND s.retrieved_at IS NOT NULL
+        )
+    ) THEN RAISE EXCEPTION 'time-sensitive factual research claims require freshness evidence' USING ERRCODE = '23514'; END IF;
+    IF EXISTS (
+      SELECT 1 FROM ai_research_claims c
+      WHERE c.tenant_id = NEW.tenant_id AND c.workspace_id = NEW.workspace_id AND c.run_id = NEW.run_id
+        AND c.claim_type = 'externally_factual'
+        AND NOT EXISTS (
+          SELECT 1 FROM ai_research_claim_citations cc
+          JOIN ai_research_sources s ON s.id = cc.source_id AND s.tenant_id = cc.tenant_id
+            AND s.workspace_id = cc.workspace_id AND s.run_id = cc.run_id
+          WHERE cc.tenant_id = c.tenant_id AND cc.workspace_id = c.workspace_id
+            AND cc.run_id = c.run_id AND cc.claim_id = c.id
+            AND s.source_channel <> 'social_x'
+        )
+    ) THEN RAISE EXCEPTION 'social-only evidence cannot finalize externally factual research claims' USING ERRCODE = '23514'; END IF;
     IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id OR NEW.run_id IS DISTINCT FROM OLD.run_id OR NEW.version IS DISTINCT FROM OLD.version OR NEW.created_at IS DISTINCT FROM OLD.created_at
       THEN RAISE EXCEPTION 'research artifact identity is immutable' USING ERRCODE = '55000'; END IF;
   END IF;

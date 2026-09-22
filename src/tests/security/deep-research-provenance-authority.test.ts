@@ -32,6 +32,13 @@ describe("deep research provenance database authority", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(claim_id, tenant_id, workspace_id, run_id\)/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /UNIQUE \(tenant_id, workspace_id, run_id, conflict_set_id, claim_id\)/u);
   });
+  it("fails finalization closed when factual evidence is missing, stale, or social-only", () => {
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /externally factual research claims require citations before finalization/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /time-sensitive factual research claims require freshness evidence/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /social-only evidence cannot finalize externally factual research claims/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /s\.source_channel <> 'social_x'/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /s\.retrieved_at IS NOT NULL/u);
+  });
   it("makes finalized artifacts immutable and records provider provenance", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /final research artifacts are immutable/u);
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /provider_id TEXT NOT NULL/u);
