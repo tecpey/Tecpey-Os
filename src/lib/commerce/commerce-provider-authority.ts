@@ -110,7 +110,7 @@ export async function claimCommerceProviderOperationTx(
   }
   await client.query(
     "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
-    [`${input.tenantId}\0${input.workspaceId}\0${input.provider}\0${input.idempotencyKey}`],
+    [`${input.tenantId}:${input.workspaceId}:${input.provider}:${input.idempotencyKey}`],
   );
   const existing = await client.query<ProviderOperationRow>(
     `SELECT request_sha256, provider_object_id, status, updated_at
