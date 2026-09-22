@@ -45,15 +45,15 @@ test("commerce purchase readiness binds active plan legal copy to the disclosed 
 test("provider operation request hashes are canonical and preserve integer minor-unit identity", () => {
   const a = hashCommerceProviderOperation({
     tenantId: "tecpey", workspaceId: "main", provider: "testpay", operationType: "refund",
-    providerPaymentId: "pay-1", amountMinor: 1234567890123456789n, currency: "USD",
+    providerPaymentId: "pay-1", amountMinor: BigInt("1234567890123456789"), currency: "USD",
   });
   const b = hashCommerceProviderOperation({
-    currency: "USD", amountMinor: 1234567890123456789n, providerPaymentId: "pay-1",
+    currency: "USD", amountMinor: BigInt("1234567890123456789"), providerPaymentId: "pay-1",
     operationType: "refund", provider: "testpay", workspaceId: "main", tenantId: "tecpey",
   });
   const changed = hashCommerceProviderOperation({
     tenantId: "tecpey", workspaceId: "main", provider: "testpay", operationType: "refund",
-    providerPaymentId: "pay-1", amountMinor: 1234567890123456790n, currency: "USD",
+    providerPaymentId: "pay-1", amountMinor: BigInt("1234567890123456790"), currency: "USD",
   });
   assert.equal(a, b);
   assert.notEqual(a, changed);
