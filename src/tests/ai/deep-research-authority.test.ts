@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { cancelDeepResearchRun, createDeepResearchRun, DEEP_RESEARCH_CAPABILITY } from "../../lib/ai/deep-research-authority";
 
-type QueryRow = Readonly<Record<string, unknown>>;\ntype QueryResult = { rows: QueryRow[] };
+type QueryRow = Readonly<Record<string, unknown>>;
+type QueryResult = { rows: QueryRow[] };
 function clientFor(input:{billingRows?:QueryRow[][];insertRows?:QueryRow[];updateRows?:QueryRow[]}) {
   let billing=0;
   return {
