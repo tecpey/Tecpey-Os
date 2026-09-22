@@ -17,6 +17,16 @@ type SnapshotRow = {
   snapshot_version: string | number; capabilities: Record<string, unknown>; valid_from: Date; valid_until: Date | null;
 };
 
+const LIVE_SUBSCRIPTION_STATES: readonly CommercialSubscriptionState[] = [
+  "pending", "trialing", "active", "grace", "suspended",
+];
+
+const inactiveEntitlement = (snapshotVersion: number | null = null) => ({
+  active: false as const,
+  capabilities: {},
+  snapshotVersion,
+});
+
 export async function readCommerceBillingAuthority(
   client: PoolClient,
   scope: { tenantId: string; workspaceId: string; accountId: string },
@@ -25,23 +35,44 @@ export async function readCommerceBillingAuthority(
   if (!scope.tenantId || !scope.workspaceId || !scope.accountId || !Number.isFinite(now.getTime())) {
     throw new Error("invalid_commerce_billing_scope");
   }
-  const subscriptions = await client.query<SubscriptionRow>(
+
+  // Historical canceled/expired subscriptions are legitimate ledger history and
+  // must not make a current subscription unreadable. Only simultaneous live
+  // candidates are ambiguous. We deliberately fetch at most two to prove
+  // uniqueness without trusting client-side ordering or provider redirects.
+  const live = await client.query<SubscriptionRow>(
     `SELECT id,plan_key,plan_version,state,effective_at,current_period_end,cancel_at,state_version
        FROM commerce_subscriptions
       WHERE tenant_id=$1 AND workspace_id=$2 AND account_id=$3
-      ORDER BY effective_at DESC, created_at DESC, id DESC LIMIT 2`,
-    [scope.tenantId, scope.workspaceId, scope.accountId],
+        AND state = ANY($4::text[])
+      ORDER BY effective_at DESC, created_at DESC, id DESC
+      LIMIT 2`,
+    [scope.tenantId, scope.workspaceId, scope.accountId, LIVE_SUBSCRIPTION_STATES],
   );
-  if (subscriptions.rows.length === 0) {
-    return { subscription: null, entitlement: { active: false, capabilities: {}, snapshotVersion: null } };
+  if (live.rows.length > 1) {
+    return { subscription: null, entitlement: inactiveEntitlement() };
   }
-  if (subscriptions.rows.length !== 1) {
-    return { subscription: null, entitlement: { active: false, capabilities: {}, snapshotVersion: null } };
+
+  let row = live.rows[0];
+  if (!row) {
+    const terminal = await client.query<SubscriptionRow>(
+      `SELECT id,plan_key,plan_version,state,effective_at,current_period_end,cancel_at,state_version
+         FROM commerce_subscriptions
+        WHERE tenant_id=$1 AND workspace_id=$2 AND account_id=$3
+          AND state IN ('canceled','expired')
+        ORDER BY effective_at DESC, created_at DESC, id DESC
+        LIMIT 1`,
+      [scope.tenantId, scope.workspaceId, scope.accountId],
+    );
+    row = terminal.rows[0];
   }
-  const row = subscriptions.rows[0];
+  if (!row) {
+    return { subscription: null, entitlement: inactiveEntitlement() };
+  }
+
   const stateVersion = Number(row.state_version);
   if (!Number.isSafeInteger(stateVersion) || stateVersion < 1) {
-    return { subscription: null, entitlement: { active: false, capabilities: {}, snapshotVersion: null } };
+    return { subscription: null, entitlement: inactiveEntitlement() };
   }
   const subscription = {
     id: row.id, planKey: row.plan_key, planVersion: row.plan_version, state: row.state,
@@ -51,7 +82,7 @@ export async function readCommerceBillingAuthority(
     state: row.state, now, effectiveAt: row.effective_at, currentPeriodEnd: row.current_period_end,
   });
   if (!stateAllowsEntitlement) {
-    return { subscription, entitlement: { active: false, capabilities: {}, snapshotVersion: null } };
+    return { subscription, entitlement: inactiveEntitlement() };
   }
 
   const snapshots = await client.query<SnapshotRow>(
@@ -63,7 +94,7 @@ export async function readCommerceBillingAuthority(
   );
   const snapshot = snapshots.rows[0];
   if (!snapshot) {
-    return { subscription, entitlement: { active: false, capabilities: {}, snapshotVersion: null } };
+    return { subscription, entitlement: inactiveEntitlement() };
   }
   const snapshotVersion = Number(snapshot.snapshot_version);
   const currentSnapshot =
@@ -72,7 +103,7 @@ export async function readCommerceBillingAuthority(
     snapshot.valid_from.getTime() <= now.getTime() &&
     (snapshot.valid_until === null || snapshot.valid_until.getTime() > now.getTime());
   if (!currentSnapshot) {
-    return { subscription, entitlement: { active: false, capabilities: {}, snapshotVersion } };
+    return { subscription, entitlement: inactiveEntitlement(snapshotVersion) };
   }
   return { subscription, entitlement: { active: true, capabilities: snapshot.capabilities, snapshotVersion } };
 }
