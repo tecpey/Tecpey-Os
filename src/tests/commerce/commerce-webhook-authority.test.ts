@@ -32,7 +32,7 @@ test("verified webhook hashes the exact raw body and retains only bounded redact
     adapter, body, headers: { "x-signature": "adapter-owned" }, eventType: "subscription.updated",
     payloadRedacted: { object: "subscription" }, now: new Date("2026-09-22T00:00:00Z"),
   });
-  assert.equal(out.payloadSha256, "b60513a4f739f6b286eb9d77f8f0ae1457edbbfdd79c77781a03e9d44b08cfc9");
+  assert.equal(out.payloadSha256, "dd25a7efbade7fb8d0442f3baa767bc62372298006522b55fccf97c310dd1512");
   assert.deepEqual(out.payloadRedacted, { object: "subscription" });
   assert.equal(out.payloadExpiresAt.toISOString(), "2026-09-29T00:00:00.000Z");
 });

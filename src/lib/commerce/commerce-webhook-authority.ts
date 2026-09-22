@@ -222,7 +222,7 @@ export async function ingestVerifiedCommercialWebhook(
         [
           scope.tenantId, scope.workspaceId, subscription.account_id, subscription.id, next.stateVersion,
           providerEventPk, JSON.stringify(capabilities), next.effectiveAt,
-          active ? next.currentPeriodEnd : next.effectiveAt,
+          active ? next.currentPeriodEnd : null,
         ],
       );
     }
