@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS ai_research_runs (
     CHECK (requested_freshness IN ('current','day','week','month','historical')),
   provider_strategy JSONB NOT NULL DEFAULT '{}'::jsonb,
   state TEXT NOT NULL DEFAULT 'planned'
-    CHECK (state IN ('planned','gathering','synthesizing','verifying','completed','failed','cancelled')),
+    CHECK (state IN ('planned','gathering','synthesizing','verifying','reporting','completed','failed','cancelled')),
   budget JSONB NOT NULL DEFAULT '{}'::jsonb,
   degraded_reason TEXT,
   started_at TIMESTAMPTZ,
@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS ai_research_sources (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
   UNIQUE (id, tenant_id, workspace_id),
+  UNIQUE (id, tenant_id, workspace_id, run_id),
   CHECK (octet_length(provider_metadata::text) <= 32768)
 );
 
@@ -65,7 +66,8 @@ CREATE TABLE IF NOT EXISTS ai_research_claims (
     CHECK (freshness_class IN ('live','day','week','month','historical','not_applicable')),
   confidence_rationale TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  UNIQUE (id, tenant_id, workspace_id)
+  UNIQUE (id, tenant_id, workspace_id),
+  UNIQUE (id, tenant_id, workspace_id, run_id)
 );
 
 CREATE TABLE IF NOT EXISTS ai_research_claim_citations (
@@ -75,9 +77,9 @@ CREATE TABLE IF NOT EXISTS ai_research_claim_citations (
   locator JSONB NOT NULL DEFAULT '{}'::jsonb, annotation TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  FOREIGN KEY (claim_id, tenant_id, workspace_id) REFERENCES ai_research_claims(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  FOREIGN KEY (source_id, tenant_id, workspace_id) REFERENCES ai_research_sources(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  UNIQUE (claim_id, source_id), CHECK (octet_length(locator::text) <= 8192)
+  FOREIGN KEY (claim_id, tenant_id, workspace_id, run_id) REFERENCES ai_research_claims(id, tenant_id, workspace_id, run_id) ON DELETE RESTRICT,
+  FOREIGN KEY (source_id, tenant_id, workspace_id, run_id) REFERENCES ai_research_sources(id, tenant_id, workspace_id, run_id) ON DELETE RESTRICT,
+  UNIQUE (tenant_id, workspace_id, run_id, claim_id, source_id), CHECK (octet_length(locator::text) <= 8192)
 );
 
 CREATE TABLE IF NOT EXISTS ai_research_conflict_sets (
@@ -101,8 +103,8 @@ CREATE TABLE IF NOT EXISTS ai_research_artifacts (
   cited_source_count INTEGER NOT NULL DEFAULT 0 CHECK (cited_source_count >= 0 AND cited_source_count <= source_count),
   finalized_at TIMESTAMPTZ, supersedes_artifact_id UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (run_id, tenant_id, workspace_id) REFERENCES ai_research_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  FOREIGN KEY (supersedes_artifact_id, tenant_id, workspace_id) REFERENCES ai_research_artifacts(id, tenant_id, workspace_id) ON DELETE RESTRICT,
-  UNIQUE (run_id, version), UNIQUE (id, tenant_id, workspace_id),
+  FOREIGN KEY (supersedes_artifact_id, tenant_id, workspace_id, run_id) REFERENCES ai_research_artifacts(id, tenant_id, workspace_id, run_id) ON DELETE RESTRICT,
+  UNIQUE (run_id, version), UNIQUE (id, tenant_id, workspace_id), UNIQUE (id, tenant_id, workspace_id, run_id),
   CHECK ((status = 'draft' AND finalized_at IS NULL) OR (status = 'final' AND finalized_at IS NOT NULL)),
   CHECK (octet_length(report::text) <= 1048576)
 );
@@ -115,8 +117,8 @@ CREATE INDEX IF NOT EXISTS ai_research_artifacts_run_idx ON ai_research_artifact
 
 REVOKE ALL ON TABLE ai_research_runs, ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets, ai_research_artifacts
 FROM PUBLIC, tecpey_ai_tenant_runtime, tecpey_ai_worker;
-GRANT SELECT, INSERT, UPDATE ON TABLE ai_research_runs, ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets, ai_research_artifacts
-TO tecpey_ai_tenant_runtime;
+GRANT SELECT, INSERT, UPDATE ON TABLE ai_research_runs, ai_research_artifacts TO tecpey_ai_tenant_runtime;
+GRANT SELECT, INSERT ON TABLE ai_research_sources, ai_research_claims, ai_research_claim_citations, ai_research_conflict_sets TO tecpey_ai_tenant_runtime;
 
 DO $research_rls$
 DECLARE relation_name TEXT;

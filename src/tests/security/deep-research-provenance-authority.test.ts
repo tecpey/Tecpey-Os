@@ -15,8 +15,15 @@ describe("deep research provenance database authority", () => {
   });
   it("binds claims, citations, sources and artifacts to scoped parents", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(run_id, tenant_id, workspace_id\)/u);
-    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(claim_id, tenant_id, workspace_id\)/u);
-    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(source_id, tenant_id, workspace_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(claim_id, tenant_id, workspace_id, run_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(source_id, tenant_id, workspace_id, run_id\)/u);
+  });
+  it("rejects cross-run provenance binding and keeps evidence append-only", () => {
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /UNIQUE \(id, tenant_id, workspace_id, run_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /FOREIGN KEY \(supersedes_artifact_id, tenant_id, workspace_id, run_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /UNIQUE \(tenant_id, workspace_id, run_id, claim_id, source_id\)/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /GRANT SELECT, INSERT ON TABLE ai_research_sources/u);
+    assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /'reporting'/u);
   });
   it("makes finalized artifacts immutable and records provider provenance", () => {
     assert.match(DEEP_RESEARCH_PROVENANCE_SQL, /final research artifacts are immutable/u);
