@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { cancelDeepResearchRun, createDeepResearchRun, DEEP_RESEARCH_CAPABILITY } from "../../lib/ai/deep-research-authority";
 
-type QueryResult = { rows: any[] };
-function clientFor(input:{billingRows?:any[][];insertRows?:any[];updateRows?:any[]}) {
+type QueryRow = Readonly<Record<string, unknown>>;\ntype QueryResult = { rows: QueryRow[] };
+function clientFor(input:{billingRows?:QueryRow[][];insertRows?:QueryRow[];updateRows?:QueryRow[]}) {
   let billing=0;
   return {
     async query(sql:string):Promise<QueryResult> {
@@ -13,7 +13,7 @@ function clientFor(input:{billingRows?:any[][];insertRows?:any[];updateRows?:any
       if (sql.includes("UPDATE ai_research_runs")) return {rows:input.updateRows ?? []};
       throw new Error("unexpected_query");
     },
-  } as any;
+  } as unknown as import("pg").PoolClient;
 }
 const subscription={id:"11111111-1111-4111-8111-111111111111",plan_key:"pro",plan_version:1,state:"active",effective_at:new Date("2026-01-01"),current_period_end:null,cancel_at:null,state_version:3};
 const snapshot={snapshot_version:3,capabilities:{[DEEP_RESEARCH_CAPABILITY]:true},valid_from:new Date("2026-01-01"),valid_until:null};
