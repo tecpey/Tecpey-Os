@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "policy": "tecpey-agent-skills-v1",
+  "updatedAt": "2026-09-24",
+  "skills": [
+    {
+      "name": "vercel-react-best-practices",
+      "path": ".agents/skills/vercel-react-best-practices",
+      "sourceRepo": "vercel-labs/agent-skills",
+      "sourceCommit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/react-best-practices",
+      "license": "MIT",
+      "publisher": "Vercel",
+      "upstreamCommitVerified": true,
+      "modified": false
+    },
+    {
+      "name": "web-design-guidelines",
+      "path": ".agents/skills/web-design-guidelines",
+      "sourceRepo": "vercel-labs/agent-skills",
+      "sourceCommit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/web-design-guidelines",
+      "license": "MIT (upstream web-interface-guidelines repository)",
+      "publisher": "Vercel",
+      "upstreamCommitVerified": true,
+      "modified": true,
+      "modification": "Mutable fetch of upstream main was replaced with project-pinned GUIDELINES.md.",
+      "secondarySource": {
+        "repo": "vercel-labs/web-interface-guidelines",
+        "commit": "e3d624baaf29dc1fc645aff3e38f03e564d2d6b1",
+        "path": "command.md",
+        "upstreamCommitVerified": true
+      }
+    },
+    {
+      "name": "vercel-composition-patterns",
+      "path": ".agents/skills/vercel-composition-patterns",
+      "sourceRepo": "vercel-labs/agent-skills",
+      "sourceCommit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/composition-patterns",
+      "license": "MIT",
+      "publisher": "Vercel",
+      "upstreamCommitVerified": true,
+      "modified": false
+    },
+    {
+      "name": "vercel-react-view-transitions",
+      "path": ".agents/skills/vercel-react-view-transitions",
+      "sourceRepo": "vercel-labs/agent-skills",
+      "sourceCommit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/react-view-transitions",
+      "license": "MIT",
+      "publisher": "Vercel",
+      "upstreamCommitVerified": true,
+      "modified": false
+    },
+    {
+      "name": "frontend-design",
+      "path": ".agents/skills/frontend-design",
+      "sourceRepo": "anthropics/skills",
+      "sourceCommit": "34040c9c568585f6929bedeaad110ad08f079624",
+      "sourcePath": "skills/frontend-design",
+      "license": "Vendored upstream LICENSE.txt",
+      "publisher": "Anthropic",
+      "upstreamCommitVerified": true,
+      "modified": false
+    },
+    {
+      "name": "webapp-testing",
+      "path": ".agents/skills/webapp-testing",
+      "sourceRepo": "anthropics/skills",
+      "sourceCommit": "34040c9c568585f6929bedeaad110ad08f079624",
+      "sourcePath": "skills/webapp-testing",
+      "license": "Vendored upstream LICENSE.txt",
+      "publisher": "Anthropic",
+      "upstreamCommitVerified": true,
+      "modified": false
+    },
+    {
+      "name": "supabase-postgres-best-practices",
+      "path": ".agents/skills/supabase-postgres-best-practices",
+      "sourceRepo": "supabase/agent-skills",
+      "sourceCommit": "8331f910845103c08d51f6ca1d86ebb7d1f745e3",
+      "sourcePath": "skills/supabase-postgres-best-practices",
+      "license": "MIT",
+      "publisher": "Supabase",
+      "upstreamCommitVerified": true,
+      "modified": false
+    },
+    {
+      "name": "to-spec",
+      "path": ".agents/skills/to-spec",
+      "sourceRepo": "mattpocock/skills",
+      "sourceCommit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "sourcePath": "skills/engineering/to-spec",
+      "license": "MIT",
+      "publisher": "Matt Pocock",
+      "upstreamCommitVerified": false,
+      "modified": false,
+      "reviewNote": "Pinned unsigned upstream commit; source content manually reviewed before vendoring."
+    },
+    {
+      "name": "domain-modeling",
+      "path": ".agents/skills/domain-modeling",
+      "sourceRepo": "mattpocock/skills",
+      "sourceCommit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "sourcePath": "skills/engineering/domain-modeling",
+      "license": "MIT",
+      "publisher": "Matt Pocock",
+      "upstreamCommitVerified": false,
+      "modified": false,
+      "reviewNote": "Pinned unsigned upstream commit; source content manually reviewed before vendoring."
+    },
+    {
+      "name": "codebase-design",
+      "path": ".agents/skills/codebase-design",
+      "sourceRepo": "mattpocock/skills",
+      "sourceCommit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "sourcePath": "skills/engineering/codebase-design",
+      "license": "MIT",
+      "publisher": "Matt Pocock",
+      "upstreamCommitVerified": false,
+      "modified": false,
+      "reviewNote": "Pinned unsigned upstream commit; source content manually reviewed before vendoring."
+    },
+    {
+      "name": "diagnosing-bugs",
+      "path": ".agents/skills/diagnosing-bugs",
+      "sourceRepo": "mattpocock/skills",
+      "sourceCommit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "sourcePath": "skills/engineering/diagnosing-bugs",
+      "license": "MIT",
+      "publisher": "Matt Pocock",
+      "upstreamCommitVerified": false,
+      "modified": false,
+      "reviewNote": "Pinned unsigned upstream commit; source content and helper script manually reviewed before vendoring."
+    },
+    {
+      "name": "tdd",
+      "path": ".agents/skills/tdd",
+      "sourceRepo": "mattpocock/skills",
+      "sourceCommit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "sourcePath": "skills/engineering/tdd",
+      "license": "MIT",
+      "publisher": "Matt Pocock",
+      "upstreamCommitVerified": false,
+      "modified": false,
+      "reviewNote": "Pinned unsigned upstream commit; source content manually reviewed before vendoring."
+    },
+    {
+      "name": "code-review",
+      "path": ".agents/skills/code-review",
+      "sourceRepo": "mattpocock/skills",
+      "sourceCommit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "sourcePath": "skills/engineering/code-review",
+      "license": "MIT",
+      "publisher": "Matt Pocock",
+      "upstreamCommitVerified": false,
+      "modified": false,
+      "reviewNote": "Pinned unsigned upstream commit; source content manually reviewed before vendoring."
+    }
+  ]
+}
