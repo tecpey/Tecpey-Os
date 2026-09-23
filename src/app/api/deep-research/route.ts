@@ -129,6 +129,10 @@ export async function POST(req:NextRequest) {
 export async function DELETE(req:NextRequest) {
   return withObservability(req,{route:"/api/deep-research DELETE"},async()=>{
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden",403);
+    const boundarySession=await getCanonicalSession(req,{strictRevocation:true});
+    if (!(boundarySession.academyAccountId ?? boundarySession.userId ?? boundarySession.studentId)) {
+      return apiError(boundarySession.authorityDegraded?"deep_research_authority_unavailable":"unauthorized",boundarySession.authorityDegraded?503:401);
+    }
     const auth=await authorize(req);
     if (!auth.ok) return auth.response;
     const identity=`${auth.context.tenantId}:${auth.context.workspaceId}:${auth.accountId}`;
