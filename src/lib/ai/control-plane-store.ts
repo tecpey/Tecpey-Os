@@ -1543,19 +1543,24 @@ export async function loadVerifiedAiKnowledgeContext(input: {
   }
 }
 
-/**
- * Conservatively reserves the largest possible response before provider
- * egress. The single conditional UPSERT keeps request and token ceilings
- * race-safe across workers; unused output capacity is not returned.
- */
-export async function admitAiAgentUsage(input: {
+export type AiUsageAdmissionInput = {
   tenantId: string;
   workspaceId: string;
   agentId: AiAgentId;
   estimatedInputTokens: number;
   maxOutputTokens: number;
   limits: AiAgentLimits;
-}): Promise<AiUsageAdmission> {
+};
+
+/**
+ * Transaction-composable request/token quota admission. Callers must already
+ * own a signed tenant transaction; failures roll back with adjacent spend and
+ * evidence mutations.
+ */
+export async function admitAiAgentUsageWithinAuthorityTransaction(
+  client: PoolClient,
+  input: AiUsageAdmissionInput,
+): Promise<AiUsageAdmission> {
   const inputTokens = Number.isFinite(input.estimatedInputTokens)
     ? Math.max(1, Math.trunc(input.estimatedInputTokens))
     : input.limits.maxInputTokens + 1;
@@ -1569,57 +1574,68 @@ export async function admitAiAgentUsage(input: {
   const reservation = inputTokens + outputTokens;
   if (reservation > input.limits.dailyTokens)
     return { ok: false, reason: "token_limit" };
+
+  const admitted = await client.query<{
+    request_count: string | number;
+    reserved_tokens: string | number;
+  }>(
+    `INSERT INTO ai_agent_usage_daily
+       (tenant_id, workspace_id, agent_id, usage_date, request_count, reserved_tokens)
+     VALUES ($1, $2, $3, CURRENT_DATE, 1, $4)
+     ON CONFLICT (tenant_id, workspace_id, agent_id, usage_date) DO UPDATE SET
+       request_count = ai_agent_usage_daily.request_count + 1,
+       reserved_tokens = ai_agent_usage_daily.reserved_tokens + EXCLUDED.reserved_tokens,
+       updated_at = NOW()
+     WHERE ai_agent_usage_daily.request_count < $5
+       AND ai_agent_usage_daily.reserved_tokens + EXCLUDED.reserved_tokens <= $6
+     RETURNING request_count, reserved_tokens`,
+    [
+      input.tenantId,
+      input.workspaceId,
+      input.agentId,
+      reservation,
+      input.limits.dailyRequests,
+      input.limits.dailyTokens,
+    ],
+  );
+  if (admitted.rows[0]) {
+    return {
+      ok: true,
+      requestCount: Number(admitted.rows[0].request_count),
+      reservedTokens: Number(admitted.rows[0].reserved_tokens),
+    };
+  }
+  const current = await client.query<{
+    request_count: string | number;
+    reserved_tokens: string | number;
+  }>(
+    `SELECT request_count, reserved_tokens
+       FROM ai_agent_usage_daily
+      WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
+        AND usage_date = CURRENT_DATE`,
+    [input.tenantId, input.workspaceId, input.agentId],
+  );
+  return {
+    ok: false,
+    reason:
+      Number(current.rows[0]?.request_count ?? 0) >= input.limits.dailyRequests
+        ? "request_limit"
+        : "token_limit",
+  };
+}
+
+/**
+ * Conservatively reserves the largest possible response before provider
+ * egress. The single conditional UPSERT keeps request and token ceilings
+ * race-safe across workers; unused output capacity is not returned.
+ */
+export async function admitAiAgentUsage(
+  input: AiUsageAdmissionInput,
+): Promise<AiUsageAdmission> {
   try {
-    const result = await withAiTenantTransaction(input, async (client) => {
-      const admitted = await client.query<{
-        request_count: string | number;
-        reserved_tokens: string | number;
-      }>(
-        `INSERT INTO ai_agent_usage_daily
-           (tenant_id, workspace_id, agent_id, usage_date, request_count, reserved_tokens)
-         VALUES ($1, $2, $3, CURRENT_DATE, 1, $4)
-         ON CONFLICT (tenant_id, workspace_id, agent_id, usage_date) DO UPDATE SET
-           request_count = ai_agent_usage_daily.request_count + 1,
-           reserved_tokens = ai_agent_usage_daily.reserved_tokens + EXCLUDED.reserved_tokens,
-           updated_at = NOW()
-         WHERE ai_agent_usage_daily.request_count < $5
-           AND ai_agent_usage_daily.reserved_tokens + EXCLUDED.reserved_tokens <= $6
-         RETURNING request_count, reserved_tokens`,
-        [
-          input.tenantId,
-          input.workspaceId,
-          input.agentId,
-          reservation,
-          input.limits.dailyRequests,
-          input.limits.dailyTokens,
-        ],
-      );
-      if (admitted.rows[0]) {
-        return {
-          ok: true as const,
-          requestCount: Number(admitted.rows[0].request_count),
-          reservedTokens: Number(admitted.rows[0].reserved_tokens),
-        };
-      }
-      const current = await client.query<{
-        request_count: string | number;
-        reserved_tokens: string | number;
-      }>(
-        `SELECT request_count, reserved_tokens
-           FROM ai_agent_usage_daily
-          WHERE tenant_id = $1 AND workspace_id = $2 AND agent_id = $3
-            AND usage_date = CURRENT_DATE`,
-        [input.tenantId, input.workspaceId, input.agentId],
-      );
-      const row = current.rows[0];
-      return {
-        ok: false as const,
-        reason:
-          Number(row?.request_count ?? 0) >= input.limits.dailyRequests
-            ? ("request_limit" as const)
-            : ("token_limit" as const),
-      };
-    });
+    const result = await withAiTenantTransaction(input, (client) =>
+      admitAiAgentUsageWithinAuthorityTransaction(client, input)
+    );
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
   } catch {
     return { ok: false, reason: "unavailable" };
