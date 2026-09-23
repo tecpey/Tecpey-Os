@@ -165,3 +165,40 @@ export async function cancelDeepResearchRun(client: PoolClient,input:{
   if (!row) throw new Error("deep_research_run_not_cancellable");
   return row;
 }
+
+
+export type DeepResearchRunSnapshot = Readonly<{
+  id:string; question:string; locale:"fa"|"en"; requestedFreshness:DeepResearchFreshness;
+  state:"planned"|"gathering"|"synthesizing"|"verifying"|"reporting"|"completed"|"failed"|"cancelled";
+  degradedReason:string|null; startedAt:string|null; completedAt:string|null; cancelledAt:string|null; createdAt:string;
+}>;
+
+function runSnapshot(row:{
+  id:string;question:string;locale:"fa"|"en";requested_freshness:DeepResearchFreshness;state:DeepResearchRunSnapshot["state"];
+  degraded_reason:string|null;started_at:Date|null;completed_at:Date|null;cancelled_at:Date|null;created_at:Date;
+}):DeepResearchRunSnapshot {
+  return {
+    id:row.id,question:row.question,locale:row.locale,requestedFreshness:row.requested_freshness,state:row.state,
+    degradedReason:row.degraded_reason,startedAt:row.started_at?.toISOString()??null,completedAt:row.completed_at?.toISOString()??null,
+    cancelledAt:row.cancelled_at?.toISOString()??null,createdAt:row.created_at.toISOString(),
+  };
+}
+
+export async function readDeepResearchRuns(client:PoolClient,input:{
+  tenantId:string;workspaceId:string;accountId:string;limit:number;
+}):Promise<DeepResearchRunSnapshot[]> {
+  if (!input.tenantId || !input.workspaceId || !input.accountId) throw new Error("deep_research_scope_invalid");
+  const limit=Math.max(1,Math.min(50,Math.trunc(input.limit)));
+  const result=await client.query<{
+    id:string;question:string;locale:"fa"|"en";requested_freshness:DeepResearchFreshness;state:DeepResearchRunSnapshot["state"];
+    degraded_reason:string|null;started_at:Date|null;completed_at:Date|null;cancelled_at:Date|null;created_at:Date;
+  }>(
+    `SELECT id,question,locale,requested_freshness,state,degraded_reason,started_at,completed_at,cancelled_at,created_at
+       FROM ai_research_runs
+      WHERE tenant_id=$1 AND workspace_id=$2 AND account_id=$3
+      ORDER BY created_at DESC,id DESC
+      LIMIT $4`,
+    [input.tenantId,input.workspaceId,input.accountId,limit],
+  );
+  return result.rows.map(runSnapshot);
+}
