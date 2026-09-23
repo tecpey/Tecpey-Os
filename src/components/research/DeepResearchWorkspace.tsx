@@ -43,6 +43,28 @@ const copy={
 
 function idempotencyKey(prefix:string){return `${prefix}-${crypto.randomUUID()}`;}
 
+function AuthoritativeReport({locale,state,onClose}:{locale:Locale;state:{runId:string|null;artifact:Artifact|null;loading:boolean;error:boolean};onClose:()=>void}){
+ const t=copy[locale],isFa=locale==="fa";
+ const artifact=state.artifact;
+ if(state.loading)return <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="authoritative-report"><ReportHeader title={t.evidence} close={t.closeReport} onClose={onClose}/><p role="status" className="mt-4">{t.reportLoading}</p></section>;
+ if(state.error)return <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="authoritative-report"><ReportHeader title={t.evidence} close={t.closeReport} onClose={onClose}/><p role="alert" className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 p-4 font-bold">{t.reportUnavailable}</p></section>;
+ if(!artifact)return <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="authoritative-report"><ReportHeader title={t.evidence} close={t.closeReport} onClose={onClose}/><p role="status" className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 font-bold">{t.noArtifact}</p></section>;
+ const unresolvedClaims=artifact.claims.filter(claim=>claim.claimType==="unresolved");
+ const substantiveClaims=artifact.claims.filter(claim=>claim.claimType!=="unresolved");
+ return <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="authoritative-report">
+  <ReportHeader title={t.evidence} close={t.closeReport} onClose={onClose}/>
+  <div className="mt-5 space-y-5">
+   <div className="flex flex-wrap gap-3 text-xs font-black"><span className="rounded-full border px-3 py-2" dir="ltr">{artifact.status} · v{artifact.version}</span><span className="rounded-full border px-3 py-2">{t.consulted}: {artifact.sourceCount}</span><span className="rounded-full border px-3 py-2">{t.cited}: {artifact.citedSourceCount}</span></div>
+   {substantiveClaims.length?<div className="grid gap-4">{substantiveClaims.map(claim=><article key={claim.id} className="rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex flex-wrap gap-2 text-xs font-black"><span className="rounded-full border px-2 py-1">{t.claimTypes[claim.claimType]}</span><span className="rounded-full border px-2 py-1">{t.freshnessClasses[claim.freshnessClass]}</span></div><p className="mt-3 font-bold leading-8">{claim.normalizedText}</p>{claim.confidenceRationale?<p className="mt-3 text-sm text-[color:var(--tp-muted)]"><strong>{t.confidence}: </strong>{claim.confidenceRationale}</p>:null}<div className="mt-4 flex flex-wrap gap-2">{claim.sourceIds.map(sourceId=>{const source=artifact.sources.find(item=>item.id===sourceId);return source?<a key={sourceId} href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-400/30 px-3 py-2 text-sm font-black text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:text-cyan-300"><span>{source.title||source.publisher||source.domain||t.sources}</span><span className="text-xs font-bold text-[color:var(--tp-muted)]">{t.retrieved}: <time dateTime={source.retrievedAt}>{new Date(source.retrievedAt).toLocaleString(isFa?"fa-IR":"en-US")}</time></span><ExternalLink className="h-4 w-4" aria-hidden/></a>:null;})}</div></article>)}</div>:<p className="rounded-2xl border p-4 text-sm font-bold text-[color:var(--tp-muted)]">{t.noClaims}</p>}
+   <section><h3 className="font-black">{t.unknownClaims}</h3>{unresolvedClaims.length?<div className="mt-3 grid gap-3">{unresolvedClaims.map(claim=><article key={claim.id} className="rounded-2xl border border-slate-200 p-4 dark:border-white/10"><span className="text-xs font-black">{t.freshnessClasses[claim.freshnessClass]}</span><p className="mt-2 font-bold">{claim.normalizedText}</p>{claim.confidenceRationale?<p className="mt-2 text-sm text-[color:var(--tp-muted)]">{claim.confidenceRationale}</p>:null}</article>)}</div>:<p className="mt-3 text-sm font-bold text-[color:var(--tp-muted)]">{t.noUnknowns}</p>}</section>
+   <section><h3 className="font-black">{t.conflict}</h3>{artifact.conflicts.length?<div className="mt-3 grid gap-3">{artifact.conflicts.map(conflict=><article key={conflict.id} className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><div className="text-xs font-black">{t.resolutionStates[conflict.resolutionState]}</div><p className="mt-2 font-bold">{conflict.summary}</p></article>)}</div>:<p className="mt-3 text-sm font-bold text-[color:var(--tp-muted)]">{t.noConflicts}</p>}</section>
+  </div>
+ </section>;
+}
+function ReportHeader({title,close,onClose}:{title:string;close:string;onClose:()=>void}){
+ return <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="authoritative-report" className="text-xl font-black">{title}</h2><button type="button" onClick={onClose} className="min-h-11 rounded-xl border px-4 font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">{close}</button></div>;
+}
+
 export function DeepResearchWorkspace({locale}:{locale:Locale}){
  const t=copy[locale],isFa=locale==="fa";
  const [question,setQuestion]=useState("");
@@ -55,8 +77,6 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
  const historyError=history.locale===locale?history.error:false;
  const stages=useMemo(()=>["plan","gather","synthesize","verify","report"] as Stage[],[]);
  const activeRun=runs?.find(run=>cancellable(run.state))??null;
- const unresolvedClaims=artifactState.artifact?.claims.filter(claim=>claim.claimType==="unresolved")??[];
- const substantiveClaims=artifactState.artifact?.claims.filter(claim=>claim.claimType!=="unresolved")??[];
  const stage=activeRun?stageForState(activeRun.state):"plan";
 
  const loadHistory=useCallback(async(signal?:AbortSignal)=>{
@@ -153,15 +173,11 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
     </li>)}</ul>}
    </section>
 
-   {artifactState.runId?<section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="authoritative-report">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="authoritative-report" className="text-xl font-black">{t.evidence}</h2><button type="button" onClick={()=>setArtifactState({runId:null,artifact:null,loading:false,error:false})} className="min-h-11 rounded-xl border px-4 font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">{t.closeReport}</button></div>
-    {artifactState.loading?<p role="status" className="mt-4">{t.reportLoading}</p>:artifactState.error?<p role="alert" className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 p-4 font-bold">{t.reportUnavailable}</p>:artifactState.artifact?<div className="mt-5 space-y-5">
-     <div className="flex flex-wrap gap-3 text-xs font-black"><span className="rounded-full border px-3 py-2" dir="ltr">{artifactState.artifact.status} · v{artifactState.artifact.version}</span><span className="rounded-full border px-3 py-2">{t.consulted}: {artifactState.artifact.sourceCount}</span><span className="rounded-full border px-3 py-2">{t.cited}: {artifactState.artifact.citedSourceCount}</span></div>
-     {substantiveClaims.length?<div className="grid gap-4">{substantiveClaims.map(claim=><article key={claim.id} className="rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex flex-wrap gap-2 text-xs font-black"><span className="rounded-full border px-2 py-1">{t.claimTypes[claim.claimType]}</span><span className="rounded-full border px-2 py-1">{t.freshnessClasses[claim.freshnessClass]}</span></div><p className="mt-3 font-bold leading-8">{claim.normalizedText}</p>{claim.confidenceRationale?<p className="mt-3 text-sm text-[color:var(--tp-muted)]"><strong>{t.confidence}: </strong>{claim.confidenceRationale}</p>:null}<div className="mt-4 flex flex-wrap gap-2">{claim.sourceIds.map(sourceId=>{const source=artifactState.artifact?.sources.find(item=>item.id===sourceId);return source?<a key={sourceId} href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-400/30 px-3 py-2 text-sm font-black text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:text-cyan-300"><span>{source.title||source.publisher||source.domain||t.sources}</span><span className="text-xs font-bold text-[color:var(--tp-muted)]">{t.retrieved}: <time dateTime={source.retrievedAt}>{new Date(source.retrievedAt).toLocaleString(isFa?"fa-IR":"en-US")}</time></span><ExternalLink className="h-4 w-4" aria-hidden/></a>:null;})}</div></article>)}</div>:<p className="rounded-2xl border p-4 text-sm font-bold text-[color:var(--tp-muted)]">{t.noClaims}</p>}
-     <section><h3 className="font-black">{t.unknownClaims}</h3>{unresolvedClaims.length?<div className="mt-3 grid gap-3">{unresolvedClaims.map(claim=><article key={claim.id} className="rounded-2xl border border-slate-200 p-4 dark:border-white/10"><span className="text-xs font-black">{t.freshnessClasses[claim.freshnessClass]}</span><p className="mt-2 font-bold">{claim.normalizedText}</p>{claim.confidenceRationale?<p className="mt-2 text-sm text-[color:var(--tp-muted)]">{claim.confidenceRationale}</p>:null}</article>)}</div>:<p className="mt-3 text-sm font-bold text-[color:var(--tp-muted)]">{t.noUnknowns}</p>}</section>
-     <section><h3 className="font-black">{t.conflict}</h3>{artifactState.artifact.conflicts.length?<div className="mt-3 grid gap-3">{artifactState.artifact.conflicts.map(conflict=><article key={conflict.id} className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><div className="text-xs font-black">{t.resolutionStates[conflict.resolutionState]}</div><p className="mt-2 font-bold">{conflict.summary}</p></article>)}</div>:<p className="mt-3 text-sm font-bold text-[color:var(--tp-muted)]">{t.noConflicts}</p>}</section>
-    </div>}
-   </section>:null}
+   {artifactState.runId ? <AuthoritativeReport
+    locale={locale}
+    state={artifactState}
+    onClose={()=>setArtifactState({runId:null,artifact:null,loading:false,error:false})}
+   /> : null}
 
    <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="evidence-preview">
     <div className="flex items-center gap-3"><BookOpenCheck className="h-6 w-6 text-cyan-500" aria-hidden/><h2 id="evidence-preview" className="text-xl font-black">{t.evidence}</h2></div>
