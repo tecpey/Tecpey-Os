@@ -104,7 +104,7 @@ import { ACADEMY_QUESTION_BANK_BASELINE_SQL } from "./db-migrate-academy-questio
 import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";
 import { PRO_COMMERCE_AUTHORITY_SQL } from "./db-migrate-pro-commerce-authority";
 import { PRO_COMMERCE_LEDGER_HARDENING_SQL } from "./db-migrate-pro-commerce-ledger-hardening";
-import { DEEP_RESEARCH_PROVENANCE_SQL } from "./db-migrate-deep-research-provenance";
+import { DEEP_RESEARCH_PROVENANCE_SQL } from "./db-migrate-deep-research-provenance";\nimport { MODEL_LAB_COUNCIL_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-council";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
