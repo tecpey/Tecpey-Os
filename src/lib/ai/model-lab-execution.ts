@@ -150,6 +150,7 @@ export type AiModelLabEgressMark =
   | Readonly<{ ok: false; reason: string }>;
 
 type FinalizeInput = ExecutionScope & Readonly<{
+  runId: string;
   prepared: PreparedAiModelLabCandidate;
   egressMarked: boolean;
   providerResult: AiProviderCallResult;
@@ -779,40 +780,32 @@ export async function finalizeAiModelLabCandidateExecution(
   const sources = safeSources(input.sources);
   try {
     const result = await withAiTenantTransaction(input, async (client) => {
-      await lockExecutionScope(client, input, input.prepared.candidateId);
+      await lockExecutionScope(client, input, input.runId);
+      const admissionRows = await client.query<{ agent_id: AiAgentId }>(
+        `SELECT agent_id
+           FROM ai_model_lab_egress_admissions
+          WHERE attempt_id=$1::uuid
+            AND tenant_id=$2 AND workspace_id=$3 AND account_id=$4
+            AND run_id=$5::uuid AND candidate_id=$6::uuid
+            AND reservation_id=$7::uuid
+          LIMIT 1`,
+        [
+          input.prepared.attemptId,
+          input.tenantId,
+          input.workspaceId,
+          input.accountId,
+          input.runId,
+          input.prepared.candidateId,
+          input.prepared.reservationId,
+        ],
+      );
+      const agentId = admissionRows.rows[0]?.agent_id;
+      if (!agentId) throw new Error("ai_model_lab_egress_admission_not_found");
+
       const settlement = await settleAiAgentSpendWithinAuthorityTransaction(client, {
         tenantId: input.tenantId,
         workspaceId: input.workspaceId,
-        agentId: input.prepared.providerId === "openrouter"
-          ? input.prepared.providerId && input.prepared.candidateId
-            ? (await client.query<{ agent_id: AiAgentId }>(
-                `SELECT agent_id FROM ai_model_lab_egress_admissions
-                  WHERE attempt_id=$1::uuid AND tenant_id=$2 AND workspace_id=$3
-                    AND account_id=$4 AND run_id=$5::uuid AND candidate_id=$6::uuid
-                  LIMIT 1`,
-                [
-                  input.prepared.attemptId,
-                  input.tenantId,
-                  input.workspaceId,
-                  input.accountId,
-                  input.prepared.candidateId ? input.prepared.candidateId : input.prepared.candidateId,
-                  input.prepared.candidateId,
-                ],
-              )).rows[0]?.agent_id ?? "mentor_coach"
-            : "mentor_coach"
-          : (await client.query<{ agent_id: AiAgentId }>(
-              `SELECT agent_id FROM ai_model_lab_egress_admissions
-                WHERE attempt_id=$1::uuid AND tenant_id=$2 AND workspace_id=$3
-                  AND account_id=$4 AND candidate_id=$5::uuid
-                LIMIT 1`,
-              [
-                input.prepared.attemptId,
-                input.tenantId,
-                input.workspaceId,
-                input.accountId,
-                input.prepared.candidateId,
-              ],
-            )).rows[0]?.agent_id ?? "mentor_coach",
+        agentId,
         reservationId: input.prepared.reservationId,
         accountedCostUsdMicros: input.egressMarked
           ? input.providerResult.ok
@@ -821,7 +814,9 @@ export async function finalizeAiModelLabCandidateExecution(
           : 0,
         egressAttemptId: input.egressMarked ? input.prepared.attemptId : null,
       });
-      if (!settlement.ok) throw new Error(`ai_model_lab_settlement_${settlement.reason}`);
+      if (!settlement.ok) {
+        throw new Error(`ai_model_lab_settlement_${settlement.reason}`);
+      }
 
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO ai_model_lab_execution_results
@@ -832,19 +827,21 @@ export async function finalizeAiModelLabCandidateExecution(
            reconciliation_required)
          SELECT admission.attempt_id,admission.tenant_id,admission.workspace_id,
                 admission.account_id,admission.run_id,admission.candidate_id,
-                admission.provider_id,admission.requested_model,$7,$8,$9,$10,$11,
-                $12::jsonb,$13,$14,$15,$16,$17,$18
+                admission.provider_id,admission.requested_model,$8,$9,$10,$11,$12,
+                $13::jsonb,$14,$15,$16,$17,$18,$19
            FROM ai_model_lab_egress_admissions admission
           WHERE admission.attempt_id=$1::uuid
             AND admission.tenant_id=$2 AND admission.workspace_id=$3
-            AND admission.account_id=$4 AND admission.candidate_id=$5::uuid
-            AND admission.reservation_id=$6::uuid
+            AND admission.account_id=$4 AND admission.run_id=$5::uuid
+            AND admission.candidate_id=$6::uuid
+            AND admission.reservation_id=$7::uuid
          RETURNING id`,
         [
           input.prepared.attemptId,
           input.tenantId,
           input.workspaceId,
           input.accountId,
+          input.runId,
           input.prepared.candidateId,
           input.prepared.reservationId,
           input.actualModel,
@@ -861,7 +858,9 @@ export async function finalizeAiModelLabCandidateExecution(
           settlement.reconciliationRequired,
         ],
       );
-      if (!inserted.rows[0]) throw new Error("ai_model_lab_execution_result_insert_failed");
+      if (!inserted.rows[0]) {
+        throw new Error("ai_model_lab_execution_result_insert_failed");
+      }
       return {
         candidateId: input.prepared.candidateId,
         providerId: input.prepared.providerId,
@@ -994,6 +993,7 @@ async function executePreparedCandidate(
 
   const persisted = await finalize({
     ...scope,
+    runId,
     prepared: candidate,
     egressMarked,
     providerResult,
