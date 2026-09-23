@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit",
     "lint:authority": "node scripts/check-eslint-correctness-authority.mjs",
     "test:lint-authority": "node --test scripts/eslint-correctness-authority.test.mjs",
-    "check": "npm run lint && npm run lint:authority && npm run test:lint-authority && npm run test:home-locale-parity && npx tsc --noEmit",
+    "check": "npm run lint && npm run lint:authority && npm run test:lint-authority && npm run test:home-locale-parity && npm run agent-skills:verify && npx tsc --noEmit",
     "prod:build": "npm ci --no-audit --no-fund && npm run env:check && npm run build",
     "prod:start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
     "support:bundle": "bash scripts/create-support-deployment-bundle.sh",
@@ -238,7 +238,9 @@
     "test:mentor-profile-freshness": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-profile-freshness.test.ts src/tests/security/mentor-profile-freshness-postgres.test.ts",
     "mentor:evals:authority:check": "node scripts/check-mentor-eval-promotion-authority.mjs",
     "test:mentor-eval-promotion": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/mentor-eval-promotion-authority.test.ts src/tests/security/mentor-eval-promotion-postgres.test.ts",
-    "ops:installer:env-check": "node dist/check-operational-installer-env.cjs"
+    "ops:installer:env-check": "node dist/check-operational-installer-env.cjs",
+    "agent-skills:verify": "node scripts/verify-agent-skills.mjs",
+    "test:agent-skills": "node --test scripts/agent-skills-toolkit.test.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
