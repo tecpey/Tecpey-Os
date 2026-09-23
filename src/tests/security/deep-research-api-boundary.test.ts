@@ -35,16 +35,16 @@ describe("deep research API security boundary",()=>{
     const postSource=routeSource.slice(postStart,deleteStart);
     const deleteSource=routeSource.slice(deleteStart);
     for (const mutationSource of [postSource,deleteSource]) {
-      assert.equal((mutationSource.match(/withAiTenantTransaction\\(/gu)??[]).length,1);
+      assert.equal((mutationSource.match(/withAiTenantTransaction\(/gu)??[]).length,1);
       const transactionStart=mutationSource.indexOf("withAiTenantTransaction(");
       const transactionEnd=mutationSource.indexOf("return result.enabled",transactionStart);
       assert.ok(transactionStart>=0 && transactionEnd>transactionStart,"mutation must have a bounded signed tenant transaction");
       const transactionBody=mutationSource.slice(transactionStart,transactionEnd);
-      assert.equal((transactionBody.match(/claimDeepResearchCommand\\(client,scope\\)/gu)??[]).length,1);
-      assert.equal((transactionBody.match(/completeDeepResearchCommand\\(client,scope/gu)??[]).length,1);
+      assert.equal((transactionBody.match(/claimDeepResearchCommand\(client,scope\)/gu)??[]).length,1);
+      assert.equal((transactionBody.match(/completeDeepResearchCommand\(client,scope/gu)??[]).length,1);
     }
-    assert.match(postSource,/createDeepResearchRun\\(client,normalized\\)/u);
-    assert.match(deleteSource,/cancelDeepResearchRun\\(client,/u);
+    assert.match(postSource,/createDeepResearchRun\(client,normalized\)/u);
+    assert.match(deleteSource,/cancelDeepResearchRun\(client,/u);
     assert.match(routeSource,/idempotency_key_reused",409/u);
     assert.match(routeSource,/request_in_progress",409/u);
     assert.match(routeSource,/deep_research_run_not_cancellable",409/u);
