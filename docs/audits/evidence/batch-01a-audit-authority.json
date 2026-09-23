@@ -42,8 +42,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "aef56afdaa6b711ccef89f1258a0b7136c3e8665",
-      "sha256": "8719279d69c679a02f1398d9ceebec032fa7300bcc09a75d7db919b0670bac75",
+      "gitObjectId": "f71491b2c22d2abd426bc563df80099df7c1f7e0",
+      "sha256": "765f1c82a40224612029a1221d9dc923fd154007158d07556ca17508505d861a",
       "lines": 296,
       "reviewedRanges": [
         {
@@ -144,7 +144,8 @@
         "2026-09-21: re-reviewed the complete 294-line package after adding test:staging-promotion and composing it into test:ops-staging-evidence. The new command runs only local node:test policy/authority checks for the protected staging promotion workflow and script; it adds no dependency, engine or override, performs no workflow dispatch or host mutation itself, preserves the existing release/launch composition, and does not authorize merge, staging promotion or Production deployment.",
         "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
         "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
-        "2026-09-24: re-reviewed after adding agent-skills:verify and test:agent-skills and composing both into the standard check chain. The commands inspect only project-vendored .agents metadata/files, enforce pinned upstream provenance, reject symlinks/unlocked skill directories/mutable main-branch rule URLs and run local node:test negative fixtures. They add no production dependency, runtime network call, release/deploy authority, secret access, tenant/financial mutation path or product activation surface."
+        "2026-09-24: re-reviewed after adding agent-skills:verify and test:agent-skills and composing both into the standard check chain. The commands inspect only project-vendored .agents metadata/files, enforce pinned upstream provenance, reject symlinks/unlocked skill directories/mutable main-branch rule URLs and run local node:test negative fixtures. They add no production dependency, runtime network call, release/deploy authority, secret access, tenant/financial mutation path or product activation surface.",
+        "2026-09-24: re-reviewed after composing agent-skills:verify into lint:authority and test:agent-skills into test:lint-authority, which are already executed by the exact-head CI Quality Checks job. The standard check command no longer duplicates these calls. This is deterministic local tooling validation only; no dependency, application runtime, network authority, release/deploy behavior, tenant boundary or financial capability changed."
       ],
       "findings": [
         {
