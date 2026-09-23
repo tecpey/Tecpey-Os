@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "policy": "tecpey-pinned-project-agent-skills-v1",
+  "skills": {
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceCommit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/react-best-practices/SKILL.md",
+      "license": "MIT (declared in SKILL.md)",
+      "requiredFiles": [
+        "SKILL.md",
+        "AGENTS.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "237988de4a66dd8a71d30a2c24ebe1a86b58d04e"
+        },
+        {
+          "path": "AGENTS.md",
+          "gitBlob": "4e340a50684a8e7811d5bfa4df48bd9989d0fd87"
+        }
+      ]
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceCommit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "sourcePath": "skills/composition-patterns/SKILL.md",
+      "license": "MIT (declared in SKILL.md)",
+      "requiredFiles": [
+        "SKILL.md",
+        "AGENTS.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "d07025bf943345bc1cf15eb923594f889ff881f0"
+        },
+        {
+          "path": "AGENTS.md",
+          "gitBlob": "558bf9aa1e36db2161f1633c9bfae14a819f0508"
+        }
+      ]
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceCommit": "34040c9c568585f6929bedeaad110ad08f079624",
+      "sourcePath": "skills/frontend-design/SKILL.md",
+      "license": "Bundled LICENSE.txt",
+      "requiredFiles": [
+        "SKILL.md",
+        "LICENSE.txt"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "a5333457c414d20d625f307df945842c0952ecc3"
+        },
+        {
+          "path": "LICENSE.txt",
+          "gitBlob": "f433b1a53f5b830a205fd2df78e2b34974656c7b"
+        }
+      ]
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "sourceCommit": "34040c9c568585f6929bedeaad110ad08f079624",
+      "sourcePath": "skills/webapp-testing/SKILL.md",
+      "license": "Bundled LICENSE.txt",
+      "requiredFiles": [
+        "SKILL.md",
+        "LICENSE.txt",
+        "scripts/with_server.py",
+        "examples/console_logging.py",
+        "examples/element_discovery.py",
+        "examples/static_html_automation.py"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "4726215301db64a0cc4d41fc3219c61f37a30f4a"
+        },
+        {
+          "path": "LICENSE.txt",
+          "gitBlob": "4f881c52d1f72f4cfb720e339e2d35c3058d01a9"
+        },
+        {
+          "path": "scripts/with_server.py",
+          "gitBlob": "431f2eba16b268b7f3e2ae4daae9db41c0289b6d"
+        },
+        {
+          "path": "examples/console_logging.py",
+          "gitBlob": "9329b5e232ed53d944bfe95e750070117d31b9ab"
+        },
+        {
+          "path": "examples/element_discovery.py",
+          "gitBlob": "917ba72f52421a1b324f93ae8e38af72010a87b9"
+        },
+        {
+          "path": "examples/static_html_automation.py",
+          "gitBlob": "90bbedcc08cdb345c74fb938ebad02c0baf56603"
+        }
+      ]
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceCommit": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
+      "sourcePath": "skills/systematic-debugging/SKILL.md",
+      "license": "MIT",
+      "requiredFiles": [
+        "SKILL.md",
+        "root-cause-tracing.md",
+        "defense-in-depth.md",
+        "condition-based-waiting.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "095d194ac041502905f15b01d22d294fb94db8b2"
+        },
+        {
+          "path": "root-cause-tracing.md",
+          "gitBlob": "0e72e8f9566b7ef85e814633d1feacad9d0c5868"
+        },
+        {
+          "path": "defense-in-depth.md",
+          "gitBlob": "e2483354dc2b62478a2624e34ca18bc0efe887b2"
+        },
+        {
+          "path": "condition-based-waiting.md",
+          "gitBlob": "70994f777c586f7d4c43033aac34c7cf0da6688b"
+        }
+      ]
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceCommit": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
+      "sourcePath": "skills/verification-before-completion/SKILL.md",
+      "license": "MIT",
+      "requiredFiles": [
+        "SKILL.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "7d45333cc4a49c57a80df6c1fe2fa777a207afbc"
+        }
+      ]
+    },
+    "security-review": {
+      "source": "github/awesome-copilot",
+      "sourceCommit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
+      "sourcePath": "skills/security-review/SKILL.md",
+      "license": "MIT",
+      "requiredFiles": [
+        "SKILL.md",
+        "references/language-patterns.md",
+        "references/report-format.md",
+        "references/secret-patterns.md",
+        "references/vuln-categories.md",
+        "references/vulnerable-packages.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "5281fa2f537eadca9e078a770ae129e81b759179"
+        },
+        {
+          "path": "references/language-patterns.md",
+          "gitBlob": "d6af534a2cb44ce6cd206b81f9b4a6a9e8f2b0c3"
+        },
+        {
+          "path": "references/report-format.md",
+          "gitBlob": "55fe571706acb2a92fb7bb974a9ccf45b84ec491"
+        },
+        {
+          "path": "references/secret-patterns.md",
+          "gitBlob": "06d2423facda1e31fb5bacf9e4eeb3e4a63fc520"
+        },
+        {
+          "path": "references/vuln-categories.md",
+          "gitBlob": "9ae764bc84c9eea0e00ea60b6e9f9aa43ebe0b9c"
+        },
+        {
+          "path": "references/vulnerable-packages.md",
+          "gitBlob": "f49fe3fb107a464cac04c0d154fab5023ab148af"
+        }
+      ]
+    },
+    "agent-owasp-compliance": {
+      "source": "github/awesome-copilot",
+      "sourceCommit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
+      "sourcePath": "skills/agent-owasp-compliance/SKILL.md",
+      "license": "MIT",
+      "requiredFiles": [
+        "SKILL.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "3c4032dc5e2f69709fbfc040caf5c77dee756136"
+        }
+      ]
+    },
+    "security-threat-model": {
+      "source": "openai/skills",
+      "sourceCommit": "49f948faa9258a0c61caceaf225e179651397431",
+      "sourcePath": "skills/.curated/security-threat-model/SKILL.md",
+      "license": "Bundled LICENSE.txt",
+      "requiredFiles": [
+        "SKILL.md",
+        "LICENSE.txt",
+        "references/prompt-template.md",
+        "references/security-controls-and-assets.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "abd3c1c95d49c4e0e0664f198f4bf168c6291aec"
+        },
+        {
+          "path": "LICENSE.txt",
+          "gitBlob": "13e25df86ce06eb6488e6a6bc5c5847f5dedc352"
+        },
+        {
+          "path": "references/prompt-template.md",
+          "gitBlob": "b6affb0d2f873ffe398f7a8df00095dc0ff01f59"
+        },
+        {
+          "path": "references/security-controls-and-assets.md",
+          "gitBlob": "63d1455aeacfc97eaca4e371040dbadfbd791635"
+        }
+      ]
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceCommit": "7407f3893ad4dceab546ac002c3ef806e4000c73",
+      "sourcePath": "skills/find-skills/SKILL.md",
+      "license": "MIT",
+      "requiredFiles": [
+        "SKILL.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "a41bdd074bb587afd861332cf2f473f3154de4d7"
+        }
+      ]
+    },
+    "postgresql-code-review": {
+      "source": "github/awesome-copilot",
+      "sourceCommit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
+      "sourcePath": "skills/postgresql-code-review/SKILL.md",
+      "license": "MIT",
+      "requiredFiles": [
+        "SKILL.md"
+      ],
+      "fileLocks": [
+        {
+          "path": "SKILL.md",
+          "gitBlob": "72d8eac69920b97d20bbcf012469808129ec129f"
+        }
+      ]
+    }
+  },
+  "integrity": {
+    "algorithm": "git-blob-sha1",
+    "semantics": "Each vendored required file must be byte-identical to the named file under sourcePath's directory at sourceCommit.",
+    "fileCount": 30
+  }
+}

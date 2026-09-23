@@ -1,0 +1,57 @@
+name: Agent Skills Integrity
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".agents/skills/**"
+      - "docs/agents/**"
+      - "scripts/agent-skills-authority.test.mjs"
+      - ".github/workflows/agent-skills-integrity.yml"
+      - "AGENTS.md"
+      - "package.json"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".agents/skills/**"
+      - "docs/agents/**"
+      - "scripts/agent-skills-authority.test.mjs"
+      - ".github/workflows/agent-skills-integrity.yml"
+      - "AGENTS.md"
+      - "package.json"
+
+concurrency:
+  group: agent-skills-integrity-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
+
+jobs:
+  authority:
+    name: Pinned project-local skill authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Verify pinned skill allowlist and local integrity
+        run: node --test scripts/agent-skills-authority.test.mjs
