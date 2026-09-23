@@ -14,6 +14,7 @@ import {
   DEEP_RESEARCH_FRESHNESS,
   hashDeepResearchCommand,
   readDeepResearchRuns,
+  readDeepResearchArtifact,
   validDeepResearchIdempotencyKey,
   type DeepResearchCommandScope,
   type DeepResearchCreateInput,
@@ -82,14 +83,18 @@ export async function GET(req:NextRequest) {
     const identity=`${tenantContext.tenantId}:${tenantContext.workspaceId}:${accountId}`;
     const limited=await rateLimit(req,{namespace:"deep-research-read",limit:60,windowMs:60_000,identity});
     if (!limited.ok) return apiRateLimited(limited.retryAfterSeconds);
+    const runId=req.nextUrl.searchParams.get("runId");
+    if (runId!==null && !UUID.test(runId)) return apiError("invalid_deep_research_run_id",400);
     const rawLimit=req.nextUrl.searchParams.get("limit");
     if (rawLimit!==null && !/^(?:[1-9]|[1-4][0-9]|50)$/.test(rawLimit)) return apiError("invalid_deep_research_limit",400);
     const limit=rawLimit===null?20:Number(rawLimit);
     try {
-      const result=await withAiTenantTransaction({tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId},async(client)=>
-        readDeepResearchRuns(client,{tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId,accountId,limit}),
-      );
-      return result.enabled ? apiOk({runs:result.value}) : apiError("deep_research_authority_unavailable",503);
+      const result=await withAiTenantTransaction({tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId},async(client)=>{
+        if (runId) return {kind:"artifact" as const,value:await readDeepResearchArtifact(client,{tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId,accountId,runId:runId.toLowerCase()})};
+        return {kind:"runs" as const,value:await readDeepResearchRuns(client,{tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId,accountId,limit})};
+      });
+      if (!result.enabled) return apiError("deep_research_authority_unavailable",503);
+      return result.value.kind==="artifact" ? apiOk({artifact:result.value.value}) : apiOk({runs:result.value.value});
     } catch {
       return apiError("deep_research_read_failed",503);
     }
