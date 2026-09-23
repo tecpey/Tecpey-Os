@@ -63,7 +63,11 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
   }
  },[locale]);
 
- useEffect(()=>{const controller=new AbortController();void loadHistory(controller.signal);return()=>controller.abort();},[loadHistory]);
+ useEffect(()=>{
+  const controller=new AbortController();
+  const timer=window.setTimeout(()=>{void loadHistory(controller.signal);},0);
+  return()=>{window.clearTimeout(timer);controller.abort();};
+ },[loadHistory]);
 
  const errorText=(body:unknown)=>{
   const code=body&&typeof body==="object"&&"error" in body?String((body as {error?:unknown}).error??""):"";
