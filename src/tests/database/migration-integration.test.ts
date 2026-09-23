@@ -419,7 +419,8 @@ describe("PostgreSQL migration authority", () => {
              '0097_support_messages.sql',
              '0098_news_archive_and_growth_intelligence.sql',
              '0102_news_ai_cost_authority.sql',
-             '0103_news_full_evidence_capture_authority.sql'
+             '0103_news_full_evidence_capture_authority.sql',
+             '0117_ai_model_lab_execution_authority.sql'
            ]::text[]);
           UPDATE _migrations
              SET checksum = '3bb54ffbdae67711ac7508a27e8d0b4846dba2d8dd0e319ed2edbe842584c7a8'

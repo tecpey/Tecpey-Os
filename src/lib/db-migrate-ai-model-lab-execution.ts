@@ -47,15 +47,6 @@ CREATE TABLE IF NOT EXISTS ai_model_lab_egress_admissions (
     CHECK (reserved_usd_micros BETWEEN 1000 AND 100000000000),
   input_digest CHAR(64) NOT NULL CHECK (input_digest ~ '^[0-9a-f]{64}$'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  FOREIGN KEY (run_id, tenant_id, workspace_id, account_id)
-    REFERENCES ai_model_lab_runs(id, tenant_id, workspace_id, account_id)
-    ON DELETE RESTRICT,
-  FOREIGN KEY (candidate_id, run_id, tenant_id, workspace_id)
-    REFERENCES ai_model_lab_candidates(id, run_id, tenant_id, workspace_id)
-    ON DELETE RESTRICT,
-  FOREIGN KEY (reservation_id, tenant_id, workspace_id, agent_id)
-    REFERENCES ai_spend_reservations(id, tenant_id, workspace_id, agent_id)
-    ON DELETE RESTRICT,
   UNIQUE (attempt_id, tenant_id, workspace_id, account_id, run_id, candidate_id),
   UNIQUE (tenant_id, workspace_id, account_id, run_id, candidate_id)
 );
@@ -102,11 +93,6 @@ CREATE TABLE IF NOT EXISTS ai_model_lab_execution_results (
   duration_ms INTEGER NOT NULL CHECK (duration_ms BETWEEN 0 AND 30000),
   reconciliation_required BOOLEAN NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  FOREIGN KEY (
-    attempt_id, tenant_id, workspace_id, account_id, run_id, candidate_id
-  ) REFERENCES ai_model_lab_egress_admissions(
-    attempt_id, tenant_id, workspace_id, account_id, run_id, candidate_id
-  ) ON DELETE RESTRICT,
   UNIQUE (attempt_id),
   CHECK (
     status <> 'succeeded'
@@ -123,6 +109,34 @@ CREATE TABLE IF NOT EXISTS ai_model_lab_execution_results (
     OR actual_model IS NOT NULL
   )
 );
+
+ALTER TABLE ai_model_lab_egress_admissions
+  DROP CONSTRAINT IF EXISTS ai_model_lab_egress_run_fk,
+  DROP CONSTRAINT IF EXISTS ai_model_lab_egress_candidate_fk,
+  DROP CONSTRAINT IF EXISTS ai_model_lab_egress_reservation_fk;
+ALTER TABLE ai_model_lab_egress_admissions
+  ADD CONSTRAINT ai_model_lab_egress_run_fk
+    FOREIGN KEY (run_id, tenant_id, workspace_id, account_id)
+    REFERENCES ai_model_lab_runs(id, tenant_id, workspace_id, account_id)
+    ON DELETE RESTRICT,
+  ADD CONSTRAINT ai_model_lab_egress_candidate_fk
+    FOREIGN KEY (candidate_id, run_id, tenant_id, workspace_id)
+    REFERENCES ai_model_lab_candidates(id, run_id, tenant_id, workspace_id)
+    ON DELETE RESTRICT,
+  ADD CONSTRAINT ai_model_lab_egress_reservation_fk
+    FOREIGN KEY (reservation_id, tenant_id, workspace_id, agent_id)
+    REFERENCES ai_spend_reservations(id, tenant_id, workspace_id, agent_id)
+    ON DELETE RESTRICT;
+
+ALTER TABLE ai_model_lab_execution_results
+  DROP CONSTRAINT IF EXISTS ai_model_lab_execution_admission_fk;
+ALTER TABLE ai_model_lab_execution_results
+  ADD CONSTRAINT ai_model_lab_execution_admission_fk
+    FOREIGN KEY (
+      attempt_id, tenant_id, workspace_id, account_id, run_id, candidate_id
+    ) REFERENCES ai_model_lab_egress_admissions(
+      attempt_id, tenant_id, workspace_id, account_id, run_id, candidate_id
+    ) ON DELETE RESTRICT;
 
 CREATE INDEX IF NOT EXISTS ai_model_lab_egress_scope_created_idx
   ON ai_model_lab_egress_admissions
