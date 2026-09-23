@@ -133,6 +133,7 @@ import { runProCommerceAuthorityMigrations } from "./db-migrate-pro-commerce-aut
 import { runProCommerceLedgerHardeningMigrations } from "./db-migrate-pro-commerce-ledger-hardening";
 import { runDeepResearchProvenanceMigrations } from "./db-migrate-deep-research-provenance";
 import { runModelLabCouncilAuthorityMigrations } from "./db-migrate-ai-model-lab-council";
+import { runModelLabExecutionAuthorityMigrations } from "./db-migrate-ai-model-lab-execution";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -439,6 +440,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(98, "migration-step-098", CANONICAL_MIGRATION_CONTENT.proCommerceLedgerHardening, "commerce-platform", "commerce", runProCommerceLedgerHardeningMigrations),
   entry(99, "migration-step-099", CANONICAL_MIGRATION_CONTENT.deepResearchProvenance, "ai-platform-security", "deep-research", runDeepResearchProvenanceMigrations),
   entry(100, "migration-step-100", CANONICAL_MIGRATION_CONTENT.modelLabCouncilAuthority, "ai-platform-security", "ai-model-lab", runModelLabCouncilAuthorityMigrations),
+  entry(101, "migration-step-101", CANONICAL_MIGRATION_CONTENT.modelLabExecutionAuthority, "ai-platform-security", "ai-model-lab", runModelLabExecutionAuthorityMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

@@ -74,6 +74,7 @@ const REQUIRED_MIGRATIONS = [
   "0105_mentor_profile_update_outbox.sql",
   "0115_deep_research_provenance_authority.sql",
   "0116_ai_model_lab_council_authority.sql",
+  "0117_ai_model_lab_execution_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -127,6 +128,8 @@ const REQUIRED_TABLES = [
   "ai_model_lab_runs",
   "ai_model_lab_candidates",
   "ai_council_syntheses",
+  "ai_model_lab_egress_admissions",
+  "ai_model_lab_execution_results",
 ] as const;
 
 const REQUIRED_COLUMNS = [

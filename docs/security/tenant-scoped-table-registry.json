@@ -381,6 +381,24 @@
       "testReference": "src/tests/security/model-lab-council-authority-postgres.test.ts"
     },
     {
+      "table": "ai_model_lab_egress_admissions",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-execution.ts; src/lib/ai/model-lab-execution.ts",
+      "isolationModel": "Each provider-egress admission is bound to the exact tenant/workspace/account Model Lab run, exact candidate, exact agent and exact ai_spend_reservations row. The row is immutable, carries only digests/model identifiers and reservation authority, and FORCE RLS accepts the signed AI tenant/workspace context only.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-execution-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_lab_execution_results",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-execution.ts; src/lib/ai/model-lab-execution.ts",
+      "isolationModel": "Terminal Model Lab execution evidence is append-only and composite-FK bound to its immutable egress admission across tenant/workspace/account/run/candidate. Success requires a verified provider-returned model identity and output hash; FORCE RLS prevents cross-tenant reads or inserts.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-execution-authority-postgres.test.ts"
+    },
+    {
       "table": "ai_model_lab_runs",
       "domain": "ai-model-lab",
       "sourceFile": "src/lib/db-migrate-ai-model-lab-council.ts; src/lib/ai/model-lab-council-authority.ts",

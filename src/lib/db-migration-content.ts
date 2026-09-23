@@ -106,6 +106,7 @@ import { PRO_COMMERCE_AUTHORITY_SQL } from "./db-migrate-pro-commerce-authority"
 import { PRO_COMMERCE_LEDGER_HARDENING_SQL } from "./db-migrate-pro-commerce-ledger-hardening";
 import { DEEP_RESEARCH_PROVENANCE_SQL } from "./db-migrate-deep-research-provenance";
 import { MODEL_LAB_COUNCIL_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-council";
+import { MODEL_LAB_EXECUTION_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-execution";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -481,5 +482,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   modelLabCouncilAuthority: one(
     "0116_ai_model_lab_council_authority.sql",
     MODEL_LAB_COUNCIL_AUTHORITY_SQL,
+  ),
+  modelLabExecutionAuthority: one(
+    "0117_ai_model_lab_execution_authority.sql",
+    MODEL_LAB_EXECUTION_AUTHORITY_SQL,
   ),
 });
