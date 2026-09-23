@@ -163,6 +163,7 @@ type FinalizeInput = ExecutionScope & Readonly<{
 }>;
 
 export type AiModelLabExecutionDependencies = Readonly<{
+  loadDescriptor?: typeof loadAiModelLabExecutionDescriptor;
   resolveRuntime?: typeof resolveRuntimeAiAgent;
   callProvider?: typeof callAiProvider;
   providerRouter?: AiProviderRouterDependencies;
@@ -1055,7 +1056,9 @@ export async function executeAiModelLabRun(
     return { status: "blocked", runId: input.runId, reason: "invalid_execution_input" };
   }
 
-  const descriptorResult = await loadAiModelLabExecutionDescriptor(input);
+  const loadDescriptor =
+    dependencies.loadDescriptor ?? loadAiModelLabExecutionDescriptor;
+  const descriptorResult = await loadDescriptor(input);
   if (descriptorResult.status !== "ready") return descriptorResult;
   const descriptor = descriptorResult.descriptor;
   const digest = modelLabComparisonInputDigest(instructions, userInput);
