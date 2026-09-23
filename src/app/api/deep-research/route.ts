@@ -13,6 +13,7 @@ import {
   createDeepResearchRun,
   DEEP_RESEARCH_FRESHNESS,
   hashDeepResearchCommand,
+  readDeepResearchRuns,
   validDeepResearchIdempotencyKey,
   type DeepResearchCommandScope,
   type DeepResearchCreateInput,
@@ -66,6 +67,33 @@ function replayOrConflict(claim:Awaited<ReturnType<typeof claimDeepResearchComma
   if (claim.status==="in_progress") return apiError("request_in_progress",409);
   if (claim.status==="replayed") return apiOk(claim.response,claim.httpStatus);
   return null;
+}
+
+
+export async function GET(req:NextRequest) {
+  return withObservability(req,{route:"/api/deep-research GET"},async()=>{
+    const session=await getCanonicalSession(req,{strictRevocation:true});
+    const accountId=session.academyAccountId ?? session.userId ?? session.studentId;
+    if (!accountId) return apiError(session.authorityDegraded?"deep_research_authority_unavailable":"unauthorized",session.authorityDegraded?503:401);
+    const tenantContext=await resolveTenantPrincipalContext({
+      session,request:req,requiredPrincipalType:"user",scopes:["research:deep:write"],requestId:correlationId(req),
+    });
+    if (!tenantContext.available) return apiError(tenantContext.reason==="binding_storage_unavailable"?"deep_research_authority_unavailable":"forbidden",tenantContext.reason==="binding_storage_unavailable"?503:403);
+    const identity=`${tenantContext.tenantId}:${tenantContext.workspaceId}:${accountId}`;
+    const limited=await rateLimit(req,{namespace:"deep-research-read",limit:60,windowMs:60_000,identity});
+    if (!limited.ok) return apiRateLimited(limited.retryAfterSeconds);
+    const rawLimit=req.nextUrl.searchParams.get("limit");
+    if (rawLimit!==null && !/^(?:[1-9]|[1-4][0-9]|50)$/.test(rawLimit)) return apiError("invalid_deep_research_limit",400);
+    const limit=rawLimit===null?20:Number(rawLimit);
+    try {
+      const result=await withAiTenantTransaction({tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId},async(client)=>
+        readDeepResearchRuns(client,{tenantId:tenantContext.tenantId,workspaceId:tenantContext.workspaceId,accountId,limit}),
+      );
+      return result.enabled ? apiOk({runs:result.value}) : apiError("deep_research_authority_unavailable",503);
+    } catch {
+      return apiError("deep_research_read_failed",503);
+    }
+  });
 }
 
 export async function POST(req:NextRequest) {
