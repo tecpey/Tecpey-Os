@@ -72,6 +72,7 @@ const REQUIRED_MIGRATIONS = [
   "0083_academy_daily_repair_challenges.sql",
   "0102_news_ai_cost_authority.sql",
   "0105_mentor_profile_update_outbox.sql",
+  "0115_deep_research_provenance_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -115,6 +116,13 @@ const REQUIRED_TABLES = [
   "academy_arena_entitlement_grants",
   "academy_daily_repair_challenges",
   "academy_daily_repair_challenge_events",
+  "ai_research_runs",
+  "ai_research_sources",
+  "ai_research_claims",
+  "ai_research_claim_citations",
+  "ai_research_conflict_sets",
+  "ai_research_conflict_members",
+  "ai_research_artifacts",
 ] as const;
 
 const REQUIRED_COLUMNS = [

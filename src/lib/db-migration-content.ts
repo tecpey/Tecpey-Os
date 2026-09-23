@@ -104,6 +104,7 @@ import { ACADEMY_QUESTION_BANK_BASELINE_SQL } from "./db-migrate-academy-questio
 import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";
 import { PRO_COMMERCE_AUTHORITY_SQL } from "./db-migrate-pro-commerce-authority";
 import { PRO_COMMERCE_LEDGER_HARDENING_SQL } from "./db-migrate-pro-commerce-ledger-hardening";
+import { DEEP_RESEARCH_PROVENANCE_SQL } from "./db-migrate-deep-research-provenance";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -471,5 +472,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   proCommerceLedgerHardening: one(
     "0114_pro_commerce_ledger_hardening.sql",
     PRO_COMMERCE_LEDGER_HARDENING_SQL,
+  ),
+  deepResearchProvenance: one(
+    "0115_deep_research_provenance_authority.sql",
+    DEEP_RESEARCH_PROVENANCE_SQL,
   ),
 });
