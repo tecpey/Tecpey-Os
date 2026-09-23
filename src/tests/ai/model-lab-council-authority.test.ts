@@ -188,6 +188,33 @@ describe("Model Lab runtime authority", () => {
     );
   });
 
+  it("rejects duplicate candidate identity before any evidence write", async () => {
+    const duplicated = candidates()[0]!;
+    const { client, calls } = mockClient({
+      capability: AI_MODEL_LAB_CAPABILITY,
+    });
+    await assert.rejects(
+      createAiModelLabRunEvidence(client, {
+        tenantId: "tenant-a",
+        workspaceId: "workspace-a",
+        accountId: "account-a",
+        idempotencyKey: "model-lab-request-duplicate-0001",
+        taskId: "mentor_public_research",
+        agentId: "coin_tool_researcher",
+        dataClass: "public",
+        promptDigest: "f".repeat(64),
+        requireZeroDataRetention: true,
+        candidates: [duplicated, duplicated],
+        nowMs: NOW,
+      }),
+      /ai_model_lab_duplicate_candidate_identity/,
+    );
+    assert.equal(
+      calls.some(({ sql }) => sql.includes("INSERT INTO ai_model_lab_runs")),
+      false,
+    );
+  });
+
   it("replays an exact idempotent request and rejects a conflicting key reuse", async () => {
     const first = mockClient({ capability: AI_MODEL_LAB_CAPABILITY });
     const created = await createAiModelLabRunEvidence(first.client, {

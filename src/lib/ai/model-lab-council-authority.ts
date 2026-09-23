@@ -272,6 +272,10 @@ export async function createAiModelLabRunEvidence(
   if (input.candidates.length < 2 || input.candidates.length > 6) {
     throw new Error("ai_model_lab_candidate_count_invalid");
   }
+  const candidateIdentities = input.candidates.map(candidateIdentity);
+  if (new Set(candidateIdentities).size !== candidateIdentities.length) {
+    throw new Error("ai_model_lab_duplicate_candidate_identity");
+  }
 
   const plan = planAiModelLabComparison({
     taskId: input.taskId,
