@@ -202,3 +202,80 @@ export async function readDeepResearchRuns(client:PoolClient,input:{
   );
   return result.rows.map(runSnapshot);
 }
+
+
+export type DeepResearchSourceSnapshot = Readonly<{
+  id:string; url:string; publisher:string|null; domain:string|null; title:string|null;
+  retrievedAt:string; publishedAt:string|null; locale:string|null;
+  sourceChannel:"public_web"|"connected_private"|"social_x"|"other";
+}>;
+export type DeepResearchClaimSnapshot = Readonly<{
+  id:string; reportSection:string; normalizedText:string;
+  claimType:"externally_factual"|"synthesis"|"opinion"|"unresolved";
+  freshnessClass:"live"|"day"|"week"|"month"|"historical"|"not_applicable";
+  confidenceRationale:string|null; sourceIds:string[];
+}>;
+export type DeepResearchConflictSnapshot = Readonly<{
+  id:string; summary:string; resolutionState:"unresolved"|"partially_resolved"|"resolved"; claimIds:string[];
+}>;
+export type DeepResearchArtifactSnapshot = Readonly<{
+  id:string; runId:string; version:number; status:"draft"|"final"; report:Record<string,unknown>;
+  sourceCount:number; citedSourceCount:number; finalizedAt:string|null; createdAt:string;
+  sources:DeepResearchSourceSnapshot[]; claims:DeepResearchClaimSnapshot[]; conflicts:DeepResearchConflictSnapshot[];
+}>;
+
+export async function readDeepResearchArtifact(client:PoolClient,input:{
+  tenantId:string;workspaceId:string;accountId:string;runId:string;
+}):Promise<DeepResearchArtifactSnapshot|null> {
+  if (!input.tenantId || !input.workspaceId || !input.accountId) throw new Error("deep_research_scope_invalid");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(input.runId)) throw new Error("deep_research_run_id_invalid");
+
+  const owned=await client.query<{id:string}>(
+    `SELECT id FROM ai_research_runs WHERE id=$1 AND tenant_id=$2 AND workspace_id=$3 AND account_id=$4 LIMIT 1`,
+    [input.runId,input.tenantId,input.workspaceId,input.accountId],
+  );
+  if (!owned.rows[0]) return null;
+
+  const artifacts=await client.query<{
+    id:string;run_id:string;version:number;status:"draft"|"final";report:unknown;source_count:number;cited_source_count:number;finalized_at:Date|null;created_at:Date;
+  }>(
+    `SELECT id,run_id,version,status,report,source_count,cited_source_count,finalized_at,created_at
+       FROM ai_research_artifacts
+      WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3
+      ORDER BY (status='final') DESC,version DESC LIMIT 1`,
+    [input.tenantId,input.workspaceId,input.runId],
+  );
+  const artifact=artifacts.rows[0];
+  if (!artifact) return null;
+
+  const [sources,claims,citations,conflicts,members]=await Promise.all([
+    client.query<{id:string;url:string;publisher:string|null;domain:string|null;title:string|null;retrieved_at:Date;published_at:Date|null;locale:string|null;source_channel:DeepResearchSourceSnapshot["sourceChannel"]}>(
+      `SELECT id,url,publisher,domain,title,retrieved_at,published_at,locale,source_channel FROM ai_research_sources WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY retrieved_at DESC,id`,
+      [input.tenantId,input.workspaceId,input.runId]),
+    client.query<{id:string;report_section:string;normalized_text:string;claim_type:DeepResearchClaimSnapshot["claimType"];freshness_class:DeepResearchClaimSnapshot["freshnessClass"];confidence_rationale:string|null}>(
+      `SELECT id,report_section,normalized_text,claim_type,freshness_class,confidence_rationale FROM ai_research_claims WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+      [input.tenantId,input.workspaceId,input.runId]),
+    client.query<{claim_id:string;source_id:string}>(
+      `SELECT claim_id,source_id FROM ai_research_claim_citations WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+      [input.tenantId,input.workspaceId,input.runId]),
+    client.query<{id:string;summary:string;resolution_state:DeepResearchConflictSnapshot["resolutionState"]}>(
+      `SELECT id,summary,resolution_state FROM ai_research_conflict_sets WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+      [input.tenantId,input.workspaceId,input.runId]),
+    client.query<{conflict_set_id:string;claim_id:string}>(
+      `SELECT conflict_set_id,claim_id FROM ai_research_conflict_members WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+      [input.tenantId,input.workspaceId,input.runId]),
+  ]);
+  const sourceIds=new Map<string,string[]>();
+  for (const row of citations.rows) sourceIds.set(row.claim_id,[...(sourceIds.get(row.claim_id)??[]),row.source_id]);
+  const claimIds=new Map<string,string[]>();
+  for (const row of members.rows) claimIds.set(row.conflict_set_id,[...(claimIds.get(row.conflict_set_id)??[]),row.claim_id]);
+  const report=artifact.report && typeof artifact.report==="object" && !Array.isArray(artifact.report) ? artifact.report as Record<string,unknown> : {};
+  return {
+    id:artifact.id,runId:artifact.run_id,version:artifact.version,status:artifact.status,report,
+    sourceCount:artifact.source_count,citedSourceCount:artifact.cited_source_count,
+    finalizedAt:artifact.finalized_at?.toISOString()??null,createdAt:artifact.created_at.toISOString(),
+    sources:sources.rows.map(row=>({id:row.id,url:row.url,publisher:row.publisher,domain:row.domain,title:row.title,retrievedAt:row.retrieved_at.toISOString(),publishedAt:row.published_at?.toISOString()??null,locale:row.locale,sourceChannel:row.source_channel})),
+    claims:claims.rows.map(row=>({id:row.id,reportSection:row.report_section,normalizedText:row.normalized_text,claimType:row.claim_type,freshnessClass:row.freshness_class,confidenceRationale:row.confidence_rationale,sourceIds:sourceIds.get(row.id)??[]})),
+    conflicts:conflicts.rows.map(row=>({id:row.id,summary:row.summary,resolutionState:row.resolution_state,claimIds:claimIds.get(row.id)??[]})),
+  };
+}
