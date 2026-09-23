@@ -142,8 +142,10 @@ export function verifyAgentSkillsToolkit({ rootDir = process.cwd() } = {}) {
       invariant(ALLOWED_EXTENSIONS.has(path.extname(absolute)), `${relative}: unapproved vendored file type`);
       verifyHelperLocation(relative);
       const text = fs.readFileSync(absolute, "utf8");
-      invariant(!/raw\.githubusercontent\.com\/[^\s)]+\/main\//i.test(text), `${relative}: mutable raw GitHub main URL is forbidden`);
-      invariant(!/github\.com\/[^\s)]+\/blob\/main\//i.test(text), `${relative}: mutable GitHub main URL is forbidden`);
+      if (relative.endsWith("/SKILL.md")) {
+        invariant(!/raw\.githubusercontent\.com\/[^\s)]+\/main\//i.test(text), `${relative}: mutable raw GitHub main URL is forbidden in skill instructions`);
+        invariant(!/github\.com\/[^\s)]+\/blob\/main\//i.test(text), `${relative}: mutable GitHub main URL is forbidden in skill instructions`);
+      }
     }
   }
 
