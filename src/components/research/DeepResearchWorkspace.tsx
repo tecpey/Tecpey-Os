@@ -34,16 +34,16 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
  const t=copy[locale], isFa=locale==="fa";
  const [question,setQuestion]=useState("");
  const [stage]=useState<Stage>("plan");
- const [runs,setRuns]=useState<Run[]|null>(null);
- const [historyError,setHistoryError]=useState(false);
+ const [history,setHistory]=useState<{locale:Locale;runs:Run[]|null;error:boolean}>({locale,runs:null,error:false});
+ const runs=history.locale===locale?history.runs:null;
+ const historyError=history.locale===locale?history.error:false;
  const stages=useMemo(()=>["plan","gather","synthesize","verify","report"] as Stage[],[]);
  useEffect(()=>{
   const controller=new AbortController();
-  setRuns(null); setHistoryError(false);
   fetch("/api/deep-research?limit=20",{cache:"no-store",signal:controller.signal})
    .then(async response=>{const body=await response.json().catch(()=>null);if(!response.ok||!body?.ok||!Array.isArray(body.runs))throw new Error("history_unavailable");return body.runs as Run[];})
-   .then(value=>{if(!controller.signal.aborted)setRuns(value);})
-   .catch(()=>{if(!controller.signal.aborted)setHistoryError(true);});
+   .then(value=>{if(!controller.signal.aborted)setHistory({locale,runs:value,error:false});})
+   .catch(()=>{if(!controller.signal.aborted)setHistory({locale,runs:null,error:true});});
   return ()=>controller.abort();
  },[locale]);
  return <main className="min-h-screen bg-[color:var(--tp-bg)] text-[color:var(--tp-text)]" dir={isFa?"rtl":"ltr"}>
