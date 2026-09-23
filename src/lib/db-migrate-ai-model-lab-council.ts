@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS ai_model_lab_runs (
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces(tenant_id, id) ON DELETE RESTRICT,
   UNIQUE (id, tenant_id, workspace_id),
+  UNIQUE (id, tenant_id, workspace_id, account_id),
   UNIQUE (tenant_id, workspace_id, account_id, idempotency_key)
 );
 
@@ -106,8 +107,8 @@ CREATE TABLE IF NOT EXISTS ai_council_syntheses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces(tenant_id, id) ON DELETE RESTRICT,
-  FOREIGN KEY (model_lab_run_id, tenant_id, workspace_id)
-    REFERENCES ai_model_lab_runs(id, tenant_id, workspace_id) ON DELETE RESTRICT,
+  FOREIGN KEY (model_lab_run_id, tenant_id, workspace_id, account_id)
+    REFERENCES ai_model_lab_runs(id, tenant_id, workspace_id, account_id) ON DELETE RESTRICT,
   UNIQUE (tenant_id, workspace_id, account_id, idempotency_key)
 );
 

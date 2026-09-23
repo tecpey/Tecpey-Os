@@ -36,7 +36,11 @@ describe("Model Lab + Council database authority", () => {
     );
     assert.match(
       MODEL_LAB_COUNCIL_AUTHORITY_SQL,
-      /FOREIGN KEY \(model_lab_run_id, tenant_id, workspace_id\)[\s\S]*REFERENCES ai_model_lab_runs/u,
+      /FOREIGN KEY \(model_lab_run_id, tenant_id, workspace_id, account_id\)[\s\S]*REFERENCES ai_model_lab_runs/u,
+    );
+    assert.match(
+      MODEL_LAB_COUNCIL_AUTHORITY_SQL,
+      /UNIQUE \(id, tenant_id, workspace_id, account_id\)/u,
     );
     assert.match(
       MODEL_LAB_COUNCIL_AUTHORITY_SQL,
