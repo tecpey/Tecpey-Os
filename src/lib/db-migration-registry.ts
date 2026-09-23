@@ -131,7 +131,7 @@ import {
 import { runIdentityAuthKycV2Migrations } from "./db-migrate-identity-auth-kyc-v2";
 import { runProCommerceAuthorityMigrations } from "./db-migrate-pro-commerce-authority";
 import { runProCommerceLedgerHardeningMigrations } from "./db-migrate-pro-commerce-ledger-hardening";
-import { runDeepResearchProvenanceMigrations } from "./db-migrate-deep-research-provenance";
+import { runDeepResearchProvenanceMigrations } from "./db-migrate-deep-research-provenance";\nimport { runModelLabCouncilAuthorityMigrations } from "./db-migrate-ai-model-lab-council";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -436,7 +436,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(96, "migration-step-096", CANONICAL_MIGRATION_CONTENT.identityAuthKycV2, "security-platform", "identity", runIdentityAuthKycV2Migrations),
   entry(97, "migration-step-097", CANONICAL_MIGRATION_CONTENT.proCommerceAuthority, "commerce-platform", "commerce", runProCommerceAuthorityMigrations),
   entry(98, "migration-step-098", CANONICAL_MIGRATION_CONTENT.proCommerceLedgerHardening, "commerce-platform", "commerce", runProCommerceLedgerHardeningMigrations),
-  entry(99, "migration-step-099", CANONICAL_MIGRATION_CONTENT.deepResearchProvenance, "ai-platform-security", "deep-research", runDeepResearchProvenanceMigrations),
+  entry(99, "migration-step-099", CANONICAL_MIGRATION_CONTENT.deepResearchProvenance, "ai-platform-security", "deep-research", runDeepResearchProvenanceMigrations),\n  entry(100, "migration-step-100", CANONICAL_MIGRATION_CONTENT.modelLabCouncilAuthority, "ai-platform-security", "ai-model-lab", runModelLabCouncilAuthorityMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
