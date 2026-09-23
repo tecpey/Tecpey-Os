@@ -125,8 +125,8 @@ rejectText(
 for (const invariant of [
   "resolveTenantPrincipalContext({",
   "session,",
-  "tenantId: principal.tenantId",
-  "workspaceId: principal.workspaceId",
+  "tenantId:auth.context.tenantId",
+  "workspaceId:auth.context.workspaceId",
   "accountId",
 ]) {
   requireText(
