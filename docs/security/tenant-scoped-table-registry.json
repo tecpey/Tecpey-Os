@@ -372,6 +372,33 @@
       "testReference": "src/tests/security/ai-mentor-trust-store-postgres.test.ts"
     },
     {
+      "table": "ai_model_capability_snapshots",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-evaluation.ts; src/lib/ai/model-lab-eval-authority.ts",
+      "isolationModel": "Append-only provider/model capability observations are tenant_id + workspace_id scoped, workspace-FK bound, FORCE-RLS protected by the signed AI tenant context, and deduplicated only inside the same tenant/workspace by evidence hash. They contain bounded capability/tool metadata and no provider secret or raw prompt.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-eval-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_eval_metric_results",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-evaluation.ts; src/lib/ai/model-lab-eval-authority.ts",
+      "isolationModel": "Each normalized metric row carries the exact tenant/workspace scope and a composite foreign key to its evaluation run. FORCE RLS prevents cross-tenant access and append-only triggers reject UPDATE/DELETE, while DB checks distinguish scored quality metrics from raw latency/cost measurements.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-eval-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_eval_runs",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-evaluation.ts; src/lib/ai/model-lab-eval-authority.ts",
+      "isolationModel": "Immutable task/model evaluation summaries are tenant/workspace scoped and workspace-FK bound; FORCE RLS uses the signed AI tenant context. Rows retain dataset/evaluator hashes, sample count, conservative quality score and bounded reason codes without raw evaluation prompts or outputs.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-eval-authority-postgres.test.ts"
+    },
+    {
       "table": "ai_model_lab_candidates",
       "domain": "ai-model-lab",
       "sourceFile": "src/lib/db-migrate-ai-model-lab-council.ts; src/lib/ai/model-lab-council-authority.ts",

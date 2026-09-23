@@ -75,6 +75,7 @@ const REQUIRED_MIGRATIONS = [
   "0115_deep_research_provenance_authority.sql",
   "0116_ai_model_lab_council_authority.sql",
   "0117_ai_model_lab_execution_authority.sql",
+  "0118_ai_model_evaluation_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -130,6 +131,9 @@ const REQUIRED_TABLES = [
   "ai_council_syntheses",
   "ai_model_lab_egress_admissions",
   "ai_model_lab_execution_results",
+  "ai_model_capability_snapshots",
+  "ai_model_eval_runs",
+  "ai_model_eval_metric_results",
 ] as const;
 
 const REQUIRED_COLUMNS = [
