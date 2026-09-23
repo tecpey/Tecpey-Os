@@ -131,7 +131,8 @@ import {
 import { runIdentityAuthKycV2Migrations } from "./db-migrate-identity-auth-kyc-v2";
 import { runProCommerceAuthorityMigrations } from "./db-migrate-pro-commerce-authority";
 import { runProCommerceLedgerHardeningMigrations } from "./db-migrate-pro-commerce-ledger-hardening";
-import { runDeepResearchProvenanceMigrations } from "./db-migrate-deep-research-provenance";\nimport { runModelLabCouncilAuthorityMigrations } from "./db-migrate-ai-model-lab-council";
+import { runDeepResearchProvenanceMigrations } from "./db-migrate-deep-research-provenance";
+import { runModelLabCouncilAuthorityMigrations } from "./db-migrate-ai-model-lab-council";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
