@@ -6,6 +6,7 @@ const files = {
   migration: "src/lib/db-migrate-tenant-principal-isolation.ts",
   plan: "src/lib/db-migration-registry.ts",
   route: "src/app/api/offline-sync/route.ts",
+  deepResearchRoute: "src/app/api/deep-research/route.ts",
   authority: "src/lib/offline-sync-authority.ts",
   offlineGuard: "scripts/check-offline-sync-authority.mjs",
   inventory: "docs/security/generated/tenant-principal-isolation-inventory.json",
@@ -119,6 +120,25 @@ rejectText(
   "route",
   "studentId: session.studentId",
   "route cannot pass an independently resolved principal ID",
+);
+
+for (const invariant of [
+  "resolveTenantPrincipalContext({",
+  "session,",
+  "tenantId: principal.tenantId",
+  "workspaceId: principal.workspaceId",
+  "accountId",
+]) {
+  requireText(
+    "deepResearchRoute",
+    invariant,
+    `Deep Research route is missing canonical tenant/principal authority: ${invariant}`,
+  );
+}
+rejectText(
+  "deepResearchRoute",
+  "resolvePlatformContext",
+  "Deep Research mutation cannot use presentation platform fallback as tenant authority",
 );
 
 for (const invariant of [
