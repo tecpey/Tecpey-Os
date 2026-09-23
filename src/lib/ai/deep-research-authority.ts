@@ -248,23 +248,24 @@ export async function readDeepResearchArtifact(client:PoolClient,input:{
   const artifact=artifacts.rows[0];
   if (!artifact) return null;
 
-  const [sources,claims,citations,conflicts,members]=await Promise.all([
-    client.query<{id:string;url:string;publisher:string|null;domain:string|null;title:string|null;retrieved_at:Date;published_at:Date|null;locale:string|null;source_channel:DeepResearchSourceSnapshot["sourceChannel"]}>(
-      `SELECT id,url,publisher,domain,title,retrieved_at,published_at,locale,source_channel FROM ai_research_sources WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY retrieved_at DESC,id`,
-      [input.tenantId,input.workspaceId,input.runId]),
-    client.query<{id:string;report_section:string;normalized_text:string;claim_type:DeepResearchClaimSnapshot["claimType"];freshness_class:DeepResearchClaimSnapshot["freshnessClass"];confidence_rationale:string|null}>(
-      `SELECT id,report_section,normalized_text,claim_type,freshness_class,confidence_rationale FROM ai_research_claims WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
-      [input.tenantId,input.workspaceId,input.runId]),
-    client.query<{claim_id:string;source_id:string}>(
-      `SELECT claim_id,source_id FROM ai_research_claim_citations WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
-      [input.tenantId,input.workspaceId,input.runId]),
-    client.query<{id:string;summary:string;resolution_state:DeepResearchConflictSnapshot["resolutionState"]}>(
-      `SELECT id,summary,resolution_state FROM ai_research_conflict_sets WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
-      [input.tenantId,input.workspaceId,input.runId]),
-    client.query<{conflict_set_id:string;claim_id:string}>(
-      `SELECT conflict_set_id,claim_id FROM ai_research_conflict_members WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
-      [input.tenantId,input.workspaceId,input.runId]),
-  ]);
+  // A pg PoolClient is a single PostgreSQL session. Keep reads sequential:
+  // concurrent Promise.all calls do not create database parallelism and can make
+  // transaction/session semantics harder to reason about.
+  const sources=await client.query<{id:string;url:string;publisher:string|null;domain:string|null;title:string|null;retrieved_at:Date;published_at:Date|null;locale:string|null;source_channel:DeepResearchSourceSnapshot["sourceChannel"]}>(
+    `SELECT id,url,publisher,domain,title,retrieved_at,published_at,locale,source_channel FROM ai_research_sources WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY retrieved_at DESC,id`,
+    [input.tenantId,input.workspaceId,input.runId]);
+  const claims=await client.query<{id:string;report_section:string;normalized_text:string;claim_type:DeepResearchClaimSnapshot["claimType"];freshness_class:DeepResearchClaimSnapshot["freshnessClass"];confidence_rationale:string|null}>(
+    `SELECT id,report_section,normalized_text,claim_type,freshness_class,confidence_rationale FROM ai_research_claims WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+    [input.tenantId,input.workspaceId,input.runId]);
+  const citations=await client.query<{claim_id:string;source_id:string}>(
+    `SELECT claim_id,source_id FROM ai_research_claim_citations WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+    [input.tenantId,input.workspaceId,input.runId]);
+  const conflicts=await client.query<{id:string;summary:string;resolution_state:DeepResearchConflictSnapshot["resolutionState"]}>(
+    `SELECT id,summary,resolution_state FROM ai_research_conflict_sets WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+    [input.tenantId,input.workspaceId,input.runId]);
+  const members=await client.query<{conflict_set_id:string;claim_id:string}>(
+    `SELECT conflict_set_id,claim_id FROM ai_research_conflict_members WHERE tenant_id=$1 AND workspace_id=$2 AND run_id=$3 ORDER BY created_at,id`,
+    [input.tenantId,input.workspaceId,input.runId]);
   const sourceIds=new Map<string,string[]>();
   for (const row of citations.rows) sourceIds.set(row.claim_id,[...(sourceIds.get(row.claim_id)??[]),row.source_id]);
   const claimIds=new Map<string,string[]>();
