@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpenCheck, Clock3, ExternalLink, Search, ShieldCheck } from "lucide-react";
 
 type Locale="fa"|"en";
 type Stage="plan"|"gather"|"synthesize"|"verify"|"report";
+type Run={id:string;question:string;locale:Locale;requestedFreshness:string;state:string;degradedReason:string|null;createdAt:string;cancelledAt:string|null;completedAt:string|null};
 
 const copy={
  fa:{
@@ -15,7 +16,7 @@ const copy={
   evidence:"نمونه ساختار گزارش",known:"آنچه می‌دانیم",conflict:"شواهد متعارض",unknown:"ناشناخته‌ها",
   demoClaim:"گزارش نهایی ادعاهای قابل بررسی را کنار استناد مرتبط نمایش می‌دهد.",demoSource:"منبع نمونه",
   status:"وضعیت مرجع",statusText:"این نما authority تولید نمی‌کند؛ ایجاد و لغو پژوهش فقط از API احرازشده و tenant-bound انجام می‌شود.",
-  freshness:"تازگی منبع",freshnessValue:"نمایش کنار هر منبع حساس به زمان",empty:"پژوهش جدید هنوز شروع نشده است."
+  freshness:"تازگی منبع",freshnessValue:"نمایش کنار هر منبع حساس به زمان",empty:"پژوهش جدید هنوز شروع نشده است.",history:"تاریخچه پژوهش",historyLoading:"در حال دریافت تاریخچه معتبر…",historyUnavailable:"تاریخچه پژوهش در دسترس نیست.",noHistory:"هنوز پژوهشی ثبت نشده است."
  },
  en:{
   eyebrow:"TecPey Deep Research",title:"From question to inspectable report",lead:"Every external factual claim must stay attached to evidence; conflicts and unknowns remain visible.",
@@ -25,7 +26,7 @@ const copy={
   evidence:"Report structure preview",known:"What is known",conflict:"Conflicting evidence",unknown:"Unknowns",
   demoClaim:"Final reports keep inspectable claims adjacent to their supporting citations.",demoSource:"Example source",
   status:"Authority status",statusText:"This view creates no authority; research creation and cancellation are authenticated, tenant-bound API operations.",
-  freshness:"Source freshness",freshnessValue:"Shown beside time-sensitive evidence",empty:"No new research has been started yet."
+  freshness:"Source freshness",freshnessValue:"Shown beside time-sensitive evidence",empty:"No new research has been started yet.",history:"Research history",historyLoading:"Loading authoritative history…",historyUnavailable:"Research history is unavailable.",noHistory:"No research runs have been recorded yet."
  }
 } as const;
 
@@ -33,7 +34,18 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
  const t=copy[locale], isFa=locale==="fa";
  const [question,setQuestion]=useState("");
  const [stage]=useState<Stage>("plan");
+ const [runs,setRuns]=useState<Run[]|null>(null);
+ const [historyError,setHistoryError]=useState(false);
  const stages=useMemo(()=>["plan","gather","synthesize","verify","report"] as Stage[],[]);
+ useEffect(()=>{
+  const controller=new AbortController();
+  setRuns(null); setHistoryError(false);
+  fetch("/api/deep-research?limit=20",{cache:"no-store",signal:controller.signal})
+   .then(async response=>{const body=await response.json().catch(()=>null);if(!response.ok||!body?.ok||!Array.isArray(body.runs))throw new Error("history_unavailable");return body.runs as Run[];})
+   .then(value=>{if(!controller.signal.aborted)setRuns(value);})
+   .catch(()=>{if(!controller.signal.aborted)setHistoryError(true);});
+  return ()=>controller.abort();
+ },[locale]);
  return <main className="min-h-screen bg-[color:var(--tp-bg)] text-[color:var(--tp-text)]" dir={isFa?"rtl":"ltr"}>
   <section className="px-4 py-10 sm:px-6 lg:px-8">
    <div className="mx-auto max-w-7xl">
@@ -69,6 +81,18 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
       </section>
      </aside>
     </div>
+
+    <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="research-history">
+     <h2 id="research-history" className="text-xl font-black">{t.history}</h2>
+     {historyError?<p role="status" className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm font-bold">{t.historyUnavailable}</p>
+      :runs===null?<p role="status" className="mt-4 text-sm font-bold text-[color:var(--tp-muted)]">{t.historyLoading}</p>
+      :runs.length===0?<p className="mt-4 text-sm font-bold text-[color:var(--tp-muted)]">{t.noHistory}</p>
+      :<ul className="mt-4 grid gap-3">{runs.map(run=><li key={run.id} className="rounded-2xl border border-slate-200 p-4 dark:border-white/10">
+       <div className="flex flex-wrap items-start justify-between gap-3"><p className="max-w-3xl font-black leading-7">{run.question}</p><span className="rounded-full border border-cyan-300/25 px-3 py-1 text-xs font-black" dir="ltr">{run.state}</span></div>
+       <div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[color:var(--tp-muted)]"><time dateTime={run.createdAt} dir="ltr">{new Date(run.createdAt).toLocaleString(isFa?"fa-IR":"en-US")}</time><span dir="ltr">{run.requestedFreshness}</span></div>
+       {run.degradedReason?<p className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs font-bold">{run.degradedReason}</p>:null}
+      </li>)}</ul>}
+    </section>
 
     <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="evidence-preview">
      <div className="flex items-center gap-3"><BookOpenCheck className="h-6 w-6 text-cyan-500" aria-hidden/><h2 id="evidence-preview" className="text-xl font-black">{t.evidence}</h2></div>
