@@ -973,7 +973,7 @@ async function reconcileExpiredAiSpendReservations(
   return new Set(expired.rows.map((row) => row.id));
 }
 
-type AiSpendReservationInput = {
+export type AiSpendReservationInput = {
   tenantId: string;
   workspaceId: string;
   agentId: AiAgentId;
@@ -982,7 +982,7 @@ type AiSpendReservationInput = {
   ttlSeconds?: number;
 };
 
-async function reserveAiAgentSpendWithClient(
+export async function reserveAiAgentSpendWithinAuthorityTransaction(
   client: PoolClient,
   input: AiSpendReservationInput,
 ): Promise<AiSpendAdmission> {
@@ -1090,7 +1090,7 @@ export async function reserveAiAgentSpend(
 ): Promise<AiSpendAdmission> {
   try {
     const result = await withAiTenantTransaction(input, (client) =>
-      reserveAiAgentSpendWithClient(client, input)
+      reserveAiAgentSpendWithinAuthorityTransaction(client, input)
     );
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
   } catch {
@@ -1409,6 +1409,24 @@ async function settleAiAgentSpendWithClient(
   };
 }
 
+/**
+ * Internal composition surface for authorities that already own the signed
+ * tenant transaction. This keeps reservation settlement and adjacent evidence
+ * atomic without weakening the public launch boundary.
+ */
+export async function settleAiAgentSpendWithinAuthorityTransaction(
+  client: PoolClient,
+  rawInput: AiSpendSettlementInput,
+): Promise<AiSpendSettlement> {
+  const input = normalizeAiSpendSettlementInput(rawInput);
+  if (
+    !input ||
+    !isAiAgentId(input.agentId) ||
+    !validUuid(input.reservationId)
+  ) return { ok: false, reason: "invalid_request" };
+  return settleAiAgentSpendWithClient(client, input);
+}
+
 /** Settles the marked attempt, or releases a reservation that never reached egress. */
 export async function settleAiAgentSpend(
   rawInput: AiSpendSettlementInput,
@@ -1658,7 +1676,7 @@ export async function admitAiAgentExecution(input: {
           reason: AI_TENANT_ISOLATION_BLOCK_REASON,
         } as const;
       }
-      return reserveAiAgentSpendWithClient(client, input);
+      return reserveAiAgentSpendWithinAuthorityTransaction(client, input);
     });
     spend = result.enabled
       ? result.value
