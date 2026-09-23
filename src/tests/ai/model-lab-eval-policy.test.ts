@@ -161,25 +161,26 @@ describe("Model Lab evaluation policy", () => {
     });
     assert.equal(mentorSummary.passed, true);
 
-    assert.throws(
-      () => summarizeAiModelEvaluation({
-        ...base(),
-        taskId: "mentor_coach",
-        providerId: "anthropic",
-        requestedModel: "claude-coach-pinned",
-        canonicalModel: "claude-coach-pinned",
-        metrics: [
-          quality("factuality", 9800, 160),
-          quality("citation_coverage", 9900, 160),
-          na("structured_output_validity"),
-          quality("safety_refusal_consistency", 9900, 160),
-          quality("persian_quality", 9700, 160),
-          quality("english_quality", 9800, 160),
-          operational("latency_p95_ms", 1500, 160),
-          operational("cost_per_sample_usd_micros", 5200, 160),
-        ],
-      }),
-      /$^/,
+    const overclaimedCitation = summarizeAiModelEvaluation({
+      ...base(),
+      taskId: "mentor_coach",
+      providerId: "anthropic",
+      requestedModel: "claude-coach-pinned",
+      canonicalModel: "claude-coach-pinned",
+      metrics: [
+        quality("factuality", 9800, 160),
+        quality("citation_coverage", 9900, 160),
+        na("structured_output_validity"),
+        quality("safety_refusal_consistency", 9900, 160),
+        quality("persian_quality", 9700, 160),
+        quality("english_quality", 9800, 160),
+        operational("latency_p95_ms", 1500, 160),
+        operational("cost_per_sample_usd_micros", 5200, 160),
+      ],
+    });
+    assert.equal(overclaimedCitation.passed, false);
+    assert.ok(
+      overclaimedCitation.reasons.includes("citation_metric_should_be_not_applicable"),
     );
   });
 
