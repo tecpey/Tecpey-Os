@@ -73,6 +73,10 @@ export type AiProviderCallInput = {
   dataClass?: AiDataClass;
   /** OpenRouter requests default to the strictest provider privacy filters. */
   requireZeroDataRetention?: boolean;
+  /** Require an explicit model identity in the provider response. */
+  requireProviderReportedModel?: boolean;
+  /** Disable adapter retries for exact comparison runs. */
+  disableRetries?: boolean;
 };
 
 export type AiProviderRouterDependencies = {
@@ -562,15 +566,19 @@ async function parseResponse(
       outputText: text,
     });
     const responseModel = (data as { model?: unknown })?.model;
+    const providerReportedModel =
+      typeof responseModel === "string" && responseModel.trim()
+        ? responseModel.trim().slice(0, 160)
+        : null;
+    if (input.requireProviderReportedModel === true && providerReportedModel === null) {
+      return { ok: false, reason: "invalid_response" };
+    }
     return {
       ok: true,
       text,
       sources: collectSources(data),
       usage,
-      model:
-        typeof responseModel === "string" && responseModel.trim()
-          ? responseModel.trim().slice(0, 160)
-          : activeModel,
+      model: providerReportedModel ?? activeModel,
     };
   } catch {
     return { ok: false, reason: "invalid_response" };
@@ -624,9 +632,11 @@ export async function callAiProvider(
   let lastModel: string | undefined;
   for (const model of models) {
     lastModel = model;
-    const maxModelAttempts = isOpenRouterFreeRoute(input, model)
-      ? OPENROUTER_FREE_MAX_ATTEMPTS
-      : 1;
+    const maxModelAttempts = input.disableRetries === true
+      ? 1
+      : isOpenRouterFreeRoute(input, model)
+        ? OPENROUTER_FREE_MAX_ATTEMPTS
+        : 1;
     for (let retryIndex = 0; retryIndex < maxModelAttempts; retryIndex += 1) {
       attempts += 1;
       const called = await fetchWithDeadline(fetchImpl, input, model, deadline, now);
