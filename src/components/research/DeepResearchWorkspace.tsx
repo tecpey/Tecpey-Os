@@ -8,6 +8,10 @@ type Stage="plan"|"gather"|"synthesize"|"verify"|"report";
 type Freshness="current"|"day"|"week"|"month"|"historical";
 type Run={id:string;question:string;locale:Locale;requestedFreshness:Freshness;state:string;degradedReason:string|null;createdAt:string;cancelledAt:string|null;completedAt:string|null};
 type HistoryState={locale:Locale;runs:Run[]|null;error:boolean};
+type Source={id:string;url:string;publisher:string|null;domain:string|null;title:string|null;retrievedAt:string;publishedAt:string|null;locale:string|null;sourceChannel:"public_web"|"connected_private"|"social_x"|"other"};
+type Claim={id:string;reportSection:string;normalizedText:string;claimType:"externally_factual"|"synthesis"|"opinion"|"unresolved";freshnessClass:"live"|"day"|"week"|"month"|"historical"|"not_applicable";confidenceRationale:string|null;sourceIds:string[]};
+type Conflict={id:string;summary:string;resolutionState:"unresolved"|"partially_resolved"|"resolved";claimIds:string[]};
+type Artifact={id:string;runId:string;version:number;status:"draft"|"final";report:Record<string,unknown>;sourceCount:number;citedSourceCount:number;finalizedAt:string|null;createdAt:string;sources:Source[];claims:Claim[];conflicts:Conflict[]};
 
 const stageForState=(state:string):Stage =>
  state==="gathering"?"gather":state==="synthesizing"?"synthesize":state==="verifying"?"verify":
@@ -23,7 +27,7 @@ const copy={
   evidence:"ساختار گزارش",known:"آنچه می‌دانیم",conflict:"شواهد متعارض",unknown:"ناشناخته‌ها",demoClaim:"گزارش نهایی ادعاهای قابل بررسی را کنار استناد مرتبط نمایش می‌دهد.",demoSource:"منبع نمونه",
   status:"وضعیت مرجع",statusText:"ایجاد و لغو پژوهش فقط از API احرازشده و tenant-bound انجام می‌شود.",freshness:"بازه تازگی",empty:"پژوهش جدید هنوز شروع نشده است.",
   history:"تاریخچه پژوهش",historyLoading:"در حال دریافت تاریخچه معتبر…",historyUnavailable:"تاریخچه پژوهش در دسترس نیست.",noHistory:"هنوز پژوهشی ثبت نشده است.",
-  created:"پژوهش با موفقیت ثبت شد.",cancelled:"پژوهش لغو شد.",retry:"تلاش دوباره",errors:{deep_research_pro_entitlement_required:"این قابلیت به دسترسی Pro معتبر نیاز دارد.",deep_research_entitlement_authority_unavailable:"مرجع اشتراک موقتاً در دسترس نیست.",deep_research_authority_unavailable:"مرجع امنیتی پژوهش موقتاً در دسترس نیست.",forbidden:"مجوز این عملیات تأیید نشد.",unauthorized:"برای ادامه دوباره وارد حساب شوید.",default:"عملیات انجام نشد. دوباره تلاش کنید."}
+  created:"پژوهش با موفقیت ثبت شد.",cancelled:"پژوهش لغو شد.",retry:"تلاش دوباره",openReport:"مشاهده گزارش",reportLoading:"در حال دریافت گزارش معتبر…",reportUnavailable:"گزارش معتبر در دسترس نیست.",noArtifact:"برای این اجرا هنوز گزارش ثبت نشده است.",sources:"منابع",consulted:"منابع بررسی‌شده",cited:"منابع استنادشده",retrieved:"بازیابی",confidence:"منطق اطمینان",closeReport:"بستن گزارش",freshnessOptions:{current:"اکنون / تازه‌ترین",day:"۲۴ ساعت",week:"۷ روز",month:"۳۰ روز",historical:"تاریخی"},errors:{deep_research_pro_entitlement_required:"این قابلیت به دسترسی Pro معتبر نیاز دارد.",deep_research_entitlement_authority_unavailable:"مرجع اشتراک موقتاً در دسترس نیست.",deep_research_authority_unavailable:"مرجع امنیتی پژوهش موقتاً در دسترس نیست.",forbidden:"مجوز این عملیات تأیید نشد.",unauthorized:"برای ادامه دوباره وارد حساب شوید.",default:"عملیات انجام نشد. دوباره تلاش کنید."}
  },
  en:{
   eyebrow:"TecPey Deep Research",title:"From question to inspectable report",lead:"Every external factual claim must stay attached to evidence; conflicts and unknowns remain visible.",
@@ -33,7 +37,7 @@ const copy={
   evidence:"Report structure",known:"What is known",conflict:"Conflicting evidence",unknown:"Unknowns",demoClaim:"Final reports keep inspectable claims adjacent to their supporting citations.",demoSource:"Example source",
   status:"Authority status",statusText:"Research creation and cancellation are authenticated, tenant-bound API operations.",freshness:"Freshness window",empty:"No new research has been started yet.",
   history:"Research history",historyLoading:"Loading authoritative history…",historyUnavailable:"Research history is unavailable.",noHistory:"No research runs have been recorded yet.",
-  created:"Research run created.",cancelled:"Research run cancelled.",retry:"Retry",errors:{deep_research_pro_entitlement_required:"A valid Pro entitlement is required for this capability.",deep_research_entitlement_authority_unavailable:"Subscription authority is temporarily unavailable.",deep_research_authority_unavailable:"Research security authority is temporarily unavailable.",forbidden:"This operation was not authorized.",unauthorized:"Sign in again to continue.",default:"The operation could not be completed. Please retry."}
+  created:"Research run created.",cancelled:"Research run cancelled.",retry:"Retry",openReport:"View report",reportLoading:"Loading authoritative report…",reportUnavailable:"The authoritative report is unavailable.",noArtifact:"No report artifact has been recorded for this run yet.",sources:"Sources",consulted:"Sources consulted",cited:"Sources cited",retrieved:"Retrieved",confidence:"Confidence rationale",closeReport:"Close report",freshnessOptions:{current:"Current / latest",day:"24 hours",week:"7 days",month:"30 days",historical:"Historical"},errors:{deep_research_pro_entitlement_required:"A valid Pro entitlement is required for this capability.",deep_research_entitlement_authority_unavailable:"Subscription authority is temporarily unavailable.",deep_research_authority_unavailable:"Research security authority is temporarily unavailable.",forbidden:"This operation was not authorized.",unauthorized:"Sign in again to continue.",default:"The operation could not be completed. Please retry."}
  }
 } as const;
 
@@ -46,6 +50,7 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
  const [history,setHistory]=useState<HistoryState>({locale,runs:null,error:false});
  const [busy,setBusy]=useState<string|null>(null);
  const [notice,setNotice]=useState<{kind:"ok"|"error";text:string}|null>(null);
+ const [artifactState,setArtifactState]=useState<{runId:string|null;artifact:Artifact|null;loading:boolean;error:boolean}>({runId:null,artifact:null,loading:false,error:false});
  const runs=history.locale===locale?history.runs:null;
  const historyError=history.locale===locale?history.error:false;
  const stages=useMemo(()=>["plan","gather","synthesize","verify","report"] as Stage[],[]);
@@ -87,6 +92,17 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
   finally{setBusy(null);}
  }
 
+ async function loadArtifact(runId:string){
+  if(artifactState.loading)return;
+  setArtifactState({runId,artifact:null,loading:true,error:false});
+  try{
+   const response=await fetch(`/api/deep-research?runId=${encodeURIComponent(runId)}`,{cache:"no-store"});
+   const body=await response.json().catch(()=>null);
+   if(!response.ok||!body?.ok){setArtifactState({runId,artifact:null,loading:false,error:true});return;}
+   setArtifactState({runId,artifact:(body.artifact??null) as Artifact|null,loading:false,error:false});
+  }catch{setArtifactState({runId,artifact:null,loading:false,error:true});}
+ }
+
  async function cancelResearch(runId:string){
   if(busy)return;
   setBusy(runId);setNotice(null);
@@ -115,7 +131,7 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
      <label className="sr-only" htmlFor="deep-research-question">{t.question}</label>
      <textarea id="deep-research-question" value={question} onChange={e=>setQuestion(e.target.value)} maxLength={12000} rows={6} placeholder={t.placeholder} className="mt-5 w-full resize-y rounded-2xl border border-slate-300 bg-transparent p-4 text-base font-semibold leading-7 outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:border-white/15"/>
      <div className="mt-4 flex flex-wrap items-end gap-3">
-      <label className="min-w-52 flex-1 text-sm font-black">{t.freshness}<select value={freshness} onChange={e=>setFreshness(e.target.value as Freshness)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 font-bold dark:border-white/15"><option value="current">Current</option><option value="day">24h</option><option value="week">7d</option><option value="month">30d</option><option value="historical">Historical</option></select></label>
+      <label className="min-w-52 flex-1 text-sm font-black">{t.freshness}<select value={freshness} onChange={e=>setFreshness(e.target.value as Freshness)} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 font-bold dark:border-white/15"><option value="current">{t.freshnessOptions.current}</option><option value="day">{t.freshnessOptions.day}</option><option value="week">{t.freshnessOptions.week}</option><option value="month">{t.freshnessOptions.month}</option><option value="historical">{t.freshnessOptions.historical}</option></select></label>
       <button type="button" onClick={startResearch} disabled={!question.trim()||busy!==null} className="min-h-11 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-50">{busy==="create"?t.starting:t.start}</button>
      </div>
      <div className="mt-3 text-xs font-bold text-[color:var(--tp-muted)]" dir="ltr">{question.length.toLocaleString("en-US")} / 12,000</div>
@@ -130,10 +146,19 @@ export function DeepResearchWorkspace({locale}:{locale:Locale}){
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="research-history" className="text-xl font-black">{t.history}</h2>{historyError?<button type="button" onClick={()=>void loadHistory()} className="min-h-11 rounded-xl border px-4 text-sm font-black">{t.retry}</button>:null}</div>
     {historyError?<p role="status" className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm font-bold">{t.historyUnavailable}</p>:runs===null?<p role="status" className="mt-4 text-sm font-bold text-[color:var(--tp-muted)]">{t.historyLoading}</p>:runs.length===0?<p className="mt-4 text-sm font-bold text-[color:var(--tp-muted)]">{t.noHistory}</p>:<ul className="mt-4 grid gap-3">{runs.map(run=><li key={run.id} className="rounded-2xl border border-slate-200 p-4 dark:border-white/10">
      <div className="flex flex-wrap items-start justify-between gap-3"><p className="max-w-3xl font-black leading-7">{run.question}</p><span className="rounded-full border border-cyan-300/25 px-3 py-1 text-xs font-black" dir="ltr">{run.state}</span></div>
-     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-bold text-[color:var(--tp-muted)]"><time dateTime={run.createdAt} dir="ltr">{new Date(run.createdAt).toLocaleString(isFa?"fa-IR":"en-US")}</time><span dir="ltr">{run.requestedFreshness}</span>{cancellable(run.state)?<button type="button" onClick={()=>void cancelResearch(run.id)} disabled={busy!==null} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300/30 px-3 text-rose-700 disabled:opacity-50 dark:text-rose-300"><XCircle className="h-4 w-4" aria-hidden/>{busy===run.id?t.cancelling:t.cancel}</button>:null}</div>
+     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-bold text-[color:var(--tp-muted)]"><time dateTime={run.createdAt} dir="ltr">{new Date(run.createdAt).toLocaleString(isFa?"fa-IR":"en-US")}</time><span>{t.freshnessOptions[run.requestedFreshness]}</span>{run.state==="completed"?<button type="button" onClick={()=>void loadArtifact(run.id)} disabled={artifactState.loading} className="min-h-11 rounded-xl border border-cyan-300/30 px-3 font-black text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:opacity-50 dark:text-cyan-300">{artifactState.loading&&artifactState.runId===run.id?t.reportLoading:t.openReport}</button>:null}{cancellable(run.state)?<button type="button" onClick={()=>void cancelResearch(run.id)} disabled={busy!==null} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300/30 px-3 text-rose-700 disabled:opacity-50 dark:text-rose-300"><XCircle className="h-4 w-4" aria-hidden/>{busy===run.id?t.cancelling:t.cancel}</button>:null}</div>
      {run.degradedReason?<p className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs font-bold">{run.degradedReason}</p>:null}
     </li>)}</ul>}
    </section>
+
+   {artifactState.runId?<section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="authoritative-report">
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="authoritative-report" className="text-xl font-black">{t.evidence}</h2><button type="button" onClick={()=>setArtifactState({runId:null,artifact:null,loading:false,error:false})} className="min-h-11 rounded-xl border px-4 font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500">{t.closeReport}</button></div>
+    {artifactState.loading?<p role="status" className="mt-4">{t.reportLoading}</p>:artifactState.error?<p role="alert" className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 p-4 font-bold">{t.reportUnavailable}</p>:!artifactState.artifact?<p role="status" className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 font-bold">{t.noArtifact}</p>:<div className="mt-5 space-y-5">
+     <div className="flex flex-wrap gap-3 text-xs font-black"><span className="rounded-full border px-3 py-2" dir="ltr">{artifactState.artifact.status} · v{artifactState.artifact.version}</span><span className="rounded-full border px-3 py-2">{t.consulted}: {artifactState.artifact.sourceCount}</span><span className="rounded-full border px-3 py-2">{t.cited}: {artifactState.artifact.citedSourceCount}</span></div>
+     {artifactState.artifact.claims.length?<div className="grid gap-4">{artifactState.artifact.claims.map(claim=><article key={claim.id} className="rounded-2xl border border-slate-200 p-5 dark:border-white/10"><div className="flex flex-wrap gap-2 text-xs font-black"><span className="rounded-full border px-2 py-1">{claim.claimType}</span><span className="rounded-full border px-2 py-1">{claim.freshnessClass}</span></div><p className="mt-3 font-bold leading-8">{claim.normalizedText}</p>{claim.confidenceRationale?<p className="mt-3 text-sm text-[color:var(--tp-muted)]"><strong>{t.confidence}: </strong>{claim.confidenceRationale}</p>:null}<div className="mt-4 flex flex-wrap gap-2">{claim.sourceIds.map(sourceId=>{const source=artifactState.artifact?.sources.find(item=>item.id===sourceId);return source?<a key={sourceId} href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-400/30 px-3 py-2 text-sm font-black text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:text-cyan-300"><span>{source.title||source.publisher||source.domain||t.sources}</span><span className="text-xs font-bold text-[color:var(--tp-muted)]">{t.retrieved}: <time dateTime={source.retrievedAt}>{new Date(source.retrievedAt).toLocaleString(isFa?"fa-IR":"en-US")}</time></span><ExternalLink className="h-4 w-4" aria-hidden/></a>:null;})}</div></article>)}</div>:null}
+     {artifactState.artifact.conflicts.length?<section><h3 className="font-black">{t.conflict}</h3><div className="mt-3 grid gap-3">{artifactState.artifact.conflicts.map(conflict=><article key={conflict.id} className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><div className="text-xs font-black" dir="ltr">{conflict.resolutionState}</div><p className="mt-2 font-bold">{conflict.summary}</p></article>)}</div></section>:null}
+    </div>}
+   </section>:null}
 
    <section className="mt-6 rounded-[32px] border border-slate-200 bg-white/90 p-6 dark:border-white/10 dark:bg-white/[0.055]" aria-labelledby="evidence-preview">
     <div className="flex items-center gap-3"><BookOpenCheck className="h-6 w-6 text-cyan-500" aria-hidden/><h2 id="evidence-preview" className="text-xl font-black">{t.evidence}</h2></div>
