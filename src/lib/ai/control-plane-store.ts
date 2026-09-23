@@ -982,7 +982,7 @@ export type AiSpendReservationInput = {
   ttlSeconds?: number;
 };
 
-export async function reserveAiAgentSpendWithinAuthorityTransaction(
+async function reserveAiAgentSpendWithClient(
   client: PoolClient,
   input: AiSpendReservationInput,
 ): Promise<AiSpendAdmission> {
@@ -1079,6 +1079,19 @@ export async function reserveAiAgentSpendWithinAuthorityTransaction(
   };
 }
 
+
+/**
+ * Transaction-composable spend reservation for authorities that already own
+ * the signed tenant transaction. The legacy private helper remains the
+ * containment boundary used by admitAiAgentExecution.
+ */
+export async function reserveAiAgentSpendWithinAuthorityTransaction(
+  client: PoolClient,
+  input: AiSpendReservationInput,
+): Promise<AiSpendAdmission> {
+  return reserveAiAgentSpendWithClient(client, input);
+}
+
 /**
  * Reserves the per-call worst-case charge before provider egress. The monthly
  * row and reservation are committed in one transaction under a scope lock, so
@@ -1090,7 +1103,7 @@ export async function reserveAiAgentSpend(
 ): Promise<AiSpendAdmission> {
   try {
     const result = await withAiTenantTransaction(input, (client) =>
-      reserveAiAgentSpendWithinAuthorityTransaction(client, input)
+      reserveAiAgentSpendWithClient(client, input)
     );
     return result.enabled ? result.value : { ok: false, reason: "unavailable" };
   } catch {
@@ -1692,7 +1705,7 @@ export async function admitAiAgentExecution(input: {
           reason: AI_TENANT_ISOLATION_BLOCK_REASON,
         } as const;
       }
-      return reserveAiAgentSpendWithinAuthorityTransaction(client, input);
+      return reserveAiAgentSpendWithClient(client, input);
     });
     spend = result.enabled
       ? result.value
