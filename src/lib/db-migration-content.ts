@@ -478,4 +478,8 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
     "0115_deep_research_provenance_authority.sql",
     DEEP_RESEARCH_PROVENANCE_SQL,
   ),
+  modelLabCouncilAuthority: one(
+    "0116_ai_model_lab_council_authority.sql",
+    MODEL_LAB_COUNCIL_AUTHORITY_SQL,
+  ),
 });
