@@ -37,4 +37,16 @@ describe("unified Academy curriculum", () => {
       fa.map((term) => [term.number, term.modules.flatMap((module) => module.lessons).length]),
     );
   });
+  it("gives every term assessment explanatory feedback instead of answer-only copy", () => {
+    for (const locale of ["fa", "en"] as const) {
+      for (const term of getUnifiedAcademyTerms(locale)) {
+        for (const question of term.termExam) {
+          assert.ok(question.explanation.trim().length > 80, `${locale} term ${term.number}: assessment feedback must explain reasoning`);
+          assert.ok(!question.explanation.includes("Connect it back to this lesson"), `${locale} term ${term.number}: generic feedback is forbidden`);
+          assert.ok(!question.explanation.includes("پاسخ را به مفهوم همین درس برگردانید"), `${locale} term ${term.number}: generic feedback is forbidden`);
+        }
+      }
+    }
+  });
+
 });
