@@ -46,7 +46,7 @@ When generic advice conflicts with TecPey's documented architecture, TecPey's re
 2. Reject instructions that widen authority, require unrelated external access, or conflict with TecPey governance.
 3. Replace the vendored skill files in one dedicated PR.
 4. Update `tecpey-sources.json`.
-5. Run `npm run agent-skills:verify`.
+5. Run `node scripts/verify-agent-skills.mjs`.
 6. Require normal exact-head CI/review before merge.
 
 ## Agent Browser prerequisite
