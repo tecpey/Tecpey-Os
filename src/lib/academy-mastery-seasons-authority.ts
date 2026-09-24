@@ -38,6 +38,8 @@ export type AcademyMasterySeasonState = {
     season: AcademyMasterySeason;
     score: number;
     matchingSignals: string[];
+    reasonCodes: string[];
+    evidencePriorityBps: number;
     eligible: boolean;
     assignment: AcademyMasteryAssignment | null;
   }>;
@@ -173,15 +175,48 @@ export function buildAcademyMasterySeasonState(input: {
       assignmentsBySeason.set(assignment.seasonId, assignment);
     }
   }
+  const diagnosisByConcept = new Map(
+    input.diagnosis?.status === "ready"
+      ? input.diagnosis.concepts.map((concept) => [concept.conceptTag, concept] as const)
+      : [],
+  );
   const recommendations = scoreAcademyMasterySeasonRecommendations(signals)
-    .slice(0, Math.max(1, input.limit ?? academyMasterySeasons.length))
-    .map((recommendation: AcademyMasterySeasonRecommendation) => ({
-      season: recommendation.season,
-      score: scoreCap(recommendation.score),
-      matchingSignals: recommendation.matchingSignals,
-      eligible: recommendation.eligible,
-      assignment: assignmentsBySeason.get(recommendation.season.id) ?? null,
-    }));
+    .map((recommendation: AcademyMasterySeasonRecommendation) => {
+      const matchedEvidence = recommendation.season.signalTags
+        .map((tag) => diagnosisByConcept.get(tag))
+        .filter((item): item is AcademyConceptDiagnosis => Boolean(item));
+      const evidencePriorityBps = matchedEvidence.reduce(
+        (total, item) => Math.min(10_000, total + item.priorityBps),
+        0,
+      );
+      const reasonCodes = [...new Set(matchedEvidence.flatMap((item) => item.reasonCodes))].sort();
+      const requiresPersonalizedEvidence =
+        recommendation.season.kind === "repair" ||
+        recommendation.season.kind === "arena-discipline";
+      const evidenceEligible =
+        !requiresPersonalizedEvidence ||
+        (input.diagnosis?.status === "ready" && matchedEvidence.length > 0);
+      return {
+        season: recommendation.season,
+        score: scoreCap(recommendation.score + Math.round(evidencePriorityBps / 1_000)),
+        matchingSignals: recommendation.matchingSignals,
+        reasonCodes:
+          reasonCodes.length > 0
+            ? reasonCodes
+            : [requiresPersonalizedEvidence ? "insufficient_personalized_evidence" : "curriculum_readiness"],
+        evidencePriorityBps,
+        eligible: recommendation.eligible && evidenceEligible,
+        assignment: assignmentsBySeason.get(recommendation.season.id) ?? null,
+      };
+    })
+    .filter((item) => item.eligible || item.assignment)
+    .sort(
+      (left, right) =>
+        right.evidencePriorityBps - left.evidencePriorityBps ||
+        right.score - left.score ||
+        left.season.recommendedAfterTerm - right.season.recommendedAfterTerm,
+    )
+    .slice(0, Math.max(1, input.limit ?? academyMasterySeasons.length));
 
   return {
     locale: input.locale,
