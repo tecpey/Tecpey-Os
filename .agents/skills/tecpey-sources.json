@@ -10,7 +10,8 @@
       "repo": "vercel-labs/agent-skills",
       "sourcePath": "skills/react-best-practices",
       "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
-      "reason": "Next.js/React performance, waterfalls, bundle, SSR/RSC and rendering"
+      "reason": "Next.js/React performance, waterfalls, bundle, SSR/RSC and rendering",
+      "license": "MIT (declared in SKILL.md metadata)"
     },
     {
       "name": "vercel-composition-patterns",
@@ -18,7 +19,8 @@
       "repo": "vercel-labs/agent-skills",
       "sourcePath": "skills/composition-patterns",
       "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
-      "reason": "Scalable React APIs and component architecture"
+      "reason": "Scalable React APIs and component architecture",
+      "license": "MIT (declared in SKILL.md metadata)"
     },
     {
       "name": "web-design-guidelines",
@@ -26,7 +28,8 @@
       "repo": "vercel-labs/agent-skills",
       "sourcePath": "skills/web-design-guidelines",
       "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
-      "reason": "UI/UX/accessibility review against current web-interface guidance"
+      "reason": "UI/UX/accessibility review against current web-interface guidance",
+      "license": "Upstream skill metadata/source; root LICENSE absent at pinned revision"
     },
     {
       "name": "frontend-design",
@@ -34,7 +37,8 @@
       "repo": "anthropics/skills",
       "sourcePath": "skills/frontend-design",
       "commit": "34040c9c568585f6929bedeaad110ad08f079624",
-      "reason": "Distinctive intentional production-grade visual design"
+      "reason": "Distinctive intentional production-grade visual design",
+      "license": "Apache-2.0"
     },
     {
       "name": "security-review",
@@ -42,7 +46,8 @@
       "repo": "github/awesome-copilot",
       "sourcePath": "skills/security-review",
       "commit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
-      "reason": "High-confidence security review with language/vulnerability references"
+      "reason": "High-confidence security review with language/vulnerability references",
+      "license": "MIT"
     },
     {
       "name": "agent-browser",
@@ -50,7 +55,8 @@
       "repo": "vercel-labs/agent-browser",
       "sourcePath": "skills/agent-browser",
       "commit": "d01253d9db28d75080e36da3c1c31ef89454731e",
-      "reason": "Exploratory browser QA, React introspection, screenshots and Web Vitals"
+      "reason": "Exploratory browser QA, React introspection, screenshots and Web Vitals",
+      "license": "Apache-2.0"
     },
     {
       "name": "diagnosing-bugs",
@@ -58,7 +64,8 @@
       "repo": "mattpocock/skills",
       "sourcePath": "skills/engineering/diagnosing-bugs",
       "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
-      "reason": "Feedback-loop-first root-cause debugging and regression discipline"
+      "reason": "Feedback-loop-first root-cause debugging and regression discipline",
+      "license": "MIT"
     },
     {
       "name": "postgres-best-practices",
@@ -66,7 +73,8 @@
       "repo": "neondatabase/postgres-skills",
       "sourcePath": "skills/postgres-best-practices",
       "commit": "27fe45e0f71ea89a6eaf9ea4d2e4068957c81c26",
-      "reason": "Vendor-neutral PostgreSQL schema/indexing/query/transactions/security practices"
+      "reason": "Vendor-neutral PostgreSQL schema/indexing/query/transactions/security practices",
+      "license": "Apache-2.0"
     }
   ],
   "policy": {
