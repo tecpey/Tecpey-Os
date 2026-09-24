@@ -6,7 +6,7 @@ The files under `.agents/skills/` are vendored project-level agent instructions.
 | --- | --- | --- | --- |
 | vercel-react-best-practices | vercel-labs/agent-skills | `063bee94c3f4df8453406c830b0a7df0f2860278` | `SKILL.md` metadata declares MIT |
 | vercel-composition-patterns | vercel-labs/agent-skills | `063bee94c3f4df8453406c830b0a7df0f2860278` | `SKILL.md` metadata declares MIT |
-| web-design-guidelines | vercel-labs/agent-skills | `063bee94c3f4df8453406c830b0a7df0f2860278` | upstream skill metadata/source; no repository-root LICENSE file was present at the pinned revision |
+| web-design-guidelines | vercel-labs/agent-skills | `063bee94c3f4df8453406c830b0a7df0f2860278` | MIT; upstream README at the pinned revision declares the repository license MIT |
 | frontend-design | anthropics/skills | `34040c9c568585f6929bedeaad110ad08f079624` | Apache-2.0; preserved beside the skill |
 | security-review | github/awesome-copilot | `d7e4ad98ed8fd72e4744ee604e6277eb36748fe2` | MIT; preserved beside the skill |
 | agent-browser | vercel-labs/agent-browser | `d01253d9db28d75080e36da3c1c31ef89454731e` | Apache-2.0; preserved beside the skill |
