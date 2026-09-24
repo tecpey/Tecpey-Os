@@ -30,6 +30,24 @@ type PathTerm = {
 const fa = academyPathTerms as unknown as PathTerm[];
 const en = academyPathTermsEn as unknown as PathTerm[];
 
+function assertAnswerPositionBalance(terms: PathTerm[], lang: string): void {
+  const positions = terms.flatMap((term) => term.questions.map((question) => question.options.indexOf(question.answer)));
+  assert.ok(positions.length >= 8, `${lang}: answer-position balance requires a meaningful quiz sample`);
+  const counts = new Map<number, number>();
+  for (const position of positions) counts.set(position, (counts.get(position) ?? 0) + 1);
+  const availablePositions = Math.min(...terms.flatMap((term) => term.questions.map((question) => question.options.length)));
+  for (let position = 0; position < availablePositions; position++) {
+    assert.ok((counts.get(position) ?? 0) > 0, `${lang}: correct answers must not exclude option position ${position + 1}`);
+  }
+  const dominantShare = Math.max(...counts.values()) / positions.length;
+  assert.ok(dominantShare <= 0.4, `${lang}: no correct-answer position may dominate more than 40% of the quiz bank`);
+  let run = 1;
+  for (let index = 1; index < positions.length; index++) {
+    run = positions[index] === positions[index - 1] ? run + 1 : 1;
+    assert.ok(run <= 3, `${lang}: correct-answer position repeats more than three times consecutively`);
+  }
+}
+
 function assertQuizIntegrity(terms: PathTerm[], lang: string): void {
   for (const term of terms) {
     for (const [index, question] of term.questions.entries()) {
@@ -115,5 +133,10 @@ describe("Academy learning path fa/en parity", () => {
 
   it("keeps every quiz answerable in the English path", () => {
     assertQuizIntegrity(en, "en");
+  });
+
+  it("prevents correct-option position bias in both localized quiz banks", () => {
+    assertAnswerPositionBalance(fa, "fa");
+    assertAnswerPositionBalance(en, "en");
   });
 });
