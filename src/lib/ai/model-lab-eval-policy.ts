@@ -148,11 +148,13 @@ function validateMetric(metric: AiModelEvalMetric): AiModelEvalMetric {
     }
     return Object.freeze({ ...metric });
   }
+  const scoreBasisPoints = metric.scoreBasisPoints;
   if (
     metric.measuredValue !== null ||
-    !Number.isSafeInteger(metric.scoreBasisPoints) ||
-    metric.scoreBasisPoints < 0 ||
-    metric.scoreBasisPoints > 10_000
+    scoreBasisPoints === null ||
+    !Number.isSafeInteger(scoreBasisPoints) ||
+    scoreBasisPoints < 0 ||
+    scoreBasisPoints > 10_000
   ) {
     throw new Error("ai_model_eval_quality_metric_invalid");
   }
@@ -249,7 +251,7 @@ export function summarizeAiModelEvaluation(input: AiModelEvalRunInput): AiModelE
     .map((id) => byMetric.get(id)!)
     .map((metric) => ({ ...metric }));
   const normalizedReasons = [...new Set(reasons)].sort();
-  const payload = {
+  const payload: Omit<AiModelEvalSummary, "evidenceHash"> = {
     policyVersion: AI_MODEL_EVAL_POLICY_VERSION,
     taskId: input.taskId,
     evalSuiteId: task.evalSuiteId,
