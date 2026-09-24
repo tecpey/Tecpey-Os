@@ -7,15 +7,24 @@ export type AcademyCurriculumLocale = "fa" | "en";
 type LegacyTerm = (typeof academyPathTerms)[number];
 
 function toQuestion(locale: AcademyCurriculumLocale, termNumber: number, lessonIndex: number, questionIndex: number, source: LegacyTerm["questions"][number]): QuizQuestion {
+  const distractors = source.options.filter((option) => option !== source.answer);
+  const contrast = distractors.length > 0
+    ? distractors[(termNumber + questionIndex) % distractors.length]
+    : null;
+  const explanation = locale === "fa"
+    ? contrast
+      ? `«${source.answer}» با اصل سنجیده‌شده در این سؤال سازگار است؛ «${contrast}» نمونهٔ گزینه‌ای است که همان اصل را نقض یا بیش‌ازحد ساده می‌کند. پاسخ را از روی دلیل انتخاب کنید، نه جای گزینه.`
+      : `«${source.answer}» با اصل سنجیده‌شده در این سؤال سازگار است. پاسخ را از روی دلیل انتخاب کنید، نه جای گزینه.`
+    : contrast
+      ? `“${source.answer}” fits the principle being assessed; “${contrast}” is an example of an alternative that violates or oversimplifies that principle. Choose from the reasoning, not the option position.`
+      : `“${source.answer}” fits the principle being assessed. Choose from the reasoning, not the option position.`;
   return {
     id: `t${termNumber}-l${lessonIndex}-q${questionIndex + 1}-${locale}`,
     type: "single",
     question: source.q,
     options: [...source.options],
     correctAnswer: source.answer,
-    explanation: locale === "fa"
-      ? `پاسخ درست «${source.answer}» است. پاسخ را به مفهوم همین درس برگردانید و دلیل رد گزینه‌های دیگر را توضیح دهید.`
-      : `The correct answer is “${source.answer}”. Connect it back to this lesson and explain why the alternatives do not fit.`,
+    explanation,
     difficulty: questionIndex === 0 ? "easy" : questionIndex === 3 ? "hard" : "medium",
     conceptTag: `term-${termNumber}-lesson-${lessonIndex}`,
   };
