@@ -105,6 +105,9 @@ import { IDENTITY_AUTH_KYC_V2_SQL } from "./db-migrate-identity-auth-kyc-v2";
 import { PRO_COMMERCE_AUTHORITY_SQL } from "./db-migrate-pro-commerce-authority";
 import { PRO_COMMERCE_LEDGER_HARDENING_SQL } from "./db-migrate-pro-commerce-ledger-hardening";
 import { DEEP_RESEARCH_PROVENANCE_SQL } from "./db-migrate-deep-research-provenance";
+import { MODEL_LAB_COUNCIL_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-council";
+import { MODEL_LAB_EXECUTION_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-execution";
+import { AI_MODEL_EVALUATION_AUTHORITY_SQL } from "./db-migrate-ai-model-evaluation";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -476,5 +479,17 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   deepResearchProvenance: one(
     "0115_deep_research_provenance_authority.sql",
     DEEP_RESEARCH_PROVENANCE_SQL,
+  ),
+  modelLabCouncilAuthority: one(
+    "0116_ai_model_lab_council_authority.sql",
+    MODEL_LAB_COUNCIL_AUTHORITY_SQL,
+  ),
+  modelLabExecutionAuthority: one(
+    "0117_ai_model_lab_execution_authority.sql",
+    MODEL_LAB_EXECUTION_AUTHORITY_SQL,
+  ),
+  modelEvaluationAuthority: one(
+    "0118_ai_model_evaluation_authority.sql",
+    AI_MODEL_EVALUATION_AUTHORITY_SQL,
   ),
 });

@@ -318,6 +318,15 @@
       "testReference": "src/tests/security/ai-tenant-rls-postgres.test.ts"
     },
     {
+      "table": "ai_council_syntheses",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-council.ts; src/lib/ai/model-lab-council-authority.ts",
+      "isolationModel": "Council synthesis evidence is tenant/workspace/account scoped and, when linked to Model Lab, a composite foreign key includes account_id so another account cannot attach synthesis evidence to the run. Only structured claim/evidence identifiers are persisted; rows are append-only and FORCE RLS uses the signed AI tenant context.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-council-authority-postgres.test.ts"
+    },
+    {
       "table": "ai_knowledge_item_events",
       "domain": "ai-control-plane",
       "sourceFile": "src/lib/db-migrate-ai-control-plane.ts; src/lib/ai/control-plane-store.ts",
@@ -361,6 +370,69 @@
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/ai-mentor-trust-store-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_capability_snapshots",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-evaluation.ts; src/lib/ai/model-lab-eval-authority.ts",
+      "isolationModel": "Append-only provider/model capability observations are tenant_id + workspace_id scoped, workspace-FK bound, FORCE-RLS protected by the signed AI tenant context, and deduplicated only inside the same tenant/workspace by evidence hash. They contain bounded capability/tool metadata and no provider secret or raw prompt.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-eval-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_eval_metric_results",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-evaluation.ts; src/lib/ai/model-lab-eval-authority.ts",
+      "isolationModel": "Each normalized metric row carries the exact tenant/workspace scope and a composite foreign key to its evaluation run. FORCE RLS prevents cross-tenant access and append-only triggers reject UPDATE/DELETE, while DB checks distinguish scored quality metrics from raw latency/cost measurements.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-eval-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_eval_runs",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-evaluation.ts; src/lib/ai/model-lab-eval-authority.ts",
+      "isolationModel": "Immutable task/model evaluation summaries are tenant/workspace scoped and workspace-FK bound; FORCE RLS uses the signed AI tenant context. Rows retain dataset/evaluator hashes, sample count, conservative quality score and bounded reason codes without raw evaluation prompts or outputs.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-eval-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_lab_candidates",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-council.ts; src/lib/ai/model-lab-council-authority.ts",
+      "isolationModel": "Candidate evidence copies the exact run tenant/workspace scope and is composite-FK bound to that run. Provider/endpoint/canonical-model identity is unique inside the run, evidence is append-only, and FORCE RLS prevents another signed tenant context from reading or inserting against the row.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-council-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_lab_egress_admissions",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-execution.ts; src/lib/ai/model-lab-execution.ts",
+      "isolationModel": "Each provider-egress admission is bound to the exact tenant/workspace/account Model Lab run, exact candidate, exact agent and exact ai_spend_reservations row. The row is immutable, carries only digests/model identifiers and reservation authority, and FORCE RLS accepts the signed AI tenant/workspace context only.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-execution-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_lab_execution_results",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-execution.ts; src/lib/ai/model-lab-execution.ts",
+      "isolationModel": "Terminal Model Lab execution evidence is append-only and composite-FK bound to its immutable egress admission across tenant/workspace/account/run/candidate. Success requires a verified provider-returned model identity and output hash; FORCE RLS prevents cross-tenant reads or inserts.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-execution-authority-postgres.test.ts"
+    },
+    {
+      "table": "ai_model_lab_runs",
+      "domain": "ai-model-lab",
+      "sourceFile": "src/lib/db-migrate-ai-model-lab-council.ts; src/lib/ai/model-lab-council-authority.ts",
+      "isolationModel": "Each immutable Model Lab run is bound to tenant_id + workspace_id + account_id, carries only a prompt digest and policy/evaluation authority hashes, and FORCE RLS authorizes the tenant/workspace pair only through tecpey_ai_authorized_context(). Idempotency uniqueness is account-scoped and the runtime role has SELECT/INSERT only.",
+      "adversarialProof": "proven",
+      "issue": "#701",
+      "testReference": "src/tests/security/model-lab-council-authority-postgres.test.ts"
     },
     {
       "table": "ai_provider_config_events",
