@@ -87,10 +87,11 @@ test("Mentor starts a clean conversation and reopens saved history", async ({ pa
   await expect(log).not.toContainText("Saved lesson explanation");
   await expect(log.getByRole("heading", { name: isEn ? "One question. A clearer next step." : "یک سؤال، یک قدم روشن‌تر.", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Pro", exact: true })).toHaveAttribute("href", `${isEn ? "/en" : ""}/academy/account#pro`);
-  if (testInfo.project.metadata.formFactor === "mobile") {
-    await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();
-  }
-  await page.getByRole("button", { name: /A saved lesson/ }).click();
+  const historyTrigger = page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true });
+  await historyTrigger.click();
+  const historyDialog = page.getByRole("dialog", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی" });
+  await expect(historyDialog).toBeVisible();
+  await historyDialog.getByRole("button", { name: /A saved lesson/ }).click();
   await expect(log).toContainText("Saved lesson explanation");
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(log).toContainText("Saved lesson explanation");
