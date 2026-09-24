@@ -10,7 +10,10 @@ import {
   type AiIntelligenceModelCapabilitySnapshot,
 } from "./intelligence-model-policy";
 import type { AiIntelligenceEndpointId } from "./intelligence-endpoint-policy";
-import type { AiIntelligenceTaskId } from "./intelligence-task-catalog";
+import {
+  aiIntelligenceTaskDefinition,
+  type AiIntelligenceTaskId,
+} from "./intelligence-task-catalog";
 import type { AiModelLabCandidate } from "./model-lab-council-policy";
 import {
   AI_MODEL_EVAL_POLICY_VERSION,
@@ -33,7 +36,10 @@ export type GovernedModelLabEvidenceSet = Readonly<{
       | "capability_snapshot_missing"
       | "capability_snapshot_invalid"
       | "evaluation_missing"
-      | "evaluation_invalid";
+      | "evaluation_invalid"
+      | "provider_health_stale"
+      | "route_policy_invalid"
+      | "route_data_class_forbidden";
   }>[];
 }>;
 
@@ -267,6 +273,8 @@ export async function recordAiModelEvaluationEvidence(
 type EvidenceRow = {
   provider_id: AiModelProviderId;
   model: string;
+  route_data_classes: unknown;
+  provider_last_tested_at: Date | null;
   capability_id: string | null;
   requested_model: string | null;
   canonical_model: string | null;
@@ -354,12 +362,20 @@ function evalFromRow(
  */
 export async function readGovernedModelLabEvidenceSet(
   client: PoolClient,
-  input: EvalScope & { taskId: AiIntelligenceTaskId; agentId: AiAgentId },
+  input: EvalScope & {
+    taskId: AiIntelligenceTaskId;
+    agentId: AiAgentId;
+    nowMs?: number;
+  },
 ): Promise<GovernedModelLabEvidenceSet> {
   assertScope(input);
+  const task = aiIntelligenceTaskDefinition(input.taskId);
+  const nowMs = input.nowMs ?? Date.now();
   const rows = await client.query<EvidenceRow>(
     `SELECT
        route.provider_id, route.model,
+       route.supported_data_classes AS route_data_classes,
+       provider.last_tested_at AS provider_last_tested_at,
        capability.id AS capability_id,
        capability.requested_model, capability.canonical_model,
        capability.observed_at, capability.exact_model_identity,
@@ -427,6 +443,41 @@ export async function readGovernedModelLabEvidenceSet(
   const candidates: AiModelLabCandidate[] = [];
   const unavailable: GovernedModelLabEvidenceSet["unavailable"][number][] = [];
   for (const row of rows.rows) {
+    const routeDataClasses = parseStringArray(row.route_data_classes, 5);
+    if (
+      !routeDataClasses ||
+      routeDataClasses.length < 1 ||
+      routeDataClasses.some((item) => !DATA_CLASSES.has(item as AiDataClass))
+    ) {
+      unavailable.push({
+        providerId: row.provider_id,
+        requestedModel: row.model,
+        reason: "route_policy_invalid",
+      });
+      continue;
+    }
+    if (!routeDataClasses.includes(task.dataClass)) {
+      unavailable.push({
+        providerId: row.provider_id,
+        requestedModel: row.model,
+        reason: "route_data_class_forbidden",
+      });
+      continue;
+    }
+    const providerTestMs = row.provider_last_tested_at?.getTime() ?? Number.NaN;
+    if (
+      !Number.isFinite(providerTestMs) ||
+      providerTestMs > nowMs + 5 * 60_000 ||
+      nowMs - providerTestMs > 24 * 60 * 60_000
+    ) {
+      unavailable.push({
+        providerId: row.provider_id,
+        requestedModel: row.model,
+        reason: "provider_health_stale",
+      });
+      continue;
+    }
+
     const capability = capabilityFromRow(row);
     if (!row.capability_id) {
       unavailable.push({
