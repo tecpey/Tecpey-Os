@@ -6,6 +6,12 @@ import {
   type AcademyMasterySeasonRecommendation,
   type LearnerMasterySignals,
 } from "@/data/academyMasterySeasons";
+import {
+  ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
+  diagnoseAcademyLearning,
+  type AcademyConceptDiagnosis,
+  type AcademyLearningEvidence,
+} from "@/lib/academy-learning-diagnosis";
 
 export type AcademyMasteryLocale = "fa" | "en";
 
@@ -38,6 +44,11 @@ export type AcademyMasterySeasonState = {
   assignments: AcademyMasteryAssignment[];
   catalogAuthority: "code-catalog-v1";
   profileAuthority: "server_mastery_v1";
+  diagnosis: {
+    status: "ready" | "insufficient_evidence";
+    policyVersion: typeof ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION;
+    concepts: AcademyConceptDiagnosis[];
+  };
 };
 
 type Queryable = Pick<PoolClient, "query">;
@@ -142,6 +153,7 @@ export function buildAcademyMasterySeasonState(input: {
   profileTags?: Partial<Omit<LearnerMasterySignals, "completedTerms">>;
   rankingConsent?: boolean;
   assignments?: AcademyMasteryAssignment[];
+  diagnosis?: ReturnType<typeof diagnoseAcademyLearning>;
   limit?: number;
 }): AcademyMasterySeasonState {
   const completedTerms = Math.max(0, Math.min(7, Math.floor(Number(input.completedTerms) || 0)));
@@ -181,6 +193,11 @@ export function buildAcademyMasterySeasonState(input: {
     assignments,
     catalogAuthority: "code-catalog-v1",
     profileAuthority: "server_mastery_v1",
+    diagnosis: {
+      status: input.diagnosis?.status ?? "insufficient_evidence",
+      policyVersion: ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
+      concepts: input.diagnosis?.status === "ready" ? input.diagnosis.concepts : [],
+    },
   };
 }
 
@@ -224,41 +241,53 @@ async function readProfile(
   return result.rows[0] ?? null;
 }
 
-async function readWeaknessSignalTags(
+async function readWeaknessEvidence(
   client: Queryable,
   scope: AcademyMasteryTenantScope,
   studentId: string,
   locale: AcademyMasteryLocale,
-) {
-  const result = await client.query<{ source_type: string; concept_tag: string; strength: number }>(
-    `SELECT source_type, concept_tag, strength
+): Promise<AcademyLearningEvidence[]> {
+  const result = await client.query<{
+    source_type: AcademyLearningEvidence["sourceType"];
+    source_id: string;
+    concept_tag: string;
+    strength: number;
+    confidence: number;
+    observed_at: Date | string;
+  }>(
+    `SELECT source_type, source_id, concept_tag, strength, confidence, observed_at
        FROM academy_mastery_weakness_signals
       WHERE tenant_id = $1
         AND workspace_id = $2
         AND student_id = $3::uuid
         AND locale = $4
-        AND observed_at >= NOW() - INTERVAL '120 days'
-      ORDER BY ABS(strength) DESC, observed_at DESC, id DESC
-      LIMIT 80`,
+      ORDER BY observed_at DESC, id DESC
+      LIMIT 160`,
     [scope.tenantId, scope.workspaceId, studentId, locale],
   );
+  return result.rows.map((row) => ({
+    sourceType: row.source_type,
+    sourceId: row.source_id,
+    conceptTag: row.concept_tag,
+    strength: Number(row.strength),
+    confidence: Number(row.confidence),
+    observedAt: new Date(row.observed_at).toISOString(),
+  }));
+}
+
+function evidenceTags(evidence: readonly AcademyLearningEvidence[]) {
   const weakConceptTags: string[] = [];
   const arenaRiskFlags: string[] = [];
   const mentorTopicTags: string[] = [];
   const marketInterestTags: string[] = [];
-  for (const row of result.rows) {
+  for (const row of evidence) {
     if (Number(row.strength) >= 0) continue;
-    if (row.source_type === "arena") arenaRiskFlags.push(row.concept_tag);
-    else if (row.source_type === "mentor") mentorTopicTags.push(row.concept_tag);
-    else if (row.source_type === "market") marketInterestTags.push(row.concept_tag);
-    else weakConceptTags.push(row.concept_tag);
+    if (row.sourceType === "arena") arenaRiskFlags.push(row.conceptTag);
+    else if (row.sourceType === "mentor") mentorTopicTags.push(row.conceptTag);
+    else if (row.sourceType === "market") marketInterestTags.push(row.conceptTag);
+    else weakConceptTags.push(row.conceptTag);
   }
-  return {
-    weakConceptTags,
-    arenaRiskFlags,
-    mentorTopicTags,
-    marketInterestTags,
-  };
+  return { weakConceptTags, arenaRiskFlags, mentorTopicTags, marketInterestTags };
 }
 
 async function readAssignments(
@@ -325,7 +354,9 @@ export async function readAcademyMasterySeasonState(
   // through Promise.all only produced a pg@9 concurrent-query deprecation.
   const completedTermsFromTerms = await readCompletedTerms(client, scope, studentId, locale);
   const profile = await readProfile(client, scope, studentId, locale);
-  const signalTags = await readWeaknessSignalTags(client, scope, studentId, locale);
+  const evidence = await readWeaknessEvidence(client, scope, studentId, locale);
+  const signalTags = evidenceTags(evidence);
+  const diagnosis = diagnoseAcademyLearning({ evidence, asOf: new Date() });
   const assignments = await readAssignments(client, scope, studentId, locale);
   const completedTerms = Math.max(
     completedTermsFromTerms,
@@ -354,6 +385,7 @@ export async function readAcademyMasterySeasonState(
       ],
     },
     assignments,
+    diagnosis,
   });
 }
 
