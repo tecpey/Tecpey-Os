@@ -14,7 +14,6 @@ const ALL_FLASHCARDS: Flashcard[] = getUnifiedAcademyTerms("fa").flatMap((term) 
 const ALL_IDS = ALL_FLASHCARDS.map((flashcard) => flashcard.id);
 
 export function FlashcardsPageClient() {
-  const [dueCount, setDueCount] = useState(0);
   const totalCount = ALL_IDS.length;
   const [mode, setMode] = useState<"due" | "all" | null>(null);
 
