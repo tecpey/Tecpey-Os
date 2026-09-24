@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Brain } from "lucide-react";
 import { FlashcardDeck } from "./FlashcardDeck";
-import { TERM1, extractFlashcardIds } from "@/data/academy/term1Curriculum";
+import { getUnifiedAcademyTerms } from "@/data/academy/unifiedCurriculum";
 import { loadDeck, getDueCards } from "@/lib/spaced-repetition";
 import { useEffect, useState } from "react";
 import type { Flashcard } from "@/data/academy/term1Curriculum";
 
-const ALL_FLASHCARDS: Flashcard[] = TERM1.modules.flatMap((m) => m.lessons.flatMap((l) => l.flashcards));
-const ALL_IDS = extractFlashcardIds(TERM1);
+const ALL_FLASHCARDS: Flashcard[] = getUnifiedAcademyTerms("fa").flatMap((term) =>
+  term.modules.flatMap((module) => module.lessons.flatMap((lesson) => lesson.flashcards)),
+);
+const ALL_IDS = ALL_FLASHCARDS.map((flashcard) => flashcard.id);
 
 export function FlashcardsPageClient() {
   const [dueCount, setDueCount] = useState(0);
