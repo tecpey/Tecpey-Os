@@ -185,6 +185,11 @@ describe("Model Lab execution", () => {
       bodies.map((body) => body.instructions),
       [INSTRUCTIONS, INSTRUCTIONS],
     );
+    assert.ok(
+      bodies.every((body) =>
+        JSON.stringify(body.tools) === JSON.stringify([{ type: "web_search" }])),
+      "Model Lab must expose only the task-required web_search tool",
+    );
     assert.ok(result.results.every((item) => item.modelIdentityVerified));
     assert.ok(result.results.every((item) => item.text?.startsWith("answer from ")));
     assert.ok(result.results.every((item) => /^[0-9a-f]{64}$/.test(item.outputHash ?? "")));
@@ -341,6 +346,110 @@ describe("Model Lab execution", () => {
     assert.equal(modelA?.failureReason, "circuit_open");
     assert.equal(modelA?.chargedCostUsdMicros, 0);
     assert.ok(marks <= 1, "the open-circuit candidate must not consume an egress mark");
+  });
+
+  it("fails closed before runtime resolution when strict structured output is unavailable", async () => {
+    let runtimeResolutions = 0;
+    const result = await executeAiModelLabRun(
+      {
+        tenantId: "tenant-a",
+        workspaceId: "workspace-a",
+        accountId: "account-a",
+        runId: RUN_ID,
+        instructions: INSTRUCTIONS,
+        input: INPUT,
+      },
+      {
+        ...baseDependencies(),
+        loadDescriptor: async () => ({
+          status: "ready",
+          descriptor: {
+            ...descriptor(),
+            taskId: "content_review",
+            agentId: "content_reviewer",
+            dataClass: "approved_platform_content",
+          },
+        }),
+        resolveRuntime: async (...args) => {
+          runtimeResolutions += 1;
+          return baseDependencies().resolveRuntime!(...args);
+        },
+      },
+    );
+    assert.deepEqual(result, {
+      status: "blocked",
+      runId: RUN_ID,
+      reason: "structured_output_runtime_unavailable",
+    });
+    assert.equal(runtimeResolutions, 0);
+  });
+
+  it("fails closed before egress when the task requires an internal-only tool", async () => {
+    let runtimeResolutions = 0;
+    const result = await executeAiModelLabRun(
+      {
+        tenantId: "tenant-a",
+        workspaceId: "workspace-a",
+        accountId: "account-a",
+        runId: RUN_ID,
+        instructions: INSTRUCTIONS,
+        input: INPUT,
+      },
+      {
+        ...baseDependencies(),
+        loadDescriptor: async () => ({
+          status: "ready",
+          descriptor: {
+            ...descriptor(),
+            taskId: "mentor_coach",
+            agentId: "mentor_coach",
+            dataClass: "private_user",
+          },
+        }),
+        resolveRuntime: async (...args) => {
+          runtimeResolutions += 1;
+          return baseDependencies().resolveRuntime!(...args);
+        },
+      },
+    );
+    assert.deepEqual(result, {
+      status: "blocked",
+      runId: RUN_ID,
+      reason: "required_tool_runtime_unavailable:platform_knowledge",
+    });
+    assert.equal(runtimeResolutions, 0);
+  });
+
+  it("rejects citation-governed output when the provider returns no usable sources", async () => {
+    const result = await executeAiModelLabRun(
+      {
+        tenantId: "tenant-a",
+        workspaceId: "workspace-a",
+        accountId: "account-a",
+        runId: RUN_ID,
+        instructions: INSTRUCTIONS,
+        input: INPUT,
+      },
+      {
+        ...baseDependencies(),
+        providerRouter: {
+          fetchImpl: async (_url, init) => {
+            const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+            return new Response(JSON.stringify({
+              model: String(body.model),
+              output_text: "uncited answer",
+              usage: { input_tokens: 10, output_tokens: 4, cost: 0.001 },
+            }), { status: 200 });
+          },
+        },
+      },
+    );
+    assert.equal(result.status, "incomplete");
+    if (result.status !== "incomplete") return;
+    assert.ok(result.results.every((item) => item.status === "authority_failed"));
+    assert.ok(result.results.every((item) => item.failureReason === "required_citations_missing"));
+    assert.ok(result.results.every((item) => item.text === null));
+    assert.ok(result.results.every((item) => item.outputHash === null));
   });
 
   it("never auto-replays persisted external attempts", async () => {

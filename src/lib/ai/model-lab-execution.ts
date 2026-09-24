@@ -23,6 +23,11 @@ import type {
   AiModelProviderId,
 } from "./control-plane-catalog";
 import type { AiIntelligenceEndpointId } from "./intelligence-endpoint-policy";
+import {
+  AI_INTELLIGENCE_TASK_IDS,
+  aiIntelligenceTaskDefinition,
+  type AiIntelligenceTaskId,
+} from "./intelligence-task-catalog";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -68,7 +73,7 @@ export type AiModelLabExecutionCandidate = Readonly<{
 
 export type AiModelLabExecutionDescriptor = Readonly<{
   runId: string;
-  taskId: string;
+  taskId: AiIntelligenceTaskId;
   agentId: AiAgentId;
   dataClass: AiDataClass;
   promptDigest: string;
@@ -349,6 +354,17 @@ export async function loadAiModelLabExecutionDescriptor(
       if (run.status !== "admitted" || !SHA256_PATTERN.test(run.prompt_digest)) {
         return { status: "blocked", runId: scope.runId, reason: "run_not_admitted" } as const;
       }
+      if (!(AI_INTELLIGENCE_TASK_IDS as readonly string[]).includes(run.task_id)) {
+        return { status: "blocked", runId: scope.runId, reason: "task_authority_invalid" } as const;
+      }
+      const taskId = run.task_id as AiIntelligenceTaskId;
+      const task = aiIntelligenceTaskDefinition(taskId);
+      if (
+        task.dataClass !== run.data_class ||
+        !task.allowedAgents.includes(run.agent_id)
+      ) {
+        return { status: "blocked", runId: scope.runId, reason: "task_authority_mismatch" } as const;
+      }
       const candidates = await client.query<ModelLabCandidateRow>(
         `SELECT id,provider_id,endpoint_id,requested_model,canonical_model,eligibility
            FROM ai_model_lab_candidates
@@ -390,7 +406,7 @@ export async function loadAiModelLabExecutionDescriptor(
         status: "ready",
         descriptor: {
           runId: run.id,
-          taskId: run.task_id,
+          taskId,
           agentId: run.agent_id,
           dataClass: run.data_class,
           promptDigest: run.prompt_digest,
@@ -892,6 +908,8 @@ async function executePreparedCandidate(
   input: string,
   maxOutputTokens: number,
   timeoutMs: number,
+  allowedTools: readonly string[],
+  citationsRequired: boolean,
   requestSignal: AbortSignal | undefined,
   dependencies: AiModelLabExecutionDependencies,
 ): Promise<AiModelLabCandidateExecutionResult> {
@@ -938,7 +956,8 @@ async function executePreparedCandidate(
         timeoutMs,
         maxOutputTokens,
         circuitScope: `${scope.tenantId}:${scope.workspaceId}:model-lab:${candidate.providerId}:${candidate.canonicalModel}`,
-        toolsEnabled: true,
+        toolsEnabled: allowedTools.length > 0,
+        allowedTools,
         dataClass,
         requireZeroDataRetention: true,
         requireProviderReportedModel: true,
@@ -965,8 +984,9 @@ async function executePreparedCandidate(
     providerResult.ok &&
     normalizeModel(providerResult.model) === normalizeModel(candidate.canonicalModel);
   const sources = providerResult.ok ? safeSources(providerResult.sources) : [];
+  const citationEvidenceSatisfied = !citationsRequired || sources.length > 0;
   const digest =
-    providerResult.ok && exactModel
+    providerResult.ok && exactModel && citationEvidenceSatisfied
       ? outputDigest({
           providerId: candidate.providerId,
           requestedModel: candidate.requestedModel,
@@ -978,7 +998,7 @@ async function executePreparedCandidate(
     markFailure !== null
       ? "authority_failed"
       : providerResult.ok
-        ? exactModel
+        ? exactModel && citationEvidenceSatisfied
           ? "succeeded"
           : "authority_failed"
         : providerResult.reason === "cancelled"
@@ -987,9 +1007,11 @@ async function executePreparedCandidate(
   const failureReason =
     markFailure ??
     (providerResult.ok
-      ? exactModel
-        ? null
-        : "model_identity_mismatch"
+      ? !exactModel
+        ? "model_identity_mismatch"
+        : citationEvidenceSatisfied
+          ? null
+          : "required_citations_missing"
       : providerResult.reason);
 
   const persisted = await finalize({
@@ -1025,7 +1047,10 @@ async function executePreparedCandidate(
   return {
     ...persisted,
     text:
-      persisted.status === "succeeded" && providerResult.ok && exactModel
+      persisted.status === "succeeded" &&
+      providerResult.ok &&
+      exactModel &&
+      citationEvidenceSatisfied
         ? providerResult.text
         : null,
     sources,
@@ -1065,6 +1090,31 @@ export async function executeAiModelLabRun(
   if (digest !== descriptor.promptDigest) {
     return { status: "blocked", runId: input.runId, reason: "prompt_digest_mismatch" };
   }
+
+  const task = aiIntelligenceTaskDefinition(descriptor.taskId);
+  if (
+    task.dataClass !== descriptor.dataClass ||
+    !task.allowedAgents.includes(descriptor.agentId)
+  ) {
+    return { status: "blocked", runId: input.runId, reason: "task_authority_mismatch" };
+  }
+  if (task.output.mode === "json_schema") {
+    return {
+      status: "blocked",
+      runId: input.runId,
+      reason: "structured_output_runtime_unavailable",
+    };
+  }
+  const externalTools = new Set(["web_search", "x_search"]);
+  const unsupportedTool = task.requiredTools.find((tool) => !externalTools.has(tool));
+  if (unsupportedTool) {
+    return {
+      status: "blocked",
+      runId: input.runId,
+      reason: `required_tool_runtime_unavailable:${unsupportedTool}`,
+    };
+  }
+  const allowedTools = [...task.requiredTools];
 
   const resolveRuntime = dependencies.resolveRuntime ?? resolveRuntimeAiAgent;
   const resolution = await resolveRuntime(descriptor.agentId, {
@@ -1126,6 +1176,8 @@ export async function executeAiModelLabRun(
         userInput,
         maxOutputTokens,
         timeoutMs,
+        allowedTools,
+        task.evidencePolicy === "provider_citations",
         input.requestSignal,
         dependencies,
       ),

@@ -69,6 +69,12 @@ export type AiProviderCallInput = {
   circuitScope?: string;
   /** Internal connectivity checks may suppress tools; runtime agents cannot add tools beyond the catalog. */
   toolsEnabled?: boolean;
+  /**
+   * Optional exact external-tool subset. When supplied, every requested tool
+   * must already be permitted by the agent+provider catalog. This can only
+   * narrow authority; it can never grant a tool the catalog did not expose.
+   */
+  allowedTools?: readonly string[];
   /** Trusted classification. OpenRouter free routing is enforced outside this low-level adapter. */
   dataClass?: AiDataClass;
   /** OpenRouter requests default to the strictest provider privacy filters. */
@@ -285,8 +291,24 @@ function extractOpenRouterText(value: unknown): string {
   return typeof content === "string" ? content.trim() : "";
 }
 
-function responseTools(providerId: AiModelProviderId, agentId: AiAgentId): unknown[] {
-  const tools = aiToolsForAgent(agentId, providerId);
+function responseTools(
+  providerId: AiModelProviderId,
+  agentId: AiAgentId,
+  allowedTools?: readonly string[],
+): unknown[] {
+  const catalogTools = aiToolsForAgent(agentId, providerId);
+  let tools = catalogTools;
+  if (allowedTools !== undefined) {
+    const normalized = allowedTools.map((tool) => tool.trim());
+    if (
+      normalized.some((tool) => !/^[a-z][a-z0-9_]{1,63}$/.test(tool)) ||
+      new Set(normalized).size !== normalized.length ||
+      normalized.some((tool) => !catalogTools.includes(tool))
+    ) {
+      throw new Error("ai_provider_tool_scope_invalid");
+    }
+    tools = normalized;
+  }
   if (providerId === "anthropic") {
     return tools.includes("web_search")
       ? [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }]
@@ -307,7 +329,7 @@ function requestForProvider(input: AiProviderCallInput, model: string): {
   const maxOutputTokens = boundedInteger(input.maxOutputTokens, 1_200, 64, 100_000);
   const tools = input.toolsEnabled === false || isOpenRouterFreeRoute(input, model)
     ? []
-    : responseTools(input.providerId, input.agentId);
+    : responseTools(input.providerId, input.agentId, input.allowedTools);
   if (input.providerId === "openrouter") {
     return {
       url: "https://openrouter.ai/api/v1/chat/completions",
