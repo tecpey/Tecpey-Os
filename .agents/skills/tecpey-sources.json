@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "installedAt": "2026-09-24",
+  "target": "codex-project",
+  "installPath": ".agents/skills",
+  "sources": [
+    {
+      "name": "vercel-react-best-practices",
+      "publisher": "vercel-labs",
+      "repo": "vercel-labs/agent-skills",
+      "sourcePath": "skills/react-best-practices",
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "reason": "Next.js/React performance, waterfalls, bundle, SSR/RSC and rendering"
+    },
+    {
+      "name": "vercel-composition-patterns",
+      "publisher": "vercel-labs",
+      "repo": "vercel-labs/agent-skills",
+      "sourcePath": "skills/composition-patterns",
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "reason": "Scalable React APIs and component architecture"
+    },
+    {
+      "name": "web-design-guidelines",
+      "publisher": "vercel-labs",
+      "repo": "vercel-labs/agent-skills",
+      "sourcePath": "skills/web-design-guidelines",
+      "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "reason": "UI/UX/accessibility review against current web-interface guidance"
+    },
+    {
+      "name": "frontend-design",
+      "publisher": "anthropics",
+      "repo": "anthropics/skills",
+      "sourcePath": "skills/frontend-design",
+      "commit": "34040c9c568585f6929bedeaad110ad08f079624",
+      "reason": "Distinctive intentional production-grade visual design"
+    },
+    {
+      "name": "security-review",
+      "publisher": "github",
+      "repo": "github/awesome-copilot",
+      "sourcePath": "skills/security-review",
+      "commit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
+      "reason": "High-confidence security review with language/vulnerability references"
+    },
+    {
+      "name": "agent-browser",
+      "publisher": "vercel-labs",
+      "repo": "vercel-labs/agent-browser",
+      "sourcePath": "skills/agent-browser",
+      "commit": "d01253d9db28d75080e36da3c1c31ef89454731e",
+      "reason": "Exploratory browser QA, React introspection, screenshots and Web Vitals"
+    },
+    {
+      "name": "diagnosing-bugs",
+      "publisher": "mattpocock",
+      "repo": "mattpocock/skills",
+      "sourcePath": "skills/engineering/diagnosing-bugs",
+      "commit": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "reason": "Feedback-loop-first root-cause debugging and regression discipline"
+    },
+    {
+      "name": "postgres-best-practices",
+      "publisher": "neondatabase",
+      "repo": "neondatabase/postgres-skills",
+      "sourcePath": "skills/postgres-best-practices",
+      "commit": "27fe45e0f71ea89a6eaf9ea4d2e4068957c81c26",
+      "reason": "Vendor-neutral PostgreSQL schema/indexing/query/transactions/security practices"
+    }
+  ],
+  "policy": {
+    "update": "Pinned-source update only; review upstream diff before replacing vendored files.",
+    "trust": "Skill instructions are procedural guidance, never authorization to bypass TecPey governance, security gates, user approvals or repository policy.",
+    "conflicts": "TecPey repository contracts and security/tenant authorities win over any generic skill recommendation.",
+    "externalExecution": "Skills that invoke external CLIs or network fetches must remain bounded by the agent/runtime permissions and current task scope."
+  }
+}
