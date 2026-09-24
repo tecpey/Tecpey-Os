@@ -1,6 +1,6 @@
 # Academy: Infinite Growth + assessment quality + adaptive remediation
 
-**Base main:** `e16f9cc4254bb556c2a1235baa5cbd24ff0fea2b`
+**Reconciled main authority:** `3901d820a0ce5162fb61704add221183710a0e5f`
 
 **Dependencies:** Existing Academy authority + Mentor evidence; Notifications may consume durable learning events later.
 

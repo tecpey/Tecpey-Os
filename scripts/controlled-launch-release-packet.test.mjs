@@ -226,22 +226,6 @@ function approvalFetch(overrides = {}) {
   };
 }
 
-test("accepted-risk authority honors a newer accountable review refresh without rewriting the closure matrix", () => {
-  const source = readFileSync(acceptedRiskRegister, "utf8");
-  assert.deepEqual(
-    evaluateAcceptedRiskRegisterAuthority(source, { referenceDate: "2026-09-24T12:00:00Z" }),
-    [],
-  );
-});
-
-test("accepted-risk authority parses accountable review refreshes from CRLF markdown", () => {
-  const source = readFileSync(acceptedRiskRegister, "utf8").replace(/\\n/g, "\\r\\n");
-  assert.deepEqual(
-    evaluateAcceptedRiskRegisterAuthority(source, { referenceDate: "2026-09-24T12:00:00Z" }),
-    [],
-  );
-});
-
 function writeHistoricalAuthorityClock(parent, referenceDate) {
   const preload = path.join(parent, "historical-authority-clock.mjs");
   writeFileSync(

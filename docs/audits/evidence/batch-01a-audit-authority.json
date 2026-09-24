@@ -42,13 +42,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "3eda867293a3272d8bf9c6b104caace17f5ec1c4",
-      "sha256": "b58db187fa32eac963552ac1592b83e05dc1ae955d0e5e559ed5d492c1e543b5",
-      "lines": 293,
+      "gitObjectId": "cffb29ab2c7c37a71ab43f0637aca0ad9cfd8937",
+      "sha256": "96da272364efc7e4a356d54b786925d67bf240260498e5da1598b5657607d3d6",
+      "lines": 294,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 293
+          "endLine": 294
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -140,16 +140,19 @@
         "2026-09-18: re-reviewed the complete 285-line package after adding the bundled Mentor profile health probe, health authority/test commands, and PostgreSQL-backed health evidence to the existing profile projection suite. The delta adds no dependency, engine, override, provider/spend authority, exchange/custody activation, deployment or production-launch action; the probe is read-only, emits aggregate queue health only, and keeps the existing AI trust path fail-closed through mentor:profiles:authority:check.",
         "2026-09-18: re-reviewed the complete 289-line package after adding the production-bundled Mentor profile freshness calibration collector, freshness source-authority command and focused unit/PostgreSQL calibration tests, then composing the read-only calibration authority into mentor:profiles:authority:check. The collector reads aggregate create-to-processed latency evidence only, declares observed/insufficient/invalid calibration states rather than an SLO pass, adds no dependency, engine or override, opens no new product/provider/spend/exchange/custody authority, and does not merge, deploy, page or activate production.",
         "2026-09-18: re-reviewed the complete 292-line package after adding the generic operational-signal authority/test commands, composing the signal guard into both Mentor profile and Ops scheduler authority, production-bundling the operational alert delivery runner, and replacing its dev-only tsx execution path with the bundled artifact plus standalone outage-safe environment preflight. The delta adds no dependency, engine or override, introduces no product/provider/spend/exchange/custody authority, keeps delivery HTTPS/idempotent/fail-closed, and grants no merge, deploy, paging/SLA or production-launch authorization.",
-        "2026-09-18: re-reviewed the complete 293-line package after production-bundling the governed operational installer EnvironmentFile validator, exposing ops:installer:env-check, and extending the focused operational-signal test command with installer/parser evidence. The delta adds no dependency, engine or override; it removes ad-hoc shell secret parsing from the Mentor/Community installers, keeps secret values out of output, preserves release authority composition, and adds no product/provider/spend/exchange/custody activation, merge, deploy or production-launch authority."
+        "2026-09-18: re-reviewed the complete 293-line package after production-bundling the governed operational installer EnvironmentFile validator, exposing ops:installer:env-check, and extending the focused operational-signal test command with installer/parser evidence. The delta adds no dependency, engine or override; it removes ad-hoc shell secret parsing from the Mentor/Community installers, keeps secret values out of output, preserves release authority composition, and adds no product/provider/spend/exchange/custody activation, merge, deploy or production-launch authority.",
+        "2026-09-21: re-reviewed the complete 294-line package after adding test:staging-promotion and composing it into test:ops-staging-evidence. The new command runs only local node:test policy/authority checks for the protected staging promotion workflow and script; it adds no dependency, engine or override, performs no workflow dispatch or host mutation itself, preserves the existing release/launch composition, and does not authorize merge, staging promotion or Production deployment.",
+        "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
+        "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 187,
+          "line": 191,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 187 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 191 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
@@ -295,13 +298,13 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "f36b7a0bca7c6a697c3d3dc761e0c57759d67bb1",
-      "sha256": "dcd8b791ca5b0543b5607c8257bf76f09a9b25ca0d738d779d823d247f9c15bd",
-      "lines": 285,
+      "gitObjectId": "98ddd09a8f250f81352938ae57a7e6a5d340dfba",
+      "sha256": "8041d6f76abd03573001704cf57a671608e9500218780649ac4c7370b920526c",
+      "lines": 295,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 285
+          "endLine": 295
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -326,7 +329,9 @@
         "2026-09-02: re-reviewed the complete policy after explicitly classifying src/lib/news-published-at.ts in the existing product-ui Batch 10 News rule. The helper only validates and normalizes publisher timestamps against the fetch time and archive-age boundary; the classification remains limited to the named module, preserves rule ordering and fail-closed handling of unknown src/lib paths, and introduces no runtime authority, persistence, credential access or financial activation surface.",
         "2026-09-04: re-reviewed the complete policy after explicitly classifying src/lib/news-article-evidence.ts, src/lib/news-feed-evidence.ts and src/lib/news-source-registry.ts in the existing product-ui Batch 10 News rule. The three modules respectively extract bounded publisher article evidence, classify feed evidence coverage, and centralize governed public news-source metadata. The anchored rule remains limited to named src/lib TypeScript modules, preserves rule ordering and source-path fail-closed behavior, and introduces no financial execution authority, credential access or capability activation surface.",
         "2026-09-11: re-reviewed the complete policy for Policy v23 after explicitly classifying src/lib/news-detail-body-authority.ts, src/lib/news-full-evidence-capture.ts and src/lib/news-publisher-evidence.ts in the existing product-ui Batch 10 News rule. The additions are exact named-module classifications rather than a broad News wildcard; existing rule ordering and fail-closed handling of unknown src paths remain intact. The reviewed authorities govern public News detail-body presentation, bounded full-evidence capture planning and governed publisher-evidence acquisition respectively; this policy change does not enable credentials, financial execution authority or an otherwise unclassified runtime surface.",
-        "2026-09-21: re-reviewed the complete Policy v24 after explicitly classifying src/lib/living-profile-intelligence.ts under the existing mentor-ai P2 / Batch 8 rule. The change is limited to one exact named-module classification and the policy version constant; it preserves source-path fail-closed behavior, existing rule ordering, provenance semantics and all product/runtime authority boundaries. The module governs deterministic Living Profile presentation and observed-evidence exposure only; it adds no model-selected animation authority, subscription unlock, financial execution path, credential access, network access or runtime activation surface. scripts/repository-audit-manifest.test.mjs includes a focused classification assertion for the new path."
+        "2026-09-21: re-reviewed the complete Policy v24 after explicitly classifying src/lib/living-profile-intelligence.ts under the existing mentor-ai P2 / Batch 8 rule. The change is limited to one exact named-module classification and the policy version constant; it preserves source-path fail-closed behavior, existing rule ordering, provenance semantics and all product/runtime authority boundaries. The module governs deterministic Living Profile presentation and observed-evidence exposure only; it adds no model-selected animation authority, subscription unlock, financial execution path, credential access, network access or runtime activation surface. scripts/repository-audit-manifest.test.mjs includes a focused classification assertion for the new path.",
+        "2026-09-21: independently approved on PR #699 by xrayman6zfm-ux after complete re-review of Policy v25. The change adds the explicit commerce-payments P0 / Batch 6 classifier for commerce, billing, subscription, entitlement, payment, checkout and refund authorities. The ordered rule remains ahead of database-persistence and repository-supply-chain fallbacks; unknown src paths remain fail-closed; provenance semantics and all twelve review batches remain unchanged. Focused regression assertions bind both src/lib/commerce/commerce-authority.ts and src/lib/db-migrate-pro-commerce-authority.ts to commerce-payments / P0 / Batch 6. No confirmed finding was recorded by the independent approval.",
+        "2026-09-21: independently re-approved on PR #699 by xrayman6zfm-ux against exact head 68ae0ccbe0ed80a8902530866a2b667bca51cb4a after Policy v26 narrowed the Commerce P0 / Batch 6 authority with one exact migration-path classifier: src/lib/db-migrate-pro-commerce-authority.ts. This resolves the focused regression finding where the Pro commercial migration previously fell through to generic database-persistence P1 / Batch 2. The complete policy was re-reviewed with Commerce still preceding database-persistence, unknown src paths still fail-closed, provenance and twelve-batch semantics unchanged, and no broad migration wildcard or unrelated authority expansion introduced. No confirmed finding remains from this bounded policy correction."
       ],
       "findings": []
     },

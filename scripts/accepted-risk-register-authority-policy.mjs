@@ -97,27 +97,6 @@ function parseMarkdownRow(line) {
   return cells.slice(1, -1).map((cell) => normalize(cell));
 }
 
-function extractAccountableReviewDeadlines(markdown) {
-  const deadlines = new Map();
-  const refreshRe = /> \*\*Controlled-launch accountable review refresh \((20\d{2}-\d{2}-\d{2})\)\.\*\*([^\r\n]*)/g;
-  for (const match of markdown.matchAll(refreshRe)) {
-    const body = match[2];
-    const nextDeadline = /next (?:weekly )?accountable review deadline is (20\d{2}-\d{2}-\d{2})/i.exec(body)?.[1];
-    if (!nextDeadline) continue;
-    const explicitRisks = [...body.matchAll(/R-\d{2}/g)].map((entry) => entry[0]);
-    const uniqueRisks = [...new Set(explicitRisks)];
-    // A refresh can mention an independently governed risk (for example R-08)
-    // without refreshing it. Apply the shared deadline only to the leading
-    // explicitly re-reviewed risk set before the deadline sentence.
-    const prefix = body.slice(0, body.toLowerCase().indexOf("next"));
-    const reviewedRisks = [...new Set([...prefix.matchAll(/R-\d{2}/g)].map((entry) => entry[0]))];
-    for (const risk of reviewedRisks.length > 0 ? reviewedRisks : uniqueRisks) {
-      deadlines.set(risk, nextDeadline);
-    }
-  }
-  return deadlines;
-}
-
 function extractClosureMatrix(markdown) {
   const marker = "### Controlled-launch closure matrix";
   const start = markdown.indexOf(marker);
@@ -163,7 +142,6 @@ export function evaluateAcceptedRiskRegisterAuthority(markdown, options = {}) {
 
   const { rows, failures: matrixFailures } = extractClosureMatrix(markdown);
   failures.push(...matrixFailures);
-  const accountableReviewDeadlines = extractAccountableReviewDeadlines(markdown);
 
   const byRisk = new Map();
   for (const row of rows) {
@@ -200,9 +178,7 @@ export function evaluateAcceptedRiskRegisterAuthority(markdown, options = {}) {
     if (!owner.includes("+")) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} must have joint accountable owners`);
     }
-    const refreshedReviewDate = accountableReviewDeadlines.get(risk);
-    const effectiveReviewDate = refreshedReviewDate ?? reviewDate;
-    const parsedReviewDate = parseIsoReviewDate(effectiveReviewDate);
+    const parsedReviewDate = parseIsoReviewDate(reviewDate);
     if (!parsedReviewDate) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} review date must be exact, not phase-only`);
     } else if (referenceDay && parsedReviewDate.date < referenceDay) {
