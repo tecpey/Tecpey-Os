@@ -120,6 +120,9 @@ describe("Model evaluation application authority", () => {
       async query(sql: string) {
         assert.match(sql, /ai_agent_route_candidates/);
         assert.match(sql, /provider\.last_test_status='passed'/);
+        assert.match(sql, /eval\.passed=TRUE/);
+        assert.match(sql, /eval\.policy_version=\$5/);
+        assert.match(sql, /COUNT\(DISTINCT metric\.metric\)=8/);
         return {
           rows: [
             {

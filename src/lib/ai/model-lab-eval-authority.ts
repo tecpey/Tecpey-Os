@@ -391,8 +391,19 @@ export async function readGovernedModelLabEvidenceSet(
           AND eval.workspace_id=route.workspace_id
           AND eval.task_id=$4
           AND eval.provider_id=route.provider_id
+          AND eval.passed=TRUE
+          AND eval.policy_version=$5
           AND capability.canonical_model IS NOT NULL
           AND lower(eval.canonical_model)=lower(capability.canonical_model)
+          AND EXISTS (
+            SELECT 1
+              FROM ai_model_eval_metric_results metric
+             WHERE metric.tenant_id=eval.tenant_id
+               AND metric.workspace_id=eval.workspace_id
+               AND metric.run_id=eval.id
+             GROUP BY metric.run_id
+            HAVING COUNT(*)=8 AND COUNT(DISTINCT metric.metric)=8
+          )
         ORDER BY eval.measured_at DESC, eval.id DESC
         LIMIT 1
      ) evaluation ON TRUE
@@ -404,7 +415,13 @@ export async function readGovernedModelLabEvidenceSet(
        AND provider.last_test_status='passed'
      ORDER BY route.priority, route.provider_id, route.model
      LIMIT 6`,
-    [input.tenantId, input.workspaceId, input.agentId, input.taskId],
+    [
+      input.tenantId,
+      input.workspaceId,
+      input.agentId,
+      input.taskId,
+      AI_MODEL_EVAL_POLICY_VERSION,
+    ],
   );
 
   const candidates: AiModelLabCandidate[] = [];
