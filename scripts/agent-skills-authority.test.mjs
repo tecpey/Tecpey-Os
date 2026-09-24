@@ -56,10 +56,10 @@ test("TecPey project-local agent skills match the pinned provenance allowlist", 
   assert.equal(typeof manifest.skills, "object");
   assert.ok(manifest.skills && !Array.isArray(manifest.skills));
   assert.equal(manifest.integrity?.algorithm, "git-blob-sha1");
-  assert.equal(manifest.integrity?.fileCount, 30);
+  assert.equal(manifest.integrity?.fileCount, 28);
 
   const manifestNames = Object.keys(manifest.skills).sort();
-  assert.equal(manifestNames.length, 11, "curated skill count must be explicit");
+  assert.equal(manifestNames.length, 9, "curated skill count must be explicit");
 
   const installedEntries = await readdir(SKILLS_ROOT, { withFileTypes: true });
   const installedNames = installedEntries
