@@ -187,21 +187,6 @@
         }
       ]
     },
-    "agent-owasp-compliance": {
-      "source": "github/awesome-copilot",
-      "sourceCommit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
-      "sourcePath": "skills/agent-owasp-compliance/SKILL.md",
-      "license": "MIT",
-      "requiredFiles": [
-        "SKILL.md"
-      ],
-      "fileLocks": [
-        {
-          "path": "SKILL.md",
-          "gitBlob": "3c4032dc5e2f69709fbfc040caf5c77dee756136"
-        }
-      ]
-    },
     "security-threat-model": {
       "source": "openai/skills",
       "sourceCommit": "49f948faa9258a0c61caceaf225e179651397431",
@@ -232,21 +217,6 @@
         }
       ]
     },
-    "find-skills": {
-      "source": "vercel-labs/skills",
-      "sourceCommit": "7407f3893ad4dceab546ac002c3ef806e4000c73",
-      "sourcePath": "skills/find-skills/SKILL.md",
-      "license": "MIT",
-      "requiredFiles": [
-        "SKILL.md"
-      ],
-      "fileLocks": [
-        {
-          "path": "SKILL.md",
-          "gitBlob": "a41bdd074bb587afd861332cf2f473f3154de4d7"
-        }
-      ]
-    },
     "postgresql-code-review": {
       "source": "github/awesome-copilot",
       "sourceCommit": "d7e4ad98ed8fd72e4744ee604e6277eb36748fe2",
@@ -266,6 +236,6 @@
   "integrity": {
     "algorithm": "git-blob-sha1",
     "semantics": "Each vendored required file must be byte-identical to the named file under sourcePath's directory at sourceCommit.",
-    "fileCount": 30
+    "fileCount": 28
   }
 }
