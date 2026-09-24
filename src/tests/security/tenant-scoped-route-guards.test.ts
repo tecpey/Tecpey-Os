@@ -353,6 +353,14 @@ const EXEMPT_REASON: Readonly<Record<string, string>> = {
   // Offline sync is transport infrastructure shared by every product, with no
   // single product to gate on.
   "src/app/api/offline-sync/route.ts": "cross-product sync transport",
+  // Billing is commercial account infrastructure shared by products. Its Pro capability
+  // decision is made by the server-side commerce entitlement projection, not platform_tenants.products[].
+  "src/app/api/commerce/billing/route.ts": "cross-product commercial account authority",
+  // Deep Research is an AI workspace capability. Its availability is governed by
+  // server-side research/AI capability authority rather than the legacy
+  // platform_tenants.products[] content-product list. The route still resolves
+  // and binds the canonical tenant/workspace principal before any command.
+  "src/app/api/deep-research/route.ts": "AI research workspace capability authority",
 };
 
 describe("Tenant product entitlement route guards", () => {

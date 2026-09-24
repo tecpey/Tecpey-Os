@@ -47,6 +47,7 @@ const directStrictFiles = [
   "src/app/api/community/journal-discipline-score/route.ts",
   "src/app/api/community/profile/route.ts",
   "src/app/api/community/reputation-evidence/route.ts",
+  "src/app/api/commerce/billing/route.ts",
   "src/app/api/device-token/route.ts",
   "src/app/api/learning-events/route.ts",
   "src/app/api/mentor-conversations/migrate/route.ts",
