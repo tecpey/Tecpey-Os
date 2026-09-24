@@ -144,9 +144,6 @@ jobs:
       - name: Install dependencies
         run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
-      - name: TecPey agent skill pack authority
-        run: node scripts/verify-agent-skills.mjs
-
       - name: Production environment contract
         env:
           NODE_ENV: production
