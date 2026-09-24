@@ -134,7 +134,7 @@
     {
       "rule": "react-hooks/set-state-in-effect",
       "path": "src/components/academy/v2/FlashcardDeck.tsx",
-      "line": 259,
+      "line": 245,
       "column": 5,
       "domain": "academy",
       "reason": "deck progress hydration"
