@@ -72,8 +72,8 @@ export const academyPathTermsEn = [
       {
         "q": "What is the more accurate view of USDT?",
         "options": [
-          "A useful dollar-linked tool with issuer and network risk",
           "Risk-free bank dollars",
+          "A useful dollar-linked tool with issuer and network risk",
           "An asset that can never depeg",
           "A complete bank account replacement"
         ],
@@ -82,9 +82,9 @@ export const academyPathTermsEn = [
       {
         "q": "What does a low unit price prove?",
         "options": [
-          "Nothing by itself",
           "Guaranteed upside",
           "Zero risk",
+          "Nothing by itself",
           "Guaranteed liquidity"
         ],
         "answer": "Nothing by itself"
@@ -92,10 +92,10 @@ export const academyPathTermsEn = [
       {
         "q": "What is professional behavior before buying?",
         "options": [
-          "Review use case, risk, liquidity and exit plan",
           "Buy fast because of hype",
           "Trust signal channels",
-          "Ignore fees and networks"
+          "Ignore fees and networks",
+          "Review use case, risk, liquidity and exit plan"
         ],
         "answer": "Review use case, risk, liquidity and exit plan"
       }
@@ -180,8 +180,8 @@ export const academyPathTermsEn = [
       {
         "q": "Which behavior is dangerous?",
         "options": [
-          "Saving a recovery phrase photo on the phone",
           "Keeping it offline",
+          "Saving a recovery phrase photo on the phone",
           "Using 2FA",
           "Checking the official domain"
         ],
@@ -190,9 +190,9 @@ export const academyPathTermsEn = [
       {
         "q": "Urgent account-closing messages often indicate what?",
         "options": [
-          "Phishing using fear",
           "Better security",
           "Lower official fees",
+          "Phishing using fear",
           "Recovery phrase backup"
         ],
         "answer": "Phishing using fear"
@@ -200,10 +200,10 @@ export const academyPathTermsEn = [
       {
         "q": "Before withdrawal, what should be checked?",
         "options": [
-          "Network, address, memo/tag, fee and destination",
           "Only Bitcoin price",
           "Project followers",
-          "Logo color"
+          "Logo color",
+          "Network, address, memo/tag, fee and destination"
         ],
         "answer": "Network, address, memo/tag, fee and destination"
       }
