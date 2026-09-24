@@ -14,6 +14,12 @@ describe("unified Academy curriculum", () => {
         for (const lesson of lessons) {
           assert.ok(lesson.sections.length >= 3, `${lesson.id}: sections are required`);
           assert.ok(lesson.knowledgeChecks.length >= 2, `${lesson.id}: retrieval checks are required`);
+          assert.equal(new Set(lesson.knowledgeChecks.map((check) => check.id)).size, lesson.knowledgeChecks.length, `${lesson.id}: retrieval checks must be distinct`);
+          for (const check of lesson.knowledgeChecks) {
+            assert.ok(check.conceptTag.includes(`lesson-${lesson.lessonIndex}`), `${lesson.id}: retrieval check must be lesson-specific`);
+            assert.ok(check.options?.includes(check.correctAnswer as string), `${lesson.id}: retrieval answer must remain selectable`);
+            assert.ok(check.explanation.trim().length > 40, `${lesson.id}: corrective feedback must explain the decision`);
+          }
           assert.ok(lesson.flashcards.length >= 2, `${lesson.id}: spaced-review cards are required`);
           assert.ok(lesson.practiceExercise.prompt.trim(), `${lesson.id}: practice is required`);
           assert.ok(lesson.reflection.trim(), `${lesson.id}: reflection is required`);
