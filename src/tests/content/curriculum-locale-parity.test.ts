@@ -135,6 +135,23 @@ describe("Academy learning path fa/en parity", () => {
     assertQuizIntegrity(en, "en");
   });
 
+
+  it("does not ship generic placeholder prose as English lesson content", () => {
+    const forbidden = [
+      "is taught as a practical decision skill, not as a definition",
+      "A realistic scenario shows how",
+      "The common mistake is treating the topic as a signal or shortcut",
+    ];
+    for (const term of en) {
+      for (const [lessonIndex, lesson] of term.lessons.entries()) {
+        const joined = lesson.join("\\n");
+        for (const phrase of forbidden) {
+          assert.ok(!joined.includes(phrase), `en term ${term.number} lesson ${lessonIndex + 1}: generic placeholder prose is forbidden`);
+        }
+      }
+    }
+  });
+
   it("prevents correct-option position bias in both localized quiz banks", () => {
     assertAnswerPositionBalance(fa, "fa");
     assertAnswerPositionBalance(en, "en");
