@@ -27,9 +27,7 @@ governed by TecPey's existing authorities and explicit approvals.
 | `systematic-debugging` | `obra/superpowers` | Root-cause-first debugging, feedback loops and defense-in-depth debugging. |
 | `verification-before-completion` | `obra/superpowers` | Prevents completion claims without fresh verification evidence. |
 | `security-review` | `github/awesome-copilot` | High-confidence exploitable code-security review with structured references. |
-| `agent-owasp-compliance` | `github/awesome-copilot` | AI/agentic risk review for tool use, agency, identity, logging and supply-chain boundaries. |
 | `security-threat-model` | `openai/skills` | Repository-grounded trust-boundary, abuse-path and mitigation modeling. |
-| `find-skills` | `vercel-labs/skills` | Disciplined future discovery with reputation/install-count checks. |
 | `postgresql-code-review` | `github/awesome-copilot` | PostgreSQL/RLS/schema/index/security review relevant to TecPey's tenant-heavy backend. |
 
 Exact source paths, licenses and pinned commits live in
@@ -45,6 +43,8 @@ Exact source paths, licenses and pinned commits live in
 - **`agent-browser`** — high-quality browser automation, but the skill requires a separate CLI/browser binary.
   TecPey already has governed browser golden-path infrastructure; this is reconsidered only when the required
   runtime can be installed/pinned/reproduced in CI.
+- **`agent-owasp-compliance`** — excluded after current-source validation: the pinned upstream skill labels a custom ASI-01…ASI-10 taxonomy as the OWASP 2026 Top 10. TecPey does not vendor a security/compliance skill whose normative mapping is not current-source accurate.
+- **`find-skills`** — excluded because its upstream workflow recommends mutable discovery plus optional global, non-pinned installation. Future skill discovery remains a deliberate review task under this policy, not an installed execution authority.
 - Broad, low-reputation or duplicate skills are not installed merely because they rank highly.
 
 ## Third-party helper execution boundary
@@ -76,6 +76,6 @@ No `@latest`, floating branch, hidden network bootstrap, or automatic unreviewed
 
 - Skills provide procedural guidance; they do not replace repository-specific docs or exact current framework docs.
 - Next.js work must still honor the root `AGENTS.md` rule to consult the installed Next.js documentation when APIs may have changed.
-- Security skills are complementary: threat modeling, code-security review and agentic-AI review are separate activities.
+- Security skills are complementary: threat modeling and code-security review are separate activities. Agentic-AI risk assessment must use current primary OWASP/NIST guidance rather than a stale vendored taxonomy.
 - UI skills must follow TecPey's actual brand, FA/EN parity, accessibility and product-truth contracts.
 - Testing/debugging skills may create local evidence but may not weaken tests, bypass protected environments or redact failures.
