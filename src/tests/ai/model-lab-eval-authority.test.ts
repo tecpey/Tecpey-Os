@@ -128,6 +128,8 @@ describe("Model evaluation application authority", () => {
             {
               provider_id: "openai",
               model: "gpt-research-pinned",
+              route_data_classes: ["public"],
+              provider_last_tested_at: new Date("2026-09-24T01:30:00.000Z"),
               capability_id: "11111111-1111-4111-8111-111111111111",
               requested_model: "gpt-research-pinned",
               canonical_model: "gpt-research-pinned",
@@ -148,6 +150,8 @@ describe("Model evaluation application authority", () => {
             {
               provider_id: "perplexity",
               model: "sonar-research-pinned",
+              route_data_classes: ["public"],
+              provider_last_tested_at: new Date("2026-09-24T01:30:00.000Z"),
               capability_id: "33333333-3333-4333-8333-333333333333",
               requested_model: "sonar-research-pinned",
               canonical_model: "sonar-research-pinned",
@@ -175,6 +179,7 @@ describe("Model evaluation application authority", () => {
       workspaceId: "workspace-a",
       taskId: "mentor_public_research",
       agentId: "coin_tool_researcher",
+      nowMs: Date.parse("2026-09-24T12:00:00.000Z"),
     });
     assert.equal(evidence.candidates.length, 2);
     assert.equal(evidence.candidates[0]?.evalEvidence?.qualityBasisPoints, 9600);
@@ -184,6 +189,84 @@ describe("Model evaluation application authority", () => {
       requestedModel: "sonar-research-pinned",
       reason: "evaluation_missing",
     }]);
+  });
+
+  it("fails visible on stale provider health and route data-class policy", async () => {
+    const client = {
+      async query(sql: string) {
+        assert.match(sql, /provider\.last_tested_at AS provider_last_tested_at/);
+        assert.match(sql, /route\.supported_data_classes AS route_data_classes/);
+        return {
+          rows: [
+            {
+              provider_id: "openai",
+              model: "gpt-stale",
+              route_data_classes: ["public"],
+              provider_last_tested_at: new Date("2026-09-22T00:00:00.000Z"),
+              capability_id: "11111111-1111-4111-8111-111111111111",
+              requested_model: "gpt-stale",
+              canonical_model: "gpt-stale",
+              observed_at: new Date("2026-09-24T00:00:00.000Z"),
+              exact_model_identity: true,
+              deprecated: false,
+              zero_data_retention: true,
+              supported_data_classes: ["public"],
+              capabilities: ["text", "web_search", "citations"],
+              tools: ["web_search"],
+              cache_mode: "none",
+              eval_id: null,
+              eval_suite_id: null,
+              measured_at: null,
+              sample_size: null,
+              quality_basis_points: null,
+            },
+            {
+              provider_id: "perplexity",
+              model: "sonar-private-only",
+              route_data_classes: ["private_user"],
+              provider_last_tested_at: new Date("2026-09-24T01:30:00.000Z"),
+              capability_id: "22222222-2222-4222-8222-222222222222",
+              requested_model: "sonar-private-only",
+              canonical_model: "sonar-private-only",
+              observed_at: new Date("2026-09-24T00:00:00.000Z"),
+              exact_model_identity: true,
+              deprecated: false,
+              zero_data_retention: true,
+              supported_data_classes: ["public", "private_user"],
+              capabilities: ["text", "web_search", "citations"],
+              tools: ["web_search"],
+              cache_mode: "none",
+              eval_id: null,
+              eval_suite_id: null,
+              measured_at: null,
+              sample_size: null,
+              quality_basis_points: null,
+            },
+          ],
+        };
+      },
+    } as unknown as PoolClient;
+
+    const evidence = await readGovernedModelLabEvidenceSet(client, {
+      tenantId: "tenant-a",
+      workspaceId: "workspace-a",
+      taskId: "mentor_public_research",
+      agentId: "coin_tool_researcher",
+      nowMs: Date.parse("2026-09-24T12:00:00.000Z"),
+    });
+    assert.deepEqual(evidence.candidates, []);
+    assert.deepEqual(evidence.unavailable, [
+      {
+        providerId: "openai",
+        requestedModel: "gpt-stale",
+        reason: "provider_health_stale",
+      },
+      {
+        providerId: "perplexity",
+        requestedModel: "sonar-private-only",
+        reason: "route_data_class_forbidden",
+      },
+    ]);
   });
 
   it("does not synthesize a candidate when capability authority is absent", async () => {
@@ -218,6 +301,7 @@ describe("Model evaluation application authority", () => {
       workspaceId: "workspace-a",
       taskId: "mentor_public_research",
       agentId: "coin_tool_researcher",
+      nowMs: Date.parse("2026-09-24T12:00:00.000Z"),
     });
     assert.deepEqual(evidence.candidates, []);
     assert.equal(evidence.unavailable[0]?.reason, "capability_snapshot_missing");
