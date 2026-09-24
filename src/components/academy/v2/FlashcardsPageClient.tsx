@@ -4,8 +4,13 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, Brain } from "lucide-react";
 import { FlashcardDeck } from "./FlashcardDeck";
 import { getUnifiedAcademyTerms } from "@/data/academy/unifiedCurriculum";
-import { loadDeck, getDueCards } from "@/lib/spaced-repetition";
-import { useState } from "react";
+import {
+  FLASHCARDS_UPDATED_EVENT,
+  getDueCards,
+  hydrateDeck,
+  loadDeck,
+} from "@/lib/spaced-repetition";
+import { useEffect, useState } from "react";
 import type { Flashcard } from "@/data/academy/term1Curriculum";
 
 const ALL_FLASHCARDS: Flashcard[] = getUnifiedAcademyTerms("fa").flatMap((term) =>
@@ -17,10 +22,32 @@ export function FlashcardsPageClient() {
   const totalCount = ALL_IDS.length;
   const [mode, setMode] = useState<"due" | "all" | null>(null);
 
-  const [dueCount] = useState(() => {
-    const deck = loadDeck();
-    return getDueCards(deck).length;
-  });
+  const [dueCount, setDueCount] = useState(() => getDueCards(loadDeck("fa")).length);
+  const [hydrating, setHydrating] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      if (!active) return;
+      setDueCount(getDueCards(loadDeck("fa")).length);
+    };
+    const onUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ locale?: string }>).detail;
+      if (!detail?.locale || detail.locale === "fa") refresh();
+    };
+
+    window.addEventListener(FLASHCARDS_UPDATED_EVENT, onUpdated);
+    void hydrateDeck("fa").then(() => {
+      if (!active) return;
+      refresh();
+      setHydrating(false);
+    });
+
+    return () => {
+      active = false;
+      window.removeEventListener(FLASHCARDS_UPDATED_EVENT, onUpdated);
+    };
+  }, []);
 
   if (mode) {
     return (
@@ -71,7 +98,7 @@ export function FlashcardsPageClient() {
       <div className="space-y-3">
         <button
           onClick={() => setMode("due")}
-          disabled={dueCount === 0}
+          disabled={hydrating || dueCount === 0}
           className="flex w-full items-center gap-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/5 p-5 text-right transition-[border-color,background-color,transform,opacity] duration-150 ease-out hover:bg-cyan-400/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           aria-label="مرور کارت‌های امروز"
         >
@@ -81,7 +108,7 @@ export function FlashcardsPageClient() {
           <div className="flex-1">
             <p className="font-black">مرور امروز</p>
             <p className="text-xs font-bold text-slate-400">
-              {dueCount > 0 ? `${dueCount} کارت منتظر مرور` : "کارتی برای امروز نداری"}
+              {hydrating ? "در حال همگام‌سازی برنامه مرور…" : dueCount > 0 ? `${dueCount} کارت منتظر مرور` : "کارتی برای امروز نداری"}
             </p>
           </div>
           <span className="text-xs font-black text-cyan-300">{dueCount}</span>
