@@ -18,6 +18,32 @@ const INSTRUCTIONS = "Return a source-grounded comparison.";
 const INPUT = "Compare the public evidence for this test.";
 const DIGEST = modelLabComparisonInputDigest(INSTRUCTIONS, INPUT);
 
+function descriptor() {
+  return {
+    runId: RUN_ID,
+    taskId: "mentor_public_research" as const,
+    agentId: "coin_tool_researcher" as const,
+    dataClass: "public" as const,
+    promptDigest: DIGEST,
+    candidates: [
+      {
+        candidateId: CANDIDATE_A,
+        providerId: "openai" as const,
+        endpointId: "openai_responses" as const,
+        requestedModel: "model-a",
+        canonicalModel: "model-a",
+      },
+      {
+        candidateId: CANDIDATE_B,
+        providerId: "openai" as const,
+        endpointId: "openai_responses" as const,
+        requestedModel: "model-b",
+        canonicalModel: "model-b",
+      },
+    ],
+  };
+}
+
 const limits = {
   dailyRequests: 100,
   dailyTokens: 100_000,

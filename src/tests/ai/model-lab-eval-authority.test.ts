@@ -276,6 +276,8 @@ describe("Model evaluation application authority", () => {
           rows: [{
             provider_id: "openai",
             model: "gpt-unobserved",
+            route_data_classes: ["public"],
+            provider_last_tested_at: new Date("2026-09-24T11:30:00.000Z"),
             capability_id: null,
             requested_model: null,
             canonical_model: null,

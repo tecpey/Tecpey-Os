@@ -636,7 +636,8 @@ describe("multi-provider AI router", () => {
     assert.deepEqual(body.tools, [{ type: "web_search" }]);
   });
 
-  it("rejects an exact tool scope that exceeds the agent-provider catalog", async () => {
+  it("rejects an exact tool scope that exceeds the agent-provider catalog before transport", async () => {
+    let fetchCalls = 0;
     await assert.rejects(
       callAiProvider({
         providerId: "xai",
@@ -646,9 +647,15 @@ describe("multi-provider AI router", () => {
         instructions: "trusted",
         input: "public query",
         allowedTools: ["platform_knowledge"],
+      }, {
+        fetchImpl: async () => {
+          fetchCalls += 1;
+          return new Response("{}", { status: 200 });
+        },
       }),
       /ai_provider_tool_scope_invalid/,
     );
+    assert.equal(fetchCalls, 0);
   });
 
   it("treats an explicit empty exact tool scope as no provider tools", async () => {

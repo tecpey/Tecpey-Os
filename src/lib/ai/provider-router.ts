@@ -291,24 +291,30 @@ function extractOpenRouterText(value: unknown): string {
   return typeof content === "string" ? content.trim() : "";
 }
 
+function normalizedProviderToolScope(
+  providerId: AiModelProviderId,
+  agentId: AiAgentId,
+  allowedTools?: readonly string[],
+): readonly string[] {
+  const catalogTools = aiToolsForAgent(agentId, providerId);
+  if (allowedTools === undefined) return catalogTools;
+  const normalized = allowedTools.map((tool) => tool.trim());
+  if (
+    normalized.some((tool) => !/^[a-z][a-z0-9_]{1,63}$/.test(tool)) ||
+    new Set(normalized).size !== normalized.length ||
+    normalized.some((tool) => !catalogTools.includes(tool))
+  ) {
+    throw new Error("ai_provider_tool_scope_invalid");
+  }
+  return normalized;
+}
+
 function responseTools(
   providerId: AiModelProviderId,
   agentId: AiAgentId,
   allowedTools?: readonly string[],
 ): unknown[] {
-  const catalogTools = aiToolsForAgent(agentId, providerId);
-  let tools = catalogTools;
-  if (allowedTools !== undefined) {
-    const normalized = allowedTools.map((tool) => tool.trim());
-    if (
-      normalized.some((tool) => !/^[a-z][a-z0-9_]{1,63}$/.test(tool)) ||
-      new Set(normalized).size !== normalized.length ||
-      normalized.some((tool) => !catalogTools.includes(tool))
-    ) {
-      throw new Error("ai_provider_tool_scope_invalid");
-    }
-    tools = normalized;
-  }
+  const tools = normalizedProviderToolScope(providerId, agentId, allowedTools);
   if (providerId === "anthropic") {
     return tools.includes("web_search")
       ? [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }]
@@ -629,6 +635,12 @@ export async function callAiProvider(
   dependencies: AiProviderRouterDependencies = {},
 ): Promise<AiProviderCallResult> {
   assertAiAgentProviderAllowed(input.agentId, input.providerId);
+  // Validate any caller-narrowed tool scope before circuit, credential, abort or
+  // transport handling. Configuration-authority errors must never be converted
+  // into availability failures by the fetch boundary.
+  if (input.allowedTools !== undefined) {
+    normalizedProviderToolScope(input.providerId, input.agentId, input.allowedTools);
+  }
   const now = dependencies.now ?? Date.now;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const random = dependencies.random ?? Math.random;
