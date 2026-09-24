@@ -38,7 +38,6 @@ export type GovernedModelLabEvidenceSet = Readonly<{
 }>;
 
 const MODEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/;
-const HASH = /^[0-9a-f]{64}$/;
 const DATA_CLASSES = new Set<AiDataClass>([
   "public",
   "aggregate_deidentified",
