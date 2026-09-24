@@ -89,7 +89,7 @@
     },
     "riskRegister": {
       "path": "docs/LAUNCH_ACCEPTED_RISKS.md",
-      "digest": "sha256:c1428abfbaf7bd3d47e60f2d3702e2156d1e9be394b65a9863b2679477cb6e4d",
+      "digest": "sha256:a4b25833022ae13c88d2f4620312883dd363b8010180f62c79d71cc462ce1284",
       "candidateSha": "8db71529b3b9250bab2462c5c151d00c3aef2754",
       "referenceDate": "2026-08-30",
       "minimumReviewDate": "2026-09-06",

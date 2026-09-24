@@ -27,6 +27,14 @@ export const AI_TENANT_RLS_EVIDENCE_TABLES = Object.freeze([
   "ai_routing_decision_events",
   "ai_agent_route_candidates",
   "ai_agent_route_candidate_events",
+  "ai_model_lab_runs",
+  "ai_model_lab_candidates",
+  "ai_council_syntheses",
+  "ai_model_lab_egress_admissions",
+  "ai_model_lab_execution_results",
+  "ai_model_capability_snapshots",
+  "ai_model_eval_runs",
+  "ai_model_eval_metric_results",
 ]);
 
 export const AI_TENANT_RLS_EVIDENCE_SOURCE_PATHS = Object.freeze([
@@ -38,7 +46,13 @@ export const AI_TENANT_RLS_EVIDENCE_SOURCE_PATHS = Object.freeze([
   "scripts/verify-ai-tenant-rls-runtime-evidence.mjs",
   "src/lib/ai/database-authority.ts",
   "src/lib/db-migrate-ai-tenant-rls.ts",
+  "src/lib/db-migrate-ai-model-lab-council.ts",
+  "src/lib/db-migrate-ai-model-lab-execution.ts",
+  "src/lib/db-migrate-ai-model-evaluation.ts",
   "src/tests/security/ai-tenant-rls-postgres.test.ts",
+  "src/tests/security/model-lab-council-authority-postgres.test.ts",
+  "src/tests/security/model-lab-execution-authority-postgres.test.ts",
+  "src/tests/security/model-lab-eval-authority-postgres.test.ts",
 ]);
 
 const SHA1 = /^[0-9a-f]{40}$/;

@@ -73,6 +73,9 @@ const REQUIRED_MIGRATIONS = [
   "0102_news_ai_cost_authority.sql",
   "0105_mentor_profile_update_outbox.sql",
   "0115_deep_research_provenance_authority.sql",
+  "0116_ai_model_lab_council_authority.sql",
+  "0117_ai_model_lab_execution_authority.sql",
+  "0118_ai_model_evaluation_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -123,6 +126,14 @@ const REQUIRED_TABLES = [
   "ai_research_conflict_sets",
   "ai_research_conflict_members",
   "ai_research_artifacts",
+  "ai_model_lab_runs",
+  "ai_model_lab_candidates",
+  "ai_council_syntheses",
+  "ai_model_lab_egress_admissions",
+  "ai_model_lab_execution_results",
+  "ai_model_capability_snapshots",
+  "ai_model_eval_runs",
+  "ai_model_eval_metric_results",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -412,7 +423,8 @@ describe("PostgreSQL migration authority", () => {
              '0097_support_messages.sql',
              '0098_news_archive_and_growth_intelligence.sql',
              '0102_news_ai_cost_authority.sql',
-             '0103_news_full_evidence_capture_authority.sql'
+             '0103_news_full_evidence_capture_authority.sql',
+             '0117_ai_model_lab_execution_authority.sql'
            ]::text[]);
           UPDATE _migrations
              SET checksum = '3bb54ffbdae67711ac7508a27e8d0b4846dba2d8dd0e319ed2edbe842584c7a8'
