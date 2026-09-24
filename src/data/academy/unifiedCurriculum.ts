@@ -1,0 +1,76 @@
+import { academyPathTerms } from "@/data/academyPath";
+import { academyPathTermsEn } from "@/data/academyPathEn";
+import type { Lesson, QuizQuestion, Term } from "./term1Curriculum";
+import { TERM1 } from "./term1Curriculum";
+
+export type AcademyCurriculumLocale = "fa" | "en";
+type LegacyTerm = (typeof academyPathTerms)[number];
+
+function toQuestion(locale: AcademyCurriculumLocale, termNumber: number, lessonIndex: number, questionIndex: number, source: LegacyTerm["questions"][number]): QuizQuestion {
+  return {
+    id: `t${termNumber}-l${lessonIndex}-q${questionIndex + 1}-${locale}`,
+    type: "single",
+    question: source.q,
+    options: [...source.options],
+    correctAnswer: source.answer,
+    explanation: locale === "fa"
+      ? `پاسخ درست «${source.answer}» است. پاسخ را به مفهوم همین درس برگردانید و دلیل رد گزینه‌های دیگر را توضیح دهید.`
+      : `The correct answer is “${source.answer}”. Connect it back to this lesson and explain why the alternatives do not fit.`,
+    difficulty: questionIndex === 0 ? "easy" : questionIndex === 3 ? "hard" : "medium",
+    conceptTag: `term-${termNumber}-lesson-${lessonIndex}`,
+  };
+}
+
+function adaptLegacyLesson(locale: AcademyCurriculumLocale, term: LegacyTerm, lesson: LegacyTerm["lessons"][number], lessonIndex: number): Lesson {
+  const [title, concept, example, mistake, checklist, coaching] = lesson;
+  const relatedQuestions = term.questions.map((question, index) => toQuestion(locale, term.number, lessonIndex + 1, index, question));
+  const primaryCheck = relatedQuestions[lessonIndex % relatedQuestions.length];
+  const secondaryCheck = relatedQuestions[(lessonIndex + 1) % relatedQuestions.length];
+  return {
+    id: `t${term.number}-l${lessonIndex + 1}-${locale}`, termNumber: term.number, lessonIndex: lessonIndex + 1,
+    title, subtitle: term.subtitle,
+    estimatedMinutes: Math.max(8, Math.round(Number.parseInt(term.duration, 10) / Math.max(1, term.lessons.length)) || 10),
+    difficulty: term.number <= 2 ? "beginner" : term.number <= 5 ? "intermediate" : "advanced",
+    objectives: locale === "fa"
+      ? [`مفهوم «${title}» را با زبان خودم توضیح دهم.`, "ریسک یا خطای رایج این موضوع را تشخیص دهم.", "یک چک‌لیست عملی برای تصمیم امن‌تر بسازم."]
+      : [`Explain “${title}” in my own words.`, "Recognize the main failure mode or risk.", "Build a practical checklist for a safer decision."],
+    sections: [
+      { heading: locale === "fa" ? "مفهوم اصلی" : "Core concept", body: concept },
+      { heading: locale === "fa" ? "سناریوی واقعی" : "Worked scenario", body: example },
+      { heading: locale === "fa" ? "خطای رایج" : "Common failure mode", body: mistake, callout: { type: "warning", text: mistake } },
+      { heading: locale === "fa" ? "از دانستن تا عمل" : "From knowledge to action", body: checklist, callout: { type: "tip", text: coaching } },
+    ],
+    knowledgeChecks: [primaryCheck, secondaryCheck],
+    flashcards: [
+      { id: `fc-t${term.number}-l${lessonIndex + 1}-concept-${locale}`, front: title, back: concept, example, relatedTerms: [term.theme] },
+      { id: `fc-t${term.number}-l${lessonIndex + 1}-risk-${locale}`, front: locale === "fa" ? `خطای رایج در «${title}» چیست؟` : `What is a common failure mode in “${title}”?`, back: mistake, example: checklist, relatedTerms: [term.theme] },
+    ],
+    keyTakeaways: [concept, mistake, checklist].map((value) => value.length > 220 ? `${value.slice(0, 217)}…` : value),
+    mentorNote: coaching,
+    practiceExercise: { title: locale === "fa" ? `تمرین تصمیم: ${title}` : `Decision practice: ${title}`, prompt: checklist, type: "checklist", items: term.readiness.slice(0, 3), expectedInsight: coaching },
+    reflection: locale === "fa" ? `اگر امروز با سناریوی «${title}» روبه‌رو شوید، قبل از اقدام چه چیزی را بررسی می‌کنید و چه چیزی می‌تواند نظر شما را تغییر دهد؟` : `If you faced “${title}” today, what would you verify before acting, and what evidence could change your mind?`,
+    responsibleTradingInsert: locale === "fa" ? "این تمرین آموزشی است و توصیه خرید یا فروش نیست. هدف، ساختن فرآیند تصمیم‌گیری قابل توضیح و کنترل ریسک است." : "This is educational practice, not a buy or sell recommendation. The goal is an explainable decision process with controlled risk.",
+    nextLessonTeaser: locale === "fa" ? "در قدم بعد، همین مهارت را در یک سناریوی تازه بازیابی و تمرین می‌کنیم." : "Next, retrieve and apply the same skill in a fresh scenario.",
+  };
+}
+
+function adaptLegacyTerm(locale: AcademyCurriculumLocale, term: LegacyTerm): Term {
+  const lessons = term.lessons.map((lesson, index) => adaptLegacyLesson(locale, term, lesson, index));
+  const moduleQuiz = term.questions.map((question, index) => toQuestion(locale, term.number, 0, index, question));
+  return {
+    number: term.number, slug: term.slug, title: term.title, subtitle: term.subtitle, outcome: term.outcome,
+    estimatedWeeks: term.duration, level: term.number <= 2 ? "beginner" : term.number <= 5 ? "intermediate" : "advanced",
+    prerequisites: term.number === 1 ? [] : [`term-${term.number - 1}`],
+    modules: [{ id: `t${term.number}-core-${locale}`, termNumber: term.number, moduleIndex: 1, title: term.theme, lessons, moduleQuiz, masteryThreshold: 75 }],
+    termExam: moduleQuiz, examPassThreshold: 75,
+    certificate: { name: locale === "fa" ? `گواهی آکادمی تک‌پی — ترم ${term.number}` : `TecPey Academy Certificate — Term ${term.number}`, description: term.outcome },
+  };
+}
+
+export function getUnifiedAcademyTerms(locale: AcademyCurriculumLocale): Term[] {
+  const source = locale === "en" ? academyPathTermsEn : academyPathTerms;
+  return source.map((term) => locale === "fa" && term.number === 1 ? TERM1 : adaptLegacyTerm(locale, term as LegacyTerm));
+}
+export function getUnifiedAcademyTerm(locale: AcademyCurriculumLocale, slug: string): Term | null {
+  return getUnifiedAcademyTerms(locale).find((term) => term.slug === slug) ?? null;
+}
