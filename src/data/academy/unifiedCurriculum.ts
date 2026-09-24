@@ -23,9 +23,43 @@ function toQuestion(locale: AcademyCurriculumLocale, termNumber: number, lessonI
 
 function adaptLegacyLesson(locale: AcademyCurriculumLocale, term: LegacyTerm, lesson: LegacyTerm["lessons"][number], lessonIndex: number): Lesson {
   const [title, concept, example, mistake, checklist, coaching] = lesson;
-  const relatedQuestions = term.questions.map((question, index) => toQuestion(locale, term.number, lessonIndex + 1, index, question));
-  const primaryCheck = relatedQuestions[lessonIndex % relatedQuestions.length];
-  const secondaryCheck = relatedQuestions[(lessonIndex + 1) % relatedQuestions.length];
+  // Retrieval checks must assess this lesson, not recycle a term-level question bank.
+  // This prevents learners from passing through recognition/memorization of unrelated prompts.
+  const saferAction = checklist;
+  const unsafeShortcut = mistake;
+  const explainConcept = concept;
+  const primaryOptions = [saferAction, unsafeShortcut, explainConcept];
+  const primaryShift = (term.number + lessonIndex) % primaryOptions.length;
+  const primaryCheck: QuizQuestion = {
+    id: `t${term.number}-l${lessonIndex + 1}-retrieval-action-${locale}`,
+    type: "single",
+    question: locale === "fa"
+      ? `در یک موقعیت تازه درباره «${title}»، کدام اقدام بیشترین تطابق را با فرآیند امن این درس دارد؟`
+      : `In a fresh “${title}” scenario, which action best follows this lesson's safer process?`,
+    options: [...primaryOptions.slice(primaryShift), ...primaryOptions.slice(0, primaryShift)],
+    correctAnswer: saferAction,
+    explanation: locale === "fa"
+      ? `پاسخ باید به اقدام قابل‌اجرا برگردد: ${saferAction} این انتخاب از میانبر «${unsafeShortcut}» فاصله می‌گیرد.`
+      : `The answer must return to an executable process: ${saferAction} This avoids the shortcut “${unsafeShortcut}”.`,
+    difficulty: "medium",
+    conceptTag: `term-${term.number}-lesson-${lessonIndex + 1}-application`,
+  };
+  const riskOptions = [unsafeShortcut, saferAction, coaching];
+  const riskShift = (term.number + lessonIndex + 1) % riskOptions.length;
+  const secondaryCheck: QuizQuestion = {
+    id: `t${term.number}-l${lessonIndex + 1}-retrieval-risk-${locale}`,
+    type: "single",
+    question: locale === "fa"
+      ? `کدام گزینه در «${title}» همان خطای رایجی است که باید تشخیص دهید؟`
+      : `Which option is the common failure mode you should recognize in “${title}”?`,
+    options: [...riskOptions.slice(riskShift), ...riskOptions.slice(0, riskShift)],
+    correctAnswer: unsafeShortcut,
+    explanation: locale === "fa"
+      ? `این همان خطای هدف درس است: ${unsafeShortcut} برای اصلاح، به چک‌لیست و شواهد برگردید، نه حدس یا هیجان.`
+      : `This is the lesson's target failure mode: ${unsafeShortcut} Correct it by returning to the checklist and evidence rather than guesswork or emotion.`,
+    difficulty: "medium",
+    conceptTag: `term-${term.number}-lesson-${lessonIndex + 1}-risk`,
+  };
   return {
     id: `t${term.number}-l${lessonIndex + 1}-${locale}`, termNumber: term.number, lessonIndex: lessonIndex + 1,
     title, subtitle: term.subtitle,
