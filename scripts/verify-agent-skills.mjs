@@ -139,7 +139,12 @@ export function verifyAgentSkillsToolkit({ rootDir = process.cwd() } = {}) {
     for (const { absolute, stat } of files) {
       const relative = normalizeRelative(rootDir, absolute);
       invariant(stat.size <= 512 * 1024, `${relative}: vendored file exceeds 512 KiB`);
-      invariant(ALLOWED_EXTENSIONS.has(path.extname(absolute)), `${relative}: unapproved vendored file type`);
+      const extension = path.extname(absolute);
+      const basename = path.basename(absolute);
+      invariant(
+        ALLOWED_EXTENSIONS.has(extension) || basename === "LICENSE",
+        `${relative}: unapproved vendored file type`,
+      );
       verifyHelperLocation(relative);
       const text = fs.readFileSync(absolute, "utf8");
       if (relative.endsWith("/SKILL.md")) {
