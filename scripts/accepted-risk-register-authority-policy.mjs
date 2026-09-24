@@ -99,7 +99,7 @@ function parseMarkdownRow(line) {
 
 function extractAccountableReviewDeadlines(markdown) {
   const deadlines = new Map();
-  const refreshRe = /> \\*\\*Controlled-launch accountable review refresh \\((20\\d{2}-\\d{2}-\\d{2})\\)\\.\\*\\*([^\\r\\n]*)/g;
+  const refreshRe = /> \*\*Controlled-launch accountable review refresh \((20\d{2}-\d{2}-\d{2})\)\.\*\*([^\r\n]*)/g;
   for (const match of markdown.matchAll(refreshRe)) {
     const body = match[2];
     const nextDeadline = /next (?:weekly )?accountable review deadline is (20\d{2}-\d{2}-\d{2})/i.exec(body)?.[1];
