@@ -141,14 +141,6 @@
     },
     {
       "rule": "react-hooks/set-state-in-effect",
-      "path": "src/components/academy/v2/FlashcardsPageClient.tsx",
-      "line": 21,
-      "column": 5,
-      "domain": "academy",
-      "reason": "strict progress hydration transition"
-    },
-    {
-      "rule": "react-hooks/set-state-in-effect",
       "path": "src/components/academy/v2/LearningInsightsDashboard.tsx",
       "line": 375,
       "column": 5,
