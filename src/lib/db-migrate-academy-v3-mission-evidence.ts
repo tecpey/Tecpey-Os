@@ -107,6 +107,16 @@ $$ LANGUAGE plpgsql SET search_path = pg_catalog, public, pg_temp;
 
 REVOKE ALL ON FUNCTION tecpey_reject_academy_v3_mission_evidence_mutation() FROM PUBLIC;
 
+-- Migration 0085 installs the active-binding guard on the tables that existed
+-- at that point. This later ledger joins the same FK family, so attach the
+-- shared deferred guard here as part of creating the table rather than mutating
+-- historical migration 0085.
+DROP TRIGGER IF EXISTS tecpey_active_binding_guard ON academy_v3_mission_attempts;
+CREATE CONSTRAINT TRIGGER tecpey_active_binding_guard
+AFTER INSERT OR UPDATE ON academy_v3_mission_attempts
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION tecpey_require_active_principal_binding();
+
 DROP TRIGGER IF EXISTS academy_v3_mission_attempts_no_update ON academy_v3_mission_attempts;
 CREATE TRIGGER academy_v3_mission_attempts_no_update
 BEFORE UPDATE OR DELETE ON academy_v3_mission_attempts
