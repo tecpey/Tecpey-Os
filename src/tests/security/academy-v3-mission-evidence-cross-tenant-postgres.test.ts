@@ -84,7 +84,7 @@ before(async () => {
       assert.equal(first.replayed, false);
       assert.equal(second.replayed, true);
       assert.equal(second.attemptId, first.attemptId);
-      const count = await pool!.query<{ count: string }>(
+      const count = await clientA.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count FROM academy_v3_mission_attempts
           WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3 AND student_id=$3::uuid AND idempotency_key=$4`,
         [tenantA, workspaceA, student, idempotencyKey],
