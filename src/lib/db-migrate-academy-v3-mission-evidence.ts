@@ -11,8 +11,10 @@ CREATE TABLE IF NOT EXISTS academy_v3_mission_attempts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
+  principal_type TEXT NOT NULL DEFAULT 'student' CHECK (principal_type = 'student'),
   principal_id TEXT NOT NULL,
   student_id UUID NOT NULL,
+  CHECK (principal_id = student_id::text),
   locale TEXT NOT NULL CHECK (locale IN ('fa','en')),
   mission_id TEXT NOT NULL CHECK (char_length(mission_id) BETWEEN 8 AND 160),
   mission_version INTEGER NOT NULL CHECK (mission_version > 0),
@@ -32,10 +34,10 @@ CREATE TABLE IF NOT EXISTS academy_v3_mission_attempts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces(tenant_id, id) ON DELETE RESTRICT,
-  FOREIGN KEY (tenant_id, workspace_id, principal_id, student_id)
-    REFERENCES platform_principal_bindings(tenant_id, workspace_id, principal_id, student_id)
+  FOREIGN KEY (tenant_id, workspace_id, principal_type, principal_id)
+    REFERENCES platform_principal_bindings(tenant_id, workspace_id, principal_type, principal_id)
     ON DELETE RESTRICT,
-  UNIQUE (id, tenant_id, workspace_id, principal_id, student_id),
+  UNIQUE (id, tenant_id, workspace_id, principal_type, principal_id, student_id),
   UNIQUE (tenant_id, workspace_id, principal_id, student_id, idempotency_key)
 );
 
@@ -48,8 +50,10 @@ CREATE TABLE IF NOT EXISTS academy_v3_mission_decision_events (
   attempt_id UUID NOT NULL,
   tenant_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
+  principal_type TEXT NOT NULL DEFAULT 'student' CHECK (principal_type = 'student'),
   principal_id TEXT NOT NULL,
   student_id UUID NOT NULL,
+  CHECK (principal_id = student_id::text),
   choice_id TEXT NOT NULL CHECK (
     char_length(choice_id) BETWEEN 1 AND 120
     AND choice_id ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$'
@@ -74,8 +78,8 @@ CREATE TABLE IF NOT EXISTS academy_v3_mission_decision_events (
     jsonb_typeof(evidence) = 'object' AND octet_length(evidence::text) <= 16384
   ),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  FOREIGN KEY (attempt_id, tenant_id, workspace_id, principal_id, student_id)
-    REFERENCES academy_v3_mission_attempts(id, tenant_id, workspace_id, principal_id, student_id)
+  FOREIGN KEY (attempt_id, tenant_id, workspace_id, principal_type, principal_id, student_id)
+    REFERENCES academy_v3_mission_attempts(id, tenant_id, workspace_id, principal_type, principal_id, student_id)
     ON DELETE RESTRICT,
   UNIQUE (tenant_id, workspace_id, attempt_id, idempotency_key)
 );
