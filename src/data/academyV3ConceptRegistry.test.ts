@@ -102,4 +102,17 @@ describe("Academy V3 concept registry", () => {
       }
     }
   });
+  it("keeps every V3 reference mission semantically complete in both FA and EN", () => {
+    for (const mission of academyV3ReferenceMissions) {
+      for (const locale of ["fa", "en"] as const) {
+        assert.ok(mission.title[locale].trim(), `${mission.id}: ${locale} title required`);
+        assert.ok(mission.mentalModel[locale].trim(), `${mission.id}: ${locale} mental model required`);
+        assert.ok(mission.scenario.context[locale].trim(), `${mission.id}: ${locale} scenario required`);
+        for (const evidence of mission.scenario.knownEvidence) assert.ok(evidence[locale].trim(), `${mission.id}: ${locale} known evidence required`);
+        for (const uncertainty of mission.scenario.uncertainty) assert.ok(uncertainty[locale].trim(), `${mission.id}: ${locale} uncertainty required`);
+        for (const choice of mission.scenario.choices) assert.ok(choice.text[locale].trim(), `${mission.id}: ${locale} choice required`);
+        assert.ok(mission.scenario.rationale[locale].trim(), `${mission.id}: ${locale} rationale required`);
+      }
+    }
+  });
 });
