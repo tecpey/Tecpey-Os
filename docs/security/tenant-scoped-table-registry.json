@@ -192,6 +192,24 @@
       "isolationNote": "Gates are tenant-scoped; four derived-analytics readers are not yet and remain global: academy-progress-projection.ts, mentor-memory.ts, mentor-signals.ts and student-cartax.ts. None of them gates progression, issuance or eligibility — they compute XP/level projections, mentor context and profile summaries — and each also reads other tables whose own tenant status differs, so threading a scope through them is tracked as a separate slice under #20 rather than being half-applied here."
     },
     {
+      "table": "academy_v3_mission_attempts",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-v3-mission-evidence.ts",
+      "isolationModel": "tenant_id + workspace_id lead the attempt idempotency boundary and learner indexes. principal_type is constrained to student, principal_id must equal student_id::text, and the exact tenant/workspace/student principal tuple is bound to platform_principal_bindings by composite foreign key. The shared deferred active-binding guard rejects writes for revoked bindings at commit; the ledger is append-only and RLS is enabled and forced with no public table privileges.",
+      "adversarialProof": "pending",
+      "issue": "#109",
+      "testReference": "src/tests/database/migration-integration.test.ts"
+    },
+    {
+      "table": "academy_v3_mission_decision_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-v3-mission-evidence.ts",
+      "isolationModel": "Every decision event repeats tenant/workspace/student principal scope and is composite-FK bound to the exact academy_v3_mission_attempts row including principal_type, principal_id and student_id. Scoped idempotency begins with tenant/workspace/attempt, UPDATE/DELETE are rejected, and RLS is enabled and forced with no public table privileges, preventing an event from being reattached to a foreign tenant or learner attempt.",
+      "adversarialProof": "pending",
+      "issue": "#109",
+      "testReference": "src/tests/database/migration-integration.test.ts"
+    },
+    {
       "table": "admin_auth_provider_evidence",
       "domain": "admin-security",
       "sourceFile": "src/lib/db-migrate-admin-auth-provider-evidence.ts",
