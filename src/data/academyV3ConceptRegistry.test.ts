@@ -11,6 +11,7 @@ import {
 } from "./academyV3CriticalLearningRegistry";
 import { academyV3ReferenceMissions as academyV3MissionBlueprints } from "./academyV3MissionRegistry";
 import { academyV3ReferenceMissions } from "./academyV3ReferenceMissions";
+import { ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION, issueAcademyV3MissionAttempt } from "../lib/academy-v3-mission-authority";
 
 describe("Academy V3 concept registry", () => {
   it("has stable unique IDs, known prerequisites and an acyclic graph", () => {
@@ -117,5 +118,19 @@ describe("Academy V3 concept registry", () => {
         assert.ok(mission.scenario.rationale[locale].trim(), `${mission.id}: ${locale} rationale required`);
       }
     }
+  });
+  it("issues replayable mission attempt identity from canonical server content", () => {
+    const mission = academyV3ReferenceMissions[0];
+    assert.ok(mission);
+    const issuedAt = new Date("2026-09-25T12:00:00.000Z");
+    const first = issueAcademyV3MissionAttempt({ missionId: mission.id, locale: "fa", issuedAt });
+    const replay = issueAcademyV3MissionAttempt({ missionId: mission.id, locale: "fa", issuedAt });
+    assert.deepEqual(first, replay);
+    assert.equal(first.policyVersion, ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION);
+    assert.equal(first.missionVersion, mission.version);
+    assert.equal(first.conceptId, mission.conceptId);
+    assert.deepEqual(first.objectiveIds, mission.objectiveIds);
+    assert.match(first.missionSha256, /^[0-9a-f]{64}$/);
+    assert.throws(() => issueAcademyV3MissionAttempt({ missionId: "MISSION.UNKNOWN", locale: "fa", issuedAt }), /academy_v3_mission_unknown/);
   });
 });
