@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, CircleAlert, RotateCcw } from "lucide-react";
 import type { AcademyV3ReferenceMission } from "@/data/academyV3ReferenceMissions";
 
@@ -15,12 +15,17 @@ export function AcademyV3MissionPreview({
 }) {
   const [choiceId, setChoiceId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const feedbackRef = useRef<HTMLElement>(null);
   const isFa = locale === "fa";
   const selected = useMemo(
     () => mission.scenario.choices.find((choice) => choice.id === choiceId) ?? null,
     [choiceId, mission.scenario.choices],
   );
   const correct = submitted && choiceId === mission.scenario.correctChoiceId;
+
+  useEffect(() => {
+    if (submitted) feedbackRef.current?.focus();
+  }, [submitted]);
 
   const reset = () => {
     setChoiceId(null);
@@ -99,11 +104,13 @@ export function AcademyV3MissionPreview({
           className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-cyan-200 px-5 py-3.5 text-sm font-black text-[#06111e] shadow-[0_14px_34px_rgba(34,211,238,0.16)] transition-[transform,opacity,box-shadow] duration-150 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07101c]"
         >
           {isFa ? "ثبت تصمیم" : "Submit decision"}
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          <ArrowRight className={`h-4 w-4 ${isFa ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
       ) : (
         <section
-          className={`mt-6 rounded-3xl border p-5 ${correct ? "border-emerald-300/25 bg-emerald-300/[0.07]" : "border-amber-300/25 bg-amber-300/[0.07]"}`}
+          ref={feedbackRef}
+          tabIndex={-1}
+          className={`mt-6 rounded-3xl border p-5 outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07101c] ${correct ? "border-emerald-300/25 bg-emerald-300/[0.07]" : "border-amber-300/25 bg-amber-300/[0.07]"}`}
           aria-live="polite"
         >
           <div className="flex items-start gap-3">
@@ -114,12 +121,7 @@ export function AcademyV3MissionPreview({
                   ? (isFa ? "فرآیند تصمیم قابل دفاع است" : "The decision process is defensible")
                   : (isFa ? "این انتخاب نیاز به بازبینی دارد" : "This choice needs review")}
               </h2>
-              <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{mission.scenario.rationale[locale]}</p>
-              {!correct && selected?.misconceptionId && (
-                <p className="mt-3 text-xs font-black text-amber-200">
-                  {isFa ? "الگوی استدلال برای مرور: " : "Reasoning pattern to review: "}{selected.misconceptionId}
-                </p>
-              )}
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{correct ? mission.scenario.rationale[locale] : (selected?.feedback?.[locale] ?? mission.scenario.rationale[locale])}</p>
             </div>
           </div>
           <div className="mt-5 border-t border-white/10 pt-4">
