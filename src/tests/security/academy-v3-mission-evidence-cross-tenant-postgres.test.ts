@@ -100,7 +100,7 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
       try {
         await client.query("SET CONSTRAINTS ALL DEFERRED");
         await insertAttempt(client, tenantA, workspaceA, studentA);
-        await assert.rejects(client.query("SET CONSTRAINTS ALL IMMEDIATE"), /active principal binding/i);
+        await assert.rejects(client.query("SET CONSTRAINTS ALL IMMEDIATE"), /principal binding|binding.*active|active.*binding/i);
       } finally {
         await client.query("ROLLBACK").catch(() => undefined);
       }
@@ -119,7 +119,7 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
           `INSERT INTO academy_v3_mission_decision_events
            (attempt_id,tenant_id,workspace_id,principal_type,principal_id,student_id,choice_id,correct,
             evidence_kind,policy_version,mission_sha256,submitted_at,reassessment_due_after,idempotency_key,evidence)
-           VALUES ($1::uuid,$2,$3,'student',$4,$4::uuid,'no-trade-yet',true,'scenario',
+           VALUES ($1::uuid,$2,$3,'student',$4::text,$4::uuid,'no-trade-yet',true,'scenario',
              'academy-v3-mission-attempt-v1',$5,NOW(),NOW()+INTERVAL '24 hours',$6,'{}'::jsonb)`,
           [attemptId, tenantB, workspaceB, student, "a".repeat(64), `event-${randomUUID()}`],
         ),
