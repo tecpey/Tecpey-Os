@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
       if (code === "academy_v3_attempt_not_found") return noStore(apiError(code, 404));
-      if (code.endsWith("_replay_mismatch")) return noStore(apiError(code, 409));
+      if (code.endsWith("_replay_mismatch") || code === "academy_v3_decision_already_submitted") return noStore(apiError(code, 409));
       if (code === "academy_v3_mission_unknown" || code === "academy_v3_choice_unknown" || code === "academy_v3_mission_attempt_stale") {
         return noStore(apiError(code, 409));
       }
