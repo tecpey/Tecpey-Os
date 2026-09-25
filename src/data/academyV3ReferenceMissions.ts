@@ -4,6 +4,7 @@ export type AcademyV3MissionChoice = {
   id: string;
   text: { fa: string; en: string };
   misconceptionId?: string;
+  feedback?: { fa: string; en: string };
 };
 
 export type AcademyV3ReferenceMission = {
@@ -62,11 +63,13 @@ export const academyV3ReferenceMissions: readonly AcademyV3ReferenceMission[] = 
           id: "enter-now",
           text: { fa: "همین حالا وارد شوم تا فرصت از دست نرود.", en: "Enter now so I do not miss the move." },
           misconceptionId: "M.NOTRADE.FOMO",
+          feedback: { fa: "احساس از دست‌دادن فرصت، جای شواهد و معیار تصمیم را نمی‌گیرد. قبل از اقدام، thesis، ابطال و بودجه ریسک را روشن کنید.", en: "Fear of missing out cannot replace evidence or decision criteria. Define the thesis, invalidation, and risk budget before acting." },
         },
         {
           id: "always-position",
           text: { fa: "با حجم کوچک وارد شوم چون معامله‌گر جدی باید همیشه در بازار باشد.", en: "Enter with a small position because a serious trader should always be in the market." },
           misconceptionId: "M.NOTRADE.ALWAYSOPPORTUNITY",
+          feedback: { fa: "حضور دائمی در بازار نشانه حرفه‌ای‌بودن نیست. وقتی شرایط تصمیم کامل نیست، حتی موقعیت کوچک هم می‌تواند یک اقدام بدون منطق کافی باشد.", en: "Constant market exposure is not a sign of professionalism. When decision conditions are incomplete, even a small position can still be an unjustified action." },
         },
         {
           id: "no-trade-yet",
