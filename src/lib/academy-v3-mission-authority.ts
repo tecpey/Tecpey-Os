@@ -39,3 +39,55 @@ export function issueAcademyV3MissionAttempt(input: {
     missionSha256: createHash("sha256").update(canonicalJson(value)).digest("hex"),
   };
 }
+
+
+export function evaluateAcademyV3MissionDecision(input: {
+  attempt: ReturnType<typeof issueAcademyV3MissionAttempt>;
+  choiceId: string;
+  submittedAt?: Date;
+}) {
+  const value = getMission(input.attempt.missionId);
+  const missionSha256 = createHash("sha256").update(canonicalJson(value)).digest("hex");
+  if (
+    input.attempt.policyVersion !== ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION ||
+    input.attempt.missionVersion !== value.version ||
+    input.attempt.conceptId !== value.conceptId ||
+    input.attempt.missionSha256 !== missionSha256 ||
+    canonicalJson(input.attempt.objectiveIds) !== canonicalJson(value.objectiveIds)
+  ) throw new Error("academy_v3_mission_attempt_stale");
+
+  const choice = value.scenario.choices.find((candidate) => candidate.id === input.choiceId);
+  if (!choice) throw new Error("academy_v3_mission_choice_unknown");
+  const submittedAt = input.submittedAt ?? new Date();
+  const issuedAt = new Date(input.attempt.issuedAt);
+  if (!Number.isFinite(submittedAt.getTime()) || !Number.isFinite(issuedAt.getTime())) {
+    throw new Error("academy_v3_mission_time_invalid");
+  }
+  if (submittedAt.getTime() < issuedAt.getTime()) throw new Error("academy_v3_mission_time_order_invalid");
+  const dueAfter = new Date(submittedAt.getTime() + value.reassessment.minimumDelayHours * 3_600_000);
+  return {
+    missionId: value.id,
+    missionVersion: value.version,
+    conceptId: value.conceptId,
+    objectiveIds: [...value.objectiveIds],
+    locale: input.attempt.locale,
+    policyVersion: ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION,
+    missionSha256,
+    choiceId: choice.id,
+    correct: choice.id === value.scenario.correctChoiceId,
+    misconceptionId: choice.misconceptionId ?? null,
+    evidenceKind: "scenario" as const,
+    submittedAt: submittedAt.toISOString(),
+    reassessment: {
+      strategy: value.reassessment.strategy,
+      minimumDelayHours: value.reassessment.minimumDelayHours,
+      dueAfter: dueAfter.toISOString(),
+    },
+    authorityEffects: {
+      grantsMastery: false as const,
+      grantsLeagueScore: false as const,
+      grantsCredential: false as const,
+      grantsFinancialValue: false as const,
+    },
+  };
+}
