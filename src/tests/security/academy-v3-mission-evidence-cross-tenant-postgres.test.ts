@@ -31,7 +31,7 @@ async function seed(client: PoolClient, tenant: string, workspace: string, stude
   await client.query(
     `INSERT INTO platform_principal_bindings
        (tenant_id, workspace_id, principal_type, principal_id, status, source)
-     VALUES ($1,$2,'student',$3,'active','test')
+     VALUES ($1,$2,'student',$3::text,'active','test')
      ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id)
      DO UPDATE SET status='active'`, [tenant, workspace, studentId]);
 }
@@ -41,7 +41,7 @@ async function insertAttempt(client: PoolClient, tenant: string, workspace: stri
     `INSERT INTO academy_v3_mission_attempts
        (tenant_id,workspace_id,principal_type,principal_id,student_id,locale,mission_id,mission_version,
         concept_id,objective_ids,policy_version,mission_sha256,issued_at,idempotency_key)
-     VALUES ($1,$2,'student',$3,$3::uuid,'fa','MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE',1,
+     VALUES ($1,$2,'student',$3::text,$3::uuid,'fa','MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE',1,
        'T6.NO_TRADE','["O.NOTRADE.IDENTIFY"]'::jsonb,'academy-v3-mission-attempt-v1',$4,NOW(),$5)
      RETURNING id::text`,
     [tenant, workspace, studentId, "a".repeat(64), `attempt-${randomUUID()}`],
@@ -84,7 +84,7 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
           `INSERT INTO academy_v3_mission_attempts
            (tenant_id,workspace_id,principal_type,principal_id,student_id,locale,mission_id,mission_version,
             concept_id,objective_ids,policy_version,mission_sha256,issued_at,idempotency_key)
-           VALUES ($1,$2,'student',$3,$4::uuid,'fa','MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE',1,
+           VALUES ($1,$2,'student',$3::text,$4::uuid,'fa','MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE',1,
              'T6.NO_TRADE','["O.NOTRADE.IDENTIFY"]'::jsonb,'academy-v3-mission-attempt-v1',$5,NOW(),$6)`,
           [tenantA, workspaceA, studentA, studentB, "a".repeat(64), `wrong-${randomUUID()}`],
         ),
@@ -93,7 +93,7 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
 
       await client.query(
         `UPDATE platform_principal_bindings SET status='revoked'
-         WHERE tenant_id=$1 AND workspace_id=$2 AND principal_type='student' AND principal_id=$3`,
+         WHERE tenant_id=$1 AND workspace_id=$2 AND principal_type='student' AND principal_id=$3::text`,
         [tenantA, workspaceA, studentA],
       );
       await client.query("BEGIN");
