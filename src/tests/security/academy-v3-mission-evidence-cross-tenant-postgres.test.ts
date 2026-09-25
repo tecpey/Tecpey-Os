@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
+import { issueAcademyV3MissionAttemptTx } from "../../lib/academy-v3-mission-evidence-authority";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -53,6 +54,48 @@ before(async () => {
   if (!configured || !databaseUrl) return;
   pool = new Pool({ connectionString: databaseUrl, max: 2, allowExitOnIdle: true });
   await withClient((client) => applyDatabaseMigrationsWithLock(client));
+
+  it("serializes concurrent duplicate attempt commands to one canonical row", { skip: !configured }, async () => {
+    const student = randomUUID(); students.add(student);
+    await withClient((client) => seed(client, tenantA, workspaceA, student));
+    const idempotencyKey = `concurrent-attempt-${randomUUID()}`;
+    const issuedAt = new Date("2026-09-25T12:00:00.000Z");
+    const clientA = await pool!.connect();
+    const clientB = await pool!.connect();
+    try {
+      await clientA.query("BEGIN");
+      await clientB.query("BEGIN");
+      const firstPromise = issueAcademyV3MissionAttemptTx(clientA, {
+        tenantId: tenantA, workspaceId: workspaceA, studentId: student,
+        missionId: "MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE", locale: "fa", idempotencyKey, issuedAt,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      let secondSettled = false;
+      const secondPromise = issueAcademyV3MissionAttemptTx(clientB, {
+        tenantId: tenantA, workspaceId: workspaceA, studentId: student,
+        missionId: "MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE", locale: "fa", idempotencyKey, issuedAt,
+      }).finally(() => { secondSettled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 75));
+      assert.equal(secondSettled, false, "duplicate command must wait on the transaction advisory lock");
+      const first = await firstPromise;
+      await clientA.query("COMMIT");
+      const second = await secondPromise;
+      await clientB.query("COMMIT");
+      assert.equal(first.replayed, false);
+      assert.equal(second.replayed, true);
+      assert.equal(second.attemptId, first.attemptId);
+      const count = await pool!.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM academy_v3_mission_attempts
+          WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3 AND student_id=$3::uuid AND idempotency_key=$4`,
+        [tenantA, workspaceA, student, idempotencyKey],
+      );
+      assert.equal(count.rows[0]!.count, "1");
+    } finally {
+      await clientA.query("ROLLBACK").catch(() => undefined);
+      await clientB.query("ROLLBACK").catch(() => undefined);
+      clientA.release(); clientB.release();
+    }
+  });
 });
 
 after(async () => {
