@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
-import { issueAcademyV3MissionAttemptTx } from "../../lib/academy-v3-mission-evidence-authority";
+import { issueAcademyV3MissionAttemptTx, submitAcademyV3MissionDecisionTx } from "../../lib/academy-v3-mission-evidence-authority";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -107,6 +107,105 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
         `SELECT COUNT(*)::text AS count FROM academy_v3_mission_attempts
           WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3::text AND student_id=$3::uuid AND idempotency_key=$4`,
         [tenantA, workspaceA, student, idempotencyKey],
+      );
+      assert.equal(count.rows[0]!.count, "1");
+    } finally {
+      await clientA.query("ROLLBACK").catch(() => undefined);
+      await clientB.query("ROLLBACK").catch(() => undefined);
+      clientA.release(); clientB.release();
+    }
+  });
+
+  it("serializes concurrent duplicate decision commands to one canonical event and deterministic replay", { skip: !configured }, async () => {
+    const student = randomUUID(); students.add(student);
+    await withClient((client) => seed(client, tenantA, workspaceA, student));
+    const attempt = await withClient((client) => issueAcademyV3MissionAttemptTx(client, {
+      tenantId: tenantA, workspaceId: workspaceA, studentId: student,
+      missionId: "MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE", locale: "fa",
+      idempotencyKey: `decision-attempt-${randomUUID()}`,
+      issuedAt: new Date("2026-09-25T12:00:00.000Z"),
+    }));
+    const idempotencyKey = `concurrent-decision-${randomUUID()}`;
+    const submittedAt = new Date("2026-09-25T12:01:00.000Z");
+    const clientA = await pool!.connect();
+    const clientB = await pool!.connect();
+    try {
+      await clientA.query("BEGIN");
+      await clientB.query("BEGIN");
+      const firstPromise = submitAcademyV3MissionDecisionTx(clientA, {
+        tenantId: tenantA, workspaceId: workspaceA, studentId: student, attemptId: attempt.attemptId,
+        choiceId: "no-trade-yet", idempotencyKey, submittedAt,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      let secondSettled = false;
+      const secondPromise = submitAcademyV3MissionDecisionTx(clientB, {
+        tenantId: tenantA, workspaceId: workspaceA, studentId: student, attemptId: attempt.attemptId,
+        choiceId: "no-trade-yet", idempotencyKey, submittedAt,
+      }).finally(() => { secondSettled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 75));
+      assert.equal(secondSettled, false, "duplicate decision must wait on the transaction advisory lock");
+      const first = await firstPromise;
+      await clientA.query("COMMIT");
+      const second = await secondPromise;
+      await clientB.query("COMMIT");
+      assert.equal(first.replayed, false);
+      assert.equal(second.replayed, true);
+      assert.equal(second.eventId, first.eventId);
+      assert.equal(second.choiceId, first.choiceId);
+      assert.equal(second.correct, first.correct);
+      assert.equal(second.submittedAt, first.submittedAt);
+      assert.equal(second.reassessmentDueAfter, first.reassessmentDueAfter);
+      assert.deepEqual(second.authorityEffects, first.authorityEffects);
+      const count = await clientA.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM academy_v3_mission_decision_events
+          WHERE tenant_id=$1 AND workspace_id=$2 AND attempt_id=$3::uuid AND idempotency_key=$4`,
+        [tenantA, workspaceA, attempt.attemptId, idempotencyKey],
+      );
+      assert.equal(count.rows[0]!.count, "1");
+    } finally {
+      await clientA.query("ROLLBACK").catch(() => undefined);
+      await clientB.query("ROLLBACK").catch(() => undefined);
+      clientA.release(); clientB.release();
+    }
+  });
+
+  it("fails closed when a concurrent decision reuses an idempotency key with a different canonical payload", { skip: !configured }, async () => {
+    const student = randomUUID(); students.add(student);
+    await withClient((client) => seed(client, tenantA, workspaceA, student));
+    const attempt = await withClient((client) => issueAcademyV3MissionAttemptTx(client, {
+      tenantId: tenantA, workspaceId: workspaceA, studentId: student,
+      missionId: "MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE", locale: "fa",
+      idempotencyKey: `conflict-attempt-${randomUUID()}`,
+      issuedAt: new Date("2026-09-25T12:00:00.000Z"),
+    }));
+    const idempotencyKey = `conflicting-decision-${randomUUID()}`;
+    const submittedAt = new Date("2026-09-25T12:01:00.000Z");
+    const clientA = await pool!.connect();
+    const clientB = await pool!.connect();
+    try {
+      await clientA.query("BEGIN");
+      await clientB.query("BEGIN");
+      const firstPromise = submitAcademyV3MissionDecisionTx(clientA, {
+        tenantId: tenantA, workspaceId: workspaceA, studentId: student, attemptId: attempt.attemptId,
+        choiceId: "no-trade-yet", idempotencyKey, submittedAt,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      let secondSettled = false;
+      const secondPromise = submitAcademyV3MissionDecisionTx(clientB, {
+        tenantId: tenantA, workspaceId: workspaceA, studentId: student, attemptId: attempt.attemptId,
+        choiceId: "enter-now", idempotencyKey, submittedAt,
+      }).finally(() => { secondSettled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 75));
+      assert.equal(secondSettled, false, "conflicting reuse must wait for the canonical transaction");
+      const first = await firstPromise;
+      await clientA.query("COMMIT");
+      await assert.rejects(secondPromise, /academy_v3_decision_replay_mismatch/);
+      await clientB.query("ROLLBACK");
+      assert.equal(first.replayed, false);
+      const count = await clientA.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM academy_v3_mission_decision_events
+          WHERE tenant_id=$1 AND workspace_id=$2 AND attempt_id=$3::uuid AND idempotency_key=$4`,
+        [tenantA, workspaceA, attempt.attemptId, idempotencyKey],
       );
       assert.equal(count.rows[0]!.count, "1");
     } finally {
