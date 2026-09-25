@@ -42,7 +42,7 @@ async function insertAttempt(client: PoolClient, tenant: string, workspace: stri
        (tenant_id,workspace_id,principal_type,principal_id,student_id,locale,mission_id,mission_version,
         concept_id,objective_ids,policy_version,mission_sha256,issued_at,idempotency_key)
      VALUES ($1,$2,'student',$3,$3::uuid,'fa','MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE',1,
-       'T6.NO_TRADE','["O.NOTRADE.IDENTIFY"]'::jsonb,'academy-v3-mission-attempt-v1,$4,NOW(),$5)
+       'T6.NO_TRADE','["O.NOTRADE.IDENTIFY"]'::jsonb,'academy-v3-mission-attempt-v1',$4,NOW(),$5)
      RETURNING id::text`,
     [tenant, workspace, studentId, "a".repeat(64), `attempt-${randomUUID()}`],
   );
