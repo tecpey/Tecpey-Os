@@ -9,7 +9,7 @@ import {
   academyV3Misconceptions,
   validateAcademyV3CriticalLearningRegistry,
 } from "./academyV3CriticalLearningRegistry";
-import { academyV3ReferenceMissions } from "./academyV3MissionRegistry";
+import { academyV3ReferenceMissions as academyV3MissionBlueprints } from "./academyV3MissionRegistry";
 import { academyV3ReferenceMissions } from "./academyV3ReferenceMissions";
 
 describe("Academy V3 concept registry", () => {
@@ -86,8 +86,8 @@ describe("Academy V3 concept registry", () => {
       assert.ok(mission.reassessment.minimumDelayHours > 0, `${mission.id}: delayed reassessment is required`);
     }
   });
-  it("keeps reference missions evidence-bearing, bilingual and non-authoritative by themselves", () => {
-    for (const mission of academyV3ReferenceMissions) {
+  it("keeps reference mission blueprints evidence-bearing, bilingual and non-authoritative by themselves", () => {
+    for (const mission of academyV3MissionBlueprints) {
       assert.equal(mission.awardsMasteryDirectly, false);
       assert.equal(mission.awardsLeagueScoreDirectly, false);
       assert.equal(mission.awardsFinancialValue, false);
