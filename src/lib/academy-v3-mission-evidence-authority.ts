@@ -86,7 +86,7 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
   if (!UUID_PATTERN.test(input.attemptId)) throw new Error("academy_v3_attempt_invalid");
   assertIdempotency(input.idempotencyKey);
   await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
-    `academy-v3-decision:${input.tenantId}:${input.workspaceId}:${input.attemptId}`, input.idempotencyKey,
+    `academy-v3-decision:${input.tenantId}:${input.workspaceId}:${input.attemptId}`, "single-decision-authority",
   ]);
   const attempts = await client.query<AttemptRow>(
     `SELECT id::text,locale,mission_id,mission_version,concept_id,objective_ids,policy_version,
