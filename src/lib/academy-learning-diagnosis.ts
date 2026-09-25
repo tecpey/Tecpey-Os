@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION = "academy-learning-diagnosis-v1" as const;
 
 export type AcademyLearningEvidenceSource =
@@ -26,6 +28,14 @@ export type AcademyConceptDiagnosis = {
   newestObservedAt: string;
 };
 
+export type AcademyLearningDiagnosis = {
+  status: "ready" | "insufficient_evidence";
+  policyVersion: typeof ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION;
+  asOf: string;
+  evidenceSha256: string;
+  concepts: AcademyConceptDiagnosis[];
+};
+
 const DAY_MS = 86_400_000;
 const MAX_AGE_DAYS = 120;
 const AUTHORITY_BPS: Record<AcademyLearningEvidenceSource, number> = {
@@ -36,6 +46,30 @@ const AUTHORITY_BPS: Record<AcademyLearningEvidenceSource, number> = {
   manual: 3_500,
   market: 2_500,
 };
+
+function canonicalEvidence(evidence: readonly AcademyLearningEvidence[]): AcademyLearningEvidence[] {
+  return evidence.map((item) => ({
+    sourceType: item.sourceType,
+    sourceId: item.sourceId.trim(),
+    conceptTag: item.conceptTag.trim().toLowerCase(),
+    strength: Number(item.strength),
+    confidence: Number(item.confidence),
+    observedAt: Number.isFinite(new Date(item.observedAt).getTime())
+      ? new Date(item.observedAt).toISOString()
+      : item.observedAt,
+  })).sort((left, right) =>
+    left.sourceType.localeCompare(right.sourceType) ||
+    left.sourceId.localeCompare(right.sourceId) ||
+    left.conceptTag.localeCompare(right.conceptTag) ||
+    left.observedAt.localeCompare(right.observedAt) ||
+    left.strength - right.strength ||
+    left.confidence - right.confidence
+  );
+}
+
+function evidenceSha256(evidence: readonly AcademyLearningEvidence[]): string {
+  return createHash("sha256").update(JSON.stringify(canonicalEvidence(evidence))).digest("hex");
+}
 
 function recencyBps(days: number): number {
   if (days > MAX_AGE_DAYS) return 0;
@@ -66,10 +100,10 @@ function score(item: AcademyLearningEvidence, asOf: Date): number {
 export function diagnoseAcademyLearning(input: {
   evidence: readonly AcademyLearningEvidence[];
   asOf: Date;
-}): { status: "insufficient_evidence"; concepts: [] } | {
-  status: "ready";
-  concepts: AcademyConceptDiagnosis[];
-} {
+}): AcademyLearningDiagnosis {
+  if (!Number.isFinite(input.asOf.getTime())) throw new Error("academy_learning_diagnosis_as_of_invalid");
+  const asOf = input.asOf.toISOString();
+  const snapshotSha256 = evidenceSha256(input.evidence);
   const grouped = new Map<string, AcademyLearningEvidence[]>();
   for (const item of input.evidence) {
     const conceptTag = item.conceptTag.trim().toLowerCase();
@@ -84,7 +118,15 @@ export function diagnoseAcademyLearning(input: {
     grouped.set(conceptTag, [...(grouped.get(conceptTag) ?? []), normalized]);
   }
 
-  if (grouped.size === 0) return { status: "insufficient_evidence", concepts: [] };
+  if (grouped.size === 0) {
+    return {
+      status: "insufficient_evidence",
+      policyVersion: ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
+      asOf,
+      evidenceSha256: snapshotSha256,
+      concepts: [],
+    };
+  }
 
   const concepts = [...grouped.entries()].map(([conceptTag, items]) => {
     const reasonCodes = new Set<string>();
@@ -113,5 +155,11 @@ export function diagnoseAcademyLearning(input: {
     a.conceptTag.localeCompare(b.conceptTag)
   );
 
-  return { status: "ready", concepts };
+  return {
+    status: "ready",
+    policyVersion: ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
+    asOf,
+    evidenceSha256: snapshotSha256,
+    concepts,
+  };
 }
