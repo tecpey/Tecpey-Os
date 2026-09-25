@@ -19,7 +19,7 @@ export default function AcademyV3NoTradeMissionPage() {
     <main className="tecpey-motion-content-surface--dark min-h-screen bg-[#030812] px-4 py-6 sm:px-6 sm:py-10 lg:px-8" dir="rtl">
       <div className="mx-auto max-w-4xl">
         <div className="mb-4 flex min-h-11 items-center rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-2.5 text-xs font-semibold leading-6 text-slate-400">
-          پیش‌نمایش V3 · این مسیر هنوز authority آموزشی، امتیاز رسمی یا mastery ایجاد نمی‌کند.
+          پیش‌نمایش V3 · این مسیر هنوز مرجع رسمی یادگیری نیست و امتیاز رسمی یا تسلط تأییدشده ایجاد نمی‌کند.
         </div>
         <AcademyV3MissionPreview mission={mission} locale="fa" />
       </div>
