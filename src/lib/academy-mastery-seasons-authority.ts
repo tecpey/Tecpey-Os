@@ -7,7 +7,6 @@ import {
   type LearnerMasterySignals,
 } from "@/data/academyMasterySeasons";
 import {
-  ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
   diagnoseAcademyLearning,
   type AcademyConceptDiagnosis,
   type AcademyLearningEvidence,
