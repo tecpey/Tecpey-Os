@@ -87,6 +87,13 @@ CREATE INDEX IF NOT EXISTS academy_v3_mission_reassessment_due_idx
   ON academy_v3_mission_decision_events
     (tenant_id, workspace_id, reassessment_due_after, id);
 
+REVOKE ALL ON TABLE academy_v3_mission_attempts, academy_v3_mission_decision_events FROM PUBLIC;
+
+ALTER TABLE academy_v3_mission_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE academy_v3_mission_attempts FORCE ROW LEVEL SECURITY;
+ALTER TABLE academy_v3_mission_decision_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE academy_v3_mission_decision_events FORCE ROW LEVEL SECURITY;
+
 CREATE OR REPLACE FUNCTION tecpey_reject_academy_v3_mission_evidence_mutation()
 RETURNS TRIGGER AS $$
 BEGIN
