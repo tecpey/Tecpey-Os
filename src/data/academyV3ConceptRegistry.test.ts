@@ -111,6 +111,9 @@ describe("Academy V3 concept registry", () => {
         for (const evidence of mission.scenario.knownEvidence) assert.ok(evidence[locale].trim(), `${mission.id}: ${locale} known evidence required`);
         for (const uncertainty of mission.scenario.uncertainty) assert.ok(uncertainty[locale].trim(), `${mission.id}: ${locale} uncertainty required`);
         for (const choice of mission.scenario.choices) assert.ok(choice.text[locale].trim(), `${mission.id}: ${locale} choice required`);
+        for (const choice of mission.scenario.choices) {
+          if (choice.misconceptionId) assert.ok(choice.feedback?.[locale].trim(), `${mission.id}/${choice.id}: ${locale} learner-facing repair feedback required`);
+        }
         assert.ok(mission.scenario.rationale[locale].trim(), `${mission.id}: ${locale} rationale required`);
       }
     }
