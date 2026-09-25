@@ -111,7 +111,8 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
     authority: ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION, attemptId: attempt.id,
     missionId: evaluated.missionId, missionVersion: evaluated.missionVersion, conceptId: evaluated.conceptId,
     objectiveIds: evaluated.objectiveIds, choiceId: evaluated.choiceId, correct: evaluated.correct,
-    misconceptionId: evaluated.misconceptionId, authorityEffects: evaluated.authorityEffects,
+    misconceptionId: evaluated.misconceptionId, feedback: evaluated.feedback,
+    reassessment: evaluated.reassessment, authorityEffects: evaluated.authorityEffects,
   };
   const inserted = await client.query<EventRow>(
     `INSERT INTO academy_v3_mission_decision_events
@@ -148,7 +149,9 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
     eventId: row.id, attemptId: attempt.id, choiceId: row.choice_id, correct: Boolean(row.correct),
     misconceptionId: row.misconception_id, evidenceKind: "scenario" as const, policyVersion: row.policy_version,
     missionSha256: row.mission_sha256, submittedAt: iso(row.submitted_at),
-    reassessmentDueAfter: iso(row.reassessment_due_after), authorityEffects: evaluated.authorityEffects,
+    reassessmentDueAfter: iso(row.reassessment_due_after),
+    feedback: (row.evidence as { feedback?: typeof evaluated.feedback } | null)?.feedback ?? evaluated.feedback,
+    authorityEffects: evaluated.authorityEffects,
     replayed, createdAt: iso(row.created_at),
   };
 }
