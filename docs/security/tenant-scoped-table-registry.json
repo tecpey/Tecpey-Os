@@ -196,18 +196,18 @@
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-v3-mission-evidence.ts",
       "isolationModel": "tenant_id + workspace_id lead the attempt idempotency boundary and learner indexes. principal_type is constrained to student, principal_id must equal student_id::text, and the exact tenant/workspace/student principal tuple is bound to platform_principal_bindings by composite foreign key. The shared deferred active-binding guard rejects writes for revoked bindings at commit; the ledger is append-only and RLS is enabled and forced with no public table privileges.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "testReference": "src/tests/database/migration-integration.test.ts"
+      "testReference": "src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts"
     },
     {
       "table": "academy_v3_mission_decision_events",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-v3-mission-evidence.ts",
       "isolationModel": "Every decision event repeats tenant/workspace/student principal scope and is composite-FK bound to the exact academy_v3_mission_attempts row including principal_type, principal_id and student_id. Scoped idempotency begins with tenant/workspace/attempt, UPDATE/DELETE are rejected, and RLS is enabled and forced with no public table privileges, preventing an event from being reattached to a foreign tenant or learner attempt.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "testReference": "src/tests/database/migration-integration.test.ts"
+      "testReference": "src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts"
     },
     {
       "table": "admin_auth_provider_evidence",
