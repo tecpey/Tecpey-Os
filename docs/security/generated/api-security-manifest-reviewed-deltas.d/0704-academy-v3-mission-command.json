@@ -14,7 +14,7 @@
         "route": "/api/academy-v3/missions",
         "method": "POST",
         "sourcePath": "src/app/api/academy-v3/missions/route.ts",
-        "sourceHash": "3ba48b6bd05a5ec4d490638e",
+        "sourceHash": "caeeaad225266cd87510253f",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
