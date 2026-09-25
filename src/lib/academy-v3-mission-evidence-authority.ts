@@ -46,7 +46,7 @@ export async function issueAcademyV3MissionAttemptTx(client: PoolClient, input: 
     `INSERT INTO academy_v3_mission_attempts
       (tenant_id,workspace_id,principal_type,principal_id,student_id,locale,mission_id,mission_version,
        concept_id,objective_ids,policy_version,mission_sha256,issued_at,idempotency_key)
-     VALUES ($1,$2,'student',$3,$3::uuid,$4,$5,$6,$7,$8::jsonb,$9,$10,$11::timestamptz,$12)
+     VALUES ($1,$2,'student',$3::text,$3::uuid,$4,$5,$6,$7,$8::jsonb,$9,$10,$11::timestamptz,$12)
      ON CONFLICT (tenant_id,workspace_id,principal_id,student_id,idempotency_key) DO NOTHING
      RETURNING id::text,locale,mission_id,mission_version,concept_id,objective_ids,policy_version,
                mission_sha256,issued_at,idempotency_key,created_at`,
@@ -61,7 +61,7 @@ export async function issueAcademyV3MissionAttemptTx(client: PoolClient, input: 
       `SELECT id::text,locale,mission_id,mission_version,concept_id,objective_ids,policy_version,
               mission_sha256,issued_at,idempotency_key,created_at
          FROM academy_v3_mission_attempts
-        WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3 AND student_id=$3::uuid
+        WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3::text AND student_id=$3::uuid
           AND idempotency_key=$4 LIMIT 1`,
       [input.tenantId,input.workspaceId,input.studentId,input.idempotencyKey],
     );
@@ -92,7 +92,7 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
     `SELECT id::text,locale,mission_id,mission_version,concept_id,objective_ids,policy_version,
             mission_sha256,issued_at,idempotency_key,created_at
        FROM academy_v3_mission_attempts
-      WHERE id=$1::uuid AND tenant_id=$2 AND workspace_id=$3 AND principal_id=$4 AND student_id=$4::uuid
+      WHERE id=$1::uuid AND tenant_id=$2 AND workspace_id=$3 AND principal_id=$4::text AND student_id=$4::uuid
       LIMIT 1 FOR SHARE`,
     [input.attemptId,input.tenantId,input.workspaceId,input.studentId],
   );
@@ -118,7 +118,7 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
       (attempt_id,tenant_id,workspace_id,principal_type,principal_id,student_id,choice_id,correct,
        misconception_id,evidence_kind,policy_version,mission_sha256,submitted_at,reassessment_due_after,
        idempotency_key,evidence)
-     VALUES ($1::uuid,$2,$3,'student',$4,$4::uuid,$5,$6,$7,'scenario',$8,$9,$10::timestamptz,
+     VALUES ($1::uuid,$2,$3,'student',$4::text,$4::uuid,$5,$6,$7,'scenario',$8,$9,$10::timestamptz,
              $11::timestamptz,$12,$13::jsonb)
      ON CONFLICT (tenant_id,workspace_id,attempt_id,idempotency_key) DO NOTHING
      RETURNING id::text,choice_id,correct,misconception_id,policy_version,mission_sha256,submitted_at,
