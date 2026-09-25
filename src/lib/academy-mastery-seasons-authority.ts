@@ -49,6 +49,8 @@ export type AcademyMasterySeasonState = {
   diagnosis: {
     status: "ready" | "insufficient_evidence";
     policyVersion: typeof ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION;
+    asOf: string;
+    evidenceSha256: string;
     concepts: AcademyConceptDiagnosis[];
   };
 };
