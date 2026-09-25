@@ -100,7 +100,7 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
   if (!attempt) throw new Error("academy_v3_attempt_not_found");
   if (attempt.policy_version !== ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION) throw new Error("academy_v3_mission_attempt_stale");
   const evaluated = evaluateAcademyV3MissionDecision({
-    attempt: { missionId: attempt.mission_id, missionVersion: attempt.mission_version, conceptId: attempt.concept_id,
+    attempt: { missionId: attempt.mission_id, missionVersion: attempt.mission_version as 1, conceptId: attempt.concept_id,
       objectiveIds: attempt.objective_ids as string[], locale: attempt.locale, policyVersion: ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION,
       issuedAt: iso(attempt.issued_at), missionSha256: attempt.mission_sha256 },
     choiceId: input.choiceId, submittedAt: input.submittedAt,
