@@ -107,6 +107,35 @@ export async function submitAcademyV3MissionDecisionTx(client: PoolClient, input
       issuedAt: iso(attempt.issued_at), missionSha256: attempt.mission_sha256 },
     choiceId: input.choiceId, submittedAt: input.submittedAt,
   });
+  const prior = await client.query<EventRow>(
+    `SELECT id::text,choice_id,correct,misconception_id,policy_version,mission_sha256,submitted_at,
+            reassessment_due_after,idempotency_key,evidence,created_at
+       FROM academy_v3_mission_decision_events
+      WHERE tenant_id=$1 AND workspace_id=$2 AND attempt_id=$3::uuid
+      ORDER BY created_at ASC, id ASC LIMIT 1`,
+    [input.tenantId,input.workspaceId,attempt.id],
+  );
+  const priorRow = prior.rows[0];
+  if (priorRow) {
+    if (priorRow.idempotency_key !== input.idempotencyKey) {
+      throw new Error("academy_v3_decision_already_submitted");
+    }
+    if (priorRow.choice_id !== evaluated.choiceId || priorRow.correct !== evaluated.correct ||
+        priorRow.misconception_id !== evaluated.misconceptionId || priorRow.policy_version !== evaluated.policyVersion ||
+        priorRow.mission_sha256 !== evaluated.missionSha256) {
+      throw new Error("academy_v3_decision_replay_mismatch");
+    }
+    return {
+      eventId: priorRow.id, attemptId: attempt.id, choiceId: priorRow.choice_id, correct: Boolean(priorRow.correct),
+      misconceptionId: priorRow.misconception_id, evidenceKind: "scenario" as const, policyVersion: priorRow.policy_version,
+      missionSha256: priorRow.mission_sha256, submittedAt: iso(priorRow.submitted_at),
+      reassessmentDueAfter: iso(priorRow.reassessment_due_after),
+      feedback: (priorRow.evidence as { feedback?: typeof evaluated.feedback } | null)?.feedback ?? evaluated.feedback,
+      authorityEffects: evaluated.authorityEffects,
+      replayed: true, createdAt: iso(priorRow.created_at),
+    };
+  }
+
   const evidence = {
     authority: ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION, attemptId: attempt.id,
     missionId: evaluated.missionId, missionVersion: evaluated.missionVersion, conceptId: evaluated.conceptId,
