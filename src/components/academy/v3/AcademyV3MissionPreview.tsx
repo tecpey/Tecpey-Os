@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, CircleAlert, RotateCcw } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
 import type { AcademyV3ReferenceMission } from "@/data/academyV3ReferenceMissions";
 
 type Locale = "fa" | "en";
@@ -14,22 +14,80 @@ export function AcademyV3MissionPreview({
   locale: Locale;
 }) {
   const [choiceId, setChoiceId] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [decision, setDecision] = useState<{ correct: boolean; reassessmentDueAfter: string } | null>(null);
+  const [phase, setPhase] = useState<"idle" | "issuing" | "ready" | "submitting" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const issueKeyRef = useRef<string | null>(null);
+  const decisionKeyRef = useRef<{ choiceId: string; key: string } | null>(null);
   const feedbackRef = useRef<HTMLElement>(null);
   const isFa = locale === "fa";
   const selected = useMemo(
     () => mission.scenario.choices.find((choice) => choice.id === choiceId) ?? null,
     [choiceId, mission.scenario.choices],
   );
-  const correct = submitted && choiceId === mission.scenario.correctChoiceId;
+  const submitted = decision !== null;
+  const correct = decision?.correct === true;
 
   useEffect(() => {
     if (submitted) feedbackRef.current?.focus();
   }, [submitted]);
 
+  const idempotencyKey = (kind: "issue" | "decision") => {
+    const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `academy-v3:${kind}:${random}`;
+  };
+
+  const command = async <T,>(body: Record<string, string>, key: string): Promise<T> => {
+    const response = await fetch("/api/academy-v3/missions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => null) as { data?: T; error?: string } | null;
+    if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "academy_v3_request_failed");
+    return payload.data;
+  };
+
+  const ensureAttempt = async () => {
+    if (attemptId) return attemptId;
+    const key = issueKeyRef.current ?? idempotencyKey("issue");
+    issueKeyRef.current = key;
+    setPhase("issuing");
+    setErrorMessage(null);
+    const payload = await command<{ attempt: { attemptId: string } }>({ action: "issue", locale, missionId: mission.id }, key);
+    setAttemptId(payload.attempt.attemptId);
+    setPhase("ready");
+    return payload.attempt.attemptId;
+  };
+
+  const submitDecision = async () => {
+    if (!choiceId || phase === "issuing" || phase === "submitting") return;
+    try {
+      const activeAttemptId = await ensureAttempt();
+      setPhase("submitting");
+      const existing = decisionKeyRef.current;
+      const key = existing?.choiceId === choiceId ? existing.key : idempotencyKey("decision");
+      decisionKeyRef.current = { choiceId, key };
+      const payload = await command<{ decision: { correct: boolean; reassessmentDueAfter: string } }>(
+        { action: "decide", attemptId: activeAttemptId, choiceId }, key,
+      );
+      setDecision(payload.decision);
+      setPhase("ready");
+      setErrorMessage(null);
+    } catch {
+      setPhase("error");
+      setErrorMessage(isFa ? "ثبت تصمیم کامل نشد. دوباره تلاش کنید؛ تلاش مجدد نتیجه تکراری ایجاد نمی‌کند." : "Your decision was not confirmed. Try again; retrying will not create duplicate evidence.");
+    }
+  };
+
   const reset = () => {
     setChoiceId(null);
-    setSubmitted(false);
+    setDecision(null);
+    setPhase(attemptId ? "ready" : "idle");
+    setErrorMessage(null);
+    decisionKeyRef.current = null;
   };
 
   return (
@@ -71,7 +129,7 @@ export function AcademyV3MissionPreview({
         </section>
       </div>
 
-      <fieldset className="mt-7" disabled={submitted}>
+      <fieldset className="mt-7" disabled={submitted || phase === "issuing" || phase === "submitting"}>
         <legend className="text-xl font-black text-white">{isFa ? "با اطلاعات فعلی چه تصمیمی می‌گیرید؟" : "What would you decide with the information available?"}</legend>
         <div className="mt-3 space-y-3">
           {mission.scenario.choices.map((choice) => {
@@ -100,11 +158,13 @@ export function AcademyV3MissionPreview({
       {!submitted ? (
         <button
           type="button"
-          disabled={!choiceId}
-          onClick={() => setSubmitted(true)}
+          disabled={!choiceId || phase === "issuing" || phase === "submitting"}
+          onClick={submitDecision}
           className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-cyan-200 px-5 py-3.5 text-sm font-black text-[#06111e] shadow-[0_14px_34px_rgba(34,211,238,0.16)] transition-[transform,opacity,box-shadow] duration-150 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07101c]"
         >
-          {isFa ? "ثبت تصمیم" : "Submit decision"}
+          {phase === "issuing" || phase === "submitting" ? (
+            <><LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />{isFa ? "در حال ثبت امن…" : "Submitting securely…"}</>
+          ) : (isFa ? "ثبت تصمیم" : "Submit decision")}
           <ArrowRight className={`h-4 w-4 ${isFa ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
       ) : (
@@ -135,6 +195,9 @@ export function AcademyV3MissionPreview({
           </button>
         </section>
       )}
+
+      {errorMessage ? <p role="alert" className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-300/[0.06] p-4 text-sm font-bold leading-7 text-rose-100">{errorMessage}</p> : null}
+      <p role="status" aria-live="polite" className="sr-only">{phase === "issuing" || phase === "submitting" ? (isFa ? "در حال ثبت تصمیم" : "Submitting decision") : ""}</p>
 
       <footer className="mt-7 flex items-start gap-2 border-t border-white/[0.07] pt-5 text-xs font-semibold leading-6 text-slate-500">
         {isFa
