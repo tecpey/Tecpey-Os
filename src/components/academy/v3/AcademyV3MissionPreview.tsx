@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, CircleAlert, LoaderCircle, RotateCcw } from "lucide-react";
 import type { AcademyV3ReferenceMission } from "@/data/academyV3ReferenceMissions";
 
@@ -33,10 +33,6 @@ export function AcademyV3MissionPreview({
   const decisionKeyRef = useRef<{ choiceId: string; key: string } | null>(null);
   const feedbackRef = useRef<HTMLElement>(null);
   const isFa = locale === "fa";
-  const selected = useMemo(
-    () => mission.scenario.choices.find((choice) => choice.id === choiceId) ?? null,
-    [choiceId, mission.scenario.choices],
-  );
   const submitted = decision !== null;
   const correct = decision?.correct === true;
 
