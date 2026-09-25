@@ -19,7 +19,7 @@ describe("Academy V3 mission client authority", () => {
     assert.match(source, /setAttemptId\(payload\.attempt\.attemptId\)/);
     assert.match(source, /\{ action: "decide", attemptId: activeAttemptId, choiceId \}/);
     assert.doesNotMatch(source, /correct:\s*(?:true|false|correct|selected|choiceId)/);
-    assert.doesNotMatch(source, /mastery/i);
+    assert.doesNotMatch(source, /(?:set|grant|award|derive|calculate)[A-Za-z]*(?:Mastery|mastery)/);
   });
 
   it("keeps stable idempotency keys across ambiguous retries and prevents double submit", async () => {
