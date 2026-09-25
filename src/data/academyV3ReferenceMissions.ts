@@ -29,7 +29,7 @@ export type AcademyV3ReferenceMission = {
   };
 };
 
-export const academyV3ReferenceMissions = [
+export const academyV3ReferenceMissions: readonly AcademyV3ReferenceMission[] = [
   {
     id: "MISSION.T6.NO_TRADE.INSUFFICIENT_EVIDENCE",
     version: 1,
@@ -86,4 +86,4 @@ export const academyV3ReferenceMissions = [
     evidenceKinds: ["scenario", "transfer", "reassessment"],
     reassessment: { strategy: "changed-context", minimumDelayHours: 24 },
   },
-] as const satisfies readonly AcademyV3ReferenceMission[];
+];
