@@ -112,14 +112,12 @@ export function AcademyV3MissionPreview({
           ref={feedbackRef}
           tabIndex={-1}
           className={`mt-6 rounded-3xl border p-5 outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07101c] ${correct ? "border-emerald-300/25 bg-emerald-300/[0.07]" : "border-amber-300/25 bg-amber-300/[0.07]"}`}
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
+          aria-labelledby={`${mission.id}-feedback-title`}
         >
           <div className="flex items-start gap-3">
             {correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" /> : <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />}
             <div>
-              <h2 className="font-black">
+              <h2 id={`${mission.id}-feedback-title`} className="font-black">
                 {correct
                   ? (isFa ? "فرآیند تصمیم قابل دفاع است" : "The decision process is defensible")
                   : (isFa ? "این انتخاب نیاز به بازبینی دارد" : "This choice needs review")}
