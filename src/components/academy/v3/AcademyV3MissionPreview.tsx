@@ -38,7 +38,8 @@ export function AcademyV3MissionPreview({
       className="relative overflow-hidden rounded-[36px] border border-white/10 bg-[#07101c]/95 p-5 text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.36)] sm:p-8"
       aria-labelledby={`${mission.id}-title`}
     >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_68%)]" />\n      <header className="relative max-w-2xl">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_68%)]" />
+      <header className="relative max-w-2xl">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
           {isFa ? "ماموریت تصمیم‌گیری" : "Decision mission"}
         </p>
@@ -59,13 +60,13 @@ export function AcademyV3MissionPreview({
         <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
           <h2 className="text-sm font-black">{isFa ? "شواهد موجود" : "Known evidence"}</h2>
           <ul className="mt-3 space-y-2 text-sm font-bold leading-6 text-slate-300">
-            {mission.scenario.knownEvidence.map((item) => <li key={item.en}>• {item[locale]}</li>)}
+            {mission.scenario.knownEvidence.map((item, index) => <li key={`${mission.id}-evidence-${index}`}>• {item[locale]}</li>)}
           </ul>
         </section>
         <section className="rounded-3xl border border-amber-300/15 bg-amber-300/[0.04] p-5">
           <h2 className="text-sm font-black text-amber-100">{isFa ? "عدم‌قطعیت‌های مهم" : "Material uncertainty"}</h2>
           <ul className="mt-3 space-y-2 text-sm font-bold leading-6 text-slate-300">
-            {mission.scenario.uncertainty.map((item) => <li key={item.en}>• {item[locale]}</li>)}
+            {mission.scenario.uncertainty.map((item, index) => <li key={`${mission.id}-uncertainty-${index}`}>• {item[locale]}</li>)}
           </ul>
         </section>
       </div>
@@ -111,7 +112,9 @@ export function AcademyV3MissionPreview({
           ref={feedbackRef}
           tabIndex={-1}
           className={`mt-6 rounded-3xl border p-5 outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07101c] ${correct ? "border-emerald-300/25 bg-emerald-300/[0.07]" : "border-amber-300/25 bg-amber-300/[0.07]"}`}
+          role="status"
           aria-live="polite"
+          aria-atomic="true"
         >
           <div className="flex items-start gap-3">
             {correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" /> : <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />}
@@ -137,7 +140,7 @@ export function AcademyV3MissionPreview({
 
       <footer className="mt-7 flex items-start gap-2 border-t border-white/[0.07] pt-5 text-xs font-semibold leading-6 text-slate-500">
         {isFa
-          ? "این پیش‌نمایش آموزشی امتیاز، mastery، رتبه لیگ یا مجوز مالی ایجاد نمی‌کند."
+          ? "این پیش‌نمایش آموزشی امتیاز رسمی، تسلط تأییدشده، رتبه لیگ یا مجوز مالی ایجاد نمی‌کند."
           : "This learning preview creates no score, mastery, league rank, or financial entitlement."}
       </footer>
     </article>
