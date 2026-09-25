@@ -4,6 +4,8 @@
 
 **Dependencies:** Existing Academy authority + Mentor evidence; Notifications may consume durable learning events later.
 
+**Academy V3 continuation authority:** `docs/program/09_ACADEMY_V3_LEARNING_OS_PRODUCT_CONSTITUTION.md`. The V3 constitution preserves the cross-system redesign decisions for curriculum, evidence, assessment, gamification, League, Progress Core, Arena, Mentor and experience architecture. Material implementation decisions must be checked against both documents; conflicts require an explicit documented resolution rather than silent drift.
+
 ## Global quality bar
 
 - Authority-sensitive state is server-owned, tenant-bound and fail-closed; clients cannot create entitlement, identity, mastery, rank or safety truth.
