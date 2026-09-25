@@ -4,6 +4,11 @@ import {
   academyV3Concepts,
   validateAcademyV3ConceptRegistry,
 } from "./academyV3ConceptRegistry";
+import {
+  academyV3CriticalObjectives,
+  academyV3Misconceptions,
+  validateAcademyV3CriticalLearningRegistry,
+} from "./academyV3CriticalLearningRegistry";
 
 describe("Academy V3 concept registry", () => {
   it("has stable unique IDs, known prerequisites and an acyclic graph", () => {
@@ -46,6 +51,18 @@ describe("Academy V3 concept registry", () => {
           `${concept.id}: prerequisite ${prerequisiteId} cannot live in a later term`,
         );
       }
+    }
+  });
+  it("requires governed objectives, evidence strategies and misconception repair for the critical learning registry", () => {
+    assert.deepEqual(validateAcademyV3CriticalLearningRegistry(), []);
+    assert.ok(academyV3CriticalObjectives.length >= 15);
+    assert.ok(academyV3Misconceptions.length >= 24);
+    for (const objective of academyV3CriticalObjectives) {
+      assert.ok(objective.evidenceKinds.length > 0, `${objective.id}: evidence strategy is required`);
+    }
+    for (const misconception of academyV3Misconceptions) {
+      assert.ok(misconception.remediation);
+      assert.ok(misconception.reassessment);
     }
   });
 });
