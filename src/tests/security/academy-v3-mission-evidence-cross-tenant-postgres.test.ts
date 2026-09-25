@@ -100,7 +100,7 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
       try {
         await client.query("SET CONSTRAINTS ALL DEFERRED");
         await insertAttempt(client, tenantA, workspaceA, studentA);
-        await assert.rejects(client.query("COMMIT"), /active principal binding/i);
+        await assert.rejects(client.query("SET CONSTRAINTS ALL IMMEDIATE"), /active principal binding/i);
       } finally {
         await client.query("ROLLBACK").catch(() => undefined);
       }
