@@ -700,12 +700,15 @@ describe("Academy Mastery Seasons authority", () => {
     const snapshot = [assessment, mentor];
 
     assert.equal(ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION, "academy-learning-diagnosis-v1");
-    assert.deepEqual(
-      diagnoseAcademyLearning({ evidence: snapshot, asOf }),
-      diagnoseAcademyLearning({ evidence: [...snapshot].reverse(), asOf }),
-    );
+    const forward = diagnoseAcademyLearning({ evidence: snapshot, asOf });
+    const reversed = diagnoseAcademyLearning({ evidence: [...snapshot].reverse(), asOf });
+    assert.deepEqual(forward, reversed);
+    assert.equal(forward.policyVersion, ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION);
+    assert.equal(forward.asOf, asOf.toISOString());
+    assert.match(forward.evidenceSha256, /^[a-f0-9]{64}$/);
+    assert.equal(forward.evidenceSha256, reversed.evidenceSha256);
 
-    const diagnosis = diagnoseAcademyLearning({ evidence: snapshot, asOf });
+    const diagnosis = forward;
     assert.equal(diagnosis.status, "ready");
     if (diagnosis.status !== "ready") return;
     assert.equal(diagnosis.concepts[0].conceptTag, "risk");
@@ -716,10 +719,12 @@ describe("Academy Mastery Seasons authority", () => {
 
   it("fails closed for missing, stale or non-weakness learning evidence", () => {
     const asOf = new Date("2026-09-24T12:00:00.000Z");
-    assert.deepEqual(diagnoseAcademyLearning({ evidence: [], asOf }), {
-      status: "insufficient_evidence",
-      concepts: [],
-    });
+    const empty = diagnoseAcademyLearning({ evidence: [], asOf });
+    assert.equal(empty.status, "insufficient_evidence");
+    assert.equal(empty.policyVersion, ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION);
+    assert.equal(empty.asOf, asOf.toISOString());
+    assert.match(empty.evidenceSha256, /^[a-f0-9]{64}$/);
+    assert.deepEqual(empty.concepts, []);
 
     const stale: AcademyLearningEvidence = {
       sourceType: "assessment",
