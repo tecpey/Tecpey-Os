@@ -154,6 +154,15 @@ export function AcademyMasterySeasonsClientStatus({ locale = "fa" }: { locale?: 
                       <p className="mt-1 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">
                         {isFa ? recommendation.season.cadenceFa : recommendation.season.cadenceEn}
                       </p>
+                      <p className="mt-2 text-xs font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                        {recommendation.evidencePriorityBps > 0
+                          ? (isFa
+                              ? "چرا این مسیر؟ شواهد معتبر یادگیری، این موضوع را برای مرور و تمرین در اولویت قرار داده‌اند."
+                              : "Why this path? Governed learning evidence currently prioritizes this topic for review and practice.")
+                          : (isFa
+                              ? "چرا این مسیر؟ این پیشنهاد بر اساس آمادگی برنامهٔ درسی است و ادعای ضعف شخصی نمی‌کند."
+                              : "Why this path? This recommendation is based on curriculum readiness and does not claim a personal weakness.")}
+                      </p>
                     </div>
                     <button
                       type="button"
