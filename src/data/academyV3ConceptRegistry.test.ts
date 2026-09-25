@@ -132,6 +132,10 @@ describe("Academy V3 concept registry", () => {
     assert.deepEqual(first.objectiveIds, mission.objectiveIds);
     assert.match(first.missionSha256, /^[0-9a-f]{64}$/);
     assert.throws(() => issueAcademyV3MissionAttempt({ missionId: "MISSION.UNKNOWN", locale: "fa", issuedAt }), /academy_v3_mission_unknown/);
+    const tampered = { ...first, locale: "de" as "fa" };
+    assert.throws(() => issueAcademyV3MissionAttempt({ missionId: mission.id, locale: "fa", issuedAt: new Date("invalid") }), /academy_v3_mission_time_invalid/);
+    const { evaluateAcademyV3MissionDecision } = require("../lib/academy-v3-mission-authority") as typeof import("../lib/academy-v3-mission-authority");
+    assert.throws(() => evaluateAcademyV3MissionDecision({ attempt: tampered, choiceId: mission.scenario.correctChoiceId, submittedAt: issuedAt }), /academy_v3_mission_attempt_stale/);
   });
   it("derives mission decision evidence without granting mastery or value", () => {
     const mission = academyV3ReferenceMissions[0];
