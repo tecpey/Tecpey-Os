@@ -54,6 +54,7 @@ export function evaluateAcademyV3MissionDecision(input: {
     input.attempt.policyVersion !== ACADEMY_V3_MISSION_ATTEMPT_POLICY_VERSION ||
     input.attempt.missionVersion !== value.version ||
     input.attempt.conceptId !== value.conceptId ||
+    (input.attempt.locale !== "fa" && input.attempt.locale !== "en") ||
     input.attempt.missionSha256 !== missionSha256 ||
     canonicalJson(input.attempt.objectiveIds) !== canonicalJson(value.objectiveIds)
   ) throw new Error("academy_v3_mission_attempt_stale");
