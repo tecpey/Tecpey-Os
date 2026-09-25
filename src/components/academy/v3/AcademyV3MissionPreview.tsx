@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRight, Check, CheckCircle2, CircleAlert, Compass, RotateCcw, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, CircleAlert, RotateCcw } from "lucide-react";
 import type { AcademyV3ReferenceMission } from "@/data/academyV3ReferenceMissions";
 
 type Locale = "fa" | "en";
