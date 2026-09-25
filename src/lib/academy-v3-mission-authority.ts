@@ -79,6 +79,14 @@ export function evaluateAcademyV3MissionDecision(input: {
     choiceId: choice.id,
     correct: choice.id === value.scenario.correctChoiceId,
     misconceptionId: choice.misconceptionId ?? null,
+    feedback: {
+      locale: input.attempt.locale,
+      missionVersion: value.version,
+      missionSha256,
+      rationale: value.scenario.rationale[input.attempt.locale],
+      choiceFeedback: choice.feedback?.[input.attempt.locale] ?? value.scenario.rationale[input.attempt.locale],
+      evidenceThatCouldChangeDecision: value.scenario.evidenceThatCouldChangeDecision[input.attempt.locale],
+    },
     evidenceKind: "scenario" as const,
     submittedAt: submittedAt.toISOString(),
     reassessment: {
