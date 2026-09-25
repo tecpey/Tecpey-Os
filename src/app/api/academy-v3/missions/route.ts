@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
           studentId: tenantContext.principalId, missionId: body.missionId as string,
           locale: body.locale as "fa" | "en", idempotencyKey,
         }));
-        return noStore(apiOk({ attempt: result }, result.replayed ? 200 : 201));
+        if (!result.enabled) return noStore(apiError("academy_v3_service_not_configured", 503));\n        return noStore(apiOk({ attempt: result.value }, result.value.replayed ? 200 : 201));
       }
       if (body.action === "decide") {
         if (!exactKeys(body, ["action","attemptId","choiceId"]) || typeof body.attemptId !== "string" ||
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
           studentId: tenantContext.principalId, attemptId: body.attemptId as string,
           choiceId: body.choiceId as string, idempotencyKey,
         }));
-        return noStore(apiOk({ decision: result }, result.replayed ? 200 : 201));
+        if (!result.enabled) return noStore(apiError("academy_v3_service_not_configured", 503));\n        return noStore(apiOk({ decision: result.value }, result.value.replayed ? 200 : 201));
       }
       return noStore(apiError("invalid_academy_v3_mission_command", 400));
     } catch (error) {
