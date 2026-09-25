@@ -9,6 +9,7 @@ import {
   academyV3Misconceptions,
   validateAcademyV3CriticalLearningRegistry,
 } from "./academyV3CriticalLearningRegistry";
+import { academyV3ReferenceMissions } from "./academyV3ReferenceMissions";
 
 describe("Academy V3 concept registry", () => {
   it("has stable unique IDs, known prerequisites and an acyclic graph", () => {
@@ -63,6 +64,25 @@ describe("Academy V3 concept registry", () => {
     for (const misconception of academyV3Misconceptions) {
       assert.ok(misconception.remediation);
       assert.ok(misconception.reassessment);
+    }
+  });
+  it("binds reference missions to governed concepts, objectives and misconception identities", () => {
+    const conceptIds = new Set(academyV3Concepts.map((concept) => concept.id));
+    const objectiveIds = new Set(academyV3CriticalObjectives.map((objective) => objective.id));
+    const misconceptionIds = new Set(academyV3Misconceptions.map((misconception) => misconception.id));
+    for (const mission of academyV3ReferenceMissions) {
+      assert.ok(conceptIds.has(mission.conceptId), `${mission.id}: concept must be governed`);
+      assert.ok(mission.objectiveIds.length > 0, `${mission.id}: objectives are required`);
+      for (const objectiveId of mission.objectiveIds) assert.ok(objectiveIds.has(objectiveId), `${mission.id}: unknown objective ${objectiveId}`);
+      assert.ok(mission.scenario.knownEvidence.length > 0, `${mission.id}: known evidence is required`);
+      assert.ok(mission.scenario.uncertainty.length > 0, `${mission.id}: uncertainty must be explicit`);
+      assert.ok(mission.scenario.choices.some((choice) => choice.id === mission.scenario.correctChoiceId), `${mission.id}: correct choice must exist`);
+      for (const choice of mission.scenario.choices) {
+        if (choice.misconceptionId) assert.ok(misconceptionIds.has(choice.misconceptionId), `${mission.id}: unknown misconception ${choice.misconceptionId}`);
+      }
+      assert.ok(mission.scenario.evidenceThatCouldChangeDecision.fa.trim());
+      assert.ok(mission.scenario.evidenceThatCouldChangeDecision.en.trim());
+      assert.ok(mission.reassessment.minimumDelayHours > 0, `${mission.id}: delayed reassessment is required`);
     }
   });
 });
