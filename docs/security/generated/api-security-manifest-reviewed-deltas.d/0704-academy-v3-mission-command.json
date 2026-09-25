@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [],
+  "addedOperations": [
+    {
+      "route": "/api/academy-v3/missions",
+      "method": "POST",
+      "issue": "#704",
+      "owner": "academy-platform",
+      "reason": "Adds the governed Academy V3 mission command endpoint with strict revocation-aware student identity, verified tenant/workspace context, CSRF, rate limiting, bounded exact input, idempotency, transaction-coupled server-side mission authority, mandatory sensitive audit correlation, private no-store responses, and no client authority over correctness, mastery, League, credentials, or financial effects.",
+      "replacement": {
+        "route": "/api/academy-v3/missions",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-v3/missions/route.ts",
+        "sourceHash": "3ba48b6bd05a5ec4d490638e",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-v3-mission-write",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "academy-v3",
+        "testReferences": [
+          "src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-v3/missions/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
