@@ -97,10 +97,13 @@ describe("Academy V3 mission evidence cross-tenant isolation", () => {
         [tenantA, workspaceA, studentA],
       );
       await client.query("BEGIN");
-      await client.query("SET CONSTRAINTS ALL DEFERRED");
-      await insertAttempt(client, tenantA, workspaceA, studentA);
-      await assert.rejects(client.query("COMMIT"), /no active student binding/);
-      await client.query("ROLLBACK").catch(() => undefined);
+      try {
+        await client.query("SET CONSTRAINTS ALL DEFERRED");
+        await insertAttempt(client, tenantA, workspaceA, studentA);
+        await assert.rejects(client.query("COMMIT"), /active principal binding/i);
+      } finally {
+        await client.query("ROLLBACK").catch(() => undefined);
+      }
     });
   });
 
