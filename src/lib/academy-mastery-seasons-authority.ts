@@ -230,11 +230,10 @@ export function buildAcademyMasterySeasonState(input: {
     assignments,
     catalogAuthority: "code-catalog-v1",
     profileAuthority: "server_mastery_v1",
-    diagnosis: {
-      status: input.diagnosis?.status ?? "insufficient_evidence",
-      policyVersion: ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
-      concepts: input.diagnosis?.status === "ready" ? input.diagnosis.concepts : [],
-    },
+    diagnosis: input.diagnosis ?? diagnoseAcademyLearning({
+      evidence: [],
+      asOf: new Date(),
+    }),
   };
 }
 
