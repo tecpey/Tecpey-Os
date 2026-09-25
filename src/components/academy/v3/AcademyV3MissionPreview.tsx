@@ -15,7 +15,18 @@ export function AcademyV3MissionPreview({
 }) {
   const [choiceId, setChoiceId] = useState<string | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
-  const [decision, setDecision] = useState<{ correct: boolean; reassessmentDueAfter: string } | null>(null);
+  const [decision, setDecision] = useState<{
+    correct: boolean;
+    reassessmentDueAfter: string;
+    feedback: {
+      locale: Locale;
+      missionVersion: number;
+      missionSha256: string;
+      rationale: string;
+      choiceFeedback: string;
+      evidenceThatCouldChangeDecision: string;
+    };
+  } | null>(null);
   const [phase, setPhase] = useState<"idle" | "issuing" | "ready" | "submitting" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const issueKeyRef = useRef<string | null>(null);
@@ -70,7 +81,14 @@ export function AcademyV3MissionPreview({
       const existing = decisionKeyRef.current;
       const key = existing?.choiceId === choiceId ? existing.key : idempotencyKey("decision");
       decisionKeyRef.current = { choiceId, key };
-      const payload = await command<{ decision: { correct: boolean; reassessmentDueAfter: string } }>(
+      const payload = await command<{ decision: {
+        correct: boolean;
+        reassessmentDueAfter: string;
+        feedback: {
+          locale: Locale; missionVersion: number; missionSha256: string;
+          rationale: string; choiceFeedback: string; evidenceThatCouldChangeDecision: string;
+        };
+      } }>(
         { action: "decide", attemptId: activeAttemptId, choiceId }, key,
       );
       setDecision(payload.decision);
@@ -182,12 +200,12 @@ export function AcademyV3MissionPreview({
                   ? (isFa ? "فرآیند تصمیم قابل دفاع است" : "The decision process is defensible")
                   : (isFa ? "این انتخاب نیاز به بازبینی دارد" : "This choice needs review")}
               </h2>
-              <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{correct ? mission.scenario.rationale[locale] : (selected?.feedback?.[locale] ?? mission.scenario.rationale[locale])}</p>
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{correct ? decision.feedback.rationale : decision.feedback.choiceFeedback}</p>
             </div>
           </div>
           <div className="mt-5 border-t border-white/10 pt-4">
             <h3 className="text-sm font-black">{isFa ? "چه چیزی می‌تواند تصمیم را تغییر دهد؟" : "What could change the decision?"}</h3>
-            <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{mission.scenario.evidenceThatCouldChangeDecision[locale]}</p>
+            <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{decision.feedback.evidenceThatCouldChangeDecision}</p>
           </div>
           <button type="button" onClick={reset} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-xs font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
