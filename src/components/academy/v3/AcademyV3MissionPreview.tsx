@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, CircleAlert, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, CircleAlert, Compass, RotateCcw, ShieldCheck } from "lucide-react";
 import type { AcademyV3ReferenceMission } from "@/data/academyV3ReferenceMissions";
 
 type Locale = "fa" | "en";
@@ -30,20 +30,20 @@ export function AcademyV3MissionPreview({
   return (
     <article
       dir={isFa ? "rtl" : "ltr"}
-      className="rounded-[32px] border border-white/10 bg-slate-950/90 p-5 text-slate-100 shadow-2xl shadow-black/20 sm:p-7"
+      className="relative overflow-hidden rounded-[36px] border border-white/10 bg-[#07101c]/95 p-5 text-slate-100 shadow-[0_28px_90px_rgba(0,0,0,0.36)] sm:p-8"
       aria-labelledby={`${mission.id}-title`}
     >
-      <header>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.14),transparent_68%)]" />\n      <header className="relative max-w-2xl">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-300">
           {isFa ? "ماموریت تصمیم‌گیری" : "Decision mission"}
         </p>
-        <h1 id={`${mission.id}-title`} className="mt-2 text-2xl font-black leading-tight sm:text-3xl">
+        <h1 id={`${mission.id}-title`} className="mt-5 text-3xl font-black leading-[1.25] tracking-[-0.025em] text-white sm:text-4xl">
           {mission.title[locale]}
         </h1>
-        <p className="mt-4 text-sm font-bold leading-7 text-slate-300">{mission.mentalModel[locale]}</p>
+        <p className="mt-4 text-[15px] font-semibold leading-8 text-slate-300">{mission.mentalModel[locale]}</p>
       </header>
 
-      <section className="mt-7 rounded-3xl border border-cyan-300/15 bg-cyan-300/[0.06] p-5" aria-labelledby={`${mission.id}-scenario`}>
+      <section className="relative mt-8 rounded-[28px] border border-cyan-300/15 bg-gradient-to-b from-cyan-300/[0.08] to-white/[0.025] p-5 sm:p-6" aria-labelledby={`${mission.id}-scenario`}>
         <h2 id={`${mission.id}-scenario`} className="text-sm font-black text-cyan-200">
           {isFa ? "سناریو" : "Scenario"}
         </h2>
@@ -52,13 +52,13 @@ export function AcademyV3MissionPreview({
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
-          <h2 className="text-sm font-black">{isFa ? "چیزهایی که می‌دانیم" : "What we know"}</h2>
+          <h2 className="text-sm font-black">{isFa ? "شواهد موجود" : "Known evidence"}</h2>
           <ul className="mt-3 space-y-2 text-sm font-bold leading-6 text-slate-300">
             {mission.scenario.knownEvidence.map((item) => <li key={item.en}>• {item[locale]}</li>)}
           </ul>
         </section>
         <section className="rounded-3xl border border-amber-300/15 bg-amber-300/[0.04] p-5">
-          <h2 className="text-sm font-black text-amber-100">{isFa ? "چیزهایی که هنوز نمی‌دانیم" : "What remains uncertain"}</h2>
+          <h2 className="text-sm font-black text-amber-100">{isFa ? "عدم‌قطعیت‌های مهم" : "Material uncertainty"}</h2>
           <ul className="mt-3 space-y-2 text-sm font-bold leading-6 text-slate-300">
             {mission.scenario.uncertainty.map((item) => <li key={item.en}>• {item[locale]}</li>)}
           </ul>
@@ -66,14 +66,14 @@ export function AcademyV3MissionPreview({
       </div>
 
       <fieldset className="mt-7" disabled={submitted}>
-        <legend className="text-base font-black">{isFa ? "تصمیم شما چیست؟" : "What is your decision?"}</legend>
+        <legend className="text-xl font-black text-white">{isFa ? "با اطلاعات فعلی چه تصمیمی می‌گیرید؟" : "What would you decide with the information available?"}</legend>
         <div className="mt-3 space-y-3">
           {mission.scenario.choices.map((choice) => {
             const checked = choice.id === choiceId;
             return (
               <label
                 key={choice.id}
-                className={`flex min-h-14 cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm font-bold leading-6 transition-[border-color,background-color] focus-within:ring-2 focus-within:ring-cyan-300 ${
+                className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-[22px] border p-4 text-sm font-bold leading-7 transition-[border-color,background-color,transform] duration-150 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-cyan-200 sm:p-5 ${
                   checked ? "border-cyan-300/60 bg-cyan-300/10" : "border-white/10 bg-white/[0.035]"
                 }`}
               >
@@ -82,7 +82,7 @@ export function AcademyV3MissionPreview({
                   name={mission.id}
                   checked={checked}
                   onChange={() => setChoiceId(choice.id)}
-                  className="mt-1 h-4 w-4 shrink-0 accent-cyan-300"
+                  className="mt-1 h-5 w-5 shrink-0 accent-cyan-200"
                 />
                 <span>{choice.text[locale]}</span>
               </label>
@@ -96,9 +96,9 @@ export function AcademyV3MissionPreview({
           type="button"
           disabled={!choiceId}
           onClick={() => setSubmitted(true)}
-          className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition-opacity disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[18px] bg-cyan-200 px-5 py-3.5 text-sm font-black text-[#06111e] shadow-[0_14px_34px_rgba(34,211,238,0.16)] transition-[transform,opacity,box-shadow] duration-150 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07101c]"
         >
-          {isFa ? "ثبت تصمیم و دیدن بازخورد" : "Submit decision and see feedback"}
+          {isFa ? "ثبت تصمیم" : "Submit decision"}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
       ) : (
@@ -117,7 +117,7 @@ export function AcademyV3MissionPreview({
               <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{mission.scenario.rationale[locale]}</p>
               {!correct && selected?.misconceptionId && (
                 <p className="mt-3 text-xs font-black text-amber-200">
-                  {isFa ? "الگوی خطای مرتبط: " : "Related reasoning pattern: "}{selected.misconceptionId}
+                  {isFa ? "الگوی استدلال برای مرور: " : "Reasoning pattern to review: "}{selected.misconceptionId}
                 </p>
               )}
             </div>
@@ -128,12 +128,12 @@ export function AcademyV3MissionPreview({
           </div>
           <button type="button" onClick={reset} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-xs font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            {isFa ? "مرور دوباره" : "Review again"}
+            {isFa ? "مرور دوباره سناریو" : "Review the scenario again"}
           </button>
         </section>
       )}
 
-      <footer className="mt-6 text-xs font-bold leading-6 text-slate-500">
+      <footer className="mt-7 flex items-start gap-2 border-t border-white/[0.07] pt-5 text-xs font-semibold leading-6 text-slate-500">
         {isFa
           ? "این پیش‌نمایش آموزشی امتیاز، mastery، رتبه لیگ یا مجوز مالی ایجاد نمی‌کند."
           : "This learning preview creates no score, mastery, league rank, or financial entitlement."}
