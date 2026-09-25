@@ -55,6 +55,25 @@ before(async () => {
   pool = new Pool({ connectionString: databaseUrl, max: 2, allowExitOnIdle: true });
   await withClient((client) => applyDatabaseMigrationsWithLock(client));
 
+});
+
+after(async () => {
+  if (!pool) return;
+  await withClient(async (client) => {
+    for (const studentId of students) {
+      await client.query(`DELETE FROM platform_principal_bindings WHERE principal_type='student' AND principal_id=$1`, [studentId]).catch(() => undefined);
+      await client.query(`DELETE FROM academy_students WHERE id=$1::uuid`, [studentId]).catch(() => undefined);
+    }
+    for (const tenant of [tenantA, tenantB]) {
+      await client.query(`DELETE FROM platform_workspaces WHERE tenant_id=$1`, [tenant]).catch(() => undefined);
+      await client.query(`DELETE FROM platform_tenants WHERE id=$1`, [tenant]).catch(() => undefined);
+    }
+  });
+  await pool.end();
+  pool = null;
+});
+
+describe("Academy V3 mission evidence cross-tenant isolation", () => {
   it("serializes concurrent duplicate attempt commands to one canonical row", { skip: !configured }, async () => {
     const student = randomUUID(); students.add(student);
     await withClient((client) => seed(client, tenantA, workspaceA, student));
@@ -86,7 +105,7 @@ before(async () => {
       assert.equal(second.attemptId, first.attemptId);
       const count = await clientA.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count FROM academy_v3_mission_attempts
-          WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3 AND student_id=$3::uuid AND idempotency_key=$4`,
+          WHERE tenant_id=$1 AND workspace_id=$2 AND principal_id=$3::text AND student_id=$3::uuid AND idempotency_key=$4`,
         [tenantA, workspaceA, student, idempotencyKey],
       );
       assert.equal(count.rows[0]!.count, "1");
@@ -96,25 +115,7 @@ before(async () => {
       clientA.release(); clientB.release();
     }
   });
-});
 
-after(async () => {
-  if (!pool) return;
-  await withClient(async (client) => {
-    for (const studentId of students) {
-      await client.query(`DELETE FROM platform_principal_bindings WHERE principal_type='student' AND principal_id=$1`, [studentId]).catch(() => undefined);
-      await client.query(`DELETE FROM academy_students WHERE id=$1::uuid`, [studentId]).catch(() => undefined);
-    }
-    for (const tenant of [tenantA, tenantB]) {
-      await client.query(`DELETE FROM platform_workspaces WHERE tenant_id=$1`, [tenant]).catch(() => undefined);
-      await client.query(`DELETE FROM platform_tenants WHERE id=$1`, [tenant]).catch(() => undefined);
-    }
-  });
-  await pool.end();
-  pool = null;
-});
-
-describe("Academy V3 mission evidence cross-tenant isolation", () => {
   it("rejects wrong student identity and revoked bindings for academy_v3_mission_attempts", { skip: !configured }, async () => {
     await withClient(async (client) => {
       const studentA = randomUUID(); const studentB = randomUUID();
