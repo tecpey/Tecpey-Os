@@ -9,6 +9,8 @@ import {
   ChartNoAxesCombined,
   CheckCircle2,
   Crown,
+  ChevronDown,
+  ArrowUpRight,
   ExternalLink,
   History,
   Loader2,
@@ -83,7 +85,24 @@ const COPY = {
     premiumPlan: "نسخه پرمیوم",
     safety: "آموزشی و ریسک‌محور",
     history: "گفت‌وگوهای قبلی",
-    historyDescription: "تاریخچه از رکورد امن سمت سرور خوانده می‌شود.",
+    historyDescription: "گفت‌وگوهای ذخیره‌شده را از همان‌جا ادامه بده.",
+    office: "دفتر منتور",
+    hideOffice: "جمع‌کردن دفتر منتور",
+    privacyLink: "حریم خصوصی",
+    support: "پشتیبانی",
+    welcome: "یک سؤال، یک قدم روشن‌تر.",
+    welcomeText: "مفهوم را بفهم، تصمیم را تمرین کن و با آگاهی جلو برو. از یکی از این مسیرها شروع کن یا سؤال خودت را بنویس.",
+    draftHint: "پیشنهادها فقط متن سؤال را آماده می‌کنند؛ ارسال با شماست.",
+    learnTitle: "ساده‌تر یاد بگیر",
+    learnText: "یک مفهوم، یک مثال، یک تمرین",
+    learnPrompt: "تفاوت نگهداری رمزارز در کیف پول شخصی و صرافی را با یک مثال ساده توضیح بده و یک سؤال برای سنجش فهم من بپرس.",
+    riskTitle: "تصمیمت را مرور کن",
+    riskText: "قبل از تمرین، ریسک را روشن کن",
+    riskPrompt: "برای یک معامله فرضی، چک‌لیست دلیل ورود، نقطه ابطال و مدیریت ریسک بساز. هیچ پیشنهاد خرید یا فروش نده.",
+    practiceTitle: "دانشت را امتحان کن",
+    practiceText: "یک موقعیت آموزشی، بدون پول واقعی",
+    practicePrompt: "یک سناریوی آموزشی درباره فومو بساز. ابتدا از من بخواه تصمیمم را توضیح بدهم و بعد بازخورد بده؛ معامله واقعی پیشنهاد نکن.",
+    modeLabel: "حالت گفت‌وگو",
     historyUnavailable: "تاریخچه فعلاً در دسترس نیست؛ گفت‌وگوی جاری بدون ادعای ذخیره ادامه می‌یابد.",
     historyEmpty: "هنوز گفت‌وگویی ثبت نشده است.",
     newConversation: "گفت‌وگوی جدید",
@@ -140,7 +159,24 @@ const COPY = {
     premiumPlan: "Premium plan",
     safety: "Education and risk first",
     history: "Conversation history",
-    historyDescription: "History is read from authenticated server records.",
+    historyDescription: "Pick up where you left off in a saved conversation.",
+    office: "Mentor office",
+    hideOffice: "Collapse mentor office",
+    privacyLink: "Privacy",
+    support: "Support",
+    welcome: "One question. A clearer next step.",
+    welcomeText: "Understand a concept, practise a decision and move forward with context. Choose a starting point or ask your own question.",
+    draftHint: "Starting points prepare a draft. You decide when to send it.",
+    learnTitle: "Make it make sense",
+    learnText: "One concept, one example, one exercise",
+    learnPrompt: "Explain the difference between holding crypto in a personal wallet and on an exchange with a simple example, then ask a question to check my understanding.",
+    riskTitle: "Review a decision",
+    riskText: "Understand risk before practising",
+    riskPrompt: "Build an entry-thesis, invalidation and risk-management checklist for a hypothetical trade. Do not recommend buying or selling.",
+    practiceTitle: "Put learning to work",
+    practiceText: "An educational scenario, no real money",
+    practicePrompt: "Create an educational FOMO scenario. Ask me to explain my decision first, then give feedback. Do not suggest a real trade.",
+    modeLabel: "Conversation mode",
     historyUnavailable: "History is temporarily unavailable. The current chat can continue without claiming it was saved.",
     historyEmpty: "No saved conversations yet.",
     newConversation: "New conversation",
@@ -251,6 +287,7 @@ export function AiMentorExperience({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [officeExpanded, setOfficeExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -263,7 +300,7 @@ export function AiMentorExperience({
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const historyTriggerRef = useRef<HTMLButtonElement | null>(null);
   const arenaTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const historySheetRef = useRef<HTMLDivElement | null>(null);
+  const historySheetRef = useRef<HTMLDialogElement | null>(null);
   const explainTimerRef = useRef<number | null>(null);
   const conversationEpochRef = useRef(0);
   const deepLinkContextRef = useRef<{ term?: number; lesson?: number } | null>(null);
@@ -437,41 +474,16 @@ export function AiMentorExperience({
 
   useEffect(() => {
     if (!historyOpen) return;
+    const dialog = historySheetRef.current;
+    if (!dialog) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const sheet = historySheetRef.current;
-    const focusable = () =>
-      Array.from(
-        sheet?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
-        ) ?? [],
-      );
-    focusable()[0]?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeHistory();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const items = focusable();
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
+    dialog.showModal();
     return () => {
+      dialog.close();
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
     };
-  }, [closeHistory, historyOpen]);
+  }, [historyOpen]);
 
   useEffect(
     () => () => {
@@ -667,6 +679,18 @@ export function AiMentorExperience({
     reducedMotion: prefersReducedMotion,
   });
   const mentorAct = stageDirection.act;
+  const prepareDraft = (prompt: string) => {
+    if (loading || historyLoading) return;
+    setSelectedSurface("academy");
+    setScenarioCue(null);
+    setQuestion(prompt);
+    textareaRef.current?.focus();
+  };
+  const startingPoints = [
+    { title: copy.learnTitle, detail: copy.learnText, prompt: copy.learnPrompt, Icon: BookOpenCheck },
+    { title: copy.riskTitle, detail: copy.riskText, prompt: copy.riskPrompt, Icon: ShieldCheck },
+    { title: copy.practiceTitle, detail: copy.practiceText, prompt: copy.practicePrompt, Icon: BrainCircuit },
+  ];
   const renderThreadList = () => (
     <div className={styles.threadList}>
       <button type="button" className={styles.newThreadButton} onClick={newConversation}>
@@ -689,8 +713,8 @@ export function AiMentorExperience({
           >
             <MessageCircle aria-hidden="true" />
             <span>
-              <strong>{thread.title}</strong>
-              <small>{dateFormatter.format(new Date(thread.lastMessageAt))}</small>
+              <strong><bdi>{thread.title}</bdi></strong>
+              <small>{Number.isFinite(Date.parse(thread.lastMessageAt)) ? dateFormatter.format(new Date(thread.lastMessageAt)) : "—"}</small>
             </span>
           </button>
         ))
@@ -738,8 +762,15 @@ export function AiMentorExperience({
         </div>
       </header>
 
-      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel}>
-        <div className={styles.officeCell}>
+      <div className={styles.mobilePresence}>
+        <LivingMentorAvatar act={mentorAct} locale={locale} size="header" />
+        <span><strong>{copy.mentor}</strong><small>{loading ? copy.thinking : copy.safety}</small></span>
+        <button type="button" aria-expanded={officeExpanded} aria-controls="mentor-office" onClick={() => setOfficeExpanded((open) => !open)}>
+          {officeExpanded ? copy.hideOffice : copy.office}<ChevronDown aria-hidden="true" />
+        </button>
+      </div>
+      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel} data-office-expanded={officeExpanded}>
+        <div className={styles.officeCell} id="mentor-office">
           <MentorOfficeScene
             activeSurface={activeSurface}
             completedTerms={completedTerms}
@@ -795,6 +826,8 @@ export function AiMentorExperience({
                 onClick={() => setHistoryOpen(true)}
                 aria-label={copy.history}
                 aria-haspopup="dialog"
+                aria-expanded={historyOpen}
+                aria-controls="mentor-history-dialog"
               >
                 <History aria-hidden="true" />
                 <span>{copy.history}</span>
@@ -806,16 +839,6 @@ export function AiMentorExperience({
           </header>
 
           <div className={styles.chatBody}>
-            <aside className={styles.historyRail} dir={direction} aria-label={copy.history}>
-              <div className={styles.historyRailHeader}>
-                <History aria-hidden="true" />
-                <div>
-                  <strong>{copy.history}</strong>
-                  <p>{copy.historyDescription}</p>
-                </div>
-              </div>
-              {renderThreadList()}
-            </aside>
 
             <div className={styles.conversation} dir={direction}>
               <div
@@ -895,8 +918,17 @@ export function AiMentorExperience({
                   ))
                 ) : (
                   <div className={styles.emptyConversation}>
-                    <h2>{isFa ? "امروز چه چیزی را با هم یاد بگیریم؟" : "What would you like to explore?"}</h2>
-                    <p>{isFa ? "دربارهٔ درس‌ها و تمرین‌هایت بپرس. گفت‌وگوهای ذخیره‌شده را از تاریخچه ادامه بده." : "Ask about your lessons and practice. Continue saved conversations from your history."}</p>
+                    <span className={styles.welcomeMark} aria-hidden="true"><BookOpenCheck /></span>
+                    <h2>{copy.welcome}</h2>
+                    <p>{copy.welcomeText}</p>
+                    <div className={styles.startingPoints} aria-label={copy.starterQuestions}>
+                      {startingPoints.map(({ title, detail, prompt, Icon }) => (
+                        <button key={title} type="button" onClick={() => prepareDraft(prompt)} disabled={loading || historyLoading}>
+                          <Icon aria-hidden="true" /><span><strong>{title}</strong><small>{detail}</small></span><ArrowUpRight aria-hidden="true" />
+                        </button>
+                      ))}
+                    </div>
+                    <p className={styles.draftHint}>{copy.draftHint}</p>
                   </div>
                 )}
 
@@ -927,7 +959,11 @@ export function AiMentorExperience({
               ) : null}
 
               <div className={styles.composer} id="mentor-chat">
-                <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
+                <div className={styles.composerHeading}>
+                  <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
+                  <span aria-label={copy.modeLabel}>{copy[activeSurface]}</span>
+                </div>
+                {publicResearch ? <p className={styles.researchNotice}>{copy.researchMode}</p> : null}
                 <div className={styles.composerInput}>
                   <textarea
                     id="mentor-workspace-question"
@@ -954,7 +990,13 @@ export function AiMentorExperience({
                     </button>
                   </div>
                 </div>
-                <p className={styles.privacyNote}><ShieldCheck aria-hidden="true" />{copy.privacy}</p>
+                <div className={styles.composerFooter}>
+                  <p className={styles.privacyNote}><ShieldCheck aria-hidden="true" />{copy.privacy}</p>
+                  <nav aria-label={copy.privacyLink}>
+                    <Link href={isFa ? "/academy/account#mentor-privacy" : "/en/academy/account#mentor-privacy"}>{copy.privacyLink}</Link>
+                    <Link href={isFa ? "/support" : "/en/support"}>{copy.support}</Link>
+                  </nav>
+                </div>
               </div>
             </div>
           </div>
@@ -976,13 +1018,11 @@ export function AiMentorExperience({
       </div>
 
       {historyOpen ? (
-        <div className={styles.historyOverlay} data-direction={direction}>
-          <button type="button" className={styles.historyBackdrop} onClick={closeHistory} aria-label={copy.closeHistory} />
-          <div
+          <dialog
             ref={historySheetRef}
-            className={styles.historySheet}
-            role="dialog"
-            aria-modal="true"
+            id="mentor-history-dialog"
+            className={styles.historyDialog}
+            onCancel={(event) => { event.preventDefault(); closeHistory(); }}
             aria-labelledby="mentor-history-title"
             dir={direction}
           >
@@ -999,8 +1039,7 @@ export function AiMentorExperience({
               </button>
             </header>
             {renderThreadList()}
-          </div>
-        </div>
+          </dialog>
       ) : null}
     </section>
   );
