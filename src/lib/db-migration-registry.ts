@@ -73,6 +73,7 @@ import { runArenaLeagueRankingMigrations } from "./db-migrate-arena-league-ranki
 import { runArenaLeagueRankingRefreshMigrations } from "./db-migrate-arena-league-ranking-refresh";
 import { runArenaEntitlementGrantMigrations } from "./db-migrate-arena-entitlement-grants";
 import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
+import { runAcademyV3MissionEvidenceMigrations } from "./db-migrate-academy-v3-mission-evidence";
 import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
 import { runActivePrincipalBindingEnforcementMigrations } from "./db-migrate-active-principal-binding-enforcement";
 import { runNotificationSuppressDecisionMigrations } from "./db-migrate-notification-suppress-decision";
@@ -443,6 +444,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(100, "migration-step-100", CANONICAL_MIGRATION_CONTENT.modelLabCouncilAuthority, "ai-platform-security", "ai-model-lab", runModelLabCouncilAuthorityMigrations),
   entry(101, "migration-step-101", CANONICAL_MIGRATION_CONTENT.modelLabExecutionAuthority, "ai-platform-security", "ai-model-lab", runModelLabExecutionAuthorityMigrations),
   entry(102, "migration-step-102", CANONICAL_MIGRATION_CONTENT.modelEvaluationAuthority, "ai-platform-security", "ai-model-lab", runAiModelEvaluationAuthorityMigrations),
+  entry(103, "migration-step-103", CANONICAL_MIGRATION_CONTENT.academyV3MissionEvidence, "academy-platform", "academy", runAcademyV3MissionEvidenceMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

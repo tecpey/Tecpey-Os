@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { TERM1 } from "@/data/academy/term1Curriculum";
+import { getUnifiedAcademyTerms } from "@/data/academy/unifiedCurriculum";
 import { LessonPlayerV2Client } from "@/components/academy/v2/LessonPlayerV2Client";
 
 type Props = { params: Promise<{ termSlug: string; lessonIndex: string }> };
 
-const TERMS = [TERM1];
+const TERMS = getUnifiedAcademyTerms("fa");
 
 function resolveTerm(termSlug: string) {
   return TERMS.find((t) => t.slug === termSlug) ?? null;
