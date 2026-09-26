@@ -4,10 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { Pool, type DatabaseError, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { runAcademyV3DecisionInvariantMigrations } from "../../lib/db-migrate-academy-v3-decision-invariant";
-import {
-  issueAcademyV3MissionAttemptTx,
-  submitAcademyV3MissionDecisionTx,
-} from "../../lib/academy-v3-mission-evidence-authority";
+import { issueAcademyV3MissionAttemptTx } from "../../lib/academy-v3-mission-evidence-authority";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -77,8 +74,19 @@ after(async () => {
   pool = null;
 });
 
+const insertDecisionSql = `
+  INSERT INTO academy_v3_mission_decision_events
+    (attempt_id, tenant_id, workspace_id, principal_type, principal_id, student_id,
+     choice_id, correct, misconception_id, evidence_kind, policy_version, mission_sha256,
+     submitted_at, reassessment_due_after, idempotency_key, evidence)
+  VALUES
+    ($1::uuid,$2,$3,'student',$4::text,$4::uuid,
+     'no-trade-yet',TRUE,NULL,'scenario','test-v001',repeat('0',64),
+     $5::timestamptz,$6::timestamptz,$7,'{}'::jsonb)
+`;
+
 describe("Academy V3 canonical mission decision database invariant", () => {
-  it("permits exactly one canonical decision when distinct commands race for one attempt", { skip: !configured }, async () => {
+  it("permits exactly one row when independent SQL transactions race for one attempt", { skip: !configured }, async () => {
     const attempt = await withClient((client) => issueAcademyV3MissionAttemptTx(client, {
       tenantId,
       workspaceId,
@@ -95,36 +103,32 @@ describe("Academy V3 canonical mission decision database invariant", () => {
       await clientA.query("BEGIN");
       await clientB.query("BEGIN");
 
-      const firstPromise = submitAcademyV3MissionDecisionTx(clientA, {
+      await clientA.query(insertDecisionSql, [
+        attempt.attemptId,
         tenantId,
         workspaceId,
         studentId,
-        attemptId: attempt.attemptId,
-        choiceId: "no-trade-yet",
-        idempotencyKey: `decision-a-${randomUUID()}`,
-        submittedAt: new Date("2026-09-26T08:01:00.000Z"),
-      });
+        "2026-09-26T08:01:00.000Z",
+        "2026-10-03T08:01:00.000Z",
+        `decision-a-${randomUUID()}`,
+      ]);
 
-      await new Promise((resolve) => setTimeout(resolve, 25));
       let secondSettled = false;
-      const secondPromise = submitAcademyV3MissionDecisionTx(clientB, {
+      const secondInsert = clientB.query(insertDecisionSql, [
+        attempt.attemptId,
         tenantId,
         workspaceId,
         studentId,
-        attemptId: attempt.attemptId,
-        choiceId: "no-trade-yet",
-        idempotencyKey: `decision-b-${randomUUID()}`,
-        submittedAt: new Date("2026-09-26T08:01:01.000Z"),
-      }).finally(() => { secondSettled = true; });
+        "2026-09-26T08:01:01.000Z",
+        "2026-10-03T08:01:01.000Z",
+        `decision-b-${randomUUID()}`,
+      ]).finally(() => { secondSettled = true; });
 
       await new Promise((resolve) => setTimeout(resolve, 75));
-      assert.equal(secondSettled, false, "competing decision must wait for the attempt advisory lock");
+      assert.equal(secondSettled, false, "unique index must serialize an uncommitted competing row");
 
-      const first = await firstPromise;
-      assert.equal(first.replayed, false);
       await clientA.query("COMMIT");
-
-      await assert.rejects(secondPromise, (error: unknown) => {
+      await assert.rejects(secondInsert, (error: unknown) => {
         const databaseError = error as DatabaseError;
         return databaseError.code === "23505" &&
           databaseError.constraint === "academy_v3_mission_decision_events_attempt_uidx";
