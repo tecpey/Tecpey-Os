@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type DatabaseError, type PoolClient } from "pg";
-import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
-import { runAcademyV3DecisionInvariantMigrations } from "../../lib/db-migrate-academy-v3-decision-invariant";
-import { issueAcademyV3MissionAttemptTx } from "../../lib/academy-v3-mission-evidence-authority";
+import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
+import { runAcademyV3DecisionInvariantMigrations } from "../lib/db-migrate-academy-v3-decision-invariant";
+import { issueAcademyV3MissionAttemptTx } from "../lib/academy-v3-mission-evidence-authority";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
