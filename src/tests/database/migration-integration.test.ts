@@ -76,6 +76,7 @@ const REQUIRED_MIGRATIONS = [
   "0116_ai_model_lab_council_authority.sql",
   "0117_ai_model_lab_execution_authority.sql",
   "0118_ai_model_evaluation_authority.sql",
+  "0119_academy_v3_mission_evidence.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -119,6 +120,8 @@ const REQUIRED_TABLES = [
   "academy_arena_entitlement_grants",
   "academy_daily_repair_challenges",
   "academy_daily_repair_challenge_events",
+  "academy_v3_mission_attempts",
+  "academy_v3_mission_decision_events",
   "ai_research_runs",
   "ai_research_sources",
   "ai_research_claims",
@@ -214,6 +217,10 @@ const REQUIRED_COLUMNS = [
   ["academy_daily_repair_challenges", "evidence_sha256"],
   ["academy_daily_repair_challenge_events", "answer_sha256"],
   ["academy_daily_repair_challenge_events", "passed"],
+  ["academy_v3_mission_attempts", "mission_sha256"],
+  ["academy_v3_mission_attempts", "idempotency_key"],
+  ["academy_v3_mission_decision_events", "reassessment_due_after"],
+  ["academy_v3_mission_decision_events", "mission_sha256"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -308,6 +315,8 @@ const REQUIRED_TRIGGERS = [
   "academy_arena_entitlement_grants_no_update",
   "academy_daily_repair_challenges_no_update",
   "academy_daily_repair_challenge_events_no_update",
+  "academy_v3_mission_attempts_no_update",
+  "academy_v3_mission_decision_events_no_update",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [

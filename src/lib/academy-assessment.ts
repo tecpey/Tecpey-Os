@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
-import { TERM1, type Lesson, type QuizQuestion } from "@/data/academy/term1Curriculum";
+import { getUnifiedAcademyTerms } from "@/data/academy/unifiedCurriculum";
+import type { Lesson, QuizQuestion } from "@/data/academy/term1Curriculum";
 
 export type QuizAnswerValue = string | string[] | Record<string, string>;
 export type QuizAnswerMap = Record<string, QuizAnswerValue>;
@@ -16,7 +17,9 @@ export type LessonAssessmentResult = {
 };
 
 export function listCanonicalLessons(): Array<{ lesson: Lesson; moduleId: string }> {
-  return TERM1.modules.flatMap((module) => module.lessons.map((lesson) => ({ lesson, moduleId: module.id })));
+  return getUnifiedAcademyTerms("fa").flatMap((term) =>
+    term.modules.flatMap((module) => module.lessons.map((lesson) => ({ lesson, moduleId: module.id }))),
+  );
 }
 
 export function resolveCanonicalLesson(lessonId: string): { lesson: Lesson; moduleId: string } | null {

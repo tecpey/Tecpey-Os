@@ -7,7 +7,7 @@ import {
   type ReviewGrade,
   daysUntilReview,
   getDueCards,
-  loadDeck,
+  hydrateDeck,
   reviewCard,
   saveDeck,
   upsertCard,
@@ -233,38 +233,50 @@ export function FlashcardDeck({ flashcards, dueOnly = true, onClose }: Flashcard
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(false);
+  const [hydrating, setHydrating] = useState(true);
   const [stats, setStats] = useState<SessionStats>({
     reviewed: 0, easy: 0, medium: 0, hard: 0, again: 0,
   });
 
-  // Load deck and determine queue on mount
+  // Hydrate the server-owned schedule before deriving the review queue. Rendering
+  // from the empty in-memory projection would otherwise report a false empty day.
   useEffect(() => {
-    const loaded = loadDeck();
+    let active = true;
+    setHydrating(true);
 
-    // Ensure all flashcard IDs have a card state
-    let current = [...loaded];
-    for (const fc of flashcards) {
-      if (!current.some((c) => c.cardId === fc.id)) {
-        current = [...current, {
-          cardId: fc.id,
-          repetitions: 0,
-          easeFactor: 2.5,
-          intervalDays: 0,
-          nextReviewAt: Date.now(),
-          lastGrade: -1,
-          lastReviewedAt: null,
-        }];
+    void hydrateDeck("fa").then((loaded) => {
+      if (!active) return;
+
+      // New curriculum cards are due immediately, while existing cards retain the
+      // authoritative schedule returned by the server.
+      let current = [...loaded];
+      for (const fc of flashcards) {
+        if (!current.some((card) => card.cardId === fc.id)) {
+          current = [...current, {
+            cardId: fc.id,
+            repetitions: 0,
+            easeFactor: 2.5,
+            intervalDays: 0,
+            nextReviewAt: Date.now(),
+            lastGrade: -1,
+            lastReviewedAt: null,
+          }];
+        }
       }
-    }
-    setDeck(current);
+      setDeck(current);
 
-    if (dueOnly) {
-      const dueCardStates = getDueCards(current);
-      const dueIds = new Set(dueCardStates.map((c) => c.cardId));
-      setQueue(flashcards.filter((fc) => dueIds.has(fc.id)));
-    } else {
-      setQueue([...flashcards].sort(() => Math.random() - 0.5));
-    }
+      if (dueOnly) {
+        const dueIds = new Set(getDueCards(current).map((card) => card.cardId));
+        setQueue(flashcards.filter((card) => dueIds.has(card.id)));
+      } else {
+        setQueue([...flashcards].sort(() => Math.random() - 0.5));
+      }
+      setHydrating(false);
+    });
+
+    return () => {
+      active = false;
+    };
   }, [flashcards, dueOnly]);
 
   const handleGrade = useCallback(
@@ -302,6 +314,15 @@ export function FlashcardDeck({ flashcards, dueOnly = true, onClose }: Flashcard
 
   const currentCard = queue[currentIndex];
   const currentDeckState = currentCard ? deck.find((c) => c.cardId === currentCard.id) : undefined;
+
+  if (hydrating) {
+    return (
+      <div className="rounded-[32px] border border-white/10 bg-slate-900/60 p-8 text-center" dir="rtl" role="status" aria-live="polite">
+        <Brain className="mx-auto h-8 w-8 animate-pulse text-cyan-300 motion-reduce:animate-none" />
+        <p className="mt-3 text-sm font-black text-slate-300">در حال همگام‌سازی برنامه مرور…</p>
+      </div>
+    );
+  }
 
   // Session done
   if (done) {
