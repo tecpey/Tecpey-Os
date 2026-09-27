@@ -27,17 +27,22 @@ test("covers every governed recovery domain with deterministic table membership"
   }
 });
 
-test("binds protected recovery to the fixed identity tenant-registry fragment", async () => {
-  const identityRegistry = JSON.parse(await readFile(
+test("binds protected recovery to every fixed supplemental tenant-registry fragment", async () => {
+  const fragmentUrls = [
     new URL("../docs/security/tenant-scoped-table-registry.identity.json", import.meta.url),
-    "utf8",
-  ));
-  const identityTables = identityRegistry.tables.map((entry) => entry.table).sort();
+    new URL("../docs/security/tenant-scoped-table-registry.arena.json", import.meta.url),
+  ];
+  const fragmentTables = [];
+  for (const url of fragmentUrls) {
+    const registry = JSON.parse(await readFile(url, "utf8"));
+    fragmentTables.push(...registry.tables.map((entry) => entry.table));
+  }
+  assert.equal(new Set(fragmentTables).size, fragmentTables.length);
   assert.deepEqual(
     [...RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES].sort(),
-    identityTables,
+    fragmentTables.sort(),
   );
-  assert.equal(identityTables.length, 4);
+  assert.equal(fragmentTables.length, 6);
 });
 
 test("builds a quoted aggregate fingerprint and rejects identifier injection", () => {
