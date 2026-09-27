@@ -80,13 +80,13 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "91507335e7ee61bff248b43220a096c2c66dffce",
-      "sha256": "ba14dd923124c0f9d77f636c609f9fca4cf4b2f3865a9187fce8d4f4a8b50aed",
-      "lines": 101,
+      "gitObjectId": "0e72dc436822759803c2f28aebcdde995dc0e913",
+      "sha256": "d3862c043daad887cbb6da8ce881a2cd4083b373638248a84af7a27a098eb56c",
+      "lines": 102,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 101
+          "endLine": 102
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -98,7 +98,8 @@
         "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries.",
         "2026-08-23: re-reviewed after adding the protected staging recovery collector, collector policy/test and governed workflow to pull-request trigger coverage. Trigger-only change; exact-head checkout, pinned actions, read-only permissions, synthetic restore, RPO/RTO checks and artifact boundary remain unchanged. The file now has 99 lines.",
         "2026-09-06: re-reviewed after adding both fixed tenant-scoped registry fragments to pull-request trigger coverage. This is a trigger-only change ensuring registry-authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, pinned actions, recovery authority command, isolated PostgreSQL/Redis restore, RPO/RTO enforcement, evidence upload and production activation boundaries are unchanged. The file now has 101 lines.",
-        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
+        "2026-09-27: re-reviewed after adding docs/security/tenant-scoped-table-registry.arena.json to pull-request trigger coverage. This is a trigger-only change ensuring Arena & League v2 tenant-registry authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, immutable action pins, recovery authority command, isolated PostgreSQL/Redis restore, bounded RPO/RTO controls, evidence upload and production activation boundaries are unchanged. The file now has 102 lines."
       ],
       "findings": []
     },
