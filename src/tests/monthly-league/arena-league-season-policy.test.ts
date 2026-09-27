@@ -8,6 +8,7 @@ import {
   canCloseArenaLeagueSeason,
   canEnrollInArenaLeagueSeason,
   canFinalizeArenaLeagueSeason,
+  canOpenArenaLeagueEnrollment,
   digestArenaLeagueSeasonConfig,
   normalizeArenaLeagueSeasonConfig,
 } from "../../lib/arena-league-season-policy";
@@ -72,8 +73,11 @@ describe("Arena league season policy", () => {
     assert.throws(() => assertArenaLeagueSeasonTransition("finalized", "draft"), /transition_invalid/);
   });
 
-  it("uses half-open enrollment boundaries and lifecycle state together", () => {
+  it("opens and accepts enrollment only inside the configured half-open window", () => {
     const config = normalizeArenaLeagueSeasonConfig(baseline);
+    assert.equal(canOpenArenaLeagueEnrollment({ lifecycle: "draft", config, at: "2026-09-27T23:59:59.999Z" }), false);
+    assert.equal(canOpenArenaLeagueEnrollment({ lifecycle: "draft", config, at: baseline.enrollmentOpensAt }), true);
+    assert.equal(canOpenArenaLeagueEnrollment({ lifecycle: "draft", config, at: baseline.enrollmentClosesAt }), false);
     assert.equal(canEnrollInArenaLeagueSeason({ lifecycle: "enrollment", config, at: baseline.enrollmentOpensAt }), true);
     assert.equal(canEnrollInArenaLeagueSeason({ lifecycle: "enrollment", config, at: "2026-09-30T23:59:59.999Z" }), true);
     assert.equal(canEnrollInArenaLeagueSeason({ lifecycle: "enrollment", config, at: baseline.enrollmentClosesAt }), false);
