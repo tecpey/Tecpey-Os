@@ -72,6 +72,10 @@ import { runArenaLeagueScoreLedgerMigrations } from "./db-migrate-arena-league-s
 import { runArenaLeagueRankingMigrations } from "./db-migrate-arena-league-rankings";
 import { runArenaLeagueRankingRefreshMigrations } from "./db-migrate-arena-league-ranking-refresh";
 import { runArenaEntitlementGrantMigrations } from "./db-migrate-arena-entitlement-grants";
+import {
+  ARENA_LEAGUE_SEASON_AUTHORITY_SQL,
+  runArenaLeagueSeasonAuthorityMigrations,
+} from "./db-migrate-arena-league-seasons";
 import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
 import { runAcademyV3MissionEvidenceMigrations } from "./db-migrate-academy-v3-mission-evidence";
 import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
@@ -278,6 +282,15 @@ const MENTOR_PROFILE_EVIDENCE_EVENT_MIGRATION: CanonicalMigrationContent =
     compatibleHistoricalChecksums: Object.freeze([]),
   });
 
+const ARENA_LEAGUE_SEASON_AUTHORITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0120_arena_league_season_authority.sql",
+    content: ARENA_LEAGUE_SEASON_AUTHORITY_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_SEASON_AUTHORITY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
   entry(2, "migration-step-002", CANONICAL_MIGRATION_CONTENT.compatibility, "academy-platform", "academy", runCompatibilityMigrations),
@@ -445,6 +458,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(101, "migration-step-101", CANONICAL_MIGRATION_CONTENT.modelLabExecutionAuthority, "ai-platform-security", "ai-model-lab", runModelLabExecutionAuthorityMigrations),
   entry(102, "migration-step-102", CANONICAL_MIGRATION_CONTENT.modelEvaluationAuthority, "ai-platform-security", "ai-model-lab", runAiModelEvaluationAuthorityMigrations),
   entry(103, "migration-step-103", CANONICAL_MIGRATION_CONTENT.academyV3MissionEvidence, "academy-platform", "academy", runAcademyV3MissionEvidenceMigrations),
+  entry(
+    104,
+    "migration-step-104",
+    [ARENA_LEAGUE_SEASON_AUTHORITY_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueSeasonAuthorityMigrations,
+  ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
