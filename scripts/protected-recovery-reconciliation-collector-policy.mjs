@@ -50,11 +50,13 @@ export const DOMAIN_TABLES = Object.freeze({
 });
 
 // The recovery collector currently loads the primary tenant registry JSON directly.
-// These tables are the fixed identity-linking registry fragment that the canonical
+// These tables are the fixed supplemental registry fragments that the canonical
 // tenant coverage authority merges with that primary registry. The policy test
-// binds this list byte-for-table to tenant-scoped-table-registry.identity.json so
-// a future fragment change cannot silently diverge from protected recovery.
+// binds this list byte-for-table to every supplemental fragment so a future
+// fragment change cannot silently diverge from protected recovery.
 export const RECOVERY_TENANT_REGISTRY_FRAGMENT_TABLES = Object.freeze([
+  "academy_arena_league_enrollments",
+  "academy_arena_league_seasons",
   "identity_assurance_records",
   "platform_product_accounts",
   "product_account_link_transactions",
