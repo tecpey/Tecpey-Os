@@ -145,6 +145,15 @@ export function assertArenaLeagueSeasonTransition(
   }
 }
 
+export function canOpenArenaLeagueEnrollment(input: {
+  lifecycle: ArenaLeagueSeasonLifecycle;
+  config: ArenaLeagueSeasonConfig;
+  at: string;
+}): boolean {
+  const at = exactIso(input.at, "enrollment_open_check_at");
+  return input.lifecycle === "draft" && at >= input.config.enrollmentOpensAt && at < input.config.enrollmentClosesAt;
+}
+
 export function canEnrollInArenaLeagueSeason(input: {
   lifecycle: ArenaLeagueSeasonLifecycle;
   config: ArenaLeagueSeasonConfig;
