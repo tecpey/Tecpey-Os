@@ -7,9 +7,9 @@ import { Pool } from "pg";
 import {
   AI_TENANT_RLS_EVIDENCE_ENVIRONMENT,
   AI_TENANT_RLS_EVIDENCE_SOURCE_PATHS,
+  AI_TENANT_RLS_EVIDENCE_TABLES,
   validateAiTenantRlsRuntimeEvidence,
 } from "./ai-tenant-rls-runtime-evidence-policy.mjs";
-import { AI_TENANT_RLS_TABLES } from "../src/lib/db-migrate-ai-tenant-rls";
 
 type RlsTableRow = {
   table: string;
@@ -223,7 +223,7 @@ async function main(): Promise<void> {
         GROUP BY relation.oid, relation.relname,
                  relation.relrowsecurity, relation.relforcerowsecurity
         ORDER BY relation.relname`,
-      [[...AI_TENANT_RLS_TABLES]],
+      [[...AI_TENANT_RLS_EVIDENCE_TABLES]],
     );
     rlsTables = tables.rows;
 

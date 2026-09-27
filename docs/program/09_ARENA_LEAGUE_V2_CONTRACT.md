@@ -1,6 +1,6 @@
 # Arena & League v2: fairness, seasons, scoring + governed rewards
 
-**Base main:** `e16f9cc4254bb556c2a1235baa5cbd24ff0fea2b`
+**Base main:** `96b56d0e469b356ccf8ee698c5a75a36d1cabe60`
 
 **Dependencies:** Existing Arena execution authority; Pro Commerce for paid entitlements; Living Profile consumes rank snapshots.
 
@@ -15,7 +15,6 @@
 - Structured logs, reason codes, degraded states and exact freshness.
 - TypeScript, ESLint, unit/integration/security/browser tests, repository audit and exact-head CI.
 - Immutable exact-SHA staging-first release with rollback proof; Production requires separate explicit approval.
-
 
 ## Objective
 Upgrade Arena + League into a reproducible competition system with explainable scoring and anti-abuse controls.

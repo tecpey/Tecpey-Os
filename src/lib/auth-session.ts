@@ -69,6 +69,8 @@ export type CanonicalSession = {
   username: string | null;
   isAcademyUser: boolean;
   isAdmin: boolean;
+  /** Verified unified-session JTI for server-side authority checks. */
+  sessionJti?: string | null;
   /**
    * True only when this session fell back to guest because an authority
    * dependency could not be reached — today, the revocation store.
@@ -262,6 +264,7 @@ export async function getCanonicalSession(
       username: unified.username,
       isAcademyUser: Boolean(unified.accountId),
       isAdmin: await hasAdminAccess(req),
+      sessionJti: unified.jti ?? null,
       authorityDegraded: false,
     };
   }

@@ -72,8 +72,8 @@ export const academyPathTermsEn = [
       {
         "q": "What is the more accurate view of USDT?",
         "options": [
-          "A useful dollar-linked tool with issuer and network risk",
           "Risk-free bank dollars",
+          "A useful dollar-linked tool with issuer and network risk",
           "An asset that can never depeg",
           "A complete bank account replacement"
         ],
@@ -82,9 +82,9 @@ export const academyPathTermsEn = [
       {
         "q": "What does a low unit price prove?",
         "options": [
-          "Nothing by itself",
           "Guaranteed upside",
           "Zero risk",
+          "Nothing by itself",
           "Guaranteed liquidity"
         ],
         "answer": "Nothing by itself"
@@ -92,10 +92,10 @@ export const academyPathTermsEn = [
       {
         "q": "What is professional behavior before buying?",
         "options": [
-          "Review use case, risk, liquidity and exit plan",
           "Buy fast because of hype",
           "Trust signal channels",
-          "Ignore fees and networks"
+          "Ignore fees and networks",
+          "Review use case, risk, liquidity and exit plan"
         ],
         "answer": "Review use case, risk, liquidity and exit plan"
       }
@@ -180,8 +180,8 @@ export const academyPathTermsEn = [
       {
         "q": "Which behavior is dangerous?",
         "options": [
-          "Saving a recovery phrase photo on the phone",
           "Keeping it offline",
+          "Saving a recovery phrase photo on the phone",
           "Using 2FA",
           "Checking the official domain"
         ],
@@ -190,9 +190,9 @@ export const academyPathTermsEn = [
       {
         "q": "Urgent account-closing messages often indicate what?",
         "options": [
-          "Phishing using fear",
           "Better security",
           "Lower official fees",
+          "Phishing using fear",
           "Recovery phrase backup"
         ],
         "answer": "Phishing using fear"
@@ -200,10 +200,10 @@ export const academyPathTermsEn = [
       {
         "q": "Before withdrawal, what should be checked?",
         "options": [
-          "Network, address, memo/tag, fee and destination",
           "Only Bitcoin price",
           "Project followers",
-          "Logo color"
+          "Logo color",
+          "Network, address, memo/tag, fee and destination"
         ],
         "answer": "Network, address, memo/tag, fee and destination"
       }
@@ -227,51 +227,51 @@ export const academyPathTermsEn = [
     "lessons": [
       [
         "What an exchange does",
-        "What an exchange does is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how what an exchange does affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: صرافی رمزارز محلی برای مشاهده بازار، تبدیل دارایی، خرید، فروش، واریز و برداشت است. صرافی جای آموزش و مدیریت ریسک را نمی‌گیرد؛ فقط ابزار دسترسی به بازار است. کاربر باید بداند موجودی، سفارش، کارمزد، تسویه، برداشت و شبکه انتقال هرکدام چه معنی دارند.",
+        "Worked scenario: مثل کارگزاری سهام؛ داشتن حساب کارگزاری به معنی دانستن سرمایه‌گذاری نیست، فقط ابزار انجام معامله را فراهم می‌کند.",
+        "Common failure mode: ثبت‌نام و خرید بدون فهم کارمزد، شبکه انتقال و ریسک قیمت.",
+        "Practice checklist: قبل از اولین معامله، با مبلغ کوچک محیط بازار، ثبت سفارش، لغو سفارش و تاریخچه را بررسی کنید.",
+        "TecPey coaching note: محصول خوب باید کار را ساده کند، اما کاربر همچنان باید مفهوم تصمیم را بفهمد."
       ],
       [
         "Market and limit orders",
-        "Market and limit orders is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how market and limit orders affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: Market Order سفارش فوری با قیمت موجود بازار است. سریع اجرا می‌شود اما در بازار کم‌عمق ممکن است با قیمت بدتری نسبت به انتظار انجام شود. Limit Order یعنی شما قیمت موردنظر را تعیین می‌کنید؛ ممکن است اجرا شود یا نشود. برای تازه‌کارها، فهم تفاوت سرعت اجرا و کنترل قیمت بسیار مهم است.",
+        "Worked scenario: اگر می‌خواهید همین الان تتر بخرید، Market سریع‌تر است. اگر قیمت مشخصی می‌خواهید، Limit مناسب‌تر است اما ممکن است منتظر بمانید.",
+        "Common failure mode: استفاده از Market در دارایی کم‌نقد و تعجب از قیمت اجرای بد.",
+        "Practice checklist: برای سفارش فوری، ابتدا عمق بازار و اسپرد را ببینید. برای سفارش برنامه‌ریزی‌شده، Limit را یاد بگیرید.",
+        "TecPey coaching note: سرعت همیشه ارزشمند نیست؛ گاهی کنترل قیمت مهم‌تر است."
       ],
       [
         "Stop, stop-limit and OCO",
-        "Stop, stop-limit and OCO is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how stop, stop-limit and oco affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: سفارش‌های شرطی کمک می‌کنند از قبل برای سناریوها برنامه داشته باشید. Stop می‌تواند برای کنترل زیان یا ورود پس از شکست سطح استفاده شود. Stop-Limit قیمت فعال‌سازی و قیمت محدود دارد. OCO معمولاً ترکیبی است که اگر یکی از دو سناریو اجرا شود، دیگری لغو می‌شود. این ابزارها مفیدند اما اگر اشتباه تنظیم شوند، می‌توانند گیج‌کننده و پرریسک باشند.",
+        "Worked scenario: دارایی را در ۱۰۰ خریده‌اید؛ می‌خواهید اگر به ۹۲ رسید زیان را کنترل کنید و اگر به ۱۱۵ رسید سود بخشی را بگیرید. ابزارهای شرطی برای همین برنامه‌ریزی‌اند.",
+        "Common failure mode: قرار دادن Stop خیلی نزدیک در بازار پرنوسان و خروج زودهنگام بدون دلیل.",
+        "Practice checklist: قبل از استفاده واقعی، سناریوی فعال‌سازی، قیمت اجرا، حجم و کارمزد را روی کاغذ بنویسید.",
+        "TecPey coaching note: سفارش شرطی جای فکر کردن را نمی‌گیرد؛ فقط برنامه شما را اجراپذیرتر می‌کند."
       ],
       [
         "Spread, slippage and depth",
-        "Spread, slippage and depth is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how spread, slippage and depth affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: اسپرد فاصله بین بهترین قیمت خرید و فروش است. اسلیپیج تفاوت قیمت مورد انتظار با قیمت اجرای واقعی است. عمق بازار نشان می‌دهد در قیمت‌های نزدیک چه مقدار سفارش وجود دارد. در دارایی‌های کم‌نقد، سفارش بزرگ می‌تواند قیمت را جابه‌جا کند.",
+        "Worked scenario: در فروشگاه، قیمت روی تابلو ممکن است با قیمت نهایی خرید تعداد زیاد فرق کند؛ در بازار هم حجم سفارش روی قیمت اجرا اثر دارد.",
+        "Common failure mode: دیدن قیمت لحظه‌ای و تصور اینکه هر مقدار را دقیقاً با همان قیمت می‌توان خرید یا فروخت.",
+        "Practice checklist: قبل از سفارش بزرگ، عمق بازار، حجم معاملات و اسپرد را بررسی کنید و سفارش را خردتر کنید.",
+        "TecPey coaching note: نقدشوندگی گاهی از تحلیل تکنیکال مهم‌تر است؛ چون خروج واقعی را تعیین می‌کند."
       ],
       [
         "Deposits, withdrawals and networks",
-        "Deposits, withdrawals and networks is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how deposits, withdrawals and networks affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: واریز و برداشت در رمزارز با انتخاب شبکه و آدرس درست انجام می‌شود. برای بعضی دارایی‌ها Memo یا Tag هم لازم است. کارمزد شبکه، حداقل برداشت، زمان تأیید و پشتیبانی مقصد باید قبل از تأیید بررسی شود. خطای شبکه یا آدرس می‌تواند برگشت‌ناپذیر باشد.",
+        "Worked scenario: ارسال XRP یا برخی دارایی‌ها بدون Tag ممکن است باعث شود مقصد نتواند واریز را به حساب شما نسبت دهد.",
+        "Common failure mode: انتخاب شبکه فقط به خاطر کارمزد کمتر، بدون بررسی پشتیبانی مقصد.",
+        "Practice checklist: چک‌لیست برداشت: دارایی، شبکه، آدرس، Memo/Tag، مقدار، کارمزد، مقصد، انتقال آزمایشی در مبالغ مهم.",
+        "TecPey coaching note: در انتقال، \"ارزان‌تر\" همیشه \"امن‌تر\" نیست."
       ],
       [
         "Real trading cost",
-        "Real trading cost is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how real trading cost affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: هزینه نهایی معامله فقط کارمزد خرید و فروش نیست. اسپرد، اسلیپیج، کارمزد شبکه، کارمزد برداشت، حجم معامله و نوع سفارش می‌تواند هزینه واقعی را تغییر دهد. کاربر باید بداند قیمت روی صفحه با هزینه نهایی ممکن است فرق داشته باشد.",
+        "Worked scenario: دو صرافی را مقایسه می‌کنید؛ یکی کارمزد معامله کمتر دارد اما اسپرد و برداشت گران‌تر است. هزینه واقعی ممکن است در دیگری کمتر شود.",
+        "Common failure mode: انتخاب پلتفرم فقط بر اساس یک عدد کارمزد تبلیغاتی.",
+        "Practice checklist: برای مقایسه، مجموع هزینه ورود، معامله، خروج و برداشت را حساب کنید.",
+        "TecPey coaching note: شفافیت هزینه یکی از پایه‌های اعتماد است."
       ]
     ],
     "questions": [
@@ -335,51 +335,51 @@ export const academyPathTermsEn = [
     "lessons": [
       [
         "From claim to real utility",
-        "From claim to real utility is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how from claim to real utility affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: هر پروژه باید ادعای خود را به کاربرد قابل سنجش تبدیل کند. اینکه یک سایت بگوید \"ما آینده مالی جهان هستیم\" کافی نیست. باید ببینید محصول چیست، کاربر واقعی دارد یا نه، درآمد یا استفاده عملی دارد یا فقط وعده و نقشه راه است. پروژه خوب معمولاً مسئله مشخص، محصول قابل بررسی، مستندات روشن و ارتباط شفاف دارد.",
+        "Worked scenario: پروژه‌ای که فقط ویدئوی تبلیغاتی دارد اما محصول، مستندات و داده کاربری ندارد، بیشتر شبیه وعده است تا کسب‌وکار.",
+        "Common failure mode: خرید به خاطر اسم جذاب، لوگوی حرفه‌ای یا اینفلوئنسر معروف.",
+        "Practice checklist: سه مدرک بخواهید: محصول قابل مشاهده، کاربر/داده واقعی، توضیح روشن مسئله‌ای که حل می‌کند.",
+        "TecPey coaching note: اگر کاربرد را نمی‌توانید برای یک تازه‌کار توضیح دهید، احتمالاً خودتان هم هنوز پروژه را نفهمیده‌اید."
       ],
       [
         "Team, whitepaper and roadmap",
-        "Team, whitepaper and roadmap is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how team, whitepaper and roadmap affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: تیم پروژه، سابقه، شفافیت، فعالیت فنی و توان اجرای نقشه راه مهم است. وایت‌پیپر باید مسئله، راه‌حل، معماری، اقتصاد توکن و ریسک‌ها را توضیح دهد. Roadmap باید قابل سنجش باشد، نه پر از کلمات مبهم. تیم ناشناس همیشه بد نیست، اما ریسک بررسی را بالاتر می‌برد.",
+        "Worked scenario: دو پروژه را تصور کنید: یکی تیم مشخص، GitHub فعال و محصول دارد؛ دیگری فقط وعده \"به‌زودی\" و تبلیغ. ریسک آن‌ها یکسان نیست.",
+        "Common failure mode: خواندن فقط خلاصه تبلیغاتی و نادیده گرفتن مستندات رسمی.",
+        "Practice checklist: نام اعضای تیم، سابقه، شبکه‌های رسمی، مخزن کد، تاریخچه اجرا و تأخیرهای Roadmap را بررسی کنید.",
+        "TecPey coaching note: شفافیت کامل تضمین موفقیت نیست، اما نبود شفافیت یک هشدار جدی است."
       ],
       [
         "Tokenomics, supply and FDV",
-        "Tokenomics, supply and FDV is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how tokenomics, supply and fdv affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: Tokenomics یعنی اقتصاد توکن: عرضه کل، عرضه در گردش، کاربرد، توزیع، تورم، سوزاندن، پاداش‌ها و انگیزه‌ها. FDV ارزش بازار فرضی در صورت آزاد بودن تمام توکن‌هاست. اگر FDV خیلی بالا و عرضه در گردش خیلی کم باشد، قفل‌گشایی آینده می‌تواند فشار فروش ایجاد کند.",
+        "Worked scenario: توکنی با Market Cap کوچک اما FDV بسیار بزرگ ممکن است ظاهراً ارزان دیده شود، اما وقتی توکن‌های قفل‌شده آزاد شوند، عرضه فروش بالا می‌رود.",
+        "Common failure mode: نادیده گرفتن Vesting و Unlock Schedule؛ بسیاری از ریزش‌ها بعد از آزادسازی توکن رخ می‌دهند.",
+        "Practice checklist: همیشه این‌ها را بنویسید: Circulating Supply، Total Supply، FDV، تخصیص تیم/سرمایه‌گذاران، زمان Unlock.",
+        "TecPey coaching note: اقتصاد توکن اگر ضد کاربر طراحی شده باشد، حتی محصول خوب هم می‌تواند برای خریدار پرریسک شود."
       ],
       [
         "TVL, revenue and market data",
-        "TVL, revenue and market data is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how tvl, revenue and market data affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: در پروژه‌های DeFi، TVL نشان می‌دهد چه مقدار دارایی در پروتکل قفل شده؛ اما TVL به‌تنهایی کیفیت را ثابت نمی‌کند. درآمد، کارمزد واقعی، تعداد کاربران، حجم معاملات، نقدشوندگی و عمق بازار هم مهم‌اند. داده باید از منابع معتبر و قابل مقایسه بررسی شود.",
+        "Worked scenario: پروتکلی با TVL بالا اما درآمد کم و مشوق‌های مصنوعی ممکن است بعد از پایان پاداش‌ها کاربران را از دست بدهد.",
+        "Common failure mode: دیدن یک عدد بزرگ و نتیجه‌گیری سریع بدون بررسی منبع داده و پایداری آن.",
+        "Practice checklist: داده را از چند منبع ببینید و روند چندماهه را بررسی کنید، نه فقط یک عدد امروز.",
+        "TecPey coaching note: عدد خوب بدون زمینه، می‌تواند شما را فریب دهد. همیشه بپرسید این عدد از کجا آمده و چرا پایدار است."
       ],
       [
         "Project red flags",
-        "Project red flags is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how project red flags affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: وعده سود تضمینی، تیم ناشناس بدون دلیل، نقدشوندگی بسیار کم، قرارداد غیرقابل فروش، تمرکز توکن در چند کیف پول، تبلیغات اغراق‌آمیز، جامعه مصنوعی، Roadmap مبهم و نبود مستندات از نشانه‌های خطر هستند. برخی پروژه‌ها Honeypot هستند؛ یعنی خرید ممکن است ممکن باشد اما فروش محدود یا غیرممکن شود.",
+        "Worked scenario: میم‌کوینی را می‌بینید که در چند ساعت ۵۰۰٪ رشد کرده اما نقدشوندگی کم است و قرارداد اجازه فروش آزاد نمی‌دهد. این رشد می‌تواند دام باشد.",
+        "Common failure mode: اعتماد به اسکرین‌شات سود دیگران و ورود بدون بررسی قرارداد و نقدشوندگی.",
+        "Practice checklist: قبل از خرید پروژه ناشناخته، قرارداد، نقدشوندگی، تمرکز کیف پول‌ها، امکان فروش و هشدارهای جامعه را بررسی کنید.",
+        "TecPey coaching note: بهترین معامله گاهی معامله نکردن است."
       ],
       [
         "Decision framework",
-        "Decision framework is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how decision framework affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: تحلیل حرفه‌ای فقط جمع‌آوری نکات مثبت نیست. برای هر پروژه باید دلایل موافق، دلایل مخالف، سناریوی بد، نقطه خروج، اندازه موقعیت و زمان بازبینی مشخص شود. اگر فقط دنبال تأیید تصمیم خود هستید، در دام Confirmation Bias می‌افتید.",
+        "Worked scenario: قبل از خرید، یک صفحه بنویسید: ۳ دلیل برای خرید، ۳ دلیل علیه خرید، بدترین سناریو، چه چیزی باعث خروج می‌شود.",
+        "Common failure mode: دیدن فقط اخبار مثبت و حذف کردن داده‌های مخالف.",
+        "Practice checklist: برای هر تصمیم، Pre-Mortem بنویسید: اگر این تصمیم شکست بخورد، احتمالاً چرا شکست خورده است؟",
+        "TecPey coaching note: تحلیل خوب قرار نیست شما را همیشه وارد بازار کند؛ گاهی شما را از معامله بد نجات می‌دهد."
       ]
     ],
     "questions": [
@@ -443,51 +443,51 @@ export const academyPathTermsEn = [
     "lessons": [
       [
         "Charts as market behavior",
-        "Charts as market behavior is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how charts as market behavior affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: نمودار قیمت نتیجه تصمیم هزاران خریدار و فروشنده است. کندل‌ها نشان می‌دهند در یک بازه زمانی قیمت از کجا شروع شده، تا کجا بالا و پایین رفته و کجا بسته شده است. تحلیل تکنیکال تلاش می‌کند الگوی رفتار بازار را بخواند، اما آینده را تضمین نمی‌کند.",
+        "Worked scenario: یک کندل بلند سبز می‌تواند هیجان خرید را نشان دهد، اما اگر بعد از آن حجم کم شود یا در مقاومت باشد، نتیجه قطعی نیست.",
+        "Common failure mode: دیدن یک کندل قوی و ورود عجولانه بدون بررسی ناحیه، حجم و ریسک.",
+        "Practice checklist: قبل از هر تحلیل، تایم‌فریم، روند بزرگ‌تر، ناحیه مهم و حجم را مشخص کنید.",
+        "TecPey coaching note: تحلیل تکنیکال باید سؤال بسازد، نه یقین مصنوعی."
       ],
       [
         "Trend, support and resistance",
-        "Trend, support and resistance is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how trend, support and resistance affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: روند صعودی یعنی قیمت معمولاً کف‌ها و سقف‌های بالاتری می‌سازد؛ روند نزولی برعکس است. حمایت ناحیه‌ای است که تقاضا می‌تواند فعال شود و مقاومت ناحیه‌ای است که عرضه می‌تواند فشار بیاورد. این‌ها خط جادویی نیستند؛ محدوده‌های احتمالی‌اند.",
+        "Worked scenario: قیمت سه بار نزدیک یک محدوده واکنش داده است. این ناحیه برای معامله‌گران مهم شده، اما ممکن است با خبر یا حجم بالا شکسته شود.",
+        "Common failure mode: رسم ده‌ها خط روی نمودار تا هر حرکت را توجیه کند.",
+        "Practice checklist: فقط نواحی واضح و پرتکرار را علامت بزنید و شکست‌ها را با حجم و رفتار بعدی بررسی کنید.",
+        "TecPey coaching note: هرچه سطح واضح‌تر باشد، افراد بیشتری آن را می‌بینند؛ همین می‌تواند شکست جعلی هم بسازد."
       ],
       [
         "Volume and false breakouts",
-        "Volume and false breakouts is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how volume and false breakouts affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: حجم نشان می‌دهد حرکت قیمت با مشارکت چقدر از بازار همراه بوده است. شکست مقاومت با حجم قوی می‌تواند معتبرتر باشد، اما هیچ‌چیز قطعی نیست. شکست جعلی زمانی رخ می‌دهد که قیمت از سطح عبور می‌کند اما سریع برمی‌گردد و معامله‌گران عجول را گرفتار می‌کند.",
+        "Worked scenario: قیمت بالای مقاومت می‌رود، همه وارد می‌شوند، اما کندل بعدی زیر سطح بسته می‌شود. این می‌تواند نشانه شکست جعلی باشد.",
+        "Common failure mode: ورود دقیقاً لحظه شکست بدون صبر برای تأیید یا برنامه خروج.",
+        "Practice checklist: برای شکست‌ها سناریوی شکست موفق و شکست ناموفق بنویسید.",
+        "TecPey coaching note: گاهی صبر برای کندل تأیید، سود کمتر اما ریسک منطقی‌تر می‌دهد."
       ],
       [
         "RSI and MACD without overuse",
-        "RSI and MACD without overuse is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how rsi and macd without overuse affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: RSI قدرت نسبی حرکت قیمت را نشان می‌دهد و معمولاً برای بررسی اشباع خرید/فروش یا واگرایی استفاده می‌شود. MACD رابطه میان میانگین‌های متحرک را نشان می‌دهد و برای مومنتوم کاربرد دارد. اما هیچ اندیکاتوری به‌تنهایی دستور خرید یا فروش نیست. RSI بالا ممکن است نشان دهد قیمت داغ شده، اما در روندهای قوی می‌تواند مدت‌ها بالا بماند.",
+        "Worked scenario: RSI روی ۸۲ است. این به‌تنهایی نمی‌گوید حتماً بفروش؛ باید روند، ناحیه، حجم و برنامه ریسک را هم ببینید.",
+        "Common failure mode: خرید یا فروش فقط چون یک اندیکاتور به عدد خاص رسیده است.",
+        "Practice checklist: اندیکاتور را همراه با روند، سطح قیمتی و حجم بخوانید.",
+        "TecPey coaching note: اندیکاتور خوب اگر در دست ذهن هیجانی باشد، خروجی بد می‌دهد."
       ],
       [
         "Risk/reward in analysis",
-        "Risk/reward in analysis is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how risk/reward in analysis affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: حتی اگر تحلیل درست باشد، معامله بدون نسبت ریسک به ریوارد منطقی می‌تواند بد باشد. اگر برای سود احتمالی ۵٪ حاضر باشید ۲۰٪ ضرر کنید، معامله از نظر ساختار ضعیف است. قبل از ورود باید نقطه ابطال تحلیل، حد ضرر، هدف و اندازه موقعیت مشخص باشد.",
+        "Worked scenario: قیمت نزدیک حمایت است و هدف ۱۲٪ بالاتر قرار دارد، اما حد ضرر ۳٪ پایین‌تر است. ساختار ریسک/ریوارد بهتر از ورود وسط محدوده بدون حد ضرر است.",
+        "Common failure mode: تحلیل کردن فقط برای پیدا کردن ورود، نه تعیین خروج.",
+        "Practice checklist: قبل از ورود بنویسید: اگر اشتباه بود کجا خارج می‌شوم؟ اگر درست بود کجا سود را مدیریت می‌کنم؟",
+        "TecPey coaching note: تحلیل بدون نقطه ابطال، بیشتر امید است تا برنامه."
       ],
       [
         "Analysis journal",
-        "Analysis journal is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how analysis journal affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: برای پیشرفت، باید تحلیل‌ها و معاملات ثبت شوند: دلیل ورود، سناریو، احساسات، نتیجه و درس آموخته‌شده. بدون ژورنال، ذهن فقط بردها را پررنگ و اشتباهات را فراموش می‌کند. ژورنال به شما نشان می‌دهد مشکل اصلی‌تان تحلیل است، ریسک است یا احساسات.",
+        "Worked scenario: بعد از ۲۰ معامله می‌بینید بیشتر ضررها زمانی بوده که بدون صبر وارد شده‌اید. این داده از هر اندیکاتوری ارزشمندتر است.",
+        "Common failure mode: تکرار همان خطا و مقصر دانستن بازار.",
+        "Practice checklist: برای هر تصمیم، قبل و بعد از معامله یک یادداشت کوتاه ثبت کنید.",
+        "TecPey coaching note: معامله‌گر حرفه‌ای فقط نمودار را نمی‌خواند؛ رفتار خودش را هم تحلیل می‌کند."
       ]
     ],
     "questions": [
@@ -551,51 +551,51 @@ export const academyPathTermsEn = [
     "lessons": [
       [
         "What risk really means",
-        "What risk really means is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how what risk really means affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: ریسک فقط احتمال ضرر نیست؛ ترکیبی از مقدار ضرر، احتمال رخداد، زمان بازیابی، فشار روانی و اثر آن روی زندگی واقعی است. بازاری مثل رمزارز می‌تواند در مدت کوتاه نوسان‌های شدید بسازد. مدیریت ریسک یعنی اگر اشتباه کردید، همچنان در بازی بمانید و فرصت یادگیری داشته باشید.",
+        "Worked scenario: اگر ۱۰٪ ضرر کنید، برای برگشت حدود ۱۱٪ سود لازم است؛ اما اگر ۵۰٪ ضرر کنید، برای برگشت باید ۱۰۰٪ سود کنید. عمق ضرر مهم است.",
+        "Common failure mode: تمرکز روی سود احتمالی و نادیده گرفتن زیان احتمالی.",
+        "Practice checklist: قبل از ورود بنویسید: اگر این تصمیم اشتباه باشد، چقدر از کل سرمایه من آسیب می‌بیند؟",
+        "TecPey coaching note: هدف اول معامله‌گر تازه‌کار نباید بردن بزرگ باشد؛ باید نابود نشدن باشد."
       ],
       [
         "Position size and risk per trade",
-        "Position size and risk per trade is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how position size and risk per trade affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: Position Size یعنی اندازه موقعیت شما در یک معامله. حتی تحلیل خوب با حجم نامناسب می‌تواند خطرناک شود. اگر در هر معامله درصد زیادی از سرمایه را ریسک کنید، چند خطای پشت سر هم می‌تواند سرمایه را نابود کند. حرفه‌ای‌ها معمولاً ریسک هر معامله را محدود نگه می‌دارند و قبل از ورود، حد ضرر و مقدار ریسک را حساب می‌کنند.",
+        "Worked scenario: اگر سرمایه شما ۱۰۰ میلیون است و می‌خواهید حداکثر ۱٪ ریسک کنید، زیان قابل تحمل معامله ۱ میلیون است. اندازه موقعیت باید با فاصله حد ضرر تنظیم شود.",
+        "Common failure mode: ورود با حجم ثابت در همه معاملات بدون توجه به فاصله حد ضرر.",
+        "Practice checklist: سرمایه، درصد ریسک، فاصله حد ضرر و حجم معامله را قبل از ورود حساب کنید.",
+        "TecPey coaching note: اندازه معامله باید تابع ریسک باشد، نه هیجان."
       ],
       [
         "Stop loss and invalidation",
-        "Stop loss and invalidation is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how stop loss and invalidation affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: حد ضرر فقط یک عدد نیست؛ بیانگر جایی است که تحلیل شما بی‌اعتبار می‌شود. اگر حد ضرر را بعد از ورود جابه‌جا کنید فقط چون نمی‌خواهید ضرر را بپذیرید، از برنامه خارج شده‌اید. خروج می‌تواند برای کنترل ضرر یا حفظ سود باشد. مهم این است که قبل از ورود تعریف شود، نه وسط هیجان بازار.",
+        "Worked scenario: تحلیل شما می‌گوید اگر قیمت زیر حمایت بسته شود، سناریو باطل است. حد ضرر باید با همین منطق مرتبط باشد، نه با تحمل احساسی شما.",
+        "Common failure mode: برداشتن حد ضرر بعد از نزدیک شدن قیمت به آن.",
+        "Practice checklist: قبل از ورود دو جمله بنویسید: چرا وارد می‌شوم؟ چه چیزی نشان می‌دهد اشتباه کرده‌ام؟",
+        "TecPey coaching note: حد ضرر شکست نیست؛ هزینه کنترل‌شده یادگیری است."
       ],
       [
         "DCA and staged investing",
-        "DCA and staged investing is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how dca and staged investing affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: DCA یعنی خرید مرحله‌ای در زمان‌های مختلف برای کاهش اثر نوسان کوتاه‌مدت. این روش برای بعضی سرمایه‌گذاران بلندمدت می‌تواند مفید باشد، اما برای هر دارایی مناسب نیست. DCA روی پروژه بی‌کیفیت فقط میانگین‌کم‌کردن روی اشتباه است. انتخاب دارایی، افق زمانی و مقدار سرمایه اهمیت دارد.",
+        "Worked scenario: به جای خرید یکباره در اوج هیجان، فرد هر ماه مبلغ مشخصی برای دارایی‌های باکیفیت و با ریسک پذیرفته‌شده اختصاص می‌دهد.",
+        "Common failure mode: DCA کردن روی میم‌کوین یا پروژه‌ای که تحلیل بنیادی ندارد، فقط چون قیمت پایین آمده.",
+        "Practice checklist: DCA فقط برای دارایی‌هایی استفاده شود که دلیل نگهداری بلندمدت آن‌ها را می‌فهمید.",
+        "TecPey coaching note: میانگین کم کردن بدون دلیل بنیادی، خطرناک‌تر از پذیرفتن خطاست."
       ],
       [
         "Portfolio allocation",
-        "Portfolio allocation is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how portfolio allocation affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: تنوع یعنی همه سرمایه در یک دارایی، یک صرافی یا یک سناریو نباشد. اما تنوع بیش از حد هم کنترل و فهم سبد را سخت می‌کند. سبد خوب باید با هدف، افق زمانی، ریسک‌پذیری و دانش کاربر هماهنگ باشد. نگهداری نقدینگی اضطراری خارج از بازار پرنوسان هم بخشی از مدیریت ریسک است.",
+        "Worked scenario: داشتن ۳۰ توکن ناشناخته تنوع نیست؛ ممکن است فقط ۳۰ ریسک نفهمیده باشد.",
+        "Common failure mode: خرید هر چیزی برای \"تنوع\" بدون شناخت کاربرد و ریسک هر دارایی.",
+        "Practice checklist: سبد را به بخش‌های واضح تقسیم کنید: نقدینگی، دارایی‌های اصلی، ریسک محدود، آموزش/تمرین.",
+        "TecPey coaching note: تنوع واقعی یعنی فهم ریسک‌های متفاوت، نه زیاد کردن تعداد اسم‌ها."
       ],
       [
         "Drawdown and survival",
-        "Drawdown and survival is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how drawdown and survival affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: Drawdown کاهش سرمایه از اوج تا کف است. هرچه افت سرمایه عمیق‌تر شود، بازگشت سخت‌تر و فشار روانی سنگین‌تر می‌شود. مدیریت Drawdown یعنی محدود کردن ریسک، توقف بعد از چند خطا، کاهش حجم در شرایط بد و پرهیز از معامله انتقامی.",
+        "Worked scenario: اگر بعد از سه ضرر پشت سر هم حجم را دو برابر کنید تا جبران کنید، احتمالاً Drawdown را بدتر می‌کنید.",
+        "Common failure mode: تلاش برای جبران سریع بعد از ضرر.",
+        "Practice checklist: قانون توقف بنویسید: بعد از چند ضرر یا چند درصد افت، معامله را متوقف و مرور می‌کنم.",
+        "TecPey coaching note: بازار همیشه فرصت می‌دهد؛ سرمایه و ذهن آرام محدودترند."
       ]
     ],
     "questions": [
@@ -659,51 +659,51 @@ export const academyPathTermsEn = [
     "lessons": [
       [
         "FOMO and greed",
-        "FOMO and greed is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how fomo and greed affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: FOMO ترس از جا ماندن است؛ وقتی قیمت رشد کرده و همه درباره آن صحبت می‌کنند، مغز فکر می‌کند فرصت در حال فرار است. طمع باعث می‌شود کاربر ریسک را کوچک و سود احتمالی را بزرگ ببیند. در بازار رمزارز، بسیاری از ورودهای بد در اوج هیجان عمومی رخ می‌دهد.",
+        "Worked scenario: همه در شبکه‌های اجتماعی درباره یک کوین صحبت می‌کنند. شما بدون برنامه وارد می‌شوید و درست بعد از ورود، اصلاح شروع می‌شود.",
+        "Common failure mode: خرید فقط چون \"همه دارند می‌خرند\".",
+        "Practice checklist: قبل از ورود هیجانی ۱۰ دقیقه مکث کنید و سه دلیل منطقی موافق و سه دلیل مخالف بنویسید.",
+        "TecPey coaching note: اگر فقط به خاطر عجله وارد می‌شوید، احتمالاً تصمیم متعلق به شما نیست؛ متعلق به هیجان جمع است."
       ],
       [
         "Fear and panic selling",
-        "Fear and panic selling is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how fear and panic selling affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: ترس باعث می‌شود کاربر دارایی را در بدترین نقطه بفروشد یا بعد از فروش، دوباره در قیمت بالاتر وارد شود. اخبار بد می‌تواند مهم باشد، اما واکنش عجولانه بدون بررسی منبع، اندازه موقعیت و برنامه قبلی خطرناک است. ذهن در شرایط ترس به دنبال فرار فوری است، نه تصمیم دقیق.",
+        "Worked scenario: قیمت ۱۵٪ افت کرده، کانال‌ها پر از تیترهای ترسناک‌اند. کاربر بدون بررسی سناریو و افق زمانی، دارایی را می‌فروشد و فردا بازار بخشی از افت را جبران می‌کند.",
+        "Common failure mode: فروش یا خرید فقط بر اساس تیتر خبر بدون بررسی داده و برنامه.",
+        "Practice checklist: قبل از واکنش، منبع خبر، اثر واقعی، اندازه موقعیت و سناریوی خروج را بررسی کنید.",
+        "TecPey coaching note: ترس را حذف نمی‌کنیم؛ آن را با قانون و چک‌لیست مدیریت می‌کنیم."
       ],
       [
         "Revenge trading and overtrading",
-        "Revenge trading and overtrading is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how revenge trading and overtrading affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: بعد از ضرر، ذهن می‌خواهد سریع جبران کند. این همان نقطه‌ای است که معامله انتقامی شروع می‌شود. Overtrading یعنی معامله زیاد بدون کیفیت تصمیم. تعداد زیاد معامله معمولاً نشان‌دهنده حرفه‌ای بودن نیست؛ گاهی فقط نشانه بی‌قراری ذهن است.",
+        "Worked scenario: یک معامله ضرر می‌شود، کاربر بلافاصله معامله بعدی را با حجم بیشتر باز می‌کند تا \"پولش را پس بگیرد\".",
+        "Common failure mode: افزایش حجم بعد از ضرر برای جبران سریع.",
+        "Practice checklist: قانون بنویسید: بعد از دو ضرر پشت سر هم یا یک ضرر بزرگ، تا مرور ژورنال معامله نمی‌کنم.",
+        "TecPey coaching note: بازار به شما بدهکار نیست. جبران باید با فرآیند انجام شود، نه عصبانیت."
       ],
       [
         "Decision journal",
-        "Decision journal is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how decision journal affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: ژورنال فقط ثبت قیمت ورود و خروج نیست. باید دلیل تصمیم، احساس قبل از ورود، سناریوی بد، برنامه خروج و نتیجه بعدی نوشته شود. بعد از چند هفته، الگوهای رفتاری شما روشن می‌شود: شاید مشکل شما تحلیل نباشد، بلکه عجله، ترس یا حجم زیاد باشد.",
+        "Worked scenario: بعد از ۱۵ تصمیم متوجه می‌شوید ۷ خطا زمانی بوده که شب دیر وقت و خسته معامله کرده‌اید. این کشف بسیار ارزشمند است.",
+        "Common failure mode: نداشتن ثبت تصمیم و تکرار همان اشتباه با توضیح‌های جدید.",
+        "Practice checklist: برای هر تصمیم این پنج خط را بنویسید: چرا؟ ریسک؟ خروج؟ احساس؟ نتیجه؟",
+        "TecPey coaching note: تا وقتی رفتار خود را اندازه‌گیری نکنید، نمی‌توانید آن را اصلاح کنید."
       ],
       [
         "Final entry checklist",
-        "Final entry checklist is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how final entry checklist affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: قبل از هر خرید یا معامله جدی، باید چک‌لیست داشته باشید: آیا دارایی را می‌فهمم؟ آیا ریسک را حساب کرده‌ام؟ آیا امنیت حساب و نگهداری مشخص است؟ آیا برنامه خروج دارم؟ آیا تحت فشار هیجان جمع هستم؟ آیا اگر اشتباه کنم، زندگی مالی‌ام آسیب جدی نمی‌بیند؟",
+        "Worked scenario: اگر به سه سؤال مهم جواب ندارید، شاید بهترین تصمیم، صبر کردن و یادگیری بیشتر باشد.",
+        "Common failure mode: ورود فقط چون دکمه خرید آماده است.",
+        "Practice checklist: چک‌لیست ورود آگاهانه را قبل از هر اقدام تکمیل کنید؛ بدون چک‌لیست، تصمیم را به تعویق بیندازید.",
+        "TecPey coaching note: آمادگی واقعی یعنی دانستن اینکه چه زمانی نباید وارد شوید."
       ],
       [
         "Am I ready for the market?",
-        "Am I ready for the market? is taught as a practical decision skill, not as a definition. The learner sees what the concept means, why it matters, where beginners get hurt and how to turn knowledge into a safer checklist before acting.",
-        "A realistic scenario shows how am i ready for the market? affects an actual user decision before buying, selling, transferring or waiting.",
-        "The common mistake is treating the topic as a signal or shortcut instead of a risk-control tool.",
-        "Write the decision, risk, alternative scenario and exit condition before acting.",
-        "A professional learner does not seek certainty; they build a repeatable process."
+        "Core concept: پایان آکادمی به معنی حرفه‌ای شدن کامل نیست؛ یعنی تازه‌واردِ آگاه‌تری شده‌اید. باید بتوانید مفاهیم پایه، امنیت، سفارش‌ها، تحلیل پروژه، نمودار، مدیریت ریسک و روانشناسی را در کنار هم ببینید. اگر هنوز در امنیت، مدیریت ریسک یا کنترل هیجان ضعف دارید، ورود جدی را عقب بیندازید و تمرین کنید.",
+        "Worked scenario: فردی که می‌داند چه نمی‌داند، از کسی که با اعتمادبه‌نفس کاذب وارد می‌شود، امن‌تر است.",
+        "Common failure mode: تمام کردن درس‌ها و فکر کردن به اینکه دیگر نیازی به تمرین، تجربه و یادگیری نیست.",
+        "Practice checklist: آمادگی خود را در پنج محور بسنجید: دانش، امنیت، تحلیل، ریسک، رفتار.",
+        "TecPey coaching note: هدف تک‌پی ساختن حس سود قطعی نیست؛ ساختن نقطه امن ورود آگاهانه است."
       ]
     ],
     "questions": [

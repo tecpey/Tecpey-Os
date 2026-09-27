@@ -310,6 +310,7 @@ const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/academy-lesson-assessment/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/activate/route.ts": "academy",
+  "src/app/api/academy-v3/missions/route.ts": "academy",
   "src/app/api/academy-simulator-decision/route.ts": "academy",
   "src/app/api/academy-state/route.ts": "academy",
   "src/app/api/academy-student-profile/route.ts": "academy",
@@ -353,6 +354,14 @@ const EXEMPT_REASON: Readonly<Record<string, string>> = {
   // Offline sync is transport infrastructure shared by every product, with no
   // single product to gate on.
   "src/app/api/offline-sync/route.ts": "cross-product sync transport",
+  // Billing is commercial account infrastructure shared by products. Its Pro capability
+  // decision is made by the server-side commerce entitlement projection, not platform_tenants.products[].
+  "src/app/api/commerce/billing/route.ts": "cross-product commercial account authority",
+  // Deep Research is an AI workspace capability. Its availability is governed by
+  // server-side research/AI capability authority rather than the legacy
+  // platform_tenants.products[] content-product list. The route still resolves
+  // and binds the canonical tenant/workspace principal before any command.
+  "src/app/api/deep-research/route.ts": "AI research workspace capability authority",
 };
 
 describe("Tenant product entitlement route guards", () => {

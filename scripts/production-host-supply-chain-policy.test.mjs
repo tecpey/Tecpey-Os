@@ -294,7 +294,7 @@ test("policy rejects swallowed readiness failures", () => {
   const mutated = {
     ...sources,
     preflight: sources.preflight.replace(
-      'curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health > "$health_payload"',
+      'curl --fail --silent --show-error --max-time 10 "$RUNTIME_HEALTH_URL" > "$health_payload"',
       "node -e \"fetch('http://127.0.0.1:3000/api/health').catch(()=>process.exit(0))\" || true",
     ),
   };

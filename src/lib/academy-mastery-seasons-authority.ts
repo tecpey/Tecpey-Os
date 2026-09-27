@@ -6,6 +6,12 @@ import {
   type AcademyMasterySeasonRecommendation,
   type LearnerMasterySignals,
 } from "@/data/academyMasterySeasons";
+import {
+  ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
+  diagnoseAcademyLearning,
+  type AcademyConceptDiagnosis,
+  type AcademyLearningEvidence,
+} from "@/lib/academy-learning-diagnosis";
 
 export type AcademyMasteryLocale = "fa" | "en";
 
@@ -32,12 +38,21 @@ export type AcademyMasterySeasonState = {
     season: AcademyMasterySeason;
     score: number;
     matchingSignals: string[];
+    reasonCodes: string[];
+    evidencePriorityBps: number;
     eligible: boolean;
     assignment: AcademyMasteryAssignment | null;
   }>;
   assignments: AcademyMasteryAssignment[];
   catalogAuthority: "code-catalog-v1";
   profileAuthority: "server_mastery_v1";
+  diagnosis: {
+    status: "ready" | "insufficient_evidence";
+    policyVersion: typeof ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION;
+    asOf: string;
+    evidenceSha256: string;
+    concepts: AcademyConceptDiagnosis[];
+  };
 };
 
 type Queryable = Pick<PoolClient, "query">;
@@ -142,6 +157,7 @@ export function buildAcademyMasterySeasonState(input: {
   profileTags?: Partial<Omit<LearnerMasterySignals, "completedTerms">>;
   rankingConsent?: boolean;
   assignments?: AcademyMasteryAssignment[];
+  diagnosis?: ReturnType<typeof diagnoseAcademyLearning>;
   limit?: number;
 }): AcademyMasterySeasonState {
   const completedTerms = Math.max(0, Math.min(7, Math.floor(Number(input.completedTerms) || 0)));
@@ -161,15 +177,48 @@ export function buildAcademyMasterySeasonState(input: {
       assignmentsBySeason.set(assignment.seasonId, assignment);
     }
   }
+  const diagnosisByConcept = new Map(
+    input.diagnosis?.status === "ready"
+      ? input.diagnosis.concepts.map((concept) => [concept.conceptTag, concept] as const)
+      : [],
+  );
   const recommendations = scoreAcademyMasterySeasonRecommendations(signals)
-    .slice(0, Math.max(1, input.limit ?? academyMasterySeasons.length))
-    .map((recommendation: AcademyMasterySeasonRecommendation) => ({
-      season: recommendation.season,
-      score: scoreCap(recommendation.score),
-      matchingSignals: recommendation.matchingSignals,
-      eligible: recommendation.eligible,
-      assignment: assignmentsBySeason.get(recommendation.season.id) ?? null,
-    }));
+    .map((recommendation: AcademyMasterySeasonRecommendation) => {
+      const matchedEvidence = recommendation.season.signalTags
+        .map((tag) => diagnosisByConcept.get(tag))
+        .filter((item): item is AcademyConceptDiagnosis => Boolean(item));
+      const evidencePriorityBps = matchedEvidence.reduce(
+        (total, item) => Math.min(10_000, total + item.priorityBps),
+        0,
+      );
+      const reasonCodes = [...new Set(matchedEvidence.flatMap((item) => item.reasonCodes))].sort();
+      const requiresPersonalizedEvidence =
+        recommendation.season.kind === "repair" ||
+        recommendation.season.kind === "arena-discipline";
+      const evidenceEligible =
+        !requiresPersonalizedEvidence ||
+        (input.diagnosis?.status === "ready" && matchedEvidence.length > 0);
+      return {
+        season: recommendation.season,
+        score: scoreCap(recommendation.score + Math.round(evidencePriorityBps / 1_000)),
+        matchingSignals: recommendation.matchingSignals,
+        reasonCodes:
+          reasonCodes.length > 0
+            ? reasonCodes
+            : [requiresPersonalizedEvidence ? "insufficient_personalized_evidence" : "curriculum_readiness"],
+        evidencePriorityBps,
+        eligible: recommendation.eligible && evidenceEligible,
+        assignment: assignmentsBySeason.get(recommendation.season.id) ?? null,
+      };
+    })
+    .filter((item) => item.eligible || item.assignment)
+    .sort(
+      (left, right) =>
+        right.evidencePriorityBps - left.evidencePriorityBps ||
+        right.score - left.score ||
+        left.season.recommendedAfterTerm - right.season.recommendedAfterTerm,
+    )
+    .slice(0, Math.max(1, input.limit ?? academyMasterySeasons.length));
 
   return {
     locale: input.locale,
@@ -181,6 +230,10 @@ export function buildAcademyMasterySeasonState(input: {
     assignments,
     catalogAuthority: "code-catalog-v1",
     profileAuthority: "server_mastery_v1",
+    diagnosis: input.diagnosis ?? diagnoseAcademyLearning({
+      evidence: [],
+      asOf: new Date(),
+    }),
   };
 }
 
@@ -224,41 +277,53 @@ async function readProfile(
   return result.rows[0] ?? null;
 }
 
-async function readWeaknessSignalTags(
+async function readWeaknessEvidence(
   client: Queryable,
   scope: AcademyMasteryTenantScope,
   studentId: string,
   locale: AcademyMasteryLocale,
-) {
-  const result = await client.query<{ source_type: string; concept_tag: string; strength: number }>(
-    `SELECT source_type, concept_tag, strength
+): Promise<AcademyLearningEvidence[]> {
+  const result = await client.query<{
+    source_type: AcademyLearningEvidence["sourceType"];
+    source_id: string;
+    concept_tag: string;
+    strength: number;
+    confidence: number;
+    observed_at: Date | string;
+  }>(
+    `SELECT source_type, source_id, concept_tag, strength, confidence, observed_at
        FROM academy_mastery_weakness_signals
       WHERE tenant_id = $1
         AND workspace_id = $2
         AND student_id = $3::uuid
         AND locale = $4
-        AND observed_at >= NOW() - INTERVAL '120 days'
-      ORDER BY ABS(strength) DESC, observed_at DESC, id DESC
-      LIMIT 80`,
+      ORDER BY observed_at DESC, id DESC
+      LIMIT 160`,
     [scope.tenantId, scope.workspaceId, studentId, locale],
   );
+  return result.rows.map((row) => ({
+    sourceType: row.source_type,
+    sourceId: row.source_id,
+    conceptTag: row.concept_tag,
+    strength: Number(row.strength),
+    confidence: Number(row.confidence),
+    observedAt: new Date(row.observed_at).toISOString(),
+  }));
+}
+
+function evidenceTags(evidence: readonly AcademyLearningEvidence[]) {
   const weakConceptTags: string[] = [];
   const arenaRiskFlags: string[] = [];
   const mentorTopicTags: string[] = [];
   const marketInterestTags: string[] = [];
-  for (const row of result.rows) {
+  for (const row of evidence) {
     if (Number(row.strength) >= 0) continue;
-    if (row.source_type === "arena") arenaRiskFlags.push(row.concept_tag);
-    else if (row.source_type === "mentor") mentorTopicTags.push(row.concept_tag);
-    else if (row.source_type === "market") marketInterestTags.push(row.concept_tag);
-    else weakConceptTags.push(row.concept_tag);
+    if (row.sourceType === "arena") arenaRiskFlags.push(row.conceptTag);
+    else if (row.sourceType === "mentor") mentorTopicTags.push(row.conceptTag);
+    else if (row.sourceType === "market") marketInterestTags.push(row.conceptTag);
+    else weakConceptTags.push(row.conceptTag);
   }
-  return {
-    weakConceptTags,
-    arenaRiskFlags,
-    mentorTopicTags,
-    marketInterestTags,
-  };
+  return { weakConceptTags, arenaRiskFlags, mentorTopicTags, marketInterestTags };
 }
 
 async function readAssignments(
@@ -325,7 +390,9 @@ export async function readAcademyMasterySeasonState(
   // through Promise.all only produced a pg@9 concurrent-query deprecation.
   const completedTermsFromTerms = await readCompletedTerms(client, scope, studentId, locale);
   const profile = await readProfile(client, scope, studentId, locale);
-  const signalTags = await readWeaknessSignalTags(client, scope, studentId, locale);
+  const evidence = await readWeaknessEvidence(client, scope, studentId, locale);
+  const signalTags = evidenceTags(evidence);
+  const diagnosis = diagnoseAcademyLearning({ evidence, asOf: new Date() });
   const assignments = await readAssignments(client, scope, studentId, locale);
   const completedTerms = Math.max(
     completedTermsFromTerms,
@@ -354,6 +421,7 @@ export async function readAcademyMasterySeasonState(
       ],
     },
     assignments,
+    diagnosis,
   });
 }
 
