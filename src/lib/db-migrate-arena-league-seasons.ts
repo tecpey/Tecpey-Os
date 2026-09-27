@@ -60,14 +60,24 @@ CREATE TABLE IF NOT EXISTS academy_arena_league_seasons (
     (status = 'finalized' AND enrollment_opened_at IS NOT NULL AND activated_at IS NOT NULL
       AND closing_started_at IS NOT NULL AND finalized_at IS NOT NULL)
   ),
+  CONSTRAINT academy_arena_season_enrollment_open_time_check CHECK (
+    enrollment_opened_at IS NULL OR (
+      enrollment_opened_at >= enrollment_opens_at
+      AND enrollment_opened_at < enrollment_closes_at
+    )
+  ),
   CONSTRAINT academy_arena_season_activation_time_check CHECK (
-    activated_at IS NULL OR activated_at >= starts_at
+    activated_at IS NULL OR (activated_at >= starts_at AND activated_at < ends_at)
   ),
   CONSTRAINT academy_arena_season_closing_time_check CHECK (
     closing_started_at IS NULL OR closing_started_at >= ends_at
   ),
   CONSTRAINT academy_arena_season_finalized_time_check CHECK (
-    finalized_at IS NULL OR finalized_at >= ends_at
+    finalized_at IS NULL OR (
+      closing_started_at IS NOT NULL
+      AND finalized_at >= closing_started_at
+      AND finalized_at >= ends_at
+    )
   ),
   CONSTRAINT academy_arena_season_workspace_fk
     FOREIGN KEY (tenant_id, workspace_id)
@@ -97,7 +107,7 @@ CREATE TABLE IF NOT EXISTS academy_arena_league_enrollments (
     status IN ('enrolled','withdrawn','disqualified')
   ),
   enrolled_at TIMESTAMPTZ NOT NULL,
-  status_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status_updated_at TIMESTAMPTZ NOT NULL,
   reason_code TEXT CHECK (
     reason_code IS NULL OR (
       char_length(reason_code) BETWEEN 3 AND 80
@@ -106,6 +116,11 @@ CREATE TABLE IF NOT EXISTS academy_arena_league_enrollments (
   ),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (principal_id = student_id::text),
+  CONSTRAINT academy_arena_enrollment_reason_check CHECK (
+    (status = 'enrolled' AND reason_code IS NULL)
+    OR (status IN ('withdrawn','disqualified') AND reason_code IS NOT NULL)
+  ),
+  CONSTRAINT academy_arena_enrollment_status_time_check CHECK (status_updated_at >= enrolled_at),
   CONSTRAINT academy_arena_enrollment_season_scope_fk
     FOREIGN KEY (season_id, tenant_id, workspace_id)
     REFERENCES academy_arena_league_seasons(id, tenant_id, workspace_id)
@@ -207,13 +222,14 @@ BEGIN
     IF NOT FOUND OR season_row.status <> 'enrollment' THEN
       RAISE EXCEPTION 'arena league season is not accepting enrollment' USING ERRCODE = '55000';
     END IF;
-    IF NEW.status <> 'enrolled' THEN
+    IF NEW.status <> 'enrolled' OR NEW.reason_code IS NOT NULL THEN
       RAISE EXCEPTION 'arena league enrollment must begin enrolled' USING ERRCODE = '55000';
     END IF;
     IF NEW.enrolled_at < season_row.enrollment_opens_at
       OR NEW.enrolled_at >= season_row.enrollment_closes_at THEN
       RAISE EXCEPTION 'arena league enrollment is outside configured window' USING ERRCODE = '55000';
     END IF;
+    NEW.status_updated_at := NEW.enrolled_at;
     RETURN NEW;
   END IF;
 
@@ -229,18 +245,31 @@ BEGIN
     RAISE EXCEPTION 'arena league enrollment identity is immutable' USING ERRCODE = '55000';
   END IF;
 
-  IF OLD.status <> 'enrolled' AND OLD.status IS DISTINCT FROM NEW.status THEN
+  IF OLD.status <> 'enrolled' AND (
+    OLD.status IS DISTINCT FROM NEW.status
+    OR OLD.reason_code IS DISTINCT FROM NEW.reason_code
+    OR OLD.status_updated_at IS DISTINCT FROM NEW.status_updated_at
+  ) THEN
     RAISE EXCEPTION 'terminal arena league enrollment is immutable' USING ERRCODE = '55000';
   END IF;
-  IF OLD.status = 'enrolled' AND NEW.status NOT IN ('enrolled','withdrawn','disqualified') THEN
-    RAISE EXCEPTION 'arena league enrollment transition is invalid' USING ERRCODE = '55000';
-  END IF;
-  IF OLD.status IS DISTINCT FROM NEW.status AND NEW.status IN ('withdrawn','disqualified')
-    AND NEW.reason_code IS NULL THEN
-    RAISE EXCEPTION 'arena league enrollment terminal transition requires reason' USING ERRCODE = '55000';
+
+  IF OLD.status = 'enrolled' AND NEW.status = 'enrolled' THEN
+    IF OLD.reason_code IS DISTINCT FROM NEW.reason_code
+      OR OLD.status_updated_at IS DISTINCT FROM NEW.status_updated_at THEN
+      RAISE EXCEPTION 'active arena league enrollment evidence is immutable' USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
   END IF;
 
-  RETURN NEW;
+  IF OLD.status = 'enrolled' AND NEW.status IN ('withdrawn','disqualified') THEN
+    IF NEW.reason_code IS NULL THEN
+      RAISE EXCEPTION 'arena league enrollment terminal transition requires reason' USING ERRCODE = '55000';
+    END IF;
+    NEW.status_updated_at := NOW();
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'arena league enrollment transition is invalid' USING ERRCODE = '55000';
 END;
 $$ LANGUAGE plpgsql SET search_path = pg_catalog, public, pg_temp;
 
@@ -261,11 +290,21 @@ FOR EACH ROW EXECUTE FUNCTION tecpey_require_active_principal_binding();
 ALTER TABLE academy_arena_league_snapshots
   ADD COLUMN IF NOT EXISTS season_id UUID;
 
-ALTER TABLE academy_arena_league_snapshots
-  ADD CONSTRAINT academy_arena_snapshot_season_scope_fk
-  FOREIGN KEY (season_id, tenant_id, workspace_id)
-  REFERENCES academy_arena_league_seasons(id, tenant_id, workspace_id)
-  ON DELETE RESTRICT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'academy_arena_snapshot_season_scope_fk'
+       AND conrelid = 'academy_arena_league_snapshots'::regclass
+  ) THEN
+    ALTER TABLE academy_arena_league_snapshots
+      ADD CONSTRAINT academy_arena_snapshot_season_scope_fk
+      FOREIGN KEY (season_id, tenant_id, workspace_id)
+      REFERENCES academy_arena_league_seasons(id, tenant_id, workspace_id)
+      ON DELETE RESTRICT;
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS academy_arena_snapshot_season_idx
   ON academy_arena_league_snapshots
