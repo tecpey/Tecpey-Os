@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "ownerIssue": "#705",
+  "domain": "trading-arena",
+  "description": "Fixed tenant-isolation registry fragment for Arena & League v2 authority. This fragment is explicitly allowlisted by the canonical tenant coverage gate and protected-recovery policy; every proven row names a PostgreSQL negative test that mentions the registered table.",
+  "tables": [
+    {
+      "table": "academy_arena_league_seasons",
+      "domain": "trading-arena",
+      "sourceFile": "src/lib/db-migrate-arena-league-seasons.ts",
+      "isolationModel": "Every season is owned by tenant_id + workspace_id, composite-FK bound to platform_workspaces, and uniquely identified by tenant/workspace/season_key and tenant/workspace/config_digest. Lifecycle/configuration mutations are guarded in PostgreSQL, finalized seasons are immutable, public table privileges are revoked, and ENABLE+FORCE RLS fails ordinary unscoped access closed. The server authority always loads a season by id together with the acting tenant/workspace scope, so a foreign season id resolves as not found rather than crossing the boundary.",
+      "adversarialProof": "proven",
+      "issue": "#705",
+      "testReference": "src/tests/security/arena-league-season-cross-tenant-postgres.test.ts"
+    },
+    {
+      "table": "academy_arena_league_enrollments",
+      "domain": "trading-arena",
+      "sourceFile": "src/lib/db-migrate-arena-league-seasons.ts",
+      "isolationModel": "Each enrollment repeats season tenant_id + workspace_id and is composite-FK bound to that exact scoped season plus the exact active student principal binding. Enrollment uniqueness includes tenant/workspace/season/student, insertion is admitted only while the scoped season is inside its configured enrollment window, terminal withdrawal/disqualification evidence is immutable, public table privileges are revoked, and ENABLE+FORCE RLS fails ordinary unscoped access closed.",
+      "adversarialProof": "proven",
+      "issue": "#705",
+      "testReference": "src/tests/security/arena-league-season-cross-tenant-postgres.test.ts"
+    }
+  ]
+}
