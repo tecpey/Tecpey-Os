@@ -49,7 +49,7 @@ export function deriveArenaTradeScoreInput(input: {
   };
 }
 
-async function resolveArenaScoreSeason(
+export async function resolveArenaScoreSeasonId(
   client: PoolClient,
   owner: ArenaScoreOwner,
   scoredAt: string,
@@ -92,7 +92,7 @@ export async function persistNewArenaTradeScores(
   for (const trade of after.closedTrades.filter(({ id }) => !previousTradeIds.has(id))) {
     const position = positions.get(trade.positionId);
     if (!position) throw new Error("arena_league_source_position_missing");
-    const seasonId = await resolveArenaScoreSeason(client, owner, trade.closedAt);
+    const seasonId = await resolveArenaScoreSeasonId(client, owner, trade.closedAt);
     const count = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM academy_arena_trade_score_ledger
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
