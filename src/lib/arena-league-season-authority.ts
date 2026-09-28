@@ -288,7 +288,7 @@ export async function enrollArenaLeagueSeasonTx(
     `INSERT INTO academy_arena_league_enrollments
        (id, season_id, tenant_id, workspace_id, principal_type, principal_id,
         student_id, status, enrolled_at, status_updated_at)
-     VALUES ($1::uuid, $2::uuid, $3, $4, 'student', $5, $5::uuid,
+     VALUES ($1::uuid, $2::uuid, $3, $4, 'student', $5::uuid::text, $5::uuid,
              'enrolled', $6::timestamptz, $6::timestamptz)
      RETURNING id::text, season_id::text, tenant_id, workspace_id, student_id::text,
        status, enrolled_at::text, status_updated_at::text, reason_code`,
