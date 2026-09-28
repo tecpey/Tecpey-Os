@@ -291,6 +291,55 @@ ALTER TABLE academy_arena_league_snapshots
   ADD COLUMN IF NOT EXISTS season_id UUID;
 
 DO $$
+DECLARE
+  legacy_window_version_constraint TEXT;
+BEGIN
+  SELECT conname INTO legacy_window_version_constraint
+    FROM pg_constraint
+   WHERE conrelid = 'academy_arena_league_snapshots'::regclass
+     AND contype = 'u'
+     AND pg_get_constraintdef(oid) =
+       'UNIQUE (tenant_id, workspace_id, window_type, window_key, version)'
+   LIMIT 1;
+  IF legacy_window_version_constraint IS NOT NULL THEN
+    EXECUTE format(
+      'ALTER TABLE academy_arena_league_snapshots DROP CONSTRAINT %I',
+      legacy_window_version_constraint
+    );
+  END IF;
+END;
+$$;
+
+DROP INDEX IF EXISTS academy_arena_snapshot_one_provisional_idx;
+DROP INDEX IF EXISTS academy_arena_snapshot_one_finalized_idx;
+
+CREATE UNIQUE INDEX IF NOT EXISTS academy_arena_snapshot_generic_version_unique_idx
+  ON academy_arena_league_snapshots
+    (tenant_id, workspace_id, window_type, window_key, version)
+  WHERE season_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS academy_arena_snapshot_season_version_unique_idx
+  ON academy_arena_league_snapshots
+    (tenant_id, workspace_id, season_id, window_type, window_key, version)
+  WHERE season_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS academy_arena_snapshot_generic_one_provisional_idx
+  ON academy_arena_league_snapshots
+    (tenant_id, workspace_id, window_type, window_key)
+  WHERE status = 'provisional' AND season_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS academy_arena_snapshot_generic_one_finalized_idx
+  ON academy_arena_league_snapshots
+    (tenant_id, workspace_id, window_type, window_key)
+  WHERE status = 'finalized' AND season_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS academy_arena_snapshot_season_one_provisional_idx
+  ON academy_arena_league_snapshots
+    (tenant_id, workspace_id, season_id, window_type, window_key)
+  WHERE status = 'provisional' AND season_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS academy_arena_snapshot_season_one_finalized_idx
+  ON academy_arena_league_snapshots
+    (tenant_id, workspace_id, season_id, window_type, window_key)
+  WHERE status = 'finalized' AND season_id IS NOT NULL;
+
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
