@@ -9,6 +9,7 @@ import {
 import type { ArenaClosedTradeV2, ArenaExecutionStateV2, ArenaOpenPositionV2 } from "./trading-arena-execution-v2";
 
 type ArenaScoreOwner = { tenantId: string; workspaceId: string; studentId: string; attemptId: string };
+type ArenaScoreSeasonRow = { id: string; scoring_policy_version: string };
 
 function clampInteger(value: Decimal, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber()));
@@ -48,6 +49,38 @@ export function deriveArenaTradeScoreInput(input: {
   };
 }
 
+async function resolveArenaScoreSeason(
+  client: PoolClient,
+  owner: ArenaScoreOwner,
+  scoredAt: string,
+): Promise<string | null> {
+  const result = await client.query<ArenaScoreSeasonRow>(
+    `SELECT season.id::text, season.scoring_policy_version
+       FROM academy_arena_league_seasons season
+       JOIN academy_arena_league_enrollments enrollment
+         ON enrollment.season_id = season.id
+        AND enrollment.tenant_id = season.tenant_id
+        AND enrollment.workspace_id = season.workspace_id
+        AND enrollment.student_id = $3::uuid
+        AND enrollment.status = 'enrolled'
+      WHERE season.tenant_id = $1
+        AND season.workspace_id = $2
+        AND season.status IN ('active', 'closing')
+        AND $4::timestamptz >= season.starts_at
+        AND $4::timestamptz < season.ends_at
+      ORDER BY season.starts_at DESC, season.id
+      LIMIT 2`,
+    [owner.tenantId, owner.workspaceId, owner.studentId, scoredAt],
+  );
+  if (result.rows.length > 1) throw new Error("arena_league_season_ambiguous");
+  const season = result.rows[0];
+  if (!season) return null;
+  if (season.scoring_policy_version !== ARENA_LEAGUE_SCORING_POLICY_VERSION) {
+    throw new Error("arena_league_season_scoring_policy_unsupported");
+  }
+  return season.id;
+}
+
 export async function persistNewArenaTradeScores(
   client: PoolClient,
   owner: ArenaScoreOwner,
@@ -59,11 +92,16 @@ export async function persistNewArenaTradeScores(
   for (const trade of after.closedTrades.filter(({ id }) => !previousTradeIds.has(id))) {
     const position = positions.get(trade.positionId);
     if (!position) throw new Error("arena_league_source_position_missing");
+    const seasonId = await resolveArenaScoreSeason(client, owner, trade.closedAt);
     const count = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM academy_arena_trade_score_ledger
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
-         AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date`,
-      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt],
+         AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date
+         AND (
+           ($5::uuid IS NULL AND NULLIF(scoring_input->>'seasonId', '') IS NULL)
+           OR scoring_input->>'seasonId' = $5::text
+         )`,
+      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId],
     );
     const scoringInput = deriveArenaTradeScoreInput({
       trade,
@@ -71,9 +109,10 @@ export async function persistNewArenaTradeScores(
       equityBeforeClose: before.equity,
       tradeNumberForDay: Number(count.rows[0]?.count ?? "0") + 1,
     });
+    const scoringEvidence = { ...scoringInput, seasonId };
     const score = scoreArenaLeagueTrade(scoringInput);
     const digest = createHash("sha256")
-      .update(JSON.stringify({ owner, scoringInput, score }))
+      .update(JSON.stringify({ owner, scoringInput: scoringEvidence, score }))
       .digest("hex");
     await client.query(
       `INSERT INTO academy_arena_trade_score_ledger
@@ -90,7 +129,7 @@ export async function persistNewArenaTradeScores(
         scoringInput.tradeNumberForDay, score.totalPoints, score.participationPoints,
         score.processPoints, score.outcomePoints, score.penaltyPoints,
         score.positiveMultiplierBps, score.penaltyMultiplierBps,
-        JSON.stringify(scoringInput), JSON.stringify(score.reasons), digest],
+        JSON.stringify(scoringEvidence), JSON.stringify(score.reasons), digest],
     );
   }
 }
