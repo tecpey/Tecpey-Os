@@ -99,7 +99,7 @@ export async function persistNewArenaTradeScores(
          AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date
          AND (
            ($5::uuid IS NULL AND NULLIF(scoring_input->>'seasonId', '') IS NULL)
-           OR scoring_input->>'seasonId' = $5::text
+           OR scoring_input->>'seasonId' = $5::uuid::text
          )`,
       [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId],
     );
