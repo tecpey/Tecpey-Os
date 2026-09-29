@@ -6,6 +6,7 @@ import {
   scoreArenaLeagueTrade,
   type ArenaLeagueTradeScoreInput,
 } from "./arena-league-scoring-policy";
+import { applyArenaLeagueTenantScope } from "./arena-league-tenant-scope";
 import type { ArenaClosedTradeV2, ArenaExecutionStateV2, ArenaOpenPositionV2 } from "./trading-arena-execution-v2";
 
 type ArenaScoreOwner = { tenantId: string; workspaceId: string; studentId: string; attemptId: string };
@@ -54,6 +55,7 @@ export async function resolveArenaScoreSeasonId(
   owner: ArenaScoreOwner,
   scoredAt: string,
 ): Promise<string | null> {
+  await applyArenaLeagueTenantScope(client, owner);
   const result = await client.query<ArenaScoreSeasonRow>(
     `SELECT season.id::text, season.scoring_policy_version
        FROM academy_arena_league_seasons season
