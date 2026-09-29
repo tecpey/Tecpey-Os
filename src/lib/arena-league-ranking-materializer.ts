@@ -9,6 +9,7 @@ import {
   type ArenaRankedCandidate,
 } from "@/lib/arena-league-ranking-policy";
 import { ARENA_LEAGUE_SCORING_POLICY_VERSION } from "@/lib/arena-league-scoring-policy";
+import { applyArenaLeagueTenantScope } from "@/lib/arena-league-tenant-scope";
 
 export const ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION =
   "arena-league-ranking-materializer-v1";
@@ -334,6 +335,7 @@ export async function materializeArenaLeagueRankingSnapshotTx(
   if (!input.tenantId.trim() || !input.workspaceId.trim()) {
     throw new Error("arena_ranking_scope_invalid");
   }
+  await applyArenaLeagueTenantScope(client, input);
   const requestedCutoff = normalizeCutoff(input.sourceCutoffAt);
   const seasonId = normalizeSeasonId(input.seasonId);
   const window = windowBounds(input.windowType, input.windowKey);
