@@ -91,7 +91,8 @@ export async function persistNewArenaTradeScores(
   const positions = new Map(before.openPositions.map((position) => [position.id, position]));
   const newTrades = after.closedTrades
     .filter(({ id }) => !previousTradeIds.has(id))
-    .sort((left, right) => left.closedAt.localeCompare(right.closedAt) || left.id.localeCompare(right.id));
+    .sort((left, right) => left.closedAt < right.closedAt ? -1 : left.closedAt > right.closedAt ? 1
+      : left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
   for (const trade of newTrades) {
     const position = positions.get(trade.positionId);
     if (!position) throw new Error("arena_league_source_position_missing");
@@ -101,7 +102,7 @@ export async function persistNewArenaTradeScores(
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
          AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date
          AND (scored_at < $4::timestamptz
-           OR (scored_at = $4::timestamptz AND closed_trade_id < $6))
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" < $6))
          AND (
            ($5::uuid IS NULL AND NULLIF(scoring_input->>'seasonId', '') IS NULL)
            OR scoring_input->>'seasonId' = $5::uuid::text
