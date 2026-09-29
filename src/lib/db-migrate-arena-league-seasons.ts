@@ -146,6 +146,32 @@ ALTER TABLE academy_arena_league_seasons FORCE ROW LEVEL SECURITY;
 ALTER TABLE academy_arena_league_enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE academy_arena_league_enrollments FORCE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS academy_arena_league_seasons_tenant_scope
+  ON academy_arena_league_seasons;
+CREATE POLICY academy_arena_league_seasons_tenant_scope
+  ON academy_arena_league_seasons
+  USING (
+    tenant_id = NULLIF(current_setting('app.tenant_id', true), '')
+    AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')
+  )
+  WITH CHECK (
+    tenant_id = NULLIF(current_setting('app.tenant_id', true), '')
+    AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')
+  );
+
+DROP POLICY IF EXISTS academy_arena_league_enrollments_tenant_scope
+  ON academy_arena_league_enrollments;
+CREATE POLICY academy_arena_league_enrollments_tenant_scope
+  ON academy_arena_league_enrollments
+  USING (
+    tenant_id = NULLIF(current_setting('app.tenant_id', true), '')
+    AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')
+  )
+  WITH CHECK (
+    tenant_id = NULLIF(current_setting('app.tenant_id', true), '')
+    AND workspace_id = NULLIF(current_setting('app.workspace_id', true), '')
+  );
+
 CREATE OR REPLACE FUNCTION tecpey_guard_arena_league_season_mutation()
 RETURNS TRIGGER AS $$
 BEGIN
