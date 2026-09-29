@@ -7,6 +7,10 @@ function result<T extends Record<string, unknown>>(rows: T[]): QueryResult<T> {
   return { rows, rowCount: rows.length, command: "SELECT", oid: 0, fields: [] };
 }
 
+function isScopeQuery(sql: string): boolean {
+  return sql.includes("set_config('app.tenant_id'") && sql.includes("set_config('app.workspace_id'");
+}
+
 const candidate = {
   student_id: "11111111-1111-4111-8111-111111111111",
   raw_points: "240",
@@ -42,8 +46,10 @@ describe("Arena league ranking materializer", () => {
     assert.equal(snapshot.participantCount, 1);
     assert.equal(snapshot.replayed, false);
     assert.match(snapshot.sourceDigest, /^[0-9a-f]{64}$/);
-    assert.ok(calls[0].sql.includes("pg_advisory_xact_lock"));
-    assert.deepEqual(calls[0].values, ["arena-ranking:tenant-a:workspace-a", "monthly:2026-01"]);
+    const tenantScope = calls.find(({ sql }) => isScopeQuery(sql));
+    assert.deepEqual(tenantScope?.values, ["tenant-a", "workspace-a"]);
+    const advisory = calls.find(({ sql }) => sql.includes("pg_advisory_xact_lock"));
+    assert.deepEqual(advisory?.values, ["arena-ranking:tenant-a:workspace-a", "monthly:2026-01"]);
     const rankingInsert = calls.find(({ sql }) => sql.includes("INSERT INTO academy_arena_league_rankings"));
     assert.deepEqual(rankingInsert?.values?.slice(3), [
       "11111111-1111-4111-8111-111111111111", 1, 240, 12, 9200, "explorer",
@@ -113,7 +119,10 @@ describe("Arena league ranking materializer", () => {
 
     assert.equal(snapshot.seasonId, seasonId);
     assert.equal(snapshot.sourceCutoffAt, "2026-02-01T00:00:00.000Z");
-    assert.deepEqual(calls[0].values, [
+    const tenantScope = calls.find(({ sql }) => isScopeQuery(sql));
+    assert.deepEqual(tenantScope?.values, ["tenant-a", "workspace-a"]);
+    const advisory = calls.find(({ sql }) => sql.includes("pg_advisory_xact_lock"));
+    assert.deepEqual(advisory?.values, [
       "arena-ranking:tenant-a:workspace-a",
       `monthly:2026-01:season:${seasonId}`,
     ]);
@@ -180,7 +189,12 @@ describe("Arena league ranking materializer", () => {
   });
 
   it("rejects malformed window keys before reading ranking evidence", async () => {
-    const client = { query: async () => { throw new Error("query_must_not_run"); } } as unknown as PoolClient;
+    const client = {
+      query: async (sql: string) => {
+        if (isScopeQuery(sql)) return result([]);
+        throw new Error("ranking_evidence_query_must_not_run");
+      },
+    } as unknown as PoolClient;
     await assert.rejects(
       () => materializeArenaLeagueRankingSnapshotTx(client, {
         tenantId: "tenant-a",
