@@ -290,7 +290,7 @@ function OrderingQuestion({
   const dragIdx = useRef<number | null>(null);
   return (
     <div className="space-y-2">
-      <p className="mb-3 text-xs font-black text-slate-400">موارد را با کشیدن مرتب کنید:</p>
+      <p className="mb-3 text-xs font-black text-slate-400">موارد را مرتب کنید؛ می‌توانید بکشید یا از دکمه‌های بالا/پایین استفاده کنید:</p>
       {items.map((item, idx) => {
         const correctPos = correct.indexOf(item);
         const isCorrectPosition = submitted && correctPos === idx;
@@ -310,6 +310,28 @@ function OrderingQuestion({
           >
             <span className="min-w-6 text-center text-xs font-black text-slate-500">{idx + 1}</span>
             <span className="flex-1">{item}</span>
+            {!submitted && (
+              <div className="flex shrink-0 gap-1" aria-label="کنترل ترتیب">
+                <button
+                  type="button"
+                  onClick={() => idx > 0 && onMove(idx, idx - 1)}
+                  disabled={idx === 0}
+                  className="min-h-11 min-w-11 rounded-lg border border-white/10 bg-white/[0.04] px-2 text-xs font-black text-slate-300 hover:border-cyan-300/40 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                  aria-label={`انتقال «${item}» یک ردیف به بالا`}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => idx < items.length - 1 && onMove(idx, idx + 1)}
+                  disabled={idx === items.length - 1}
+                  className="min-h-11 min-w-11 rounded-lg border border-white/10 bg-white/[0.04] px-2 text-xs font-black text-slate-300 hover:border-cyan-300/40 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                  aria-label={`انتقال «${item}» یک ردیف به پایین`}
+                >
+                  ↓
+                </button>
+              </div>
+            )}
             {submitted && isCorrectPosition && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
             {submitted && !isCorrectPosition && <XCircle className="h-4 w-4 text-red-400" />}
           </div>

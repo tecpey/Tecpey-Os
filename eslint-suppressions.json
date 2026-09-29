@@ -79,11 +79,6 @@
       "count": 1
     }
   },
-  "src/components/academy/v2/FlashcardsPageClient.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/academy/v2/LearningInsightsDashboard.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1

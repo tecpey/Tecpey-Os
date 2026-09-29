@@ -82,6 +82,16 @@ const DOMAIN_RULES = [
     ],
   },
   {
+    domain: "commerce-payments",
+    riskTier: "P0",
+    reviewBatch: 6,
+    patterns: [
+      /(?:^|\/)(?:commerce|billing|subscription|entitlement|payment|checkout|refund)(?:[./_-]|$)/i,
+      /^src\/lib\/commerce\//,
+      /^src\/lib\/db-migrate-pro-commerce-authority\.ts$/,
+    ],
+  },
+  {
     domain: "database-persistence",
     riskTier: "P1",
     reviewBatch: 2,
@@ -263,7 +273,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 24,
+  version: 26,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],

@@ -69,10 +69,20 @@ export type AiProviderCallInput = {
   circuitScope?: string;
   /** Internal connectivity checks may suppress tools; runtime agents cannot add tools beyond the catalog. */
   toolsEnabled?: boolean;
+  /**
+   * Optional exact external-tool subset. When supplied, every requested tool
+   * must already be permitted by the agent+provider catalog. This can only
+   * narrow authority; it can never grant a tool the catalog did not expose.
+   */
+  allowedTools?: readonly string[];
   /** Trusted classification. OpenRouter free routing is enforced outside this low-level adapter. */
   dataClass?: AiDataClass;
   /** OpenRouter requests default to the strictest provider privacy filters. */
   requireZeroDataRetention?: boolean;
+  /** Require an explicit model identity in the provider response. */
+  requireProviderReportedModel?: boolean;
+  /** Disable adapter retries for exact comparison runs. */
+  disableRetries?: boolean;
 };
 
 export type AiProviderRouterDependencies = {
@@ -281,8 +291,30 @@ function extractOpenRouterText(value: unknown): string {
   return typeof content === "string" ? content.trim() : "";
 }
 
-function responseTools(providerId: AiModelProviderId, agentId: AiAgentId): unknown[] {
-  const tools = aiToolsForAgent(agentId, providerId);
+function normalizedProviderToolScope(
+  providerId: AiModelProviderId,
+  agentId: AiAgentId,
+  allowedTools?: readonly string[],
+): readonly string[] {
+  const catalogTools = aiToolsForAgent(agentId, providerId);
+  if (allowedTools === undefined) return catalogTools;
+  const normalized = allowedTools.map((tool) => tool.trim());
+  if (
+    normalized.some((tool) => !/^[a-z][a-z0-9_]{1,63}$/.test(tool)) ||
+    new Set(normalized).size !== normalized.length ||
+    normalized.some((tool) => !catalogTools.includes(tool))
+  ) {
+    throw new Error("ai_provider_tool_scope_invalid");
+  }
+  return normalized;
+}
+
+function responseTools(
+  providerId: AiModelProviderId,
+  agentId: AiAgentId,
+  allowedTools?: readonly string[],
+): unknown[] {
+  const tools = normalizedProviderToolScope(providerId, agentId, allowedTools);
   if (providerId === "anthropic") {
     return tools.includes("web_search")
       ? [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }]
@@ -303,7 +335,7 @@ function requestForProvider(input: AiProviderCallInput, model: string): {
   const maxOutputTokens = boundedInteger(input.maxOutputTokens, 1_200, 64, 100_000);
   const tools = input.toolsEnabled === false || isOpenRouterFreeRoute(input, model)
     ? []
-    : responseTools(input.providerId, input.agentId);
+    : responseTools(input.providerId, input.agentId, input.allowedTools);
   if (input.providerId === "openrouter") {
     return {
       url: "https://openrouter.ai/api/v1/chat/completions",
@@ -562,15 +594,19 @@ async function parseResponse(
       outputText: text,
     });
     const responseModel = (data as { model?: unknown })?.model;
+    const providerReportedModel =
+      typeof responseModel === "string" && responseModel.trim()
+        ? responseModel.trim().slice(0, 160)
+        : null;
+    if (input.requireProviderReportedModel === true && providerReportedModel === null) {
+      return { ok: false, reason: "invalid_response" };
+    }
     return {
       ok: true,
       text,
       sources: collectSources(data),
       usage,
-      model:
-        typeof responseModel === "string" && responseModel.trim()
-          ? responseModel.trim().slice(0, 160)
-          : activeModel,
+      model: providerReportedModel ?? activeModel,
     };
   } catch {
     return { ok: false, reason: "invalid_response" };
@@ -599,6 +635,12 @@ export async function callAiProvider(
   dependencies: AiProviderRouterDependencies = {},
 ): Promise<AiProviderCallResult> {
   assertAiAgentProviderAllowed(input.agentId, input.providerId);
+  // Validate any caller-narrowed tool scope before circuit, credential, abort or
+  // transport handling. Configuration-authority errors must never be converted
+  // into availability failures by the fetch boundary.
+  if (input.allowedTools !== undefined) {
+    normalizedProviderToolScope(input.providerId, input.agentId, input.allowedTools);
+  }
   const now = dependencies.now ?? Date.now;
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const random = dependencies.random ?? Math.random;
@@ -624,9 +666,11 @@ export async function callAiProvider(
   let lastModel: string | undefined;
   for (const model of models) {
     lastModel = model;
-    const maxModelAttempts = isOpenRouterFreeRoute(input, model)
-      ? OPENROUTER_FREE_MAX_ATTEMPTS
-      : 1;
+    const maxModelAttempts = input.disableRetries === true
+      ? 1
+      : isOpenRouterFreeRoute(input, model)
+        ? OPENROUTER_FREE_MAX_ATTEMPTS
+        : 1;
     for (let retryIndex = 0; retryIndex < maxModelAttempts; retryIndex += 1) {
       attempts += 1;
       const called = await fetchWithDeadline(fetchImpl, input, model, deadline, now);

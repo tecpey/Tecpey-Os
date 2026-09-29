@@ -629,4 +629,132 @@ describe("AI tenant FORCE RLS", () => {
       );
     },
   );
+  it(
+    "proves deep-research provenance rejects cross-run and cross-tenant injection at runtime",
+    { skip: !configured, timeout: 30_000 },
+    async () => {
+      const runA1 = randomUUID(), runA2 = randomUUID(), runB = randomUUID();
+      const claimA1 = randomUUID(), claimA2 = randomUUID(), sourceA1 = randomUUID();
+      const conflictA1 = randomUUID(), artifactA1 = randomUUID(), artifactA2 = randomUUID();
+      await ownerPool!.query(
+        `INSERT INTO ai_research_runs (id, tenant_id, workspace_id, account_id, question, locale)
+         VALUES ($1,$2,$3,'runtime-proof','a1','en'),($4,$2,$3,'runtime-proof','a2','en'),($5,$6,$7,'runtime-proof','b','en')`,
+        [runA1, scopeA.tenantId, scopeA.workspaceId, runA2, runB, scopeB.tenantId, scopeB.workspaceId],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_claims (id,tenant_id,workspace_id,run_id,report_section,normalized_text,claim_type,freshness_class)
+         VALUES ($1,$2,$3,$4,'Evidence','a1','externally_factual','day'),($5,$2,$3,$6,'Evidence','a2','externally_factual','day')`,
+        [claimA1, scopeA.tenantId, scopeA.workspaceId, runA1, claimA2, runA2],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_sources (id,tenant_id,workspace_id,run_id,url,retrieved_at,source_channel,provider_id)
+         VALUES ($1,$2,$3,$4,'https://example.test/a1',NOW(),'public_web','runtime-proof')`,
+        [sourceA1, scopeA.tenantId, scopeA.workspaceId, runA1],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_conflict_sets (id,tenant_id,workspace_id,run_id,summary)
+         VALUES ($1,$2,$3,$4,'runtime conflict proof')`,
+        [conflictA1, scopeA.tenantId, scopeA.workspaceId, runA1],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_artifacts (id,tenant_id,workspace_id,run_id,version,status,report,source_count,cited_source_count)
+         VALUES ($1,$2,$3,$4,1,'draft','{}',1,0),($5,$2,$3,$6,1,'draft','{}',0,0)`,
+        [artifactA1, scopeA.tenantId, scopeA.workspaceId, runA1, artifactA2, runA2],
+      );
+
+      await rejectsWithPgCode(() => ownerPool!.query(
+        `INSERT INTO ai_research_claim_citations (tenant_id,workspace_id,run_id,claim_id,source_id)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [scopeA.tenantId, scopeA.workspaceId, runA1, claimA2, sourceA1],
+      ), "23503");
+      await rejectsWithPgCode(() => ownerPool!.query(
+        `INSERT INTO ai_research_conflict_members (tenant_id,workspace_id,run_id,conflict_set_id,claim_id)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [scopeA.tenantId, scopeA.workspaceId, runA1, conflictA1, claimA2],
+      ), "23503");
+      await rejectsWithPgCode(() => ownerPool!.query(
+        `UPDATE ai_research_artifacts SET supersedes_artifact_id=$1 WHERE id=$2`,
+        [artifactA2, artifactA1],
+      ), "23503");
+
+      await rejectsWithPgCode(() => withAiTenantTransaction(scopeA, (client) =>
+        client.query(
+          `INSERT INTO ai_research_runs (tenant_id,workspace_id,account_id,question,locale)
+           VALUES ($1,$2,'runtime-proof','cross tenant','en')`,
+          [scopeB.tenantId, scopeB.workspaceId],
+        ),
+      ), "42501");
+      await rejectsWithPgCode(() => withAiTenantTransaction(scopeA, (client) =>
+        client.query("UPDATE ai_research_sources SET title='mutated' WHERE id=$1", [sourceA1]),
+      ), "42501");
+      await rejectsWithPgCode(() => withAiTenantTransaction(scopeA, (client) =>
+        client.query("DELETE FROM ai_research_sources WHERE id=$1", [sourceA1]),
+      ), "42501");
+    },
+  );
+
+  it(
+    "proves deep-research finalization truth gates with negative and positive evidence",
+    { skip: !configured, timeout: 30_000 },
+    async () => {
+      const runId = randomUUID(), claimId = randomUUID(), artifactId = randomUUID();
+      await ownerPool!.query(
+        `INSERT INTO ai_research_runs (id,tenant_id,workspace_id,account_id,question,locale)
+         VALUES ($1,$2,$3,'runtime-proof','truth gate','en')`,
+        [runId, scopeA.tenantId, scopeA.workspaceId],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_claims (id,tenant_id,workspace_id,run_id,report_section,normalized_text,claim_type,freshness_class)
+         VALUES ($1,$2,$3,$4,'Evidence','runtime fact','externally_factual','day')`,
+        [claimId, scopeA.tenantId, scopeA.workspaceId, runId],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_artifacts (id,tenant_id,workspace_id,run_id,version,status,report,source_count,cited_source_count)
+         VALUES ($1,$2,$3,$4,1,'draft','{}',0,0)`,
+        [artifactId, scopeA.tenantId, scopeA.workspaceId, runId],
+      );
+      await rejectsWithPgCode(() => ownerPool!.query(
+        "UPDATE ai_research_artifacts SET status='final', finalized_at=NOW() WHERE id=$1", [artifactId],
+      ), "23514");
+
+      const socialId=randomUUID();
+      await ownerPool!.query(
+        `INSERT INTO ai_research_sources (id,tenant_id,workspace_id,run_id,url,retrieved_at,source_channel,provider_id)
+         VALUES ($1,$2,$3,$4,'https://x.com/runtime-proof',NOW(),'social_x','runtime-proof')`,
+        [socialId, scopeA.tenantId, scopeA.workspaceId, runId],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_claim_citations (tenant_id,workspace_id,run_id,claim_id,source_id)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [scopeA.tenantId, scopeA.workspaceId, runId, claimId, socialId],
+      );
+      await rejectsWithPgCode(() => ownerPool!.query(
+        "UPDATE ai_research_artifacts SET status='final', finalized_at=NOW(), source_count=1, cited_source_count=1 WHERE id=$1", [artifactId],
+      ), "23514");
+
+      const independentId=randomUUID();
+      await ownerPool!.query(
+        `INSERT INTO ai_research_sources (id,tenant_id,workspace_id,run_id,url,retrieved_at,source_channel,provider_id)
+         VALUES ($1,$2,$3,$4,'https://example.test/runtime-proof',NOW(),'public_web','runtime-proof')`,
+        [independentId, scopeA.tenantId, scopeA.workspaceId, runId],
+      );
+      await ownerPool!.query(
+        `INSERT INTO ai_research_claim_citations (tenant_id,workspace_id,run_id,claim_id,source_id)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [scopeA.tenantId, scopeA.workspaceId, runId, claimId, independentId],
+      );
+      const finalized=await ownerPool!.query(
+        "UPDATE ai_research_artifacts SET status='final', finalized_at=NOW(), source_count=2, cited_source_count=2 WHERE id=$1 RETURNING status",
+        [artifactId],
+      );
+      assert.equal(finalized.rows[0]?.status, "final");
+      await rejectsWithPgCode(() => ownerPool!.query(
+        "UPDATE ai_research_artifacts SET report='{}'::jsonb WHERE id=$1", [artifactId],
+      ), "55000");
+      await rejectsWithPgCode(() => ownerPool!.query(
+        "DELETE FROM ai_research_artifacts WHERE id=$1", [artifactId],
+      ), "55000");
+    },
+  );
+
 });

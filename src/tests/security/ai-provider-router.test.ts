@@ -616,6 +616,68 @@ describe("multi-provider AI router", () => {
     assert.equal("store" in captured.body, false);
   });
 
+  it("narrows provider tools to an exact caller-authorized subset", async () => {
+    let body: Record<string, unknown> = {};
+    const result = await callAiProvider({
+      providerId: "xai",
+      agentId: "news_x_researcher",
+      apiKey: "xai-test-key",
+      model: "grok-test",
+      instructions: "trusted",
+      input: "public web query",
+      allowedTools: ["web_search"],
+    }, {
+      fetchImpl: async (_url, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify(responseBody("responses")), { status: 200 });
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(body.tools, [{ type: "web_search" }]);
+  });
+
+  it("rejects an exact tool scope that exceeds the agent-provider catalog before transport", async () => {
+    let fetchCalls = 0;
+    await assert.rejects(
+      callAiProvider({
+        providerId: "xai",
+        agentId: "news_x_researcher",
+        apiKey: "xai-test-key",
+        model: "grok-test",
+        instructions: "trusted",
+        input: "public query",
+        allowedTools: ["platform_knowledge"],
+      }, {
+        fetchImpl: async () => {
+          fetchCalls += 1;
+          return new Response("{}", { status: 200 });
+        },
+      }),
+      /ai_provider_tool_scope_invalid/,
+    );
+    assert.equal(fetchCalls, 0);
+  });
+
+  it("treats an explicit empty exact tool scope as no provider tools", async () => {
+    let body: Record<string, unknown> = {};
+    const result = await callAiProvider({
+      providerId: "openai",
+      agentId: "content_reviewer",
+      apiKey: "openai-test-key",
+      model: "test-model",
+      instructions: "trusted",
+      input: "approved content",
+      allowedTools: [],
+    }, {
+      fetchImpl: async (_url, init) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify(responseBody("responses")), { status: 200 });
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.equal("tools" in body, false);
+  });
+
   it("cannot grant a forbidden provider or add tools during a connectivity test", async () => {
     await assert.rejects(
       callAiProvider({
