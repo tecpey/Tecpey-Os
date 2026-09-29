@@ -3,9 +3,10 @@ import { describe, it } from "node:test";
 import type { PoolClient } from "pg";
 import {
   deriveArenaTradeScoreInput,
+  persistNewArenaTradeScores,
   resolveArenaScoreSeasonId,
 } from "@/lib/arena-league-score-ledger";
-import type { ArenaClosedTradeV2, ArenaOpenPositionV2 } from "@/lib/trading-arena-execution-v2";
+import type { ArenaClosedTradeV2, ArenaExecutionStateV2, ArenaOpenPositionV2 } from "@/lib/trading-arena-execution-v2";
 
 const position: ArenaOpenPositionV2 = {
   id: "position-12345678",
@@ -60,6 +61,70 @@ function seasonResolverClient(rows: Array<{ id: string; scoring_policy_version: 
 }
 
 describe("Arena trade score ledger adapter", () => {
+  it("accepts an identical score replay and rejects different evidence for the same trade", async () => {
+    let persistedDigest: string | null = null;
+    let conflictReads = 0;
+    const client = {
+      query: async (sql: string, params: unknown[]) => {
+        if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
+        if (sql.includes("COUNT(*)::text AS count")) {
+          assert.match(sql, /scored_at < \$4::timestamptz/);
+          assert.equal(params[5], trade.id);
+          return { rows: [{ count: "0" }] };
+        }
+        if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
+          const digest = params[19] as string;
+          if (!persistedDigest) {
+            persistedDigest = digest;
+            return { rows: [{ source_digest: digest }] };
+          }
+          return { rows: [] };
+        }
+        if (sql.includes("SELECT source_digest FROM academy_arena_trade_score_ledger")) {
+          conflictReads++;
+          return { rows: [{ source_digest: persistedDigest }] };
+        }
+        throw new Error(`unexpected_query:${sql}`);
+      },
+    } as unknown as PoolClient;
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const after = { closedTrades: [trade] } as unknown as ArenaExecutionStateV2;
+
+    await persistNewArenaTradeScores(client, owner, before, after);
+    await persistNewArenaTradeScores(client, owner, before, after);
+    assert.equal(conflictReads, 1);
+    await assert.rejects(
+      persistNewArenaTradeScores(client, owner, before, {
+        ...after,
+        closedTrades: [{ ...trade, realizedPnl: "39" }],
+      }),
+      /arena_league_score_conflicting_replay/,
+    );
+    assert.equal(conflictReads, 2);
+  });
+
+  it("orders same-time trade closes by stable identity before assigning daily ordinal", async () => {
+    const persisted: string[] = [];
+    const client = {
+      query: async (sql: string, params: unknown[]) => {
+        if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
+        if (sql.includes("COUNT(*)::text AS count")) return { rows: [{ count: String(persisted.length) }] };
+        if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
+          persisted.push(params[5] as string);
+          assert.equal(params[9], persisted.length);
+          return { rows: [{ source_digest: params[19] }] };
+        }
+        throw new Error(`unexpected_query:${sql}`);
+      },
+    } as unknown as PoolClient;
+    const earlier = { ...trade, id: "trade-a-12345678" };
+    const later = { ...trade, id: "trade-b-12345678" };
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const after = { closedTrades: [later, earlier] } as unknown as ArenaExecutionStateV2;
+    await persistNewArenaTradeScores(client, owner, before, after);
+    assert.deepEqual(persisted, ["trade-a-12345678", "trade-b-12345678"]);
+  });
+
   it("derives deterministic process and bounded outcome evidence from the canonical close", () => {
     const input = deriveArenaTradeScoreInput({ trade, position, equityBeforeClose: "100000", tradeNumberForDay: 1 });
     assert.equal(input.instrumentKind, "spot");

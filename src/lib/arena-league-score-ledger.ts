@@ -89,7 +89,10 @@ export async function persistNewArenaTradeScores(
 ): Promise<void> {
   const previousTradeIds = new Set(before.closedTrades.map(({ id }) => id));
   const positions = new Map(before.openPositions.map((position) => [position.id, position]));
-  for (const trade of after.closedTrades.filter(({ id }) => !previousTradeIds.has(id))) {
+  const newTrades = after.closedTrades
+    .filter(({ id }) => !previousTradeIds.has(id))
+    .sort((left, right) => left.closedAt.localeCompare(right.closedAt) || left.id.localeCompare(right.id));
+  for (const trade of newTrades) {
     const position = positions.get(trade.positionId);
     if (!position) throw new Error("arena_league_source_position_missing");
     const seasonId = await resolveArenaScoreSeasonId(client, owner, trade.closedAt);
@@ -97,11 +100,13 @@ export async function persistNewArenaTradeScores(
       `SELECT COUNT(*)::text AS count FROM academy_arena_trade_score_ledger
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
          AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date
+         AND (scored_at < $4::timestamptz
+           OR (scored_at = $4::timestamptz AND closed_trade_id < $6))
          AND (
            ($5::uuid IS NULL AND NULLIF(scoring_input->>'seasonId', '') IS NULL)
            OR scoring_input->>'seasonId' = $5::uuid::text
          )`,
-      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId],
+      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId, trade.id],
     );
     const scoringInput = deriveArenaTradeScoreInput({
       trade,
@@ -114,7 +119,7 @@ export async function persistNewArenaTradeScores(
     const digest = createHash("sha256")
       .update(JSON.stringify({ owner, scoringInput: scoringEvidence, score }))
       .digest("hex");
-    await client.query(
+    const inserted = await client.query<{ source_digest: string }>(
       `INSERT INTO academy_arena_trade_score_ledger
         (id, tenant_id, workspace_id, principal_id, student_id, attempt_id,
          closed_trade_id, policy_version, instrument_kind, scored_at,
@@ -123,7 +128,8 @@ export async function persistNewArenaTradeScores(
          scoring_input, scoring_reasons, source_digest)
        VALUES ($1::uuid, $2, $3, $4, $4::uuid, $5::uuid, $6, $7, $8, $9::timestamptz,
                $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20)
-       ON CONFLICT (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version) DO NOTHING`,
+       ON CONFLICT (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version) DO NOTHING
+       RETURNING source_digest`,
       [randomUUID(), owner.tenantId, owner.workspaceId, owner.studentId, owner.attemptId,
         trade.id, ARENA_LEAGUE_SCORING_POLICY_VERSION, scoringInput.instrumentKind, trade.closedAt,
         scoringInput.tradeNumberForDay, score.totalPoints, score.participationPoints,
@@ -131,5 +137,19 @@ export async function persistNewArenaTradeScores(
         score.positiveMultiplierBps, score.penaltyMultiplierBps,
         JSON.stringify(scoringEvidence), JSON.stringify(score.reasons), digest],
     );
+    if (inserted.rows.length === 0) {
+      // A retry may replay the same event, but a different score under the same
+      // immutable trade identity must never be silently accepted.
+      const existing = await client.query<{ source_digest: string }>(
+        `SELECT source_digest FROM academy_arena_trade_score_ledger
+          WHERE tenant_id = $1 AND workspace_id = $2 AND attempt_id = $3::uuid
+            AND closed_trade_id = $4 AND policy_version = $5`,
+        [owner.tenantId, owner.workspaceId, owner.attemptId, trade.id,
+          ARENA_LEAGUE_SCORING_POLICY_VERSION],
+      );
+      if (existing.rows.length !== 1 || existing.rows[0].source_digest !== digest) {
+        throw new Error("arena_league_score_conflicting_replay");
+      }
+    }
   }
 }
