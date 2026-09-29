@@ -47,9 +47,21 @@ const owner = {
   attemptId: "22222222-2222-4222-8222-222222222222",
 };
 
+function isScopeQuery(sql: string): boolean {
+  return sql.includes("set_config('app.tenant_id'") && sql.includes("set_config('app.workspace_id'");
+}
+
+function assertScopeParams(params: unknown[]): void {
+  assert.deepEqual(params, [owner.tenantId, owner.workspaceId]);
+}
+
 function seasonResolverClient(rows: Array<{ id: string; scoring_policy_version: string }>): PoolClient {
   return {
     query: async (sql: string, params: unknown[]) => {
+      if (isScopeQuery(sql)) {
+        assertScopeParams(params);
+        return { rows: [{ set_config: owner.tenantId }] };
+      }
       assert.match(sql, /enrollment\.status = 'enrolled'/);
       assert.match(sql, /season\.status IN \('active', 'closing'\)/);
       assert.match(sql, /\$4::timestamptz >= season\.starts_at/);
@@ -66,6 +78,10 @@ describe("Arena trade score ledger adapter", () => {
     let conflictReads = 0;
     const client = {
       query: async (sql: string, params: unknown[]) => {
+        if (isScopeQuery(sql)) {
+          assertScopeParams(params);
+          return { rows: [{ set_config: owner.tenantId }] };
+        }
         if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
         if (sql.includes("COUNT(*)::text AS count")) {
           assert.match(sql, /scored_at < \$4::timestamptz/);
@@ -107,6 +123,10 @@ describe("Arena trade score ledger adapter", () => {
     const persisted: string[] = [];
     const client = {
       query: async (sql: string, params: unknown[]) => {
+        if (isScopeQuery(sql)) {
+          assertScopeParams(params);
+          return { rows: [{ set_config: owner.tenantId }] };
+        }
         if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
         if (sql.includes("COUNT(*)::text AS count")) return { rows: [{ count: String(persisted.length) }] };
         if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
