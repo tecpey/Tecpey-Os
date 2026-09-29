@@ -57,9 +57,7 @@ after(async () => {
 });
 
 describe("Arena league season cross-tenant PostgreSQL authority", () => {
-  // This proof intentionally exercises both academy_arena_league_seasons and
-  // academy_arena_league_enrollments through the real server authority.
-  it("keeps identical season and learner identities independent across tenants", {
+  it("enforces tenant isolation with FORCE RLS for a non-bypass runtime role", {
     skip: !configured,
     timeout: 30_000,
   }, async () => {
@@ -69,6 +67,7 @@ describe("Arena league season cross-tenant PostgreSQL authority", () => {
     const tenantB = `arena-season-b-${suffix}`;
     const workspaceA = `workspace-a-${suffix}`;
     const workspaceB = `workspace-b-${suffix}`;
+    const role = `arena_rls_${suffix.replaceAll("-", "").slice(0, 20)}`;
 
     await withClient(async (client) => {
       await client.query("BEGIN");
@@ -143,6 +142,103 @@ describe("Arena league season cross-tenant PostgreSQL authority", () => {
           ),
           /arena_season_not_found/,
         );
+
+        const rlsFlags = await client.query<{
+          relname: string;
+          relrowsecurity: boolean;
+          relforcerowsecurity: boolean;
+        }>(
+          `SELECT relname, relrowsecurity, relforcerowsecurity
+             FROM pg_class
+            WHERE relname = ANY($1::text[])
+            ORDER BY relname`,
+          [["academy_arena_league_enrollments", "academy_arena_league_seasons"]],
+        );
+        assert.deepEqual(rlsFlags.rows, [
+          {
+            relname: "academy_arena_league_enrollments",
+            relrowsecurity: true,
+            relforcerowsecurity: true,
+          },
+          {
+            relname: "academy_arena_league_seasons",
+            relrowsecurity: true,
+            relforcerowsecurity: true,
+          },
+        ]);
+
+        const policies = await client.query<{
+          tablename: string;
+          policyname: string;
+          qual: string | null;
+          with_check: string | null;
+        }>(
+          `SELECT tablename, policyname, qual, with_check
+             FROM pg_policies
+            WHERE schemaname = current_schema()
+              AND tablename = ANY($1::text[])
+            ORDER BY tablename, policyname`,
+          [["academy_arena_league_enrollments", "academy_arena_league_seasons"]],
+        );
+        assert.equal(policies.rows.length, 2);
+        for (const policy of policies.rows) {
+          assert.match(policy.policyname, /^academy_arena_league_(enrollments|seasons)_tenant_scope$/);
+          assert.match(policy.qual ?? "", /current_setting\('app\.tenant_id'/);
+          assert.match(policy.qual ?? "", /current_setting\('app\.workspace_id'/);
+          assert.match(policy.with_check ?? "", /current_setting\('app\.tenant_id'/);
+          assert.match(policy.with_check ?? "", /current_setting\('app\.workspace_id'/);
+        }
+
+        await client.query(`CREATE ROLE "${role}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
+        await client.query(
+          `GRANT SELECT, INSERT, UPDATE ON academy_arena_league_seasons, academy_arena_league_enrollments TO "${role}"`,
+        );
+        await client.query(`SET LOCAL ROLE "${role}"`);
+        await client.query(
+          "SELECT set_config('app.tenant_id',$1,true), set_config('app.workspace_id',$2,true)",
+          [tenantA, workspaceA],
+        );
+
+        const visibleSeasons = await client.query<{ tenant_id: string; workspace_id: string }>(
+          `SELECT tenant_id, workspace_id
+             FROM academy_arena_league_seasons
+            ORDER BY tenant_id, workspace_id`,
+        );
+        assert.deepEqual(visibleSeasons.rows, [{ tenant_id: tenantA, workspace_id: workspaceA }]);
+
+        const visibleEnrollments = await client.query<{ tenant_id: string; workspace_id: string }>(
+          `SELECT tenant_id, workspace_id
+             FROM academy_arena_league_enrollments
+            ORDER BY tenant_id, workspace_id`,
+        );
+        assert.deepEqual(visibleEnrollments.rows, [{ tenant_id: tenantA, workspace_id: workspaceA }]);
+
+        const foreignSeason = await client.query<{ id: string }>(
+          "SELECT id::text FROM academy_arena_league_seasons WHERE id = $1::uuid",
+          [seasonB.id],
+        );
+        assert.equal(foreignSeason.rows.length, 0);
+
+        await client.query("SAVEPOINT arena_forged_write");
+        await assert.rejects(
+          client.query(
+            `INSERT INTO academy_arena_league_seasons
+               (id, tenant_id, workspace_id, season_key, policy_version, scoring_policy_version,
+                timezone, enrollment_opens_at, enrollment_closes_at, starts_at, ends_at,
+                initial_balance, attempts_per_cycle, ranking_visibility, status, config_digest)
+             VALUES ($1::uuid, $2, $3, $4, 'arena-league-season-v1', 'arena-league-scoring-v1',
+                     'UTC', $5::timestamptz, $6::timestamptz, $7::timestamptz, $8::timestamptz,
+                     100000, 3, 'opt-in', 'draft', $9)`,
+            [
+              randomUUID(), tenantB, workspaceB, `forged:${suffix}`,
+              config.enrollmentOpensAt, config.enrollmentClosesAt, config.startsAt, config.endsAt,
+              "f".repeat(64),
+            ],
+          ),
+          /row-level security/i,
+        );
+        await client.query("ROLLBACK TO SAVEPOINT arena_forged_write");
+        await client.query("RESET ROLE");
 
         const counts = await client.query<{
           tenant_id: string;
