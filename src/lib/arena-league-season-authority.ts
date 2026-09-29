@@ -17,6 +17,7 @@ import {
   type ArenaLeagueSeasonConfigInput,
   type ArenaLeagueSeasonLifecycle,
 } from "@/lib/arena-league-season-policy";
+import { applyArenaLeagueTenantScope } from "@/lib/arena-league-tenant-scope";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const REASON_PATTERN = /^[a-z0-9][a-z0-9._:-]{2,79}$/;
@@ -149,6 +150,7 @@ function mapEnrollment(row: EnrollmentRow): ArenaLeagueEnrollmentRecord {
 
 async function lockSeason(client: PoolClient, scope: ArenaLeagueSeasonScope, seasonId: string): Promise<SeasonRow> {
   validateScope(scope);
+  await applyArenaLeagueTenantScope(client, scope);
   validateUuid(seasonId, "id");
   await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
     `arena-season:${scope.tenantId}:${scope.workspaceId}`,
@@ -178,6 +180,7 @@ export async function createArenaLeagueSeasonTx(
   input: ArenaLeagueSeasonConfigInput,
 ): Promise<ArenaLeagueSeasonRecord> {
   validateScope(scope);
+  await applyArenaLeagueTenantScope(client, scope);
   const config = normalizeArenaLeagueSeasonConfig(input);
   const digest = digestArenaLeagueSeasonConfig(input);
   const id = randomUUID();
@@ -309,6 +312,7 @@ export async function changeArenaLeagueEnrollmentStatusTx(
   },
 ): Promise<ArenaLeagueEnrollmentRecord> {
   validateScope(scope);
+  await applyArenaLeagueTenantScope(client, scope);
   validateUuid(input.seasonId, "id");
   validateUuid(input.studentId, "student_id");
   if (!REASON_PATTERN.test(input.reasonCode)) throw new Error("arena_season_enrollment_reason_invalid");
