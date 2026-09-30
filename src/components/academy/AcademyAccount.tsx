@@ -6,6 +6,7 @@ import { Bell, ShieldCheck, UserRound, GraduationCap, Crown, BrainCircuit, Searc
 import { LivingMentorAvatar } from "@/components/mentor/LivingMentorAvatar";
 import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
 import { MentorPrivacyControls } from "@/components/academy/MentorPrivacyControls";
+import { CommerceBillingPanel } from "@/components/academy/CommerceBillingPanel";
 
 type Profile = {
   display_name?: string;
@@ -152,6 +153,9 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
           </div>
           <LivingMentorAvatar act="celebrate_effort" locale={locale} size="stage" decorative />
         </div>
+        <div className="relative z-10 mt-6">
+          <CommerceBillingPanel locale={locale} />
+        </div>
         <div className="relative z-10 mt-6 grid gap-3 sm:grid-cols-2">
           <CapabilityCard
             Icon={BrainCircuit}
@@ -213,7 +217,7 @@ export function AcademyAccount({ locale }: { locale: "fa" | "en" }) {
                   ? (isFa ? "مرجع قابلیت‌های Pro موقتاً در دسترس یا هنوز بارگذاری نشده است؛ تک‌پی در این وضعیت هیچ قابلیت Premium را فعال فرض نمی‌کند." : "The Pro capability authority is unavailable or still loading; TecPey does not assume any premium capability is enabled.")
                   : publicResearchLive
                     ? (isFa ? "این وضعیت مستقیماً از authority سرور خوانده شده است. کنترل کلاینت به‌تنهایی نمی‌تواند قابلیت Premium را فعال کند." : "This status is read directly from server authority. A client-side control alone cannot unlock premium capability.")
-                    : (isFa ? "خرید، تمدید و لغو اشتراک عمومی Pro هنوز authority سروری فعال ندارد. بنابراین هیچ دکمه‌ای در این صفحه نمی‌تواند Pro را روی کلاینت فعال کند و پژوهش Premium هم fail-closed باقی می‌ماند." : "Public Pro purchase, renewal and cancellation do not yet have live server authority. No client control on this page can unlock Pro, and premium research remains fail-closed.")}</p>
+                    : (isFa ? "مرجع خواندن Billing اکنون از سرور فعال است؛ اما خرید، تمدید و لغو تا زمان فعال‌شدن Provider و مسیرهای تراکنشی governed عمداً غیرفعال می‌مانند. هیچ کنترل کلاینتی نمی‌تواند Pro را فعال کند." : "Server billing read authority is now live; purchase, renewal and cancellation remain deliberately disabled until a provider and governed mutation routes are enabled. No client control can unlock Pro.")}</p>
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-200 lg:mt-0"><Lock className="h-4 w-4" aria-hidden="true"/>{proCapabilityStatus === "guest" ? (isFa ? "ورود لازم" : "Sign-in required") : proCapabilityStatus === "unentitled" ? (isFa ? "بدون entitlement" : "Not entitled") : !proAuthorityAvailable ? (isFa ? "authority ناموجود" : "Authority unavailable") : publicResearchLive ? (isFa ? "مجوز سروری فعال" : "Server entitlement active") : (isFa ? "پرداخت غیرفعال" : "Payments inactive")}</div>
         </div>
