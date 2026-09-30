@@ -104,7 +104,6 @@ reject(
 for (const contract of [
   "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
   'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
-  'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
   "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
 ]) {
   requireText(
@@ -112,6 +111,17 @@ for (const contract of [
     contract,
     `Container workflow must bind every build to an exact commit: ${contract}`,
   );
+}
+for (const contract of [
+  'docker pull "$image"',
+  'docker image inspect --format',
+  'cosign verify',
+  '--certificate-oidc-issuer',
+  '--certificate-github-workflow-sha "$PREVIOUS_SHA"',
+  'docker tag "$digest" "tecpey-previous:$PREVIOUS_SHA"',
+]) {
+  requireText(containerWorkflow, contract,
+    `rollback must use a signed previous release image: ${contract}`);
 }
 
 for (const variable of ["POSTGRES_PASSWORD", "REDIS_PASSWORD", "TECPEY_IMAGE_DIGEST"]) {

@@ -525,7 +525,6 @@ export function productionHostSupplyChainFindings({
   for (const contract of [
     "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
     'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
-    'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
     "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
   ]) {
     requireText(
@@ -534,6 +533,22 @@ export function productionHostSupplyChainFindings({
       contract,
       `Container workflow must bind every build to an exact commit: ${contract}`,
     );
+  }
+  const recoveryJob = yamlBlock(containerWorkflow, 2, "recovery");
+  const previousImageStep = yamlNamedStepBlock(
+    recoveryJob,
+    "Verify and pull exact previous release image",
+  );
+  for (const contract of [
+    'docker pull "$image"',
+    'docker image inspect --format',
+    'cosign verify',
+    '--certificate-oidc-issuer',
+    '--certificate-github-workflow-sha "$PREVIOUS_SHA"',
+    'docker tag "$digest" "tecpey-previous:$PREVIOUS_SHA"',
+  ]) {
+    requireText(findings, previousImageStep, contract,
+      `Recovery must use a verified immutable previous image: ${contract}`);
   }
   const publishJob = yamlBlock(containerWorkflow, 2, "publish");
   const publishNeeds = publishJob

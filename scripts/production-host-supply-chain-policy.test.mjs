@@ -957,6 +957,25 @@ test("container publication requires recovery and unfixed critical findings rema
   );
 });
 
+test("container recovery requires a signed immutable previous release", () => {
+  for (const contract of [
+    'docker pull "$image"',
+    'cosign verify',
+    '--certificate-oidc-issuer',
+    '--certificate-github-workflow-sha "$PREVIOUS_SHA"',
+    'docker tag "$digest" "tecpey-previous:$PREVIOUS_SHA"',
+  ]) {
+    const mutated = {
+      ...sources,
+      containerWorkflow: sources.containerWorkflow.replace(contract, "removed_previous_image_guard"),
+    };
+    assert.match(
+      productionHostSupplyChainFindings(mutated).join("\n"),
+      /Recovery must use a verified immutable previous image/,
+    );
+  }
+});
+
 test("production template covers every validator-required and runtime-required key", () => {
   const requiredBlock = /const required = \[([\s\S]*?)\];/.exec(
     sources.environmentValidator,
