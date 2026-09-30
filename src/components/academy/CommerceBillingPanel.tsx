@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, CheckCircle2, CreditCard, Lock, RefreshCw, ShieldCheck } from "lucide-react";
 
 type Billing = {
@@ -38,35 +38,35 @@ const stateTone: Record<NonNullable<Billing["subscription"]>["state"], string> =
   expired: "border-slate-400/25 bg-slate-400/10 text-slate-700 dark:text-slate-200",
 };
 
+async function fetchBilling(signal: AbortSignal): Promise<ReadState> {
+  try {
+    const response = await fetch("/api/commerce/billing", {
+      cache: "no-store",
+      credentials: "include",
+      signal,
+    });
+    if (response.status === 401) return { kind: "guest" };
+    if (response.status === 403) return { kind: "forbidden" };
+    if (!response.ok) return { kind: "unavailable" };
+    const body = await response.json().catch(() => null) as { billing?: Billing } | null;
+    return body?.billing ? { kind: "ready", billing: body.billing } : { kind: "unavailable" };
+  } catch {
+    return { kind: "unavailable" };
+  }
+}
+
 export function CommerceBillingPanel({ locale }: { locale: "fa" | "en" }) {
   const isFa = locale === "fa";
   const [state, setState] = useState<ReadState>({ kind: "loading" });
-
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setState({ kind: "loading" });
-    try {
-      const response = await fetch("/api/commerce/billing", {
-        cache: "no-store",
-        credentials: "include",
-        signal,
-      });
-      if (signal?.aborted) return;
-      if (response.status === 401) return setState({ kind: "guest" });
-      if (response.status === 403) return setState({ kind: "forbidden" });
-      if (!response.ok) return setState({ kind: "unavailable" });
-      const body = await response.json().catch(() => null) as { billing?: Billing } | null;
-      if (!body?.billing) return setState({ kind: "unavailable" });
-      setState({ kind: "ready", billing: body.billing });
-    } catch {
-      if (!signal?.aborted) setState({ kind: "unavailable" });
-    }
-  }, []);
+  const [request, setRequest] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
+    void fetchBilling(controller.signal).then((result) => {
+      if (!controller.signal.aborted) setState(result);
+    });
     return () => controller.abort();
-  }, [load]);
+  }, [request]);
 
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(isFa ? "fa-IR" : "en-US", { dateStyle: "medium" }),
@@ -92,7 +92,7 @@ export function CommerceBillingPanel({ locale }: { locale: "fa" | "en" }) {
         <div className="min-w-0">
           <h3 className="font-semibold">{isFa ? "اشتراک و Billing" : "Subscription & billing"}</h3>
           <p role="status" className="mt-1 text-sm leading-7 text-muted">{message}</p>
-          {state.kind === "unavailable" ? <button type="button" onClick={() => void load()} className="mt-3 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-cyan-200"><RefreshCw className="h-4 w-4" aria-hidden="true"/>{isFa ? "تلاش دوباره" : "Retry"}</button> : null}
+          {state.kind === "unavailable" ? <button type="button" onClick={() => { setState({ kind: "loading" }); setRequest((value) => value + 1); }} className="mt-3 inline-flex min-h-11 min-w-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-cyan-200"><RefreshCw className="h-4 w-4" aria-hidden="true"/>{isFa ? "تلاش دوباره" : "Retry"}</button> : null}
         </div>
       </div>
     </div>;
