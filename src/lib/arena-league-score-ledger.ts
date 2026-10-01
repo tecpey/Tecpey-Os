@@ -7,10 +7,76 @@ import {
   type ArenaLeagueTradeScoreInput,
 } from "./arena-league-scoring-policy";
 import { applyArenaLeagueTenantScope } from "./arena-league-tenant-scope";
-import type { ArenaClosedTradeV2, ArenaExecutionStateV2, ArenaOpenPositionV2 } from "./trading-arena-execution-v2";
+import {
+  ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT,
+  type ArenaClosedTradeV2,
+  type ArenaExecutionStateV2,
+  type ArenaOpenPositionV2,
+} from "./trading-arena-execution-v2";
 
 type ArenaScoreOwner = { tenantId: string; workspaceId: string; studentId: string; attemptId: string };
 type ArenaScoreSeasonRow = { id: string; scoring_policy_version: string };
+
+const IMMUTABLE_TRADE_FIELDS = [
+  "id", "positionId", "asset", "entryPrice", "exitPrice", "quantity",
+  "quoteCommitted", "totalFee", "realizedPnl", "realizedPnlRate",
+  "openedAt", "closedAt", "closureReason",
+] as const satisfies readonly (keyof ArenaClosedTradeV2)[];
+
+/** Historical closes are source events, not editable score inputs. */
+export function assertArenaClosedTradeHistoryImmutable(
+  before: readonly ArenaClosedTradeV2[],
+  after: readonly ArenaClosedTradeV2[],
+): void {
+  const previous = new Map<string, ArenaClosedTradeV2>();
+  for (const trade of before) {
+    if (previous.has(trade.id)) throw new Error("arena_league_duplicate_prior_trade_id");
+    previous.set(trade.id, trade);
+  }
+  const seen = new Set<string>();
+  for (const trade of after) {
+    if (seen.has(trade.id)) throw new Error("arena_league_duplicate_trade_id");
+    seen.add(trade.id);
+    const prior = previous.get(trade.id);
+    if (prior && (IMMUTABLE_TRADE_FIELDS.some((field) => prior[field] !== trade[field]) ||
+      prior.mentorFlags.length !== trade.mentorFlags.length ||
+      prior.mentorFlags.some((flag, index) => flag !== trade.mentorFlags[index]))) {
+      throw new Error("arena_league_historical_trade_mutated");
+    }
+  }
+  if (before.length > ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT ||
+    after.length > ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT) {
+    throw new Error("arena_league_trade_history_limit_invalid");
+  }
+  const newCount = after.length - [...seen].filter((id) => previous.has(id)).length;
+  const retainedCount = Math.min(before.length, ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT - newCount);
+  if (after.length !== newCount + retainedCount) {
+    throw new Error("arena_league_historical_trade_removed");
+  }
+  for (const trade of before.slice(0, retainedCount)) {
+    if (!seen.has(trade.id)) throw new Error("arena_league_historical_trade_removed");
+  }
+  const retainedIds = after.filter((trade) => previous.has(trade.id)).map((trade) => trade.id);
+  if (retainedIds.some((id, index) => id !== before[index].id)) {
+    throw new Error("arena_league_historical_trade_order_invalid");
+  }
+  for (const trade of before.slice(retainedCount)) {
+    if (seen.has(trade.id)) throw new Error("arena_league_historical_trade_order_invalid");
+  }
+}
+
+export function assertArenaTradeSourceChronology(
+  trade: ArenaClosedTradeV2,
+  position: ArenaOpenPositionV2,
+): void {
+  const openedAt = Date.parse(trade.openedAt);
+  const closedAt = Date.parse(trade.closedAt);
+  if (!Number.isFinite(openedAt) || !Number.isFinite(closedAt) || closedAt < openedAt ||
+    trade.openedAt !== position.openedAt || trade.positionId !== position.id ||
+    trade.asset !== position.asset) {
+    throw new Error("arena_league_trade_source_chronology_invalid");
+  }
+}
 
 function clampInteger(value: Decimal, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber()));
@@ -89,6 +155,7 @@ export async function persistNewArenaTradeScores(
   before: ArenaExecutionStateV2,
   after: ArenaExecutionStateV2,
 ): Promise<void> {
+  assertArenaClosedTradeHistoryImmutable(before.closedTrades, after.closedTrades);
   const previousTradeIds = new Set(before.closedTrades.map(({ id }) => id));
   const positions = new Map(before.openPositions.map((position) => [position.id, position]));
   const newTrades = after.closedTrades
@@ -98,6 +165,7 @@ export async function persistNewArenaTradeScores(
   for (const trade of newTrades) {
     const position = positions.get(trade.positionId);
     if (!position) throw new Error("arena_league_source_position_missing");
+    assertArenaTradeSourceChronology(trade, position);
     const seasonId = await resolveArenaScoreSeasonId(client, owner, trade.closedAt);
     const count = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM academy_arena_trade_score_ledger

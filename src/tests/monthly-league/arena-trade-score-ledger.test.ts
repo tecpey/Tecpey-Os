@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PoolClient } from "pg";
 import {
+  assertArenaClosedTradeHistoryImmutable,
+  assertArenaTradeSourceChronology,
   deriveArenaTradeScoreInput,
   persistNewArenaTradeScores,
   resolveArenaScoreSeasonId,
@@ -73,6 +75,49 @@ function seasonResolverClient(rows: Array<{ id: string; scoring_policy_version: 
 }
 
 describe("Arena trade score ledger adapter", () => {
+  it("rejects removal, duplicate identity and rewriting of immutable closed-trade history", () => {
+    const prior = [trade];
+    assert.doesNotThrow(() => assertArenaClosedTradeHistoryImmutable(prior, [{ ...trade, mentorFlags: [...trade.mentorFlags] }]));
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, []), /arena_league_historical_trade_removed/);
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable([trade, trade], prior), /arena_league_duplicate_prior_trade_id/);
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [trade, trade]), /arena_league_duplicate_trade_id/);
+    const other = { ...trade, id: "trade-other-12345678" };
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable([trade, other], [other, trade]),
+      /arena_league_historical_trade_order_invalid/);
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [{ ...trade, realizedPnl: "39" }]),
+      /arena_league_historical_trade_mutated/);
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [{ ...trade, mentorFlags: ["good-discipline"] }]),
+      /arena_league_historical_trade_mutated/);
+  });
+
+  it("rejects tampered history before any score-ledger query", async () => {
+    const client = { query: () => { throw new Error("unexpected_database_access"); } } as unknown as PoolClient;
+    const before = { openPositions: [], closedTrades: [trade], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const after = { closedTrades: [{ ...trade, exitPrice: "105" }] } as unknown as ArenaExecutionStateV2;
+    await assert.rejects(persistNewArenaTradeScores(client, owner, before, after),
+      /arena_league_historical_trade_mutated/);
+  });
+
+  it("allows only oldest-trade eviction at the bounded execution snapshot limit", () => {
+    const prior = Array.from({ length: 5_000 }, (_, index) => ({
+      ...trade, id: `trade-${String(index).padStart(8, "0")}`,
+    }));
+    const newTrade = { ...trade, id: "trade-new-12345678" };
+    assert.doesNotThrow(() => assertArenaClosedTradeHistoryImmutable(prior, [newTrade, ...prior.slice(0, -1)]));
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [newTrade, ...prior.slice(1)]),
+      /arena_league_historical_trade_removed/);
+  });
+
+  it("rejects impossible close timing and mismatched canonical position evidence", () => {
+    assert.doesNotThrow(() => assertArenaTradeSourceChronology(trade, position));
+    assert.throws(() => assertArenaTradeSourceChronology({ ...trade, closedAt: "2026-08-15T09:59:59.000Z" }, position),
+      /arena_league_trade_source_chronology_invalid/);
+    assert.throws(() => assertArenaTradeSourceChronology({ ...trade, openedAt: "invalid" }, position),
+      /arena_league_trade_source_chronology_invalid/);
+    assert.throws(() => assertArenaTradeSourceChronology(trade, { ...position, openedAt: "2026-08-15T09:00:00.000Z" }),
+      /arena_league_trade_source_chronology_invalid/);
+  });
+
   it("accepts an identical score replay and rejects different evidence for the same trade", async () => {
     let persistedDigest: string | null = null;
     let conflictReads = 0;
