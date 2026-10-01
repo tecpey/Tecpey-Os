@@ -400,8 +400,11 @@ export async function materializeArenaLeagueRankingSnapshotTx(
     replayed: true,
   };
 
-  const conflictingFinalized = await client.query<{ id: string }>(
-    `SELECT id::text
+  const latestFinalized = await client.query<{
+    id: string;
+    source_cutoff_at: Date | string;
+  }>(
+    `SELECT id::text, source_cutoff_at
        FROM academy_arena_league_snapshots
       WHERE tenant_id = $1 AND workspace_id = $2 AND window_type = $3
         AND window_key = $4 AND status = 'finalized'
@@ -409,7 +412,11 @@ export async function materializeArenaLeagueRankingSnapshotTx(
       ORDER BY version DESC LIMIT 1`,
     [input.tenantId, input.workspaceId, input.windowType, input.windowKey, seasonId],
   );
-  if (conflictingFinalized.rows[0]) {
+  // A season has one immutable result per window. Generic windows may gain a
+  // newer version as fresh scores arrive, but never rewrite an old cutoff.
+  const previous = latestFinalized.rows[0];
+  if (previous && (seasonId ||
+    new Date(previous.source_cutoff_at).getTime() >= scope.cutoff.getTime())) {
     throw new Error("arena_ranking_finalized_snapshot_conflict");
   }
 

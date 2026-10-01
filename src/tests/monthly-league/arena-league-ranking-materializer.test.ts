@@ -172,13 +172,38 @@ describe("Arena league ranking materializer", () => {
     );
   });
 
-  it("fails closed instead of rewriting a finalized snapshot with different evidence", async () => {
+  it("allows a later generic cutoff as a new immutable version", async () => {
+    const calls: Array<{ sql: string; values?: unknown[] }> = [];
+    const client = {
+      query: async (sql: string, values?: unknown[]) => {
+        calls.push({ sql, values });
+        if (sql.includes("WITH window_scores")) return result([]);
+        if (sql.includes("source_digest = $5")) return result([]);
+        if (sql.includes("SELECT id::text, source_cutoff_at")) {
+          return result([{ id: "22222222-2222-4222-8222-222222222222",
+            source_cutoff_at: "2026-01-15T12:00:00.000Z" }]);
+        }
+        if (sql.includes("COALESCE(MAX(version)")) return result([{ version: 2 }]);
+        return result([]);
+      },
+    } as unknown as PoolClient;
+    const snapshot = await materializeArenaLeagueRankingSnapshotTx(client, {
+      tenantId: "tenant-a", workspaceId: "workspace-a", windowType: "lifetime",
+      windowKey: "all-time", sourceCutoffAt: new Date("2026-02-15T12:00:00.000Z"),
+    });
+    assert.equal(snapshot.version, 2);
+    assert.equal(snapshot.replayed, false);
+    assert.ok(calls.some(({ sql }) => sql.includes("INSERT INTO academy_arena_league_snapshots")));
+  });
+
+  it("fails closed instead of rewriting a finalized generic cutoff with different evidence", async () => {
     const client = {
       query: async (sql: string) => {
         if (sql.includes("WITH window_scores")) return result([]);
         if (sql.includes("source_digest = $5")) return result([]);
-        if (sql.includes("status = 'finalized'") && sql.includes("SELECT id::text")) {
-          return result([{ id: "22222222-2222-4222-8222-222222222222" }]);
+        if (sql.includes("SELECT id::text, source_cutoff_at")) {
+          return result([{ id: "22222222-2222-4222-8222-222222222222",
+            source_cutoff_at: "2026-01-15T12:00:00.000Z" }]);
         }
         return result([]);
       },
@@ -193,6 +218,23 @@ describe("Arena league ranking materializer", () => {
       }),
       /arena_ranking_finalized_snapshot_conflict/,
     );
+  });
+
+  it("rejects a generic cutoff earlier than the latest finalized version", async () => {
+    const client = {
+      query: async (sql: string) => {
+        if (sql.includes("WITH window_scores") || sql.includes("source_digest = $5")) return result([]);
+        if (sql.includes("SELECT id::text, source_cutoff_at")) {
+          return result([{ id: "22222222-2222-4222-8222-222222222222",
+            source_cutoff_at: "2026-02-15T12:00:00.000Z" }]);
+        }
+        return result([]);
+      },
+    } as unknown as PoolClient;
+    await assert.rejects(() => materializeArenaLeagueRankingSnapshotTx(client, {
+      tenantId: "tenant-a", workspaceId: "workspace-a", windowType: "lifetime",
+      windowKey: "all-time", sourceCutoffAt: new Date("2026-01-15T12:00:00.000Z"),
+    }), /arena_ranking_finalized_snapshot_conflict/);
   });
 
   it("rejects malformed window keys before reading ranking evidence", async () => {

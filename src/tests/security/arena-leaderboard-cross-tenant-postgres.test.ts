@@ -133,7 +133,7 @@ describe("Arena leaderboard cross-tenant PostgreSQL authority", () => {
               studentId],
           );
         }
-        await materializeArenaLeagueRankingSnapshotTx(client, {
+        const firstSnapshot = await materializeArenaLeagueRankingSnapshotTx(client, {
           tenantId: tenantA, workspaceId: workspaceA,
           windowType: "lifetime", windowKey: "all-time",
           sourceCutoffAt: new Date("2026-01-15T12:00:00.000Z"),
@@ -148,6 +148,38 @@ describe("Arena leaderboard cross-tenant PostgreSQL authority", () => {
         assert.notEqual(boardA?.entries[0].publicProfileId, profileB);
         assert.equal(JSON.stringify(boardA).includes(tenantB), false);
         assert.equal(JSON.stringify(boardA).includes(workspaceB), false);
+        await client.query(
+          `INSERT INTO academy_arena_trade_score_ledger
+             (id, tenant_id, workspace_id, principal_id, student_id, attempt_id,
+              closed_trade_id, policy_version, instrument_kind, scored_at,
+              trade_number_for_day, total_points, participation_points, process_points,
+              outcome_points, penalty_points, positive_multiplier_bps,
+              penalty_multiplier_bps, scoring_input, scoring_reasons, source_digest)
+           VALUES (gen_random_uuid(), $1, $2, $3, $3::uuid, $4::uuid, $5,
+             'arena-league-scoring-v1', 'spot', '2026-01-20T12:00:00.000Z',
+             1, 19, 10, 9, 0, 0, 10000, 10000,
+             jsonb_build_object('ruleComplianceBps', 9000), '[]'::jsonb, $6)`,
+          [tenantA, workspaceA, studentId, attemptId, `trade-later-${suffix}`, "c".repeat(64)],
+        );
+        const nextSnapshot = await materializeArenaLeagueRankingSnapshotTx(client, {
+          tenantId: tenantA, workspaceId: workspaceA,
+          windowType: "lifetime", windowKey: "all-time",
+          sourceCutoffAt: new Date("2026-02-01T00:00:00.000Z"),
+        });
+        assert.equal(nextSnapshot.version, firstSnapshot.version + 1);
+        assert.notEqual(nextSnapshot.snapshotId, firstSnapshot.snapshotId);
+        const original = await client.query<{ points: number }>(
+          `SELECT points FROM academy_arena_league_rankings
+            WHERE snapshot_id = $1::uuid AND student_id = $2::uuid`,
+          [firstSnapshot.snapshotId, studentId],
+        );
+        assert.equal(original.rows[0]?.points, 31);
+        const updatedBoard = await loadArenaLeagueLeaderboardTx(client, {
+          tenantId: tenantA, workspaceId: workspaceA,
+          windowType: "lifetime", windowKey: "all-time", limit: 50,
+        });
+        assert.equal(updatedBoard?.snapshotVersion, nextSnapshot.version);
+        assert.equal(updatedBoard?.entries[0]?.points, 50);
         await client.query("ROLLBACK");
       } catch (error) {
         await client.query("ROLLBACK");
