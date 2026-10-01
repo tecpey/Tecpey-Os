@@ -236,6 +236,7 @@ describe("Arena trade score ledger adapter", () => {
           return { rows: [{ count: "0", later_count: "0", replay_count: persistedDigest ? "1" : "0" }] };
         }
         if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
+          assert.match(sql, /\$4::text, \$4::uuid/);
           const digest = params[19] as string;
           if (!persistedDigest) {
             persistedDigest = digest;

@@ -261,7 +261,7 @@ export async function persistNewArenaTradeScores(
          trade_number_for_day, total_points, participation_points, process_points,
          outcome_points, penalty_points, positive_multiplier_bps, penalty_multiplier_bps,
          scoring_input, scoring_reasons, source_digest)
-       VALUES ($1::uuid, $2, $3, $4, $4::uuid, $5::uuid, $6, $7, $8, $9::timestamptz,
+       VALUES ($1::uuid, $2, $3, $4::text, $4::uuid, $5::uuid, $6, $7, $8, $9::timestamptz,
                $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20)
        ON CONFLICT (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version) DO NOTHING
        RETURNING source_digest`,
