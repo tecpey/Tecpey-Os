@@ -84,6 +84,7 @@ export async function loadArenaLeagueLeaderboardTx(client: PoolClient, input: {
          FROM academy_arena_league_snapshots
         WHERE tenant_id = $1 AND workspace_id = $2
           AND window_type = $3 AND window_key = $4 AND status = 'finalized'
+          AND season_id IS NULL
         ORDER BY version DESC, finalized_at DESC, id DESC
         LIMIT 1
      )
@@ -124,6 +125,7 @@ export async function loadArenaLeagueLeaderboardTx(client: PoolClient, input: {
          FROM academy_arena_league_snapshots
         WHERE tenant_id = $1 AND workspace_id = $2
           AND window_type = $3 AND window_key = $4 AND status = 'finalized'
+          AND season_id IS NULL
         ORDER BY version DESC, finalized_at DESC, id DESC LIMIT 1`,
       [input.tenantId, input.workspaceId, input.windowType, input.windowKey],
     );

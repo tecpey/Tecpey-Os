@@ -45,6 +45,7 @@ describe("Arena league leaderboard read authority", () => {
     assert.equal(leaderboard?.entries[0]?.publicStudentId, "TP-LEARNER-1");
     assert.equal("studentId" in (leaderboard?.entries[0] ?? {}), false);
     assert.deepEqual(calls[0]?.values, ["tenant-a", "workspace-a", "monthly", "2026-08", 25]);
+    assert.match(calls[0]?.sql ?? "", /AND season_id IS NULL/);
     for (const required of [
       "tenant_id = $1 AND workspace_id = $2",
       "profile.tenant_id = ranking.tenant_id",
@@ -59,11 +60,11 @@ describe("Arena league leaderboard read authority", () => {
   });
 
   it("returns an empty consented view without inventing entries when a finalized snapshot exists", async () => {
-    let call = 0;
+    const calls: string[] = [];
     const client = {
-      query: async () => {
-        call += 1;
-        if (call === 1) return result([]);
+      query: async (sql: string) => {
+        calls.push(sql);
+        if (calls.length === 1) return result([]);
         return result([{
           version: 2,
           source_cutoff_at: "2026-08-15T10:00:00.000Z",
@@ -84,6 +85,8 @@ describe("Arena league leaderboard read authority", () => {
     assert.equal(leaderboard?.participantCount, 12);
     assert.equal(leaderboard?.visibleCount, 0);
     assert.deepEqual(leaderboard?.entries, []);
+    assert.equal(calls.length, 2);
+    assert.match(calls[1], /AND season_id IS NULL/);
   });
 
   it("rejects invalid windows and unbounded limits before querying", async () => {

@@ -7,7 +7,11 @@ import {
 } from "@/lib/academy-credential-authority";
 import { withTx } from "@/lib/db";
 import { ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT } from "@/lib/academy-monthly-league-policy";
-import { ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION } from "@/lib/arena-league-ranking-materializer";
+import {
+  ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION,
+  ARENA_LEAGUE_SEASON_RANKING_MATERIALIZER_VERSION,
+} from "@/lib/arena-league-ranking-materializer";
+import { applyArenaLeagueTenantScope } from "@/lib/arena-league-tenant-scope";
 import type { ArenaLeagueTier } from "@/lib/arena-league-scoring-policy";
 
 export const ARENA_LEAGUE_CREDENTIAL_ISSUER_VERSION =
@@ -17,6 +21,8 @@ export const ARENA_LEAGUE_CREDENTIAL_MAX_RANK = 10;
 
 type SnapshotRow = {
   id: string;
+  season_id: string | null;
+  season_key: string | null;
   window_type: "monthly" | "yearly";
   window_key: string;
   version: number;
@@ -68,6 +74,7 @@ function credentialCopy(input: {
   windowKey: string;
   rank: number;
   tier: ArenaLeagueTier;
+  seasonKey?: string;
 }) {
   const periodFa = input.windowType === "monthly"
     ? `ماه ${input.windowKey}`
@@ -75,12 +82,14 @@ function credentialCopy(input: {
   const periodEn = input.windowType === "monthly"
     ? `month ${input.windowKey}`
     : `year ${input.windowKey}`;
+  const contextFa = input.seasonKey ? `فصل ${input.seasonKey} در ${periodFa}` : periodFa;
+  const contextEn = input.seasonKey ? `season ${input.seasonKey} in ${periodEn}` : periodEn;
   return {
     code: `arena-${input.windowType}-rank-${input.rank}`,
     titleFa: `مدال لیگ آرنا - رتبه ${input.rank}`,
     titleEn: `Arena League Medal - Rank ${input.rank}`,
-    descriptionFa: `رتبه ${input.rank} لیگ آرنا در ${periodFa} با سطح ${input.tier}.`,
-    descriptionEn: `Rank ${input.rank} in the Arena League for ${periodEn}, tier ${input.tier}.`,
+    descriptionFa: `رتبه ${input.rank} لیگ آرنا در ${contextFa} با سطح ${input.tier}.`,
+    descriptionEn: `Rank ${input.rank} in the Arena League for ${contextEn}, tier ${input.tier}.`,
     icon: input.rank === 1 ? "🏆" : input.rank <= 3 ? "🥇" : "🎖️",
   };
 }
@@ -108,19 +117,29 @@ export async function issueArenaLeagueCredentialsForSnapshotTx(
     `arena-league-credentials:${input.tenantId}:${input.workspaceId}`,
     input.snapshotId,
   ]);
+  await applyArenaLeagueTenantScope(client, input);
   const snapshotResult = await client.query<SnapshotRow>(
-    `SELECT id::text, window_type, window_key, version, participant_count,
-            source_digest, source_cutoff_at, finalized_at
-       FROM academy_arena_league_snapshots
-      WHERE id = $3::uuid AND tenant_id = $1 AND workspace_id = $2
-        AND status = 'finalized'
-        AND window_type IN ('monthly', 'yearly')
+    `SELECT snapshot.id::text, snapshot.season_id::text, season.season_key,
+            snapshot.window_type, snapshot.window_key, snapshot.version,
+            snapshot.participant_count, snapshot.source_digest,
+            snapshot.source_cutoff_at, snapshot.finalized_at
+       FROM academy_arena_league_snapshots snapshot
+       LEFT JOIN academy_arena_league_seasons season
+         ON season.id = snapshot.season_id
+        AND season.tenant_id = snapshot.tenant_id
+        AND season.workspace_id = snapshot.workspace_id
+      WHERE snapshot.id = $3::uuid AND snapshot.tenant_id = $1 AND snapshot.workspace_id = $2
+        AND snapshot.status = 'finalized'
+        AND snapshot.window_type IN ('monthly', 'yearly')
       LIMIT 1
-      FOR SHARE`,
+      FOR SHARE OF snapshot`,
     [input.tenantId, input.workspaceId, input.snapshotId],
   );
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) return null;
+  if (snapshot.season_id && !snapshot.season_key) {
+    throw new Error("arena_league_credential_season_scope_invalid");
+  }
   if (Number(snapshot.participant_count) < ARENA_LEAGUE_CREDENTIAL_MIN_PARTICIPANTS) {
     return {
       snapshotId: snapshot.id,
@@ -161,13 +180,16 @@ export async function issueArenaLeagueCredentialsForSnapshotTx(
       windowKey: snapshot.window_key,
       rank: Number(ranking.rank),
       tier: ranking.tier,
+      ...(snapshot.season_key ? { seasonKey: snapshot.season_key } : {}),
     });
     const credentialType: AcademyCredentialType = "league_medal";
     const issued = await issueAcademyCredential(client, {
       tenantId: input.tenantId,
       workspaceId: input.workspaceId,
       studentId: ranking.student_id,
-      credentialKey: `arena-league:${snapshot.window_type}:${snapshot.window_key}:rank:${ranking.rank}`,
+      credentialKey: snapshot.season_id
+        ? `arena-league:season:${snapshot.season_id}:${snapshot.window_type}:${snapshot.window_key}:rank:${ranking.rank}`
+        : `arena-league:${snapshot.window_type}:${snapshot.window_key}:rank:${ranking.rank}`,
       credentialType,
       code: copy.code,
       titleFa: copy.titleFa,
@@ -178,7 +200,10 @@ export async function issueArenaLeagueCredentialsForSnapshotTx(
       policyVersion: ARENA_LEAGUE_CREDENTIAL_ISSUER_VERSION,
       evidence: {
         authority: ARENA_LEAGUE_CREDENTIAL_ISSUER_VERSION,
-        materializer: ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION,
+        materializer: snapshot.season_id
+          ? ARENA_LEAGUE_SEASON_RANKING_MATERIALIZER_VERSION
+          : ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION,
+        ...(snapshot.season_id ? { seasonId: snapshot.season_id, seasonKey: snapshot.season_key } : {}),
         snapshotId: snapshot.id,
         snapshotVersion: Number(snapshot.version),
         sourceDigest: snapshot.source_digest,
@@ -193,7 +218,9 @@ export async function issueArenaLeagueCredentialsForSnapshotTx(
       },
       issuedAt: new Date(snapshot.finalized_at).toISOString(),
       competitionId: "arena-league",
-      seasonKey: `${snapshot.window_type}:${snapshot.window_key}`,
+      seasonKey: snapshot.season_id
+        ? `season:${snapshot.season_id}:${snapshot.window_type}:${snapshot.window_key}`
+        : `${snapshot.window_type}:${snapshot.window_key}`,
       rank: Number(ranking.rank),
       pointsBps: pointsToBps(Number(ranking.points)),
     });
@@ -261,7 +288,12 @@ export async function issueDueArenaLeagueCredentialsTx(
                 WHERE credential.tenant_id = academy_arena_league_snapshots.tenant_id
                   AND credential.workspace_id = academy_arena_league_snapshots.workspace_id
                   AND credential.student_id = ranking.student_id
-                  AND credential.credential_key = 'arena-league:' || academy_arena_league_snapshots.window_type || ':' || academy_arena_league_snapshots.window_key || ':rank:' || ranking.rank::text
+                  AND credential.credential_key = CASE
+                    WHEN academy_arena_league_snapshots.season_id IS NULL THEN
+                      'arena-league:' || academy_arena_league_snapshots.window_type || ':' || academy_arena_league_snapshots.window_key || ':rank:' || ranking.rank::text
+                    ELSE
+                      'arena-league:season:' || academy_arena_league_snapshots.season_id::text || ':' || academy_arena_league_snapshots.window_type || ':' || academy_arena_league_snapshots.window_key || ':rank:' || ranking.rank::text
+                  END
              )
         )
       ORDER BY finalized_at DESC, id DESC
