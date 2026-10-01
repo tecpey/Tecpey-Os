@@ -83,6 +83,14 @@ export function assertArenaTradeSourceChronology(
     trade.quantity !== position.quantity || trade.quoteCommitted !== position.quoteCommitted) {
     throw new Error("arena_league_trade_source_chronology_invalid");
   }
+  const expectedFlags = [...new Set([
+    ...position.mentorFlags,
+    ...(trade.closureReason === "take-profit" ? ["target-hit" as const] : []),
+  ])];
+  if (trade.mentorFlags.length !== expectedFlags.length ||
+    trade.mentorFlags.some((flag, index) => flag !== expectedFlags[index])) {
+    throw new Error("arena_league_trade_mentor_flags_invalid");
+  }
   const exitPrice = new Decimal(trade.exitPrice);
   const quantity = new Decimal(position.quantity);
   const committed = new Decimal(position.quoteCommitted);

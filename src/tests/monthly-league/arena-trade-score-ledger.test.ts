@@ -137,6 +137,24 @@ describe("Arena trade score ledger adapter", () => {
       /arena_league_trade_source_chronology_invalid/);
   });
 
+  it("rejects added, removed, reordered and duplicated scoring flags", async () => {
+    const client = { query: () => { throw new Error("unexpected_database_access"); } } as unknown as PoolClient;
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    for (const flags of [
+      ["good-discipline", "proper-sizing"],
+      ["good-discipline", "proper-sizing", "target-hit", "target-hit"],
+      ["target-hit", "good-discipline", "proper-sizing"],
+      ["good-discipline", "proper-sizing", "target-hit", "fomo-entry"],
+    ] as ArenaClosedTradeV2["mentorFlags"][]) {
+      const after = { closedTrades: [{ ...trade, mentorFlags: flags }] } as unknown as ArenaExecutionStateV2;
+      await assert.rejects(persistNewArenaTradeScores(client, owner, before, after),
+        /arena_league_trade_mentor_flags_invalid/);
+    }
+    assert.throws(() => assertArenaTradeSourceChronology({
+      ...trade, closureReason: "manual", mentorFlags: [...trade.mentorFlags],
+    }, position), /arena_league_trade_mentor_flags_invalid/);
+  });
+
   it("rejects forged close settlement before scoring", async () => {
     const client = { query: () => { throw new Error("unexpected_database_access"); } } as unknown as PoolClient;
     const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
@@ -203,10 +221,7 @@ describe("Arena trade score ledger adapter", () => {
     await persistNewArenaTradeScores(client, owner, before, after);
     assert.equal(conflictReads, 1);
     await assert.rejects(
-      persistNewArenaTradeScores(client, owner, before, {
-        ...after,
-        closedTrades: [{ ...trade, mentorFlags: ["good-discipline"] }],
-      }),
+      persistNewArenaTradeScores(client, owner, { ...before, equity: "90000" }, after),
       /arena_league_score_conflicting_replay/,
     );
     assert.equal(conflictReads, 2);
