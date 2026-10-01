@@ -13,7 +13,10 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
 
-type Fixture = { tenantId: string; workspaceId: string; seasonId: string; studentId: string; snapshotId: string };
+type Fixture = {
+  tenantId: string; workspaceId: string; seasonId: string;
+  studentId: string; attemptId: string; snapshotId: string;
+};
 
 async function transaction<T>(client: PoolClient, callback: () => Promise<T>): Promise<T> {
   await client.query("BEGIN");
@@ -38,6 +41,7 @@ async function fixture(lifecycle: "enrollment" | "closing" = "closing"): Promise
     tenantId: `arena-finalization-${suffix}`,
     workspaceId: `workspace-${suffix}`,
     studentId: randomUUID(),
+    attemptId: randomUUID(),
     snapshotId: randomUUID(),
   };
   const client = await pool!.connect();
@@ -61,6 +65,17 @@ async function fixture(lifecycle: "enrollment" | "closing" = "closing"): Promise
            (tenant_id, workspace_id, principal_type, principal_id, source)
          VALUES ($1, $2, 'student', $3, 'arena_finalization_postgres_test')`,
         [result.tenantId, result.workspaceId, result.studentId],
+      );
+      const cycleId = randomUUID();
+      await client.query(
+        `INSERT INTO academy_trading_arena_accounts (student_id, cycle_id)
+         VALUES ($1::uuid, $2::uuid)`, [result.studentId, cycleId],
+      );
+      await client.query(
+        `INSERT INTO academy_trading_arena_attempts
+           (id, student_id, cycle_id, attempt_number, status)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, 1, 'active')`,
+        [result.attemptId, result.studentId, cycleId],
       );
       const authority = { tenantId: result.tenantId, workspaceId: result.workspaceId };
       const config = {
@@ -124,6 +139,24 @@ async function activateSeason(client: PoolClient, input: Fixture): Promise<void>
   );
 }
 
+async function insertSeasonScore(client: PoolClient, input: Fixture): Promise<void> {
+  await client.query(
+    `INSERT INTO academy_arena_trade_score_ledger
+       (id, tenant_id, workspace_id, principal_id, student_id, attempt_id,
+        closed_trade_id, policy_version, instrument_kind, scored_at,
+        trade_number_for_day, total_points, participation_points, process_points,
+        outcome_points, penalty_points, positive_multiplier_bps,
+        penalty_multiplier_bps, scoring_input, scoring_reasons, source_digest)
+     VALUES (gen_random_uuid(), $1, $2, $3::text, $3::uuid, $4::uuid, $5,
+             'arena-league-scoring-v1', 'spot', '2026-01-10T12:00:00Z',
+             1, 31, 10, 21, 0, 0, 10000, 10000,
+             jsonb_build_object('ruleComplianceBps', 9000, 'seasonId', $6::uuid::text),
+             '[]'::jsonb, $7)`,
+    [input.tenantId, input.workspaceId, input.studentId, input.attemptId,
+      `score-${input.snapshotId}`, input.seasonId, "b".repeat(64)],
+  );
+}
+
 async function waitUntilBlocked(waiterPid: number, blockerPid: number): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
@@ -149,6 +182,90 @@ after(async () => {
 });
 
 describe("Arena league finalization PostgreSQL boundary", () => {
+  it("rejects late season score evidence after the ranking snapshot commits", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await fixture();
+    const ranker = await pool!.connect();
+    const scorer = await pool!.connect();
+    try {
+      await ranker.query("BEGIN");
+      await scorer.query("BEGIN");
+      await scope(ranker, input);
+      await scope(scorer, input);
+      await scorer.query("SET LOCAL statement_timeout = '10000ms'");
+      const rankerPid = (await ranker.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const scorerPid = (await scorer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await ranker.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
+        `arena-season:${input.tenantId}:${input.workspaceId}`, input.seasonId,
+      ]);
+      const insertion = insertSeasonScore(scorer, input).then(
+        () => ({ succeeded: true }), (error: unknown) => ({ succeeded: false, error }),
+      );
+      await waitUntilBlocked(scorerPid, rankerPid);
+      await finalize(ranker, input);
+      await ranker.query("COMMIT");
+      const outcome = await insertion;
+      assert.equal(outcome.succeeded, false);
+      assert.match(String("error" in outcome ? outcome.error : ""), /season score snapshot finalized/);
+      await scorer.query("ROLLBACK");
+      await transaction(ranker, async () => {
+        await scope(ranker, input);
+        const scores = await ranker.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM academy_arena_trade_score_ledger
+            WHERE tenant_id = $1 AND workspace_id = $2 AND attempt_id = $3::uuid`,
+          [input.tenantId, input.workspaceId, input.attemptId],
+        );
+        assert.equal(scores.rows[0].count, "0");
+      });
+    } finally {
+      await ranker.query("ROLLBACK").catch(() => {});
+      await scorer.query("ROLLBACK").catch(() => {});
+      ranker.release();
+      scorer.release();
+    }
+  });
+
+  it("waits for a committed season score before snapshot finalization", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await fixture();
+    const scorer = await pool!.connect();
+    const finalizer = await pool!.connect();
+    try {
+      await scorer.query("BEGIN");
+      await finalizer.query("BEGIN");
+      await scope(scorer, input);
+      await scope(finalizer, input);
+      await finalizer.query("SET LOCAL statement_timeout = '10000ms'");
+      const scorerPid = (await scorer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const finalizerPid = (await finalizer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await insertSeasonScore(scorer, input);
+      const finalization = finalize(finalizer, input).then(
+        () => ({ succeeded: true }), (error: unknown) => ({ succeeded: false, error }),
+      );
+      await waitUntilBlocked(finalizerPid, scorerPid);
+      await scorer.query("COMMIT");
+      const outcome = await finalization;
+      assert.equal(outcome.succeeded, true, String("error" in outcome ? outcome.error : ""));
+      await finalizer.query("COMMIT");
+      await transaction(scorer, async () => {
+        await scope(scorer, input);
+        const scores = await scorer.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM academy_arena_trade_score_ledger
+            WHERE tenant_id = $1 AND workspace_id = $2 AND attempt_id = $3::uuid`,
+          [input.tenantId, input.workspaceId, input.attemptId],
+        );
+        assert.equal(scores.rows[0].count, "1");
+      });
+    } finally {
+      await scorer.query("ROLLBACK").catch(() => {});
+      await finalizer.query("ROLLBACK").catch(() => {});
+      scorer.release();
+      finalizer.release();
+    }
+  });
+
   it("rejects direct enrollment SQL after a concurrent season activation commits", {
     skip: !configured, timeout: 30_000,
   }, async () => {
