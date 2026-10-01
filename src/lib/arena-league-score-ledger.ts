@@ -206,18 +206,43 @@ export async function persistNewArenaTradeScores(
     if (!position) throw new Error("arena_league_source_position_missing");
     assertArenaTradeSourceChronology(trade, position);
     const seasonId = await resolveArenaScoreSeasonId(client, owner, trade.closedAt);
-    const count = await client.query<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM academy_arena_trade_score_ledger
+    // Hold this student's UTC day until the enclosing execution transaction
+    // commits. Locking at INSERT is too late: two transactions can both read
+    // the same daily ordinal before either inserts its score.
+    const scoreDay = new Date(trade.closedAt).toISOString().slice(0, 10);
+    const isolation = await client.query<{ isolation: string }>(
+      "SELECT current_setting('transaction_isolation') AS isolation",
+    );
+    if (isolation.rows[0]?.isolation !== "read committed") {
+      throw new Error("arena_league_daily_score_requires_read_committed");
+    }
+    await client.query(
+      `SELECT pg_advisory_xact_lock(
+         hashtext('arena-score-day:' || $1::text || ':' || $2::text),
+         hashtext($3::text || ':' || $4::text))`,
+      [owner.tenantId, owner.workspaceId, owner.studentId, scoreDay],
+    );
+    const count = await client.query<{ count: string; later_count: string; replay_count: string }>(
+      `SELECT COUNT(*) FILTER (WHERE scored_at < $4::timestamptz
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" < $6))::text AS count,
+              COUNT(*) FILTER (WHERE scored_at > $4::timestamptz
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" > $6))::text AS later_count,
+              COUNT(*) FILTER (WHERE attempt_id = $7::uuid AND closed_trade_id = $6
+                AND policy_version = $8)::text AS replay_count
+         FROM academy_arena_trade_score_ledger
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
          AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date
-         AND (scored_at < $4::timestamptz
-           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" < $6))
          AND (
            ($5::uuid IS NULL AND NULLIF(scoring_input->>'seasonId', '') IS NULL)
            OR scoring_input->>'seasonId' = $5::uuid::text
          )`,
-      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId, trade.id],
+      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId, trade.id,
+        owner.attemptId, ARENA_LEAGUE_SCORING_POLICY_VERSION],
     );
+    if (Number(count.rows[0]?.later_count ?? "0") > 0 &&
+      Number(count.rows[0]?.replay_count ?? "0") === 0) {
+      throw new Error("arena_league_retroactive_daily_score_invalid");
+    }
     const scoringInput = deriveArenaTradeScoreInput({
       trade,
       position,

@@ -225,10 +225,15 @@ describe("Arena trade score ledger adapter", () => {
           return { rows: [{ set_config: owner.tenantId }] };
         }
         if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
-        if (sql.includes("COUNT(*)::text AS count")) {
+        if (sql.includes("current_setting('transaction_isolation')")) return { rows: [{ isolation: "read committed" }] };
+        if (sql.includes("pg_advisory_xact_lock")) {
+          assert.deepEqual(params, [owner.tenantId, owner.workspaceId, owner.studentId, "2026-08-15"]);
+          return { rows: [] };
+        }
+        if (sql.includes("AS replay_count")) {
           assert.match(sql, /scored_at < \$4::timestamptz/);
           assert.equal(params[5], trade.id);
-          return { rows: [{ count: "0" }] };
+          return { rows: [{ count: "0", later_count: "0", replay_count: persistedDigest ? "1" : "0" }] };
         }
         if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
           const digest = params[19] as string;
@@ -267,7 +272,11 @@ describe("Arena trade score ledger adapter", () => {
           return { rows: [{ set_config: owner.tenantId }] };
         }
         if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
-        if (sql.includes("COUNT(*)::text AS count")) return { rows: [{ count: String(persisted.length) }] };
+        if (sql.includes("current_setting('transaction_isolation')")) return { rows: [{ isolation: "read committed" }] };
+        if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+        if (sql.includes("AS replay_count")) {
+          return { rows: [{ count: String(persisted.length), later_count: "0", replay_count: "0" }] };
+        }
         if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
           persisted.push(params[5] as string);
           assert.equal(params[9], persisted.length);
@@ -292,6 +301,36 @@ describe("Arena trade score ledger adapter", () => {
     assert.equal(input.hasPreTradePlan, true);
     assert.equal(input.hasStopLoss, true);
     assert.equal(input.journalCompleted, false);
+  });
+
+  it("refuses retroactive daily scores but permits an identical event replay", async () => {
+    let replay = false;
+    const calls: string[] = [];
+    const client = {
+      query: async (sql: string) => {
+        calls.push(sql);
+        if (isScopeQuery(sql)) return { rows: [] };
+        if (sql.includes("FROM academy_arena_league_seasons season")) return { rows: [] };
+        if (sql.includes("current_setting('transaction_isolation')")) return { rows: [{ isolation: "read committed" }] };
+        if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+        if (sql.includes("AS replay_count")) {
+          return { rows: [{ count: "0", later_count: "1", replay_count: replay ? "1" : "0" }] };
+        }
+        if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) return { rows: [] };
+        if (sql.includes("SELECT source_digest FROM academy_arena_trade_score_ledger")) {
+          return { rows: [{ source_digest: "different" }] };
+        }
+        throw new Error(`unexpected_query:${sql}`);
+      },
+    } as unknown as PoolClient;
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const after = { closedTrades: [trade] } as unknown as ArenaExecutionStateV2;
+    await assert.rejects(persistNewArenaTradeScores(client, owner, before, after),
+      /arena_league_retroactive_daily_score_invalid/);
+    assert.equal(calls.some((sql) => sql.includes("INSERT INTO academy_arena_trade_score_ledger")), false);
+    replay = true;
+    await assert.rejects(persistNewArenaTradeScores(client, owner, before, after),
+      /arena_league_score_conflicting_replay/);
   });
 
   it("fails closed when numeric source evidence is malformed", () => {

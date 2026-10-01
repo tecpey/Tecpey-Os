@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
+import { persistNewArenaTradeScores } from "../../lib/arena-league-score-ledger";
+import type { ArenaExecutionStateV2, ArenaOpenPositionV2, ArenaClosedTradeV2 } from "../../lib/trading-arena-execution-v2";
 import {
   createArenaLeagueSeasonTx,
   enrollArenaLeagueSeasonTx,
@@ -221,6 +223,58 @@ after(async () => {
 });
 
 describe("Arena league finalization PostgreSQL boundary", () => {
+  it("serializes daily ordinals across concurrent closes before counting", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await genericFixture();
+    const first = await pool!.connect();
+    const second = await pool!.connect();
+    const position: ArenaOpenPositionV2 = {
+      id: "position-concurrent-score", asset: "BTC", entryPrice: "100", quantity: "10",
+      quoteCommitted: "1000", openingFee: "1", stopLoss: "98", takeProfit: "104",
+      openedAt: "2026-01-10T10:00:00.000Z", preTradePlan: "Follow the planned boundary.",
+      emotionalState: "calm", mentorFlags: ["good-discipline", "proper-sizing"],
+    };
+    const trade = (id: string): ArenaClosedTradeV2 => ({
+      id, positionId: position.id, asset: position.asset, entryPrice: position.entryPrice,
+      exitPrice: "104", quantity: position.quantity, quoteCommitted: position.quoteCommitted,
+      totalFee: "2.04", realizedPnl: "38.96", realizedPnlRate: "0.03896",
+      openedAt: position.openedAt, closedAt: "2026-01-10T12:00:00.000Z",
+      closureReason: "take-profit", mentorFlags: ["good-discipline", "proper-sizing", "target-hit"],
+    });
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const persist = (client: PoolClient, id: string) => persistNewArenaTradeScores(client, {
+      tenantId: input.tenantId, workspaceId: input.workspaceId,
+      studentId: input.studentId, attemptId: input.attemptId,
+    }, before, { closedTrades: [trade(id)] } as ArenaExecutionStateV2);
+    try {
+      await first.query("BEGIN");
+      await second.query("BEGIN");
+      await second.query("SET LOCAL statement_timeout = '10000ms'");
+      const firstPid = (await first.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const secondPid = (await second.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await persist(first, "trade-concurrent-a");
+      const pending = persist(second, "trade-concurrent-b");
+      await waitUntilBlocked(secondPid, firstPid);
+      await first.query("COMMIT");
+      await pending;
+      await second.query("COMMIT");
+      const scores = await pool!.query<{ closed_trade_id: string; trade_number_for_day: number; participation_points: number }>(
+        `SELECT closed_trade_id, trade_number_for_day, participation_points
+           FROM academy_arena_trade_score_ledger
+          WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
+          ORDER BY closed_trade_id`,
+        [input.tenantId, input.workspaceId, input.studentId],
+      );
+      assert.deepEqual(scores.rows.map(({ trade_number_for_day }) => trade_number_for_day), [1, 2]);
+    } finally {
+      await first.query("ROLLBACK").catch(() => {});
+      await second.query("ROLLBACK").catch(() => {});
+      first.release();
+      second.release();
+    }
+  });
+
   it("rejects an old generic score after raw SQL snapshot finalization wins the race", {
     skip: !configured, timeout: 30_000,
   }, async () => {
