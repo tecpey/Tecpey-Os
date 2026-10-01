@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import Decimal from "decimal.js";
 import type { PoolClient } from "pg";
 import {
   assertArenaClosedTradeHistoryImmutable,
@@ -33,9 +34,9 @@ const trade: ArenaClosedTradeV2 = {
   exitPrice: "104",
   quantity: "10",
   quoteCommitted: "1000",
-  totalFee: "2",
-  realizedPnl: "38",
-  realizedPnlRate: "0.038",
+  totalFee: "2.04",
+  realizedPnl: "38.96",
+  realizedPnlRate: "0.03896",
   openedAt: position.openedAt,
   closedAt: "2026-08-15T11:00:00.000Z",
   closureReason: "take-profit",
@@ -136,6 +137,35 @@ describe("Arena trade score ledger adapter", () => {
       /arena_league_trade_source_chronology_invalid/);
   });
 
+  it("rejects forged close settlement before scoring", async () => {
+    const client = { query: () => { throw new Error("unexpected_database_access"); } } as unknown as PoolClient;
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    for (const changed of [
+      { exitPrice: "105" }, { totalFee: "2.03" },
+      { realizedPnl: "39.96" }, { realizedPnlRate: "0.03996" },
+    ]) {
+      const after = { closedTrades: [{ ...trade, ...changed }] } as unknown as ArenaExecutionStateV2;
+      await assert.rejects(persistNewArenaTradeScores(client, owner, before, after),
+        /arena_league_trade_settlement_invalid/);
+    }
+  });
+
+  it("accepts engine settlement derived from a fill with hidden precision", () => {
+    const preciseFill = "104.00000000009";
+    const proceeds = new Decimal(position.quantity).mul(preciseFill);
+    const fee = proceeds.mul("0.001");
+    const pnl = proceeds.minus(fee).minus(position.quoteCommitted);
+    const preciseTrade = {
+      ...trade,
+      exitPrice: "104.0000000000",
+      totalFee: new Decimal(position.openingFee).plus(fee)
+        .toDecimalPlaces(10, Decimal.ROUND_DOWN).toFixed(10),
+      realizedPnl: pnl.toDecimalPlaces(10, Decimal.ROUND_DOWN).toFixed(10),
+      realizedPnlRate: pnl.div(position.quoteCommitted).toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed(8),
+    };
+    assert.doesNotThrow(() => assertArenaTradeSourceChronology(preciseTrade, position));
+  });
+
   it("accepts an identical score replay and rejects different evidence for the same trade", async () => {
     let persistedDigest: string | null = null;
     let conflictReads = 0;
@@ -175,7 +205,7 @@ describe("Arena trade score ledger adapter", () => {
     await assert.rejects(
       persistNewArenaTradeScores(client, owner, before, {
         ...after,
-        closedTrades: [{ ...trade, realizedPnl: "39" }],
+        closedTrades: [{ ...trade, mentorFlags: ["good-discipline"] }],
       }),
       /arena_league_score_conflicting_replay/,
     );
@@ -212,7 +242,7 @@ describe("Arena trade score ledger adapter", () => {
     const input = deriveArenaTradeScoreInput({ trade, position, equityBeforeClose: "100000", tradeNumberForDay: 1 });
     assert.equal(input.instrumentKind, "spot");
     assert.equal(input.riskBudgetBps, 100);
-    assert.equal(input.outcomeRMultipleBps, 19_000);
+    assert.equal(input.outcomeRMultipleBps, 19_480);
     assert.equal(input.hasPreTradePlan, true);
     assert.equal(input.hasStopLoss, true);
     assert.equal(input.journalCompleted, false);

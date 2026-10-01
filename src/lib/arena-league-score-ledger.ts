@@ -8,6 +8,7 @@ import {
 } from "./arena-league-scoring-policy";
 import { applyArenaLeagueTenantScope } from "./arena-league-tenant-scope";
 import {
+  ARENA_EXECUTION_FEE_RATE,
   ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT,
   type ArenaClosedTradeV2,
   type ArenaExecutionStateV2,
@@ -81,6 +82,30 @@ export function assertArenaTradeSourceChronology(
     trade.asset !== position.asset || trade.entryPrice !== position.entryPrice ||
     trade.quantity !== position.quantity || trade.quoteCommitted !== position.quoteCommitted) {
     throw new Error("arena_league_trade_source_chronology_invalid");
+  }
+  const exitPrice = new Decimal(trade.exitPrice);
+  const quantity = new Decimal(position.quantity);
+  const committed = new Decimal(position.quoteCommitted);
+  const openingFee = new Decimal(position.openingFee);
+  if (![exitPrice, quantity, committed, openingFee].every((value) => value.isFinite()) ||
+    !exitPrice.gt(0) || !quantity.gt(0) || !committed.gt(0) || openingFee.lt(0)) {
+    throw new Error("arena_league_trade_settlement_invalid");
+  }
+  const proceeds = quantity.mul(exitPrice);
+  const closingFee = proceeds.mul(ARENA_EXECUTION_FEE_RATE);
+  const pnl = proceeds.minus(closingFee).minus(committed);
+  // The engine truncates the displayed exit to 10dp but settles using the
+  // higher precision fill. Bound the difference by one display unit plus the
+  // independent truncation of each settlement field.
+  const displayUnit = new Decimal("0.0000000001");
+  const feeTolerance = quantity.mul(displayUnit).mul(ARENA_EXECUTION_FEE_RATE).plus(displayUnit);
+  const pnlTolerance = quantity.mul(displayUnit)
+    .mul(new Decimal(1).minus(ARENA_EXECUTION_FEE_RATE)).plus(displayUnit);
+  const rateTolerance = pnlTolerance.div(committed).plus("0.00000001");
+  if (new Decimal(trade.totalFee).minus(openingFee.plus(closingFee)).abs().gt(feeTolerance) ||
+    new Decimal(trade.realizedPnl).minus(pnl).abs().gt(pnlTolerance) ||
+    new Decimal(trade.realizedPnlRate).minus(pnl.div(committed)).abs().gt(rateTolerance)) {
+    throw new Error("arena_league_trade_settlement_invalid");
   }
 }
 
