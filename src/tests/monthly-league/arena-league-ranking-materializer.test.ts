@@ -126,6 +126,11 @@ describe("Arena league ranking materializer", () => {
       "arena-ranking:tenant-a:workspace-a",
       `monthly:2026-01:season:${seasonId}`,
     ]);
+    const seasonLock = calls.find(({ sql, values }) =>
+      sql.includes("pg_advisory_xact_lock") && values?.[0] === "arena-season:tenant-a:workspace-a");
+    assert.ok(seasonLock);
+    assert.deepEqual(seasonLock?.values, ["arena-season:tenant-a:workspace-a", seasonId]);
+    assert.ok(calls.indexOf(seasonLock) < calls.findIndex(({ sql }) => sql.includes("WITH window_scores")));
     const candidateRead = calls.find(({ sql }) => sql.includes("WITH window_scores"));
     assert.ok(candidateRead?.sql.includes("enrollment.status = 'enrolled'"));
     assert.ok(candidateRead?.sql.includes("score.scoring_input->>'seasonId' = $8::uuid::text"));

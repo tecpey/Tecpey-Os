@@ -320,6 +320,25 @@ export async function changeArenaLeagueEnrollmentStatusTx(
     `arena-enrollment:${scope.tenantId}:${scope.workspaceId}:${input.seasonId}`,
     input.studentId,
   ]);
+  await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
+    `arena-season:${scope.tenantId}:${scope.workspaceId}`, input.seasonId,
+  ]);
+  const season = await client.query<{ status: ArenaLeagueSeasonLifecycle }>(
+    `SELECT status FROM academy_arena_league_seasons
+      WHERE id = $1::uuid AND tenant_id = $2 AND workspace_id = $3 FOR SHARE`,
+    [input.seasonId, scope.tenantId, scope.workspaceId],
+  );
+  if (!season.rows[0]) throw new Error("arena_season_not_found");
+  if (season.rows[0].status === "finalized") {
+    throw new Error("arena_season_enrollment_season_finalized");
+  }
+  const finalized = await client.query<{ id: string }>(
+    `SELECT id::text FROM academy_arena_league_snapshots
+      WHERE tenant_id = $1 AND workspace_id = $2 AND season_id = $3::uuid
+        AND status = 'finalized' LIMIT 1`,
+    [scope.tenantId, scope.workspaceId, input.seasonId],
+  );
+  if (finalized.rows[0]) throw new Error("arena_season_enrollment_snapshot_finalized");
   const result = await client.query<EnrollmentRow>(
     `UPDATE academy_arena_league_enrollments
         SET status = $5, reason_code = $6

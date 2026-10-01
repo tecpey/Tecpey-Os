@@ -345,6 +345,13 @@ export async function materializeArenaLeagueRankingSnapshotTx(
       ? `${input.windowType}:${input.windowKey}:season:${seasonId}`
       : `${input.windowType}:${input.windowKey}`,
   ]);
+  if (seasonId) {
+    // Serialize enrollment transitions with the read of eligible candidates
+    // and the immutable snapshot finalization in this same transaction.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
+      `arena-season:${input.tenantId}:${input.workspaceId}`, seasonId,
+    ]);
+  }
 
   const scope = seasonId
     ? await loadSeasonScope(client, {
