@@ -49,6 +49,11 @@ export function assertArenaClosedTradeHistoryImmutable(
     throw new Error("arena_league_trade_history_limit_invalid");
   }
   const newCount = after.length - [...seen].filter((id) => previous.has(id)).length;
+  // Execution snapshots prepend new closes and trim only the oldest tail.
+  if (after.slice(0, newCount).some((trade) => previous.has(trade.id)) ||
+    after.slice(newCount).some((trade) => !previous.has(trade.id))) {
+    throw new Error("arena_league_historical_trade_order_invalid");
+  }
   const retainedCount = Math.min(before.length, ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT - newCount);
   if (after.length !== newCount + retainedCount) {
     throw new Error("arena_league_historical_trade_removed");

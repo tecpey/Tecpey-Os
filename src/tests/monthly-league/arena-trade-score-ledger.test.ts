@@ -84,6 +84,8 @@ describe("Arena trade score ledger adapter", () => {
     const other = { ...trade, id: "trade-other-12345678" };
     assert.throws(() => assertArenaClosedTradeHistoryImmutable([trade, other], [other, trade]),
       /arena_league_historical_trade_order_invalid/);
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [trade, other]),
+      /arena_league_historical_trade_order_invalid/);
     assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [{ ...trade, realizedPnl: "39" }]),
       /arena_league_historical_trade_mutated/);
     assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [{ ...trade, mentorFlags: ["good-discipline"] }]),
@@ -106,6 +108,8 @@ describe("Arena trade score ledger adapter", () => {
     assert.doesNotThrow(() => assertArenaClosedTradeHistoryImmutable(prior, [newTrade, ...prior.slice(0, -1)]));
     assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [newTrade, ...prior.slice(1)]),
       /arena_league_historical_trade_removed/);
+    assert.throws(() => assertArenaClosedTradeHistoryImmutable(prior, [...prior.slice(0, -1), newTrade]),
+      /arena_league_historical_trade_order_invalid/);
   });
 
   it("rejects impossible close timing and mismatched canonical position evidence", () => {
