@@ -148,6 +148,17 @@ describe("Arena leaderboard cross-tenant PostgreSQL authority", () => {
         assert.notEqual(boardA?.entries[0].publicProfileId, profileB);
         assert.equal(JSON.stringify(boardA).includes(tenantB), false);
         assert.equal(JSON.stringify(boardA).includes(workspaceB), false);
+        await client.query("SAVEPOINT duplicate_cutoff");
+        await assert.rejects(client.query(
+          `INSERT INTO academy_arena_league_snapshots
+             (id, tenant_id, workspace_id, window_type, window_key, status,
+              version, source_cutoff_at, participant_count, source_digest, finalized_at)
+           VALUES (gen_random_uuid(), $1, $2, 'lifetime', 'all-time', 'finalized',
+                   2, '2026-01-15T12:00:00.000Z', 0, $3, NOW())`,
+          [tenantA, workspaceA, "e".repeat(64)],
+        ), /generic snapshot cutoff must advance/);
+        await client.query("ROLLBACK TO SAVEPOINT duplicate_cutoff");
+        await client.query("RELEASE SAVEPOINT duplicate_cutoff");
         await client.query(
           `INSERT INTO academy_arena_trade_score_ledger
              (id, tenant_id, workspace_id, principal_id, student_id, attempt_id,
