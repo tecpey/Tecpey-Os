@@ -80,6 +80,10 @@ import {
   ARENA_LEAGUE_FINALIZATION_BOUNDARY_SQL,
   runArenaLeagueFinalizationBoundaryMigrations,
 } from "./db-migrate-arena-league-finalization-boundary";
+import {
+  ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_LOCK_SQL,
+  runArenaLeagueEnrollmentLifecycleMigrations,
+} from "./db-migrate-arena-league-enrollment-lifecycle";
 import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
 import { runAcademyV3MissionEvidenceMigrations } from "./db-migrate-academy-v3-mission-evidence";
 import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
@@ -304,6 +308,15 @@ const ARENA_LEAGUE_FINALIZATION_BOUNDARY_MIGRATION: CanonicalMigrationContent =
     compatibleHistoricalChecksums: Object.freeze([]),
   });
 
+const ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0122_arena_league_enrollment_lifecycle_lock.sql",
+    content: ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_LOCK_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_LOCK_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
   entry(2, "migration-step-002", CANONICAL_MIGRATION_CONTENT.compatibility, "academy-platform", "academy", runCompatibilityMigrations),
@@ -486,6 +499,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "academy-platform",
     "arena",
     runArenaLeagueFinalizationBoundaryMigrations,
+  ),
+  entry(
+    106,
+    "migration-step-106",
+    [ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueEnrollmentLifecycleMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 

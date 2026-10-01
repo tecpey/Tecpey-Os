@@ -32,7 +32,7 @@ async function scope(client: PoolClient, fixture: Pick<Fixture, "tenantId" | "wo
     [fixture.tenantId, fixture.workspaceId]);
 }
 
-async function fixture(): Promise<Fixture> {
+async function fixture(lifecycle: "enrollment" | "closing" = "closing"): Promise<Fixture> {
   const suffix = randomUUID();
   const result = {
     tenantId: `arena-finalization-${suffix}`,
@@ -74,19 +74,21 @@ async function fixture(): Promise<Fixture> {
       } as const;
       const season = await createArenaLeagueSeasonTx(client, authority, config);
       await transitionArenaLeagueSeasonTx(client, authority, season.id, "enrollment", config.enrollmentOpensAt);
-      await enrollArenaLeagueSeasonTx(client, authority, {
-        seasonId: season.id, studentId: result.studentId, enrolledAt: config.enrollmentOpensAt,
-      });
-      await transitionArenaLeagueSeasonTx(client, authority, season.id, "active", config.startsAt);
-      await transitionArenaLeagueSeasonTx(client, authority, season.id, "closing", config.endsAt);
-      await client.query(
-        `INSERT INTO academy_arena_league_snapshots
-           (id, tenant_id, workspace_id, season_id, window_type, window_key, status,
-            version, source_cutoff_at, participant_count, source_digest)
-         VALUES ($1::uuid, $2, $3, $4::uuid, 'monthly', '2026-01', 'provisional',
-                 1, '2026-02-01T00:00:00Z', 0, $5)`,
-        [result.snapshotId, result.tenantId, result.workspaceId, season.id, "a".repeat(64)],
-      );
+      if (lifecycle === "closing") {
+        await enrollArenaLeagueSeasonTx(client, authority, {
+          seasonId: season.id, studentId: result.studentId, enrolledAt: config.enrollmentOpensAt,
+        });
+        await transitionArenaLeagueSeasonTx(client, authority, season.id, "active", config.startsAt);
+        await transitionArenaLeagueSeasonTx(client, authority, season.id, "closing", config.endsAt);
+        await client.query(
+          `INSERT INTO academy_arena_league_snapshots
+             (id, tenant_id, workspace_id, season_id, window_type, window_key, status,
+              version, source_cutoff_at, participant_count, source_digest)
+           VALUES ($1::uuid, $2, $3, $4::uuid, 'monthly', '2026-01', 'provisional',
+                   1, '2026-02-01T00:00:00Z', 0, $5)`,
+          [result.snapshotId, result.tenantId, result.workspaceId, season.id, "a".repeat(64)],
+        );
+      }
       return season.id;
     });
     return { ...result, seasonId };
@@ -100,6 +102,25 @@ async function finalize(client: PoolClient, input: Fixture): Promise<void> {
     `UPDATE academy_arena_league_snapshots
         SET status = 'finalized', finalized_at = NOW()
       WHERE id = $1::uuid`, [input.snapshotId],
+  );
+}
+
+async function insertEnrollment(client: PoolClient, input: Fixture): Promise<void> {
+  await client.query(
+    `INSERT INTO academy_arena_league_enrollments
+       (id, season_id, tenant_id, workspace_id, principal_type, principal_id,
+        student_id, status, enrolled_at, status_updated_at)
+     VALUES ($1::uuid, $2::uuid, $3, $4, 'student', $5::uuid::text, $5::uuid,
+             'enrolled', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
+    [randomUUID(), input.seasonId, input.tenantId, input.workspaceId, input.studentId],
+  );
+}
+
+async function activateSeason(client: PoolClient, input: Fixture): Promise<void> {
+  await client.query(
+    `UPDATE academy_arena_league_seasons
+        SET status = 'active', activated_at = '2026-01-02T00:00:00Z'
+      WHERE id = $1::uuid`, [input.seasonId],
   );
 }
 
@@ -128,6 +149,85 @@ after(async () => {
 });
 
 describe("Arena league finalization PostgreSQL boundary", () => {
+  it("rejects direct enrollment SQL after a concurrent season activation commits", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await fixture("enrollment");
+    const activator = await pool!.connect();
+    const enrollee = await pool!.connect();
+    try {
+      await activator.query("BEGIN");
+      await enrollee.query("BEGIN");
+      await scope(activator, input);
+      await scope(enrollee, input);
+      await enrollee.query("SET LOCAL statement_timeout = '10000ms'");
+      const activatorPid = (await activator.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const enrolleePid = (await enrollee.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await activateSeason(activator, input);
+      const insertion = insertEnrollment(enrollee, input).then(
+        () => ({ succeeded: true }), (error: unknown) => ({ succeeded: false, error }),
+      );
+      await waitUntilBlocked(enrolleePid, activatorPid);
+      await activator.query("COMMIT");
+      const outcome = await insertion;
+      assert.equal(outcome.succeeded, false);
+      assert.match(String("error" in outcome ? outcome.error : ""), /season is not accepting enrollment/);
+      await enrollee.query("ROLLBACK");
+      await transaction(activator, async () => {
+        await scope(activator, input);
+        const enrolled = await activator.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM academy_arena_league_enrollments
+            WHERE season_id = $1::uuid`, [input.seasonId],
+        );
+        assert.equal(enrolled.rows[0].count, "0");
+      });
+    } finally {
+      await activator.query("ROLLBACK").catch(() => {});
+      await enrollee.query("ROLLBACK").catch(() => {});
+      activator.release();
+      enrollee.release();
+    }
+  });
+
+  it("waits for a committed enrollment before activating the season", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await fixture("enrollment");
+    const enrollee = await pool!.connect();
+    const activator = await pool!.connect();
+    try {
+      await enrollee.query("BEGIN");
+      await activator.query("BEGIN");
+      await scope(enrollee, input);
+      await scope(activator, input);
+      await activator.query("SET LOCAL statement_timeout = '10000ms'");
+      const enrolleePid = (await enrollee.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const activatorPid = (await activator.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await insertEnrollment(enrollee, input);
+      const activation = activateSeason(activator, input).then(
+        () => ({ succeeded: true }), (error: unknown) => ({ succeeded: false, error }),
+      );
+      await waitUntilBlocked(activatorPid, enrolleePid);
+      await enrollee.query("COMMIT");
+      const outcome = await activation;
+      assert.equal(outcome.succeeded, true, String("error" in outcome ? outcome.error : ""));
+      await activator.query("COMMIT");
+      await transaction(enrollee, async () => {
+        await scope(enrollee, input);
+        const enrolled = await enrollee.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM academy_arena_league_enrollments
+            WHERE season_id = $1::uuid AND status = 'enrolled'`, [input.seasonId],
+        );
+        assert.equal(enrolled.rows[0].count, "1");
+      });
+    } finally {
+      await enrollee.query("ROLLBACK").catch(() => {});
+      await activator.query("ROLLBACK").catch(() => {});
+      enrollee.release();
+      activator.release();
+    }
+  });
+
   it("rejects a long-lived transaction snapshot that could miss concurrent finalization", {
     skip: !configured, timeout: 30_000,
   }, async () => {
