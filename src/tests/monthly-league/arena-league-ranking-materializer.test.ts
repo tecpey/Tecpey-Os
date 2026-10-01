@@ -51,6 +51,8 @@ describe("Arena league ranking materializer", () => {
     const advisory = calls.find(({ sql }) => sql.includes("pg_advisory_xact_lock"));
     assert.deepEqual(advisory?.values, ["arena-ranking:tenant-a:workspace-a", "monthly:2026-01"]);
     const rankingInsert = calls.find(({ sql }) => sql.includes("INSERT INTO academy_arena_league_rankings"));
+    const candidateRead = calls.find(({ sql }) => sql.includes("WITH window_scores"));
+    assert.match(candidateRead?.sql ?? "", /snapshot\.season_id IS NULL/);
     assert.deepEqual(rankingInsert?.values?.slice(3), [
       "11111111-1111-4111-8111-111111111111", 1, 240, 12, 9200, "explorer",
       "11111111-1111-4111-8111-111111111111",

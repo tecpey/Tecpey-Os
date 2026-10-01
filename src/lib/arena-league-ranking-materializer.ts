@@ -189,6 +189,7 @@ async function readGenericCandidates(client: PoolClient, input: {
          JOIN academy_arena_league_snapshots snapshot ON snapshot.id = ranking.snapshot_id
         WHERE snapshot.tenant_id = $1
           AND snapshot.workspace_id = $2
+          AND snapshot.season_id IS NULL
           AND snapshot.window_type = 'monthly'
           AND snapshot.status = 'finalized'
           AND snapshot.source_cutoff_at <= $5::timestamptz
