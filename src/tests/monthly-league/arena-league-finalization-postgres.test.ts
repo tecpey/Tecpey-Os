@@ -157,6 +157,45 @@ async function insertSeasonScore(client: PoolClient, input: Fixture): Promise<vo
   );
 }
 
+async function genericFixture(): Promise<Fixture> {
+  const input = await fixture("enrollment");
+  const client = await pool!.connect();
+  try {
+    await transaction(client, async () => {
+      await scope(client, input);
+      await client.query(
+        `INSERT INTO academy_arena_league_snapshots
+           (id, tenant_id, workspace_id, window_type, window_key, status,
+            version, source_cutoff_at, participant_count, source_digest)
+         VALUES ($1::uuid, $2, $3, 'monthly', '2026-01', 'provisional',
+                 1, '2026-01-15T00:00:00Z', 0, $4)`,
+        [input.snapshotId, input.tenantId, input.workspaceId, "c".repeat(64)],
+      );
+    });
+  } finally {
+    client.release();
+  }
+  return input;
+}
+
+async function insertGenericScore(client: PoolClient, input: Fixture, scoredAt = "2026-01-10T12:00:00Z"): Promise<void> {
+  await client.query(
+    `INSERT INTO academy_arena_trade_score_ledger
+       (id, tenant_id, workspace_id, principal_id, student_id, attempt_id,
+        closed_trade_id, policy_version, instrument_kind, scored_at,
+        trade_number_for_day, total_points, participation_points, process_points,
+        outcome_points, penalty_points, positive_multiplier_bps,
+        penalty_multiplier_bps, scoring_input, scoring_reasons, source_digest)
+     VALUES (gen_random_uuid(), $1, $2, $3::text, $3::uuid, $4::uuid, $5,
+             'arena-league-scoring-v1', 'spot', $6::timestamptz,
+             1, 31, 10, 21, 0, 0, 10000, 10000,
+             jsonb_build_object('ruleComplianceBps', 9000),
+             '[]'::jsonb, $7)`,
+    [input.tenantId, input.workspaceId, input.studentId, input.attemptId,
+      `generic-${randomUUID()}`, scoredAt, "d".repeat(64)],
+  );
+}
+
 async function waitUntilBlocked(waiterPid: number, blockerPid: number): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
@@ -182,6 +221,94 @@ after(async () => {
 });
 
 describe("Arena league finalization PostgreSQL boundary", () => {
+  it("rejects an old generic score after raw SQL snapshot finalization wins the race", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await genericFixture();
+    const finalizer = await pool!.connect();
+    const scorer = await pool!.connect();
+    try {
+      await finalizer.query("BEGIN");
+      await scorer.query("BEGIN");
+      await scope(finalizer, input);
+      await scope(scorer, input);
+      await scorer.query("SET LOCAL statement_timeout = '10000ms'");
+      const finalizerPid = (await finalizer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const scorerPid = (await scorer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await finalize(finalizer, input);
+      const insertion = insertGenericScore(scorer, input).then(
+        () => ({ succeeded: true }), (error: unknown) => ({ succeeded: false, error }),
+      );
+      await waitUntilBlocked(scorerPid, finalizerPid);
+      await finalizer.query("COMMIT");
+      const outcome = await insertion;
+      assert.equal(outcome.succeeded, false);
+      assert.match(String("error" in outcome ? outcome.error : ""), /generic score snapshot finalized/);
+      await scorer.query("ROLLBACK");
+    } finally {
+      await finalizer.query("ROLLBACK").catch(() => {});
+      await scorer.query("ROLLBACK").catch(() => {});
+      finalizer.release();
+      scorer.release();
+    }
+  });
+
+  it("waits for a generic score before raw SQL snapshot finalization", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await genericFixture();
+    const scorer = await pool!.connect();
+    const finalizer = await pool!.connect();
+    try {
+      await scorer.query("BEGIN");
+      await finalizer.query("BEGIN");
+      await scope(scorer, input);
+      await scope(finalizer, input);
+      await finalizer.query("SET LOCAL statement_timeout = '10000ms'");
+      const scorerPid = (await scorer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const finalizerPid = (await finalizer.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await insertGenericScore(scorer, input);
+      const finalization = finalize(finalizer, input).then(
+        () => ({ succeeded: true }), (error: unknown) => ({ succeeded: false, error }),
+      );
+      await waitUntilBlocked(finalizerPid, scorerPid);
+      await scorer.query("COMMIT");
+      const outcome = await finalization;
+      assert.equal(outcome.succeeded, true, String("error" in outcome ? outcome.error : ""));
+      await finalizer.query("COMMIT");
+      await transaction(finalizer, async () => {
+        await scope(finalizer, input);
+        const scores = await finalizer.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM academy_arena_trade_score_ledger
+            WHERE tenant_id = $1 AND workspace_id = $2 AND attempt_id = $3::uuid`,
+          [input.tenantId, input.workspaceId, input.attemptId],
+        );
+        assert.equal(scores.rows[0].count, "1");
+      });
+    } finally {
+      await scorer.query("ROLLBACK").catch(() => {});
+      await finalizer.query("ROLLBACK").catch(() => {});
+      scorer.release();
+      finalizer.release();
+    }
+  });
+
+  it("permits a later score outside the finalized generic snapshot cutoff", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await genericFixture();
+    const client = await pool!.connect();
+    try {
+      await transaction(client, async () => {
+        await scope(client, input);
+        await finalize(client, input);
+        await insertGenericScore(client, input, "2026-01-16T12:00:00Z");
+      });
+    } finally {
+      client.release();
+    }
+  });
+
   it("rejects late season score evidence after the ranking snapshot commits", {
     skip: !configured, timeout: 30_000,
   }, async () => {
