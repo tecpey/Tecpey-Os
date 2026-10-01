@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/trading-arena/execution",
+      "method": "POST",
+      "previousSourceHash": "8338ff6ce7bfa326498d10b6",
+      "issue": "#705",
+      "owner": "academy-arena-security",
+      "reason": "Reviewed Arena execution timing after transaction row locks and revision checks. Command timestamps advance monotonically from the locked attempt state. A price feed acquired before lock wait is revalidated against that command time before execution, while cancel_order remains independent of a fresh price. The route retains strict session and tenant authority, CSRF, bounded body, rate limit, idempotency, transaction and audit controls; engine output, timing and delayed-feed regressions are covered by focused tests.",
+      "replacement": {
+        "route": "/api/trading-arena/execution",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+        "sourceHash": "4012b8e6c0ea38993879b449",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-execution-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts",
+          "src/tests/trading-arena-review-regressions.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": [],
+  "addedOperations": []
+}

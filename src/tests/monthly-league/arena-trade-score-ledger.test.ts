@@ -9,7 +9,13 @@ import {
   persistNewArenaTradeScores,
   resolveArenaScoreSeasonId,
 } from "@/lib/arena-league-score-ledger";
-import type { ArenaClosedTradeV2, ArenaExecutionStateV2, ArenaOpenPositionV2 } from "@/lib/trading-arena-execution-v2";
+import {
+  applyArenaExecutionActionV2,
+  createArenaExecutionStateV2,
+  type ArenaClosedTradeV2,
+  type ArenaExecutionStateV2,
+  type ArenaOpenPositionV2,
+} from "@/lib/trading-arena-execution-v2";
 
 const position: ArenaOpenPositionV2 = {
   id: "position-12345678",
@@ -182,6 +188,31 @@ describe("Arena trade score ledger adapter", () => {
       realizedPnlRate: pnl.div(position.quoteCommitted).toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed(8),
     };
     assert.doesNotThrow(() => assertArenaTradeSourceChronology(preciseTrade, position));
+  });
+
+  it("accepts a real engine close and its canonical scoring flags", () => {
+    const market = {
+      prices: { BTC: "65000.0000000000", ETH: "3500.0000000000" },
+      source: "test_feed", observedAt: "2026-08-15T10:00:00.000Z",
+    };
+    const opened = applyArenaExecutionActionV2(
+      createArenaExecutionStateV2("100000", "2026-08-15T10:00:00.000Z"),
+      { type: "market_buy", asset: "ETH", quoteAmount: "10000", stopLoss: "3200" },
+      { now: "2026-08-15T10:00:01.000Z", operationId: "operation-open-eth", market },
+    );
+    assert.equal(opened.ok, true);
+    if (!opened.ok) return;
+    const sourcePosition = opened.state.openPositions[0];
+    assert.ok(sourcePosition);
+    const closed = applyArenaExecutionActionV2(opened.state,
+      { type: "close_position", positionId: sourcePosition.id, reason: "manual" },
+      { now: "2026-08-15T11:00:00.000Z", operationId: "operation-close-eth",
+        market: { ...market, prices: { ...market.prices, ETH: "3850.0000000000" },
+          observedAt: "2026-08-15T11:00:00.000Z" } },
+    );
+    assert.equal(closed.ok, true);
+    if (!closed.ok) return;
+    assert.doesNotThrow(() => assertArenaTradeSourceChronology(closed.state.closedTrades[0], sourcePosition));
   });
 
   it("accepts an identical score replay and rejects different evidence for the same trade", async () => {

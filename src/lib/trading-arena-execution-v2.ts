@@ -187,6 +187,17 @@ export type ArenaExecutionResult =
 const MONEY_DP = 10;
 const QUANTITY_DP = 18;
 
+/** Assign a command time after the attempt row is locked and read. */
+export function nextArenaExecutionTime(previousUpdatedAt: string, observedAt: Date): string {
+  const previous = Date.parse(previousUpdatedAt);
+  const observed = observedAt.getTime();
+  if (!Number.isFinite(previous) || !Number.isFinite(observed) ||
+    previous > observed + 60_000) {
+    throw new Error("arena_execution_command_time_invalid");
+  }
+  return new Date(Math.max(observed, previous + 1)).toISOString();
+}
+
 function decimal(value: Decimal.Value): Decimal {
   return new Decimal(value);
 }

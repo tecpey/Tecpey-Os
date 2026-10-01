@@ -13,6 +13,7 @@ import {
   computeArenaMentorCapabilities,
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
+  nextArenaExecutionTime,
   projectArenaExecutionStateForRead,
   type ArenaExecutionContext,
   type ArenaPriceSnapshot,
@@ -41,6 +42,14 @@ function success(result: ReturnType<typeof applyArenaExecutionActionV2>) {
 }
 
 describe("authoritative Arena execution aggregate", () => {
+  it("assigns monotonic command time after a serialized attempt advances", () => {
+    assert.equal(nextArenaExecutionTime("2026-07-19T00:00:01.000Z",
+      new Date("2026-07-19T00:00:00.999Z")), "2026-07-19T00:00:01.001Z");
+    assert.equal(nextArenaExecutionTime("2026-07-19T00:00:01.000Z",
+      new Date("2026-07-19T00:00:02.000Z")), "2026-07-19T00:00:02.000Z");
+    assert.throws(() => nextArenaExecutionTime("2026-07-19T00:05:00.000Z",
+      new Date("2026-07-19T00:00:00.000Z")), /arena_execution_command_time_invalid/);
+  });
   it("starts with exact 100,000 capital and no browser-derived state", () => {
     const state = createArenaExecutionStateV2("100000.0000000000", "2026-07-19T00:00:00.000Z");
 

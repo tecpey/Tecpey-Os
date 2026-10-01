@@ -3,6 +3,15 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 describe("Trading Arena review regressions", () => {
+  it("assigns command time only after the locked attempt and revision are read", () => {
+    const route = readFileSync("src/app/api/trading-arena/execution/route.ts", "utf8");
+    const lock = route.indexOf("const context = await ensureArenaContext(client, studentId)");
+    const revision = route.indexOf("if (execution.revision !== expectedRevision)", lock);
+    const assigned = route.indexOf("const now = nextArenaExecutionTime(execution.state.updatedAt, new Date())", revision);
+    const fresh = route.indexOf("assertFreshArenaMarketPriceSnapshot(requestedMarket, Date.parse(now))", assigned);
+    const applied = route.indexOf("const applied = applyArenaExecutionActionV2", assigned);
+    assert.ok(lock >= 0 && revision > lock && assigned > revision && fresh > assigned && applied > fresh);
+  });
   it("keeps optional Arena evidence from failing an otherwise valid Mentor request", () => {
     const route = readFileSync("src/app/api/ai-mentor/route.ts", "utf8");
     assert.match(
