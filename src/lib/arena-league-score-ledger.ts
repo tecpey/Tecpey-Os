@@ -78,7 +78,8 @@ export function assertArenaTradeSourceChronology(
   const closedAt = Date.parse(trade.closedAt);
   if (!Number.isFinite(openedAt) || !Number.isFinite(closedAt) || closedAt < openedAt ||
     trade.openedAt !== position.openedAt || trade.positionId !== position.id ||
-    trade.asset !== position.asset) {
+    trade.asset !== position.asset || trade.entryPrice !== position.entryPrice ||
+    trade.quantity !== position.quantity || trade.quoteCommitted !== position.quoteCommitted) {
     throw new Error("arena_league_trade_source_chronology_invalid");
   }
 }

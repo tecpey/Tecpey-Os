@@ -120,6 +120,20 @@ describe("Arena trade score ledger adapter", () => {
       /arena_league_trade_source_chronology_invalid/);
     assert.throws(() => assertArenaTradeSourceChronology(trade, { ...position, openedAt: "2026-08-15T09:00:00.000Z" }),
       /arena_league_trade_source_chronology_invalid/);
+    for (const changed of [
+      { entryPrice: "99" }, { quantity: "11" }, { quoteCommitted: "1100" },
+    ]) {
+      assert.throws(() => assertArenaTradeSourceChronology({ ...trade, ...changed }, position),
+        /arena_league_trade_source_chronology_invalid/);
+    }
+  });
+
+  it("rejects mismatched opening capital before reading or writing score evidence", async () => {
+    const client = { query: () => { throw new Error("unexpected_database_access"); } } as unknown as PoolClient;
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const after = { closedTrades: [{ ...trade, quoteCommitted: "1100" }] } as unknown as ArenaExecutionStateV2;
+    await assert.rejects(persistNewArenaTradeScores(client, owner, before, after),
+      /arena_league_trade_source_chronology_invalid/);
   });
 
   it("accepts an identical score replay and rejects different evidence for the same trade", async () => {
