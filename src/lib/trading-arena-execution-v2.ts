@@ -889,6 +889,9 @@ export function applyArenaExecutionActionV2(
   if (!market || !now || !/^[A-Za-z0-9:_-]{8,200}$/.test(context.operationId)) {
     return { ok: false, error: "arena_execution_context_invalid" };
   }
+  if (Date.parse(now) < Date.parse(state.updatedAt)) {
+    return { ok: false, error: "arena_execution_time_regression" };
+  }
   const safeContext: ArenaExecutionContext = { ...context, now, market };
 
   if (action.type === "refresh_market") {

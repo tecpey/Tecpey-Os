@@ -50,6 +50,15 @@ describe("authoritative Arena execution aggregate", () => {
     assert.throws(() => nextArenaExecutionTime("2026-07-19T00:05:00.000Z",
       new Date("2026-07-19T00:00:00.000Z")), /arena_execution_command_time_invalid/);
   });
+
+  it("rejects a backdated command inside the execution engine", () => {
+    const state = createArenaExecutionStateV2("100000", "2026-07-19T00:00:01.000Z");
+    const result = applyArenaExecutionActionV2(state, { type: "refresh_market" }, {
+      ...context("operation-backdated"), now: "2026-07-19T00:00:00.999Z",
+    });
+    assert.deepEqual(result, { ok: false, error: "arena_execution_time_regression" });
+    assert.equal(state.updatedAt, "2026-07-19T00:00:01.000Z");
+  });
   it("starts with exact 100,000 capital and no browser-derived state", () => {
     const state = createArenaExecutionStateV2("100000.0000000000", "2026-07-19T00:00:00.000Z");
 
@@ -674,7 +683,7 @@ describe("authoritative Arena execution aggregate", () => {
       asset: "BTC",
       quoteAmount: "1000",
       stopLoss: "60000",
-    }, context("operation-legacy-incomplete-daily-loss"));
+    }, { ...context("operation-legacy-incomplete-daily-loss"), now: "2026-07-19T12:00:01.000Z" });
     assert.equal(accepted.ok, true);
   });
 
