@@ -1,7 +1,9 @@
 import fs from "node:fs";
 
 const workflowPath = ".github/workflows/container-supply-chain.yml";
+const rollbackPath = "scripts/test-container-image-rollback.sh";
 const source = fs.readFileSync(workflowPath, "utf8");
+const rollbackSource = fs.readFileSync(rollbackPath, "utf8");
 const failures = [];
 
 function block(sourceText, key) {
@@ -43,6 +45,21 @@ for (const [token, message] of [
   requireText(recovery, token, message);
 }
 
+for (const [token, message] of [
+  ["PREVIOUS_REPO_DIGEST", "rollback drill must resolve the original GHCR RepoDigest"],
+  ["gh attestation verify", "rollback drill must cryptographically verify GitHub build provenance"],
+  ["oci://$PREVIOUS_REPO_DIGEST", "provenance verification must target the exact immutable rollback digest"],
+  ["--bundle-from-oci", "rollback provenance must be consumed from the authenticated OCI registry"],
+  ["--repo tecpey/Tecpey-Os", "rollback provenance must be scoped to the TecPey source repository"],
+  ["--signer-workflow tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml", "rollback provenance must be bound to the governed supply-chain workflow"],
+  ['--source-digest "$PREVIOUS_SHA"', "rollback provenance must be bound to the exact previous source SHA"],
+  ["--source-ref refs/heads/main", "rollback provenance must be bound to the protected main source ref"],
+  ["previous-provenance-verification.json", "rollback drill must preserve provenance verification evidence"],
+  ['"provenance":"verified"', "rollback result must record successful provenance verification"],
+]) {
+  requireText(rollbackSource, token, message);
+}
+
 reject(
   recovery,
   /Checkout exact previous release|path:\s*previous-release|git -C previous-release|docker build[^\n]*PREVIOUS_SHA|docker build[^\n]*previous-release/,
@@ -52,6 +69,11 @@ reject(
   recovery,
   /docker pull\s+"?ghcr\.io\/tecpey\/tecpey-os:(?:latest|main)"?/,
   "recovery must never pull a mutable latest/main rollback tag",
+);
+reject(
+  rollbackSource,
+  /gh attestation verify[\s\S]{0,800}(?:\|\|\s*true|set\s+\+e)/,
+  "rollback provenance verification must remain fail-closed",
 );
 
 if (failures.length) {
