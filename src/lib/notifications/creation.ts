@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import type { NotificationPrincipal } from "./principal";
 import { assertSafeNotificationCopy } from "./copy-safety";
+import { coalesceNotificationDigest } from "./digest";
 import { evaluateNotificationPolicy } from "./policy";
 import type {
   NotificationCadence,
@@ -468,35 +469,33 @@ export async function createInAppNotification(
     }
   }
 
-  const policySnapshot = canonicalize({
-    authority: {
-      fatigueBudget: {
-        version: FATIGUE_BUDGET_VERSION,
-        scope: "tenant_principal_channel_class",
-        recentDelivered: recentCategoryDeliveries,
-        pendingReservations: pendingCategoryReservations,
-        occupancy: recentCategoryDeliveries + pendingCategoryReservations,
-        cap: categoryCap,
-        reservationDecisions: ["allow", "defer"],
-        activeOutboxStates: ["pending", "processing", "failed_retryable"],
-        lockOrder: categoryCap === null || mandatory
-          ? ["correlation"]
-          : ["budget", "correlation"],
-      },
-    },
-    input: policyInput,
-    evaluated: policy,
-    effective: {
-      decision: effectiveDecision,
-      reason: effectiveReason,
-      scheduledFor,
-    },
-  }) as Record<string, unknown>;
-
   let notificationId: string | null = null;
   let outboxId: string | null = null;
+  let digestAuthority: Record<string, unknown> | null = null;
 
-  if (["allow", "defer", "digest"].includes(effectiveDecision)) {
+  if (effectiveDecision === "digest") {
+    if (!scheduledFor) throw new Error("notification_digest_schedule_missing");
+    const aggregate = await coalesceNotificationDigest(client, {
+      principal,
+      notificationClass: request.notificationClass,
+      sourceType: request.sourceType,
+      locale: request.locale,
+      scheduledFor,
+      expiresAt: request.expiresAt,
+      policyReason: effectiveReason,
+      now,
+    });
+    notificationId = aggregate.notificationId;
+    outboxId = aggregate.outboxId;
+    digestAuthority = {
+      version: aggregate.version,
+      baseKey: aggregate.baseKey,
+      shard: aggregate.shard,
+      constituentOrdinal: aggregate.constituentOrdinal,
+      maxConstituents: aggregate.maxConstituents,
+      scope: "tenant_principal_channel_class_source_locale_window",
+    };
+  } else if (effectiveDecision === "allow" || effectiveDecision === "defer") {
     const insertedNotification = await client.query<{ id: string }>(
       `INSERT INTO platform_notifications
         (tenant_id, principal_id, notification_class, source_type, source_id,
@@ -550,6 +549,37 @@ export async function createInAppNotification(
     outboxId = insertedOutbox.rows[0]?.id ?? null;
     if (!outboxId) throw new Error("notification_outbox_insert_failed");
   }
+
+  const fatigueLockOrder =
+    categoryCap === null || mandatory
+      ? ["correlation"]
+      : ["budget", "correlation"];
+  const policySnapshot = canonicalize({
+    authority: {
+      fatigueBudget: {
+        version: FATIGUE_BUDGET_VERSION,
+        scope: "tenant_principal_channel_class",
+        recentDelivered: recentCategoryDeliveries,
+        pendingReservations: pendingCategoryReservations,
+        occupancy: recentCategoryDeliveries + pendingCategoryReservations,
+        cap: categoryCap,
+        reservationDecisions: ["allow", "defer"],
+        activeOutboxStates: ["pending", "processing", "failed_retryable"],
+        lockOrder:
+          effectiveDecision === "digest"
+            ? [...fatigueLockOrder, "digest"]
+            : fatigueLockOrder,
+      },
+      digestAggregate: digestAuthority,
+    },
+    input: policyInput,
+    evaluated: policy,
+    effective: {
+      decision: effectiveDecision,
+      reason: effectiveReason,
+      scheduledFor,
+    },
+  }) as Record<string, unknown>;
 
   const insertedIntent = await client.query<{ id: string }>(
     `INSERT INTO notification_intents
