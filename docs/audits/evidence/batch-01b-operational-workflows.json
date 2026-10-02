@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-30",
-  "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
+  "reviewedAt": "2026-10-02",
+  "reviewMethod": "Complete line-by-line semantic review of six Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
       "id": "B01B-RISK-001",
       "severity": "P2",
-      "statement": "This bounded slice reviews five repository-supply-chain files only; every other Batch 1 path retains its pending status and no repository-wide completion claim is made.",
+      "statement": "This bounded slice reviews six repository-supply-chain files only; every other Batch 1 path retains its pending status and no repository-wide completion claim is made.",
       "owner": "repository-supply-chain",
       "disposition": "tracked-debt"
     },
@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "204c49eb262e69bb703586298ef3e870f4db44ad",
-      "sha256": "6ec774708bd9166e5807f4ce29e654c8b650bfadb6b35b1faa2e319df297c7be",
-      "lines": 302,
+      "gitObjectId": "41c8038b88fddadd04e2eb8b8da9e2c0c0959d63",
+      "sha256": "a26e7b8bb64481f186193c9d8470be5f7d7f05f2e4c8101bc00de3d5c3b961e7",
+      "lines": 320,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 302
+          "endLine": 320
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -45,7 +45,8 @@
         "Publication now requires both the verification and recovery jobs, and the Trivy gate rejects HIGH or CRITICAL findings even when no upstream fix is currently available.",
         "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
         "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
-        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
+        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed."
       ],
       "findings": [
         {
@@ -178,6 +179,23 @@
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.9-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
         "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
         "2026-10-02: re-reviewed the complete 615-line policy after rotating only the exact Alpine OpenSSL runtime package authority from 3.5.8-r0 to 3.5.9-r0. The digest-pinned Node 22 Alpine base, single apk mutation invariant, exact-version requirement, hardened-stage inheritance, non-root runtime, vulnerability gate, recovery dependency and deployment boundaries are unchanged; mutable or unpinned package installation remains rejected."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/check-container-rollback-artifact.mjs",
+      "gitObjectId": "136d9c7e849a1d6bb69fb19cf7f4802751f8dc27",
+      "sha256": "957b82597e4463531d0e92fd7ea00a7ce8a246051b795273844d080c602b1e60",
+      "lines": 62,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 62
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed."
       ],
       "findings": []
     }
