@@ -226,6 +226,57 @@ after(async () => {
 });
 
 describe("Arena league finalization PostgreSQL boundary", () => {
+  it("rejects a second Pro grant to the same student and month across snapshot versions", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await genericFixture();
+    const nextSnapshotId = randomUUID();
+    const client = await pool!.connect();
+    try {
+      await transaction(client, async () => {
+        await scope(client, input);
+        await finalize(client, input);
+        await client.query(
+          `INSERT INTO academy_arena_league_snapshots
+             (id, tenant_id, workspace_id, window_type, window_key, status,
+              version, source_cutoff_at, participant_count, source_digest)
+           VALUES ($1::uuid, $2, $3, 'monthly', '2026-01', 'provisional',
+                   2, '2026-01-16T00:00:00Z', 0, $4)`,
+          [nextSnapshotId, input.tenantId, input.workspaceId, "e".repeat(64)],
+        );
+        await client.query(
+          `UPDATE academy_arena_league_snapshots
+              SET status = 'finalized', finalized_at = NOW()
+            WHERE id = $1::uuid`, [nextSnapshotId],
+        );
+        const insertGrant = async (snapshotId: string) => client.query(
+          `INSERT INTO academy_arena_entitlement_grants
+             (tenant_id, workspace_id, principal_id, student_id, entitlement_type,
+              source_type, source_snapshot_id, source_window_type, source_window_key,
+              source_rank, grant_days, starts_at, expires_at, policy_version,
+              evidence_sha256, evidence, cash_pool_share_bps, cash_disposition,
+              idempotency_key)
+           VALUES ($1, $2, $3::uuid::text, $3::uuid, 'arena_pro',
+                   'arena_league_snapshot', $4::uuid, 'monthly', '2026-01',
+                   1, 30, '2026-02-08T00:00:00Z', '2026-03-10T00:00:00Z',
+                   'arena-league-entitlement-v2', $5, '{}'::jsonb, 0,
+                   'not_eligible', $6)`,
+          [input.tenantId, input.workspaceId, input.studentId, snapshotId,
+            "a".repeat(64), `arena-pro:${snapshotId}:${input.studentId}`],
+        );
+        await insertGrant(input.snapshotId);
+        await client.query("SAVEPOINT duplicate_grant");
+        await assert.rejects(insertGrant(nextSnapshotId), (error: unknown) =>
+          (error as { code?: string; constraint?: string }).code === "23505"
+          && (error as { constraint?: string }).constraint ===
+            "academy_arena_entitlement_one_grant_per_window_idx");
+        await client.query("ROLLBACK TO SAVEPOINT duplicate_grant");
+      });
+    } finally {
+      client.release();
+    }
+  });
+
   it("shares the UTC daily activity cap across generic and season scores", {
     skip: !configured, timeout: 30_000,
   }, async () => {

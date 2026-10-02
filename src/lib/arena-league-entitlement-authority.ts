@@ -18,6 +18,7 @@ export const ARENA_LEAGUE_ENTITLEMENT_MAX_RANK = 10;
 
 type SnapshotRow = {
   id: string;
+  season_id: string | null;
   window_type: "monthly" | "yearly";
   window_key: string;
   version: number;
@@ -37,6 +38,7 @@ type RankingRow = {
 
 type GrantReplayRow = {
   id: string;
+  source_snapshot_id: string;
   student_id: string;
   source_rank: number;
   grant_days: number;
@@ -64,7 +66,7 @@ export type ArenaLeagueEntitlementResult = {
   windowKey: string;
   grantedCount: number;
   replayedCount: number;
-  skippedReason: "appeal_window_open" | "cohort_too_small" | "no_eligible_rankings" | null;
+  skippedReason: "appeal_window_open" | "cohort_too_small" | "no_eligible_rankings" | "superseded_snapshot" | null;
   grants: ArenaProEntitlementGrant[];
 };
 
@@ -99,6 +101,7 @@ function addDays(date: Date, days: number): string {
 }
 
 function replayMatches(row: GrantReplayRow, expected: {
+  snapshotId: string;
   studentId: string;
   rank: number;
   grantDays: number;
@@ -108,7 +111,8 @@ function replayMatches(row: GrantReplayRow, expected: {
   cashPoolShareBps: number;
   cashDisposition: string;
 }): boolean {
-  return row.student_id === expected.studentId
+  return row.source_snapshot_id === expected.snapshotId
+    && row.student_id === expected.studentId
     && Number(row.source_rank) === expected.rank
     && Number(row.grant_days) === expected.grantDays
     && new Date(row.starts_at).toISOString() === expected.startsAt
@@ -141,18 +145,48 @@ export async function grantArenaProEntitlementsForSnapshotTx(
     input.snapshotId,
   ]);
   const snapshotResult = await client.query<SnapshotRow>(
-    `SELECT id::text, window_type, window_key, version, participant_count,
+    `SELECT id::text, season_id::text, window_type, window_key, version, participant_count,
             source_digest, finalized_at
        FROM academy_arena_league_snapshots
       WHERE id = $3::uuid AND tenant_id = $1 AND workspace_id = $2
         AND status = 'finalized'
         AND window_type IN ('monthly', 'yearly')
-      LIMIT 1
-      FOR SHARE`,
+      LIMIT 1`,
     [input.tenantId, input.workspaceId, input.snapshotId],
   );
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) return null;
+  if (ACADEMY_MONTHLY_LEAGUE_AUTOMATIC_ENTITLEMENTS_ENABLED) {
+    // Serialize the version check and grant with generic snapshot finalization.
+    // A fresh READ COMMITTED statement after the lock sees the winning version.
+    const isolation = await client.query<{ isolation: string }>(
+      "SELECT current_setting('transaction_isolation') AS isolation",
+    );
+    if (isolation.rows[0]?.isolation !== "read committed") {
+      throw new Error("arena_entitlement_requires_read_committed");
+    }
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
+      `arena-ranking:${input.tenantId}:${input.workspaceId}`,
+      `${snapshot.window_type}:${snapshot.window_key}`,
+    ]);
+    const newer = await client.query<{ id: string }>(
+      `SELECT id::text FROM academy_arena_league_snapshots
+        WHERE tenant_id = $1 AND workspace_id = $2
+          AND window_type = $3 AND window_key = $4
+          AND season_id IS NOT DISTINCT FROM $5::uuid
+          AND status = 'finalized' AND version > $6
+        LIMIT 1`,
+      [input.tenantId, input.workspaceId, snapshot.window_type, snapshot.window_key,
+        snapshot.season_id, snapshot.version],
+    );
+    if (newer.rows[0]) {
+      return {
+        snapshotId: snapshot.id, windowType: snapshot.window_type,
+        windowKey: snapshot.window_key, grantedCount: 0, replayedCount: 0,
+        skippedReason: "superseded_snapshot", grants: [],
+      };
+    }
+  }
   if (Number(snapshot.participant_count) < ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT) {
     return {
       snapshotId: snapshot.id,
@@ -188,6 +222,17 @@ export async function grantArenaProEntitlementsForSnapshotTx(
       grants: [],
     };
   }
+  // A revised snapshot cannot silently issue a second set of awards for the
+  // same period. Such a correction needs a separate adjudication authority.
+  const previousVersionGrant = await client.query<{ id: string }>(
+    `SELECT id::text FROM academy_arena_entitlement_grants
+      WHERE tenant_id = $1 AND workspace_id = $2
+        AND source_window_type = $3 AND source_window_key = $4
+        AND entitlement_type = 'arena_pro' AND source_snapshot_id <> $5::uuid
+      LIMIT 1`,
+    [input.tenantId, input.workspaceId, snapshot.window_type, snapshot.window_key, snapshot.id],
+  );
+  if (previousVersionGrant.rows[0]) throw new Error("arena_entitlement_window_adjudication_required");
   const rankings = await client.query<RankingRow>(
     `SELECT student_id::text, rank, points, trade_count, rule_compliance_bps, tier
        FROM academy_arena_league_rankings
@@ -237,8 +282,8 @@ export async function grantArenaProEntitlementsForSnapshotTx(
        VALUES ($1, $2, $3, $3::uuid, 'arena_pro', 'arena_league_snapshot',
                $4::uuid, $5, $6, $7, $8, $9::timestamptz, $10::timestamptz,
                $11, $12, $13::jsonb, $14, $15, $16)
-       ON CONFLICT (tenant_id, workspace_id, idempotency_key) DO NOTHING
-       RETURNING id::text, student_id::text, source_rank, grant_days,
+       ON CONFLICT DO NOTHING
+       RETURNING id::text, source_snapshot_id::text, student_id::text, source_rank, grant_days,
                  starts_at, expires_at, policy_version, evidence_sha256,
                  cash_pool_share_bps, cash_disposition`,
       [input.tenantId, input.workspaceId, ranking.student_id, snapshot.id,
@@ -288,17 +333,21 @@ export async function grantArenaProEntitlementsForSnapshotTx(
       continue;
     }
     const existing = await client.query<GrantReplayRow>(
-      `SELECT id::text, student_id::text, source_rank, grant_days, starts_at,
+      `SELECT id::text, source_snapshot_id::text, student_id::text, source_rank, grant_days, starts_at,
               expires_at, policy_version, evidence_sha256, cash_pool_share_bps,
               cash_disposition
          FROM academy_arena_entitlement_grants
-        WHERE tenant_id = $1 AND workspace_id = $2 AND idempotency_key = $3
+        WHERE tenant_id = $1 AND workspace_id = $2
+          AND student_id = $3::uuid AND entitlement_type = 'arena_pro'
+          AND source_window_type = $4 AND source_window_key = $5
         FOR SHARE`,
-      [input.tenantId, input.workspaceId, idempotencyKey],
+      [input.tenantId, input.workspaceId, ranking.student_id,
+        snapshot.window_type, snapshot.window_key],
     );
     const replay = existing.rows[0];
     if (!replay) throw new Error("arena_entitlement_replay_missing");
     if (!replayMatches(replay, {
+      snapshotId: snapshot.id,
       studentId: ranking.student_id,
       rank: Number(ranking.rank),
       grantDays: proposal.arenaProDays,
@@ -375,6 +424,25 @@ export async function grantDueArenaProEntitlementsTx(
         AND window_type IN ('monthly', 'yearly')
         AND participant_count >= $4
         AND finalized_at + ($2::integer * INTERVAL '1 day') <= $3::timestamptz
+        AND NOT EXISTS (
+          SELECT 1 FROM academy_arena_league_snapshots newer
+           WHERE newer.tenant_id = academy_arena_league_snapshots.tenant_id
+             AND newer.workspace_id = academy_arena_league_snapshots.workspace_id
+             AND newer.window_type = academy_arena_league_snapshots.window_type
+             AND newer.window_key = academy_arena_league_snapshots.window_key
+             AND newer.season_id IS NOT DISTINCT FROM academy_arena_league_snapshots.season_id
+             AND newer.status = 'finalized'
+             AND newer.version > academy_arena_league_snapshots.version
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM academy_arena_entitlement_grants prior
+           WHERE prior.tenant_id = academy_arena_league_snapshots.tenant_id
+             AND prior.workspace_id = academy_arena_league_snapshots.workspace_id
+             AND prior.source_window_type = academy_arena_league_snapshots.window_type
+             AND prior.source_window_key = academy_arena_league_snapshots.window_key
+             AND prior.entitlement_type = 'arena_pro'
+             AND prior.source_snapshot_id <> academy_arena_league_snapshots.id
+        )
         AND EXISTS (
           SELECT 1
             FROM academy_arena_league_rankings ranking
@@ -387,7 +455,10 @@ export async function grantDueArenaProEntitlementsTx(
                  FROM academy_arena_entitlement_grants grant_row
                 WHERE grant_row.tenant_id = academy_arena_league_snapshots.tenant_id
                   AND grant_row.workspace_id = academy_arena_league_snapshots.workspace_id
-                  AND grant_row.idempotency_key = 'arena-pro:' || academy_arena_league_snapshots.id::text || ':' || ranking.student_id::text
+                 AND grant_row.student_id = ranking.student_id
+                 AND grant_row.entitlement_type = 'arena_pro'
+                 AND grant_row.source_window_type = academy_arena_league_snapshots.window_type
+                 AND grant_row.source_window_key = academy_arena_league_snapshots.window_key
              )
         )
       ORDER BY finalized_at DESC, id DESC

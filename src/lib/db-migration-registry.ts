@@ -96,6 +96,10 @@ import {
   ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_SQL,
   runArenaLeagueGenericRankingVersionsMigrations,
 } from "./db-migrate-arena-league-generic-ranking-versions";
+import {
+  ARENA_ENTITLEMENT_WINDOW_IDENTITY_SQL,
+  runArenaEntitlementWindowIdentityMigrations,
+} from "./db-migrate-arena-entitlement-window-identity";
 import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
 import { runAcademyV3MissionEvidenceMigrations } from "./db-migrate-academy-v3-mission-evidence";
 import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
@@ -356,6 +360,15 @@ const ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_MIGRATION: CanonicalMigrationContent
     compatibleHistoricalChecksums: Object.freeze([]),
   });
 
+const ARENA_ENTITLEMENT_WINDOW_IDENTITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0126_arena_entitlement_window_identity.sql",
+    content: ARENA_ENTITLEMENT_WINDOW_IDENTITY_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_ENTITLEMENT_WINDOW_IDENTITY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
   entry(2, "migration-step-002", CANONICAL_MIGRATION_CONTENT.compatibility, "academy-platform", "academy", runCompatibilityMigrations),
@@ -570,6 +583,14 @@ export const DATABASE_MIGRATION_REGISTRY = [
     "academy-platform",
     "arena",
     runArenaLeagueGenericRankingVersionsMigrations,
+  ),
+  entry(
+    110,
+    "migration-step-110",
+    [ARENA_ENTITLEMENT_WINDOW_IDENTITY_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaEntitlementWindowIdentityMigrations,
   ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
