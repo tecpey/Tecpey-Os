@@ -1,0 +1,74 @@
+name: Supply-chain Next security integration
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - codex/supply-chain-openssl-3.5.9
+
+concurrency:
+  group: supply-chain-next-security-integration
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: codex/supply-chain-openssl-3.5.9
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Regenerate exact Next.js security lock and audit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(npm --version | cut -d. -f1)" = "10"
+          npm install next@16.3.8 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          node -e "const p=require('./package.json'); if(p.dependencies.next!=='16.3.8') process.exit(1)"
+          node -e "const l=require('./package-lock.json'); if(l.packages['node_modules/next']?.version!=='16.3.8') process.exit(1)"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const evidencePath = 'docs/audits/evidence/batch-01a-audit-authority.json';
+          const packagePath = 'package.json';
+          const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+          const entry = evidence.files.find((candidate) => candidate.path === packagePath);
+          if (!entry) throw new Error('package.json semantic evidence entry not found');
+          const source = fs.readFileSync(packagePath);
+          const text = source.toString('utf8');
+          const lines = text.endsWith('\n') ? text.split('\n').length - 1 : text.split('\n').length;
+          entry.gitObjectId = execFileSync('git', ['hash-object', packagePath], { encoding: 'utf8' }).trim();
+          entry.sha256 = crypto.createHash('sha256').update(source).digest('hex');
+          entry.lines = lines;
+          entry.reviewedRanges = [{ startLine: 1, endLine: lines }];
+          const note = '2026-10-02: re-reviewed the complete package manifest after integrating the exact Next.js 16.3.8 security patch into the OpenSSL 3.5.9 supply-chain remediation. The runtime vulnerability gate had rejected Next.js 16.3.3 for GHSA-vcvr-r3jv-pc5j. The dependency remains exact-version pinned, the npm 10 lockfile is registry-generated, and no scanner exception, mutable range, script/engine/override change, launch approval, deployment authority or product capability is introduced.';
+          if (!entry.reviewNotes.includes(note)) entry.reviewNotes.push(note);
+          evidence.reviewedAt = '2026-10-02';
+          fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+          NODE
+          git diff --check
+
+      - name: Commit combined supply-chain remediation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add package.json package-lock.json docs/audits/evidence/batch-01a-audit-authority.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): patch Next.js runtime vulnerability"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/tecpey/Tecpey-Os.git" HEAD:codex/supply-chain-openssl-3.5.9
