@@ -162,6 +162,23 @@
       "findings": []
     },
     {
+      "path": "scripts/check-container-rollback-artifact.mjs",
+      "gitObjectId": "136d9c7e849a1d6bb69fb19cf7f4802751f8dc27",
+      "sha256": "957b82597e4463531d0e92fd7ea00a7ce8a246051b795273844d080c602b1e60",
+      "lines": 62,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 62
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed."
+      ],
+      "findings": []
+    },
+    {
       "path": "scripts/production-host-supply-chain-policy.mjs",
       "gitObjectId": "5bd0b0a009f11f10171b07da7795a2839632ab0a",
       "sha256": "7159f7d1e82767538bae586c3714c72afc11446d97e50d620c1677a821408702",
@@ -179,23 +196,6 @@
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.9-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
         "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
         "2026-10-02: re-reviewed the complete 615-line policy after rotating only the exact Alpine OpenSSL runtime package authority from 3.5.8-r0 to 3.5.9-r0. The digest-pinned Node 22 Alpine base, single apk mutation invariant, exact-version requirement, hardened-stage inheritance, non-root runtime, vulnerability gate, recovery dependency and deployment boundaries are unchanged; mutable or unpinned package installation remains rejected."
-      ],
-      "findings": []
-    },
-    {
-      "path": "scripts/check-container-rollback-artifact.mjs",
-      "gitObjectId": "136d9c7e849a1d6bb69fb19cf7f4802751f8dc27",
-      "sha256": "957b82597e4463531d0e92fd7ea00a7ce8a246051b795273844d080c602b1e60",
-      "lines": 62,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 62
-        }
-      ],
-      "findingDisposition": "no-confirmed-findings",
-      "reviewNotes": [
-        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed."
       ],
       "findings": []
     }
