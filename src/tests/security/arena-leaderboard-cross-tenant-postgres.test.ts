@@ -194,7 +194,8 @@ describe("Arena leaderboard cross-tenant PostgreSQL authority", () => {
         assert.equal(updatedBoard?.snapshotVersion, nextSnapshot.version);
         assert.equal(updatedBoard?.entries[0]?.points, 50);
         await client.query(
-          `UPDATE academy_public_profiles SET leaderboard_visible = FALSE
+          `UPDATE academy_public_profiles
+              SET leaderboard_visible = FALSE, revision = revision + 1, updated_at = NOW()
             WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid`,
           [tenantA, workspaceA, studentId],
         );
