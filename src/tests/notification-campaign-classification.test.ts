@@ -62,6 +62,7 @@ function policyInput(notificationClass: "marketing_campaign" | "product_support"
       digestEnabled: true,
       duplicateSeen: false,
       recentCategoryDeliveries: 0,
+      pendingCategoryReservations: 0,
       categoryFrequencyCap: null,
     },
   };

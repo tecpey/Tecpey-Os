@@ -36,6 +36,7 @@ function validInput(): NotificationPolicyInput {
       digestEnabled: true,
       duplicateSeen: false,
       recentCategoryDeliveries: 0,
+      pendingCategoryReservations: 0,
       categoryFrequencyCap: 5,
     },
   };
