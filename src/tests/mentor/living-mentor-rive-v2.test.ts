@@ -21,12 +21,34 @@ const schemaPath = path.join(
   "docs/mentor/schemas/tecpey-mentor-rive-viewmodel.v2.schema.json",
 );
 
+type ConditionalRule = {
+  if?: {
+    properties?: Record<string, { const?: unknown }>;
+    required?: string[];
+  };
+  then?: {
+    properties?: Record<string, Record<string, unknown>>;
+  };
+};
+
 async function schema() {
   return JSON.parse(await readFile(schemaPath, "utf8")) as {
     properties: Record<string, { const?: string; enum?: string[] }>;
     required: string[];
     additionalProperties: boolean;
+    allOf: ConditionalRule[];
   };
+}
+
+function conditionalConstraint(
+  document: Awaited<ReturnType<typeof schema>>,
+  sourceField: string,
+  sourceValue: unknown,
+  targetField: string,
+) {
+  return document.allOf.find(
+    (rule) => rule.if?.properties?.[sourceField]?.const === sourceValue,
+  )?.then?.properties?.[targetField];
 }
 
 test("v2 exposes at least twenty governed semantic states with exact schema parity", async () => {
@@ -113,6 +135,30 @@ test("projection clamps bounded values, strips control characters and honors red
   assert.equal(model.highContrast, true);
 });
 
+test("display-name permission requires the literal boolean true", () => {
+  for (const allowsUserName of ["true", "false", 1, 0, {}, []]) {
+    const model = projectLivingMentorRiveV2ViewModel({
+      state: "greeting",
+      allowsUserName,
+      userName: "Private User",
+    } as unknown as LivingMentorRiveV2HostInput);
+    assert.equal(model.userName, "");
+    assert.equal(model.userNameVisible, false);
+  }
+});
+
+test("malformed reduced-motion input fails safe by suppressing non-essential motion", () => {
+  for (const reducedMotion of ["false", "true", 0, 1, null, {}]) {
+    const model = projectLivingMentorRiveV2ViewModel({
+      state: "thinking",
+      reducedMotion,
+      motionIntensity: 1,
+    } as unknown as LivingMentorRiveV2HostInput);
+    assert.equal(model.reducedMotion, true);
+    assert.equal(model.motionIntensity, 0);
+  }
+});
+
 test("malformed runtime values fail closed instead of becoming renderer truth", () => {
   const malformed = {
     state: "invented_state",
@@ -126,6 +172,7 @@ test("malformed runtime values fail closed instead of becoming renderer truth", 
     locale: "not a locale !!!",
     direction: "sideways",
     reducedMotion: false,
+    highContrast: "yes",
     motionIntensity: 20,
   } as unknown as LivingMentorRiveV2HostInput;
   const model = projectLivingMentorRiveV2ViewModel(malformed);
@@ -137,7 +184,32 @@ test("malformed runtime values fail closed instead of becoming renderer truth", 
   assert.equal(model.roomKnown, false);
   assert.equal(model.locale, "fa");
   assert.equal(model.direction, "rtl");
+  assert.equal(model.highContrast, false);
   assert.equal(model.motionIntensity, 1);
+});
+
+test("schema encodes renderer invariants instead of allowing contradictory payloads", async () => {
+  const document = await schema();
+  assert.deepEqual(
+    conditionalConstraint(document, "userNameVisible", false, "userName"),
+    { const: "" },
+  );
+  assert.deepEqual(
+    conditionalConstraint(document, "userNameVisible", true, "userName"),
+    { minLength: 1 },
+  );
+  assert.deepEqual(
+    conditionalConstraint(document, "streakKnown", false, "streakDays"),
+    { const: 0 },
+  );
+  assert.deepEqual(
+    conditionalConstraint(document, "roomKnown", false, "roomLevel"),
+    { const: 0 },
+  );
+  assert.deepEqual(
+    conditionalConstraint(document, "reducedMotion", true, "motionIntensity"),
+    { const: 0 },
+  );
 });
 
 test("schema contains only the approved renderer-facing property set", async () => {

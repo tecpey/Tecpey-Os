@@ -302,6 +302,10 @@ function normalizeSafetyOverride(value: unknown): LivingMentorRiveV2SafetyOverri
   return isAllowedString(value, SAFETY_OVERRIDES) ? value : "runtime_error";
 }
 
+function normalizeReducedMotion(value: unknown): boolean {
+  return value === undefined || value === false ? false : true;
+}
+
 export function reduceLivingMentorRiveV2State(
   _previous: LivingMentorRiveV2State,
   event: LivingMentorRiveV2Event,
@@ -336,17 +340,18 @@ export function projectLivingMentorRiveV2ViewModel(
     normalizeState(input.state),
     normalizeSafetyOverride(input.safetyOverride ?? "none"),
   );
-  const reducedMotion = Boolean(input.reducedMotion);
+  const allowsUserName = input.allowsUserName === true;
+  const reducedMotion = normalizeReducedMotion(input.reducedMotion);
   const streak = boundedInteger(input.streakDays, 0, 3650);
   const room = boundedInteger(input.roomLevel, 0, 5);
-  const userName = input.allowsUserName ? safeUserName(input.userName) : "";
+  const userName = allowsUserName ? safeUserName(input.userName) : "";
   const locale = normalizeLocale(input.locale);
 
   return Object.freeze({
     contractVersion: LIVING_MENTOR_RIVE_V2_CONTRACT_VERSION,
     state,
     userName,
-    userNameVisible: Boolean(input.allowsUserName && userName),
+    userNameVisible: allowsUserName && userName.length > 0,
     streakDays: streak ?? 0,
     streakKnown: streak !== null,
     mood: isAllowedString(input.mood, LIVING_MENTOR_RIVE_V2_MOODS)
@@ -360,7 +365,7 @@ export function projectLivingMentorRiveV2ViewModel(
     locale,
     direction: normalizeDirection(input.direction, locale),
     reducedMotion,
-    highContrast: Boolean(input.highContrast),
+    highContrast: input.highContrast === true,
     motionIntensity: reducedMotion
       ? 0
       : boundedNumber(input.motionIntensity, 0, 1),

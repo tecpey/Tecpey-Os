@@ -83,12 +83,28 @@ test("required v2 product fields are present without sensitive raw-data bindings
   }
 });
 
+test("schema preserves privacy, unknown-value and reduced-motion invariants", async () => {
+  const { schema } = await fixture();
+  const encoded = JSON.stringify(schema.allOf);
+  assert.match(encoded, /"userNameVisible":\{"const":false\}/);
+  assert.match(encoded, /"userName":\{"const":""\}/);
+  assert.match(encoded, /"userNameVisible":\{"const":true\}/);
+  assert.match(encoded, /"userName":\{"minLength":1\}/);
+  assert.match(encoded, /"streakKnown":\{"const":false\}/);
+  assert.match(encoded, /"streakDays":\{"const":0\}/);
+  assert.match(encoded, /"roomKnown":\{"const":false\}/);
+  assert.match(encoded, /"roomLevel":\{"const":0\}/);
+  assert.match(encoded, /"reducedMotion":\{"const":true\}/);
+  assert.match(encoded, /"motionIntensity":\{"const":0\}/);
+});
+
 test("host source contains fail-closed runtime and reduced-motion guards", async () => {
   const { source } = await fixture();
   assert.match(source, /normalizeState[\s\S]*runtime_error/);
   assert.match(source, /normalizeSafetyOverride[\s\S]*runtime_error/);
+  assert.match(source, /input\.allowsUserName === true/);
+  assert.match(source, /normalizeReducedMotion\(input\.reducedMotion\)/);
   assert.match(source, /reducedMotion[\s\S]*motionIntensity[\s\S]*\? 0/);
-  assert.match(source, /allowsUserName[\s\S]*safeUserName/);
   assert.match(source, /streakKnown/);
   assert.match(source, /roomKnown/);
 });

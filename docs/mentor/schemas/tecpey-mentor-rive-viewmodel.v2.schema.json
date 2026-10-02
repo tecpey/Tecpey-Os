@@ -76,5 +76,42 @@
     "reducedMotion": { "type": "boolean" },
     "highContrast": { "type": "boolean" },
     "motionIntensity": { "type": "number", "minimum": 0, "maximum": 1 }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "userNameVisible": { "const": false } },
+        "required": ["userNameVisible"]
+      },
+      "then": { "properties": { "userName": { "const": "" } } }
+    },
+    {
+      "if": {
+        "properties": { "userNameVisible": { "const": true } },
+        "required": ["userNameVisible"]
+      },
+      "then": { "properties": { "userName": { "minLength": 1 } } }
+    },
+    {
+      "if": {
+        "properties": { "streakKnown": { "const": false } },
+        "required": ["streakKnown"]
+      },
+      "then": { "properties": { "streakDays": { "const": 0 } } }
+    },
+    {
+      "if": {
+        "properties": { "roomKnown": { "const": false } },
+        "required": ["roomKnown"]
+      },
+      "then": { "properties": { "roomLevel": { "const": 0 } } }
+    },
+    {
+      "if": {
+        "properties": { "reducedMotion": { "const": true } },
+        "required": ["reducedMotion"]
+      },
+      "then": { "properties": { "motionIntensity": { "const": 0 } } }
+    }
+  ]
 }
