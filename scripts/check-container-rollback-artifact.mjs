@@ -33,6 +33,8 @@ if (!recovery) failures.push("container workflow must define recovery job");
 
 for (const [token, message] of [
   ["packages: read", "recovery job must have read-only package-registry access"],
+  ["attestations: read", "recovery job must have read-only attestation access"],
+  ["GH_TOKEN: ${{ github.token }}", "rollback verification must use the scoped workflow token"],
   ["docker/login-action@dbcb813823bdd20940b903addbd779551569679f", "GHCR authentication action must remain commit-pinned"],
   ['previous_tag="ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA"', "previous image must be selected by exact base commit SHA"],
   ['docker pull "$previous_tag"', "recovery must pull the published previous image"],
