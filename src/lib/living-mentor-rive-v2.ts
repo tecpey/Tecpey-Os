@@ -245,6 +245,9 @@ const RTL_LANGUAGES = new Set([
   "yi",
 ]);
 
+const BIDI_CONTROL_PATTERN = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+const BASIC_CONTROL_PATTERN = /[\u0000-\u001F\u007F]/g;
+
 function isAllowedString<const T extends readonly string[]>(
   value: unknown,
   allowed: T,
@@ -282,7 +285,11 @@ function normalizeDirection(
 
 function safeUserName(userName: unknown): string {
   if (typeof userName !== "string") return "";
-  return userName.replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 48);
+  const sanitized = userName
+    .replace(BASIC_CONTROL_PATTERN, "")
+    .replace(BIDI_CONTROL_PATTERN, "")
+    .trim();
+  return [...sanitized].slice(0, 48).join("");
 }
 
 function normalizeState(value: unknown): LivingMentorRiveV2State {
