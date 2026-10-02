@@ -234,6 +234,10 @@ describe("Arena league finalization PostgreSQL boundary", () => {
     try {
       await transaction(client, async () => {
         await scope(client, input);
+        await enrollArenaLeagueSeasonTx(client,
+          { tenantId: input.tenantId, workspaceId: input.workspaceId },
+          { seasonId: input.seasonId, studentId: input.studentId,
+            enrolledAt: "2026-01-01T12:00:00.000Z" });
         for (const time of ["09:00", "10:00", "11:00"]) {
           await insertGenericScore(client, input, `2026-01-02T${time}:00.000Z`);
         }
