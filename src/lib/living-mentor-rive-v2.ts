@@ -6,9 +6,8 @@ import {
 export const LIVING_MENTOR_RIVE_V2_CONTRACT_VERSION = "2.0.0" as const;
 
 /**
- * Host-owned semantic presentation states. These are intentionally product
- * states rather than animation names: the renderer may change without changing
- * the authority that selected the state.
+ * Product-semantic states owned by the host. They intentionally describe
+ * meaning, not animation clips, so the renderer can evolve independently.
  */
 export const LIVING_MENTOR_RIVE_V2_STATES = [
   "idle",
@@ -121,71 +120,73 @@ const SAFETY_OVERRIDES = [
   "runtime_error",
 ] as const satisfies readonly LivingMentorRiveV2SafetyOverride[];
 
-const EVENT_STATE: Readonly<Record<LivingMentorRiveV2Event, LivingMentorRiveV2State>> =
-  Object.freeze({
-    session_started: "greeting",
-    user_composing: "listening",
-    request_started: "thinking",
-    response_streaming: "explaining",
-    response_completed: "next_step",
-    learning_focus_requested: "learning_focus",
-    quiz_ready: "quiz_ready",
-    review_due: "review_due",
-    flashcards_due: "flashcards_due",
-    lesson_completed: "lesson_complete",
-    effort_milestone: "effort_acknowledged",
-    milestone_completed: "milestone_celebration",
-    retry_needed: "retry_encouragement",
-    reflection_due: "reflection_pause",
-    research_available: "research_ready",
-    research_started: "researching",
-    sources_checking: "source_checking",
-    research_failed: "research_unavailable",
-    arena_available: "arena_ready",
-    arena_coaching_started: "arena_coaching",
-    arena_reflection_due: "arena_reflection",
-    arena_cooldown_started: "arena_cooldown",
-    risk_review_required: "risk_caution",
-    privacy_boundary_reached: "privacy_notice",
-    consent_required: "consent_required",
-    data_became_stale: "data_stale",
-    data_unavailable: "data_unavailable",
-    runtime_failed: "runtime_error",
-    reset: "idle",
-  });
+const EVENT_STATE: Readonly<
+  Record<LivingMentorRiveV2Event, LivingMentorRiveV2State>
+> = Object.freeze({
+  session_started: "greeting",
+  user_composing: "listening",
+  request_started: "thinking",
+  response_streaming: "explaining",
+  response_completed: "next_step",
+  learning_focus_requested: "learning_focus",
+  quiz_ready: "quiz_ready",
+  review_due: "review_due",
+  flashcards_due: "flashcards_due",
+  lesson_completed: "lesson_complete",
+  effort_milestone: "effort_acknowledged",
+  milestone_completed: "milestone_celebration",
+  retry_needed: "retry_encouragement",
+  reflection_due: "reflection_pause",
+  research_available: "research_ready",
+  research_started: "researching",
+  sources_checking: "source_checking",
+  research_failed: "research_unavailable",
+  arena_available: "arena_ready",
+  arena_coaching_started: "arena_coaching",
+  arena_reflection_due: "arena_reflection",
+  arena_cooldown_started: "arena_cooldown",
+  risk_review_required: "risk_caution",
+  privacy_boundary_reached: "privacy_notice",
+  consent_required: "consent_required",
+  data_became_stale: "data_stale",
+  data_unavailable: "data_unavailable",
+  runtime_failed: "runtime_error",
+  reset: "idle",
+});
 
-const V2_STATE_TO_V1_ACT: Readonly<Record<LivingMentorRiveV2State, LivingMentorAct>> =
-  Object.freeze({
-    idle: "idle_attentive",
-    greeting: "greet",
-    listening: "listen",
-    thinking: "think",
-    explaining: "explain",
-    next_step: "invite_next_step",
-    learning_focus: "listen",
-    quiz_ready: "invite_next_step",
-    review_due: "pause_reflect",
-    flashcards_due: "pause_reflect",
-    lesson_complete: "celebrate_effort",
-    effort_acknowledged: "celebrate_effort",
-    milestone_celebration: "celebrate_effort",
-    retry_encouragement: "encourage_retry",
-    reflection_pause: "pause_reflect",
-    research_ready: "invite_next_step",
-    researching: "think",
-    source_checking: "think",
-    research_unavailable: "data_unavailable",
-    arena_ready: "invite_next_step",
-    arena_coaching: "explain",
-    arena_reflection: "pause_reflect",
-    arena_cooldown: "pause_reflect",
-    risk_caution: "risk_caution",
-    privacy_notice: "privacy_notice",
-    consent_required: "privacy_notice",
-    data_stale: "data_unavailable",
-    data_unavailable: "data_unavailable",
-    runtime_error: "error_recover",
-  });
+const V2_STATE_TO_V1_ACT: Readonly<
+  Record<LivingMentorRiveV2State, LivingMentorAct>
+> = Object.freeze({
+  idle: "idle_attentive",
+  greeting: "greet",
+  listening: "listen",
+  thinking: "think",
+  explaining: "explain",
+  next_step: "invite_next_step",
+  learning_focus: "listen",
+  quiz_ready: "invite_next_step",
+  review_due: "pause_reflect",
+  flashcards_due: "pause_reflect",
+  lesson_complete: "celebrate_effort",
+  effort_acknowledged: "celebrate_effort",
+  milestone_celebration: "celebrate_effort",
+  retry_encouragement: "encourage_retry",
+  reflection_pause: "pause_reflect",
+  research_ready: "invite_next_step",
+  researching: "think",
+  source_checking: "think",
+  research_unavailable: "data_unavailable",
+  arena_ready: "invite_next_step",
+  arena_coaching: "explain",
+  arena_reflection: "pause_reflect",
+  arena_cooldown: "pause_reflect",
+  risk_caution: "risk_caution",
+  privacy_notice: "privacy_notice",
+  consent_required: "privacy_notice",
+  data_stale: "data_unavailable",
+  data_unavailable: "data_unavailable",
+  runtime_error: "error_recover",
+});
 
 export type LivingMentorRiveV2HostInput = Readonly<{
   state: LivingMentorRiveV2State;
@@ -230,6 +231,20 @@ const SAFETY_STATES = new Set<LivingMentorRiveV2State>([
   "runtime_error",
 ]);
 
+const RTL_LANGUAGES = new Set([
+  "ar",
+  "ckb",
+  "dv",
+  "fa",
+  "he",
+  "ku",
+  "ps",
+  "sd",
+  "ug",
+  "ur",
+  "yi",
+]);
+
 function isAllowedString<const T extends readonly string[]>(
   value: unknown,
   allowed: T,
@@ -250,9 +265,19 @@ function boundedNumber(value: unknown, minimum: number, maximum: number) {
 function normalizeLocale(locale: unknown): string {
   if (typeof locale !== "string") return "fa";
   const normalized = locale.trim();
-  return /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(normalized)
+  return normalized.length <= 35 &&
+    /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(normalized)
     ? normalized
     : "fa";
+}
+
+function normalizeDirection(
+  direction: unknown,
+  locale: string,
+): LivingMentorRiveV2Direction {
+  if (direction === "rtl" || direction === "ltr") return direction;
+  const language = locale.split("-")[0]?.toLowerCase() ?? "fa";
+  return RTL_LANGUAGES.has(language) ? "rtl" : "ltr";
 }
 
 function safeUserName(userName: unknown): string {
@@ -308,6 +333,7 @@ export function projectLivingMentorRiveV2ViewModel(
   const streak = boundedInteger(input.streakDays, 0, 3650);
   const room = boundedInteger(input.roomLevel, 0, 5);
   const userName = input.allowsUserName ? safeUserName(input.userName) : "";
+  const locale = normalizeLocale(input.locale);
 
   return Object.freeze({
     contractVersion: LIVING_MENTOR_RIVE_V2_CONTRACT_VERSION,
@@ -324,8 +350,8 @@ export function projectLivingMentorRiveV2ViewModel(
       : "unknown",
     roomLevel: room ?? 0,
     roomKnown: room !== null,
-    locale: normalizeLocale(input.locale),
-    direction: input.direction === "ltr" ? "ltr" : "rtl",
+    locale,
+    direction: normalizeDirection(input.direction, locale),
     reducedMotion,
     highContrast: Boolean(input.highContrast),
     motionIntensity: reducedMotion
@@ -340,11 +366,12 @@ export function isLivingMentorRiveV2SafetyState(
   return SAFETY_STATES.has(state);
 }
 
-/** Exact compatibility proof for migration: every v2 state must downgrade to a v1 act. */
+/** Exact migration proof: every v2 state must downgrade to an existing v1 act. */
 export function hasCompleteLivingMentorV1Compatibility(): boolean {
   return (
     LIVING_MENTOR_RIVE_V2_STATES.every((state) =>
       LIVING_MENTOR_ACTS.includes(V2_STATE_TO_V1_ACT[state]),
-    ) && Object.keys(V2_STATE_TO_V1_ACT).length === LIVING_MENTOR_RIVE_V2_STATES.length
+    ) &&
+    Object.keys(V2_STATE_TO_V1_ACT).length === LIVING_MENTOR_RIVE_V2_STATES.length
   );
 }
