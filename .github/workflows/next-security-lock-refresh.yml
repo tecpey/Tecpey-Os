@@ -1,0 +1,59 @@
+name: Next security lockfile refresh
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - codex/next-16.3.8-security
+
+concurrency:
+  group: next-security-lock-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: codex/next-16.3.8-security
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Verify npm major
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(npm --version | cut -d. -f1)" = "10"
+
+      - name: Regenerate exact dependency lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install next@16.3.8 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          node -e "const p=require('./package.json'); if(p.dependencies.next!=='16.3.8') process.exit(1)"
+          node -e "const l=require('./package-lock.json'); if(l.packages['node_modules/next']?.version!=='16.3.8') process.exit(1)"
+          git diff --check
+
+      - name: Commit generated lockfile and retire one-shot workflow
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/next-security-lock-refresh.yml
+          git add package.json package-lock.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): upgrade Next.js to 16.3.8"
+          git -c http.extraheader="AUTHORIZATION: bearer ${GITHUB_TOKEN}" push origin HEAD:codex/next-16.3.8-security
