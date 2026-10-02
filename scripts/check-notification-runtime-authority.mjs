@@ -60,6 +60,9 @@ requireText("creation", 'audienceScope: "principal" as const', "Phase 2 creation
 requireText("creation", 'dispatchMode: "event" as const', "campaign and broadcast creation must remain disabled");
 requireText("creation", "evaluateNotificationPolicy", "every creation must pass deterministic policy");
 requireText("creation", "pg_advisory_xact_lock", "correlation replay must be serialized");
+requireText("creation", "notification-budget:", "optional fatigue admission must use a tenant/principal/class budget lock");
+requireText("creation", 'const fatigueLockOrder =', "fatigue lock ordering must remain explicit and auditable");
+requireText("creation", '["budget", "correlation"]', "optional admission must lock the budget before the correlation key");
 requireText("creation", "notification_correlation_payload_conflict", "changed payloads may not reuse correlation keys");
 requireText("creation", "INSERT INTO platform_notifications", "allowed decisions must create the durable inbox record");
 requireText("creation", "INSERT INTO notification_outbox", "allowed decisions must create the delivery outbox atomically");
@@ -70,8 +73,12 @@ requireText("creation", 'effectiveReason = "expired"', "expiry-based schedule su
 requireText("creation", "includes(effectiveDecision)", "only the effective policy decision may create notification and outbox rows");
 requireText("creation", "INSERT INTO notification_intents", "every policy decision must be recorded immutably");
 requireText("creation", "policy_snapshot", "policy facts must be auditable");
-requireText("creation", "AND n.delivered_at IS NOT NULL", "fatigue and frequency policy must count delivered notifications only");
-requireText("creation", "n.delivered_at >=", "delivery time—not creation time—must define the rolling fatigue window");
+requireText("creation", "AND n.delivered_at IS NOT NULL", "historical fatigue consumption must count accepted deliveries");
+requireText("creation", "n.delivered_at >=", "delivery time—not creation time—must define the rolling historical fatigue window");
+requireText("creation", "AND n.delivered_at IS NULL", "undelivered optional work must be eligible for temporary budget reservation");
+requireText("creation", "o.status IN ('pending', 'processing', 'failed_retryable')", "only active retryable outbox work may reserve optional fatigue budget");
+requireText("creation", "recentCategoryDeliveries", "delivered fatigue history must remain an explicit policy fact");
+requireText("creation", "pendingCategoryReservations", "pending fatigue reservations must remain an explicit policy fact");
 rejectText("creation", "web_push", "external channels must not be enabled in the Phase 2 creation service");
 rejectText("creation", "mobile_push", "external channels must not be enabled in the Phase 2 creation service");
 rejectText("creation", "marketing_campaign", "marketing campaign creation must remain outside the pilot service");
@@ -104,4 +111,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification runtime authority check passed: CI/release governance, policy creation, expiry-safe scheduling, immutable intent, delivered-only projection, database-timed immediate availability, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
+console.log("Notification runtime authority check passed: CI/release governance, policy creation, expiry-safe scheduling, immutable intent, delivered inbox projection, concurrency-safe fatigue reservations, database-timed immediate availability, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
