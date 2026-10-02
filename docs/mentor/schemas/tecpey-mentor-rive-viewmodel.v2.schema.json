@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tecpey:mentor:rive-viewmodel:2",
+  "title": "TecPey Mentor Rive ViewModel v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "state",
+    "userName",
+    "userNameVisible",
+    "streakDays",
+    "streakKnown",
+    "mood",
+    "riskLevel",
+    "roomLevel",
+    "roomKnown",
+    "locale",
+    "direction",
+    "reducedMotion",
+    "highContrast",
+    "motionIntensity"
+  ],
+  "properties": {
+    "contractVersion": { "const": "2.0.0" },
+    "state": {
+      "enum": [
+        "idle",
+        "greeting",
+        "listening",
+        "thinking",
+        "explaining",
+        "next_step",
+        "learning_focus",
+        "quiz_ready",
+        "review_due",
+        "flashcards_due",
+        "lesson_complete",
+        "effort_acknowledged",
+        "milestone_celebration",
+        "retry_encouragement",
+        "reflection_pause",
+        "research_ready",
+        "researching",
+        "source_checking",
+        "research_unavailable",
+        "arena_ready",
+        "arena_coaching",
+        "arena_reflection",
+        "arena_cooldown",
+        "risk_caution",
+        "privacy_notice",
+        "consent_required",
+        "data_stale",
+        "data_unavailable",
+        "runtime_error"
+      ]
+    },
+    "userName": { "type": "string", "maxLength": 48 },
+    "userNameVisible": { "type": "boolean" },
+    "streakDays": { "type": "integer", "minimum": 0, "maximum": 3650 },
+    "streakKnown": { "type": "boolean" },
+    "mood": {
+      "enum": ["unknown", "ready", "curious", "frustrated", "anxious", "energized"]
+    },
+    "riskLevel": { "enum": ["unknown", "low", "moderate", "high"] },
+    "roomLevel": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "roomKnown": { "type": "boolean" },
+    "locale": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$"
+    },
+    "direction": { "enum": ["rtl", "ltr"] },
+    "reducedMotion": { "type": "boolean" },
+    "highContrast": { "type": "boolean" },
+    "motionIntensity": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
