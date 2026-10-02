@@ -1,0 +1,146 @@
+name: Rollback immutable-image migration
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - codex/supply-chain-openssl-3.5.9
+
+concurrency:
+  group: rollback-immutable-image-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: codex/supply-chain-openssl-3.5.9
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Migrate recovery authority to immutable previous image
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+
+          const workflowPath = '.github/workflows/container-supply-chain.yml';
+          let workflow = fs.readFileSync(workflowPath, 'utf8');
+
+          const jobHeader = `  recovery:\n    name: Ephemeral staging rollback and volume restore\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n`;
+          if (!workflow.includes(jobHeader)) throw new Error('recovery job header not found');
+          workflow = workflow.replace(
+            jobHeader,
+            `${jobHeader}    permissions:\n      contents: read\n      packages: read\n`,
+          );
+
+          const oldBlock = `      - name: Checkout exact previous release\n        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1\n        with:\n          ref: \${{ github.event.pull_request.base.sha || github.event.before }}\n          path: previous-release\n          persist-credentials: false\n\n      - name: Build and deploy exact previous release image\n        env:\n          CANDIDATE_SHA: \${{ github.event.pull_request.head.sha || github.sha }}\n          PREVIOUS_SHA: \${{ github.event.pull_request.base.sha || github.event.before }}\n        run: |\n          test "$(git -C previous-release rev-parse HEAD)" = "$PREVIOUS_SHA"\n          docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA" --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release\n          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"\n`;
+          const newBlock = `      - name: Authenticate to GHCR for rollback artifact\n        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0\n        with:\n          registry: ghcr.io\n          username: \${{ github.actor }}\n          password: \${{ secrets.GITHUB_TOKEN }}\n\n      - name: Pull and verify exact previous release image\n        env:\n          CANDIDATE_SHA: \${{ github.event.pull_request.head.sha || github.sha }}\n          PREVIOUS_SHA: \${{ github.event.pull_request.base.sha || github.event.before }}\n        run: |\n          set -euo pipefail\n          mkdir -p artifacts/container-recovery\n          previous_tag="ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA"\n          docker pull "$previous_tag"\n          previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"\n          printf '%s\\n' "$previous_digest" | grep -Eq '^ghcr\\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'\n          baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e \"const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))\")"\n          test "$baked_commit" = "$PREVIOUS_SHA"\n          printf '%s\\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt\n          printf '%s\\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt\n          docker tag "$previous_digest" "tecpey-previous:$PREVIOUS_SHA"\n          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"\n`;
+          if (!workflow.includes(oldBlock)) throw new Error('legacy previous-source rebuild block not found');
+          workflow = workflow.replace(oldBlock, newBlock);
+          if (workflow.includes('docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA"')) {
+            throw new Error('historic source rebuild survived migration');
+          }
+          fs.writeFileSync(workflowPath, workflow);
+
+          for (const path of [
+            'scripts/check-production-supply-chain.mjs',
+            'scripts/production-host-supply-chain-policy.mjs',
+          ]) {
+            let source = fs.readFileSync(path, 'utf8');
+            const oldContract = `    'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',\n`;
+            if (!source.includes(oldContract)) throw new Error(`${path}: old previous-build contract missing`);
+            source = source.replace(
+              oldContract,
+              `    'ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA',\n    'previous-image-digest.txt',\n    'previous-baked-commit.txt',\n`,
+            );
+            fs.writeFileSync(path, source);
+          }
+
+          const policyPath = 'scripts/production-host-supply-chain-policy.mjs';
+          let policy = fs.readFileSync(policyPath, 'utf8');
+          const anchor = `  const publishJob = yamlBlock(containerWorkflow, 2, "publish");`;
+          if (!policy.includes(anchor)) throw new Error('publish job anchor missing');
+          const recoveryAuthority = `  const recoveryJob = yamlBlock(containerWorkflow, 2, "recovery");\n  for (const contract of [\n    "packages: read",\n    "docker/login-action@dbcb813823bdd20940b903addbd779551569679f",\n    'ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA',\n    "previous-image-digest.txt",\n    "previous-baked-commit.txt",\n    "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA",\n  ]) {\n    requireText(\n      findings,\n      recoveryJob,\n      contract,\n      \`Container recovery must use and verify the immutable previous image: \${contract}\`,\n    );\n  }\n  reject(\n    findings,\n    recoveryJob,\n    /docker build[^\\n]*PREVIOUS_SHA|previous-release\\s*$/m,\n    "Container recovery must not reconstruct a historical release from mutable package repositories",\n  );\n`;
+          policy = policy.replace(anchor, `${recoveryAuthority}${anchor}`);
+          fs.writeFileSync(policyPath, policy);
+
+          const testPath = 'scripts/production-host-supply-chain-policy.test.mjs';
+          let tests = fs.readFileSync(testPath, 'utf8');
+          const testAnchor = `test("published images bake public configuration and Compose validates before startup", () => {`;
+          if (!tests.includes(testAnchor)) throw new Error('policy test anchor missing');
+          const recoveryTests = `test("recovery uses immutable previous image identity and rejects source reconstruction", () => {\n  const missingDigestProof = {\n    ...sources,\n    containerWorkflow: sources.containerWorkflow.replace("previous-image-digest.txt", "previous-image-ref.txt"),\n  };\n  assert.match(\n    productionHostSupplyChainFindings(missingDigestProof).join("\\n"),\n    /immutable previous image/,
+  );\n\n  const sourceRebuild = {\n    ...sources,\n    containerWorkflow: sources.containerWorkflow.replace(\n      'docker pull "$previous_tag"',\n      'docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA" --target runner previous-release',\n    ),\n  };\n  assert.match(\n    productionHostSupplyChainFindings(sourceRebuild).join("\\n"),\n    /must not reconstruct a historical release/,
+  );\n});\n\n`;
+          tests = tests.replace(testAnchor, `${recoveryTests}${testAnchor}`);
+          fs.writeFileSync(testPath, tests);
+
+          const deploymentPath = 'docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md';
+          let deployment = fs.readFileSync(deploymentPath, 'utf8');
+          deployment = deployment.replace(
+            'On pull requests it also builds the candidate and exact base release images,\nserves the candidate, replaces it with the previous image on the same endpoint,',
+            'On pull requests it builds the candidate, resolves the exact base-release image from GHCR, verifies its registry digest and artifact-baked commit identity,\nserves the candidate, replaces it with that immutable previous image on the same endpoint,',
+          );
+          fs.writeFileSync(deploymentPath, deployment);
+
+          const evidencePaths = [
+            'docs/audits/evidence/batch-01a-audit-authority.json',
+            'docs/audits/evidence/batch-01b-operational-workflows.json',
+          ];
+          const reviewedPaths = [
+            workflowPath,
+            'scripts/check-production-supply-chain.mjs',
+            policyPath,
+            testPath,
+            deploymentPath,
+          ];
+          for (const evidencePath of evidencePaths) {
+            const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+            let changed = false;
+            for (const reviewedPath of reviewedPaths) {
+              const entry = evidence.files?.find((candidate) => candidate.path === reviewedPath);
+              if (!entry) continue;
+              const bytes = fs.readFileSync(reviewedPath);
+              const text = bytes.toString('utf8');
+              const lines = text.endsWith('\n') ? text.split('\n').length - 1 : text.split('\n').length;
+              entry.gitObjectId = execFileSync('git', ['hash-object', reviewedPath], { encoding: 'utf8' }).trim();
+              entry.sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+              entry.lines = lines;
+              entry.reviewedRanges = [{ startLine: 1, endLine: lines }];
+              const note = '2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR previous-image retrieval, registry-digest capture and artifact-baked commit verification. The recovery path fails closed if the prior release artifact is absent or identity-mismatched and does not weaken candidate build, SBOM, vulnerability, volume-restore or rollback evidence requirements.';
+              if (!entry.reviewNotes.includes(note)) entry.reviewNotes.push(note);
+              changed = true;
+            }
+            if (changed) {
+              evidence.reviewedAt = '2026-10-02';
+              fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+            }
+          }
+          NODE
+          git diff --check
+
+      - name: Run supply-chain policy tests before commit
+        run: |
+          node scripts/check-production-supply-chain.mjs
+          node --test scripts/production-host-supply-chain-policy.test.mjs
+
+      - name: Commit immutable rollback migration
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add .github/workflows/container-supply-chain.yml scripts/check-production-supply-chain.mjs scripts/production-host-supply-chain-policy.mjs scripts/production-host-supply-chain-policy.test.mjs docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md docs/audits/evidence/batch-01a-audit-authority.json docs/audits/evidence/batch-01b-operational-workflows.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(recovery): use immutable previous release image"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/tecpey/Tecpey-Os.git" HEAD:codex/supply-chain-openssl-3.5.9
