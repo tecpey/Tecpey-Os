@@ -1,49 +1,101 @@
 # Notifications: relevance, fatigue, quiet-hours + channel orchestration
 
-**Base main:** `e16f9cc4254bb556c2a1235baa5cbd24ff0fea2b`
+**Refreshed onto main:** `96b56d0e469b356ccf8ee698c5a75a36d1cabe60`
 
-**Dependencies:** Consumes durable events from Academy/Arena/Profile/Research but must remain safe if those producers are absent.
-
-## Global quality bar
-
-- Authority-sensitive state is server-owned, tenant-bound and fail-closed; clients cannot create entitlement, identity, mastery, rank or safety truth.
-- No fabricated intelligence without named authority + provenance/freshness.
-- Content-first design; glass only for navigation/controls/light overlays; no glass-on-glass.
-- WCAG 2.2 AA minimum, 44px preferred primary targets, visible focus, no focus obscuration, reduced-motion/transparency-safe behavior.
-- FA/EN parity, RTL/LTR correctness, logical CSS and bidi isolation.
-- Schema validation, CSRF/rate limits, session/tenant checks, idempotency/replay defense, audit logs and negative tests.
-- Structured logs, explicit degraded states, authority reason codes and freshness timestamps.
-- TypeScript, ESLint, unit/integration/security/browser tests, repository audit and exact-head CI.
-- Immutable exact-SHA staging-first release with rollback proof; Production requires separate explicit approval.
-
+**Dependencies:** Consumes durable, versioned events from Academy/Arena/Profile/Research. The notification boundary must remain safe when a producer is absent, duplicated, delayed or malformed.
 
 ## Objective
-Turn the notification brain/outbox into a consent-aware interruption policy: should we interrupt now?
 
-## Decision model
-Candidate event → eligibility → priority × relevance × urgency × freshness → fatigue/cadence/dedupe → quiet-hours/channel policy → send or suppress.
+Turn the notification brain/outbox into a consent-aware interruption authority that answers one question deterministically: **should TecPey interrupt this person, on this channel, now?**
 
-## Deliverables
-- Versioned notification classes and preference matrix.
-- User timezone/quiet hours, global/class caps, snooze and channel opt-outs.
-- Correlation/dedup across repeated news, Academy reminders, Arena rank movement and Mentor prompts.
-- Fatigue budget with decay; security/transactional classes explicitly separate.
-- “No notification” is a successful outcome with reason code.
-- In-app timeline first; email/SMS/Telegram only where configured/consented.
-- Personalized copy uses bounded facts, never hallucinated traits.
+The system must prefer no interruption over an unjustified interruption. “No notification” is a successful policy outcome with a durable reason code.
+
+## Non-negotiable authority model
+
+- `src/lib/notifications/producers.ts` is the trusted domain-event producer boundary for the current pilot.
+- `src/lib/notifications/creation.ts` is the single in-app intent / notification / outbox creation authority.
+- `src/lib/notifications/policy.ts` is the deterministic recipient/channel policy authority.
+- Authority-sensitive facts are server-owned, tenant-bound and fail-closed; client metadata or AI output cannot create relevance, urgency, consent, entitlement, identity, rank, mastery or safety truth.
+- Mandatory security, financial, legal/compliance and governed administrative notices remain explicitly separate from optional engagement traffic.
+- Optional priority must never override category opt-out, channel opt-out, marketing consent, mute, quiet-hours or a hard fatigue decision.
+- Every policy decision must remain replayable/explainable from bounded inputs and durable reason codes.
+
+## Current decision path
+
+Trusted versioned domain event
+→ strict parsing and principal/tenant binding
+→ correlation/idempotency authority
+→ recipient eligibility and jurisdiction
+→ expiry / duplicate / approval / template checks
+→ consent and category/channel preference
+→ destination verification
+→ mute and quiet-hours
+→ category fatigue/cadence policy
+→ allow / defer / digest / suppress / escalate
+→ immutable intent + policy snapshot
+→ notification + transactional outbox where admitted.
+
+## Current pilot scope
+
+- In-app delivery is the only enabled creation path in this pilot authority.
+- External channel types exist in the policy model, but email/SMS/push orchestration is not represented as enabled merely because a type exists.
+- Current production producers are principal-specific domain events. Generic personalized relevance scoring is **not** treated as runtime authority until server-owned evidence exists.
+
+## Proven controls already present on the refreshed base
+
+- versioned notification classes and class policy matrix;
+- tenant/principal binding and inactive-principal rejection;
+- durable correlation/idempotency with payload-conflict rejection;
+- category/channel preference enforcement;
+- marketing-consent enforcement for marketing class policy;
+- mute and timezone-aware quiet-hours handling;
+- per-category 24-hour optional delivery caps for the current pilot classes;
+- instant/digest cadence resolution;
+- expiry-before-admission and expiry-after-scheduling handling;
+- mandatory-class fallback/escalation semantics;
+- immutable intent ledger and transactional outbox;
+- durable policy snapshots and explicit decision/reason codes;
+- FA/EN producer copy for the current event set;
+- tenant-isolation, outbox, delivery-visibility and replay tests.
+
+## Strict-audit findings that remain open
+
+### #728 — concurrency-safe and pending-aware fatigue budget
+
+The current cap reads delivered notifications and serializes creation by correlation key. Distinct correlation keys can race on the same principal/category budget, and deferred/digest rows do not yet reserve interruption budget while pending. PR #707 must not claim a concurrency-safe fatigue budget until #728 is closed with a transactional invariant and concurrent PostgreSQL proof.
+
+### #729 — server-owned relevance/freshness evidence
+
+A standalone relevance/freshness score without a trusted evidence resolver would be bypassable pseudo-authority. The experimental unwired score helper was removed from this branch. #729 owns the evidence schema, provenance/freshness rules, replay identity, negative tests and later calibration/holdout work. AI- or caller-supplied scores are explicitly forbidden as delivery authority.
+
+## Product and anti-dark-pattern rules
+
+- No false urgency, shame, fabricated scarcity, reward-loss threats or repeated nagging after opt-out.
+- Do not maximize sends, opens, streak pressure or notification volume as a product objective.
+- Passive/in-app delivery is preferred when immediacy is not justified.
+- Interruption level must match the significance and time-sensitivity of the information.
+- User notification controls remain authoritative for optional classes.
+- Personalized copy may use only bounded, attributable facts; never hallucinated traits or inferred vulnerabilities.
 - Rank movement requires comparable authoritative snapshots.
-- News notification requires source/freshness/topic relevance.
-- Delivery telemetry measures send/open/action/suppress without manipulative streak pressure.
-- Admin debug surface explains send/suppress decision.
+- News/market notifications require source provenance, freshness and topic relevance before they can enter a future scored path.
 
-## Anti-dark-pattern rules
-No false urgency, shame, fabricated scarcity, reward-loss threats or repeated nagging after opt-out.
+## Acceptance evidence for this PR
 
-## Acceptance
-Property/integration tests prove quiet hours, caps, dedupe and consent cannot be bypassed by high priority.
+Before this Draft can become Ready:
+
+1. exact-head TypeScript, ESLint, unit/integration/security and production-build gates are green except for independently identified repository-wide human-governance gates;
+2. tests prove optional high priority cannot bypass quiet-hours, category/channel opt-out or marketing consent;
+3. tests prove hard mandatory classes remain separate from optional fatigue suppression;
+4. replay/idempotency and payload-conflict behavior remain deterministic;
+5. all changed behavior has durable reason codes and policy snapshot evidence;
+6. zero unresolved review threads remain;
+7. #728 and #729 remain explicitly visible blockers unless implemented on this branch; they may not be silently treated as completed;
+8. no Staging or Production mutation is performed as part of making this PR reviewable.
 
 ## Delivery discipline
-This Draft PR begins as an implementation contract. Code, migrations, tests and evidence are added to this same branch. It cannot become Ready until each acceptance item is implemented or explicitly split into a named follow-up PR.
+
+This Draft PR is an implementation and proof track, not a launch approval. A passing build does not convert known unimplemented authority into shipped capability. The PR stays Draft while #728/#729 are unresolved or until their required authority is implemented with exact-head evidence.
 
 ## Release boundary
-Opening this PR authorizes no merge, Staging mutation or Production mutation.
+
+Opening, refreshing or testing this PR authorizes no merge to `main`, no Staging mutation and no Production mutation. Production requires a separate explicit release decision and exact-candidate evidence.
