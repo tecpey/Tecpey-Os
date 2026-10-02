@@ -31,6 +31,13 @@ const requireOccurrences = (target, text, minimum, reason) => {
     failures.push(`${files[target]}: ${reason}; found ${count}, need ${minimum}`);
   }
 };
+const requireOrderedText = (target, first, second, reason) => {
+  const firstIndex = content[target].indexOf(first);
+  const secondIndex = content[target].indexOf(second);
+  if (firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
+};
 
 requireText("package", '"notifications:runtime:check"', "runtime authority guard must be invokable through npm");
 requireText("package", '"notifications:worker:in-app"', "standalone in-app worker must have an explicit process command");
@@ -61,8 +68,13 @@ requireText("creation", 'dispatchMode: "event" as const', "campaign and broadcas
 requireText("creation", "evaluateNotificationPolicy", "every creation must pass deterministic policy");
 requireText("creation", "pg_advisory_xact_lock", "correlation replay must be serialized");
 requireText("creation", "notification-budget:", "optional fatigue admission must use a tenant/principal/class budget lock");
-requireText("creation", 'const fatigueLockOrder =', "fatigue lock ordering must remain explicit and auditable");
-requireText("creation", '["budget", "correlation"]', "optional admission must lock the budget before the correlation key");
+requireText("creation", "notification-correlation:v1:", "correlation replay must use its dedicated advisory-lock namespace");
+requireOrderedText(
+  "creation",
+  "notification-budget:",
+  "notification-correlation:v1:",
+  "optional admission must acquire the budget-lock path before the correlation-lock path",
+);
 requireText("creation", "notification_correlation_payload_conflict", "changed payloads may not reuse correlation keys");
 requireText("creation", "INSERT INTO platform_notifications", "allowed decisions must create the durable inbox record");
 requireText("creation", "INSERT INTO notification_outbox", "allowed decisions must create the delivery outbox atomically");
