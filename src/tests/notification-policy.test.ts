@@ -45,6 +45,7 @@ function baseRecipient(
     digestEnabled: true,
     duplicateSeen: false,
     recentCategoryDeliveries: 0,
+    pendingCategoryReservations: 0,
     categoryFrequencyCap: 5,
     ...overrides,
   };
@@ -225,6 +226,39 @@ test("optional notification moves to digest after frequency cap", () => {
 
   assert.equal(result.decision, "digest");
   assert.equal(result.reason, "frequency_cap");
+});
+
+test("pending reservations count against the instant interruption budget", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      { notificationClass: "academy" },
+      {
+        recentCategoryDeliveries: 1,
+        pendingCategoryReservations: 3,
+        categoryFrequencyCap: 4,
+        inQuietHours: true,
+        quietHoursEndAt: "2026-07-19T20:00:00.000Z",
+      },
+    ),
+  );
+
+  assert.equal(result.decision, "digest");
+  assert.equal(result.reason, "frequency_cap");
+});
+
+test("explicit digest cadence stays digest during quiet hours", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      { cadence: "digest" },
+      {
+        inQuietHours: true,
+        quietHoursEndAt: "2026-07-19T20:00:00.000Z",
+      },
+    ),
+  );
+
+  assert.equal(result.decision, "digest");
+  assert.equal(result.reason, "policy_allowed");
 });
 
 test("duplicate correlation is suppressed before channel delivery", () => {
