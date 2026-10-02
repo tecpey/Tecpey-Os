@@ -224,19 +224,17 @@ export async function persistNewArenaTradeScores(
     );
     const count = await client.query<{ count: string; later_count: string; replay_count: string }>(
       `SELECT COUNT(*) FILTER (WHERE scored_at < $4::timestamptz
-           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" < $6))::text AS count,
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" < $5))::text AS count,
               COUNT(*) FILTER (WHERE scored_at > $4::timestamptz
-           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" > $6))::text AS later_count,
-              COUNT(*) FILTER (WHERE attempt_id = $7::uuid AND closed_trade_id = $6
-                AND policy_version = $8)::text AS replay_count
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" > $5))::text AS later_count,
+              COUNT(*) FILTER (WHERE attempt_id = $6::uuid AND closed_trade_id = $5
+                AND policy_version = $7)::text AS replay_count
          FROM academy_arena_trade_score_ledger
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
-         AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date
-         AND (
-           ($5::uuid IS NULL AND NULLIF(scoring_input->>'seasonId', '') IS NULL)
-           OR scoring_input->>'seasonId' = $5::uuid::text
-         )`,
-      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, seasonId, trade.id,
+         AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date`,
+      // Activity points belong to the student's UTC day, even when that day
+      // crosses a season boundary. The day lock above has the same scope.
+      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, trade.id,
         owner.attemptId, ARENA_LEAGUE_SCORING_POLICY_VERSION],
     );
     if (Number(count.rows[0]?.later_count ?? "0") > 0 &&

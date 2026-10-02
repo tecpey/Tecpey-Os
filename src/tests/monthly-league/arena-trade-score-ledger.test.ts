@@ -232,7 +232,7 @@ describe("Arena trade score ledger adapter", () => {
         }
         if (sql.includes("AS replay_count")) {
           assert.match(sql, /scored_at < \$4::timestamptz/);
-          assert.equal(params[5], trade.id);
+          assert.equal(params[4], trade.id);
           return { rows: [{ count: "0", later_count: "0", replay_count: persistedDigest ? "1" : "0" }] };
         }
         if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
@@ -262,6 +262,42 @@ describe("Arena trade score ledger adapter", () => {
       /arena_league_score_conflicting_replay/,
     );
     assert.equal(conflictReads, 2);
+  });
+
+  it("keeps the daily activity cap across a generic-to-season boundary", async () => {
+    const seasonId = "33333333-3333-4333-8333-333333333333";
+    let inserted: unknown[] | undefined;
+    const client = {
+      query: async (sql: string, params: unknown[]) => {
+        if (isScopeQuery(sql)) return { rows: [] };
+        if (sql.includes("FROM academy_arena_league_seasons season")) {
+          return { rows: [{ id: seasonId, scoring_policy_version: "arena-league-scoring-v1" }] };
+        }
+        if (sql.includes("current_setting('transaction_isolation')")) {
+          return { rows: [{ isolation: "read committed" }] };
+        }
+        if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+        if (sql.includes("AS replay_count")) {
+          // The first three closes were scored without a season earlier today.
+          assert.doesNotMatch(sql, /scoring_input->>'seasonId'/);
+          assert.deepEqual(params, [owner.tenantId, owner.workspaceId, owner.studentId,
+            trade.closedAt, trade.id, owner.attemptId, "arena-league-scoring-v1"]);
+          return { rows: [{ count: "3", later_count: "0", replay_count: "0" }] };
+        }
+        if (sql.includes("INSERT INTO academy_arena_trade_score_ledger")) {
+          inserted = params;
+          return { rows: [{ source_digest: params[19] }] };
+        }
+        throw new Error(`unexpected_query:${sql}`);
+      },
+    } as unknown as PoolClient;
+    const before = { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2;
+    const after = { closedTrades: [trade] } as unknown as ArenaExecutionStateV2;
+    await persistNewArenaTradeScores(client, owner, before, after);
+    assert.ok(inserted);
+    assert.equal(inserted[9], 4);
+    assert.equal(inserted[11], 5);
+    assert.equal(JSON.parse(inserted[17] as string).seasonId, seasonId);
   });
 
   it("orders same-time trade closes by stable identity before assigning daily ordinal", async () => {

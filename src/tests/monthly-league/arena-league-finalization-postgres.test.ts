@@ -37,7 +37,10 @@ async function scope(client: PoolClient, fixture: Pick<Fixture, "tenantId" | "wo
     [fixture.tenantId, fixture.workspaceId]);
 }
 
-async function fixture(lifecycle: "enrollment" | "closing" = "closing"): Promise<Fixture> {
+async function fixture(
+  lifecycle: "enrollment" | "closing" = "closing",
+  startsAt = "2026-01-02T00:00:00.000Z",
+): Promise<Fixture> {
   const suffix = randomUUID();
   const result = {
     tenantId: `arena-finalization-${suffix}`,
@@ -84,7 +87,7 @@ async function fixture(lifecycle: "enrollment" | "closing" = "closing"): Promise
         seasonKey: "league:2026-01", timeZone: "UTC",
         enrollmentOpensAt: "2026-01-01T00:00:00.000Z",
         enrollmentClosesAt: "2026-01-02T00:00:00.000Z",
-        startsAt: "2026-01-02T00:00:00.000Z",
+        startsAt,
         endsAt: "2026-02-01T00:00:00.000Z",
         scoringPolicyVersion: "arena-league-scoring-v1",
         initialBalance: "100000", attemptsPerCycle: 3,
@@ -159,8 +162,8 @@ async function insertSeasonScore(client: PoolClient, input: Fixture): Promise<vo
   );
 }
 
-async function genericFixture(): Promise<Fixture> {
-  const input = await fixture("enrollment");
+async function genericFixture(startsAt?: string): Promise<Fixture> {
+  const input = await fixture("enrollment", startsAt);
   const client = await pool!.connect();
   try {
     await transaction(client, async () => {
@@ -223,6 +226,56 @@ after(async () => {
 });
 
 describe("Arena league finalization PostgreSQL boundary", () => {
+  it("shares the UTC daily activity cap across generic and season scores", {
+    skip: !configured, timeout: 30_000,
+  }, async () => {
+    const input = await genericFixture("2026-01-02T12:00:00.000Z");
+    const client = await pool!.connect();
+    try {
+      await transaction(client, async () => {
+        await scope(client, input);
+        for (const time of ["09:00", "10:00", "11:00"]) {
+          await insertGenericScore(client, input, `2026-01-02T${time}:00.000Z`);
+        }
+        await transitionArenaLeagueSeasonTx(client,
+          { tenantId: input.tenantId, workspaceId: input.workspaceId },
+          input.seasonId, "active", "2026-01-02T12:00:00.000Z");
+        const position: ArenaOpenPositionV2 = {
+          id: "position-season-boundary", asset: "BTC", entryPrice: "100", quantity: "10",
+          quoteCommitted: "1000", openingFee: "1", stopLoss: "98", takeProfit: "104",
+          openedAt: "2026-01-02T12:30:00.000Z", preTradePlan: "Respect daily activity cap.",
+          emotionalState: "calm", mentorFlags: ["good-discipline", "proper-sizing"],
+        };
+        const trade: ArenaClosedTradeV2 = {
+          id: "trade-season-boundary", positionId: position.id, asset: position.asset,
+          entryPrice: position.entryPrice, exitPrice: "104", quantity: position.quantity,
+          quoteCommitted: position.quoteCommitted, totalFee: "2.04", realizedPnl: "38.96",
+          realizedPnlRate: "0.03896", openedAt: position.openedAt,
+          closedAt: "2026-01-02T13:00:00.000Z", closureReason: "take-profit",
+          mentorFlags: ["good-discipline", "proper-sizing", "target-hit"],
+        };
+        await persistNewArenaTradeScores(client, {
+          tenantId: input.tenantId, workspaceId: input.workspaceId,
+          studentId: input.studentId, attemptId: input.attemptId,
+        }, { openPositions: [position], closedTrades: [], equity: "100000" } as unknown as ArenaExecutionStateV2,
+        { closedTrades: [trade] } as unknown as ArenaExecutionStateV2);
+        const scored = await client.query<{
+          trade_number_for_day: number; participation_points: number; season_id: string;
+        }>(
+          `SELECT trade_number_for_day, participation_points,
+                  scoring_input->>'seasonId' AS season_id
+             FROM academy_arena_trade_score_ledger
+            WHERE tenant_id = $1 AND workspace_id = $2 AND closed_trade_id = $3`,
+          [input.tenantId, input.workspaceId, trade.id],
+        );
+        assert.deepEqual(scored.rows, [{ trade_number_for_day: 4,
+          participation_points: 5, season_id: input.seasonId }]);
+      });
+    } finally {
+      client.release();
+    }
+  });
+
   it("serializes daily ordinals across concurrent closes before counting", {
     skip: !configured, timeout: 30_000,
   }, async () => {
