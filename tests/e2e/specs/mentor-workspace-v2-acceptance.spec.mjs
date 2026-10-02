@@ -93,12 +93,12 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(historyTrigger).toBeFocused();
 
     const log = page.getByRole("log");
-    const beforeMessages = await log.locator('[data-message-role]').count();
+    const beforeDraft = await log.innerText();
     await page.getByRole("button", { name: new RegExp(labels.starter) }).click();
     const textarea = page.getByRole("textbox", { name: labels.textarea });
     await expect(textarea).toBeFocused();
     await expect(textarea).not.toHaveValue("");
-    await expect(log.locator('[data-message-role]')).toHaveCount(beforeMessages);
+    await expect(log).toHaveText(beforeDraft);
 
     await expect(page.getByRole("link", { name: labels.privacy, exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: labels.support, exact: true })).toBeVisible();
