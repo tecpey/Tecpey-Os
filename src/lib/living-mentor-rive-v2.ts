@@ -89,21 +89,37 @@ export type LivingMentorRiveV2SafetyOverride =
   | "data_unavailable"
   | "runtime_error";
 
+export const LIVING_MENTOR_RIVE_V2_MOODS = [
+  "unknown",
+  "ready",
+  "curious",
+  "frustrated",
+  "anxious",
+  "energized",
+] as const;
 export type LivingMentorRiveV2Mood =
-  | "unknown"
-  | "ready"
-  | "curious"
-  | "frustrated"
-  | "anxious"
-  | "energized";
+  (typeof LIVING_MENTOR_RIVE_V2_MOODS)[number];
 
+export const LIVING_MENTOR_RIVE_V2_RISK_LEVELS = [
+  "unknown",
+  "low",
+  "moderate",
+  "high",
+] as const;
 export type LivingMentorRiveV2RiskLevel =
-  | "unknown"
-  | "low"
-  | "moderate"
-  | "high";
+  (typeof LIVING_MENTOR_RIVE_V2_RISK_LEVELS)[number];
 
 export type LivingMentorRiveV2Direction = "rtl" | "ltr";
+
+const SAFETY_OVERRIDES = [
+  "none",
+  "risk_caution",
+  "privacy_notice",
+  "consent_required",
+  "data_stale",
+  "data_unavailable",
+  "runtime_error",
+] as const satisfies readonly LivingMentorRiveV2SafetyOverride[];
 
 const EVENT_STATE: Readonly<Record<LivingMentorRiveV2Event, LivingMentorRiveV2State>> =
   Object.freeze({
@@ -214,17 +230,24 @@ const SAFETY_STATES = new Set<LivingMentorRiveV2State>([
   "runtime_error",
 ]);
 
-function boundedInteger(value: number | null | undefined, minimum: number, maximum: number) {
+function isAllowedString<const T extends readonly string[]>(
+  value: unknown,
+  allowed: T,
+): value is T[number] {
+  return typeof value === "string" && allowed.includes(value as T[number]);
+}
+
+function boundedInteger(value: unknown, minimum: number, maximum: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return Math.min(maximum, Math.max(minimum, Math.trunc(value)));
 }
 
-function boundedNumber(value: number | null | undefined, minimum: number, maximum: number) {
+function boundedNumber(value: unknown, minimum: number, maximum: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) return minimum;
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function normalizeLocale(locale: string | null | undefined): string {
+function normalizeLocale(locale: unknown): string {
   if (typeof locale !== "string") return "fa";
   const normalized = locale.trim();
   return /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(normalized)
@@ -232,30 +255,41 @@ function normalizeLocale(locale: string | null | undefined): string {
     : "fa";
 }
 
-function safeUserName(userName: string | null | undefined): string {
+function safeUserName(userName: unknown): string {
   if (typeof userName !== "string") return "";
   return userName.replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 48);
+}
+
+function normalizeState(value: unknown): LivingMentorRiveV2State {
+  return isAllowedString(value, LIVING_MENTOR_RIVE_V2_STATES)
+    ? value
+    : "runtime_error";
+}
+
+function normalizeSafetyOverride(value: unknown): LivingMentorRiveV2SafetyOverride {
+  return isAllowedString(value, SAFETY_OVERRIDES) ? value : "runtime_error";
 }
 
 export function reduceLivingMentorRiveV2State(
   _previous: LivingMentorRiveV2State,
   event: LivingMentorRiveV2Event,
 ): LivingMentorRiveV2State {
-  return EVENT_STATE[event];
+  return EVENT_STATE[event] ?? "runtime_error";
 }
 
 export function livingMentorV2StateToV1Act(
   state: LivingMentorRiveV2State,
 ): LivingMentorAct {
-  return V2_STATE_TO_V1_ACT[state];
+  return V2_STATE_TO_V1_ACT[state] ?? "error_recover";
 }
 
 export function applyLivingMentorV2SafetyOverride(
   requestedState: LivingMentorRiveV2State,
   override: LivingMentorRiveV2SafetyOverride = "none",
 ): LivingMentorRiveV2State {
-  if (override === "none") return requestedState;
-  return override;
+  const safeRequestedState = normalizeState(requestedState);
+  const safeOverride = normalizeSafetyOverride(override);
+  return safeOverride === "none" ? safeRequestedState : safeOverride;
 }
 
 /**
@@ -267,8 +301,8 @@ export function projectLivingMentorRiveV2ViewModel(
   input: LivingMentorRiveV2HostInput,
 ): LivingMentorRiveV2ViewModel {
   const state = applyLivingMentorV2SafetyOverride(
-    input.state,
-    input.safetyOverride,
+    normalizeState(input.state),
+    normalizeSafetyOverride(input.safetyOverride ?? "none"),
   );
   const reducedMotion = Boolean(input.reducedMotion);
   const streak = boundedInteger(input.streakDays, 0, 3650);
@@ -282,8 +316,12 @@ export function projectLivingMentorRiveV2ViewModel(
     userNameVisible: Boolean(input.allowsUserName && userName),
     streakDays: streak ?? 0,
     streakKnown: streak !== null,
-    mood: input.mood ?? "unknown",
-    riskLevel: input.riskLevel ?? "unknown",
+    mood: isAllowedString(input.mood, LIVING_MENTOR_RIVE_V2_MOODS)
+      ? input.mood
+      : "unknown",
+    riskLevel: isAllowedString(input.riskLevel, LIVING_MENTOR_RIVE_V2_RISK_LEVELS)
+      ? input.riskLevel
+      : "unknown",
     roomLevel: room ?? 0,
     roomKnown: room !== null,
     locale: normalizeLocale(input.locale),
