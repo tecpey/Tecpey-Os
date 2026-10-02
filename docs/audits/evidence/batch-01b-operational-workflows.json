@@ -3,12 +3,12 @@
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
   "reviewedAt": "2026-10-02",
-  "reviewMethod": "Complete line-by-line semantic review of six Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
+  "reviewMethod": "Complete line-by-line semantic review of seven Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, rollback provenance verification, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
       "id": "B01B-RISK-001",
       "severity": "P2",
-      "statement": "This bounded slice reviews six repository-supply-chain files only; every other Batch 1 path retains its pending status and no repository-wide completion claim is made.",
+      "statement": "This bounded slice reviews seven repository-supply-chain files only; every other Batch 1 path retains its pending status and no repository-wide completion claim is made.",
       "owner": "repository-supply-chain",
       "disposition": "tracked-debt"
     },
@@ -163,18 +163,19 @@
     },
     {
       "path": "scripts/check-container-rollback-artifact.mjs",
-      "gitObjectId": "136d9c7e849a1d6bb69fb19cf7f4802751f8dc27",
-      "sha256": "957b82597e4463531d0e92fd7ea00a7ce8a246051b795273844d080c602b1e60",
-      "lines": 62,
+      "gitObjectId": "d8d3f6f6641bd63deef64c3e07900521d1fc713a",
+      "sha256": "7496d19c2c723ebaf39f50b6a3c8fe2815a0652fa5585c8bc7160935e48481b8",
+      "lines": 84,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 62
+          "endLine": 84
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed."
+        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed.",
+        "2026-10-02: re-reviewed after extending the rollback authority to require GitHub provenance verification for the exact GHCR RepoDigest. The guard now requires OCI-bundle verification scoped to tecpey/Tecpey-Os, the governed container-supply-chain signer workflow, the exact previous source SHA and refs/heads/main, preserves verification evidence, and rejects fail-open attestation handling."
       ],
       "findings": []
     },
@@ -198,6 +199,38 @@
         "2026-10-02: re-reviewed the complete 615-line policy after rotating only the exact Alpine OpenSSL runtime package authority from 3.5.8-r0 to 3.5.9-r0. The digest-pinned Node 22 Alpine base, single apk mutation invariant, exact-version requirement, hardened-stage inheritance, non-root runtime, vulnerability gate, recovery dependency and deployment boundaries are unchanged; mutable or unpinned package installation remains rejected."
       ],
       "findings": []
+    },
+    {
+      "path": "scripts/test-container-image-rollback.sh",
+      "gitObjectId": "c28a14ef253a55173ad1af1cd88f7b729693cf0a",
+      "sha256": "66a6edb9fde7c6fab004108f8894707b32f31b12955933ef66ae9e5132b060b3",
+      "lines": 61,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 61
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "2026-10-02: complete line-by-line review of the rollback drill after binding rollback consumption to a registry RepoDigest plus GitHub artifact-attestation verification. The script validates the exact previous SHA from the rollback tag, resolves only the canonical ghcr.io/tecpey/tecpey-os digest, verifies the OCI-stored SLSA provenance against the TecPey repository, governed signer workflow, exact source digest and main ref, then probes both candidate and previous images and emits bounded evidence. Verification is fail-closed and stores no credentials or raw registry payloads."
+      ],
+      "findings": [
+        {
+          "id": "B01B-P1-004",
+          "severity": "P1",
+          "line": 40,
+          "attackPath": "A principal with package-registry mutation access could repoint a commit-shaped rollback tag. Digest resolution and an embedded commit marker alone establish artifact identity after retrieval but do not cryptographically establish that the artifact was produced by the governed main-branch build workflow.",
+          "affectedInvariant": "A rollback image must be cryptographically bound to the expected source repository, governed signer workflow, exact previous source SHA and protected main ref before it can be served as recovery authority.",
+          "evidence": "The prior rollback drill consumed the resolved RepoDigest after checking the baked commit but did not verify the GitHub build-provenance attestation that the publish job already pushes to the OCI registry.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The rollback drill and permanent static guard must require fail-closed `gh attestation verify` against the exact OCI RepoDigest, repository `tecpey/Tecpey-Os`, signer workflow `.github/workflows/container-supply-chain.yml`, exact previous source digest and `refs/heads/main`, and preserve redacted verification evidence.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/pull/731"
+          ]
+        }
+      ]
     }
   ]
 }
