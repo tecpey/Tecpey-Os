@@ -1,0 +1,41 @@
+name: Probe previous immutable image
+
+permissions:
+  contents: read
+  packages: read
+
+on:
+  push:
+    branches:
+      - codex/probe-immutable-previous-image
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify exact checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Authenticate to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull and verify previous immutable image
+        env:
+          PREVIOUS_SHA: 96b56d0e469b356ccf8ee698c5a75a36d1cabe60
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/tecpey/tecpey-os:${PREVIOUS_SHA}"
+          docker pull "$image"
+          digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$image")"
+          test -n "$digest"
+          baked="$(docker run --rm --entrypoint node "$digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
+          test "$baked" = "$PREVIOUS_SHA"
+          printf 'previous_sha=%s\nprevious_digest=%s\nbaked_commit=%s\n' "$PREVIOUS_SHA" "$digest" "$baked"
