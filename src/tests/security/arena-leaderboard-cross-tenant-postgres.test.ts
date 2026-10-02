@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
-import { loadArenaLeagueLeaderboardTx } from "../../lib/arena-league-leaderboard-authority";
+import {
+  loadArenaLeagueLeaderboardTx, loadArenaLeagueNeighborhoodTx,
+} from "../../lib/arena-league-leaderboard-authority";
 import { materializeArenaLeagueRankingSnapshotTx } from "../../lib/arena-league-ranking-materializer";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 
@@ -191,6 +193,30 @@ describe("Arena leaderboard cross-tenant PostgreSQL authority", () => {
         });
         assert.equal(updatedBoard?.snapshotVersion, nextSnapshot.version);
         assert.equal(updatedBoard?.entries[0]?.points, 50);
+        await client.query(
+          `UPDATE academy_public_profiles SET leaderboard_visible = FALSE
+            WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid`,
+          [tenantA, workspaceA, studentId],
+        );
+        const privateBoard = await loadArenaLeagueLeaderboardTx(client, {
+          tenantId: tenantA, workspaceId: workspaceA,
+          windowType: "lifetime", windowKey: "all-time", limit: 50,
+        });
+        assert.deepEqual(privateBoard?.entries, []);
+        const ownNeighborhood = await loadArenaLeagueNeighborhoodTx(client, {
+          tenantId: tenantA, workspaceId: workspaceA, studentId,
+          windowType: "lifetime", windowKey: "all-time",
+          snapshotVersion: nextSnapshot.version,
+        });
+        assert.equal(ownNeighborhood?.viewer?.rank, 1);
+        assert.equal(ownNeighborhood?.viewer?.points, 50);
+        assert.deepEqual(ownNeighborhood?.entries, []);
+        const foreignNeighborhood = await loadArenaLeagueNeighborhoodTx(client, {
+          tenantId: tenantB, workspaceId: workspaceB, studentId,
+          windowType: "lifetime", windowKey: "all-time",
+          snapshotVersion: nextSnapshot.version,
+        });
+        assert.equal(foreignNeighborhood, null);
         await client.query("ROLLBACK");
       } catch (error) {
         await client.query("ROLLBACK");
