@@ -162,8 +162,8 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "a084cee6424fc663f0c69fc912688457c452ba89",
-      "sha256": "cc4c5975e12a24f17822cefb0d88cfde3028cd6a7a756de374074fd3f26ad02f",
+      "gitObjectId": "5bd0b0a009f11f10171b07da7795a2839632ab0a",
+      "sha256": "7159f7d1e82767538bae586c3714c72afc11446d97e50d620c1677a821408702",
       "lines": 615,
       "reviewedRanges": [
         {
@@ -175,8 +175,9 @@
       "reviewNotes": [
         "Retired-script fail-closed behavior, mutable installer rejection, production documentation constraints, environment-template completeness, exact Node/npm/systemd contracts, clean candidate binding, immutable build identity, Compose/public inputs, container trigger coverage, readiness probes and production-verification delegation were reviewed line by line.",
         "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
-        "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
-        "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced."
+        "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.9-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
+        "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
+        "2026-10-02: re-reviewed the complete 615-line policy after rotating only the exact Alpine OpenSSL runtime package authority from 3.5.8-r0 to 3.5.9-r0. The digest-pinned Node 22 Alpine base, single apk mutation invariant, exact-version requirement, hardened-stage inheritance, non-root runtime, vulnerability gate, recovery dependency and deployment boundaries are unchanged; mutable or unpinned package installation remains rejected."
       ],
       "findings": []
     }
