@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "41c8038b88fddadd04e2eb8b8da9e2c0c0959d63",
-      "sha256": "a26e7b8bb64481f186193c9d8470be5f7d7f05f2e4c8101bc00de3d5c3b961e7",
-      "lines": 320,
+      "gitObjectId": "16b5336056495304df167da574e500308e0c5cc4",
+      "sha256": "c01b52b306d17648b86e9138d8682b5ee47688fc69ef1bdd355123f10484411a",
+      "lines": 322,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 320
+          "endLine": 322
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -46,7 +46,8 @@
         "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
         "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
         "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
-        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed."
+        "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed.",
+        "2026-10-02: re-reviewed after granting the recovery job only read-only attestation authority and exposing the workflow-scoped github.token as GH_TOKEN to GitHub CLI provenance verification. Contents and packages remain read-only, no PAT or new secret is introduced, and the token is scoped to the single rollback verification step environment."
       ],
       "findings": [
         {
@@ -122,7 +123,7 @@
         "2026-08-21: re-reviewed after adding explicit low-entropy synthetic EMAIL_PROVIDER=resend and RESEND_API_KEY fixtures to the production environment contract. The values are non-secret test fixtures used only to exercise the fail-closed email readiness validator; unconditional triggers, read-only permissions, exact-head checkout, pinned actions, browser execution and bounded evidence upload remain unchanged.",
         "2026-08-25: re-reviewed after adding synthetic GitHub Actions-only values for the administrator session, TOTP, bootstrap, phone identity, phone OTP encryption, communication-provider encryption and Limoo SMS environment contract. Job-scoped expressions and deterministic non-secret base64 fixtures satisfy production validation without granting provider or deployment authority; exact-head binding, build, database, browser scenarios and artifact handling are unchanged.",
         "2026-08-26: re-reviewed after adding the non-secret numeric LIMOO_SMS_PATTERN_ID fixture required by the Pattern OTP environment contract. The value is job-scoped test configuration only; pull-request and main triggers, read-only permissions, exact-head checkout, production build, browser scenarios, failure evidence and deployment boundaries are unchanged.",
-        "2026-08-30: re-reviewed after adding deterministic non-production tenant-role and HMAC fixtures and provisioning the disposable least-privilege AI tenant login immediately after canonical migrations. The browser build and scenarios now exercise the same signed tenant database configuration contract without receiving a worker or migration credential. The values are bounded GitHub Actions fixtures, role provisioning is CI-only and collision-checked, and unconditional triggers, read-only permissions, exact-head checkout, pinned actions, unchanged-checkout verification, failure evidence and deployment boundaries remain unchanged.",
+        "2026-08-30: re-reviewed after adding deterministic non-production tenant-role and HMAC fixtures and provisioning the disposable least-privilege AI tenant login immediately after canonical migrations. The browser build and scenarios now exercise the same signed tenant database configuration contract without receiving a worker or migration credential. The values are bounded GitHub Actions fixtures, role provisioning is CI-only and collision-checked, and unconditional triggers, read-only permissions, exact-head checkout, pinned actions, unchanged-checkout verification, failure evidence and deployment boundaries are unchanged.",
         "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
       ],
       "findings": [
@@ -163,19 +164,19 @@
     },
     {
       "path": "scripts/check-container-rollback-artifact.mjs",
-      "gitObjectId": "d8d3f6f6641bd63deef64c3e07900521d1fc713a",
-      "sha256": "7496d19c2c723ebaf39f50b6a3c8fe2815a0652fa5585c8bc7160935e48481b8",
-      "lines": 84,
+      "gitObjectId": "ace5476e53d83924de662ff39a9eee07ada02eb7",
+      "sha256": "1b00b7fdfdd6113e3fa4a344573562beff6b8f77c56336d31068b9ae675fe06e",
+      "lines": 86,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 84
+          "endLine": 86
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "2026-10-02: re-reviewed after replacing historical-source rollback reconstruction with authenticated immutable GHCR retrieval of the exact base-release image, registry-digest capture, artifact-baked commit verification, digest-bound rollback consumption and a dedicated negative guard that rejects source reconstruction and mutable latest/main rollback tags. The candidate build, SBOM, HIGH/CRITICAL vulnerability rejection, volume-restore evidence and publication dependency remain fail-closed.",
-        "2026-10-02: re-reviewed after extending the rollback authority to require GitHub provenance verification for the exact GHCR RepoDigest. The guard now requires OCI-bundle verification scoped to tecpey/Tecpey-Os, the governed container-supply-chain signer workflow, the exact previous source SHA and refs/heads/main, preserves verification evidence, and rejects fail-open attestation handling."
+        "2026-10-02: re-reviewed after extending the rollback authority to require GitHub provenance verification for the exact GHCR RepoDigest. The guard requires OCI-bundle verification scoped to tecpey/Tecpey-Os, the governed container-supply-chain signer workflow, the exact previous source SHA and refs/heads/main, requires read-only attestation permission plus workflow-scoped GH_TOKEN, preserves verification evidence, and rejects fail-open attestation handling."
       ],
       "findings": []
     },
@@ -203,7 +204,7 @@
     {
       "path": "scripts/test-container-image-rollback.sh",
       "gitObjectId": "c28a14ef253a55173ad1af1cd88f7b729693cf0a",
-      "sha256": "66a6edb9fde7c6fab004108f8894707b32f31b12955933ef66ae9e5132b060b3",
+      "sha256": "98c2d66d2a63f0c616db394728ef117c0fe8916ad70a5b0637a8c37330ae771f",
       "lines": 61,
       "reviewedRanges": [
         {
