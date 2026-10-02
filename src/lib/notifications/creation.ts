@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import type { NotificationPrincipal } from "./principal";
 import { assertSafeNotificationCopy } from "./copy-safety";
+import { coalesceNotificationDigest } from "./digest";
 import { evaluateNotificationPolicy } from "./policy";
 import type {
   NotificationCadence,
@@ -27,6 +28,8 @@ const OPTIONAL_DAILY_CAPS: Partial<Record<NotificationClass, number>> = {
   mentor_ai: 3,
   product_support: 10,
 };
+
+const FATIGUE_BUDGET_VERSION = "notification-fatigue-v2";
 
 export type InAppNotificationRequest = {
   notificationClass: (typeof PILOT_NOTIFICATION_CLASSES)[number];
@@ -75,6 +78,7 @@ type RecipientPolicyRow = {
   next_digest_at: Date;
   marketing_consent: boolean;
   recent_category_deliveries: string;
+  pending_category_reservations: string;
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -189,6 +193,34 @@ function outboxIdempotencyKey(
   return `in-app:${principal.tenantId}:${principal.id}:${sha256(correlationKey).slice(0, 32)}`;
 }
 
+function isMandatoryClass(notificationClass: NotificationClass): boolean {
+  return [
+    "security_critical",
+    "financial_transactional",
+    "legal_compliance_service",
+  ].includes(notificationClass);
+}
+
+async function acquireAdmissionLocks(
+  client: PoolClient,
+  principal: NotificationPrincipal,
+  notificationClass: NotificationClass,
+  correlationKey: string,
+  categoryCap: number | null,
+): Promise<void> {
+  // Lock ordering is a contract: budget first, correlation second. The budget
+  // lock serializes all optional admissions competing for the same fatigue
+  // budget; the correlation lock separately owns replay/payload-conflict truth.
+  if (!isMandatoryClass(notificationClass) && categoryCap !== null) {
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `notification-budget:${FATIGUE_BUDGET_VERSION}:${principal.tenantId}:${principal.id}:in_app:${notificationClass}`,
+    ]);
+  }
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `notification-correlation:v1:${principal.tenantId}:${principal.id}:in_app:${correlationKey}`,
+  ]);
+}
+
 async function loadRecipientPolicy(
   client: PoolClient,
   principal: NotificationPrincipal,
@@ -256,9 +288,23 @@ async function loadRecipientPolicy(
                WHERE n.tenant_id = $1
                  AND n.principal_id = $2
                  AND n.notification_class = $3
+                 AND n.policy_decision IN ('allow', 'defer')
                  AND n.delivered_at IS NOT NULL
                  AND n.delivered_at >= $4::timestamptz - INTERVAL '24 hours'
-            ) AS recent_category_deliveries
+            ) AS recent_category_deliveries,
+            (
+              SELECT COUNT(*)::text
+                FROM platform_notifications n
+                JOIN notification_outbox o
+                  ON o.notification_id = n.id
+                 AND o.channel = 'in_app'
+               WHERE n.tenant_id = $1
+                 AND n.principal_id = $2
+                 AND n.notification_class = $3
+                 AND n.policy_decision IN ('allow', 'defer')
+                 AND n.delivered_at IS NULL
+                 AND o.status IN ('pending', 'processing', 'failed_retryable')
+            ) AS pending_category_reservations
        FROM evaluated`,
     [principal.tenantId, principal.id, notificationClass, now],
   );
@@ -308,10 +354,16 @@ export async function createInAppNotification(
     throw new Error("notification_expiry_not_future");
   }
 
+  const mandatory = isMandatoryClass(request.notificationClass);
+  const categoryCap = OPTIONAL_DAILY_CAPS[request.notificationClass] ?? null;
   const hash = payloadHash(request);
-  await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
-    `notification-create:${principal.tenantId}:${principal.id}:in_app:${request.correlationKey}`,
-  ]);
+  await acquireAdmissionLocks(
+    client,
+    principal,
+    request.notificationClass,
+    request.correlationKey,
+    categoryCap,
+  );
 
   const existing = await client.query<ExistingIntentRow>(
     `SELECT id, notification_id, outbox_id, payload_hash,
@@ -342,17 +394,14 @@ export async function createInAppNotification(
     throw new Error("notification_principal_inactive");
   }
 
-  const mandatory = [
-    "security_critical",
-    "financial_transactional",
-    "legal_compliance_service",
-  ].includes(request.notificationClass);
   const preferenceEnabled = recipient.preference_enabled ?? true;
   const preferredCadence = mandatory
     ? "instant"
     : (recipient.preference_cadence ?? request.cadence);
-  const categoryCap = OPTIONAL_DAILY_CAPS[request.notificationClass] ?? null;
   const recentCount = Number.parseInt(recipient.recent_category_deliveries, 10);
+  const pendingCount = Number.parseInt(recipient.pending_category_reservations, 10);
+  const recentCategoryDeliveries = Number.isFinite(recentCount) ? recentCount : 0;
+  const pendingCategoryReservations = Number.isFinite(pendingCount) ? pendingCount : 0;
 
   const policyInput = {
     now,
@@ -385,7 +434,8 @@ export async function createInAppNotification(
       instantEnabled: preferredCadence === "instant",
       digestEnabled: true,
       duplicateSeen: false,
-      recentCategoryDeliveries: Number.isFinite(recentCount) ? recentCount : 0,
+      recentCategoryDeliveries,
+      pendingCategoryReservations,
       categoryFrequencyCap: categoryCap,
     },
   };
@@ -419,20 +469,33 @@ export async function createInAppNotification(
     }
   }
 
-  const policySnapshot = canonicalize({
-    input: policyInput,
-    evaluated: policy,
-    effective: {
-      decision: effectiveDecision,
-      reason: effectiveReason,
-      scheduledFor,
-    },
-  }) as Record<string, unknown>;
-
   let notificationId: string | null = null;
   let outboxId: string | null = null;
+  let digestAuthority: Record<string, unknown> | null = null;
 
-  if (["allow", "defer", "digest"].includes(effectiveDecision)) {
+  if (effectiveDecision === "digest") {
+    if (!scheduledFor) throw new Error("notification_digest_schedule_missing");
+    const aggregate = await coalesceNotificationDigest(client, {
+      principal,
+      notificationClass: request.notificationClass,
+      sourceType: request.sourceType,
+      locale: request.locale,
+      scheduledFor,
+      expiresAt: request.expiresAt,
+      policyReason: effectiveReason,
+      now,
+    });
+    notificationId = aggregate.notificationId;
+    outboxId = aggregate.outboxId;
+    digestAuthority = {
+      version: aggregate.version,
+      baseKey: aggregate.baseKey,
+      shard: aggregate.shard,
+      constituentOrdinal: aggregate.constituentOrdinal,
+      maxConstituents: aggregate.maxConstituents,
+      scope: "tenant_principal_channel_class_source_locale_window",
+    };
+  } else if (effectiveDecision === "allow" || effectiveDecision === "defer") {
     const insertedNotification = await client.query<{ id: string }>(
       `INSERT INTO platform_notifications
         (tenant_id, principal_id, notification_class, source_type, source_id,
@@ -486,6 +549,37 @@ export async function createInAppNotification(
     outboxId = insertedOutbox.rows[0]?.id ?? null;
     if (!outboxId) throw new Error("notification_outbox_insert_failed");
   }
+
+  const fatigueLockOrder =
+    categoryCap === null || mandatory
+      ? ["correlation"]
+      : ["budget", "correlation"];
+  const policySnapshot = canonicalize({
+    authority: {
+      fatigueBudget: {
+        version: FATIGUE_BUDGET_VERSION,
+        scope: "tenant_principal_channel_class",
+        recentDelivered: recentCategoryDeliveries,
+        pendingReservations: pendingCategoryReservations,
+        occupancy: recentCategoryDeliveries + pendingCategoryReservations,
+        cap: categoryCap,
+        reservationDecisions: ["allow", "defer"],
+        activeOutboxStates: ["pending", "processing", "failed_retryable"],
+        lockOrder:
+          effectiveDecision === "digest"
+            ? [...fatigueLockOrder, "digest"]
+            : fatigueLockOrder,
+      },
+      digestAggregate: digestAuthority,
+    },
+    input: policyInput,
+    evaluated: policy,
+    effective: {
+      decision: effectiveDecision,
+      reason: effectiveReason,
+      scheduledFor,
+    },
+  }) as Record<string, unknown>;
 
   const insertedIntent = await client.query<{ id: string }>(
     `INSERT INTO notification_intents

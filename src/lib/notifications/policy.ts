@@ -196,6 +196,8 @@ function validRecipientShape(
     isBoolean(recipient.duplicateSeen) &&
     typeof recipient.recentCategoryDeliveries === "number" &&
     Number.isInteger(recipient.recentCategoryDeliveries) &&
+    typeof recipient.pendingCategoryReservations === "number" &&
+    Number.isInteger(recipient.pendingCategoryReservations) &&
     (recipient.categoryFrequencyCap === null ||
       (typeof recipient.categoryFrequencyCap === "number" &&
         Number.isInteger(recipient.categoryFrequencyCap)))
@@ -247,6 +249,7 @@ export function evaluateNotificationPolicy(
     intent.correlationKey.trim().length < 8 ||
     intent.grantedApprovals < 0 ||
     recipient.recentCategoryDeliveries < 0 ||
+    recipient.pendingCategoryReservations < 0 ||
     (recipient.categoryFrequencyCap !== null &&
       recipient.categoryFrequencyCap < 0) ||
     (intent.expiresAt !== null && !validIsoTimestamp(intent.expiresAt))
@@ -337,6 +340,29 @@ export function evaluateNotificationPolicy(
     return result("suppress", "muted", mandatory);
   }
 
+  // Explicit digest cadence is non-interruptive by construction and must not be
+  // converted into an instant/deferred interruption merely because it is
+  // currently quiet-hours. Mandatory classes remain on their hard instant path.
+  if (!mandatory && intent.cadence === "digest") {
+    if (recipient.digestEnabled) {
+      return result("digest", "policy_allowed", mandatory);
+    }
+    return result("suppress", "digest_unavailable", mandatory);
+  }
+
+  const interruptionBudgetOccupancy =
+    recipient.recentCategoryDeliveries + recipient.pendingCategoryReservations;
+  if (
+    !mandatory &&
+    recipient.categoryFrequencyCap !== null &&
+    interruptionBudgetOccupancy >= recipient.categoryFrequencyCap
+  ) {
+    if (recipient.digestEnabled) {
+      return result("digest", "frequency_cap", mandatory);
+    }
+    return result("suppress", "frequency_cap", mandatory);
+  }
+
   const bypassesQuietHours = isAtLeast(
     intent.urgency,
     classPolicy.quietHoursBypassAt,
@@ -352,24 +378,6 @@ export function evaluateNotificationPolicy(
       notBefore: recipient.quietHoursEndAt,
       shouldTryFallbackChannel: false,
     });
-  }
-
-  if (
-    !mandatory &&
-    recipient.categoryFrequencyCap !== null &&
-    recipient.recentCategoryDeliveries >= recipient.categoryFrequencyCap
-  ) {
-    if (recipient.digestEnabled) {
-      return result("digest", "frequency_cap", mandatory);
-    }
-    return result("suppress", "frequency_cap", mandatory);
-  }
-
-  if (intent.cadence === "digest") {
-    if (recipient.digestEnabled) {
-      return result("digest", "policy_allowed", mandatory);
-    }
-    return result("suppress", "digest_unavailable", mandatory);
   }
 
   if (!mandatory && !recipient.instantEnabled) {
