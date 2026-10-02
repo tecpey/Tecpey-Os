@@ -34,7 +34,7 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
-  test("320px keeps conversation usable, modal focus safe and starters draft-only", async ({ page }, testInfo) => {
+  test("320px keeps conversation, history and Mini Arena interactions recoverable", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated 320px acceptance projects only.");
 
     const isEn = testInfo.project.metadata.locale === "en";
@@ -49,6 +49,8 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
           textarea: "Your message to the mentor",
           privacy: "Privacy",
           support: "Support",
+          arenaOpen: "Open a Trading Arena practice challenge",
+          arenaTitle: "Trading Arena",
         }
       : {
           history: "گفت‌وگوهای قبلی",
@@ -59,6 +61,8 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
           textarea: "پیام شما به منتور",
           privacy: "حریم خصوصی",
           support: "پشتیبانی",
+          arenaOpen: "بازکردن چالش تمرینی Arena",
+          arenaTitle: "آرنای معاملاتی",
         };
 
     await installLocalUiSession(page.context());
@@ -85,12 +89,25 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
 
     const historyTrigger = page.getByRole("button", { name: labels.history, exact: true });
     await historyTrigger.click();
-    const dialog = page.getByRole("dialog", { name: labels.history });
-    await expect(dialog).toBeVisible();
-    expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    const historyDialog = page.getByRole("dialog", { name: labels.history });
+    await expect(historyDialog).toBeVisible();
+    expect(await historyDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
     await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
+    await expect(historyDialog).toBeHidden();
     await expect(historyTrigger).toBeFocused();
+
+    const arenaTrigger = page.getByRole("button", { name: labels.arenaOpen, exact: true });
+    await expect(arenaTrigger).toHaveAttribute("aria-expanded", "false");
+    await arenaTrigger.click();
+    await expect(arenaTrigger).toHaveAttribute("aria-expanded", "true");
+    const arenaDialog = page.getByRole("dialog", { name: labels.arenaTitle });
+    await expect(arenaDialog).toBeVisible();
+    await expect(arenaDialog).toHaveAttribute("aria-modal", "true");
+    expect(await arenaDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(arenaDialog).toBeHidden();
+    await expect(arenaTrigger).toBeFocused();
+    await expect(arenaTrigger).toHaveAttribute("aria-expanded", "false");
 
     const log = page.getByRole("log");
     const beforeDraft = await log.innerText();
