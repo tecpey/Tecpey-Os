@@ -34,7 +34,7 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
-  test("320px keeps conversation, history and Mini Arena interactions recoverable", async ({ page }, testInfo) => {
+  test("320px keeps conversation, history and Mini Arena interactions recoverable with reduced motion", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated 320px acceptance projects only.");
 
     const isEn = testInfo.project.metadata.locale === "en";
@@ -66,6 +66,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
         };
 
     await installLocalUiSession(page.context());
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
     await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
 
@@ -111,7 +112,15 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
 
     const log = page.getByRole("log");
     const beforeDraft = await log.innerText();
-    await page.getByRole("button", { name: new RegExp(labels.starter) }).click();
+    const starter = page.getByRole("button", { name: new RegExp(labels.starter) });
+    await expect(starter).toBeVisible();
+    const starterMotion = await starter.evaluate(element => {
+      const style = getComputedStyle(element);
+      return { duration: style.transitionDuration, property: style.transitionProperty };
+    });
+    expect(starterMotion.duration).toBe("0s");
+    expect(starterMotion.property).toBe("all");
+    await starter.click();
     const textarea = page.getByRole("textbox", { name: labels.textarea });
     await expect(textarea).toBeFocused();
     await expect(textarea).not.toHaveValue("");
