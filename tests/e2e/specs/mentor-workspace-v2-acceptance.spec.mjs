@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
 async function installLocalUiSession(context) {
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:3100";
@@ -156,6 +161,50 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await page.keyboard.press("Escape");
     await expect(log.locator('[data-role="user"]')).toHaveCount(1);
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(1);
+  });
+
+  test("workspace and history retain accessible contrast in persisted themes", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    await installLocalUiSession(page.context());
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
+    await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
+    const path = `${isEn ? "/en" : ""}/academy/ai-guide`;
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    for (const theme of ["dark", "light"]) {
+      await page.evaluate(value => localStorage.setItem("theme", value), theme);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+      else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+      await page.getByRole("button", { name: isEn ? "Mentor office" : "دفتر منتور", exact: true }).click();
+      await page.addScriptTag({ content: axeSource });
+      for (const surface of ["workspace", "history"]) {
+        if (surface === "history") {
+          await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();
+        }
+        const result = await page.evaluate(async selector => {
+          const results = await window.axe.run(document.querySelector(selector), {
+            runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] },
+          });
+          return results.violations.map(({ id, impact, help, nodes }) => ({
+            id, impact, help, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })),
+          }));
+        }, surface === "workspace" ? '[aria-labelledby="mentor-workspace-title"]' : "#mentor-history-dialog");
+        await testInfo.attach(`mentor-${theme}-${surface}-axe`, {
+          body: Buffer.from(JSON.stringify(result, null, 2)), contentType: "application/json",
+        });
+        expect(result, `${theme} ${surface} WCAG violations`).toEqual([]);
+      }
+      await page.keyboard.press("Escape");
+    }
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    expect(await page.evaluate(() => matchMedia("(forced-colors: active)").matches)).toBe(true);
+    const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
+    await input.focus();
+    await input.fill("A readable high contrast draft");
+    await expect(input).toBeFocused();
+    await expect(page.getByRole("button", { name: isEn ? "Send question" : "ارسال سؤال", exact: true })).toBeEnabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 
   test("320px keeps conversation, history and Mini Arena interactions recoverable with reduced motion", async ({ page }, testInfo) => {

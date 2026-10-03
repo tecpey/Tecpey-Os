@@ -94,3 +94,10 @@ only; they do not establish backend entitlement or persistence authority.
 
 Local TypeScript, scoped lint and 14 existing workspace/stage tests pass.
 Full device/contrast acceptance and independent current-head review remain open.
+
+The compact matrix additionally scans the expanded workspace and native history
+dialog with the existing pinned axe-core dependency in both persisted dark and
+light themes. It asserts the root theme class rather than inferring theme from
+OS preference, attaches mapped WCAG violations, and checks the composer in
+forced-colors mode. Automated scans cannot establish complete WCAG conformance
+or physical-device keyboard behavior; this delta still needs CI execution.
