@@ -73,7 +73,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       };
     });
     await page.goto(`${isEn ? "/en" : ""}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
-    const progress = page.locator("header").getByRole("status").filter({ hasText: isEn ? /terms|progress/ : /ترم|پیشرفت/ });
+    const progress = page.locator("header").getByRole("status").filter({ hasText: isEn ? /terms|progress/i : /ترم|پیشرفت/ });
     await expect(progress).toHaveText(isEn ? "3/7 completed terms" : "3/7 ترم تکمیل‌شده");
     await expect(page.locator('#mentor-office [data-earned="true"]')).toHaveCount(2);
     completed = 7;
