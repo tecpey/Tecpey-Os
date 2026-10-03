@@ -9,6 +9,40 @@ export const PUBLIC_MARKET_FUTURE_SKEW_MS = 30_000;
 export const BITYCLE_PUBLIC_MARKET_FRESHNESS_MS = 2 * 60_000;
 export const BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS = 30_000;
 
+function publicMarketPolicy(source: unknown) {
+  if (source === PUBLIC_MARKET_SOURCE) return { freshnessMs: PUBLIC_MARKET_FRESHNESS_MS, skewMs: PUBLIC_MARKET_FUTURE_SKEW_MS, cacheMs: 60_000 };
+  if (source === BITYCLE_MARKET_SOURCE) return { freshnessMs: BITYCLE_PUBLIC_MARKET_FRESHNESS_MS, skewMs: BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS, cacheMs: 10_000 };
+  return null;
+}
+
+function publicMarketDeadline(row: MarketCurrency, now: number): number | null {
+  const policy = publicMarketPolicy(row.marketDataSource);
+  const updated = Date.parse(row.marketDataUpdatedAt ?? "");
+  const priceUpdated = typeof row.priceData?.timestamp === "string" ? Date.parse(row.priceData.timestamp) : NaN;
+  if (!policy || !Number.isFinite(now) || !Number.isFinite(updated) || updated !== priceUpdated) return null;
+  const age = now - updated;
+  return age > policy.freshnessMs || age < -policy.skewMs ? null : updated + policy.freshnessMs;
+}
+
+/** Recheck after upstream requests, in-flight sharing and origin-cache reads. */
+export function selectFreshPublicMarketRows(rows: readonly MarketCurrency[], now = Date.now()): MarketCurrency[] {
+  return rows.filter((row) => publicMarketDeadline(row, now) !== null);
+}
+
+/** A shared cache may never extend the remaining upstream freshness window. */
+export function publicMarketCacheControl(rows: readonly MarketCurrency[], now = Date.now()): string {
+  if (rows.length === 0 || !Number.isFinite(now)) return "no-store";
+  let remainingMs = Infinity;
+  for (const row of rows) {
+    const deadline = publicMarketDeadline(row, now);
+    const policy = publicMarketPolicy(row.marketDataSource);
+    if (deadline === null || !policy) return "no-store";
+    remainingMs = Math.min(remainingMs, deadline - now, policy.cacheMs);
+  }
+  const seconds = Math.floor(remainingMs / 1_000);
+  return seconds < 1 ? "no-store" : `public, max-age=0, s-maxage=${seconds}, must-revalidate`;
+}
+
 export type MarketPriceLocale = "fa-IR" | "en-US";
 
 export function normalizeMarketSymbol(value: unknown): string {

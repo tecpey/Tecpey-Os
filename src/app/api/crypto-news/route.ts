@@ -15,6 +15,7 @@ import {
   tehranCalendarDay,
 } from "@/lib/news-growth-authority";
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
+import { isRecentNewsPublication, NEWS_FEED_PUBLICATION_POLICY, selectPublishedNewsForFeed } from "@/lib/news-published-at";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -87,7 +88,7 @@ function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now:
     category: categoryTag ? newsTaxonomyTagLabel(categoryTag, locale) : (locale === "fa" ? "بازار" : "Market"),
     tone: inferTone(text),
     impact,
-    isBreaking: Math.max(0, now - Date.parse(item.publishedAt)) <= 12 * 60 * 60 * 1_000,
+    isBreaking: isRecentNewsPublication(item.publishedAt, now),
     trendScore: impact * 10 + Math.min(20, item.taxonomy.entityTags.length),
     editorPick: impact >= 8,
     relatedLesson: relatedLesson(item, locale),
@@ -173,15 +174,8 @@ export async function GET(request: NextRequest) {
     const downstreamArchiveItems = locale === "fa"
       ? archiveItems.filter((item) => !item.translationPending)
       : archiveItems;
-    const allItems = downstreamArchiveItems
-      .map((item) => toNewsItem(item, locale, now))
-      .sort((left, right) => {
-        const leftTime = Date.parse(left.publishedAt);
-        const rightTime = Date.parse(right.publishedAt);
-        const leftSafe = Number.isFinite(leftTime) ? leftTime : 0;
-        const rightSafe = Number.isFinite(rightTime) ? rightTime : 0;
-        return rightSafe - leftSafe;
-      });
+    const publishedArchiveItems = selectPublishedNewsForFeed(downstreamArchiveItems, now);
+    const allItems = publishedArchiveItems.map((item) => toNewsItem(item, locale, now));
     const items = allItems.slice(0, limit);
     const updatedAt = new Date().toISOString();
     const availableDays = Array.from(new Set([today, requestedDay, ...historicalDays]))
@@ -194,7 +188,9 @@ export async function GET(request: NextRequest) {
       today,
       availableDays,
       updatedAt,
-      mode: archiveItems.length ? "live" : "fallback" as const,
+      publicationPolicy: NEWS_FEED_PUBLICATION_POLICY,
+      publicationWithheldCount: downstreamArchiveItems.length - publishedArchiveItems.length,
+      mode: items.length ? "live" : "fallback" as const,
       archiveItemCount: archiveItems.length,
       localizedItemCount: downstreamArchiveItems.length,
       pendingTranslationCount: archiveItems.filter((item) => item.translationPending).length,

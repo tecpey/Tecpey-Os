@@ -19,6 +19,8 @@ import {
   normalizeCoinGeckoMarkets,
   PUBLIC_MARKET_SOURCE,
   PUBLIC_MARKET_SOURCE_URL,
+  publicMarketCacheControl,
+  selectFreshPublicMarketRows,
 } from "@/lib/public-market-data";
 import { readBoundedJsonResponse } from "@/lib/runtime-bounded-json";
 import { listMarkets, getMarket } from "@/lib/trading/market-service";
@@ -407,6 +409,7 @@ async function fetchCoinGeckoMarkets(
 
     const payload = await readBoundedJsonResponse(response, MAX_COINGECKO_RESPONSE_BYTES);
     const data = normalizeCoinGeckoMarkets(payload);
+    if (data.length === 0) return null;
     const relevance = new Map(selectedIds.map((id, index) => [`coingecko:${id}`, index]));
     data.sort((left, right) => {
       const leftOrder = relevance.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER;
@@ -464,8 +467,9 @@ async function publicMarketResponse(request: NextRequest) {
 
   const bitycle = await fetchBitycleMarkets();
   if (bitycle) {
-    const paged = filterAndPagePublicMarkets(bitycle.data, query, page, limit);
-    if (paged.data.length > 0 || query) {
+    const freshData = selectFreshPublicMarketRows(bitycle.data);
+    const paged = filterAndPagePublicMarkets(freshData, query, page, limit);
+    if (freshData.length > 0 && (paged.data.length > 0 || query)) {
       const response = apiOk({
         data: paged.data,
         meta: { current_page: page, last_page: paged.lastPage, total: paged.total },
@@ -480,17 +484,18 @@ async function publicMarketResponse(request: NextRequest) {
           fallback: false,
         },
       });
-      response.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=10");
+      response.headers.set("Cache-Control", publicMarketCacheControl(paged.data));
       return response;
     }
   }
 
   const coinGecko = await fetchCoinGeckoMarkets(page, limit, query);
   if (!coinGecko) return apiError("market_data_unavailable", 503);
-  if (coinGecko.data.length === 0 && !query) return apiError("market_data_stale_or_empty", 503);
+  const freshData = selectFreshPublicMarketRows(coinGecko.data);
+  if (freshData.length === 0 && (!query || coinGecko.data.length > 0)) return apiError("market_data_stale_or_empty", 503);
 
   const response = apiOk({
-    data: coinGecko.data,
+    data: freshData,
     meta: {
       current_page: page,
       last_page: coinGecko.lastPage,
@@ -501,12 +506,12 @@ async function publicMarketResponse(request: NextRequest) {
       providerUrl: PUBLIC_MARKET_SOURCE_URL,
       currency: "USD",
       fetchedAt: coinGecko.observedAt,
-      upstreamUpdatedAt: oldestMarketTimestamp(coinGecko.data),
+      upstreamUpdatedAt: oldestMarketTimestamp(freshData),
       freshness: "upstream timestamps under 5 minutes",
       fallback: Boolean(process.env.BITYCLE_API_KEY?.trim()),
     },
   });
-  response.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=120");
+  response.headers.set("Cache-Control", publicMarketCacheControl(freshData));
   return response;
 }
 
