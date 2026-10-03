@@ -127,3 +127,22 @@ award and monitor groups now have explicit group semantics. Recovery assertions
 also accidentally selected Next's route-announcer alert: the fixtures now scope
 the alert to the workspace, retaining all message/provenance/retry assertions.
 No WCAG rule or failure threshold is disabled.
+
+## Visible Premium lock reasons
+
+The office's disabled monitor controls previously relied on an icon and an ARIA
+label for their Premium lock reason, while compact labels shrank to 7px. They now
+show a localized reason beside their label with 12px text, wrapping rather than
+truncating. Disabled controls retain readable foregrounds; lock semantics and
+server capability admission remain unchanged. The office reserves space above
+the control row for its existing scene and uses system colors in forced-colors
+mode. The FA/EN failure case asserts both visible lock reasons and minimum font
+size. This is a client affordance correction, not an entitlement change.
+
+On `fd93474036ff0a1a4e39ee771e7fe2ce889225f8`, the strengthened browser
+matrix passed: 43 tests including both locale recovery/network/stale-response
+cases and zero detected WCAG violations in persisted dark/light ContentShells
+and history dialogs. This proves that checkpoint, not the subsequent visible
+lock delta. The recovery case additionally exercises a missing-thread error and
+its explicit new-conversation action; it verifies empty messages and focused,
+enabled composition after recovery.

@@ -290,7 +290,10 @@ export function MentorOfficeScene({
               data-locked={!available}
             >
               {available ? <SurfaceIcon surface={surface.id} /> : <LockKeyhole aria-hidden="true" />}
-              <span>{copy[surface.id]}</span>
+              <span>
+                {copy[surface.id]}
+                {!available ? <small>{copy.locked}</small> : null}
+              </span>
             </button>
           );
         })}

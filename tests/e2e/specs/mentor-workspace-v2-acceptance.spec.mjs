@@ -66,6 +66,13 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     for (const control of await office.locator('button[data-locked="true"]').all()) {
       await expect(control).toBeDisabled();
       await expect(control).toHaveAttribute("aria-pressed", "false");
+      await expect(control.locator("small")).toHaveText(isEn ? "Premium only" : "ویژه پرمیوم");
+      const typography = await control.evaluate(element => ({
+        label: Number.parseFloat(getComputedStyle(element).fontSize),
+        reason: Number.parseFloat(getComputedStyle(element.querySelector("small")).fontSize),
+      }));
+      expect(typography.label).toBeGreaterThanOrEqual(12);
+      expect(typography.reason).toBeGreaterThanOrEqual(12);
     }
     await page.getByRole("button", { name: isEn ? "Collapse mentor office" : "جمع‌کردن دفتر منتور", exact: true }).click();
     const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
@@ -99,6 +106,16 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(4);
     await expect(log.locator('[data-source="live"]')).toHaveCount(1);
     await expect(log).toContainText("Recovered educational answer");
+    failure = { status: 404, error: "mentor_thread_not_found" };
+    await input.fill("Continue an unavailable conversation");
+    await input.press("Enter");
+    await expect.poll(() => threadReads).toBe(6);
+    await expect(log.locator('[data-role="assistant"]')).toHaveCount(5);
+    await requestAlert.getByRole("button", { name: isEn ? "New conversation" : "گفت‌وگوی جدید", exact: true }).click();
+    await expect(requestAlert).toHaveCount(0);
+    await expect(log.locator('[data-role="user"], [data-role="assistant"]')).toHaveCount(0);
+    await expect(input).toBeFocused();
+    await expect(input).toBeEnabled();
   });
 
   test("a late response cannot repopulate a new conversation", async ({ page }, testInfo) => {
