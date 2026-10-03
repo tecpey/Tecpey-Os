@@ -11,6 +11,7 @@ const directRoutes = Object.freeze([
   ["src/app/api/academy-lead/route.ts", "request"],
   ["src/app/api/academy-lesson-assessment/route.ts", "req"],
   ["src/app/api/academy-mastery-seasons/activate/route.ts", "req"],
+  ["src/app/api/academy-v3/missions/route.ts", "req"],
   ["src/app/api/academy-reflections/route.ts", "req"],
   ["src/app/api/academy-simulator-decision/route.ts", "req"],
   ["src/app/api/academy-specialized-lead/route.ts", "req"],

@@ -53,6 +53,13 @@ async function seedGraduate(
                    ranking_consent = FALSE`,
     [scope.tenantId, scope.workspaceId, studentId],
   );
+  await client.query(
+    `INSERT INTO academy_mastery_weakness_signals
+       (tenant_id, workspace_id, student_id, locale, source_type, source_id, concept_tag, strength, confidence)
+     VALUES ($1, $2, $3::uuid, 'fa', 'assessment', $4, 'risk', -80, 95)
+     ON CONFLICT DO NOTHING`,
+    [scope.tenantId, scope.workspaceId, studentId, `activation-fixture-${studentId}`],
+  );
   for (let term = 1; term <= 7; term += 1) {
     await client.query(
       `INSERT INTO academy_term_progress

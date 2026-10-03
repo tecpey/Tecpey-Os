@@ -108,6 +108,7 @@ import { DEEP_RESEARCH_PROVENANCE_SQL } from "./db-migrate-deep-research-provena
 import { MODEL_LAB_COUNCIL_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-council";
 import { MODEL_LAB_EXECUTION_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-execution";
 import { AI_MODEL_EVALUATION_AUTHORITY_SQL } from "./db-migrate-ai-model-evaluation";
+import { ACADEMY_V3_MISSION_EVIDENCE_SQL } from "./db-migrate-academy-v3-mission-evidence";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -491,5 +492,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   modelEvaluationAuthority: one(
     "0118_ai_model_evaluation_authority.sql",
     AI_MODEL_EVALUATION_AUTHORITY_SQL,
+  ),
+  academyV3MissionEvidence: one(
+    "0119_academy_v3_mission_evidence.sql",
+    ACADEMY_V3_MISSION_EVIDENCE_SQL,
   ),
 });

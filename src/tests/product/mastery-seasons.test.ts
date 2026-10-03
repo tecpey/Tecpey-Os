@@ -21,6 +21,11 @@ import {
   submitAcademyMasteryGenerationDraft,
 } from "../../lib/academy-mastery-season-review-orchestrator";
 import { C_LEVEL_CONTROL_POLICY_VERSION } from "../../lib/c-level-control-authority";
+import {
+  ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION,
+  diagnoseAcademyLearning,
+  type AcademyLearningEvidence,
+} from "../../lib/academy-learning-diagnosis";
 import { ACADEMY_MASTERY_SEASONS_SQL } from "../../lib/db-migrate-academy-mastery-seasons";
 import { validGeneratedMasteryDraft as validGeneratedDraft } from "./mastery-season-draft-fixture";
 
@@ -673,6 +678,98 @@ describe("Academy Mastery Seasons authority", () => {
     );
     const update = queries.find(({ sql }) => /UPDATE academy_mastery_season_generation_drafts/.test(sql));
     assert.equal(update?.values[3], "published");
+  });
+
+
+  it("diagnoses governed weakness evidence deterministically with freshness and authority", () => {
+    const asOf = new Date("2026-09-24T12:00:00.000Z");
+    const assessment: AcademyLearningEvidence = {
+      sourceType: "assessment",
+      sourceId: "assessment:risk:1",
+      conceptTag: "risk",
+      strength: -80,
+      confidence: 90,
+      observedAt: "2026-09-23T12:00:00.000Z",
+    };
+    const mentor: AcademyLearningEvidence = {
+      ...assessment,
+      sourceType: "mentor",
+      sourceId: "mentor:fomo:1",
+      conceptTag: "fomo",
+    };
+    const snapshot = [assessment, mentor];
+
+    assert.equal(ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION, "academy-learning-diagnosis-v1");
+    const forward = diagnoseAcademyLearning({ evidence: snapshot, asOf });
+    const reversed = diagnoseAcademyLearning({ evidence: [...snapshot].reverse(), asOf });
+    assert.deepEqual(forward, reversed);
+    assert.equal(forward.policyVersion, ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION);
+    assert.equal(forward.asOf, asOf.toISOString());
+    assert.match(forward.evidenceSha256, /^[a-f0-9]{64}$/);
+    assert.equal(forward.evidenceSha256, reversed.evidenceSha256);
+
+    const diagnosis = forward;
+    assert.equal(diagnosis.status, "ready");
+    if (diagnosis.status !== "ready") return;
+    assert.equal(diagnosis.concepts[0].conceptTag, "risk");
+    assert.ok(diagnosis.concepts[0].priorityBps > diagnosis.concepts[1].priorityBps);
+    assert.equal(diagnosis.concepts[0].authoritativeEvidenceCount, 1);
+    assert.equal(diagnosis.concepts[1].authoritativeEvidenceCount, 0);
+  });
+
+  it("fails closed for missing, stale or non-weakness learning evidence", () => {
+    const asOf = new Date("2026-09-24T12:00:00.000Z");
+    const empty = diagnoseAcademyLearning({ evidence: [], asOf });
+    assert.equal(empty.status, "insufficient_evidence");
+    assert.equal(empty.policyVersion, ACADEMY_LEARNING_DIAGNOSIS_POLICY_VERSION);
+    assert.equal(empty.asOf, asOf.toISOString());
+    assert.match(empty.evidenceSha256, /^[a-f0-9]{64}$/);
+    assert.deepEqual(empty.concepts, []);
+
+    const stale: AcademyLearningEvidence = {
+      sourceType: "assessment",
+      sourceId: "assessment:risk:stale",
+      conceptTag: "risk",
+      strength: -80,
+      confidence: 90,
+      observedAt: "2026-01-01T00:00:00.000Z",
+    };
+    assert.equal(diagnoseAcademyLearning({ evidence: [stale], asOf }).status, "insufficient_evidence");
+    assert.equal(
+      diagnoseAcademyLearning({ evidence: [{ ...stale, strength: 80, observedAt: "2026-09-23T12:00:00.000Z" }], asOf }).status,
+      "insufficient_evidence",
+    );
+  });
+
+  it("decays older governed evidence and exposes non-opaque reason codes", () => {
+    const asOf = new Date("2026-09-24T12:00:00.000Z");
+    const base: AcademyLearningEvidence = {
+      sourceType: "assessment",
+      sourceId: "assessment:risk:fresh",
+      conceptTag: "fresh-risk",
+      strength: -80,
+      confidence: 90,
+      observedAt: "2026-09-23T12:00:00.000Z",
+    };
+    const diagnosis = diagnoseAcademyLearning({
+      evidence: [
+        base,
+        {
+          ...base,
+          sourceId: "assessment:risk:old",
+          conceptTag: "old-risk",
+          observedAt: "2026-07-01T12:00:00.000Z",
+        },
+      ],
+      asOf,
+    });
+    assert.equal(diagnosis.status, "ready");
+    if (diagnosis.status !== "ready") return;
+    const fresh = diagnosis.concepts.find((item) => item.conceptTag === "fresh-risk");
+    const old = diagnosis.concepts.find((item) => item.conceptTag === "old-risk");
+    assert.ok(fresh && old);
+    assert.ok(fresh.priorityBps > old.priorityBps);
+    assert.ok(old.reasonCodes.includes("evidence_decayed"));
   });
 
 });

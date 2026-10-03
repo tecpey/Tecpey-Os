@@ -88,6 +88,20 @@ async function seedStudentBoundToBothTenants(client: PoolClient): Promise<string
   return studentId;
 }
 
+async function recordGovernedWeakness(
+  client: PoolClient,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+  conceptTag: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO academy_mastery_weakness_signals
+       (tenant_id, workspace_id, student_id, locale, source_type, source_id, concept_tag, strength, confidence)
+     VALUES ($1, $2, $3::uuid, 'fa', 'assessment', $4, $5, -80, 95)`,
+    [scope.tenantId, scope.workspaceId, studentId, `term-progress-${randomUUID()}`, conceptTag],
+  );
+}
+
 async function recordTerm(
   client: PoolClient,
   scope: AcademyMasteryTenantScope,
@@ -120,6 +134,7 @@ after(async () => {
     for (const studentId of cleanupStudents) {
       await client.query("DELETE FROM academy_learning_commands WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_certificates WHERE student_id = $1::uuid", [studentId]);
+      await client.query("DELETE FROM academy_mastery_weakness_signals WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_term_progress WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_student_mastery_profiles WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_public_profiles WHERE student_id = $1::uuid", [studentId]);
@@ -247,6 +262,7 @@ describe("academy_term_progress cross-tenant isolation", () => {
         for (let term = 1; term <= SEASON_UNLOCK_TERM; term += 1) {
           await recordTerm(client, SCOPE_A, studentId, term, "passed");
         }
+        await recordGovernedWeakness(client, SCOPE_A, studentId, "risk");
 
         const stateA = await readAcademyMasterySeasonState(client, SCOPE_A, studentId, "fa");
         const stateB = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");

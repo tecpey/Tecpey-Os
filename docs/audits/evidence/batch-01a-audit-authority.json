@@ -42,8 +42,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "cffb29ab2c7c37a71ab43f0637aca0ad9cfd8937",
-      "sha256": "96da272364efc7e4a356d54b786925d67bf240260498e5da1598b5657607d3d6",
+      "gitObjectId": "fa4e87d8ff1d68bb562f93f6ae8f1af2896fc023",
+      "sha256": "8f1645741c0570bcb2070746fdc99c6af2bf7cf0eff83a68a4773ffef3ac02a8",
       "lines": 294,
       "reviewedRanges": [
         {
@@ -143,7 +143,8 @@
         "2026-09-18: re-reviewed the complete 293-line package after production-bundling the governed operational installer EnvironmentFile validator, exposing ops:installer:env-check, and extending the focused operational-signal test command with installer/parser evidence. The delta adds no dependency, engine or override; it removes ad-hoc shell secret parsing from the Mentor/Community installers, keeps secret values out of output, preserves release authority composition, and adds no product/provider/spend/exchange/custody activation, merge, deploy or production-launch authority.",
         "2026-09-21: re-reviewed the complete 294-line package after adding test:staging-promotion and composing it into test:ops-staging-evidence. The new command runs only local node:test policy/authority checks for the protected staging promotion workflow and script; it adds no dependency, engine or override, performs no workflow dispatch or host mutation itself, preserves the existing release/launch composition, and does not authorize merge, staging promotion or Production deployment.",
         "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
-        "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization."
+        "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
+        "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority."
       ],
       "findings": [
         {
