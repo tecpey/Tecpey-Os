@@ -20,6 +20,7 @@ import {
   peekPreAuthToken,
   storePreAuthToken,
 } from "../../lib/security/totp";
+import { requireRecentSessionStepUpAuthority } from "../../lib/security/session-authority";
 import {
   hashSensitiveAuditRequest,
   writeSensitiveMutationAuditTx,
@@ -166,6 +167,17 @@ describe("Two-factor verification authority", { concurrency: 1 }, () => {
       const userId = `two-factor-verify-user-${randomUUID()}`;
       const tenant = tenantId();
       const factor = await seedEnabledFactor({ userId, tenant });
+      // Enrollment confirmation intentionally consumes its TOTP step. Move the
+      // persisted replay watermark back one step so this legacy success-path
+      // assertion exercises a fresh verification step without a 30s sleep.
+      await withClient(async (client) => {
+        await client.query(
+          `UPDATE user_2fa
+              SET last_accepted_totp_step = last_accepted_totp_step - 1
+            WHERE user_id = $1`,
+          [userId],
+        );
+      });
       const beforeValue = await lastUsedAt(userId);
       await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -201,6 +213,140 @@ describe("Two-factor verification authority", { concurrency: 1 }, () => {
         assert.match(document, /acceptedStepFingerprint/);
         assert.equal(document.includes(factor.rawSecret), false);
         assert.equal(document.includes(factor.encryptedSecret), false);
+      });
+    },
+  );
+
+  it(
+    "commits TOTP consumption and session step-up atomically",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const userId = `two-factor-step-up-user-${randomUUID()}`;
+      const tenant = tenantId();
+      const factor = await seedEnabledFactor({ userId, tenant });
+      const sessionJti = `step-up-${randomUUID()}`;
+      await withClient(async (client) => {
+        await client.query(
+          `UPDATE user_2fa
+              SET last_accepted_totp_step = last_accepted_totp_step - 1
+            WHERE user_id = $1`,
+          [userId],
+        );
+        await client.query(
+          `INSERT INTO user_sessions
+             (id, user_id, device_info, ip, expires_at)
+           VALUES ($1, $2, 'step-up-test', '127.0.0.1', NOW() + INTERVAL '15 minutes')`,
+          [sessionJti, userId],
+        );
+      });
+      const code = generateTotp(factor.rawSecret);
+
+      await assert.rejects(
+        verifyTwoFactorCredential({
+          userId,
+          code,
+          sessionJti: `missing-${randomUUID()}`,
+          audit: auditContext({ userId, tenant }),
+        }),
+        /step_up_session_not_authoritative/,
+      );
+
+      // The failed session binding must have rolled back the replay watermark,
+      // so the exact same code remains usable for the real current session.
+      const verified = await verifyTwoFactorCredential({
+        userId,
+        code,
+        sessionJti,
+        audit: auditContext({ userId, tenant }),
+      });
+      assert.equal(verified.ok, true);
+      const fresh = await requireRecentSessionStepUpAuthority({
+        userId,
+        sessionJti,
+        maxAgeSeconds: 300,
+      });
+      assert.equal(fresh.ok, true);
+
+      await withClient(async (client) => {
+        const state = await client.query<{ step_up_at: Date | null }>(
+          `SELECT step_up_at FROM user_sessions WHERE id = $1 AND user_id = $2`,
+          [sessionJti, userId],
+        );
+        assert.ok(state.rows[0]?.step_up_at instanceof Date);
+        const evidence = await client.query<{ action: string; outcome: string }>(
+          `SELECT action, outcome
+             FROM sensitive_mutation_audit_events
+            WHERE tenant_id = $1
+              AND actor_id = $2
+              AND action IN ('credential.2fa.verify', 'session.step_up')
+            ORDER BY created_at ASC`,
+          [tenant, userId],
+        );
+        assert.equal(evidence.rows.filter((row) => row.action === "credential.2fa.verify").length, 1);
+        assert.equal(evidence.rows.filter((row) => row.action === "session.step_up").length, 1);
+        assert.equal(evidence.rows.every((row) => row.outcome === "success"), true);
+        await client.query("DELETE FROM user_sessions WHERE id = $1", [sessionJti]);
+      });
+    },
+  );
+
+  it(
+    "allows one success per TOTP time step and rejects concurrent replay",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const userId = `two-factor-verify-user-${randomUUID()}`;
+      const tenant = tenantId();
+      const factor = await seedEnabledFactor({ userId, tenant });
+      // Enrollment confirmation consumes its RFC-6238 step. Advance the stored
+      // authority one step backwards so this test can exercise a fresh step
+      // without sleeping for the next 30-second boundary.
+      await withClient(async (client) => {
+        await client.query(
+          `UPDATE user_2fa
+              SET last_accepted_totp_step = last_accepted_totp_step - 1
+            WHERE user_id = $1`,
+          [userId],
+        );
+      });
+      const code = generateTotp(factor.rawSecret);
+      const [first, second] = await Promise.all([
+        verifyTwoFactorCredential({
+          userId,
+          code,
+          audit: auditContext({ userId, tenant }),
+        }),
+        verifyTwoFactorCredential({
+          userId,
+          code,
+          audit: auditContext({ userId, tenant }),
+        }),
+      ]);
+      assert.equal([first, second].filter((result) => result.ok).length, 1);
+      assert.equal(
+        [first, second].filter(
+          (result) => !result.ok && result.status === "invalid_code",
+        ).length,
+        1,
+      );
+
+      await withClient(async (client) => {
+        const evidence = await client.query<{ outcome: string; metadata: { resultCategory?: string } }>(
+          `SELECT outcome, metadata
+             FROM sensitive_mutation_audit_events
+            WHERE tenant_id = $1
+              AND actor_id = $2
+              AND action = 'credential.2fa.verify'
+            ORDER BY created_at ASC`,
+          [tenant, userId],
+        );
+        assert.equal(evidence.rows.filter((row) => row.outcome === "success").length, 1);
+        assert.equal(
+          evidence.rows.filter(
+            (row) => row.outcome === "rejected"
+              && row.metadata?.resultCategory === "totp_replay",
+          ).length,
+          1,
+        );
       });
     },
   );

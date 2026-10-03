@@ -125,6 +125,8 @@ requireText("authority", 'resourceType: "credential_2fa"', "2FA evidence must us
 requireText("authority", "verifyTwoFactorCredential", "verification must have one canonical transaction authority");
 requireText("authority", 'action: "credential.2fa.verify"', "verification authority must emit typed mandatory evidence");
 requireText("authority", "verifyTotpStep(rawSecret, input.code)", "verification authority must bind the exact accepted RFC step");
+requireText("authority", "last_accepted_totp_step", "verification authority must persist one-time TOTP step consumption");
+requireText("authority", 'resultCategory: "totp_replay"', "TOTP replay must be rejected with typed evidence");
 rejectText("authority", "writeAudit(", "legacy best-effort audit must not satisfy 2FA credential evidence");
 
 if (countText("authority", "withTx(async (client)") < 5) {
@@ -188,6 +190,7 @@ for (const evidence of [
 }
 for (const evidence of [
   "commits last-used state and secret-free verification evidence together",
+  "allows one success per TOTP time step and rejects concurrent replay",
   "records invalid verification without changing credential usage state",
   "rolls back last-used state when mandatory verification evidence conflicts",
   "keeps pre-auth challenge after invalid TOTP and allows one concurrent claimant",

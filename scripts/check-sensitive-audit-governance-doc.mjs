@@ -104,14 +104,16 @@ for (const invariant of [
   );
 }
 
-if (inventory.actions.length !== 64) {
+const expectedActionCount = 65;
+const expectedResourceCount = 23;
+if (inventory.actions.length !== expectedActionCount) {
   failures.push(
-    `${files.inventory}: expected 64 classified actions, found ${inventory.actions.length}`,
+    `${files.inventory}: expected ${expectedActionCount} classified actions, found ${inventory.actions.length}`,
   );
 }
-if (inventory.resources.length !== 23) {
+if (inventory.resources.length !== expectedResourceCount) {
   failures.push(
-    `${files.inventory}: expected 23 classified resources, found ${inventory.resources.length}`,
+    `${files.inventory}: expected ${expectedResourceCount} classified resources, found ${inventory.resources.length}`,
   );
 }
 
@@ -122,5 +124,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Sensitive audit governance map passed: 64 actions, 23 resources, eight real domain owners, evidence modes, change procedure and conservative retention/access authority are synchronized.",
+  `Sensitive audit governance map passed: ${expectedActionCount} actions, ${expectedResourceCount} resources, eight real domain owners, evidence modes, change procedure and conservative retention/access authority are synchronized.`,
 );

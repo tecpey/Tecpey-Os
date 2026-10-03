@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "addedOperations": [],
+  "readOnlyRoutes": [
+    {
+      "route": "/api/commerce/billing",
+      "sourcePath": "src/app/api/commerce/billing/route.ts",
+      "sourceHash": "0c3087c92af5bdd4e4059cf0",
+      "issue": "#699",
+      "owner": "commerce-platform",
+      "reason": "Reviewed authenticated read-only billing authority route. It accepts no client-selected tenant, workspace or account authority; resolves the account from a strict canonical session and tenant/workspace from the verified principal binding, establishes transaction-local RLS scope, rate limits before the read, fails closed on revocation/binding/database authority degradation, and returns only private no-store API responses. Commercial entitlement is derived exclusively from the server-side subscription/snapshot authority with exact state-version freshness.",
+      "controls": {
+        "classification": "authenticated",
+        "strictRevocation": true,
+        "rateLimit": true,
+        "verifiedPrincipal": true,
+        "tenantFromVerifiedContext": true,
+        "noStore": true,
+        "queryParameters": "none"
+      }
+    }
+  ]
+}
