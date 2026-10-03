@@ -173,9 +173,17 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await installLocalUiSession(page.context());
     await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
     let historyAvailable = false;
+    let conversationsAvailable = false;
+    let conversationReads = 0;
     await page.route("**/api/mentor-threads", route => route.fulfill(historyAvailable
-      ? { json: { ok: true, threads: [] } }
+      ? { json: { ok: true, threads: [{ id: "saved-recovery", title: "Saved recovery thread", status: "active", locale: isEn ? "en" : "fa", lastMessageAt: "2026-10-03T00:00:00Z" }] } }
       : { status: 503, json: { ok: false } }));
+    await page.route("**/api/mentor-conversations?**", async route => {
+      conversationReads += 1;
+      await route.fulfill(conversationsAvailable
+        ? { json: { ok: true, conversations: [{ id: "restored", role: "assistant", content: "Recovered saved guidance", createdAt: "2026-10-03T00:00:00Z" }] } }
+        : { status: 503, json: { ok: false } });
+    });
     await page.route("**/api/ai-mentor", route => route.abort("failed"));
     await page.goto(`${isEn ? "/en" : ""}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
     const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
@@ -196,6 +204,24 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(retry).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(log.locator('[data-role="user"]')).toHaveCount(1);
+    await expect(log.locator('[data-role="assistant"]')).toHaveCount(1);
+    await page.getByRole("button", { name: isEn ? "New conversation" : "گفت‌وگوی جدید", exact: true }).first().click();
+    await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();
+    await history.getByRole("button", { name: /Saved recovery thread/ }).click();
+    await expect.poll(() => conversationReads).toBe(1);
+    await expect(input).toBeEnabled();
+    await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();
+    await retry.click();
+    await expect.poll(() => conversationReads).toBe(2);
+    await expect(retry).toBeEnabled();
+    // A successful thread index must not hide a failed conversation read.
+    await expect(retry).toBeVisible();
+    conversationsAvailable = true;
+    await retry.click();
+    await expect.poll(() => conversationReads).toBe(3);
+    await expect(retry).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(log).toContainText("Recovered saved guidance");
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(1);
   });
 

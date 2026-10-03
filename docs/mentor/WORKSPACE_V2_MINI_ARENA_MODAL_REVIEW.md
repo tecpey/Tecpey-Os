@@ -179,3 +179,19 @@ The compact FA/EN recovery fixture returns a thread ID with ephemeral memory and
 makes history unavailable, verifying that the fresh response survives and that
 binding alone does not issue a history read. This is client behavior evidence,
 not a claim of server persistence or entitlement.
+
+## Selected history recovery
+
+| Before | After | Why |
+| --- | --- | --- |
+| Retry refreshed only the thread index, hiding a failed message read when the index succeeded. | Index and conversation errors are independent; retry re-reads an empty selected conversation and retains its warning until that read succeeds. | Recovery must restore messages, not merely dismiss an error. |
+| Repeated retries could overlap while requests were running. | Retry is disabled while either relevant history request is loading. | Keep request order and feedback predictable. |
+
+The compact FA/EN regression first preserves an unsaved chat through an index
+failure, then explicitly selects saved history. A repeated message-read 503 must
+keep the retry visible even when the index succeeds; a subsequent successful
+read must restore the saved guidance. A nonempty current chat is not replaced by
+a retry. The effect retains AbortController cleanup when selection or retry
+changes, following https://react.dev/reference/react/useEffect and
+https://react.dev/learn/synchronizing-with-effects. These fixtures validate the
+client recovery contract, not persistence or server entitlement authority.

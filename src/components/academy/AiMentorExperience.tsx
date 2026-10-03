@@ -285,7 +285,10 @@ export function AiMentorExperience({
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [threadsLoading, setThreadsLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [threadIndexUnavailable, setThreadIndexUnavailable] = useState(false);
+  const [conversationHistoryUnavailable, setConversationHistoryUnavailable] = useState(false);
+  const [historyRetry, setHistoryRetry] = useState(0);
+  const historyUnavailable = threadIndexUnavailable || conversationHistoryUnavailable;
   const [historyOpen, setHistoryOpen] = useState(false);
   const [officeExpanded, setOfficeExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -364,7 +367,7 @@ export function AiMentorExperience({
   const applyThreadsPayload = useCallback((responseOk: boolean, data: unknown) => {
     const payload = data as { ok?: boolean; threads?: MentorThread[] } | null;
     if (!responseOk || !payload?.ok || !Array.isArray(payload.threads)) {
-      setHistoryUnavailable(true);
+      setThreadIndexUnavailable(true);
       return;
     }
     const localized = payload.threads.filter(
@@ -372,7 +375,7 @@ export function AiMentorExperience({
     );
     setThreads(localized);
     // The saved-thread index does not own the current, possibly unsaved chat.
-    setHistoryUnavailable(false);
+    setThreadIndexUnavailable(false);
     setActiveThreadId((current) => {
       if (current && localized.some((thread) => thread.id === current)) {
         return current;
@@ -393,7 +396,7 @@ export function AiMentorExperience({
         applyThreadsPayload(response.ok, data);
       }
     } catch {
-      if (requestConversationEpoch === conversationEpochRef.current) setHistoryUnavailable(true);
+      if (requestConversationEpoch === conversationEpochRef.current) setThreadIndexUnavailable(true);
     } finally {
       setThreadsLoading(false);
     }
@@ -419,7 +422,7 @@ export function AiMentorExperience({
       })
       .catch(() => {
         if (!controller.signal.aborted && requestConversationEpoch === conversationEpochRef.current) {
-          setHistoryUnavailable(true);
+          setThreadIndexUnavailable(true);
         }
       })
       .finally(() => {
@@ -445,7 +448,7 @@ export function AiMentorExperience({
         if (controller.signal.aborted) return;
         if (!response.ok || !data?.ok || !Array.isArray(data.conversations)) {
           setMessages([]);
-          setHistoryUnavailable(true);
+          setConversationHistoryUnavailable(true);
           return;
         }
         const history = data.conversations
@@ -458,16 +461,16 @@ export function AiMentorExperience({
           .filter((item: WorkspaceMessage) => item.content.trim().length > 0)
           .reverse();
         setMessages(history);
-        setHistoryUnavailable(data.storage === "unavailable");
+        setConversationHistoryUnavailable(data.storage === "unavailable");
       })
       .catch(() => {
-        if (!controller.signal.aborted) setHistoryUnavailable(true);
+        if (!controller.signal.aborted) setConversationHistoryUnavailable(true);
       })
       .finally(() => {
         if (!controller.signal.aborted) setHistoryLoading(false);
       });
     return () => controller.abort();
-  }, [activeThreadId]);
+  }, [activeThreadId, historyRetry]);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ block: "end" });
@@ -504,7 +507,7 @@ export function AiMentorExperience({
     setLoading(false);
     setIsExplaining(false);
     setHistoryLoading(false);
-    setHistoryUnavailable(false);
+    setConversationHistoryUnavailable(false);
     setRequestError(null);
     setActiveThreadId(null);
     setMessages([]);
@@ -524,7 +527,7 @@ export function AiMentorExperience({
       setLoading(false);
       setIsExplaining(false);
       setHistoryLoading(true);
-      setHistoryUnavailable(false);
+      setConversationHistoryUnavailable(false);
       setRequestError(null);
       setMessages([]);
       setActiveThreadId(threadId);
@@ -610,6 +613,7 @@ export function AiMentorExperience({
       if (typeof nextReply.threadId === "string" && nextReply.threadId) {
         // Bind the already rendered chat; only a history selection needs hydration.
         currentChatThreadRef.current = nextReply.threadId;
+        setConversationHistoryUnavailable(false);
         setActiveThreadId(nextReply.threadId);
       }
       setIsExplaining(true);
@@ -736,7 +740,12 @@ export function AiMentorExperience({
         <div className={styles.historyWarning} role="status">
           <WifiOff aria-hidden="true" />
           <p>{copy.historyUnavailable}</p>
-          <button type="button" onClick={() => void loadThreads()}>
+          <button type="button" disabled={threadsLoading || historyLoading} onClick={() => {
+            void loadThreads();
+            if (conversationHistoryUnavailable && activeThreadId && messages.length === 0) {
+              setHistoryRetry((current) => current + 1);
+            }
+          }}>
             {copy.retryHistory}
           </button>
         </div>
