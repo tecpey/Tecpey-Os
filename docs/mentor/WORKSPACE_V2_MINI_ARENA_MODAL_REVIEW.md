@@ -370,3 +370,11 @@ The strengthened regression checks recovery focus, zero dialog scroll offset,
 visible header bounds and recovery-target containment before capturing each gate.
 Fresh exact-head acceptance is required; the earlier crop is not accepted as a
 complete recovery-layout proof.
+
+The strengthened run on `064bc740aa8697ed7f865ae75b5355a6b227294c`
+passed 51 browser tests, including recovery focus and scroll assertions. Its
+element-level POST captures still omitted the header despite those assertions.
+That capture discrepancy is not accepted as complete visual proof. Recovery
+evidence now uses a full viewport screenshot, which does not prepare an element
+by scrolling it; the test also checks both vertical header bounds and all three
+header actions before capture. Fresh viewport evidence is required.
