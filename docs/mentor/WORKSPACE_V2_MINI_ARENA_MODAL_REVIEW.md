@@ -399,3 +399,19 @@ scroll offsets for every recovery ancestor through the dialog, and attaches
 before/after geometry for diagnosis. This is a candidate correction awaiting
 fresh exact-head tests and manual viewport acceptance, not a proven root cause
 or a reclassification of earlier clipped captures.
+
+### Focused Arena motion review
+
+| Before | After | Why |
+| --- | --- | --- |
+| The full native Arena panel entered with a 280ms transform keyframe and `both` fill, including keyboard activation. Geometry on `6715156f248f4e1039250fd8a5b6d1fe89ab5a71` recorded a retained identity transform in all four recovery states, with zero scroll offsets; EN POST still had a clipped viewport capture. | Remove this full-surface entry animation and its unused keyframes. The panel remains untransformed; regression asserts `transform: none` before and after recovery capture. | Repeated/keyboard access to a dense practice surface should be immediate. Remove the unnecessary persistent transformed context rather than add more motion or weaken visual acceptance. |
+
+**Motion verdict: Block the prior entry animation.** The narrow correction follows
+the installed `review-animations` source/standards remedial preference to remove
+motion from repeated/keyboard workflows. It does not redesign the Mentor office
+or change loading indicators, hover gating, reduced-motion or server authority.
+Primary fill behavior reference:
+https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/animation-fill-mode.
+The retained transform is measured; its role in the intermittent capture discrepancy
+is a hypothesis, not a proven browser root cause. Exact-head tests and all four
+manual viewport captures are still required before the corrected surface is accepted.

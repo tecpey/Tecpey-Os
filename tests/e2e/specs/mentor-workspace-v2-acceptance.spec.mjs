@@ -129,6 +129,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       });
       const beforeCapture = await recoveryGeometry();
       expect(beforeCapture.every(container => container.scrollTop === 0)).toBe(true);
+      expect(beforeCapture.find(container => container.tag === "SECTION").transform).toBe("none");
       // A viewport capture preserves the recovery scroll/focus state; element
       // screenshots may scroll the dialog while preparing their capture.
       await testInfo.attach(`mentor-arena-${method.toLowerCase()}-rejected`, { body: await page.screenshot(), contentType: "image/png" });
@@ -140,6 +141,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       const afterCapture = await recoveryGeometry();
       await testInfo.attach(`mentor-arena-${method.toLowerCase()}-geometry`, { body: JSON.stringify({ beforeCapture, afterCapture }), contentType: "application/json" });
       expect(afterCapture.every(container => container.scrollTop === 0)).toBe(true);
+      expect(afterCapture.find(container => container.tag === "SECTION").transform).toBe("none");
       await page.keyboard.press("Escape");
       await expect(trigger).toBeFocused();
     }

@@ -1,6 +1,5 @@
 .panel {
   --arena-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --arena-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   position: relative;
   z-index: 20;
   display: flex;
@@ -447,7 +446,8 @@
     z-index: 820;
     width: min(680px, calc(100vw - 24px));
     height: auto;
-    animation: arena-sheet-in 280ms var(--arena-ease-drawer) both;
+    /* Keep repeated/keyboard Arena access immediate and its settled surface untransformed. */
+    animation: none;
   }
 
   .panel[data-panel="focus"] {
@@ -569,9 +569,4 @@
 
 @keyframes arena-spin {
   to { transform: rotate(360deg); }
-}
-
-@keyframes arena-sheet-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
 }
