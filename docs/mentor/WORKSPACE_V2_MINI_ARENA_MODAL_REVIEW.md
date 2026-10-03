@@ -154,3 +154,13 @@ controls. The tablet scene now reserves 520px while phones retain 420px. The
 theme case checks that a composing standing pose stays inside the 768px tablet
 scene and attaches phone dark/light and tablet forced-colors office images for
 visual review. No animation or renderer authority is added.
+
+Visual inspection of the new phone images exposed a remaining parent-frame
+mismatch: the office wrapper still reserved its old 340/390px height, allowing
+the taller scene to extend into the next row. A shared workspace CSS variable now
+sets both wrapper height and scene minimum height at each compact breakpoint.
+The recovery case asserts scene containment in its parent; captures explicitly
+center the office so fixed shell navigation does not obscure the review image.
+Tablet captures and standing-pose bounds had already passed on
+`efa38cb724e10b058cd4387f6d09e1d136ca05f1`; the wrapper correction needs a
+fresh exact-head run.

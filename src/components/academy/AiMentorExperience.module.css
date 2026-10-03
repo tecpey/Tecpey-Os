@@ -1176,7 +1176,7 @@
   }
 
   .officeCell {
-    height: 390px;
+    height: var(--mentor-office-height);
   }
 
   .chatPanel {
@@ -1257,7 +1257,7 @@
   }
 
   .officeCell {
-    height: 340px;
+    height: var(--mentor-office-height);
   }
 
   .chatPanel {
@@ -1352,7 +1352,7 @@
 }
 
 /* Workspace v2: one primary conversation surface, tools on demand. */
-.workspace { --mentor-surface: #0b1523; --mentor-muted: #a9b7ca; color: var(--tp-text); }
+.workspace { --mentor-surface: #0b1523; --mentor-muted: #a9b7ca; --mentor-office-height: 520px; color: var(--tp-text); }
 .workspaceIdentity h1 { color: var(--tp-text); }
 .workspaceIdentity p { color: var(--tp-muted); }
 .workspaceIdentity .eyebrow { color: var(--tp-primary-strong); }
@@ -1458,6 +1458,7 @@
   .historyDialog { padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) { .startingPoints button { transition: none; } }
+@media (max-width: 640px) { .workspace { --mentor-office-height: 420px; } }
 @media (forced-colors: active) {
   .startingPoints button, .composerInput, .historyDialog, .mobilePresence button { border: 1px solid ButtonText; }
 }

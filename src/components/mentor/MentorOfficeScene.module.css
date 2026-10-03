@@ -534,7 +534,7 @@
 
 @media (max-width: 1179px) {
   .scene {
-    min-height: 520px;
+    min-height: var(--mentor-office-height, 520px);
   }
 
   .credentials {
@@ -609,7 +609,7 @@
 
 @media (max-width: 640px) {
   .scene {
-    min-height: 420px;
+    min-height: var(--mentor-office-height, 420px);
     border-radius: 24px;
   }
 
