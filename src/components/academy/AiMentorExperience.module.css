@@ -657,18 +657,25 @@
 
 .replyLinks a {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 44px;
+  max-width: 100%;
   align-items: center;
   gap: 6px;
   border: 1px solid rgb(103 232 249 / 0.16);
   border-radius: 10px;
   background: rgb(8 145 178 / 0.1);
   padding: 7px 9px;
-  font-size: 8px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 650;
   line-height: 1.4;
   color: #cffafe;
+  overflow-wrap: anywhere;
 }
+
+.publicSourceLink > span { min-width: 0; }
+.replyLinks > strong { font-size: 12px; }
+.publicSourceLink strong, .publicSourceLink small { display: block; }
+.publicSourceLink small { margin-top: 4px; font-size: 12px; color: #cbd5e1; }
 
 .replyLinks a svg {
   width: 12px;

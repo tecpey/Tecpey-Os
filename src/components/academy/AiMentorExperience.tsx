@@ -76,6 +76,17 @@ type AiMentorExperienceProps = {
   plan?: MentorWorkspacePlan;
 };
 
+function publicSourceLink(value: string) {
+  if (typeof value !== "string" || value.length > 2_048) return null;
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
+    return { href: url.href, host: url.host };
+  } catch {
+    return null;
+  }
+}
+
 const COPY = {
   fa: {
     eyebrow: "فضای کاری شخصی شما",
@@ -119,6 +130,7 @@ const COPY = {
     researching: "در حال پژوهش عمومی و کنترل منابع…",
     sourceLessons: "درس‌های مرتبط",
     publicSources: "منابع عمومی",
+    newTab: "زبانهٔ جدید",
     checklist: "چک‌لیست پیشنهادی",
     suggested: "ادامه پیشنهادی",
     inputLabel: "پیام شما به منتور",
@@ -195,6 +207,7 @@ const COPY = {
     researching: "Researching public sources and checking evidence…",
     sourceLessons: "Related lessons",
     publicSources: "Public sources",
+    newTab: "New tab",
     checklist: "Suggested checklist",
     suggested: "Suggested follow-up",
     inputLabel: "Your message to the mentor",
@@ -926,16 +939,23 @@ export function AiMentorExperience({
                         </div>
                       ) : null}
 
-                      {message.reply?.sources?.length ? (
+                      {message.reply?.sources?.some(source => publicSourceLink(source.url)) ? (
                         <div className={styles.replyLinks}>
                           <strong>{copy.publicSources}</strong>
                           <div>
-                            {message.reply.sources.slice(0, 6).map((source, index) => (
-                              <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink aria-hidden="true" />
-                                {source.title || `${copy.publicSources} ${index + 1}`}
-                              </a>
-                            ))}
+                            {message.reply.sources.slice(0, 6).map((source) => {
+                              const link = publicSourceLink(source.url);
+                              if (!link) return null;
+                              return (
+                                <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.publicSourceLink}>
+                                  <ExternalLink aria-hidden="true" />
+                                  <span>
+                                    <strong><bdi>{source.title || link.host}</bdi></strong>
+                                    <small><bdi dir="ltr">{link.host}</bdi><span> · {copy.newTab}</span></small>
+                                  </span>
+                                </a>
+                              );
+                            })}
                           </div>
                         </div>
                       ) : null}

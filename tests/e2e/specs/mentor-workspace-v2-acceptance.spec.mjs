@@ -60,7 +60,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await page.route("**/api/ai-mentor", route => route.fulfill({
       status: failure.status,
       json: failure.status === 200
-        ? { answer: "Recovered educational answer", threadId: "accepted-current-thread", externalProviderUsed: true, memoryMode: "ephemeral" }
+        ? { answer: "Recovered educational answer", threadId: "accepted-current-thread", externalProviderUsed: true, memoryMode: "ephemeral", sources: [{ url: "https://www.w3.org/WAI/WCAG22/", title: "WCAG reference" }, { url: "javascript:alert(1)", title: "Unsafe reference" }] }
         : { error: failure.error },
     }));
     await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
@@ -121,6 +121,16 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(log.locator('[data-source="live"]')).toHaveCount(1);
     await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "AI-generated answer" : "پاسخ تولیدشده با هوش مصنوعی");
     await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "This reply was not saved" : "این گفت‌وگو ذخیره نشد");
+    const publicSource = log.getByRole("link", { name: /WCAG reference/ });
+    await expect(publicSource).toHaveAttribute("href", "https://www.w3.org/WAI/WCAG22/");
+    await expect(publicSource).toHaveAttribute("target", "_blank");
+    await expect(publicSource).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(publicSource).toContainText("www.w3.org");
+    await expect(publicSource).toContainText(isEn ? "New tab" : "زبانهٔ جدید");
+    await expect(log.getByRole("link", { name: /Unsafe reference/ })).toHaveCount(0);
+    expect((await publicSource.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect(await publicSource.evaluate(node => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(12);
+    await testInfo.attach("mentor-public-source", { body: await publicSource.screenshot(), contentType: "image/png" });
     expect(await log.locator('[data-source="live"]').evaluate(node => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(12);
     await testInfo.attach("mentor-recovered-answer", { body: await log.locator('[data-role="assistant"]').last().screenshot(), contentType: "image/png" });
     await expect(log).toContainText("Recovered educational answer");

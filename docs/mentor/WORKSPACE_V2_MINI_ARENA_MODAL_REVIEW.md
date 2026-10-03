@@ -198,3 +198,20 @@ a retry. The effect retains AbortController cleanup when selection or retry
 changes, following https://react.dev/reference/react/useEffect and
 https://react.dev/learn/synchronizing-with-effects. These fixtures validate the
 client recovery contract, not persistence or server entitlement authority.
+
+## Public source inspection
+
+| Before | After | Why |
+| --- | --- | --- |
+| Source and lesson links used 8px text and 36px targets. | Links use 12px text, 44px minimum height and bounded wrapping; source headings use 12px text. | Make evidence inspection usable on compact screens. |
+| Public sources showed only a title and an external-link icon. | A source shows its URL-derived host, isolated for RTL, and a localized new-tab cue. | Help users identify the destination before opening it while preserving chat context. |
+| Response URLs were passed straight to an anchor. | Presentation accepts absolute HTTP(S) links without embedded credentials; invalid links and an all-invalid source block are omitted. | Keep malformed response data from becoming an actionable source link. This is presentation defense, not server provenance authority. |
+
+The FA/EN 320px recovery fixture includes a valid public source and an invalid
+scheme. It checks the destination, new-tab cue, opener isolation, readable font,
+touch height and absence of the invalid actionable link, and attaches a source
+capture. Host display does not establish publication time, freshness, credibility
+or verification; those acceptance items still require named server evidence.
+W3C G200 describes advance new-tab cues as advisory practice, not a standalone
+WCAG conformance requirement:
+https://www.w3.org/WAI/WCAG22/Techniques/general/G200.html.
