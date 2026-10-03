@@ -51,5 +51,20 @@ failed because the download returned an invalid/truncated archive. Existing pare
 browser success is not evidence for this delta. Real-device, contrast and complete
 locked/degraded action acceptance remain required before Ready.
 
-The parent exact-head CI failure is the independent accepted-risk signoff evidence
-authority guard. This UI delta does not renew dates, forge signoffs or waive that gate.
+## Existing accountable-review reconciliation
+
+The parent CI failed on stale risk dates. The repository owner's already-approved
+2026-10-02 review exists in immutable source commit
+`d54707ec1e274185c5efd1c66d7a8049064af231` on the #705 track. This branch
+carries its exact existing blobs, without rewriting approval wording:
+
+- `docs/LAUNCH_ACCEPTED_RISKS.md`: `4374e2cdf4462fef603bd5e6cf55a1df614fd917`
+- prepared request: `f78b4437715b08c66d1ecbb7924b5359e66ec9d2`
+- existing R-08 review: `1abc86f0ef7040edd3d4b6e89cb448751a899c11`
+
+The next weekly review remains 2026-10-09 and R-08 remains 2026-10-14.
+No new review/approval, operational measurement, historical candidate-bound
+signoff, NOG-08 acceptance or Go decision is created. R-04 and all product-disabled
+boundaries remain open. The local authority guard now reports only that its
+GitHub approval-origin verification requires GITHUB_TOKEN; authenticated CI must
+verify origin. Local policy tests are separate from that origin verification.
