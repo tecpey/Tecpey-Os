@@ -52,10 +52,15 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       await route.fulfill({ json: { ok: true, threads: [] } });
     });
     let failure = { status: 503, error: "provider_unavailable" };
+    let conversationReads = 0;
+    await page.route("**/api/mentor-conversations?**", async route => {
+      conversationReads += 1;
+      await route.fulfill({ status: 503, json: { ok: false } });
+    });
     await page.route("**/api/ai-mentor", route => route.fulfill({
       status: failure.status,
       json: failure.status === 200
-        ? { answer: "Recovered educational answer", externalProviderUsed: true, memoryMode: "ephemeral" }
+        ? { answer: "Recovered educational answer", threadId: "accepted-current-thread", externalProviderUsed: true, memoryMode: "ephemeral" }
         : { error: failure.error },
     }));
     await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
@@ -115,6 +120,8 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(4);
     await expect(log.locator('[data-source="live"]')).toHaveCount(1);
     await expect(log).toContainText("Recovered educational answer");
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    expect(conversationReads).toBe(0);
     failure = { status: 404, error: "mentor_thread_not_found" };
     await input.fill("Continue an unavailable conversation");
     await input.press("Enter");

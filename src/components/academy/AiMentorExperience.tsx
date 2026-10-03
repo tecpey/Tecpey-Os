@@ -303,6 +303,7 @@ export function AiMentorExperience({
   const historySheetRef = useRef<HTMLDialogElement | null>(null);
   const explainTimerRef = useRef<number | null>(null);
   const conversationEpochRef = useRef(0);
+  const currentChatThreadRef = useRef<string | null>(null);
   const deepLinkContextRef = useRef<{ term?: number; lesson?: number } | null>(null);
 
   const handleDeepLinkParams = useCallback((params: { term?: number; lesson?: number; q?: string }) => {
@@ -428,7 +429,7 @@ export function AiMentorExperience({
   }, [applyThreadsPayload]);
 
   useEffect(() => {
-    if (!activeThreadId) {
+    if (!activeThreadId || currentChatThreadRef.current === activeThreadId) {
       return;
     }
     const controller = new AbortController();
@@ -498,6 +499,7 @@ export function AiMentorExperience({
   );
 
   const newConversation = useCallback(() => {
+    currentChatThreadRef.current = null;
     conversationEpochRef.current += 1;
     setLoading(false);
     setIsExplaining(false);
@@ -517,6 +519,7 @@ export function AiMentorExperience({
         closeHistory();
         return;
       }
+      currentChatThreadRef.current = null;
       conversationEpochRef.current += 1;
       setLoading(false);
       setIsExplaining(false);
@@ -604,7 +607,11 @@ export function AiMentorExperience({
           reply: nextReply,
         },
       ]);
-      if (nextReply.threadId) setActiveThreadId(nextReply.threadId);
+      if (typeof nextReply.threadId === "string" && nextReply.threadId) {
+        // Bind the already rendered chat; only a history selection needs hydration.
+        currentChatThreadRef.current = nextReply.threadId;
+        setActiveThreadId(nextReply.threadId);
+      }
       setIsExplaining(true);
       if (explainTimerRef.current) window.clearTimeout(explainTimerRef.current);
       explainTimerRef.current = window.setTimeout(() => setIsExplaining(false), 1_200);

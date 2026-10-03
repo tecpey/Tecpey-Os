@@ -170,3 +170,12 @@ passed and the reviewed phone captures show the complete, contained control row.
 The English capture also exposed a clipped Core workspace badge: the office
 heading now has a shrinkable flex column while the plan badge retains its full
 width. A FA/EN 320px geometry assertion checks the badge remains inside the scene.
+
+A successful reply can bind a thread ID even when its memory mode is ephemeral.
+Binding that ID now preserves the rendered chat instead of rehydrating it from
+the history endpoint; explicit selection of a different saved thread still
+hydrates history. New conversation and history selection clear the binding.
+The compact FA/EN recovery fixture returns a thread ID with ephemeral memory and
+makes history unavailable, verifying that the fresh response survives and that
+binding alone does not issue a history read. This is client behavior evidence,
+not a claim of server persistence or entitlement.
