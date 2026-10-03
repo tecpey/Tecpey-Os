@@ -146,3 +146,11 @@ and history dialogs. This proves that checkpoint, not the subsequent visible
 lock delta. The recovery case additionally exercises a missing-thread error and
 its explicit new-conversation action; it verifies empty messages and focused,
 enabled composition after recovery.
+
+The visible-lock/missing-thread checkpoint `079d4ff8b226dd02a19dabbcd266430c82e66871`
+also passed all 43 browser tests. A further geometry review found that the 315px
+standing pose at tablet widths needed its own clearance above the enlarged
+controls. The tablet scene now reserves 520px while phones retain 420px. The
+theme case checks that a composing standing pose stays inside the 768px tablet
+scene and attaches phone dark/light and tablet forced-colors office images for
+visual review. No animation or renderer authority is added.

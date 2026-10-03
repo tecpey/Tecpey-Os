@@ -197,6 +197,9 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       if (theme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
       else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
       await page.getByRole("button", { name: isEn ? "Mentor office" : "دفتر منتور", exact: true }).click();
+      await testInfo.attach(`mentor-office-${theme}`, {
+        body: await page.locator("#mentor-office").screenshot(), contentType: "image/png",
+      });
       await page.addScriptTag({ content: axeSource });
       for (const surface of ["workspace", "history"]) {
         if (surface === "history") {
@@ -224,6 +227,22 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await input.fill("A readable high contrast draft");
     await expect(input).toBeFocused();
     await expect(page.getByRole("button", { name: isEn ? "Send question" : "ارسال سؤال", exact: true })).toBeEnabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.setViewportSize({ width: 768, height: 1024 });
+    const scene = page.locator("#mentor-office > section");
+    const standing = scene.locator('[data-mentor-pose="standing_user"]');
+    await expect(standing).toBeVisible();
+    const sceneBox = await scene.boundingBox();
+    const standingBox = await standing.boundingBox();
+    expect(sceneBox).not.toBeNull();
+    expect(standingBox).not.toBeNull();
+    expect(standingBox.y).toBeGreaterThanOrEqual(sceneBox.y);
+    expect(standingBox.y + standingBox.height).toBeLessThanOrEqual(sceneBox.y + sceneBox.height);
+    expect(standingBox.x).toBeGreaterThanOrEqual(sceneBox.x);
+    expect(standingBox.x + standingBox.width).toBeLessThanOrEqual(sceneBox.x + sceneBox.width);
+    await testInfo.attach("mentor-office-tablet-composing", {
+      body: await scene.screenshot(), contentType: "image/png",
+    });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 
