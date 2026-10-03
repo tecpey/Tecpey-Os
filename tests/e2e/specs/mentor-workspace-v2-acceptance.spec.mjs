@@ -102,7 +102,15 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await expect(gate).toBeVisible();
       await expect(amount).toHaveCount(0);
-      await expect(dock.getByRole("link", { name: isEn ? method === "GET" ? "Review profile" : "Sign in to Academy" : method === "GET" ? "بررسی پروفایل" : "ورود به آکادمی", exact: true })).toHaveAttribute("href", method === "GET" ? `${base}/academy/onboarding` : `${base}/academy/login?redirect=${encodeURIComponent(`${base}/academy/trading-arena`)}`);
+      const recovery = dock.getByRole("link", { name: isEn ? method === "GET" ? "Review profile" : "Sign in to Academy" : method === "GET" ? "بررسی پروفایل" : "ورود به آکادمی", exact: true });
+      await expect(recovery).toHaveAttribute("href", method === "GET" ? `${base}/academy/onboarding` : `${base}/academy/login?redirect=${encodeURIComponent(`${base}/academy/trading-arena`)}`);
+      await expect(recovery).toBeFocused();
+      expect(await dock.evaluate(node => node.scrollTop)).toBe(0);
+      const dockBox = await dock.boundingBox();
+      const titleBox = await dock.getByRole("heading", { name: isEn ? "Trading Arena" : "آرنای معاملاتی", exact: true }).boundingBox();
+      expect(titleBox.y).toBeGreaterThanOrEqual(dockBox.y);
+      const recoveryBox = await recovery.boundingBox();
+      expect(recoveryBox.y + recoveryBox.height).toBeLessThanOrEqual(dockBox.y + dockBox.height);
       await testInfo.attach(`mentor-arena-${method.toLowerCase()}-rejected`, { body: await dock.screenshot(), contentType: "image/png" });
       await page.keyboard.press("Escape");
       await expect(trigger).toBeFocused();

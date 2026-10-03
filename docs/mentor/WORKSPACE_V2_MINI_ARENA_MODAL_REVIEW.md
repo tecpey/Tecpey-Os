@@ -357,3 +357,14 @@ rejected a baseline line drift: the existing initial execution-load finding move
 from 752:10 to 773:10. The baseline entry and its exact reviewed-key pin are
 relocated together; rule, path, column, domain, reason, suppression count and
 finding count are unchanged. This is not a new exemption or relaxed guard.
+
+Head `9936986e9f7e84d91dd5f947febe1b24e921252a` passed 51 browser
+tests and seven workflows; protected RLS remained pending. Manual review of four
+FA/EN recovery captures revealed the FA POST gate retained the form's scroll
+offset and hid the panel header. Recovery now focuses the appropriate link and
+resets its nearest native dialog to the top with instant scrolling. The existing
+load baseline moves one further line to 774:10, with no additional finding.
+The strengthened regression checks recovery focus, zero dialog scroll offset,
+visible header bounds and recovery-target containment before capturing each gate.
+Fresh exact-head acceptance is required; the earlier crop is not accepted as a
+complete recovery-layout proof.

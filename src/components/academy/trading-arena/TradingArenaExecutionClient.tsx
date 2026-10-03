@@ -600,6 +600,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
   const rejectedThroughSequenceRef = useRef(0);
   const commandLockRef = useRef(false);
   const pendingCommandRef = useRef<ArenaPendingCommandIdentity | null>(null);
+  const accessRecoveryRef = useRef<HTMLAnchorElement | null>(null);
 
   const fencePendingResponses = useCallback(() => {
     rejectedThroughSequenceRef.current = sequenceRef.current;
@@ -790,6 +791,16 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
     return () => window.clearInterval(timer);
   }, [loadSnapshot, sendCommand, snapshot]);
 
+  useEffect(() => {
+    if (snapshot || (loadState !== "profile" && loadState !== "login")) return;
+    const recovery = accessRecoveryRef.current;
+    if (!recovery) return;
+    // The rejected form no longer exists: give keyboard users a recovery target
+    // and discard the old form's scroll offset inside the Mentor dialog.
+    recovery.focus();
+    recovery.closest("dialog")?.scrollTo({ top: 0, behavior: "instant" });
+  }, [loadState, snapshot]);
+
   const stats = useMemo(() => {
     const trades = snapshot?.state.closedTrades ?? [];
     const wins = trades.filter((trade) => number(trade.realizedPnl) > 0).length;
@@ -816,7 +827,7 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
         <ShieldCheck className="mx-auto h-11 w-11 text-amber-200" />
         <h1 className="mt-4 text-xl font-bold">{isFa ? (needsLogin ? "برای ادامه تمرین وارد شوید" : "پروفایل آموزشی را بررسی کنید") : (needsLogin ? "Sign in to continue practising" : "Review your Academy profile")}</h1>
         <p role="status" className="mt-3 text-sm leading-7 text-slate-300">{isFa ? (needsLogin ? "برای دسترسی به تمرین‌ها و سابقه خود، ورود به حساب آکادمی لازم است." : "برای اتصال آرنا به مسیر یادگیری، اطلاعات پروفایل را بررسی و ذخیره کنید.") : (needsLogin ? "Sign in to your Academy account to access practice and history." : "Review and save your profile so Arena can connect to your learning journey.")}</p>
-        <Link href={needsLogin ? (isFa ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/en/academy/login?redirect=%2Fen%2Facademy%2Ftrading-arena") : (isFa ? "/academy/onboarding" : "/en/academy/onboarding")} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{isFa ? (needsLogin ? "ورود به آکادمی" : "بررسی پروفایل") : (needsLogin ? "Sign in to Academy" : "Review profile")}</Link>
+        <Link ref={accessRecoveryRef} href={needsLogin ? (isFa ? "/academy/login?redirect=%2Facademy%2Ftrading-arena" : "/en/academy/login?redirect=%2Fen%2Facademy%2Ftrading-arena") : (isFa ? "/academy/onboarding" : "/en/academy/onboarding")} className="mt-5 inline-flex min-h-12 items-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">{isFa ? (needsLogin ? "ورود به آکادمی" : "بررسی پروفایل") : (needsLogin ? "Sign in to Academy" : "Review profile")}</Link>
       </div>
     );
   }

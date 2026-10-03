@@ -126,7 +126,7 @@
     {
       "rule": "react-hooks/set-state-in-effect",
       "path": "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx",
-      "line": 773,
+      "line": 774,
       "column": 10,
       "domain": "arena",
       "reason": "authoritative execution state load"
