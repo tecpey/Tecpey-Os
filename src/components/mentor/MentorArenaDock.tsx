@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import {
   ChartNoAxesCombined,
   ChevronLeft,
@@ -22,24 +21,30 @@ import {
 } from "@/lib/mentor-workspace";
 import styles from "./MentorArenaDock.module.css";
 
-const TradingArenaExecutionClient = dynamic(
-  () =>
-    import("@/components/academy/trading-arena/TradingArenaExecutionClient").then(
-      (module) => module.TradingArenaExecutionClient,
-    ),
-  {
-    ssr: false,
-    // Only ever rendered on the Persian surface: TradingArenaExecutionClient
-    // is mounted exclusively behind the `isFa` branch below (the Arena has no
-    // English parity yet — see the `unavailableTitle`/`unavailableText` gate).
-    loading: () => (
-      <div className={styles.executionLoading} role="status">
-        <span aria-hidden="true" />
-        <p>در حال بارگذاری آرنای معتبرشده…</p>
-      </div>
-    ),
-  },
-);
+const loadTradingArenaExecutionClient = () =>
+  import("@/components/academy/trading-arena/TradingArenaExecutionClient").then(
+    (module) => module.TradingArenaExecutionClient,
+  );
+
+const TradingArenaExecutionClientFa = dynamic(loadTradingArenaExecutionClient, {
+  ssr: false,
+  loading: () => (
+    <div className={styles.executionLoading} role="status">
+      <span aria-hidden="true" />
+      <p>در حال بارگذاری آرنای معتبرشده…</p>
+    </div>
+  ),
+});
+
+const TradingArenaExecutionClientEn = dynamic(loadTradingArenaExecutionClient, {
+  ssr: false,
+  loading: () => (
+    <div className={styles.executionLoading} role="status">
+      <span aria-hidden="true" />
+      <p>Loading the validated Arena…</p>
+    </div>
+  ),
+});
 
 type MentorArenaDockProps = {
   locale?: string;
@@ -66,10 +71,6 @@ const COPY = {
     restore: "بازگرداندن Arena",
     dock: "بازگشت به نمای یک‌سوم",
     close: "بستن Arena",
-    unavailableTitle: "رابط اجرای این زبان هنوز هم‌سطح نشده است",
-    unavailableText:
-      "برای حفظ برابری ایمنی و جلوگیری از نمایش زبان غیرمنتظره، اجرای درون‌صفحه‌ای تا تکمیل بسته ترجمه فعال نمی‌شود.",
-    learnMore: "مشاهده صفحه Arena",
     core: "قوانین ایمنی یکسان",
     premium: "ظرفیت پرمیوم؛ قوانین ایمنی یکسان",
   },
@@ -87,10 +88,6 @@ const COPY = {
     restore: "Restore Arena",
     dock: "Return to one-third view",
     close: "Close Arena",
-    unavailableTitle: "Execution UI parity is not complete for this locale",
-    unavailableText:
-      "To preserve safety parity and avoid an unexpected language switch, embedded execution stays unavailable until the locale pack passes review.",
-    learnMore: "View the Arena page",
     core: "Same safety rules",
     premium: "Premium capacity; same safety rules",
   },
@@ -252,14 +249,9 @@ export function MentorArenaDock({
         ) : (
           <div className={styles.execution}>
             {isFa ? (
-              <TradingArenaExecutionClient />
+              <TradingArenaExecutionClientFa locale="fa" />
             ) : (
-              <div className={styles.localeGate}>
-                <ShieldCheck aria-hidden="true" />
-                <h3>{copy.unavailableTitle}</h3>
-                <p>{copy.unavailableText}</p>
-                <Link href="/en/academy/trading-arena">{copy.learnMore}</Link>
-              </div>
+              <TradingArenaExecutionClientEn locale="en" />
             )}
           </div>
         )}
