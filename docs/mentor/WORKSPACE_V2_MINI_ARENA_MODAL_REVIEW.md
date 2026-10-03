@@ -188,6 +188,7 @@ not a claim of server persistence or entitlement.
 | Repeated retries could overlap while requests were running. | Retry is disabled while either relevant history request is loading. | Keep request order and feedback predictable. |
 | History loading displayed only an accessibility-hidden spinner. | Localized visible loading text uses a status region for list and saved-message requests. | Explain the wait to sighted and assistive-technology users. |
 | The provider-use flag labelled an answer “Live AI,” without proving source freshness. | The badge says “AI-generated answer” and retains the separate unsaved-memory notice. | A model response must not imply live market data or verified freshness. |
+| The answer-origin and unsaved-memory badge used 7px text. | The badge uses 12px text, bounded wrapping and readable line spacing; compact captures include the recovered answer. | Trust and persistence notices must remain legible on the smallest supported screen. |
 
 The compact FA/EN regression first preserves an unsaved chat through an index
 failure, then explicitly selects saved history. A repeated message-read 503 must

@@ -120,6 +120,9 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(4);
     await expect(log.locator('[data-source="live"]')).toHaveCount(1);
     await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "AI-generated answer" : "پاسخ تولیدشده با هوش مصنوعی");
+    await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "This reply was not saved" : "این گفت‌وگو ذخیره نشد");
+    expect(await log.locator('[data-source="live"]').evaluate(node => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(12);
+    await testInfo.attach("mentor-recovered-answer", { body: await log.locator('[data-role="assistant"]').last().screenshot(), contentType: "image/png" });
     await expect(log).toContainText("Recovered educational answer");
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     expect(conversationReads).toBe(0);
