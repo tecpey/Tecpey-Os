@@ -68,3 +68,29 @@ signoff, NOG-08 acceptance or Go decision is created. R-04 and all product-disab
 boundaries remain open. The local authority guard now reports only that its
 GitHub approval-origin verification requires GITHUB_TOKEN; authenticated CI must
 verify origin. Local policy tests are separate from that origin verification.
+
+## Unsaved conversation and request recovery follow-up
+
+The preceding modal fixes passed all eight exact-head workflows on
+`b09b967ddd2af907aacb81a0681b3f50fd7dac9c`, including 35 browser tests.
+The following delta requires its own browser evidence.
+
+| Before | After | Why |
+| --- | --- | --- |
+| An empty saved-thread index cleared the current chat after a reply. | Index refresh updates the list without deleting unsaved messages. | Ephemeral and prepared guidance must remain readable. |
+| A rejected initial history fetch could clear a newly composed conversation. | History results apply only to their captured conversation generation. | Delayed responses must not overwrite newer user intent. |
+| An abandoned answer refreshed history in the new conversation. | Each ask advances the generation; abandoned replies return without a refresh. | Starting over must preserve the new draft and empty chat. |
+
+This applies React's documented guidance to ignore obsolete async results:
+https://react.dev/reference/react/useEffect and
+https://react.dev/learn/synchronizing-with-effects. No new caching dependency or
+server authorization change is introduced.
+
+Dedicated FA/EN 320px browser cases cover provider failure, rate limiting, expired
+session recovery links, unavailable capabilities with Premium controls disabled,
+prepared/live provenance, successful retry, abandoned answers, network failure,
+and history retry preserving the current chat. API fixtures prove client behavior
+only; they do not establish backend entitlement or persistence authority.
+
+Local TypeScript, scoped lint and 14 existing workspace/stage tests pass.
+Full device/contrast acceptance and independent current-head review remain open.

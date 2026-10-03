@@ -370,7 +370,7 @@ export function AiMentorExperience({
       (thread) => thread.status === "active" && thread.locale === mentorLocale,
     );
     setThreads(localized);
-    if (!localized.length) setMessages([]);
+    // The saved-thread index does not own the current, possibly unsaved chat.
     setHistoryUnavailable(false);
     setActiveThreadId((current) => {
       if (current && localized.some((thread) => thread.id === current)) {
@@ -383,13 +383,16 @@ export function AiMentorExperience({
   }, [mentorLocale]);
 
   const loadThreads = useCallback(async () => {
+    const requestConversationEpoch = conversationEpochRef.current;
     setThreadsLoading(true);
     try {
       const response = await fetch("/api/mentor-threads", { cache: "no-store" });
       const data = await response.json();
-      applyThreadsPayload(response.ok, data);
+      if (requestConversationEpoch === conversationEpochRef.current) {
+        applyThreadsPayload(response.ok, data);
+      }
     } catch {
-      setHistoryUnavailable(true);
+      if (requestConversationEpoch === conversationEpochRef.current) setHistoryUnavailable(true);
     } finally {
       setThreadsLoading(false);
     }
@@ -405,14 +408,16 @@ export function AiMentorExperience({
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestConversationEpoch = conversationEpochRef.current;
     fetch("/api/mentor-threads", { cache: "no-store", signal: controller.signal })
       .then(async (response) => ({ response, data: await response.json() }))
       .then(({ response, data }) => {
-        if (!controller.signal.aborted) applyThreadsPayload(response.ok, data);
+        if (!controller.signal.aborted && requestConversationEpoch === conversationEpochRef.current) {
+          applyThreadsPayload(response.ok, data);
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) {
-          setMessages([]);
+        if (!controller.signal.aborted && requestConversationEpoch === conversationEpochRef.current) {
           setHistoryUnavailable(true);
         }
       })
@@ -547,7 +552,7 @@ export function AiMentorExperience({
     const clean = question.trim();
     if (clean.length < 2 || loading || historyLoading) return;
     const askedMode = detectMentorMode(clean);
-    const requestConversationEpoch = conversationEpochRef.current;
+    const requestConversationEpoch = ++conversationEpochRef.current;
     const userMessage: WorkspaceMessage = {
       id: safeMessageId("user"),
       role: "user",
@@ -587,7 +592,6 @@ export function AiMentorExperience({
           ? { ...local, ...data, answer: data.answer }
           : local;
       if (conversationEpochRef.current !== requestConversationEpoch) {
-        void loadThreads();
         return;
       }
       setMessages((current) => [

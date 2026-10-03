@@ -34,6 +34,130 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
+  test("failed requests retain unsaved guidance and allow an explicit recovery", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    const base = isEn ? "/en" : "";
+    await installLocalUiSession(page.context());
+    // These fixtures exercise client behavior, not server entitlement or persistence authority.
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ status: 503, json: { ok: false } }));
+    let threadReads = 0;
+    await page.route("**/api/mentor-threads", async route => {
+      threadReads += 1;
+      await route.fulfill({ json: { ok: true, threads: [] } });
+    });
+    let failure = { status: 503, error: "provider_unavailable" };
+    await page.route("**/api/ai-mentor", route => route.fulfill({
+      status: failure.status,
+      json: failure.status === 200
+        ? { answer: "Recovered educational answer", externalProviderUsed: true, memoryMode: "ephemeral" }
+        : { error: failure.error },
+    }));
+    await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    await expect.poll(() => threadReads).toBe(1);
+    await page.getByRole("button", { name: isEn ? "Mentor office" : "دفتر منتور", exact: true }).click();
+    const office = page.locator("#mentor-office");
+    await expect(office.locator('button[data-locked="true"]')).toHaveCount(2);
+    for (const control of await office.locator('button[data-locked="true"]').all()) {
+      await expect(control).toBeDisabled();
+      await expect(control).toHaveAttribute("aria-pressed", "false");
+    }
+    await page.getByRole("button", { name: isEn ? "Collapse mentor office" : "جمع‌کردن دفتر منتور", exact: true }).click();
+    const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
+    const log = page.getByRole("log");
+    const dismiss = isEn ? "Got it" : "متوجه شدم";
+    for (const [index, rejected] of [
+      { status: 503, error: "provider_unavailable" },
+      { status: 429, error: "rate_limited" },
+      { status: 401, error: "academy_login_required" },
+    ].entries()) {
+      failure = rejected;
+      await input.fill(`Explain wallet safety ${index}`);
+      await input.press("Enter");
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect.poll(() => threadReads).toBe(index + 2);
+      await expect(log.locator('[data-role="user"]')).toHaveCount(index + 1);
+      await expect(log.locator('[data-role="assistant"]')).toHaveCount(index + 1);
+      await expect(log.locator('[data-source="prepared"]')).toHaveCount(index + 1);
+      await expect(input).toBeEnabled();
+      if (rejected.status === 401) {
+        await expect(page.getByRole("alert").getByRole("link")).toHaveAttribute("href", `${base}/academy`);
+      }
+      await page.getByRole("alert").getByRole("button", { name: dismiss, exact: true }).click();
+      await expect(page.getByRole("alert")).toHaveCount(0);
+    }
+    failure = { status: 200 };
+    await input.fill("Explain wallet safety after recovery");
+    await input.press("Enter");
+    await expect.poll(() => threadReads).toBe(5);
+    await expect(log.locator('[data-role="assistant"]')).toHaveCount(4);
+    await expect(log.locator('[data-source="live"]')).toHaveCount(1);
+    await expect(log).toContainText("Recovered educational answer");
+  });
+
+  test("a late response cannot repopulate a new conversation", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    await installLocalUiSession(page.context());
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
+    let threadReads = 0;
+    await page.route("**/api/mentor-threads", async route => {
+      threadReads += 1;
+      await route.fulfill({ json: { ok: true, threads: [] } });
+    });
+    let resolveRequest;
+    const pendingRequest = new Promise(resolve => { resolveRequest = resolve; });
+    await page.route("**/api/ai-mentor", route => { resolveRequest(route); });
+    await page.goto(`${isEn ? "/en" : ""}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    await expect.poll(() => threadReads).toBe(1);
+    const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
+    await input.fill("An old educational question");
+    await input.press("Enter");
+    const heldRoute = await pendingRequest;
+    await page.getByRole("button", { name: isEn ? "New conversation" : "گفت‌وگوی جدید", exact: true }).first().click();
+    await expect(input).toBeEnabled();
+    await input.fill("Keep this new draft");
+    const replyReceived = page.waitForResponse(response => response.url().endsWith("/api/ai-mentor"));
+    await heldRoute.fulfill({ json: { answer: "Stale reply must stay out", externalProviderUsed: true } });
+    await replyReceived;
+    // Flush client promise continuations before checking the abandoned request's effects.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.getByRole("log").locator('[data-role="user"], [data-role="assistant"]')).toHaveCount(0);
+    await expect(input).toHaveValue("Keep this new draft");
+    expect(threadReads).toBe(1);
+  });
+
+  test("network and history failures recover without erasing the current chat", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    await installLocalUiSession(page.context());
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
+    let historyAvailable = false;
+    await page.route("**/api/mentor-threads", route => route.fulfill(historyAvailable
+      ? { json: { ok: true, threads: [] } }
+      : { status: 503, json: { ok: false } }));
+    await page.route("**/api/ai-mentor", route => route.abort("failed"));
+    await page.goto(`${isEn ? "/en" : ""}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
+    await input.fill("Explain safe educational practice");
+    await input.press("Enter");
+    await expect(page.getByRole("alert")).toContainText(isEn ? "Could not reach the server" : "ارتباط");
+    const log = page.getByRole("log");
+    await expect(log.locator('[data-role="assistant"]')).toHaveCount(1);
+    await expect(log.locator('[data-source="prepared"]')).toHaveCount(1);
+    await expect(input).toBeEnabled();
+    await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();
+    const history = page.getByRole("dialog", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی" });
+    const retry = history.getByRole("button", { name: isEn ? "Try again" : "تلاش دوباره", exact: true });
+    await expect(retry).toBeVisible();
+    historyAvailable = true;
+    await retry.click();
+    await expect(retry).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(log.locator('[data-role="user"]')).toHaveCount(1);
+    await expect(log.locator('[data-role="assistant"]')).toHaveCount(1);
+  });
+
   test("320px keeps conversation, history and Mini Arena interactions recoverable with reduced motion", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated 320px acceptance projects only.");
 
