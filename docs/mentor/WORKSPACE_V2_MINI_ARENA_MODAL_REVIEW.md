@@ -101,3 +101,29 @@ light themes. It asserts the root theme class rather than inferring theme from
 OS preference, attaches mapped WCAG violations, and checks the composer in
 forced-colors mode. Automated scans cannot establish complete WCAG conformance
 or physical-device keyboard behavior; this delta still needs CI execution.
+
+## Theme and new-chat focus correction
+
+Static inspection of the persisted light theme found fixed pale foregrounds on
+the shared light page background. The outer title, presence, Pro control and
+Academy return links now use governed theme tokens; the dark conversation panel
+retains an explicit readable foreground. The axe workspace scan includes the
+page's ContentShell so that the return link is covered too.
+
+| Before | After | Why |
+| --- | --- | --- |
+| Pale title `#f8fafc` on light `#f7fbff`: approximately 1.01:1. | Governed text `#06111f`: approximately 18.23:1; control `#064f93`: 7.93:1; secondary text `#475569`: 7.29:1. | Theme changes must preserve readable foreground/background pairs. |
+| New chat scheduled both trigger restoration and composer focus using competing timers. | It closes history without trigger restoration and focuses the composer on the next frame. | A deliberate new conversation should leave the user ready to write. |
+
+These ratios use the WCAG relative-luminance formula for the named solid token
+pairs; actual composited browser contrast is verified separately by axe.
+Reference: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html.
+The late-response browser case now also asserts new-chat composer focus.
+
+The first expanded run on `2a33970eb63c7eced71f313ed1cb2e211c2cfec9`
+passed the existing four-project matrix and both abandoned-response/modal cases.
+It exposed invalid labels on generic office containers; meaningful achievement,
+award and monitor groups now have explicit group semantics. Recovery assertions
+also accidentally selected Next's route-announcer alert: the fixtures now scope
+the alert to the workspace, retaining all message/provenance/retry assertions.
+No WCAG rule or failure threshold is disabled.

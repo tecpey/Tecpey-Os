@@ -472,9 +472,9 @@ export function AiMentorExperience({
     messageEndRef.current?.scrollIntoView({ block: "end" });
   }, [historyLoading, loading, messages]);
 
-  const closeHistory = useCallback(() => {
+  const closeHistory = useCallback((restoreFocus = true) => {
     setHistoryOpen(false);
-    window.requestAnimationFrame(() => historyTriggerRef.current?.focus());
+    if (restoreFocus) window.requestAnimationFrame(() => historyTriggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -507,8 +507,8 @@ export function AiMentorExperience({
     setActiveThreadId(null);
     setMessages([]);
     setQuestion("");
-    closeHistory();
-    window.setTimeout(() => textareaRef.current?.focus(), 0);
+    closeHistory(false);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
   }, [closeHistory]);
 
   const selectThread = useCallback(
@@ -1038,7 +1038,7 @@ export function AiMentorExperience({
                   <small>{copy.historyDescription}</small>
                 </span>
               </div>
-              <button type="button" onClick={closeHistory} aria-label={copy.closeHistory}>
+              <button type="button" onClick={() => closeHistory()} aria-label={copy.closeHistory}>
                 <X aria-hidden="true" />
               </button>
             </header>

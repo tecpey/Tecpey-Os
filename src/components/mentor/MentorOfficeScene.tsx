@@ -192,7 +192,7 @@ export function MentorOfficeScene({
         </span>
       </header>
 
-      <div className={styles.credentials} aria-label={isFa ? "دستاوردهای منتور" : "Mentor achievements"}>
+      <div className={styles.credentials} role="group" aria-label={isFa ? "دستاوردهای منتور" : "Mentor achievements"}>
         {recentCredentials.length ? (
           recentCredentials.map((term) => (
             <div className={styles.credentialFrame} key={term}>
@@ -209,13 +209,13 @@ export function MentorOfficeScene({
         )}
       </div>
 
-      <div className={styles.awardShelf} aria-label={isFa ? "نشان‌های مسیر" : "Path awards"}>
+      <div className={styles.awardShelf} role="group" aria-label={isFa ? "نشان‌های مسیر" : "Path awards"}>
         <span data-earned={completedTerms >= 1}><Medal aria-hidden="true" /></span>
         <span data-earned={completedTerms >= 3}><Trophy aria-hidden="true" /></span>
         <span data-earned={completedTerms >= 7}><Award aria-hidden="true" /></span>
       </div>
 
-      <div className={styles.monitorBank} aria-label={copy.switcher}>
+      <div className={styles.monitorBank} role="group" aria-label={copy.switcher}>
         <div className={`${styles.monitor} ${styles.secondaryMonitor} ${styles.monitorLeft}`}>
           <div className={styles.screen}>
             <Globe2 aria-hidden="true" />

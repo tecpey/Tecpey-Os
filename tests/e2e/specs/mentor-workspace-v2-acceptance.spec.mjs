@@ -70,6 +70,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await page.getByRole("button", { name: isEn ? "Collapse mentor office" : "جمع‌کردن دفتر منتور", exact: true }).click();
     const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
     const log = page.getByRole("log");
+    const requestAlert = page.locator('[aria-labelledby="mentor-workspace-title"]').getByRole("alert");
     const dismiss = isEn ? "Got it" : "متوجه شدم";
     for (const [index, rejected] of [
       { status: 503, error: "provider_unavailable" },
@@ -79,17 +80,17 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       failure = rejected;
       await input.fill(`Explain wallet safety ${index}`);
       await input.press("Enter");
-      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(requestAlert).toBeVisible();
       await expect.poll(() => threadReads).toBe(index + 2);
       await expect(log.locator('[data-role="user"]')).toHaveCount(index + 1);
       await expect(log.locator('[data-role="assistant"]')).toHaveCount(index + 1);
       await expect(log.locator('[data-source="prepared"]')).toHaveCount(index + 1);
       await expect(input).toBeEnabled();
       if (rejected.status === 401) {
-        await expect(page.getByRole("alert").getByRole("link")).toHaveAttribute("href", `${base}/academy`);
+        await expect(requestAlert.getByRole("link")).toHaveAttribute("href", `${base}/academy`);
       }
-      await page.getByRole("alert").getByRole("button", { name: dismiss, exact: true }).click();
-      await expect(page.getByRole("alert")).toHaveCount(0);
+      await requestAlert.getByRole("button", { name: dismiss, exact: true }).click();
+      await expect(requestAlert).toHaveCount(0);
     }
     failure = { status: 200 };
     await input.fill("Explain wallet safety after recovery");
@@ -121,6 +122,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     const heldRoute = await pendingRequest;
     await page.getByRole("button", { name: isEn ? "New conversation" : "گفت‌وگوی جدید", exact: true }).first().click();
     await expect(input).toBeEnabled();
+    await expect(input).toBeFocused();
     await input.fill("Keep this new draft");
     const replyReceived = page.waitForResponse(response => response.url().endsWith("/api/ai-mentor"));
     await heldRoute.fulfill({ json: { answer: "Stale reply must stay out", externalProviderUsed: true } });
@@ -146,7 +148,8 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     const input = page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" });
     await input.fill("Explain safe educational practice");
     await input.press("Enter");
-    await expect(page.getByRole("alert")).toContainText(isEn ? "Could not reach the server" : "ارتباط");
+    const requestAlert = page.locator('[aria-labelledby="mentor-workspace-title"]').getByRole("alert");
+    await expect(requestAlert).toContainText(isEn ? "Could not reach the server" : "ارتباط");
     const log = page.getByRole("log");
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(1);
     await expect(log.locator('[data-source="prepared"]')).toHaveCount(1);
@@ -189,7 +192,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
           return results.violations.map(({ id, impact, help, nodes }) => ({
             id, impact, help, nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })),
           }));
-        }, surface === "workspace" ? '[aria-labelledby="mentor-workspace-title"]' : "#mentor-history-dialog");
+        }, surface === "workspace" ? "main.tecpey-enterprise" : "#mentor-history-dialog");
         await testInfo.attach(`mentor-${theme}-${surface}-axe`, {
           body: Buffer.from(JSON.stringify(result, null, 2)), contentType: "application/json",
         });
