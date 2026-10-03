@@ -6,12 +6,12 @@ test("news archive preserves its date on failure and offers explicit recovery", 
   await page.emulateMedia({ reducedMotion: "reduce" });
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.goto(`${isFa ? "" : "/en"}/crypto-news?date=2000-01-01&tag=bitcoin`);
+  await page.goto(`${isFa ? "" : "/en"}/crypto-news?date=2024-01-01&tag=bitcoin`);
   const archive = page.locator("section").filter({ has: page.getByRole("heading", { level: 1 }) });
   const heading = archive.getByRole("heading", { level: 1 });
   const originalHeading = await heading.textContent();
   const date = archive.getByRole("combobox");
-  await expect(date).toHaveValue("2000-01-01");
+  await expect(date).toHaveValue("2024-01-01");
   const today = await date.locator("option").first().getAttribute("value");
   const item = {
     archiveId: "news-archive-qa", sourceName: "QA News", articleUrl: "https://www.coindesk.com/qa-fixture",
@@ -29,7 +29,7 @@ test("news archive preserves its date on failure and offers explicit recovery", 
     if (new URL(route.request().url()).searchParams.get("date") !== today) return route.continue();
     attempt += 1;
     if (attempt === 1) return route.fulfill({ status: 503, json: { error: "unavailable" } });
-    return route.fulfill({ json: { day: attempt === 2 ? "1999-12-31" : today, today, archiveItems: attempt === 2 ? [] : [item], availableDays: [today, "2000-01-01"] } });
+    return route.fulfill({ json: { day: attempt === 2 ? "2024-01-02" : today, today, archiveItems: attempt === 2 ? [] : [item], availableDays: [today, "2024-01-01"] } });
   });
   const search = archive.getByRole("textbox", { name: isFa ? "جست‌وجوی اخبار این روز" : "Search this day’s news" });
   await search.fill("missing headline");
@@ -39,14 +39,14 @@ test("news archive preserves its date on failure and offers explicit recovery", 
   await date.selectOption(today);
   const alert = archive.getByRole("alert");
   await expect(alert).toBeVisible();
-  await expect(date).toHaveValue("2000-01-01");
+  await expect(date).toHaveValue("2024-01-01");
   await expect(heading).toHaveText(originalHeading);
-  expect(new URL(page.url()).searchParams.get("date")).toBe("2000-01-01");
+  expect(new URL(page.url()).searchParams.get("date")).toBe("2024-01-01");
   const retry = alert.getByRole("button", { name: isFa ? "تلاش دوباره" : "Try again" });
   await retry.click();
   await expect.poll(() => attempt).toBe(2);
   await expect(date).toBeEnabled();
-  await expect(date).toHaveValue("2000-01-01");
+  await expect(date).toHaveValue("2024-01-01");
   await expect(alert).toBeVisible();
   await retry.focus();
   await expect(retry).toBeFocused();
