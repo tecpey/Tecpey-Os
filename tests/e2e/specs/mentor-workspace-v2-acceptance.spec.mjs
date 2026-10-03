@@ -126,7 +126,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     });
     expect(reducedTransitionMs.every(Number.isFinite)).toBe(true);
     expect(Math.max(...reducedTransitionMs)).toBeLessThanOrEqual(0.01);
-    expect(starterMotion.property).toBe("all");
+    expect(starterMotion.property).toBe("none");
     await starter.click();
     const textarea = page.getByRole("textbox", { name: labels.textarea });
     await expect(textarea).toBeFocused();
