@@ -480,17 +480,17 @@ async function assertReducedMotion(page, viewport, surface) {
     const offenders = [];
     for (const element of document.querySelectorAll("*")) {
       const style = getComputedStyle(element);
-      if (style.animationName !== "none" && longEnough(style.animationDuration)) {
+      if (style.animationName !== "none" && (longEnough(style.animationDuration) || longEnough(style.animationDelay))) {
         offenders.push({
           selector: element.tagName.toLowerCase(),
-          reason: `animation ${style.animationName} ${style.animationDuration}`,
+          reason: `animation ${style.animationName} ${style.animationDuration} delay ${style.animationDelay}`,
         });
         continue;
       }
-      if (longEnough(style.transitionDuration)) {
+      if (longEnough(style.transitionDuration) || longEnough(style.transitionDelay)) {
         offenders.push({
           selector: element.tagName.toLowerCase(),
-          reason: `transition ${style.transitionProperty} ${style.transitionDuration}`,
+          reason: `transition ${style.transitionProperty} ${style.transitionDuration} delay ${style.transitionDelay}`,
         });
       }
     }

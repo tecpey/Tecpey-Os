@@ -29,6 +29,7 @@ Primary references:
 - Apple Liquid Glass overview: https://developer.apple.com/documentation/technologyoverviews/liquid-glass
 - WCAG 2.2: https://www.w3.org/TR/wcag/
 - WCAG 2.2 focus appearance: https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance
+- CSS animation delay, fill modes and completion events: https://www.w3.org/TR/css-animations-1/
 
 Implementation consequences:
 - translucent/glass styling establishes hierarchy around navigation/controls; it is not a default content-card material;
@@ -57,6 +58,15 @@ Implementation consequences:
 
 ## Machine-readable launch gate
 Aggregate exact-head CI, browser evidence, migrations, security manifests, accessibility, performance, staging health and open blocker count into a verifiable release-readiness report. Production remains a separate explicit decision.
+
+## Incremental implementation: global motion preferences
+
+- Reduced-motion entrance animations complete immediately with no animation or transition delay, preserving their fill state and completion events. Decorative loading/float loops remain static.
+- Shared hover-lift and legacy card displacement require a fine pointer, hover support and no reduced-motion preference.
+- The Academy/Arena/Mentor runtime accessibility scan checks delays as well as durations.
+- Each of the six stylesheet fixtures has a 15-second timeout; the browser runner adds their bounded 90-second allowance to the existing per-project product-journey budget.
+- `tests/e2e/specs/global-motion-preferences.spec.mjs` compiles the real global stylesheet through the project's Tailwind/PostCSS pipeline and exercises delayed entrances, completion events, live preference changes, pointer gating, pseudo-elements, transition delays and static loading indicators in both themes. The existing browser workflow discovers this spec across its Chromium/Firefox projects.
+- Local validation on 2026-10-03: the original four scenarios produced 7 failures / 1 pass across Chromium mobile and desktop; after correction, the expanded six scenarios passed all 12 cases. Eleven related mobile-overlay and scroll-background checks passed; style and accessibility-harness authority checks passed. Local browser: Chromium 153; Playwright 1.61.1. Governed CI browser binaries, Firefox, full application accessibility and exact-head CI remain required; these fixture tests do not establish release readiness.
 
 ## Acceptance
 No P0/P1 defect, no known broken FA/EN route, exact-head staging smoke green, current rollback evidence, independently verifiable launch report.

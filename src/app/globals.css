@@ -877,17 +877,9 @@ html[dir="rtl"] .rtl-flip {
 .hover-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.hover-lift:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 24px 60px rgba(0,0,0,.16);
-}
 
 .hover-lift-sm {
   transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-.hover-lift-sm:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0,0,0,.12);
 }
 
 /* ── Enterprise card ─────────────────────────────────────────── */
@@ -906,10 +898,22 @@ html[dir="rtl"] .rtl-flip {
   box-shadow: 0 18px 55px rgba(0,0,0,.28);
 }
 
-.tp-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(34, 211, 238, 0.35);
-  box-shadow: 0 28px 80px rgba(34, 211, 238, 0.14);
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 24px 60px rgba(0,0,0,.16);
+  }
+
+  .hover-lift-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+  }
+
+  .tp-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(34, 211, 238, 0.35);
+    box-shadow: 0 28px 80px rgba(34, 211, 238, 0.14);
+  }
 }
 
 /* ── Gradient text ───────────────────────────────────────────── */
@@ -1051,42 +1055,38 @@ html:lang(en-US),
 /*
  * Honour the preference everywhere, not just where someone remembered to.
  *
- * The enumerated rule below covers the animations that existed when it was
- * written. Every Tailwind `transition-*` utility, every component-scoped
- * transition and anything added since keeps moving, because a list of class
- * names only protects the class names on the list. A runtime check of /academy
- * found 120 elements still animating under `prefers-reduced-motion: reduce`.
+ * Cover component styles, Tailwind utilities and pseudo-elements without
+ * requiring every new entrance animation to be added to a class-name list.
  *
  * Near-zero durations rather than `animation: none`: an element that fades in
  * from `opacity: 0` and then has its animation removed outright never becomes
  * visible. Letting the animation run instantaneously keeps its end state and
  * removes the motion, which is the whole of what the preference asks for.
+ * Remove delays too: collapsing duration alone still leaves content waiting
+ * at its entrance keyframe. Preserve fill modes and completion events.
  */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-slide-up,
-  .animate-fade-in,
-  .animate-scale-in,
+  /* Decorative loops have no completion state to preserve. Entrances above
+     finish immediately instead of losing their final opacity/transform. */
   .animate-pulse-glow,
   .animate-shimmer,
-  .animate-fadeSlideDown,
   .swap-arrow-float,
-  .hover-lift,
-  .hover-lift-sm,
-  .tecpey-enterprise main > *,
+  .skeleton,
   .skeleton::after {
     animation: none !important;
-    transition: none !important;
   }
 }
 
