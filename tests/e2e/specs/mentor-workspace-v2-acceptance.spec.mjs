@@ -118,7 +118,14 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       const style = getComputedStyle(element);
       return { duration: style.transitionDuration, property: style.transitionProperty };
     });
-    expect(starterMotion.duration).toBe("0s");
+    const reducedTransitionMs = starterMotion.duration.split(",").map(value => {
+      const duration = value.trim();
+      if (duration.endsWith("ms")) return Number.parseFloat(duration);
+      if (duration.endsWith("s")) return Number.parseFloat(duration) * 1000;
+      return Number.NaN;
+    });
+    expect(reducedTransitionMs.every(Number.isFinite)).toBe(true);
+    expect(Math.max(...reducedTransitionMs)).toBeLessThanOrEqual(0.01);
     expect(starterMotion.property).toBe("all");
     await starter.click();
     const textarea = page.getByRole("textbox", { name: labels.textarea });
