@@ -67,6 +67,10 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     expect(cellBounds).not.toBeNull();
     expect(sceneBounds).not.toBeNull();
     expect(sceneBounds.y + sceneBounds.height).toBeLessThanOrEqual(cellBounds.y + cellBounds.height);
+    const planBounds = await office.locator("header > [data-plan]").boundingBox();
+    expect(planBounds).not.toBeNull();
+    expect(planBounds.x).toBeGreaterThanOrEqual(sceneBounds.x);
+    expect(planBounds.x + planBounds.width).toBeLessThanOrEqual(sceneBounds.x + sceneBounds.width);
     await expect(office.locator('button[data-locked="true"]')).toHaveCount(2);
     for (const control of await office.locator('button[data-locked="true"]').all()) {
       await expect(control).toBeDisabled();

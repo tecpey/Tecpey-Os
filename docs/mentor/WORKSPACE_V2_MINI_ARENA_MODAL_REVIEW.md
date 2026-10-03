@@ -164,3 +164,9 @@ center the office so fixed shell navigation does not obscure the review image.
 Tablet captures and standing-pose bounds had already passed on
 `efa38cb724e10b058cd4387f6d09e1d136ca05f1`; the wrapper correction needs a
 fresh exact-head run.
+
+On `ad870b16062d982ff438fa58b9a4e2f5c3f1fcde`, all 43 browser tests
+passed and the reviewed phone captures show the complete, contained control row.
+The English capture also exposed a clipped Core workspace badge: the office
+heading now has a shrinkable flex column while the plan badge retains its full
+width. A FA/EN 320px geometry assertion checks the badge remains inside the scene.
