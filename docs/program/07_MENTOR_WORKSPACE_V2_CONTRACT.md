@@ -1,6 +1,6 @@
 # Mentor Workspace v2: office, chat, actions + mini Arena
 
-**Base main:** `e16f9cc4254bb556c2a1235baa5cbd24ff0fea2b`
+**Base main:** `96b56d0e469b356ccf8ee698c5a75a36d1cabe60`
 
 **Dependencies:** Mentor Rive v2 contract; AI Model Lab/Council for advanced research; Pro authority for premium affordances.
 
@@ -15,7 +15,6 @@
 - Structured logs, reason codes, degraded states and exact freshness.
 - TypeScript, ESLint, unit/integration/security/browser tests, repository audit and exact-head CI.
 - Immutable exact-SHA staging-first release with rollback proof; Production requires separate explicit approval.
-
 
 ## Objective
 Deliver the Mentor vision as a task-oriented learning workspace, not a decorative chat page.
@@ -42,5 +41,21 @@ Visible sources/freshness, explicit Pro lock reason, true empty/degraded states,
 ## Delivery discipline
 This Draft PR begins as an implementation contract. Code, migrations, tests and evidence are added to this same branch. It cannot become Ready until every acceptance item is implemented or explicitly split into a named follow-up.
 
+## Named follow-ups accepted for Ready
+
+The following boundaries require independent authority or runtime evidence and are deliberately tracked outside the Workspace shell implementation. Splitting them does not weaken their acceptance bar and does not authorize the corresponding capability before its own evidence closes.
+
+- **#702 — Mentor Rive v2:** keep the renderer fail-closed until a genuine signed/exported `.riv` asset, governed manifest/digest and runtime acceptance exist. #703 must not simulate Rive activation or substitute a placeholder asset.
+- **#736 — governed source-backed news brief and freshness authority:** owns the usable news-brief trigger/review flow, server provenance/freshness schema, entitlement boundary and negative evidence. Until it closes, #703 may expose only the existing unverified-source disclosure and must not claim verified-current news.
+- **#737 — server-authoritative personalized Arena challenge integration:** owns challenge issue/version identity, user/tenant binding, provenance, replay/revocation/concurrency evidence and degraded states. The generic Mini-Arena practice checklist in #703 is presentation, not proof of a server-issued personalized challenge.
+- **#738 — physical-device WCAG and keyboard acceptance:** owns manual/physical-device, software-keyboard, focus-not-obscured, screen-reader, contrast, forced-colors and supported viewport evidence that automated checks alone cannot prove.
+- **#739 — exact-candidate staging and rollback evidence:** owns immutable candidate promotion, staging runtime smoke/RLS evidence and rollback proof after a reviewed exact SHA is selected. It grants no deployment authority by itself.
+
+### #703 Ready boundary
+
+Subject to a green exact-head gate and independent review of that same head, #703 can become Ready when the Workspace implementation itself remains internally complete: conversation-first hierarchy, responsive office disclosure, history/new-chat behavior, privacy and support access, server-authoritative entitlement/degraded presentation, Mini-Arena shell/recovery behavior, FA/EN parity, RTL/LTR correctness, automated keyboard/focus/reduced-motion/forced-colors evidence, and no unresolved inline review finding.
+
+Ready status for #703 means only that this Workspace implementation slice is review-complete under the boundaries above. It does **not** assert completion of #702/#736/#737/#738/#739, verified-current news, personalized challenge authority, complete WCAG conformance, Staging acceptance, Production readiness or a Go decision.
+
 ## Release boundary
-Opening this PR authorizes no merge, Staging mutation or Production mutation.
+Opening or marking this PR Ready authorizes no merge, Staging mutation or Production mutation.
