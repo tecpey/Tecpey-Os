@@ -351,3 +351,9 @@ Reopening the panel performs a new read. This is client recovery/presentation
 evidence, not proof of tenant isolation, continuous revocation or command execution.
 Local TypeScript, scoped ESLint, frontend/public guards and all 13 existing Arena
 client-authority tests passed. Exact-head browser/CI acceptance is pending.
+
+The first CI attempt (`37130966148`, head `cd315d30649af7aa2d93c5725097499a8fc5f8d4`)
+rejected a baseline line drift: the existing initial execution-load finding moved
+from 752:10 to 773:10. The baseline entry and its exact reviewed-key pin are
+relocated together; rule, path, column, domain, reason, suppression count and
+finding count are unchanged. This is not a new exemption or relaxed guard.
