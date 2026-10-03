@@ -65,6 +65,11 @@ test("news archive preserves its date on failure and offers explicit recovery", 
   expect((await source.boundingBox()).height).toBeGreaterThanOrEqual(44);
   expect(await story.locator("time").getAttribute("datetime")).toBe(item.publishedAt);
   expect(await story.locator("p").first().evaluate(node => getComputedStyle(node).fontWeight)).toBe("400");
+  const chip = archive.locator('button[aria-pressed]').first();
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  expect((await chip.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await expect(story).toHaveCount(1);
   await testInfo.attach("news-archive-reading-320", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
   expect(errors).toEqual([]);
 });
