@@ -44,7 +44,7 @@ const workflows = fs.readdirSync(".github/workflows")
 const immutableAlpineRuntime =
   "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
 const pinnedOpenSslUpgrade =
-  "RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0";
+  "RUN apk add --no-cache --upgrade libcrypto3=3.5.9-r0 libssl3=3.5.9-r0";
 
 requireText(dockerfile, "@sha256:", "Docker base image must be digest-pinned");
 requireText(
@@ -104,7 +104,6 @@ reject(
 for (const contract of [
   "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
   'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
-  'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
   "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
 ]) {
   requireText(
@@ -112,6 +111,17 @@ for (const contract of [
     contract,
     `Container workflow must bind every build to an exact commit: ${contract}`,
   );
+}
+for (const contract of [
+  'docker pull "$image"',
+  'docker image inspect --format',
+  'cosign verify',
+  '--certificate-oidc-issuer',
+  '--certificate-github-workflow-sha "$PREVIOUS_SHA"',
+  'docker tag "$digest" "tecpey-previous:$PREVIOUS_SHA"',
+]) {
+  requireText(containerWorkflow, contract,
+    `rollback must use a signed previous release image: ${contract}`);
 }
 
 for (const variable of ["POSTGRES_PASSWORD", "REDIS_PASSWORD", "TECPEY_IMAGE_DIGEST"]) {

@@ -6,6 +6,7 @@ import { afterEach, test } from "node:test";
 const GATE = "scripts/check-tenant-scoped-table-coverage.mjs";
 const REGISTRY = "docs/security/tenant-scoped-table-registry.json";
 const IDENTITY_REGISTRY = "docs/security/tenant-scoped-table-registry.identity.json";
+const ARENA_REGISTRY = "docs/security/tenant-scoped-table-registry.arena.json";
 const PROBE_FILES = [
   "src/lib/db-migrate-zzz-coverage-probe.ts",
   "src/lib/db-migrate-zzz-alter-probe.ts",
@@ -120,27 +121,29 @@ test('rejects a "proven" claim whose testReference does not mention the table', 
 
 test("rejects duplicate table enrollment across fixed registry fragments", () => {
   const primary = JSON.parse(readFileSync(REGISTRY, "utf8"));
-  const originalIdentity = readFileSync(IDENTITY_REGISTRY, "utf8");
-  const identity = JSON.parse(originalIdentity);
-  identity.tables.push({ ...primary.tables[0] });
-  writeFileSync(IDENTITY_REGISTRY, JSON.stringify(identity, null, 2) + "\n");
+  const originalArena = readFileSync(ARENA_REGISTRY, "utf8");
+  const arena = JSON.parse(originalArena);
+  arena.tables.push({ ...primary.tables[0] });
+  writeFileSync(ARENA_REGISTRY, JSON.stringify(arena, null, 2) + "\n");
   try {
     const { code, out } = runGate();
     assert.equal(code, 1);
     assert.match(out, /registered more than once across/);
   } finally {
-    writeFileSync(IDENTITY_REGISTRY, originalIdentity);
+    writeFileSync(ARENA_REGISTRY, originalArena);
   }
 });
 
-test("fails closed when an allowlisted registry fragment is missing", () => {
-  const parked = `${IDENTITY_REGISTRY}.test-disabled`;
-  renameSync(IDENTITY_REGISTRY, parked);
-  try {
-    const { code, out } = runGate();
-    assert.equal(code, 1);
-    assert.match(out, /cannot read .*tenant-scoped-table-registry\.identity\.json/);
-  } finally {
-    renameSync(parked, IDENTITY_REGISTRY);
-  }
-});
+for (const registryPath of [IDENTITY_REGISTRY, ARENA_REGISTRY]) {
+  test(`fails closed when allowlisted registry fragment ${registryPath} is missing`, () => {
+    const parked = `${registryPath}.test-disabled`;
+    renameSync(registryPath, parked);
+    try {
+      const { code, out } = runGate();
+      assert.equal(code, 1);
+      assert.match(out, new RegExp(`cannot read .*${registryPath.split("/").at(-1).replaceAll(".", "\\.")}`));
+    } finally {
+      renameSync(parked, registryPath);
+    }
+  });
+}

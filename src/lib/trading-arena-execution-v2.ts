@@ -187,6 +187,17 @@ export type ArenaExecutionResult =
 const MONEY_DP = 10;
 const QUANTITY_DP = 18;
 
+/** Assign a command time after the attempt row is locked and read. */
+export function nextArenaExecutionTime(previousUpdatedAt: string, observedAt: Date): string {
+  const previous = Date.parse(previousUpdatedAt);
+  const observed = observedAt.getTime();
+  if (!Number.isFinite(previous) || !Number.isFinite(observed) ||
+    previous > observed + 60_000) {
+    throw new Error("arena_execution_command_time_invalid");
+  }
+  return new Date(Math.max(observed, previous + 1)).toISOString();
+}
+
 function decimal(value: Decimal.Value): Decimal {
   return new Decimal(value);
 }
@@ -877,6 +888,9 @@ export function applyArenaExecutionActionV2(
   const now = iso(context.now);
   if (!market || !now || !/^[A-Za-z0-9:_-]{8,200}$/.test(context.operationId)) {
     return { ok: false, error: "arena_execution_context_invalid" };
+  }
+  if (Date.parse(now) < Date.parse(state.updatedAt)) {
+    return { ok: false, error: "arena_execution_time_regression" };
   }
   const safeContext: ArenaExecutionContext = { ...context, now, market };
 

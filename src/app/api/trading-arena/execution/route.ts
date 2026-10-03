@@ -5,7 +5,7 @@ import Decimal from "decimal.js";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { resolveArenaSessionError } from "@/lib/arena-access-state";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
-import { getArenaMarketPriceSnapshot } from "@/lib/arena-market-price";
+import { assertFreshArenaMarketPriceSnapshot, getArenaMarketPriceSnapshot } from "@/lib/arena-market-price";
 import { persistNewArenaTradeScores } from "@/lib/arena-league-score-ledger";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
@@ -25,6 +25,7 @@ import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
   createArenaExecutionStateV2,
+  nextArenaExecutionTime,
   projectArenaExecutionStateForRead,
   type ArenaExecutionActionV2,
   type ArenaExecutionStateV2,
@@ -471,7 +472,6 @@ export async function POST(request: NextRequest) {
 
     const hash = requestHash(expectedRevision, action);
     const operationId = randomUUID();
-    const now = new Date().toISOString();
 
     try {
       const result = await withTx(async (client) => {
@@ -519,6 +519,14 @@ export async function POST(request: NextRequest) {
         }
         const market = requestedMarket ?? execution.state.lastMarket;
         if (!market) return { error: "arena_price_feed_unavailable" as const };
+        const now = nextArenaExecutionTime(execution.state.updatedAt, new Date());
+        if (requestedMarket && action.type !== "cancel_order") {
+          try {
+            assertFreshArenaMarketPriceSnapshot(requestedMarket, Date.parse(now));
+          } catch {
+            return { error: "arena_price_feed_unavailable" as const };
+          }
+        }
         const applied = applyArenaExecutionActionV2(execution.state, action, {
           now,
           operationId,

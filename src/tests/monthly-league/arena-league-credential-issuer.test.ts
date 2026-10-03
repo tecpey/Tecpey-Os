@@ -7,7 +7,10 @@ import {
   issueDueArenaLeagueCredentialsTx,
   issueArenaLeagueCredentialsForSnapshotTx,
 } from "../../lib/arena-league-credential-issuer";
-import { ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION } from "../../lib/arena-league-ranking-materializer";
+import {
+  ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION,
+  ARENA_LEAGUE_SEASON_RANKING_MATERIALIZER_VERSION,
+} from "../../lib/arena-league-ranking-materializer";
 
 function result<T extends Record<string, unknown>>(rows: T[]): QueryResult<T> {
   return { rows, rowCount: rows.length, command: "SELECT", oid: 0, fields: [] };
@@ -26,6 +29,8 @@ function canonicalEvidence(value: Record<string, unknown>): string {
 
 const snapshot = {
   id: "22222222-2222-4222-8222-222222222222",
+  season_id: null,
+  season_key: null,
   window_type: "monthly" as const,
   window_key: "2026-01",
   version: 2,
@@ -110,7 +115,7 @@ describe("Arena league credential issuer", () => {
       ARENA_LEAGUE_CREDENTIAL_ISSUER_VERSION,
     ]);
     assert.equal(calls.filter(({ sql }) => sql.includes("INSERT INTO notification_domain_outbox")).length, 2);
-    assert.match(calls[1]?.sql ?? "", /participant_count/);
+    assert.match(calls.find(({ sql }) => sql.includes("FROM academy_arena_league_snapshots snapshot"))?.sql ?? "", /participant_count/);
   });
 
   it("does not issue official medals for suppressed small cohorts", async () => {
@@ -134,6 +139,60 @@ describe("Arena league credential issuer", () => {
     assert.equal(issued?.issuedCount, 0);
     assert.equal(issued?.skippedReason, "cohort_too_small");
     assert.equal(calls.some((sql) => sql.includes("INSERT INTO academy_credential_records")), false);
+  });
+
+  it("issues independent medals for two seasons in one month and preserves the generic medal", async () => {
+    const firstSeason = "44444444-4444-4444-8444-444444444444";
+    const secondSeason = "55555555-5555-4555-8555-555555555555";
+    const seasonSnapshots = [
+      { ...snapshot, id: "66666666-6666-4666-8666-666666666666", season_id: firstSeason, season_key: "arena-one" },
+      { ...snapshot, id: "77777777-7777-4777-8777-777777777777", season_id: secondSeason, season_key: "arena-two" },
+    ];
+    const inserts: unknown[][] = [];
+    const client = {
+      query: async (sql: string, values?: unknown[]) => {
+        if (sql.includes("FROM academy_arena_league_snapshots snapshot")) {
+          return result([([...seasonSnapshots, snapshot].find((row) => row.id === values?.[2]))!]);
+        }
+        if (sql.includes("FROM academy_arena_league_rankings")) return result([ranking]);
+        if (sql.includes("INSERT INTO academy_credential_records")) {
+          inserts.push(values ?? []);
+          return result([{ id: "00000000-0000-4000-8000-000000000010" }]);
+        }
+        if (sql.includes("SELECT id, locale FROM platform_principals")) {
+          return result([{ id: "00000000-0000-4000-8000-000000000030", locale: "fa" }]);
+        }
+        if (sql.includes("INSERT INTO notification_domain_outbox")) {
+          return result([{ id: "00000000-0000-4000-8000-000000000040" }]);
+        }
+        return result([]);
+      },
+    } as unknown as PoolClient;
+
+    for (const candidate of [...seasonSnapshots, snapshot]) {
+      const issued = await issueArenaLeagueCredentialsForSnapshotTx(client, {
+        tenantId: "tenant-a", workspaceId: "workspace-a", snapshotId: candidate.id,
+      });
+      assert.equal(issued?.issuedCount, 1);
+    }
+    assert.deepEqual(inserts.map((values) => values[3]), [
+      `arena-league:season:${firstSeason}:monthly:2026-01:rank:1`,
+      `arena-league:season:${secondSeason}:monthly:2026-01:rank:1`,
+      "arena-league:monthly:2026-01:rank:1",
+    ]);
+    assert.deepEqual(inserts.map((values) => values[12]), [
+      `season:${firstSeason}:monthly:2026-01`,
+      `season:${secondSeason}:monthly:2026-01`,
+      "monthly:2026-01",
+    ]);
+    assert.match(String(inserts[0]?.[8]), /arena-one/);
+    assert.match(String(inserts[1]?.[8]), /arena-two/);
+    const evidence = inserts.map((values) => JSON.parse(String(values[17])));
+    assert.equal(evidence[0].materializer, ARENA_LEAGUE_SEASON_RANKING_MATERIALIZER_VERSION);
+    assert.equal(evidence[0].seasonId, firstSeason);
+    assert.equal(evidence[1].seasonId, secondSeason);
+    assert.equal(evidence[2].materializer, ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION);
+    assert.equal("seasonId" in evidence[2], false);
   });
 
   it("counts exact credential replays without duplicating notification handoff", async () => {
@@ -232,6 +291,7 @@ describe("Arena league credential issuer", () => {
     });
     assert.deepEqual(calls[0]?.values, [5, 25, 3]);
     assert.match(calls[0]?.sql ?? "", /NOT EXISTS \(\s*SELECT 1\s+FROM academy_credential_records/);
+    assert.match(calls[0]?.sql ?? "", /WHEN academy_arena_league_snapshots\.season_id IS NULL/);
     assert.ok(calls.some(({ values }) => values?.includes(3)));
   });
 });

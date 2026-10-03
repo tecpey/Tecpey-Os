@@ -428,7 +428,7 @@ test("production runtime requires the reviewed Alpine base and exact OpenSSL rem
   );
 
   const mutableOpenSslUpgrade = sources.dockerfile.replace(
-    "RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0",
+    "RUN apk add --no-cache --upgrade libcrypto3=3.5.9-r0 libssl3=3.5.9-r0",
     "RUN apk add --no-cache --upgrade libcrypto3 libssl3",
   );
   assert.match(
@@ -955,6 +955,25 @@ test("container publication requires recovery and unfixed critical findings rema
     productionHostSupplyChainFindings(ignoredUnfixed).join("\n"),
     /must reject unfixed HIGH or CRITICAL findings/,
   );
+});
+
+test("container recovery requires a signed immutable previous release", () => {
+  for (const contract of [
+    'docker pull "$image"',
+    'cosign verify',
+    '--certificate-oidc-issuer',
+    '--certificate-github-workflow-sha "$PREVIOUS_SHA"',
+    'docker tag "$digest" "tecpey-previous:$PREVIOUS_SHA"',
+  ]) {
+    const mutated = {
+      ...sources,
+      containerWorkflow: sources.containerWorkflow.replace(contract, "removed_previous_image_guard"),
+    };
+    assert.match(
+      productionHostSupplyChainFindings(mutated).join("\n"),
+      /Recovery must use a verified immutable previous image/,
+    );
+  }
 });
 
 test("production template covers every validator-required and runtime-required key", () => {

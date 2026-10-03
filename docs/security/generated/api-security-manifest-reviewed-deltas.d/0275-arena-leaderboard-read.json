@@ -7,10 +7,10 @@
     {
       "route": "/api/arena/leaderboard",
       "sourcePath": "src/app/api/arena/leaderboard/route.ts",
-      "sourceHash": "43c2ef9970caa451ac2e69f2",
+      "sourceHash": "2c8b28265754669a19981e6e",
       "issue": "#461",
       "owner": "academy-platform",
-      "reason": "Reviewed authenticated read-only Arena leaderboard route. It rejects every query parameter, requires a strict canonical session, rate limiting and verified tenant/workspace/principal context, emits private no-store responses, and delegates only to the consent-bound server authority. The projection selects the latest immutable monthly, yearly and lifetime snapshots and excludes every profile without public visibility, leaderboard visibility and explicit current-version reputation-scoring consent.",
+      "reason": "Reviewed authenticated read-only Arena leaderboard route. It rejects every query parameter, requires a strict canonical session, rate limiting and verified tenant/workspace/principal context, and emits private no-store responses. The public projection selects immutable monthly, yearly and lifetime snapshots and excludes profiles without public visibility, leaderboard visibility and current-version reputation-scoring consent. The added private viewer rank is bound to the verified principal identity and the same snapshot version; nearby entries are bounded to two on each side and use the same public-profile and scoring-consent checks.",
       "controls": {
         "classification": "authenticated",
         "strictRevocation": true,

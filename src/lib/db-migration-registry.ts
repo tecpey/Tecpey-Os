@@ -72,6 +72,34 @@ import { runArenaLeagueScoreLedgerMigrations } from "./db-migrate-arena-league-s
 import { runArenaLeagueRankingMigrations } from "./db-migrate-arena-league-rankings";
 import { runArenaLeagueRankingRefreshMigrations } from "./db-migrate-arena-league-ranking-refresh";
 import { runArenaEntitlementGrantMigrations } from "./db-migrate-arena-entitlement-grants";
+import {
+  ARENA_LEAGUE_SEASON_AUTHORITY_SQL,
+  runArenaLeagueSeasonAuthorityMigrations,
+} from "./db-migrate-arena-league-seasons";
+import {
+  ARENA_LEAGUE_FINALIZATION_BOUNDARY_SQL,
+  runArenaLeagueFinalizationBoundaryMigrations,
+} from "./db-migrate-arena-league-finalization-boundary";
+import {
+  ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_LOCK_SQL,
+  runArenaLeagueEnrollmentLifecycleMigrations,
+} from "./db-migrate-arena-league-enrollment-lifecycle";
+import {
+  ARENA_LEAGUE_SCORE_FINALIZATION_BOUNDARY_SQL,
+  runArenaLeagueScoreFinalizationMigrations,
+} from "./db-migrate-arena-league-score-finalization";
+import {
+  ARENA_LEAGUE_GENERIC_SCORE_FINALIZATION_SQL,
+  runArenaLeagueGenericScoreFinalizationMigrations,
+} from "./db-migrate-arena-league-generic-score-finalization";
+import {
+  ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_SQL,
+  runArenaLeagueGenericRankingVersionsMigrations,
+} from "./db-migrate-arena-league-generic-ranking-versions";
+import {
+  ARENA_ENTITLEMENT_WINDOW_IDENTITY_SQL,
+  runArenaEntitlementWindowIdentityMigrations,
+} from "./db-migrate-arena-entitlement-window-identity";
 import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
 import { runAcademyV3MissionEvidenceMigrations } from "./db-migrate-academy-v3-mission-evidence";
 import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
@@ -278,6 +306,69 @@ const MENTOR_PROFILE_EVIDENCE_EVENT_MIGRATION: CanonicalMigrationContent =
     compatibleHistoricalChecksums: Object.freeze([]),
   });
 
+const ARENA_LEAGUE_SEASON_AUTHORITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0120_arena_league_season_authority.sql",
+    content: ARENA_LEAGUE_SEASON_AUTHORITY_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_SEASON_AUTHORITY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const ARENA_LEAGUE_FINALIZATION_BOUNDARY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0121_arena_league_finalization_boundary.sql",
+    content: ARENA_LEAGUE_FINALIZATION_BOUNDARY_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_FINALIZATION_BOUNDARY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0122_arena_league_enrollment_lifecycle_lock.sql",
+    content: ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_LOCK_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_LOCK_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const ARENA_LEAGUE_SCORE_FINALIZATION_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0123_arena_league_score_finalization_boundary.sql",
+    content: ARENA_LEAGUE_SCORE_FINALIZATION_BOUNDARY_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_SCORE_FINALIZATION_BOUNDARY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const ARENA_LEAGUE_GENERIC_SCORE_FINALIZATION_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0124_arena_league_generic_score_finalization.sql",
+    content: ARENA_LEAGUE_GENERIC_SCORE_FINALIZATION_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_GENERIC_SCORE_FINALIZATION_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0125_arena_league_generic_ranking_versions.sql",
+    content: ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
+const ARENA_ENTITLEMENT_WINDOW_IDENTITY_MIGRATION: CanonicalMigrationContent =
+  Object.freeze({
+    identity: "0126_arena_entitlement_window_identity.sql",
+    content: ARENA_ENTITLEMENT_WINDOW_IDENTITY_SQL,
+    checksum: canonicalMigrationChecksum(ARENA_ENTITLEMENT_WINDOW_IDENTITY_SQL),
+    acceptsHistoricalChecksumPrefix: false,
+    compatibleHistoricalChecksums: Object.freeze([]),
+  });
+
 export const DATABASE_MIGRATION_REGISTRY = [
   entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
   entry(2, "migration-step-002", CANONICAL_MIGRATION_CONTENT.compatibility, "academy-platform", "academy", runCompatibilityMigrations),
@@ -445,6 +536,62 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(101, "migration-step-101", CANONICAL_MIGRATION_CONTENT.modelLabExecutionAuthority, "ai-platform-security", "ai-model-lab", runModelLabExecutionAuthorityMigrations),
   entry(102, "migration-step-102", CANONICAL_MIGRATION_CONTENT.modelEvaluationAuthority, "ai-platform-security", "ai-model-lab", runAiModelEvaluationAuthorityMigrations),
   entry(103, "migration-step-103", CANONICAL_MIGRATION_CONTENT.academyV3MissionEvidence, "academy-platform", "academy", runAcademyV3MissionEvidenceMigrations),
+  entry(
+    104,
+    "migration-step-104",
+    [ARENA_LEAGUE_SEASON_AUTHORITY_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueSeasonAuthorityMigrations,
+  ),
+  entry(
+    105,
+    "migration-step-105",
+    [ARENA_LEAGUE_FINALIZATION_BOUNDARY_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueFinalizationBoundaryMigrations,
+  ),
+  entry(
+    106,
+    "migration-step-106",
+    [ARENA_LEAGUE_ENROLLMENT_LIFECYCLE_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueEnrollmentLifecycleMigrations,
+  ),
+  entry(
+    107,
+    "migration-step-107",
+    [ARENA_LEAGUE_SCORE_FINALIZATION_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueScoreFinalizationMigrations,
+  ),
+  entry(
+    108,
+    "migration-step-108",
+    [ARENA_LEAGUE_GENERIC_SCORE_FINALIZATION_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueGenericScoreFinalizationMigrations,
+  ),
+  entry(
+    109,
+    "migration-step-109",
+    [ARENA_LEAGUE_GENERIC_RANKING_VERSIONS_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaLeagueGenericRankingVersionsMigrations,
+  ),
+  entry(
+    110,
+    "migration-step-110",
+    [ARENA_ENTITLEMENT_WINDOW_IDENTITY_MIGRATION],
+    "academy-platform",
+    "arena",
+    runArenaEntitlementWindowIdentityMigrations,
+  ),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

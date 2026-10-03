@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-30",
+  "reviewedAt": "2026-09-30",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "204c49eb262e69bb703586298ef3e870f4db44ad",
-      "sha256": "6ec774708bd9166e5807f4ce29e654c8b650bfadb6b35b1faa2e319df297c7be",
-      "lines": 302,
+      "gitObjectId": "b702d105ca67e4c6e6af88383a9ac2553a530dc2",
+      "sha256": "1ae63e93a21749fa9d56a865b461f9289d5a4e85eb6607d7f3f0900e91e071ae",
+      "lines": 323,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 302
+          "endLine": 323
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -45,7 +45,8 @@
         "Publication now requires both the verification and recovery jobs, and the Trivy gate rejects HIGH or CRITICAL findings even when no upstream fix is currently available.",
         "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
         "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
-        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
+        "2026-09-30: recovery pulls the previous main image and verifies its immutable digest, main-workflow Cosign identity and OIDC workflow commit SHA before serving it; a missing, unsigned or incorrectly bound artifact fails closed. Candidate build, synthetic restore, publication dependency and production authorization remain governed separately."
       ],
       "findings": [
         {
@@ -80,13 +81,13 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "91507335e7ee61bff248b43220a096c2c66dffce",
-      "sha256": "ba14dd923124c0f9d77f636c609f9fca4cf4b2f3865a9187fce8d4f4a8b50aed",
-      "lines": 101,
+      "gitObjectId": "0e72dc436822759803c2f28aebcdde995dc0e913",
+      "sha256": "d3862c043daad887cbb6da8ce881a2cd4083b373638248a84af7a27a098eb56c",
+      "lines": 102,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 101
+          "endLine": 102
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -98,7 +99,8 @@
         "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries.",
         "2026-08-23: re-reviewed after adding the protected staging recovery collector, collector policy/test and governed workflow to pull-request trigger coverage. Trigger-only change; exact-head checkout, pinned actions, read-only permissions, synthetic restore, RPO/RTO checks and artifact boundary remain unchanged. The file now has 99 lines.",
         "2026-09-06: re-reviewed after adding both fixed tenant-scoped registry fragments to pull-request trigger coverage. This is a trigger-only change ensuring registry-authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, pinned actions, recovery authority command, isolated PostgreSQL/Redis restore, RPO/RTO enforcement, evidence upload and production activation boundaries are unchanged. The file now has 101 lines.",
-        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced."
+        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
+        "2026-09-27: re-reviewed after adding docs/security/tenant-scoped-table-registry.arena.json to pull-request trigger coverage. This is a trigger-only change ensuring Arena & League v2 tenant-registry authority edits cannot bypass Scheduled Operational Recovery; read-only permissions, exact-head checkout, immutable action pins, recovery authority command, isolated PostgreSQL/Redis restore, bounded RPO/RTO controls, evidence upload and production activation boundaries are unchanged. The file now has 102 lines."
       ],
       "findings": []
     },
@@ -162,13 +164,13 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "a084cee6424fc663f0c69fc912688457c452ba89",
-      "sha256": "cc4c5975e12a24f17822cefb0d88cfde3028cd6a7a756de374074fd3f26ad02f",
-      "lines": 615,
+      "gitObjectId": "6b49e771970a9968ae4e3f0a98658f8e01ae8e57",
+      "sha256": "b407898c680d4d6c39e4d317c5eb025b5a5742618b587255f5b00420b186b4ca",
+      "lines": 630,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 615
+          "endLine": 630
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -176,7 +178,9 @@
         "Retired-script fail-closed behavior, mutable installer rejection, production documentation constraints, environment-template completeness, exact Node/npm/systemd contracts, clean candidate binding, immutable build identity, Compose/public inputs, container trigger coverage, readiness probes and production-verification delegation were reviewed line by line.",
         "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
-        "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced."
+        "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
+        "2026-09-30: re-reviewed the one-line OpenSSL package authority delta against the exact Dockerfile and checker after Alpine 3.24 offered 3.5.9-r0 and rejected 3.5.8-r0 in the container and recovery jobs. The rule still requires both packages at the same explicit version, a single apk mutation and inheritance by both production stages; its negative test continues to reject unpinned versions. No deploy or vulnerability-gate exception was added. Exact image build, SBOM and restore remain subject to fresh workflow evidence.",
+        "2026-09-30: recovery pulls the previous main image and verifies its immutable digest, main-workflow Cosign identity and OIDC workflow commit SHA before serving it; a missing, unsigned or incorrectly bound artifact fails closed. Candidate build, synthetic restore, publication dependency and production authorization remain governed separately."
       ],
       "findings": []
     }

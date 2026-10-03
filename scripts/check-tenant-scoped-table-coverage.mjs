@@ -12,6 +12,7 @@ import { readFile, readdir } from "node:fs/promises";
 const REGISTRY_PATHS = Object.freeze([
   "docs/security/tenant-scoped-table-registry.json",
   "docs/security/tenant-scoped-table-registry.identity.json",
+  "docs/security/tenant-scoped-table-registry.arena.json",
 ]);
 const MIGRATIONS_DIR = "src/lib";
 const VALID_PROOF_STATES = new Set(["pending", "proven"]);

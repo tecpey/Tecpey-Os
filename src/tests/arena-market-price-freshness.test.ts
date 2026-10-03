@@ -36,6 +36,14 @@ describe("Arena market price freshness", () => {
     );
   });
 
+  it("rejects a feed that was fresh before a delayed command acquired its lock", () => {
+    const value = snapshot("2026-07-19T11:59:55.000Z");
+    assert.equal(assertFreshArenaMarketPriceSnapshot(value, now), value);
+    assert.throws(() => assertFreshArenaMarketPriceSnapshot(value, now + 11_000),
+      (error: unknown) => error instanceof ArenaMarketPriceError &&
+        error.message === "arena_price_feed_stale");
+  });
+
   it("rejects an implausibly future-dated snapshot", () => {
     assert.throws(
       () => assertFreshArenaMarketPriceSnapshot(

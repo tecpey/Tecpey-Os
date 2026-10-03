@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiOk } from "@/lib/api-validation";
-import { loadArenaLeagueLeaderboard } from "@/lib/arena-league-leaderboard-authority";
+import {
+  loadArenaLeagueLeaderboard, loadArenaLeagueNeighborhood,
+} from "@/lib/arena-league-leaderboard-authority";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
@@ -46,13 +48,26 @@ export async function GET(req: NextRequest) {
       { windowType: "lifetime" as const, windowKey: "all-time" },
     ];
     const leaderboards = [];
+    const neighborhoods = [];
     for (const window of windows) {
       const loaded = await loadArenaLeagueLeaderboard({
         context: tenantContext, ...window, limit: 50,
       });
       if (!loaded.available) return noStore(apiError("arena_leaderboard_unavailable", 503));
       leaderboards.push(loaded.leaderboard);
+      if (!loaded.leaderboard) {
+        neighborhoods.push(null);
+        continue;
+      }
+      const nearby = await loadArenaLeagueNeighborhood({
+        context: tenantContext, ...window,
+        snapshotVersion: loaded.leaderboard.snapshotVersion,
+      });
+      if (!nearby.available || !nearby.neighborhood) {
+        return noStore(apiError("arena_leaderboard_unavailable", 503));
+      }
+      neighborhoods.push(nearby.neighborhood);
     }
-    return noStore(apiOk({ leaderboards }));
+    return noStore(apiOk({ leaderboards, neighborhoods }));
   });
 }

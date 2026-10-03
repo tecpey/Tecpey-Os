@@ -6,9 +6,116 @@ import {
   scoreArenaLeagueTrade,
   type ArenaLeagueTradeScoreInput,
 } from "./arena-league-scoring-policy";
-import type { ArenaClosedTradeV2, ArenaExecutionStateV2, ArenaOpenPositionV2 } from "./trading-arena-execution-v2";
+import { applyArenaLeagueTenantScope } from "./arena-league-tenant-scope";
+import {
+  ARENA_EXECUTION_FEE_RATE,
+  ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT,
+  type ArenaClosedTradeV2,
+  type ArenaExecutionStateV2,
+  type ArenaOpenPositionV2,
+} from "./trading-arena-execution-v2";
 
 type ArenaScoreOwner = { tenantId: string; workspaceId: string; studentId: string; attemptId: string };
+type ArenaScoreSeasonRow = { id: string; scoring_policy_version: string };
+
+const IMMUTABLE_TRADE_FIELDS = [
+  "id", "positionId", "asset", "entryPrice", "exitPrice", "quantity",
+  "quoteCommitted", "totalFee", "realizedPnl", "realizedPnlRate",
+  "openedAt", "closedAt", "closureReason",
+] as const satisfies readonly (keyof ArenaClosedTradeV2)[];
+
+/** Historical closes are source events, not editable score inputs. */
+export function assertArenaClosedTradeHistoryImmutable(
+  before: readonly ArenaClosedTradeV2[],
+  after: readonly ArenaClosedTradeV2[],
+): void {
+  const previous = new Map<string, ArenaClosedTradeV2>();
+  for (const trade of before) {
+    if (previous.has(trade.id)) throw new Error("arena_league_duplicate_prior_trade_id");
+    previous.set(trade.id, trade);
+  }
+  const seen = new Set<string>();
+  for (const trade of after) {
+    if (seen.has(trade.id)) throw new Error("arena_league_duplicate_trade_id");
+    seen.add(trade.id);
+    const prior = previous.get(trade.id);
+    if (prior && (IMMUTABLE_TRADE_FIELDS.some((field) => prior[field] !== trade[field]) ||
+      prior.mentorFlags.length !== trade.mentorFlags.length ||
+      prior.mentorFlags.some((flag, index) => flag !== trade.mentorFlags[index]))) {
+      throw new Error("arena_league_historical_trade_mutated");
+    }
+  }
+  if (before.length > ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT ||
+    after.length > ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT) {
+    throw new Error("arena_league_trade_history_limit_invalid");
+  }
+  const newCount = after.length - [...seen].filter((id) => previous.has(id)).length;
+  // Execution snapshots prepend new closes and trim only the oldest tail.
+  if (after.slice(0, newCount).some((trade) => previous.has(trade.id)) ||
+    after.slice(newCount).some((trade) => !previous.has(trade.id))) {
+    throw new Error("arena_league_historical_trade_order_invalid");
+  }
+  const retainedCount = Math.min(before.length, ARENA_EXECUTION_MAX_CLOSED_TRADES_IN_SNAPSHOT - newCount);
+  if (after.length !== newCount + retainedCount) {
+    throw new Error("arena_league_historical_trade_removed");
+  }
+  for (const trade of before.slice(0, retainedCount)) {
+    if (!seen.has(trade.id)) throw new Error("arena_league_historical_trade_removed");
+  }
+  const retainedIds = after.filter((trade) => previous.has(trade.id)).map((trade) => trade.id);
+  if (retainedIds.some((id, index) => id !== before[index].id)) {
+    throw new Error("arena_league_historical_trade_order_invalid");
+  }
+  for (const trade of before.slice(retainedCount)) {
+    if (seen.has(trade.id)) throw new Error("arena_league_historical_trade_order_invalid");
+  }
+}
+
+export function assertArenaTradeSourceChronology(
+  trade: ArenaClosedTradeV2,
+  position: ArenaOpenPositionV2,
+): void {
+  const openedAt = Date.parse(trade.openedAt);
+  const closedAt = Date.parse(trade.closedAt);
+  if (!Number.isFinite(openedAt) || !Number.isFinite(closedAt) || closedAt < openedAt ||
+    trade.openedAt !== position.openedAt || trade.positionId !== position.id ||
+    trade.asset !== position.asset || trade.entryPrice !== position.entryPrice ||
+    trade.quantity !== position.quantity || trade.quoteCommitted !== position.quoteCommitted) {
+    throw new Error("arena_league_trade_source_chronology_invalid");
+  }
+  const expectedFlags = [...new Set([
+    ...position.mentorFlags,
+    ...(trade.closureReason === "take-profit" ? ["target-hit" as const] : []),
+  ])];
+  if (trade.mentorFlags.length !== expectedFlags.length ||
+    trade.mentorFlags.some((flag, index) => flag !== expectedFlags[index])) {
+    throw new Error("arena_league_trade_mentor_flags_invalid");
+  }
+  const exitPrice = new Decimal(trade.exitPrice);
+  const quantity = new Decimal(position.quantity);
+  const committed = new Decimal(position.quoteCommitted);
+  const openingFee = new Decimal(position.openingFee);
+  if (![exitPrice, quantity, committed, openingFee].every((value) => value.isFinite()) ||
+    !exitPrice.gt(0) || !quantity.gt(0) || !committed.gt(0) || openingFee.lt(0)) {
+    throw new Error("arena_league_trade_settlement_invalid");
+  }
+  const proceeds = quantity.mul(exitPrice);
+  const closingFee = proceeds.mul(ARENA_EXECUTION_FEE_RATE);
+  const pnl = proceeds.minus(closingFee).minus(committed);
+  // The engine truncates the displayed exit to 10dp but settles using the
+  // higher precision fill. Bound the difference by one display unit plus the
+  // independent truncation of each settlement field.
+  const displayUnit = new Decimal("0.0000000001");
+  const feeTolerance = quantity.mul(displayUnit).mul(ARENA_EXECUTION_FEE_RATE).plus(displayUnit);
+  const pnlTolerance = quantity.mul(displayUnit)
+    .mul(new Decimal(1).minus(ARENA_EXECUTION_FEE_RATE)).plus(displayUnit);
+  const rateTolerance = pnlTolerance.div(committed).plus("0.00000001");
+  if (new Decimal(trade.totalFee).minus(openingFee.plus(closingFee)).abs().gt(feeTolerance) ||
+    new Decimal(trade.realizedPnl).minus(pnl).abs().gt(pnlTolerance) ||
+    new Decimal(trade.realizedPnlRate).minus(pnl.div(committed)).abs().gt(rateTolerance)) {
+    throw new Error("arena_league_trade_settlement_invalid");
+  }
+}
 
 function clampInteger(value: Decimal, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber()));
@@ -48,49 +155,134 @@ export function deriveArenaTradeScoreInput(input: {
   };
 }
 
+export async function resolveArenaScoreSeasonId(
+  client: PoolClient,
+  owner: ArenaScoreOwner,
+  scoredAt: string,
+): Promise<string | null> {
+  await applyArenaLeagueTenantScope(client, owner);
+  const result = await client.query<ArenaScoreSeasonRow>(
+    `SELECT season.id::text, season.scoring_policy_version
+       FROM academy_arena_league_seasons season
+       JOIN academy_arena_league_enrollments enrollment
+         ON enrollment.season_id = season.id
+        AND enrollment.tenant_id = season.tenant_id
+        AND enrollment.workspace_id = season.workspace_id
+        AND enrollment.student_id = $3::uuid
+        AND enrollment.status = 'enrolled'
+      WHERE season.tenant_id = $1
+        AND season.workspace_id = $2
+        AND season.status IN ('active', 'closing')
+        AND $4::timestamptz >= season.starts_at
+        AND $4::timestamptz < season.ends_at
+      ORDER BY season.starts_at DESC, season.id
+      LIMIT 2`,
+    [owner.tenantId, owner.workspaceId, owner.studentId, scoredAt],
+  );
+  if (result.rows.length > 1) throw new Error("arena_league_season_ambiguous");
+  const season = result.rows[0];
+  if (!season) return null;
+  if (season.scoring_policy_version !== ARENA_LEAGUE_SCORING_POLICY_VERSION) {
+    throw new Error("arena_league_season_scoring_policy_unsupported");
+  }
+  return season.id;
+}
+
 export async function persistNewArenaTradeScores(
   client: PoolClient,
   owner: ArenaScoreOwner,
   before: ArenaExecutionStateV2,
   after: ArenaExecutionStateV2,
 ): Promise<void> {
+  assertArenaClosedTradeHistoryImmutable(before.closedTrades, after.closedTrades);
   const previousTradeIds = new Set(before.closedTrades.map(({ id }) => id));
   const positions = new Map(before.openPositions.map((position) => [position.id, position]));
-  for (const trade of after.closedTrades.filter(({ id }) => !previousTradeIds.has(id))) {
+  const newTrades = after.closedTrades
+    .filter(({ id }) => !previousTradeIds.has(id))
+    .sort((left, right) => left.closedAt < right.closedAt ? -1 : left.closedAt > right.closedAt ? 1
+      : left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  for (const trade of newTrades) {
     const position = positions.get(trade.positionId);
     if (!position) throw new Error("arena_league_source_position_missing");
-    const count = await client.query<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM academy_arena_trade_score_ledger
+    assertArenaTradeSourceChronology(trade, position);
+    const seasonId = await resolveArenaScoreSeasonId(client, owner, trade.closedAt);
+    // Hold this student's UTC day until the enclosing execution transaction
+    // commits. Locking at INSERT is too late: two transactions can both read
+    // the same daily ordinal before either inserts its score.
+    const scoreDay = new Date(trade.closedAt).toISOString().slice(0, 10);
+    const isolation = await client.query<{ isolation: string }>(
+      "SELECT current_setting('transaction_isolation') AS isolation",
+    );
+    if (isolation.rows[0]?.isolation !== "read committed") {
+      throw new Error("arena_league_daily_score_requires_read_committed");
+    }
+    await client.query(
+      `SELECT pg_advisory_xact_lock(
+         hashtext('arena-score-day:' || $1::text || ':' || $2::text),
+         hashtext($3::text || ':' || $4::text))`,
+      [owner.tenantId, owner.workspaceId, owner.studentId, scoreDay],
+    );
+    const count = await client.query<{ count: string; later_count: string; replay_count: string }>(
+      `SELECT COUNT(*) FILTER (WHERE scored_at < $4::timestamptz
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" < $5))::text AS count,
+              COUNT(*) FILTER (WHERE scored_at > $4::timestamptz
+           OR (scored_at = $4::timestamptz AND closed_trade_id COLLATE "C" > $5))::text AS later_count,
+              COUNT(*) FILTER (WHERE attempt_id = $6::uuid AND closed_trade_id = $5
+                AND policy_version = $7)::text AS replay_count
+         FROM academy_arena_trade_score_ledger
        WHERE tenant_id = $1 AND workspace_id = $2 AND student_id = $3::uuid
          AND score_day = ($4::timestamptz AT TIME ZONE 'UTC')::date`,
-      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt],
+      // Activity points belong to the student's UTC day, even when that day
+      // crosses a season boundary. The day lock above has the same scope.
+      [owner.tenantId, owner.workspaceId, owner.studentId, trade.closedAt, trade.id,
+        owner.attemptId, ARENA_LEAGUE_SCORING_POLICY_VERSION],
     );
+    if (Number(count.rows[0]?.later_count ?? "0") > 0 &&
+      Number(count.rows[0]?.replay_count ?? "0") === 0) {
+      throw new Error("arena_league_retroactive_daily_score_invalid");
+    }
     const scoringInput = deriveArenaTradeScoreInput({
       trade,
       position,
       equityBeforeClose: before.equity,
       tradeNumberForDay: Number(count.rows[0]?.count ?? "0") + 1,
     });
+    const scoringEvidence = { ...scoringInput, seasonId };
     const score = scoreArenaLeagueTrade(scoringInput);
     const digest = createHash("sha256")
-      .update(JSON.stringify({ owner, scoringInput, score }))
+      .update(JSON.stringify({ owner, scoringInput: scoringEvidence, score }))
       .digest("hex");
-    await client.query(
+    const inserted = await client.query<{ source_digest: string }>(
       `INSERT INTO academy_arena_trade_score_ledger
         (id, tenant_id, workspace_id, principal_id, student_id, attempt_id,
          closed_trade_id, policy_version, instrument_kind, scored_at,
          trade_number_for_day, total_points, participation_points, process_points,
          outcome_points, penalty_points, positive_multiplier_bps, penalty_multiplier_bps,
          scoring_input, scoring_reasons, source_digest)
-       VALUES ($1::uuid, $2, $3, $4, $4::uuid, $5::uuid, $6, $7, $8, $9::timestamptz,
+       VALUES ($1::uuid, $2, $3, $4::text, $4::uuid, $5::uuid, $6, $7, $8, $9::timestamptz,
                $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20)
-       ON CONFLICT (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version) DO NOTHING`,
+       ON CONFLICT (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version) DO NOTHING
+       RETURNING source_digest`,
       [randomUUID(), owner.tenantId, owner.workspaceId, owner.studentId, owner.attemptId,
         trade.id, ARENA_LEAGUE_SCORING_POLICY_VERSION, scoringInput.instrumentKind, trade.closedAt,
         scoringInput.tradeNumberForDay, score.totalPoints, score.participationPoints,
         score.processPoints, score.outcomePoints, score.penaltyPoints,
         score.positiveMultiplierBps, score.penaltyMultiplierBps,
-        JSON.stringify(scoringInput), JSON.stringify(score.reasons), digest],
+        JSON.stringify(scoringEvidence), JSON.stringify(score.reasons), digest],
     );
+    if (inserted.rows.length === 0) {
+      // A retry may replay the same event, but a different score under the same
+      // immutable trade identity must never be silently accepted.
+      const existing = await client.query<{ source_digest: string }>(
+        `SELECT source_digest FROM academy_arena_trade_score_ledger
+          WHERE tenant_id = $1 AND workspace_id = $2 AND attempt_id = $3::uuid
+            AND closed_trade_id = $4 AND policy_version = $5`,
+        [owner.tenantId, owner.workspaceId, owner.attemptId, trade.id,
+          ARENA_LEAGUE_SCORING_POLICY_VERSION],
+      );
+      if (existing.rows.length !== 1 || existing.rows[0].source_digest !== digest) {
+        throw new Error("arena_league_score_conflicting_replay");
+      }
+    }
   }
 }
