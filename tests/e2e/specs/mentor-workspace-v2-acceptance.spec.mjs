@@ -39,6 +39,77 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
+  test("obsolete Academy responses cannot restore rejected completion evidence", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    await installLocalUiSession(page.context());
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
+    await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
+    await page.route("**/api/mentor-insights", route => route.fulfill({ json: { ok: true, profile: null, insights: [] } }));
+    let completed = 3;
+    let failure = false;
+    let malformed = false;
+    // These fixtures exercise client ordering and presentation, not server reward authority.
+    for (const path of ["academy-term-progress", "academy-state"]) {
+      await page.route(`**/api/${path}?**`, route => route.fulfill(failure
+        ? { status: 401, json: { ok: false, error: "complete_account_required" } }
+        : { json: malformed ? {} : path === "academy-term-progress"
+          ? { ok: true, terms: Array.from({ length: completed }, (_, i) => ({ term_number: i + 1, status: "passed", percent: 100 })) }
+          : { ok: true, state: { xp: 100, termStatus: Object.fromEntries(Array.from({ length: completed }, (_, i) => [i + 1, "passed"])) } } }));
+    }
+    await page.addInitScript(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.__holdAcademyResponses = false;
+      window.__releaseAcademyResponses = [];
+      window.fetch = async (input, options) => {
+        const url = typeof input === "string" ? input : input.url;
+        if (window.__holdAcademyResponses && /\/api\/academy-(term-progress|state)\?/.test(url)) {
+          // Deliberately ignore cancellation to prove the response guard too.
+          const response = await nativeFetch(input, { ...options, signal: undefined });
+          await new Promise(resolve => window.__releaseAcademyResponses.push(resolve));
+          return response;
+        }
+        return nativeFetch(input, options);
+      };
+    });
+    await page.goto(`${isEn ? "/en" : ""}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    const progress = page.locator("header").getByRole("status").filter({ hasText: isEn ? /terms|progress/ : /ترم|پیشرفت/ });
+    await expect(progress).toHaveText(isEn ? "3/7 completed terms" : "3/7 ترم تکمیل‌شده");
+    await expect(page.locator('#mentor-office [data-earned="true"]')).toHaveCount(2);
+    completed = 7;
+    await page.evaluate(() => {
+      window.__holdAcademyResponses = true;
+      window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
+    });
+    await expect.poll(() => page.evaluate(() => window.__releaseAcademyResponses.length)).toBe(2);
+    await expect(progress).toHaveText(isEn ? "Checking progress…" : "در حال بررسی پیشرفت…");
+    await expect(page.locator('#mentor-office [data-earned="true"]')).toHaveCount(0);
+    failure = true;
+    await page.evaluate(() => {
+      window.__holdAcademyResponses = false;
+      window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
+    });
+    await expect(progress).toHaveText(isEn ? "Progress unavailable" : "پیشرفت در دسترس نیست");
+    await page.evaluate(async () => {
+      window.__releaseAcademyResponses.forEach(release => release());
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    await expect(progress).toHaveText(isEn ? "Progress unavailable" : "پیشرفت در دسترس نیست");
+    await expect(page.locator('#mentor-office [data-earned="true"]')).toHaveCount(0);
+    await progress.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await testInfo.attach("mentor-progress-unavailable", { body: await progress.screenshot(), contentType: "image/png" });
+    failure = false;
+    malformed = true;
+    await page.evaluate(() => window.dispatchEvent(new Event("tecpey-academy-progress-updated")));
+    await expect(progress).toHaveText(isEn ? "Progress unavailable" : "پیشرفت در دسترس نیست");
+    malformed = false;
+    completed = 0;
+    await page.evaluate(() => window.dispatchEvent(new Event("tecpey-academy-progress-updated")));
+    await expect(progress).toHaveText(isEn ? "0/7 completed terms" : "0/7 ترم تکمیل‌شده");
+    await expect(page.locator('#mentor-office [data-earned="true"]')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   test("profile evidence distinguishes outages, sparse evidence and observed scores", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
     const isEn = testInfo.project.metadata.locale === "en";

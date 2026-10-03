@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AcademyLocale } from "@/lib/academy-lesson-progress";
 
 export type OfficialTermProgress = {
@@ -80,40 +80,49 @@ export function useAcademyPathProgress(locale: AcademyLocale) {
   const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [snapshotLocale, setSnapshotLocale] = useState<AcademyLocale | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoaded(false);
+    setTermProgress({});
+    setTotalXp(0);
+    setStreak(0);
+    setEarnedBadges([]);
+    setError(null);
     try {
       const [officialResponse, stateResponse] = await Promise.all([
         fetch(`/api/academy-term-progress?locale=${locale}`, {
+          signal: controller.signal,
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
         }),
         fetch(`/api/academy-state?locale=${locale}`, {
+          signal: controller.signal,
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
         }),
       ]);
 
+      if (controller.signal.aborted) return;
       if (officialResponse.status === 401 || stateResponse.status === 401) {
-        setTermProgress(buildAcademyPathProgress([], {}));
-        setTotalXp(0);
-        setStreak(0);
-        setEarnedBadges([]);
-        setError(null);
-        return;
+        throw new Error("academy_profile_required");
       }
 
       const [officialBody, stateBody] = await Promise.all([
-        officialResponse.json().catch(() => ({})),
-        stateResponse.json().catch(() => ({})),
+        officialResponse.json(),
+        stateResponse.json(),
       ]) as [
         { terms?: OfficialTermProgress[]; error?: string },
         { state?: OfficialAcademyProjection; error?: string },
       ];
 
+      if (controller.signal.aborted) return;
       if (!officialResponse.ok) {
         throw new Error(
           officialBody.error ?? `official_progress_load_failed:${officialResponse.status}`,
@@ -125,7 +134,11 @@ export function useAcademyPathProgress(locale: AcademyLocale) {
         );
       }
 
-      const projection = stateBody.state ?? {};
+      if (!Array.isArray(officialBody?.terms) || !stateBody?.state ||
+          typeof stateBody.state !== "object" || Array.isArray(stateBody.state)) {
+        throw new Error("academy_progress_response_invalid");
+      }
+      const projection = stateBody.state;
       setTermProgress(
         buildAcademyPathProgress(
           Array.isArray(officialBody.terms) ? officialBody.terms : [],
@@ -141,9 +154,13 @@ export function useAcademyPathProgress(locale: AcademyLocale) {
       );
       setError(null);
     } catch (caught) {
+      if (controller.signal.aborted) return;
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
-      setLoaded(true);
+      if (!controller.signal.aborted) {
+        setSnapshotLocale(locale);
+        setLoaded(true);
+      }
     }
   }, [locale]);
 
@@ -160,18 +177,20 @@ export function useAcademyPathProgress(locale: AcademyLocale) {
     window.addEventListener("focus", onProgress);
     return () => {
       active = false;
+      abortRef.current?.abort();
       window.removeEventListener("tecpey-academy-progress-updated", onProgress);
       window.removeEventListener("focus", onProgress);
     };
   }, [refresh]);
 
+  const currentLocale = snapshotLocale === locale;
   return {
-    termProgress,
-    totalXp,
-    streak,
-    earnedBadges,
-    loaded,
-    error,
+    termProgress: currentLocale ? termProgress : {},
+    totalXp: currentLocale ? totalXp : 0,
+    streak: currentLocale ? streak : 0,
+    earnedBadges: currentLocale ? earnedBadges : [],
+    loaded: loaded && currentLocale,
+    error: currentLocale ? error : null,
     refresh,
   };
 }

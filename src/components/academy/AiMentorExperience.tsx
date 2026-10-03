@@ -154,6 +154,8 @@ const COPY = {
     profileReady: "شواهد ثبت‌شدهٔ امتیاز آموزشی دریافت شد.",
     profileRefresh: "بررسی دوبارهٔ پروفایل",
     completedTerms: "ترم تکمیل‌شده",
+    progressLoading: "در حال بررسی پیشرفت…",
+    progressUnavailable: "پیشرفت در دسترس نیست",
     confidence: "اعتماد آموزشی",
     currentSurface: "نمایشگر فعال",
     academy: "آکادمی",
@@ -235,6 +237,8 @@ const COPY = {
     profileReady: "Recorded learning-score evidence received.",
     profileRefresh: "Refresh profile evidence",
     completedTerms: "completed terms",
+    progressLoading: "Checking progress…",
+    progressUnavailable: "Progress unavailable",
     confidence: "Learning confidence",
     currentSurface: "Active monitor",
     academy: "Academy",
@@ -354,10 +358,10 @@ export function AiMentorExperience({
   }, []);
 
   const completedTerms = useMemo(
-    () =>
-      Object.values(officialProgress.termProgress).filter((item) => item.completed)
-        .length,
-    [officialProgress.termProgress],
+    () => officialProgress.loaded && !officialProgress.error
+      ? Object.values(officialProgress.termProgress).filter((item) => item.completed).length
+      : null,
+    [officialProgress.termProgress, officialProgress.loaded, officialProgress.error],
   );
   const profile = mentorInsights?.profile;
   const confidence = profile?.confidenceEvidenceState === "observed" &&
@@ -870,7 +874,7 @@ export function AiMentorExperience({
             <div>
               <p>{copy.conversation}</p>
               <div className={styles.chatEvidence}>
-                <span><BookOpenCheck aria-hidden="true" />{completedTerms}/7 {copy.completedTerms}</span>
+                <span role="status" aria-atomic="true"><BookOpenCheck aria-hidden="true" />{officialProgress.error ? copy.progressUnavailable : !officialProgress.loaded ? copy.progressLoading : `${completedTerms}/7 ${copy.completedTerms}`}</span>
                 <span><BrainCircuit aria-hidden="true" />{copy.confidence}: {confidence === null ? "—" : `${Math.round(confidence)}%`}</span>
               </div>
             </div>

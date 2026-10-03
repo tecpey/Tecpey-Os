@@ -274,3 +274,22 @@ unavailable/insufficient/observed states for manual visual review and retains th
 existing dark/light axe harness. Synthetic browser fixtures verify presentation
 and recovery only; server evidence thresholds and production identity need their
 separate governed runtime proof. New exact-head browser evidence is pending.
+
+## Academy progress request ordering and unavailable counts — 2026-10-03
+
+| Before | After | Why |
+| --- | --- | --- |
+| Focus/progress events launched independent requests; an obsolete response could overwrite a newer result or finish its loading state. | A refresh aborts its predecessor, shares a controller across both authority reads and guards commits/finalization after each asynchronous boundary. Cleanup aborts on unmount/locale change. | Completion evidence belongs to the current request, not whichever response happens to arrive last. |
+| Failed refreshes retained prior term/XP/streak/badge data; 401 was treated as verified empty progress. | Pending refreshes clear the previous snapshot, and rejected/failed reads leave an explicit error with no prior achievements. Locale-mismatched snapshots are not exposed. | An unavailable or rejected authority cannot keep displaying earned progress as current. |
+| Invalid JSON or missing authority payloads silently became empty progress. | Both successful endpoint bodies must provide their expected terms-array/state-object shapes; invalid bodies remain unavailable. A valid empty snapshot remains a genuine zero. | Distinguish a failed read from evidence of no completed terms. No reward values are reconstructed. |
+| Mentor showed `0/7` before progress was known and passed the old count into office achievement markers. | The header announces checking/unavailable states; only a loaded, successful snapshot supplies a count. Unknown completion passes null to the office, producing no earned marker or credential row. | Avoid fabricated zeros and stale achievement presentation. Server entitlement/reward/progress policies remain unchanged. |
+
+Primary request-lifecycle basis: https://react.dev/learn/synchronizing-with-effects.
+The compact FA/EN regression begins with three passed terms, delays an older
+seven-term response, then obtains a fresh 401. Its adversarial fetch wrapper
+intentionally ignores cancellation for the delayed response; releasing it must
+not restore seven terms or earned markers. It also checks invalid successful
+payloads remain unavailable and a valid empty response restores genuine zero.
+This is a synthetic client ordering/presentation test, not server identity,
+reward issuance or database isolation evidence. Current-head browser acceptance
+and the new localized count-state captures are pending.

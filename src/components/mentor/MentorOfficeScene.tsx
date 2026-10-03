@@ -41,7 +41,7 @@ type MentorOfficeStatus =
 
 type MentorOfficeSceneProps = {
   activeSurface: MentorWorkspaceSurface;
-  completedTerms: number;
+  completedTerms: number | null;
   confidence: number | null;
   framing: MentorSceneFraming;
   gaze: MentorGazeTarget;
@@ -143,8 +143,8 @@ export function MentorOfficeScene({
   const statusLabel =
     status === "idle" && mode !== "conversation" ? copy[mode] : copy[status];
   const recentCredentials = Array.from(
-    { length: Math.min(2, completedTerms) },
-    (_, index) => completedTerms - index,
+    { length: Math.min(2, completedTerms ?? 0) },
+    (_, index) => (completedTerms ?? 0) - index,
   );
 
   const monitorText =
@@ -210,9 +210,9 @@ export function MentorOfficeScene({
       </div>
 
       <div className={styles.awardShelf} role="group" aria-label={isFa ? "نشان‌های مسیر" : "Path awards"}>
-        <span data-earned={completedTerms >= 1}><Medal aria-hidden="true" /></span>
-        <span data-earned={completedTerms >= 3}><Trophy aria-hidden="true" /></span>
-        <span data-earned={completedTerms >= 7}><Award aria-hidden="true" /></span>
+        <span data-earned={(completedTerms ?? 0) >= 1}><Medal aria-hidden="true" /></span>
+        <span data-earned={(completedTerms ?? 0) >= 3}><Trophy aria-hidden="true" /></span>
+        <span data-earned={(completedTerms ?? 0) >= 7}><Award aria-hidden="true" /></span>
       </div>
 
       <div className={styles.monitorBank} role="group" aria-label={copy.switcher}>
