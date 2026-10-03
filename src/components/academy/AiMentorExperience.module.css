@@ -1479,3 +1479,45 @@
 @media (forced-colors: active) {
   .startingPoints button, .composerInput, .historyDialog, .mobilePresence button { border: 1px solid ButtonText; }
 }
+
+/* Evidence states remain readable in the compact conversation layout. */
+.profileEvidence {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  border-bottom: 1px solid rgb(148 163 184 / 0.16);
+  padding: 12px 16px;
+}
+.profileEvidence p {
+  flex: 1 1 180px;
+  min-width: 0;
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.profileEvidence button {
+  min-height: 44px;
+  max-width: 100%;
+  border: 1px solid rgb(103 232 249 / 0.3);
+  border-radius: 12px;
+  background: #10253a;
+  padding: 8px 12px;
+  color: #cffafe;
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.profileEvidence button[aria-disabled="true"] { cursor: wait; }
+.profileEvidence button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
+@media (forced-colors: active) {
+  .profileEvidence { border-color: CanvasText; }
+  .profileEvidence p { color: CanvasText; }
+  .profileEvidence button { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
+  .profileEvidence button:focus-visible { outline-color: Highlight; }
+}

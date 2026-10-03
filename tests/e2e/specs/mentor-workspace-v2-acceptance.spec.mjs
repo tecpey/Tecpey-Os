@@ -39,6 +39,76 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
+  test("profile evidence distinguishes outages, sparse evidence and observed scores", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    await installLocalUiSession(page.context());
+    // Synthetic snapshots test presentation/recovery, not backend evidence thresholds.
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
+    await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
+    let response = { status: 503, json: { ok: false } };
+    let reads = 0;
+    let hold = false;
+    let resolveHeld;
+    const held = new Promise(resolve => { resolveHeld = resolve; });
+    await page.route("**/api/mentor-insights", route => {
+      reads += 1;
+      if (hold) { resolveHeld(route); return; }
+      return route.fulfill(response);
+    });
+    await page.goto(`${isEn ? "/en" : ""}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    const evidence = page.locator("[data-profile-state]");
+    const status = evidence.getByRole("status");
+    const refresh = evidence.getByRole("button", { name: isEn ? "Refresh profile evidence" : "بررسی دوبارهٔ پروفایل", exact: true });
+    const metric = page.getByText(isEn ? "Learning confidence: —" : "اعتماد آموزشی: —", { exact: true });
+    await expect(evidence).toHaveAttribute("data-profile-state", "unavailable");
+    await expect(status).toHaveText(isEn ? "Profile unavailable; the learning score is not shown." : "پروفایل در دسترس نیست؛ امتیاز آموزشی نمایش داده نمی‌شود.");
+    await expect(metric).toHaveCount(1);
+    await expect(page.getByRole("textbox", { name: isEn ? "Your message to the mentor" : "پیام شما به منتور" })).toBeEnabled();
+    await evidence.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await testInfo.attach("mentor-profile-unavailable", { body: await evidence.screenshot(), contentType: "image/png" });
+    expect(await status.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
+    expect((await refresh.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    hold = true;
+    await refresh.focus();
+    await page.keyboard.press("Enter");
+    const pending = await held;
+    await expect(evidence).toHaveAttribute("data-profile-state", "loading");
+    await expect(status).toHaveText(isEn ? "Checking profile evidence…" : "در حال بررسی شواهد پروفایل…");
+    await expect(refresh).toBeDisabled();
+    await expect(refresh).toBeFocused();
+    await page.keyboard.press("Enter");
+    hold = false;
+    await pending.fulfill({ json: { ok: true, profile: { confidenceScore: 87, confidenceEvidenceState: "provisional" }, insights: [] } });
+    await expect(evidence).toHaveAttribute("data-profile-state", "insufficient");
+    await expect(status).toHaveText(isEn ? "There is not enough recorded evidence to show a learning score yet." : "هنوز شواهد کافی برای نمایش امتیاز آموزشی ثبت نشده است.");
+    await expect(refresh).toBeEnabled();
+    await expect(refresh).toBeFocused();
+    expect(reads).toBe(2);
+    await expect(metric).toHaveCount(1);
+    await testInfo.attach("mentor-profile-insufficient", { body: await evidence.screenshot(), contentType: "image/png" });
+    for (const profile of [
+      { confidenceScore: 87, confidenceEvidenceState: "unknown" },
+      { confidenceScore: 101, confidenceEvidenceState: "observed" },
+      { confidenceScore: -1, confidenceEvidenceState: "observed" },
+      { confidenceScore: "87", confidenceEvidenceState: "observed" },
+      { confidenceScore: 0, confidenceEvidenceState: "observed" },
+      { confidenceScore: 87, confidenceEvidenceState: "observed" },
+    ]) {
+      response = { json: { ok: true, profile, insights: [] } };
+      await refresh.click();
+      const observed = profile.confidenceEvidenceState === "observed" && typeof profile.confidenceScore === "number" && profile.confidenceScore >= 0 && profile.confidenceScore <= 100;
+      await expect(evidence).toHaveAttribute("data-profile-state", observed ? "observed" : "insufficient");
+      await expect(page.getByText(`${isEn ? "Learning confidence" : "اعتماد آموزشی"}: ${observed ? `${profile.confidenceScore}%` : "—"}`, { exact: true })).toHaveCount(1);
+    }
+    await testInfo.attach("mentor-profile-observed", { body: await evidence.screenshot(), contentType: "image/png" });
+    response = { json: { ok: true, profile: { confidenceScore: 87, confidenceEvidenceState: "observed" }, storage: "unavailable" } };
+    await refresh.click();
+    await expect(evidence).toHaveAttribute("data-profile-state", "unavailable");
+    await expect(metric).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   test("private mentor snapshots are reauthorized after client navigation", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
     const isEn = testInfo.project.metadata.locale === "en";

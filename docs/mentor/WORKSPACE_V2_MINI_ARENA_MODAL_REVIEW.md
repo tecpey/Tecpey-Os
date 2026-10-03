@@ -247,3 +247,30 @@ The regression now checks the exact DOM value/count, then its removal, while
 retaining the fresh-read and same-document assertions. This is data lifecycle
 acceptance and makes no new visible compact-score claim. Other browser cases
 passed; the corrected exact head requires a fresh run.
+
+## Profile evidence states and explicit recovery — 2026-10-03
+
+| Before | After | Why |
+| --- | --- | --- |
+| Profile loading, server failure and insufficient learning evidence all appeared as a dash; the localized unavailable copy was unused. | A persistent 14px status below the conversation header distinguishes checking, unavailable, insufficient and observed evidence in FA/EN, including the 320px layout. | Absence of evidence and failure of its authority must have different explanations. Conversation input stays usable. |
+| A numeric confidence value was displayed without checking its evidence state. | Only `observed` evidence with a finite numeric score in [0,100] may reach the chat/office score. Zero remains valid; provisional, unknown, out-of-range and string values remain unscored. | Enforce the server evidence policy at presentation without inventing a learner fact or converting a string into evidence. This is a product score, not statistical model confidence. |
+| A failed profile read had no reachable retry in the workspace. | A stable 44px refresh control explicitly rechecks the authenticated endpoint; it is `aria-disabled` with an event guard while pending, retains keyboard focus and never disables the composer. | Recover from a transient outage without reloading or losing a chat draft. The focus target stays mounted through all status changes. |
+
+The status text has `role=status` and `aria-atomic=true`; its refresh button is a
+separate sibling, not an interactive live-region message. Forced colors use
+system colors. There is no new motion, dependency, profile persistence or server
+policy change. No publication freshness or continuous-session revocation claim
+is added.
+
+Primary accessibility basis:
+https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html and
+https://www.w3.org/WAI/WCAG22/Techniques/aria/ARIA22.
+
+The FA/EN compact regression holds a retry request to inspect visible loading,
+keyboard focus, duplicate-activation rejection and an enabled composer. It checks
+provisional/unknown evidence, both score bounds, string values, genuine zero,
+observed recovery and explicit `storage: unavailable` after recovery. It captures
+unavailable/insufficient/observed states for manual visual review and retains the
+existing dark/light axe harness. Synthetic browser fixtures verify presentation
+and recovery only; server evidence thresholds and production identity need their
+separate governed runtime proof. New exact-head browser evidence is pending.

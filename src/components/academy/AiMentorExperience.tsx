@@ -148,7 +148,11 @@ const COPY = {
     standardMode: "حالت آموزشی؛ پاسخ از داده‌های مجاز مسیر یادگیری استفاده می‌کند.",
     researchMode: "پژوهش عمومی؛ فقط متن همین سؤال خارج می‌شود و تاریخچه، پروفایل، ضعف‌ها و اطلاعات مالی ارسال نمی‌شوند.",
     privacy: "رمز، Seed Phrase، کد 2FA، کلید خصوصی یا اطلاعات هویتی را در چت وارد نکنید.",
-    profileUnavailable: "داده شخصی‌سازی در دسترس نیست؛ منتور چیزی را حدس نمی‌زند.",
+    profileUnavailable: "پروفایل در دسترس نیست؛ امتیاز آموزشی نمایش داده نمی‌شود.",
+    profileLoading: "در حال بررسی شواهد پروفایل…",
+    profileInsufficient: "هنوز شواهد کافی برای نمایش امتیاز آموزشی ثبت نشده است.",
+    profileReady: "شواهد ثبت‌شدهٔ امتیاز آموزشی دریافت شد.",
+    profileRefresh: "بررسی دوبارهٔ پروفایل",
     completedTerms: "ترم تکمیل‌شده",
     confidence: "اعتماد آموزشی",
     currentSurface: "نمایشگر فعال",
@@ -225,7 +229,11 @@ const COPY = {
     standardMode: "Learning mode uses only permitted learning-path context.",
     researchMode: "Public research sends only this query—not history, profile, weak areas, financial data or identity documents.",
     privacy: "Never enter passwords, seed phrases, 2FA codes, private keys or identity documents in chat.",
-    profileUnavailable: "Personalization evidence is unavailable, so the mentor will not guess.",
+    profileUnavailable: "Profile unavailable; the learning score is not shown.",
+    profileLoading: "Checking profile evidence…",
+    profileInsufficient: "There is not enough recorded evidence to show a learning score yet.",
+    profileReady: "Recorded learning-score evidence received.",
+    profileRefresh: "Refresh profile evidence",
     completedTerms: "completed terms",
     confidence: "Learning confidence",
     currentSurface: "Active monitor",
@@ -292,7 +300,7 @@ export function AiMentorExperience({
   const copy = mentorLocale === "fa" ? COPY.fa : COPY.en;
   const direction = mentorWorkspaceDirection(locale);
   const officialProgress = useAcademyPathProgress(mentorLocale);
-  const { data: mentorInsights } = useMentorInsights({ enabled: true });
+  const { data: mentorInsights, loading: profileLoading, error: profileError, retry: refreshProfile } = useMentorInsights({ enabled: true });
 
   const [serverPlan, setServerPlan] = useState<MentorWorkspacePlan>(plan);
   const [capabilityReady, setCapabilityReady] = useState(false);
@@ -351,7 +359,20 @@ export function AiMentorExperience({
         .length,
     [officialProgress.termProgress],
   );
-  const confidence = mentorInsights?.profile?.confidenceScore ?? null;
+  const profile = mentorInsights?.profile;
+  const confidence = profile?.confidenceEvidenceState === "observed" &&
+    typeof profile.confidenceScore === "number" &&
+    Number.isFinite(profile.confidenceScore) &&
+    profile.confidenceScore >= 0 && profile.confidenceScore <= 100
+      ? profile.confidenceScore
+      : null;
+  const profileStatus = profileLoading
+    ? copy.profileLoading
+    : profileError
+      ? copy.profileUnavailable
+      : confidence === null
+        ? copy.profileInsufficient
+        : copy.profileReady;
   const publicResearch =
     mentorResearchModeForSurface(effectivePlan, activeSurface) === "public";
 
@@ -883,6 +904,17 @@ export function AiMentorExperience({
               </button>
             </div>
           </header>
+
+          <div className={styles.profileEvidence} data-profile-state={profileLoading ? "loading" : profileError ? "unavailable" : confidence === null ? "insufficient" : "observed"}>
+            <p role="status" aria-atomic="true">{profileStatus}</p>
+            <button
+              type="button"
+              aria-disabled={profileLoading}
+              onClick={() => { if (!profileLoading) refreshProfile(); }}
+            >
+              {copy.profileRefresh}
+            </button>
+          </div>
 
           <div className={styles.chatBody}>
 
