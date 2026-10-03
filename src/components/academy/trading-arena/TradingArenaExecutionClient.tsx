@@ -798,7 +798,13 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
     // The rejected form no longer exists: give keyboard users a recovery target
     // and discard the old form's scroll offset inside the Mentor dialog.
     recovery.focus();
-    recovery.closest("dialog")?.scrollTo({ top: 0, behavior: "instant" });
+    const dialog = recovery.closest("dialog");
+    if (!dialog) return;
+    // Focus can scroll overflow:hidden ancestors as well as the execution pane.
+    for (let container = recovery.parentElement; container; container = container.parentElement) {
+      container.scrollTo({ top: 0, behavior: "instant" });
+      if (container === dialog) break;
+    }
   }, [loadState, snapshot]);
 
   const stats = useMemo(() => {
