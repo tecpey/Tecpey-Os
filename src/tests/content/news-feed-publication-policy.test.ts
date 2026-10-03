@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isRecentNewsPublication, NEWS_RECENT_PUBLICATION_WINDOW_MS, selectPublishedNewsForFeed } from "../../lib/news-feed-publication-policy";
+import { isRecentNewsPublication, NEWS_RECENT_PUBLICATION_WINDOW_MS, selectPublishedNewsForFeed } from "../../lib/news-published-at";
 
 const now = Date.parse("2026-10-03T18:00:00.000Z");
 const iso = (offset: number) => new Date(now + offset).toISOString();

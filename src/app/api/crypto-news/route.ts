@@ -15,7 +15,7 @@ import {
   tehranCalendarDay,
 } from "@/lib/news-growth-authority";
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
-import { isRecentNewsPublication, NEWS_FEED_PUBLICATION_POLICY, selectPublishedNewsForFeed } from "@/lib/news-feed-publication-policy";
+import { isRecentNewsPublication, NEWS_FEED_PUBLICATION_POLICY, selectPublishedNewsForFeed } from "@/lib/news-published-at";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
