@@ -415,3 +415,15 @@ https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/animation-
 The retained transform is measured; its role in the intermittent capture discrepancy
 is a hypothesis, not a proven browser root cause. Exact-head tests and all four
 manual viewport captures are still required before the corrected surface is accepted.
+
+The `d13865e8044f5fbe5d281809570ab2846a441098` head passed seven
+workflows and 51 tests. All ancestor scroll offsets were zero and all transforms
+were none, but FA POST still omitted the header in its surface capture. The
+retained-transform hypothesis is therefore insufficient to explain the discrepancy;
+full raster acceptance remains blocked. Further instrumentation adds document and
+visual-viewport offsets plus a direct Chromium view capture alongside the original
+surface capture. Product CSS/behavior is unchanged in this diagnostic delta.
+Neither capture path is accepted selectively until their difference and dimensions
+are examined with the same measured state. Primary API references:
+https://playwright.dev/docs/api/class-browsercontext#browser-context-new-cdp-session
+and https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-captureScreenshot.

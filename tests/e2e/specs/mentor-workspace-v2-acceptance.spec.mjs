@@ -128,6 +128,17 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
         return containers;
       });
       const beforeCapture = await recoveryGeometry();
+      const viewportGeometry = () => page.evaluate(() => {
+        const viewport = window.visualViewport;
+        return {
+          width: window.innerWidth, height: window.innerHeight,
+          scrollX: window.scrollX, scrollY: window.scrollY,
+          documentScrollTop: document.scrollingElement?.scrollTop,
+          bodyScrollTop: document.body.scrollTop,
+          visualViewport: viewport ? { width: viewport.width, height: viewport.height, offsetTop: viewport.offsetTop, offsetLeft: viewport.offsetLeft, pageTop: viewport.pageTop, pageLeft: viewport.pageLeft, scale: viewport.scale } : null,
+        };
+      });
+      const beforeViewport = await viewportGeometry();
       expect(beforeCapture.every(container => container.scrollTop === 0)).toBe(true);
       expect(beforeCapture.find(container => container.tag === "SECTION").transform).toBe("none");
       // A viewport capture preserves the recovery scroll/focus state; element
@@ -139,7 +150,17 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       expect(capturedTitleBox.y).toBeGreaterThanOrEqual(dockBox.y);
       expect(capturedTitleBox.y + capturedTitleBox.height).toBeLessThanOrEqual(dockBox.y + dockBox.height);
       const afterCapture = await recoveryGeometry();
-      await testInfo.attach(`mentor-arena-${method.toLowerCase()}-geometry`, { body: JSON.stringify({ beforeCapture, afterCapture }), contentType: "application/json" });
+      const afterViewport = await viewportGeometry();
+      // Compact projects are Chromium: compare the view capture with the normal
+      // surface capture without changing product styles or scroll positions.
+      const cdp = await page.context().newCDPSession(page);
+      try {
+        const view = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: false, captureBeyondViewport: false });
+        await testInfo.attach(`mentor-arena-${method.toLowerCase()}-view-rejected`, { body: Buffer.from(view.data, "base64"), contentType: "image/png" });
+      } finally {
+        await cdp.detach();
+      }
+      await testInfo.attach(`mentor-arena-${method.toLowerCase()}-geometry`, { body: JSON.stringify({ beforeCapture, afterCapture, beforeViewport, afterViewport, afterViewCapture: await viewportGeometry() }), contentType: "application/json" });
       expect(afterCapture.every(container => container.scrollTop === 0)).toBe(true);
       expect(afterCapture.find(container => container.tag === "SECTION").transform).toBe("none");
       await page.keyboard.press("Escape");
