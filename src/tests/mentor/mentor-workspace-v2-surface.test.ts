@@ -4,6 +4,7 @@ import test from "node:test";
 
 const source = readFileSync(new URL("../../components/academy/AiMentorExperience.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../../components/academy/AiMentorExperience.module.css", import.meta.url), "utf8");
+const arenaDock = readFileSync(new URL("../../components/mentor/MentorArenaDock.tsx", import.meta.url), "utf8");
 
 // Source contracts are regression guards, not browser or WCAG conformance evidence.
 test("starting points prepare a learning draft without making a provider request", () => {
@@ -37,6 +38,14 @@ test("mobile office is disclosed explicitly without removing chat or privacy con
   assert.match(source, /\/en\/academy\/account#mentor-privacy/);
   assert.match(source, /\/en\/support/);
   assert.match(source, /publicResearch \? <p className=\{styles\.researchNotice\}/);
+});
+
+test("Mini Arena reuses governed execution in both FA and EN without a locale dead-end", () => {
+  assert.match(arenaDock, /TradingArenaExecutionClientFa locale="fa"/);
+  assert.match(arenaDock, /TradingArenaExecutionClientEn locale="en"/);
+  assert.match(arenaDock, /در حال بارگذاری آرنای معتبرشده/);
+  assert.match(arenaDock, /Loading the validated Arena/);
+  assert.doesNotMatch(arenaDock, /unavailableTitle|unavailableText|localeGate/);
 });
 
 test("surface changes preserve server-owned capabilities and isolated history titles", () => {
