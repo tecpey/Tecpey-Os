@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { NextRequest } from "next/server";
 import { GET } from "../../app/api/markets/route";
 
@@ -62,6 +62,7 @@ describe("Bitycle Markets route authority", () => {
   });
 
   afterEach(() => {
+    mock.timers.reset();
     globalThis.fetch = ORIGINAL_FETCH;
     restoreEnv("BITYCLE_API_KEY");
     restoreEnv("BITYCLE_MARKET_SOURCE");
@@ -72,6 +73,57 @@ describe("Bitycle Markets route authority", () => {
     restoreEnv("REDIS_REST_TOKEN");
     restoreEnv("TECPEY_ALLOW_MEMORY_RATE_LIMIT");
     (globalThis as RateLimitGlobal).tecpeyRateLimitBuckets = new Map();
+  });
+
+  it("caps Bitycle public caching at the remaining frame freshness", async () => {
+    const now = Date.parse("2030-03-15T12:00:00.000Z");
+    mock.timers.enable({ apis: ["Date"], now });
+    process.env.BITYCLE_API_KEY = "test-bitycle-key";
+    process.env.BITYCLE_MARKET_SOURCE = "near_expiry_proof";
+    const updatedAt = new Date(now - 119_000).toISOString();
+    globalThis.fetch = async (input) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      assert.equal(url.hostname, "api.bitycle.com");
+      return url.pathname.endsWith("source_currency_info")
+        ? jsonResponse({ data: [{ currency: { name: "Bitcoin", symbol: "BTC" }, price: 64_000, price_quote: "USDT" }] })
+        : jsonResponse({ data: [frame("near_expiry_proof", "BTCUSDT", 64_000, updatedAt)] });
+    };
+    const response = await GET(new NextRequest("https://tecpey.test/api/markets?source=public"));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Cache-Control"), "public, max-age=0, s-maxage=1, must-revalidate");
+    const payload = await response.json();
+    assert.equal(payload.provenance.provider, "Bitycle");
+    assert.equal(payload.provenance.upstreamUpdatedAt, updatedAt);
+  });
+
+  it("uses fallback when a Bitycle frame expires while the companion response is processed", async () => {
+    const now = Date.parse("2030-03-15T12:00:00.000Z");
+    mock.timers.enable({ apis: ["Date"], now });
+    process.env.BITYCLE_API_KEY = "test-bitycle-key";
+    process.env.BITYCLE_MARKET_SOURCE = "response_expiry_proof";
+    let fallbackCalls = 0;
+    globalThis.fetch = async (input) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      if (url.hostname === "api.coingecko.com") {
+        fallbackCalls += 1;
+        return jsonResponse([{ id: "bitcoin", symbol: "btc", name: "Bitcoin", current_price: 65_000, last_updated: new Date().toISOString() }]);
+      }
+      if (url.pathname.endsWith("source_currency_info")) {
+        const response = jsonResponse({ data: [{ currency: { name: "Bitcoin", symbol: "BTC" }, price: 64_000, price_quote: "USDT" }] });
+        // The companion response is consumed after frame normalization.
+        // Move the controlled clock across the upstream validity boundary.
+        Object.defineProperty(response, "ok", { get: () => { mock.timers.tick(2_000); return true; } });
+        return response;
+      }
+      return jsonResponse({ data: [frame("response_expiry_proof", "BTCUSDT", 64_000, new Date(now - 119_000).toISOString())] });
+    };
+    const response = await GET(new NextRequest("https://tecpey.test/api/markets?source=public"));
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(fallbackCalls, 1);
+    assert.equal(payload.provenance.provider, "CoinGecko");
+    assert.equal(payload.provenance.fallback, true);
+    assert.equal(payload.data[0].priceData.last, 65_000);
   });
 
   it("returns only timestamp-aligned local sources and preserves upstream provenance", async () => {
