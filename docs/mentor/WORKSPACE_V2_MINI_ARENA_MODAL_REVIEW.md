@@ -222,7 +222,7 @@ https://www.w3.org/WAI/WCAG22/Techniques/general/G200.html.
 | Before | After | Why |
 | --- | --- | --- |
 | A five-minute module cache shared private profiles across mounted consumers without a principal or tenant key; a new consumer could skip the server entirely. | Each mounted consumer starts empty and fetches the authenticated endpoint with `cache: no-store`; no private module cache remains. | A previous response cannot authorize a later page visit. This closes a client reuse path, without claiming to replace the server tenant/product gates. |
-| Failed refreshes kept the previous profile; `storage: unavailable` looked like a successful empty response. | HTTP errors, malformed/failed responses and explicit storage outages return no profile with unavailable state. Retry invalidates the visible snapshot immediately; aborted requests cannot overwrite the current attempt. | An unavailable authority must not leave an old learner assessment presented as current. |
+| Failed refreshes kept the previous profile; `storage: unavailable` looked like a successful empty response. | HTTP errors, invalid JSON or failed responses and explicit storage outages return no profile with unavailable state. Retry invalidates the visible snapshot immediately; aborted requests cannot overwrite the current attempt. | An unavailable authority must not leave an old learner assessment presented as current. |
 | Disabled consumers initialized from shared data. | Disabled consumers expose no data; changing enabled state resets their instance snapshot before it can be rendered again. | Disable/re-enable cannot republish an earlier authorization snapshot. |
 | The hook carried a synchronous effect-state lint exception. | The effect only commits asynchronous request outcomes; the existing exception is removed from the baseline, suppression inventory and reviewed key set. | Remove the debt rather than expand an exemption. |
 
@@ -239,3 +239,11 @@ already mounted page. No polling or new dependencies are introduced. Independent
 consumers now make independent reads; the existing server rate limit is unchanged.
 Local TypeScript, scoped lint and correctness-authority checks are required;
 new exact-head production-browser evidence remains pending until CI completes.
+
+The first run (`37110280092`, head `3a53481cf4ea4211ce1583e62372b438251ede01`)
+reached an exact 87% DOM value but failed its visibility expectation in both
+320px projects: the compact stylesheet intentionally hides `.chatEvidence`.
+The regression now checks the exact DOM value/count, then its removal, while
+retaining the fresh-read and same-document assertions. This is data lifecycle
+acceptance and makes no new visible compact-score claim. Other browser cases
+passed; the corrected exact head requires a fresh run.
