@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -45,17 +45,6 @@ export type UseMentorInsightsReturn = {
 type UseMentorInsightsOptions = {
   enabled?: boolean;
 };
-// ── Module-level stale-while-revalidate cache ──────────────────────────────────
-// Shared across all mounted instances of useMentorInsights in the page.
-
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-let _cachedData: MentorInsightsData | null = null;
-let _cachedAt = 0;
-
-function isCacheStale(): boolean {
-  return Date.now() - _cachedAt >= CACHE_TTL_MS;
-}
-
 // ── Fetch ──────────────────────────────────────────────────────────────────────
 
 async function doFetch(signal: AbortSignal): Promise<MentorInsightsData | null> {
@@ -65,8 +54,9 @@ async function doFetch(signal: AbortSignal): Promise<MentorInsightsData | null> 
     ok?: boolean;
     profile?: MentorInsightsProfile | null;
     insights?: MentorInsightItem[];
+    storage?: string;
   };
-  if (!json.ok) return null;
+  if (!json.ok || json.storage === "unavailable") return null;
   return {
     profile: json.profile ?? null,
     insights: Array.isArray(json.insights) ? json.insights : [],
@@ -76,77 +66,51 @@ async function doFetch(signal: AbortSignal): Promise<MentorInsightsData | null> 
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 /**
- * Fetch the authenticated student's mentor profile and insight snapshots.
- *
- * Behaviour:
- * - Returns cached data immediately (stale-while-revalidate, 5-min TTL).
- * - `loading` is true only on the very first fetch (no stale data available).
- * - Cleans up the in-flight request on unmount via AbortController.
- * - `retry()` bypasses the cache and triggers a fresh fetch.
- * - Returns null data (not an error) for 401/429 — widget handles gracefully.
+ * Private snapshots belong to this mounted consumer only. Every mount and retry
+ * rechecks the server; unavailable responses never retain a previous profile.
  */
 export function useMentorInsights(
   options: UseMentorInsightsOptions = {},
 ): UseMentorInsightsReturn {
   const enabled = options.enabled ?? true;
-  const [data, setData] = useState<MentorInsightsData | null>(() => _cachedData);
-  const [loading, setLoading] = useState(enabled && _cachedData === null);
-  const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const abortRef = useRef<AbortController | null>(null);
+  const [previousEnabled, setPreviousEnabled] = useState(enabled);
+  const [snapshot, setSnapshot] = useState<{
+    key: number;
+    data: MentorInsightsData | null;
+    error: string | null;
+  } | null>(null);
+
+  // Reset before rendering a newly enabled consumer, rather than serving its
+  // previous authorization snapshot while the fresh request is pending.
+  if (previousEnabled !== enabled) {
+    setPreviousEnabled(enabled);
+    setSnapshot(null);
+  }
 
   useEffect(() => {
-    if (!enabled) {
-      abortRef.current?.abort();
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    const forced = retryKey > 0;
-
-    // Fresh cache and not a forced retry — serve immediately, nothing to do.
-    if (!forced && _cachedData && !isCacheStale()) {
-      setData(_cachedData);
-      setLoading(false);
-      return;
-    }
-
-    // Stale or empty: serve whatever stale data exists while revalidating.
-    if (_cachedData) setData(_cachedData);
-
-    abortRef.current?.abort();
+    if (!enabled) return;
     const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    // Show spinner only when there is no stale data to display.
-    if (!_cachedData) setLoading(true);
-    setError(null);
-
     doFetch(ctrl.signal)
-      .then((result) => {
-        if (ctrl.signal.aborted) return;
-        if (result) {
-          _cachedData = result;
-          _cachedAt = Date.now();
-          setData(result);
-          setError(null);
-        } else {
-          // Not authenticated or API error — do not crash, just note unavailable.
-          setError("unavailable");
+      .then((data) => {
+        if (!ctrl.signal.aborted) {
+          setSnapshot({ key: retryKey, data, error: data ? null : "unavailable" });
         }
       })
       .catch(() => {
-        if (!ctrl.signal.aborted) setError("unavailable");
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setLoading(false);
+        if (!ctrl.signal.aborted) {
+          setSnapshot({ key: retryKey, data: null, error: "unavailable" });
+        }
       });
-
     return () => ctrl.abort();
   }, [retryKey, enabled]);
 
-  const retry = useCallback(() => setRetryKey((k) => k + 1), []);
-
-  return { data, loading, error, retry };
+  const retry = useCallback(() => setRetryKey((key) => key + 1), []);
+  const current = enabled && snapshot?.key === retryKey ? snapshot : null;
+  return {
+    data: current?.data ?? null,
+    loading: enabled && current === null,
+    error: current?.error ?? null,
+    retry,
+  };
 }

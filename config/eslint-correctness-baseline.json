@@ -126,7 +126,7 @@
     {
       "rule": "react-hooks/set-state-in-effect",
       "path": "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx",
-      "line": 752,
+      "line": 774,
       "column": 10,
       "domain": "arena",
       "reason": "authoritative execution state load"
@@ -202,14 +202,6 @@
       "column": 5,
       "domain": "market-ui",
       "reason": "socket ticker projection into current market rows"
-    },
-    {
-      "rule": "react-hooks/set-state-in-effect",
-      "path": "src/hooks/useMentorInsights.ts",
-      "line": 101,
-      "column": 7,
-      "domain": "mentor",
-      "reason": "module-cache projection into hook state"
     }
   ]
 }

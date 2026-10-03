@@ -28,7 +28,8 @@ test("Mentor UI distinguishes transport failures from prepared guidance", () => 
   assert.match(experience, /requestError === "academy_login_required"/);
   assert.match(experience, /requestError === "rate_limited"/);
   assert.match(experience, /requestError === "mentor_thread_not_found"/);
-  assert.match(experience, /externalProviderUsed \? copy\.liveAnswer : copy\.preparedAnswer/);
+  assert.match(experience, /externalProviderUsed \? copy\.modelAnswer : copy\.preparedAnswer/);
+  assert.doesNotMatch(experience, /Live AI answer|پاسخ زنده هوش مصنوعی/i);
   assert.match(experience, /memoryMode === "ephemeral"/);
 });
 

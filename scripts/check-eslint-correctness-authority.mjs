@@ -39,7 +39,7 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/academy/trading-arena/ScenarioPlayer.tsx:202:7",
   "react-hooks/set-state-in-effect:src/components/academy/trading-arena/ScenarioPlayer.tsx:510:5",
   "react-hooks/set-state-in-effect:src/components/academy/trading-arena/TradingArenaDashboard.tsx:423:33",
-  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/TradingArenaExecutionClient.tsx:752:10",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/TradingArenaExecutionClient.tsx:774:10",
   "react-hooks/set-state-in-effect:src/components/academy/v2/FlashcardDeck.tsx:245:5",
   "react-hooks/set-state-in-effect:src/components/academy/v2/FlashcardsPageClient.tsx:21:5",
   "react-hooks/set-state-in-effect:src/components/academy/v2/LearningInsightsDashboard.tsx:375:5",
@@ -51,7 +51,6 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/crypto/SwapPanel.tsx:120:7",
   "react-hooks/set-state-in-effect:src/components/learning-os/NotificationCenter.tsx:106:5",
   "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:71:5",
-  "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:101:7",
 ]);
 
 function findingKey(finding) {
