@@ -328,3 +328,26 @@ its computed font size alongside the valid-source/unsafe-source tests. Exact-hea
 browser acceptance is pending for this edit. Source publication time and verified
 freshness remain an open server-evidence gate; this disclosure does not complete
 the current-news action contract.
+
+## Arena rejected-access recovery — 2026-10-03
+
+| Before | After | Why |
+| --- | --- | --- |
+| GET 401 removed the snapshot, but a delayed response could restore it because revision ordering accepts an incoming snapshot when current is null. | Access rejection fences every already-started request before clearing account evidence. A delayed GET or POST cannot apply a snapshot or replace the recovery state. | Cleared access context must stay cleared until a subsequent authorized read. |
+| POST 401 could retain the account and trade form, or apply a snapshot-shaped rejected body before processing the error. | GET and POST share the same rejection handler; POST checks 401 before parsing/applying any snapshot. Account, pending command identity and success notice are removed, and the exact login/profile recovery gate is shown. | A rejected command cannot keep account evidence or an apparent success in the workspace. |
+| Cleanup only tracked mounted status; development effect replay could make an older request appear mounted again. | Cleanup also fences already-started responses. | Request lifetime must be checked independently of mounted status. |
+
+Primary lifecycle reference: https://react.dev/reference/react/useEffect and
+https://react.dev/learn/synchronizing-with-effects. The existing database revision,
+market freshness and ambiguous-command identity rules remain authoritative.
+Non-401 outage handling and server authorization policies are unchanged.
+
+The compact FA/EN negative regression begins with a synthetic valid account,
+holds a GET, then obtains either a newer profile-required GET 401 or a
+login-required POST 401. The rejected POST deliberately contains otherwise valid
+snapshot fields. Releasing the old successful GET must not restore account/form;
+the localized recovery destination and Escape focus restoration are checked.
+Reopening the panel performs a new read. This is client recovery/presentation
+evidence, not proof of tenant isolation, continuous revocation or command execution.
+Local TypeScript, scoped ESLint, frontend/public guards and all 13 existing Arena
+client-authority tests passed. Exact-head browser/CI acceptance is pending.

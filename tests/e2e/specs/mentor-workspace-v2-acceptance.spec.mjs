@@ -39,6 +39,76 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
+  test("Arena access rejection removes the account and fences delayed snapshots", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    const base = isEn ? "/en" : "";
+    const now = new Date().toISOString();
+    // Synthetic presentation evidence, never a real account or server authorization.
+    const attempt = { id: "22222222-2222-4222-8222-222222222222", cycleId: "11111111-1111-4111-8111-111111111111", attemptNumber: 1, status: "active", startingBalance: "100000", cashBalance: "100000", equity: "100000", startedAt: now, endedAt: null };
+    const market = { prices: { BTC: "67420", ETH: "3520" }, source: "synthetic-acceptance-fixture", observedAt: now };
+    const snapshot = {
+      ok: true,
+      account: { cycleId: attempt.cycleId, status: "active", initialBalance: "100000", availableBalance: "100000", attemptsTotal: 3, attemptsUsed: 0, attemptsRemaining: 3, currentAttempt: 1, revision: 1, cycleStartedAt: now, cycleEndsAt: "2027-01-01T00:00:00.000Z" },
+      attempts: [attempt], activeAttempt: attempt, revision: 1, market, marketStatus: "available", projectedEquity: "100000",
+      state: { version: 2, initialBalance: "100000", cashBalance: "100000", reservedBalance: "0", equity: "100000", holdings: { BTC: "0", ETH: "0" }, openPositions: [], pendingOrders: [], closedTrades: [], totalRealizedPnl: "0", totalFeesPaid: "0", lastTradeAt: null, lastLossAt: null, lastMarket: market, createdAt: now, updatedAt: now, peakEquity: "100000" },
+    };
+    await installLocalUiSession(page.context());
+    await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
+    let mode = "ready";
+    let heldRoute;
+    let posts = 0;
+    await page.route("**/api/trading-arena/execution", route => {
+      if (route.request().method() === "POST") {
+        posts += 1;
+        // Even a snapshot-shaped rejected envelope must not be applied.
+        return route.fulfill({ status: 401, json: { ...snapshot, ok: false, error: "academy_login_required" } });
+      }
+      if (mode === "hold") { heldRoute = route; return; }
+      if (mode === "deny") return route.fulfill({ status: 401, json: { ok: false, error: "academy_profile_required" } });
+      return route.fulfill({ json: snapshot });
+    });
+    await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    const trigger = page.getByRole("button", { name: isEn ? "Open a Trading Arena practice challenge" : "بازکردن چالش تمرینی Arena", exact: true });
+    for (const method of ["GET", "POST"]) {
+      mode = "ready";
+      heldRoute = undefined;
+      await trigger.click();
+      const dock = page.getByRole("dialog", { name: isEn ? "Trading Arena" : "آرنای معاملاتی", exact: true });
+      await dock.getByRole("button", { name: isEn ? "Start in the authenticated Arena" : "شروع در محیط اجرایی Arena", exact: true }).click();
+      const amount = dock.getByLabel(isEn ? "Amount (USDT)" : "مبلغ (USDT)", { exact: true });
+      await expect(amount).toBeEnabled();
+      mode = "hold";
+      const refresh = dock.getByRole("button", { name: isEn ? "Refresh" : "به‌روزرسانی", exact: true });
+      await refresh.click();
+      await expect.poll(() => Boolean(heldRoute)).toBe(true);
+      if (method === "GET") {
+        mode = "deny";
+        await refresh.click();
+      } else {
+        await amount.fill("100");
+        await dock.getByRole("button", { name: isEn ? "Review plan and send to server" : "بررسی برنامه و ارسال به سرور", exact: true }).click();
+        await dock.getByRole("button", { name: isEn ? "Save plan and submit securely" : "ثبت برنامه و ارسال امن", exact: true }).click();
+        await expect.poll(() => posts).toBe(1);
+      }
+      const gate = dock.getByRole("heading", { name: isEn
+        ? method === "GET" ? "Review your Academy profile" : "Sign in to continue practising"
+        : method === "GET" ? "پروفایل آموزشی را بررسی کنید" : "برای ادامه تمرین وارد شوید", exact: true });
+      await expect(gate).toBeVisible();
+      await expect(amount).toHaveCount(0);
+      const delayed = page.waitForResponse(response => response.url().endsWith("/api/trading-arena/execution") && response.status() === 200);
+      await heldRoute.fulfill({ json: snapshot });
+      await delayed;
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(gate).toBeVisible();
+      await expect(amount).toHaveCount(0);
+      await expect(dock.getByRole("link", { name: isEn ? method === "GET" ? "Review profile" : "Sign in to Academy" : method === "GET" ? "بررسی پروفایل" : "ورود به آکادمی", exact: true })).toHaveAttribute("href", method === "GET" ? `${base}/academy/onboarding` : `${base}/academy/login?redirect=${encodeURIComponent(`${base}/academy/trading-arena`)}`);
+      await testInfo.attach(`mentor-arena-${method.toLowerCase()}-rejected`, { body: await dock.screenshot(), contentType: "image/png" });
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
+    }
+  });
+
   test("obsolete Academy responses cannot restore rejected completion evidence", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
     const isEn = testInfo.project.metadata.locale === "en";

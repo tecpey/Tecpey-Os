@@ -597,8 +597,13 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
   const snapshotRef = useRef<ArenaExecutionSnapshot | null>(null);
   const sequenceRef = useRef(0);
   const lastAppliedSequenceRef = useRef(0);
+  const rejectedThroughSequenceRef = useRef(0);
   const commandLockRef = useRef(false);
   const pendingCommandRef = useRef<ArenaPendingCommandIdentity | null>(null);
+
+  const fencePendingResponses = useCallback(() => {
+    rejectedThroughSequenceRef.current = sequenceRef.current;
+  }, []);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -608,11 +613,12 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      fencePendingResponses();
     };
-  }, []);
+  }, [fencePendingResponses]);
 
   const applySnapshot = useCallback((incoming: ArenaExecutionSnapshot, responseSequence: number) => {
-    if (!mountedRef.current) return false;
+    if (!mountedRef.current || responseSequence <= rejectedThroughSequenceRef.current) return false;
     const decision = shouldApplyArenaSnapshot({
       current: snapshotRef.current,
       incoming,
@@ -627,6 +633,18 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
     return true;
   }, []);
 
+  const rejectAccess = useCallback((code: string | undefined) => {
+    // Every request already in flight belongs to the rejected access context.
+    // Revision ordering alone cannot protect a cleared (null) snapshot.
+    fencePendingResponses();
+    snapshotRef.current = null;
+    pendingCommandRef.current = null;
+    setSnapshot(null);
+    setNotice(null);
+    setError(arenaUiError(code, 401, locale));
+    setLoadState(resolveArenaAccessGate(code, 401));
+  }, [fencePendingResponses, locale]);
+
   const loadSnapshot = useCallback(async (options?: { quiet?: boolean }) => {
     const sequence = ++sequenceRef.current;
     if (!options?.quiet && !snapshotRef.current) setLoadState("loading");
@@ -638,14 +656,12 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
         headers: { Accept: "application/json" },
       });
       const body = await response.json().catch(() => ({})) as { error?: unknown };
+      if (!mountedRef.current || sequence <= rejectedThroughSequenceRef.current) return false;
       if (!response.ok) {
-        if (!mountedRef.current) return false;
         const code = typeof body.error === "string" ? body.error : undefined;
         setError(arenaUiError(code, response.status, locale));
         if (response.status === 401) {
-          snapshotRef.current = null;
-          setSnapshot(null);
-          setLoadState(resolveArenaAccessGate(code, response.status));
+          rejectAccess(code);
         } else {
           setLoadState("error");
         }
@@ -660,12 +676,12 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
       }
       return applied;
     } catch {
-      if (!mountedRef.current) return false;
+      if (!mountedRef.current || sequence <= rejectedThroughSequenceRef.current) return false;
       setError(arenaUiError("arena_execution_unavailable", undefined, locale));
       if (!snapshotRef.current) setLoadState("error");
       return false;
     }
-  }, [applySnapshot, locale]);
+  }, [applySnapshot, locale, rejectAccess]);
 
   const sendCommand = useCallback(async (
     action: ArenaExecutionCommand,
@@ -715,6 +731,11 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
         }),
       });
       const body = await response.json().catch(() => ({})) as { error?: unknown };
+      if (!mountedRef.current || sequence <= rejectedThroughSequenceRef.current) return false;
+      if (response.status === 401) {
+        rejectAccess(typeof body.error === "string" ? body.error : undefined);
+        return false;
+      }
       const authoritative = parseArenaExecutionSnapshot(body);
       if (authoritative) applySnapshot(authoritative, sequence);
       if (!response.ok) {
@@ -740,13 +761,13 @@ export function TradingArenaExecutionClient({ locale = "fa" }: { locale?: ArenaL
       if (!options?.quiet && message) setNotice(message);
       return true;
     } catch {
-      if (!options?.quiet) setError(arenaUiError("arena_execution_unavailable", undefined, locale));
+      if (mountedRef.current && sequence > rejectedThroughSequenceRef.current && !options?.quiet) setError(arenaUiError("arena_execution_unavailable", undefined, locale));
       return false;
     } finally {
       commandLockRef.current = false;
       if (mountedRef.current && !options?.quiet) setBusyAction(null);
     }
-  }, [applySnapshot, isFa, locale]);
+  }, [applySnapshot, isFa, locale, rejectAccess]);
 
   useEffect(() => {
     void loadSnapshot();
