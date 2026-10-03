@@ -206,6 +206,7 @@ client recovery contract, not persistence or server entitlement authority.
 | Source and lesson links used 8px text and 36px targets. | Links use 12px text, 44px minimum height and bounded wrapping; source headings use 12px text. | Make evidence inspection usable on compact screens. |
 | Public sources showed only a title and an external-link icon. | A source shows its URL-derived host, isolated for RTL, and a localized new-tab cue. | Help users identify the destination before opening it while preserving chat context. |
 | Response URLs were passed straight to an anchor. | Presentation accepts absolute HTTP(S) links without embedded credentials; invalid links and an all-invalid source block are omitted. | Keep malformed response data from becoming an actionable source link. This is presentation defense, not server provenance authority. |
+| Initial source captures aligned a bottom-edge link behind fixed navigation, so they did not prove readable presentation. | Keyboard-visible evidence-link focus reveals the target immediately; the compact test asserts that its bottom clears navigation before capturing. Pointer focus does not reposition the target. | Make focused evidence reachable and obtain reviewable evidence without interrupting a pointer click. |
 
 The FA/EN 320px recovery fixture includes a valid public source and an invalid
 scheme. It checks the destination, new-tab cue, opener isolation, readable font,

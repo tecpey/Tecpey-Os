@@ -130,6 +130,14 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(log.getByRole("link", { name: /Unsafe reference/ })).toHaveCount(0);
     expect((await publicSource.boundingBox()).height).toBeGreaterThanOrEqual(44);
     expect(await publicSource.evaluate(node => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(12);
+    await publicSource.focus();
+    await expect(publicSource).toBeFocused();
+    const focusedSourceBox = await publicSource.boundingBox();
+    const sourceNavBox = await page.locator(".tecpey-living-mobile-nav").boundingBox();
+    expect(focusedSourceBox.y).toBeGreaterThanOrEqual(0);
+    expect(focusedSourceBox.x).toBeGreaterThanOrEqual(0);
+    expect(focusedSourceBox.x + focusedSourceBox.width).toBeLessThanOrEqual(page.viewportSize().width);
+    expect(focusedSourceBox.y + focusedSourceBox.height).toBeLessThanOrEqual(sourceNavBox.y);
     await testInfo.attach("mentor-public-source", { body: await publicSource.screenshot(), contentType: "image/png" });
     expect(await log.locator('[data-source="live"]').evaluate(node => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(12);
     await testInfo.attach("mentor-recovered-answer", { body: await log.locator('[data-role="assistant"]').last().screenshot(), contentType: "image/png" });

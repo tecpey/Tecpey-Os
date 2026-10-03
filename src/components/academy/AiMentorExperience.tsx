@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type FocusEvent as ReactFocusEvent,
 } from "react";
 import { MentorArenaDock } from "@/components/mentor/MentorArenaDock";
 import { MentorOfficeScene } from "@/components/mentor/MentorOfficeScene";
@@ -84,6 +85,13 @@ function publicSourceLink(value: string) {
     return { href: url.href, host: url.host };
   } catch {
     return null;
+  }
+}
+
+function revealFocusedEvidence(event: ReactFocusEvent<HTMLAnchorElement>) {
+  // Keyboard focus must clear fixed navigation without moving a pointer target.
+  if (event.currentTarget.matches(":focus-visible")) {
+    event.currentTarget.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
   }
 }
 
@@ -931,7 +939,7 @@ export function AiMentorExperience({
                           <strong>{copy.sourceLessons}</strong>
                           <div>
                             {message.reply.sourceLessons.slice(0, 4).map((source) => (
-                              <Link key={source.href} href={source.href}>
+                              <Link key={source.href} href={source.href} onFocus={revealFocusedEvidence}>
                                 <BookOpenCheck aria-hidden="true" />{source.title}
                               </Link>
                             ))}
@@ -947,7 +955,7 @@ export function AiMentorExperience({
                               const link = publicSourceLink(source.url);
                               if (!link) return null;
                               return (
-                                <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.publicSourceLink}>
+                                <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.publicSourceLink} onFocus={revealFocusedEvidence}>
                                   <ExternalLink aria-hidden="true" />
                                   <span>
                                     <strong><bdi>{source.title || link.host}</bdi></strong>
