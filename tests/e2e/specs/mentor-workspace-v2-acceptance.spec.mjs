@@ -120,6 +120,11 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
       // A viewport capture preserves the recovery scroll/focus state; element
       // screenshots may scroll the dialog while preparing their capture.
       await testInfo.attach(`mentor-arena-${method.toLowerCase()}-rejected`, { body: await page.screenshot(), contentType: "image/png" });
+      await expect(recovery).toBeFocused();
+      expect(await dock.evaluate(node => node.scrollTop)).toBe(0);
+      const capturedTitleBox = await dock.getByRole("heading", { name: isEn ? "Trading Arena" : "آرنای معاملاتی", exact: true }).boundingBox();
+      expect(capturedTitleBox.y).toBeGreaterThanOrEqual(dockBox.y);
+      expect(capturedTitleBox.y + capturedTitleBox.height).toBeLessThanOrEqual(dockBox.y + dockBox.height);
       await page.keyboard.press("Escape");
       await expect(trigger).toBeFocused();
     }

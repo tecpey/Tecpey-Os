@@ -378,3 +378,13 @@ That capture discrepancy is not accepted as complete visual proof. Recovery
 evidence now uses a full viewport screenshot, which does not prepare an element
 by scrolling it; the test also checks both vertical header bounds and all three
 header actions before capture. Fresh viewport evidence is required.
+
+The `cf6e9017b8f9de5663b435ff7352f7a7cc45e32b` viewport run passed
+51 tests. FA POST showed the complete header, but EN POST still omitted it despite
+the pre-capture bounds; that discrepancy remains unaccepted. In a native dialog,
+recovery focus now uses `preventScroll: true` before the explicit instant container
+reset, preventing browser focus scrolling from competing with that reset. Outside
+a dialog normal focus scrolling remains enabled. Post-capture assertions also
+require the recovery action to retain focus, zero dialog scroll and the complete
+title bounds. Reference: https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/focus.
+Fresh stable viewport acceptance is required, not inferred from prior passes.
