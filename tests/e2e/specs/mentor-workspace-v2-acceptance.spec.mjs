@@ -135,6 +135,12 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(arenaDialog).toBeHidden();
     const restoreArena = page.getByRole("button", { name: labels.restore, exact: true });
     await expect(restoreArena).toBeFocused();
+    expect(await restoreArena.evaluate(element => element.parentElement.parentElement === document.body)).toBe(true);
+    const restoreBox = await restoreArena.boundingBox();
+    const mobileNavBox = await page.locator(".tecpey-living-mobile-nav").boundingBox();
+    expect(restoreBox).not.toBeNull();
+    expect(mobileNavBox).not.toBeNull();
+    expect(restoreBox.y + restoreBox.height).toBeLessThanOrEqual(mobileNavBox.y);
     expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
     await restoreArena.click();
     await expect(arenaDialog).toBeVisible();

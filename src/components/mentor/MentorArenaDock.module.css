@@ -338,8 +338,9 @@
 }
 
 .minimized {
+  --arena-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   position: fixed;
-  right: max(14px, env(safe-area-inset-right));
+  inset-inline-end: max(14px, env(safe-area-inset-right), env(safe-area-inset-left));
   bottom: max(18px, env(safe-area-inset-bottom));
   z-index: 850;
 }
@@ -449,6 +450,12 @@
   .panel[data-panel="focus"] {
     left: max(12px, env(safe-area-inset-left));
     width: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .minimized {
+    bottom: calc(env(safe-area-inset-bottom) + var(--tp-mentor-launcher-offset, 6.25rem));
   }
 }
 

@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { MentorArenaPanelState } from "@/lib/mentor-stage-director";
 import {
   mentorWorkspaceDirection,
@@ -106,6 +107,7 @@ export function MentorArenaDock({
   const copy = isFa ? COPY.fa : COPY.en;
   const direction = mentorWorkspaceDirection(locale);
   const [isOverlay, setIsOverlay] = useState(false);
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDialogElement | null>(null);
   const restoreRef = useRef<HTMLButtonElement | null>(null);
   const minimized = panel === "minimized";
@@ -113,7 +115,10 @@ export function MentorArenaDock({
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1439px)");
-    const sync = () => setIsOverlay(media.matches);
+    const sync = () => {
+      setIsOverlay(media.matches);
+      setPortalHost(document.body);
+    };
     sync();
     media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
@@ -136,10 +141,10 @@ export function MentorArenaDock({
       dialog.close();
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOverlay, minimized]);
+  }, [isOverlay, minimized, portalHost]);
 
   if (panel === "minimized") {
-    return (
+    const minimizedContent = (
       <aside className={styles.minimized} dir={direction} aria-label={copy.title}>
         <button ref={restoreRef} type="button" onClick={onDock} aria-label={copy.restore}>
           <ChartNoAxesCombined aria-hidden="true" />
@@ -151,6 +156,9 @@ export function MentorArenaDock({
         </button>
       </aside>
     );
+    // Page-transition transforms create containing/stacking contexts. A body
+    // portal keeps the recovery action above the shell and at viewport edges.
+    return portalHost ? createPortal(minimizedContent, portalHost) : minimizedContent;
   }
 
   const panelContent = (

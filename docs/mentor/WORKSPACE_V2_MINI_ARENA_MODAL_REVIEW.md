@@ -31,6 +31,13 @@ A dialog-scoped Tab/Shift+Tab boundary handler now wraps visible, enabled contro
 native modality still owns background inertness. The strengthened test asserts
 both exact boundary targets. A fresh exact-head browser run is required.
 
+On `57f8c2eb3deb4e97049db9686a20ca0a44eb25bb`, both boundary focus
+assertions passed. The next recovery click revealed the minimized action under
+the mobile shell navigation: page-transition transforms contain its fixed layer.
+The recovery action now portals to the body and reserves the existing mobile
+launcher clearance above navigation. The browser test asserts body placement,
+non-overlapping bounds and an ordinary unforced pointer click.
+
 ## Validation boundaries
 
 Local TypeScript, scoped ESLint, 19 existing Mentor workspace/stage/surface tests,
