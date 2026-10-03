@@ -388,3 +388,14 @@ a dialog normal focus scrolling remains enabled. Post-capture assertions also
 require the recovery action to retain focus, zero dialog scroll and the complete
 title bounds. Reference: https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/focus.
 Fresh stable viewport acceptance is required, not inferred from prior passes.
+
+Head `2d147f3d6da80dc0da096a3cf60946bdbcdd1158` passed 51 browser
+tests including post-capture bounds; EN POST now showed its header, but FA POST
+still did not. Full visual acceptance remains open. The native fullscreen dialog
+now owns its panel's positioning: the panel is absolute inside that dialog,
+rather than a second fixed viewport surface. Responsive insets and desktop dock
+layout stay governed by the existing rules. The regression also asserts zero
+scroll offsets for every recovery ancestor through the dialog, and attaches
+before/after geometry for diagnosis. This is a candidate correction awaiting
+fresh exact-head tests and manual viewport acceptance, not a proven root cause
+or a reclassification of earlier clipped captures.
