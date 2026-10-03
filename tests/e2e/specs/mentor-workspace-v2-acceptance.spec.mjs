@@ -96,7 +96,21 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     });
     await expect(progress).toHaveText(isEn ? "Progress unavailable" : "پیشرفت در دسترس نیست");
     await expect(page.locator('#mentor-office [data-earned="true"]')).toHaveCount(0);
-    await progress.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    const header = progress.locator("xpath=ancestor::header");
+    await header.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    const headerBox = await header.boundingBox();
+    expect(headerBox.x).toBeGreaterThanOrEqual(0);
+    expect(headerBox.x + headerBox.width).toBeLessThanOrEqual(page.viewportSize().width);
+    for (const action of await header.getByRole("button").all()) {
+      const box = await action.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(headerBox.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(headerBox.x + headerBox.width);
+      expect(box.y).toBeGreaterThanOrEqual(headerBox.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(headerBox.y + headerBox.height);
+    }
+    expect(await progress.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await testInfo.attach("mentor-progress-header-unavailable", { body: await header.screenshot(), contentType: "image/png" });
     await testInfo.attach("mentor-progress-unavailable", { body: await progress.screenshot(), contentType: "image/png" });
     failure = false;
     malformed = true;

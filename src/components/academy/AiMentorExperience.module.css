@@ -1521,3 +1521,6 @@
   .profileEvidence button { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
   .profileEvidence button:focus-visible { outline-color: Highlight; }
 }
+
+/* Completion/evidence labels must not inherit the old 10px compact counter. */
+.chatEvidence span { font-size: 12px; line-height: 1.6; }

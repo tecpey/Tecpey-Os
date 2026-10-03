@@ -293,3 +293,13 @@ payloads remain unavailable and a valid empty response restores genuine zero.
 This is a synthetic client ordering/presentation test, not server identity,
 reward issuance or database isolation evidence. Current-head browser acceptance
 and the new localized count-state captures are pending.
+
+The first ordering run (`37118639622`, head
+`8affee769688c998e39689549f1d068380c6ff7b`) passed 49 browser tests,
+including both adversarial compact cases. Manual FA/EN count-state captures then
+revealed the new status inherited the old 10px compact metric font. That is a
+readability finding, not a claim that WCAG defines a 12px minimum. Evidence labels
+now use a consistent 12px/1.6 line height after compact overrides. The strengthened
+regression checks the actual font, viewport containment and every header button's
+bounds during the longer unavailable state, and captures the entire header.
+Fresh exact-head acceptance and manual review are required for this correction.
