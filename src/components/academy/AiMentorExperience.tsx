@@ -104,6 +104,8 @@ const COPY = {
     practicePrompt: "یک سناریوی آموزشی درباره فومو بساز. ابتدا از من بخواه تصمیمم را توضیح بدهم و بعد بازخورد بده؛ معامله واقعی پیشنهاد نکن.",
     modeLabel: "حالت گفت‌وگو",
     historyUnavailable: "تاریخچه فعلاً در دسترس نیست؛ گفت‌وگوی جاری بدون ادعای ذخیره ادامه می‌یابد.",
+    loadingThreads: "در حال دریافت فهرست گفت‌وگوها…",
+    loadingConversation: "در حال دریافت پیام‌های ذخیره‌شده…",
     historyEmpty: "هنوز گفت‌وگویی ثبت نشده است.",
     newConversation: "گفت‌وگوی جدید",
     closeHistory: "بستن تاریخچه",
@@ -178,6 +180,8 @@ const COPY = {
     practicePrompt: "Create an educational FOMO scenario. Ask me to explain my decision first, then give feedback. Do not suggest a real trade.",
     modeLabel: "Conversation mode",
     historyUnavailable: "History is temporarily unavailable. The current chat can continue without claiming it was saved.",
+    loadingThreads: "Loading conversation list…",
+    loadingConversation: "Loading saved messages…",
     historyEmpty: "No saved conversations yet.",
     newConversation: "New conversation",
     closeHistory: "Close history",
@@ -713,8 +717,9 @@ export function AiMentorExperience({
         <span>{copy.newConversation}</span>
       </button>
       {threadsLoading ? (
-        <div className={styles.threadState}>
+        <div className={styles.threadState} role="status">
           <Loader2 className={styles.spinner} aria-hidden="true" />
+          <span>{copy.loadingThreads}</span>
         </div>
       ) : threads.length ? (
         threads.map((thread) => (
@@ -868,8 +873,9 @@ export function AiMentorExperience({
                 aria-relevant="additions"
               >
                 {historyLoading ? (
-                  <div className={styles.conversationLoading}>
+                  <div className={styles.conversationLoading} role="status">
                     <Loader2 className={styles.spinner} aria-hidden="true" />
+                    <span>{copy.loadingConversation}</span>
                   </div>
                 ) : messages.length ? (
                   messages.map((message) => (

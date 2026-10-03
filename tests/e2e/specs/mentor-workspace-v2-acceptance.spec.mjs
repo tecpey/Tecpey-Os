@@ -175,11 +175,17 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     let historyAvailable = false;
     let conversationsAvailable = false;
     let conversationReads = 0;
+    let resolveConversation;
+    const firstConversationRead = new Promise(resolve => { resolveConversation = resolve; });
     await page.route("**/api/mentor-threads", route => route.fulfill(historyAvailable
       ? { json: { ok: true, threads: [{ id: "saved-recovery", title: "Saved recovery thread", status: "active", locale: isEn ? "en" : "fa", lastMessageAt: "2026-10-03T00:00:00Z" }] } }
       : { status: 503, json: { ok: false } }));
     await page.route("**/api/mentor-conversations?**", async route => {
       conversationReads += 1;
+      if (conversationReads === 1) {
+        resolveConversation(route);
+        return;
+      }
       await route.fulfill(conversationsAvailable
         ? { json: { ok: true, conversations: [{ id: "restored", role: "assistant", content: "Recovered saved guidance", createdAt: "2026-10-03T00:00:00Z" }] } }
         : { status: 503, json: { ok: false } });
@@ -208,6 +214,10 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await page.getByRole("button", { name: isEn ? "New conversation" : "گفت‌وگوی جدید", exact: true }).first().click();
     await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();
     await history.getByRole("button", { name: /Saved recovery thread/ }).click();
+    const heldConversation = await firstConversationRead;
+    await expect(page.getByRole("status").filter({ hasText: isEn ? "Loading saved messages" : "در حال دریافت پیام‌های ذخیره‌شده" })).toBeVisible();
+    await expect(input).toBeDisabled();
+    await heldConversation.fulfill({ status: 503, json: { ok: false } });
     await expect.poll(() => conversationReads).toBe(1);
     await expect(input).toBeEnabled();
     await page.getByRole("button", { name: isEn ? "Conversation history" : "گفت‌وگوهای قبلی", exact: true }).click();

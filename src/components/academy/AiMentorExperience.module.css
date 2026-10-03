@@ -507,6 +507,16 @@
   color: #67e8f9;
 }
 
+.threadState,
+.conversationLoading {
+  align-content: center;
+  gap: 12px;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
 .message {
   width: fit-content;
   max-width: min(82%, 720px);
