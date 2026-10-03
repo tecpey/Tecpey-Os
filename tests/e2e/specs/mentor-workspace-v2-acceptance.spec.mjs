@@ -39,6 +39,39 @@ async function installLocalUiSession(context) {
 test.describe("Mentor Workspace v2 compact acceptance", () => {
   test.use({ serviceWorkers: "block" });
 
+  test("private mentor snapshots are reauthorized after client navigation", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
+    const isEn = testInfo.project.metadata.locale === "en";
+    const base = isEn ? "/en" : "";
+    await installLocalUiSession(page.context());
+    // Client regression only: these fixtures do not prove server authorization.
+    await page.route("**/api/mentor-preferences", route => route.fulfill({ json: { capabilities: { plan: "free" } } }));
+    await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
+    let reads = 0;
+    let denied = false;
+    await page.route("**/api/mentor-insights", route => {
+      reads += 1;
+      return route.fulfill(denied
+        ? { status: 401, json: { ok: false, error: "academy_profile_required" } }
+        : { json: { ok: true, insights: [], profile: { confidenceScore: 87, confidenceEvidenceState: "observed" } } });
+    });
+    await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
+    // Scope by the label text instead of relying on generated CSS module names.
+    const metric = page.getByText(isEn ? "Learning confidence: 87%" : "اعتماد آموزشی: 87%", { exact: true });
+    await expect(metric).toBeVisible();
+    const initialReads = reads;
+    await page.evaluate(() => { window.__mentorDocumentMarker = "same-document"; });
+    denied = true;
+    await page.locator('nav').getByRole("link", { name: isEn ? "Support" : "پشتیبانی", exact: true }).last().click();
+    await expect(page).toHaveURL(new RegExp(`${base}/support`));
+    await page.goBack({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(new RegExp(`${base}/academy/ai-guide`));
+    await expect.poll(() => reads).toBeGreaterThan(initialReads);
+    await expect(page.getByText(isEn ? "Learning confidence: —" : "اعتماد آموزشی: —", { exact: true })).toBeVisible();
+    await expect(metric).toHaveCount(0);
+    expect(await page.evaluate(() => window.__mentorDocumentMarker)).toBe("same-document");
+  });
+
   test("failed requests retain unsaved guidance and allow an explicit recovery", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.metadata.mentorWorkspaceCompact, "Dedicated compact projects only.");
     const isEn = testInfo.project.metadata.locale === "en";

@@ -202,14 +202,6 @@
       "column": 5,
       "domain": "market-ui",
       "reason": "socket ticker projection into current market rows"
-    },
-    {
-      "rule": "react-hooks/set-state-in-effect",
-      "path": "src/hooks/useMentorInsights.ts",
-      "line": 101,
-      "column": 7,
-      "domain": "mentor",
-      "reason": "module-cache projection into hook state"
     }
   ]
 }

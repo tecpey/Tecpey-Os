@@ -216,3 +216,26 @@ or verification; those acceptance items still require named server evidence.
 W3C G200 describes advance new-tab cues as advisory practice, not a standalone
 WCAG conformance requirement:
 https://www.w3.org/WAI/WCAG22/Techniques/general/G200.html.
+
+## Private insight snapshot isolation — 2026-10-03
+
+| Before | After | Why |
+| --- | --- | --- |
+| A five-minute module cache shared private profiles across mounted consumers without a principal or tenant key; a new consumer could skip the server entirely. | Each mounted consumer starts empty and fetches the authenticated endpoint with `cache: no-store`; no private module cache remains. | A previous response cannot authorize a later page visit. This closes a client reuse path, without claiming to replace the server tenant/product gates. |
+| Failed refreshes kept the previous profile; `storage: unavailable` looked like a successful empty response. | HTTP errors, malformed/failed responses and explicit storage outages return no profile with unavailable state. Retry invalidates the visible snapshot immediately; aborted requests cannot overwrite the current attempt. | An unavailable authority must not leave an old learner assessment presented as current. |
+| Disabled consumers initialized from shared data. | Disabled consumers expose no data; changing enabled state resets their instance snapshot before it can be rendered again. | Disable/re-enable cannot republish an earlier authorization snapshot. |
+| The hook carried a synchronous effect-state lint exception. | The effect only commits asynchronous request outcomes; the existing exception is removed from the baseline, suppression inventory and reviewed key set. | Remove the debt rather than expand an exemption. |
+
+Primary implementation basis: React effect request cleanup,
+https://react.dev/reference/react/useEffect and
+https://react.dev/learn/synchronizing-with-effects.
+
+The added FA/EN compact browser regression deliberately keeps the same document
+alive through Next.js client navigation: an initial observed 87% fixture is
+followed by a 401 response on return, which must cause a fresh read and remove
+the old score. Synthetic client fixtures do not prove production identity
+switching, backend entitlement, database isolation or continuous revocation of an
+already mounted page. No polling or new dependencies are introduced. Independent
+consumers now make independent reads; the existing server rate limit is unchanged.
+Local TypeScript, scoped lint and correctness-authority checks are required;
+new exact-head production-browser evidence remains pending until CI completes.
