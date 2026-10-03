@@ -149,7 +149,7 @@ const COPY = {
     errorNetwork: "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی و دوباره تلاش کنید.",
     errorGeneric: "پاسخ زنده در دسترس نبود؛ پاسخ زیر راهنمای آموزشی از‌پیش‌آماده است، نه پاسخ زنده هوش مصنوعی.",
     errorDismiss: "متوجه شدم",
-    liveAnswer: "پاسخ زنده هوش مصنوعی",
+    modelAnswer: "پاسخ تولیدشده با هوش مصنوعی",
     preparedAnswer: "راهنمای آموزشی آماده",
     notSaved: "این گفت‌وگو ذخیره نشد",
   },
@@ -225,7 +225,7 @@ const COPY = {
     errorNetwork: "Could not reach the server. Check your connection and try again.",
     errorGeneric: "A live answer was not available; the reply below is prepared academy guidance, not a live AI answer.",
     errorDismiss: "Got it",
-    liveAnswer: "Live AI answer",
+    modelAnswer: "AI-generated answer",
     preparedAnswer: "Prepared academy guidance",
     notSaved: "This reply was not saved",
   },
@@ -899,7 +899,7 @@ export function AiMentorExperience({
                           className={styles.answerBadge}
                           data-source={message.reply.externalProviderUsed ? "live" : "prepared"}
                         >
-                          {message.reply.externalProviderUsed ? copy.liveAnswer : copy.preparedAnswer}
+                          {message.reply.externalProviderUsed ? copy.modelAnswer : copy.preparedAnswer}
                           {message.reply.memoryMode === "ephemeral" ? ` · ${copy.notSaved}` : ""}
                         </span>
                       ) : null}

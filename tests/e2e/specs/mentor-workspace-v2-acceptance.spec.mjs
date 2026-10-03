@@ -119,6 +119,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect.poll(() => threadReads).toBe(5);
     await expect(log.locator('[data-role="assistant"]')).toHaveCount(4);
     await expect(log.locator('[data-source="live"]')).toHaveCount(1);
+    await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "AI-generated answer" : "پاسخ تولیدشده با هوش مصنوعی");
     await expect(log).toContainText("Recovered educational answer");
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     expect(conversationReads).toBe(0);

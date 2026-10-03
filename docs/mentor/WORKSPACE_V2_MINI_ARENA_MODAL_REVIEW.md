@@ -187,6 +187,7 @@ not a claim of server persistence or entitlement.
 | Retry refreshed only the thread index, hiding a failed message read when the index succeeded. | Index and conversation errors are independent; retry re-reads an empty selected conversation and retains its warning until that read succeeds. | Recovery must restore messages, not merely dismiss an error. |
 | Repeated retries could overlap while requests were running. | Retry is disabled while either relevant history request is loading. | Keep request order and feedback predictable. |
 | History loading displayed only an accessibility-hidden spinner. | Localized visible loading text uses a status region for list and saved-message requests. | Explain the wait to sighted and assistive-technology users. |
+| The provider-use flag labelled an answer “Live AI,” without proving source freshness. | The badge says “AI-generated answer” and retains the separate unsaved-memory notice. | A model response must not imply live market data or verified freshness. |
 
 The compact FA/EN regression first preserves an unsaved chat through an index
 failure, then explicitly selects saved history. A repeated message-read 503 must
