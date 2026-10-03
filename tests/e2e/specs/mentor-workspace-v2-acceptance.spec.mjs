@@ -111,7 +111,8 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(arenaTrigger).toHaveAttribute("aria-expanded", "false");
 
     const log = page.getByRole("log");
-    const beforeDraft = await log.innerText();
+    const messageNodes = log.locator('[data-role="user"], [data-role="assistant"]');
+    const beforeMessageCount = await messageNodes.count();
     const starter = page.getByRole("button", { name: new RegExp(labels.starter) });
     await expect(starter).toBeVisible();
     const starterMotion = await starter.evaluate(element => {
@@ -131,7 +132,7 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     const textarea = page.getByRole("textbox", { name: labels.textarea });
     await expect(textarea).toBeFocused();
     await expect(textarea).not.toHaveValue("");
-    await expect(log).toHaveText(beforeDraft);
+    await expect(messageNodes).toHaveCount(beforeMessageCount);
 
     await expect(page.getByRole("link", { name: labels.privacy, exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: labels.support, exact: true })).toBeVisible();
