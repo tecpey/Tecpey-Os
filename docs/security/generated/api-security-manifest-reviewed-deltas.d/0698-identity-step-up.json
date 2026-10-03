@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/auth/2fa/verify",
+      "method": "POST",
+      "previousSourceHash": "92d7b9503ebf670a53eb8b96",
+      "issue": "#698",
+      "owner": "security-platform",
+      "reason": "Identity track step-up hardening changes the 2FA verification route source while preserving its governed controls: strict canonical-session revocation, bounded input, CSRF, rate limiting, transactional audit evidence, idempotency and fail-closed behavior. This exact-head delta records the reviewed source transition without weakening or excepting any API security requirement.",
+      "replacement": {
+        "route": "/api/auth/2fa/verify",
+        "method": "POST",
+        "sourcePath": "src/app/api/auth/2fa/verify/route.ts",
+        "sourceHash": "42ba94731bac6eeee28c4ce1",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "2fa-verify",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": true,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "auth",
+        "testReferences": [],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/2fa/verify/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

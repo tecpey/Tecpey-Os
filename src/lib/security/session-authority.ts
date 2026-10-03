@@ -445,6 +445,53 @@ export async function admitSessionAuthority(input: {
   return result.value;
 }
 
+export type RecentSessionStepUpResult =
+  | { ok: true; verifiedAt: Date }
+  | { ok: false; reason: "required" | "session_not_found" | "database_unavailable" };
+
+/**
+ * RP-authoritative freshness check for high-risk mutations. The browser cannot
+ * assert or extend this timestamp; it is read from the durable current session.
+ */
+export async function requireRecentSessionStepUpAuthority(input: {
+  userId: string;
+  sessionJti: string;
+  maxAgeSeconds?: number;
+}): Promise<RecentSessionStepUpResult> {
+  const requested = input.maxAgeSeconds ?? 300;
+  const maxAgeSeconds = Math.min(900, Math.max(60, Math.floor(requested)));
+  try {
+    const result = await withDb(async (client) => {
+      const selected = await client.query<{
+        step_up_at: Date | null;
+        recent: boolean;
+      }>(
+        `SELECT step_up_at,
+                COALESCE(
+                  step_up_at >= NOW() - ($3::int * INTERVAL '1 second'),
+                  FALSE
+                ) AS recent
+           FROM user_sessions
+          WHERE id = $1
+            AND user_id = $2
+            AND is_revoked = FALSE
+            AND expires_at > NOW()
+          LIMIT 1`,
+        [input.sessionJti, input.userId, maxAgeSeconds],
+      );
+      return selected.rows[0] ?? null;
+    });
+    if (!result.enabled) return { ok: false, reason: "database_unavailable" };
+    if (!result.value) return { ok: false, reason: "session_not_found" };
+    if (!result.value.recent || !result.value.step_up_at) {
+      return { ok: false, reason: "required" };
+    }
+    return { ok: true, verifiedAt: result.value.step_up_at };
+  } catch {
+    return { ok: false, reason: "database_unavailable" };
+  }
+}
+
 export type RefreshRotationResult =
   | {
       ok: true;

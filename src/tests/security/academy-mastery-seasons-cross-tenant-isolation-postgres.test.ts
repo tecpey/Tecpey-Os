@@ -288,6 +288,8 @@ describe("Mastery Seasons cross-tenant isolation", () => {
         });
         await passAllCoreTerms(client, SCOPE_A, studentId);
         await passAllCoreTerms(client, SCOPE_B, studentId);
+        await insertWeaknessSignal(client, SCOPE_A, studentId, "risk");
+        await insertWeaknessSignal(client, SCOPE_B, studentId, "risk");
 
         const activatedA = await activateAcademyMasterySeason({
           client,
@@ -512,7 +514,7 @@ describe("Mastery Seasons cross-tenant isolation", () => {
         const isolated = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
         assert.equal(isolated.completedTerms, 0);
         assert.equal(
-          isolated.recommendations.find((item) => item.season.id === SEASON)?.eligible,
+          isolated.recommendations.find((item) => item.season.id === SEASON)?.eligible ?? false,
           false,
           "with no term progress the season must stay locked for tenant B",
         );
@@ -531,7 +533,7 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           "tenant B must not inherit tenant A's term progress",
         );
         assert.equal(
-          afterTenantAProgress.recommendations.find((item) => item.season.id === SEASON)?.eligible,
+          afterTenantAProgress.recommendations.find((item) => item.season.id === SEASON)?.eligible ?? false,
           false,
           "tenant B must not unlock a season it did not earn",
         );

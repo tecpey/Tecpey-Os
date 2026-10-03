@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "addedOperations": [
+    {
+      "route": "/api/deep-research",
+      "method": "DELETE",
+      "issue": "#700",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed Deep Research command boundary added by #700. The exact generated operation proves strict canonical-session revocation, verified principal identity, CSRF, bounded JSON input, per-operation rate limiting, idempotency/replay defense, private no-store responses, structured audit/redaction and fail-closed behavior; tenant/workspace authority is additionally enforced by the governed tenant-principal route guard and PostgreSQL/RLS adversarial evidence.",
+      "replacement": {
+        "route": "/api/deep-research",
+        "method": "DELETE",
+        "sourcePath": "src/app/api/deep-research/route.ts",
+        "sourceHash": "9fe74902e64f4bb8708f8fb2",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "deep-research-cancel",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readJsonBody"
+        },
+        "domainOwner": "deep-research",
+        "testReferences": [
+          "src/tests/ai/deep-research-authority.test.ts",
+          "src/tests/security/deep-research-api-boundary.test.ts",
+          "src/tests/security/deep-research-provenance-authority.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/deep-research/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/deep-research",
+      "method": "POST",
+      "issue": "#700",
+      "owner": "ai-platform-security",
+      "reason": "Reviewed Deep Research command boundary added by #700. The exact generated operation proves strict canonical-session revocation, verified principal identity, CSRF, bounded JSON input, per-operation rate limiting, idempotency/replay defense, private no-store responses, structured audit/redaction and fail-closed behavior; tenant/workspace authority is additionally enforced by the governed tenant-principal route guard and PostgreSQL/RLS adversarial evidence.",
+      "replacement": {
+        "route": "/api/deep-research",
+        "method": "POST",
+        "sourcePath": "src/app/api/deep-research/route.ts",
+        "sourceHash": "9fe74902e64f4bb8708f8fb2",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "deep-research-create",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readJsonBody"
+        },
+        "domainOwner": "deep-research",
+        "testReferences": [
+          "src/tests/ai/deep-research-authority.test.ts",
+          "src/tests/security/deep-research-api-boundary.test.ts",
+          "src/tests/security/deep-research-provenance-authority.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/deep-research/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

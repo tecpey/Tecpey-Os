@@ -23,7 +23,7 @@ Protected CI requires exact equality between `SensitiveMutationAuditAction`, `Se
 Current registry size:
 
 ```text
-64 actions
+65 actions
 23 resources
 ```
 
