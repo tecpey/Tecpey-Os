@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -18,6 +18,7 @@ import {
 import type { NewsArchivePresentationItem } from "@/services/news/archive-presentation-authority";
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
 import styles from "./DailyNewsArchive.module.css";
+import { NewsHeadlineRail } from "./NewsHeadlineRail";
 
 type ArchiveResponse = {
   day: string;
@@ -113,6 +114,7 @@ function NewsCardMedia({ item, isFa }: { item: NewsArchivePresentationItem; isFa
 }
 
 export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initial: ArchiveResponse; locale: "fa" | "en"; initialTags?: string[] }) {
+  const headlineId = useId();
   const [state, setState] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [failedDay, setFailedDay] = useState<string | null>(null);
@@ -209,8 +211,9 @@ export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initia
         {(query || activeTags.length > 0) && <button type="button" disabled={loading} className={styles.clear} onClick={() => { setQuery(""); setActiveTags([]); syncUrl(state.day, []); }}>{isFa ? "پاک‌کردن جست‌وجو و فیلترها" : "Clear search and filters"}</button>}
         <div role="status" aria-live="polite" aria-atomic="true" className={loading ? styles.notice : "sr-only"}>{loading ? (isFa ? "در حال دریافت اخبار تاریخ انتخاب‌شده…" : "Loading the selected day’s news…") : ""}</div>
         {failedDay && <div role="alert" className={styles.notice}><p>{isFa ? "اخبار تاریخ انتخاب‌شده دریافت نشد. تاریخ و خبرهای نمایش‌داده‌شده تغییر نکرده‌اند." : "The selected day could not be loaded. The displayed date and stories have not changed."}</p><button type="button" disabled={loading} className={styles.clear} onClick={() => loadDay(failedDay)}>{isFa ? "تلاش دوباره" : "Try again"}</button></div>}
+        {visible.length > 1 && <NewsHeadlineRail key={`${state.day}:${visible.slice(0, 12).map(item => item.archiveId).join(",")}`} items={visible.slice(0, 12)} totalCount={visible.length} locale={locale} id={headlineId} onRead={index => { const heading = document.getElementById(`${headlineId}-story-${index}`); heading?.focus({ preventScroll: true }); heading?.scrollIntoView({ block: "start", behavior: "instant" }); }} />}
         <div className="mt-7 space-y-5" aria-busy={loading}>
-          {visible.map((item) => {
+          {visible.map((item, index) => {
             const sourceTextDirection = isFa && item.translationPending && item.publicSummaryAllowed ? "ltr" : undefined;
             return (
               <article key={item.archiveId} className={`${styles.story} overflow-hidden rounded-[28px] border border-cyan-300/15 bg-white/72 p-4 dark:bg-white/[0.04] sm:p-5`}>
@@ -218,9 +221,10 @@ export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initia
                   <NewsCardMedia item={item} isFa={isFa} />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 text-xs font-black text-slate-500 dark:text-slate-400"><span><bdi>{item.sourceName}</bdi> · <time dateTime={item.publishedAt}>{formatTime(item.publishedAt, locale)}</time></span><span className="inline-flex items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-500/5 px-2.5 py-1 text-cyan-700 dark:text-cyan-100"><FileText className="h-3 w-3" />{coverageLabel(item, isFa)}</span><span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 ${item.translationPending ? "border-amber-300/25 bg-amber-400/10 text-amber-700 dark:text-amber-200" : "border-emerald-300/25 bg-emerald-400/10 text-emerald-700 dark:text-emerald-200"}`}>{item.translationPending ? <Languages className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}{translationLabel(item, isFa)}</span></div>
-                    <div dir={sourceTextDirection} className={sourceTextDirection === "ltr" ? "text-left" : undefined}>{item.newsUrl ? <Link href={item.newsUrl} className="group mt-4 block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><h2 className="text-xl font-black leading-9 text-slate-950 transition group-hover:text-cyan-700 dark:text-white dark:group-hover:text-cyan-200 sm:text-2xl">{item.displayTitle}</h2></Link> : <h2 className="mt-4 text-xl font-black leading-9 text-slate-950 dark:text-white sm:text-2xl">{item.displayTitle}</h2>}<p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-200">{item.displayLead}</p></div>
+                    <div dir={sourceTextDirection} className={sourceTextDirection === "ltr" ? "text-left" : undefined}>{item.newsUrl ? <Link href={item.newsUrl} className="group mt-4 block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><h2 id={`${headlineId}-story-${index}`} tabIndex={-1} className="text-xl font-black leading-9 text-slate-950 transition group-hover:text-cyan-700 dark:text-white dark:group-hover:text-cyan-200 sm:text-2xl">{item.displayTitle}</h2></Link> : <h2 id={`${headlineId}-story-${index}`} tabIndex={-1} className="mt-4 text-xl font-black leading-9 text-slate-950 dark:text-white sm:text-2xl">{item.displayTitle}</h2>}<p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-200">{item.displayLead}</p></div>
                     {isFa && item.translationPending && <p className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs font-bold leading-6 text-amber-800 dark:text-amber-100">ترجمهٔ فارسی این خبر هنوز آماده نیست. تک‌پی فقط محتوایی را نمایش می‌دهد که سیاست بازنشر منبع اجازه داده باشد؛ گزارش کامل را در منبع اصلی بخوانید.</p>}
                     {hasDistinctBody(item.displayLead, item.displayBody) && <details className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-4"><summary className="cursor-pointer text-xs font-black text-cyan-700 dark:text-cyan-100">{isFa ? "ادامهٔ متن قابل نمایش" : "Public excerpt"}</summary><p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-8 text-slate-700 dark:text-slate-200">{item.displayBody}</p></details>}
+                    {visible.length > 1 && index < 12 && <button type="button" className={styles.clear} onClick={() => { document.getElementById(headlineId)?.scrollIntoView({ block: "start", behavior: "instant" }); document.getElementById(`${headlineId}-card-${index}`)?.focus({ preventScroll: true }); }}>{isFa ? "بازگشت به تیترها" : "Back to headlines"}</button>}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-1.5">{tagList(item).slice(0, 10).map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600 dark:bg-white/8 dark:text-slate-300">{newsTaxonomyTagLabel(tag, locale)}</span>)}</div><div className="flex flex-wrap items-center gap-3">{item.newsUrl && <Link href={item.newsUrl} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-300/25 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-700 transition hover:bg-cyan-500/15 dark:text-cyan-100">{isFa ? "زمینه و تحلیل تک‌پی" : "TecPey context"}</Link>}<a href={item.articleUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg text-xs font-black text-cyan-700 underline underline-offset-4 dark:text-cyan-200">{isFa ? "منبع اصلی خبر" : "Original source"}<ExternalLink className="h-3.5 w-3.5" /></a></div></div>
                   </div>
                 </div>

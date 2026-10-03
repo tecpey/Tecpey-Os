@@ -23,10 +23,25 @@ No local product screenshot has yet been accepted. Do not infer visual conforman
 
 ## Remaining #709 contract
 
-Horizontal focal-card discovery, latest-first/conflicting-timestamp authority, source-specific stale market handling, cluster/correction lineage, complete negative tests, physical Safari/RTL evidence and independent review remain open. This is an implemented reading/recovery slice, not completion of the full News & Market Intelligence contract. No merge/deploy or release approval is granted.
+Full headline discovery acceptance (including physical touch/Safari), latest-first/conflicting-timestamp authority, source-specific stale market handling, cluster/correction lineage, complete negative tests, physical Safari/RTL evidence and independent review remain open. This is an implemented reading/recovery slice, not completion of the full News & Market Intelligence contract. No merge/deploy or release approval is granted.
 
-Primary references: https://www.w3.org/WAI/tutorials/carousels/ and https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum and https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum. Carousel guidance informs the still-open discovery slice; no carousel is claimed in this delta.
+Primary references: https://www.w3.org/WAI/tutorials/carousels/ and https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum and https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum. The initial reading/recovery slice had no horizontal discovery; the later implementation is scoped below.
 
 ## Integration
 
 Main `96b56d0e469b356ccf8ee698c5a75a36d1cabe60` is integrated without modifying its application authority. The three accepted-risk records are carried byte-for-byte from `ce8057b2af0c4e90dbf354b6e2331afc8939be98`, preserving approved provenance, October 9/14 review dates and open operational NO-GO boundaries. This does not create a new sign-off.
+
+
+## Headline discovery and reading return
+
+| Before | After | Why |
+| --- | --- | --- |
+| Finding a story required scanning the full vertical archive. | A native horizontal headline list previews the first 12 filtered stories, retaining server order, source and publication time. The visible count discloses the bounded preview and the complete archive remains below. | Offer fast discovery without inventing ranking or hiding the archive. |
+| There was no before/after card navigation or reading return anchor. | 44px previous/next controls, logical RTL arrow keys, Home/End and normal Tab reveal the focused card. Reading transfers focus to the matching story heading; returning restores the same headline card. | Provide a keyboard/pointer alternative to native scrolling and preserve the reading context. |
+| A horizontal strip could depend on browser-specific RTL scroll offsets. | Card centering uses physical bounding rectangles; symmetric edge spacers allow the first and last cards to center on phone and desktop. Native scrolling updates the displayed position. | Keep RTL/LTR behavior consistent without assuming a scrollLeft sign convention. |
+
+The rail is an ordinary labelled navigation/list with native buttons. It has no automatic rotation, timer, gesture interceptor, synthetic carousel role, animation or additional image request. Status identifies the current headline; previous/next retains control focus, and only explicit reading changes vertical focus. The 12-item preview is a presentation bound, not a source-quality or popularity policy. Filtering/removing the list resets its local position; no story read/saved state is claimed or persisted.
+
+The new four-project browser case covers 320px and 1280px, reduced motion, boundary controls, focus containment in the horizontal viewport, RTL keyboard directions, Home/End/Tab, explicit read/return, native horizontal wheel scrolling, source-to-story identity, overflow and runtime errors. Native touch/Safari behavior and physical-device acceptance remain open. Fresh candidate-bound CI and manual screenshot acceptance are required.
+
+Primary reference: https://www.w3.org/WAI/ARIA/apg/patterns/carousel/ — user-controlled navigation and predictable keyboard/focus behavior inform this implementation; its ordinary list semantics do not claim the hidden-slide APG carousel pattern.

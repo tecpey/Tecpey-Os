@@ -1,0 +1,24 @@
+.rail { min-width: 0; margin-top: 28px; scroll-margin-block: 6rem; }
+.header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.heading { margin: 0; font-size: 18px; line-height: 1.6; color: #0f172a; }
+.description { margin-top: 4px; font-size: 12px; line-height: 1.8; color: #475569; }
+.controls { display: flex; gap: 8px; }
+.controls button { display: inline-flex; justify-content: center; align-items: center; width: 44px; height: 44px; border: 1px solid #0891b2; border-radius: 14px; color: #0e7490; }
+.controls button[aria-disabled="true"] { cursor: default; }
+.controls button[aria-disabled="true"] svg { opacity: .45; }
+.controls svg { width: 20px; height: 20px; }
+.track { display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 8px; padding: 8px 0; margin-top: 12px; list-style: none; }
+.track::before, .track::after { content: ""; flex: 0 0 max(12px, calc((100% - 440px) / 2 - 12px)); }
+.card { flex: 0 0 min(440px, calc(100% - 48px)); min-width: 0; scroll-snap-align: center; }
+.read { display: flex; flex-direction: column; gap: 18px; height: 100%; min-height: 196px; width: 100%; padding: 20px; border: 1px solid #94a3b8; border-radius: 22px; background: #f8fafc; text-align: start; }
+.read[data-current="true"] { border-color: #0891b2; background: #ecfeff; }
+.metadata { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.7; color: #475569; }
+.title { font-size: 16px; font-weight: 800; line-height: 1.9; color: #0f172a; }
+.action { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; font-size: 12px; font-weight: 700; color: #0e7490; }
+.position { margin: 8px; font-size: 12px; color: #475569; }
+:global(.dark) .heading, :global(.dark) .title { color: #f8fafc; }
+:global(.dark) .description, :global(.dark) .metadata, :global(.dark) .position { color: #cbd5e1; }
+:global(.dark) .read { background: #0f172a; border-color: #475569; }
+:global(.dark) .read[data-current="true"] { background: #083344; border-color: #22d3ee; }
+:global(.dark) .action, :global(.dark) .controls button { color: #67e8f9; }
+@media (forced-colors: active) { .read { border-color: CanvasText; } .read[data-current="true"] { border: 2px solid Highlight; } .controls button { border-color: ButtonText; } }
