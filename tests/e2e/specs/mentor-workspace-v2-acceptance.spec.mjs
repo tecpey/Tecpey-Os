@@ -51,6 +51,8 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
           support: "Support",
           arenaOpen: "Open a Trading Arena practice challenge",
           arenaTitle: "Trading Arena",
+          minimize: "Minimize Arena",
+          restore: "Restore Arena",
         }
       : {
           history: "گفت‌وگوهای قبلی",
@@ -63,10 +65,12 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
           support: "پشتیبانی",
           arenaOpen: "بازکردن چالش تمرینی Arena",
           arenaTitle: "آرنای معاملاتی",
+          minimize: "کوچک‌کردن Arena",
+          restore: "بازگرداندن Arena",
         };
 
     await installLocalUiSession(page.context());
-    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
     await page.route("**/api/mentor-threads", route => route.fulfill({ json: { ok: true, threads: [] } }));
     await page.goto(`${base}/academy/ai-guide`, { waitUntil: "domcontentloaded" });
 
@@ -105,6 +109,33 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(arenaDialog).toBeVisible();
     await expect(arenaDialog).toHaveAttribute("aria-modal", "true");
     expect(await arenaDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    expect(await arenaDialog.evaluate(element => element.matches(":modal"))).toBe(true);
+    const arenaLayout = await arenaDialog.evaluate(element => {
+      const panel = element.querySelector("section");
+      const style = getComputedStyle(panel);
+      return {
+        viewport: window.innerWidth,
+        width: panel.scrollWidth,
+        animation: style.animationName,
+      };
+    });
+    expect(arenaLayout.width).toBeLessThanOrEqual(arenaLayout.viewport);
+    expect(arenaLayout.animation).toBe("none");
+    // Attempting to focus a background control must not escape native modality.
+    await historyTrigger.evaluate(element => element.focus());
+    expect(await arenaDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    const arenaControls = arenaDialog.getByRole("button");
+    await arenaControls.last().focus();
+    await page.keyboard.press("Tab");
+    expect(await arenaDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    await arenaDialog.getByRole("button", { name: labels.minimize, exact: true }).click();
+    await expect(arenaDialog).toBeHidden();
+    const restoreArena = page.getByRole("button", { name: labels.restore, exact: true });
+    await expect(restoreArena).toBeFocused();
+    expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+    await restoreArena.click();
+    await expect(arenaDialog).toBeVisible();
+    expect(await arenaDialog.evaluate(element => element.matches(":modal"))).toBe(true);
     await page.keyboard.press("Escape");
     await expect(arenaDialog).toBeHidden();
     await expect(arenaTrigger).toBeFocused();

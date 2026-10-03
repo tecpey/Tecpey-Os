@@ -106,7 +106,9 @@ export function MentorArenaDock({
   const copy = isFa ? COPY.fa : COPY.en;
   const direction = mentorWorkspaceDirection(locale);
   const [isOverlay, setIsOverlay] = useState(false);
-  const panelRef = useRef<HTMLElement | null>(null);
+  const overlayRef = useRef<HTMLDialogElement | null>(null);
+  const restoreRef = useRef<HTMLButtonElement | null>(null);
+  const minimized = panel === "minimized";
   const titleId = useId();
 
   useEffect(() => {
@@ -118,48 +120,28 @@ export function MentorArenaDock({
   }, []);
 
   useEffect(() => {
-    if (!isOverlay || panel === "minimized") return;
-    const root = panelRef.current;
-    if (!root) return;
+    if (minimized) {
+      restoreRef.current?.focus();
+      return;
+    }
+    if (!isOverlay) return;
+    const dialog = overlayRef.current;
+    if (!dialog) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusable = () =>
-      Array.from(
-        root.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      );
-    focusable()[0]?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const items = focusable();
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
+    // Native modality makes the background inert for pointer, keyboard and
+    // assistive technology, including controls loaded after the panel opens.
+    dialog.showModal();
     return () => {
+      dialog.close();
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
     };
-  }, [isOverlay, onClose, panel]);
+  }, [isOverlay, minimized]);
 
   if (panel === "minimized") {
     return (
       <aside className={styles.minimized} dir={direction} aria-label={copy.title}>
-        <button type="button" onClick={onDock} aria-label={copy.restore}>
+        <button ref={restoreRef} type="button" onClick={onDock} aria-label={copy.restore}>
           <ChartNoAxesCombined aria-hidden="true" />
           <span>
             <strong>{copy.title}</strong>
@@ -171,91 +153,97 @@ export function MentorArenaDock({
     );
   }
 
-  const modalProps = isOverlay
-    ? ({ role: "dialog", "aria-modal": true } as const)
-    : ({ role: "region" } as const);
+  const panelContent = (
+    <section
+      className={styles.panel}
+      data-panel={panel}
+      data-overlay={isOverlay}
+      dir={direction}
+      aria-labelledby={titleId}
+      role={isOverlay ? undefined : "region"}
+    >
+      <header className={styles.header}>
+        <div className={styles.dragCue} aria-hidden="true">
+          <GripHorizontal />
+        </div>
+        <div className={styles.identity}>
+          <span><ChartNoAxesCombined aria-hidden="true" /></span>
+          <div>
+            <h2 id={titleId}>{copy.title}</h2>
+            <p><ShieldCheck aria-hidden="true" />{plan === "premium" ? copy.premium : copy.core}</p>
+          </div>
+        </div>
+        <div className={styles.controls}>
+          {panel === "focus" ? (
+            <button type="button" onClick={onDock} aria-label={copy.dock} title={copy.dock}>
+              <Focus aria-hidden="true" />
+            </button>
+          ) : (
+            <button type="button" onClick={onFocus} aria-label={copy.focus} title={copy.focus}>
+              <Expand aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" onClick={onMinimize} aria-label={copy.minimize} title={copy.minimize}>
+            <Minimize2 aria-hidden="true" />
+          </button>
+          <button type="button" onClick={onClose} aria-label={copy.close} title={copy.close}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
+      {panel === "docked" ? (
+        <div className={styles.challenge}>
+          <div className={styles.challengeBadge}>
+            <Target aria-hidden="true" />
+            <span>{copy.badge}</span>
+          </div>
+          <h3>{copy.challenge}</h3>
+          <p>{copy.description}</p>
+          <ol>
+            {copy.rules.map((rule, index) => (
+              <li key={rule}><span>{index + 1}</span>{rule}</li>
+            ))}
+          </ol>
+          <div className={styles.safetyNote}>
+            <ShieldCheck aria-hidden="true" />
+            <p>{copy.safety}</p>
+          </div>
+          <button type="button" className={styles.primaryAction} onClick={onFocus}>
+            <ChartNoAxesCombined aria-hidden="true" />
+            {copy.open}
+          </button>
+        </div>
+      ) : (
+        <div className={styles.execution}>
+          {isFa ? (
+            <TradingArenaExecutionClientFa locale="fa" />
+          ) : (
+            <TradingArenaExecutionClientEn locale="en" />
+          )}
+        </div>
+      )}
+    </section>
+  );
+
+  if (!isOverlay) return panelContent;
 
   return (
-    <>
-      {isOverlay ? (
-        <button
-          type="button"
-          className={styles.backdrop}
-          onClick={onClose}
-          aria-label={copy.close}
-        />
-      ) : null}
-      <section
-        ref={panelRef}
-        className={styles.panel}
-        data-panel={panel}
-        data-overlay={isOverlay}
-        dir={direction}
-        aria-labelledby={titleId}
-        {...modalProps}
-      >
-        <header className={styles.header}>
-          <div className={styles.dragCue} aria-hidden="true">
-            <GripHorizontal />
-          </div>
-          <div className={styles.identity}>
-            <span><ChartNoAxesCombined aria-hidden="true" /></span>
-            <div>
-              <h2 id={titleId}>{copy.title}</h2>
-              <p><ShieldCheck aria-hidden="true" />{plan === "premium" ? copy.premium : copy.core}</p>
-            </div>
-          </div>
-          <div className={styles.controls}>
-            {panel === "focus" ? (
-              <button type="button" onClick={onDock} aria-label={copy.dock} title={copy.dock}>
-                <Focus aria-hidden="true" />
-              </button>
-            ) : (
-              <button type="button" onClick={onFocus} aria-label={copy.focus} title={copy.focus}>
-                <Expand aria-hidden="true" />
-              </button>
-            )}
-            <button type="button" onClick={onMinimize} aria-label={copy.minimize} title={copy.minimize}>
-              <Minimize2 aria-hidden="true" />
-            </button>
-            <button type="button" onClick={onClose} aria-label={copy.close} title={copy.close}>
-              <X aria-hidden="true" />
-            </button>
-          </div>
-        </header>
-
-        {panel === "docked" ? (
-          <div className={styles.challenge}>
-            <div className={styles.challengeBadge}>
-              <Target aria-hidden="true" />
-              <span>{copy.badge}</span>
-            </div>
-            <h3>{copy.challenge}</h3>
-            <p>{copy.description}</p>
-            <ol>
-              {copy.rules.map((rule, index) => (
-                <li key={rule}><span>{index + 1}</span>{rule}</li>
-              ))}
-            </ol>
-            <div className={styles.safetyNote}>
-              <ShieldCheck aria-hidden="true" />
-              <p>{copy.safety}</p>
-            </div>
-            <button type="button" className={styles.primaryAction} onClick={onFocus}>
-              <ChartNoAxesCombined aria-hidden="true" />
-              {copy.open}
-            </button>
-          </div>
-        ) : (
-          <div className={styles.execution}>
-            {isFa ? (
-              <TradingArenaExecutionClientFa locale="fa" />
-            ) : (
-              <TradingArenaExecutionClientEn locale="en" />
-            )}
-          </div>
-        )}
-      </section>
-    </>
+    <dialog
+      ref={overlayRef}
+      className={styles.overlay}
+      aria-modal="true"
+      aria-labelledby={titleId}
+      dir={direction}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      {panelContent}
+    </dialog>
   );
 }
