@@ -23,7 +23,7 @@ No local product screenshot has yet been accepted. Do not infer visual conforman
 
 ## Remaining #709 contract
 
-Full headline discovery acceptance (including physical touch/Safari), latest-first/conflicting-timestamp authority, source-specific stale market handling, cluster/correction lineage, complete negative tests, physical Safari/RTL evidence and independent review remain open. This is an implemented reading/recovery slice, not completion of the full News & Market Intelligence contract. No merge/deploy or release approval is granted.
+Full headline discovery acceptance (including physical touch/Safari), archive revision/correction timestamp lineage, source-specific stale market handling, cluster/correction lineage, complete negative tests, physical Safari/RTL evidence and independent review remain open. The public feed publication guard below covers a bounded part of latest-first authority. This is not completion of the full News & Market Intelligence contract. No merge/deploy or release approval is granted.
 
 Primary references: https://www.w3.org/WAI/tutorials/carousels/ and https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum and https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum. The initial reading/recovery slice had no horizontal discovery; the later implementation is scoped below.
 
@@ -45,3 +45,13 @@ The rail is an ordinary labelled navigation/list with native buttons. It has no 
 The new four-project browser case covers 320px and 1280px, reduced motion, boundary controls, focus containment in the horizontal viewport, RTL keyboard directions, Home/End/Tab, explicit read/return, native horizontal wheel scrolling, source-to-story identity, overflow and runtime errors. Native touch/Safari behavior and physical-device acceptance remain open. Fresh candidate-bound CI and manual screenshot acceptance are required.
 
 Primary reference: https://www.w3.org/WAI/ARIA/apg/patterns/carousel/ — user-controlled navigation and predictable keyboard/focus behavior inform this implementation; its ordinary list semantics do not claim the hidden-slide APG carousel pattern.
+
+## Public feed publication-time authority
+
+The API's legacy `isBreaking` field previously clamped negative age to zero, allowing a future timestamp to receive the recent-publication badge. The new `published-at-desc-v1` policy excludes future/invalid publication from downstream `items`, quiz and automation preview, sorts eligible items by publication instant descending, and resolves equal instants by article URL then archive ID using locale-independent string order. Publication at the request's observation instant is eligible; one millisecond in the future is not. The existing inclusive 12-hour badge window is retained, with no ingestion-time substitution or invented significance authority.
+
+Archive presentation/evidence remains intact, including pending Persian rows. Translation eligibility still applies before the publication guard. `publicationWithheldCount` discloses the guard's excluded downstream count and `publicationPolicy` names the policy; neither changes source rights. An empty eligible feed uses `fallback` even if the archive retains pending or withheld items. The legacy `live` mode is not a source freshness SLA and still requires the remaining freshness work. Historical publication remains eligible on historical archive requests without being called recent. No retention, dedupe, provider, DB schema, correction lineage or market-price freshness policy is changed.
+
+Behavior tests cover conflicting fetched/modified/event timestamps, immutable input, same-day future and invalid times, invalid observation clock, exact window boundaries, stable ties under shuffled arrival and equivalent timezone instants. The public DB-only route tests and no-loss/media regression remain required. These tests do not prove provider provenance, article revision selection or full freshness acceptance.
+
+Primary research: https://developers.google.com/search/docs/appearance/publication-dates (accessed 2026-10-03) distinguishes publication/update from event dates, discourages future publication dates and requires consistent visible/structured values. The feed ordering and 12-hour badge boundary are TecPey policy, not a Google ranking prescription.
