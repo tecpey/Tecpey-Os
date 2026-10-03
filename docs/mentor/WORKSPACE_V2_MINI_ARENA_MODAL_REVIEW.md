@@ -302,4 +302,29 @@ readability finding, not a claim that WCAG defines a 12px minimum. Evidence labe
 now use a consistent 12px/1.6 line height after compact overrides. The strengthened
 regression checks the actual font, viewport containment and every header button's
 bounds during the longer unavailable state, and captures the entire header.
-Fresh exact-head acceptance and manual review are required for this correction.
+Exact head `6fa93738d7bc5ca63e0319c9cb65d54a18d2f629` passed 49
+browser tests ([run 37119250641](https://github.com/tecpey/Tecpey-Os/actions/runs/37119250641));
+the FA/EN full-header captures were manually reviewed with readable status text
+and all three 44px actions inside the frame. All eight workflows completed
+successfully, including protected PostgreSQL RLS runtime evidence
+([run 37119250557](https://github.com/tecpey/Tecpey-Os/actions/runs/37119250557)).
+This evidence applies to that exact parent, not subsequent edits.
+
+## Source freshness disclosure — 2026-10-03
+
+| Before | After | Why |
+| --- | --- | --- |
+| Source links exposed title, host and new-tab behavior without an adjacent freshness limitation. | Each public-source group includes a readable 14px FA/EN statement that publication times and freshness are unverified, and the answer is not verified current news. | `MentorReply.sources` contains only title/URL; a model-use flag or linked destination cannot establish current-news evidence. |
+
+The notice is ordinary paragraph text within the answer, rather than a second
+live region; the conversation already owns answer announcements. Its wording is
+visible and does not rely on color or an icon. Accessibility basis:
+https://www.w3.org/TR/WCAG22/ (perceivable text and meaningful structure), not a
+claim that WCAG mandates this specific disclosure or font size. No new motion,
+dependency, source timestamp or server authority is introduced.
+
+The existing FA/EN compact recovery regression checks the precise notice and
+its computed font size alongside the valid-source/unsafe-source tests. Exact-head
+browser acceptance is pending for this edit. Source publication time and verified
+freshness remain an open server-evidence gate; this disclosure does not complete
+the current-news action contract.

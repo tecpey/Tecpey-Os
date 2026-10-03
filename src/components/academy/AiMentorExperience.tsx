@@ -138,6 +138,7 @@ const COPY = {
     researching: "در حال پژوهش عمومی و کنترل منابع…",
     sourceLessons: "درس‌های مرتبط",
     publicSources: "منابع عمومی",
+    sourceFreshnessUnknown: "زمان انتشار و تازگی این منابع تأیید نشده است؛ این پاسخ خبرِ به‌روزِ تأییدشده نیست.",
     newTab: "زبانهٔ جدید",
     checklist: "چک‌لیست پیشنهادی",
     suggested: "ادامه پیشنهادی",
@@ -221,6 +222,7 @@ const COPY = {
     researching: "Researching public sources and checking evidence…",
     sourceLessons: "Related lessons",
     publicSources: "Public sources",
+    sourceFreshnessUnknown: "Publication times and source freshness are unverified; this answer is not verified current news.",
     newTab: "New tab",
     checklist: "Suggested checklist",
     suggested: "Suggested follow-up",
@@ -986,6 +988,7 @@ export function AiMentorExperience({
                       {message.reply?.sources?.some(source => publicSourceLink(source.url)) ? (
                         <div className={styles.replyLinks}>
                           <strong>{copy.publicSources}</strong>
+                          <p className={styles.sourceFreshness} data-source-freshness="unverified">{copy.sourceFreshnessUnknown}</p>
                           <div>
                             {message.reply.sources.slice(0, 6).map((source) => {
                               const link = publicSourceLink(source.url);

@@ -674,6 +674,13 @@
 
 .publicSourceLink > span { min-width: 0; }
 .replyLinks > strong { font-size: 12px; }
+.sourceFreshness {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #cbd5e1;
+  overflow-wrap: anywhere;
+}
 .publicSourceLink strong, .publicSourceLink small { display: block; }
 .publicSourceLink small { margin-top: 4px; font-size: 12px; color: #cbd5e1; }
 
@@ -1517,7 +1524,7 @@
 .profileEvidence button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 @media (forced-colors: active) {
   .profileEvidence { border-color: CanvasText; }
-  .profileEvidence p { color: CanvasText; }
+  .profileEvidence p, .sourceFreshness { color: CanvasText; }
   .profileEvidence button { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
   .profileEvidence button:focus-visible { outline-color: Highlight; }
 }

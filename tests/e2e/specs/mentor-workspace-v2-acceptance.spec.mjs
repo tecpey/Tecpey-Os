@@ -312,6 +312,14 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "AI-generated answer" : "پاسخ تولیدشده با هوش مصنوعی");
     await expect(log.locator('[data-source="live"]')).toContainText(isEn ? "This reply was not saved" : "این گفت‌وگو ذخیره نشد");
     const publicSource = log.getByRole("link", { name: /WCAG reference/ });
+    const freshnessNotice = log.locator('[data-source-freshness="unverified"]');
+    await expect(freshnessNotice).toHaveCount(1);
+    await freshnessNotice.scrollIntoViewIfNeeded();
+    await expect(freshnessNotice).toBeVisible();
+    await expect(freshnessNotice).toHaveText(isEn
+      ? "Publication times and source freshness are unverified; this answer is not verified current news."
+      : "زمان انتشار و تازگی این منابع تأیید نشده است؛ این پاسخ خبرِ به‌روزِ تأییدشده نیست.");
+    expect(await freshnessNotice.evaluate(node => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(14);
     await expect(publicSource).toHaveAttribute("href", "https://www.w3.org/WAI/WCAG22/");
     await expect(publicSource).toHaveAttribute("target", "_blank");
     await expect(publicSource).toHaveAttribute("rel", "noopener noreferrer");
