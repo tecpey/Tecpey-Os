@@ -128,6 +128,9 @@ test.describe("Mentor Workspace v2 compact acceptance", () => {
     await arenaControls.last().focus();
     await page.keyboard.press("Tab");
     expect(await arenaDialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+    await expect(arenaControls.first()).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(arenaControls.last()).toBeFocused();
     await arenaDialog.getByRole("button", { name: labels.minimize, exact: true }).click();
     await expect(arenaDialog).toBeHidden();
     const restoreArena = page.getByRole("button", { name: labels.restore, exact: true });

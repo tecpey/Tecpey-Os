@@ -20,6 +20,17 @@ Scope: PR #703 only; no merge, deployment or renderer activation.
 - Apple motion: https://developer.apple.com/design/human-interface-guidelines/motion
 - Installed Next.js guides: `01-app/02-guides/lazy-loading.md` and `01-app/01-getting-started/05-server-and-client-components.md`.
 
+## Browser-discovered correction
+
+The reconciled head `47c9bd753bee75e0fee1dfc607cde17897798a19` passed
+Full Suite, API Security Manifest, Secret Scanning, Repository Audit, Sensitive
+Mutation Audit and AI Tenant RLS. The new FA and EN 320px test failed precisely
+at Tab from the last modal action: Chromium can move focus into browser chrome.
+Background-focus rejection and native `:modal` checks had already passed.
+A dialog-scoped Tab/Shift+Tab boundary handler now wraps visible, enabled controls;
+native modality still owns background inertness. The strengthened test asserts
+both exact boundary targets. A fresh exact-head browser run is required.
+
 ## Validation boundaries
 
 Local TypeScript, scoped ESLint, 19 existing Mentor workspace/stage/surface tests,

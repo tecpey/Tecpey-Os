@@ -233,6 +233,32 @@ export function MentorArenaDock({
       ref={overlayRef}
       className={styles.overlay}
       aria-modal="true"
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const dialog = event.currentTarget;
+        // Native modality blocks the page, but some browsers allow Tab to
+        // move into browser chrome at the edge. Keep the learning loop local.
+        const items = Array.from(dialog.querySelectorAll<HTMLElement>(
+          "button, a[href], input, select, textarea, [tabindex]",
+        )).filter((element) =>
+          element.tabIndex >= 0 && !element.matches(":disabled") &&
+          !element.closest("[inert]") && element.getClientRects().length > 0 &&
+          getComputedStyle(element).visibility !== "hidden",
+        );
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!first) {
+          event.preventDefault();
+          dialog.focus();
+        } else if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
       aria-labelledby={titleId}
       dir={direction}
       onCancel={(event) => {
