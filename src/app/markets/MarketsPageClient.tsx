@@ -57,6 +57,7 @@ export default function MarketsPageClient({
   initialCurrencies: CurrencyListResult | undefined;
 }) {
   const t = useTranslations("Markets");
+  const marketTabs = useTranslations("MarketTabs");
   useScrollReveal({ threshold: 0.2 });
 
   const initialPairs = [
@@ -213,6 +214,7 @@ export default function MarketsPageClient({
                   USDT_IRT={USDT_IRT}
                   itemsPerPage={LIMIT}
                   isLoading={isFetching && !effectiveResult}
+                  detailsLabel={marketTabs("viewMore")}
                 />
 
                 <MarketDataProvenance provenance={effectiveResult?.provenance} locale="fa" />
