@@ -6,6 +6,7 @@ import {
   normalizeBitycleMarketFrames,
   normalizeCoinGeckoMarkets,
   publicMarketCacheControl,
+  publicMarketQuoteCurrency,
   selectFreshPublicMarketRows,
 } from "../../lib/public-market-data";
 
@@ -15,6 +16,12 @@ describe("public market data authority", () => {
     const updated = new Date(fixedNow - ageMs).toISOString();
     return { marketDataSource: source, marketDataUpdatedAt: updated, priceData: { timestamp: updated, last: 1 } };
   };
+
+  it("keeps normalized provider quote units distinct and rejects unknown units", () => {
+    assert.equal(publicMarketQuoteCurrency("CoinGecko"), "USD");
+    assert.equal(publicMarketQuoteCurrency("Bitycle"), "USDT");
+    for (const source of ["coingecko", "Unknown", undefined, null]) assert.equal(publicMarketQuoteCurrency(source), null);
+  });
 
   it("rechecks provider-specific freshness after a row has waited in memory", () => {
     const bitycle = Object.freeze(timedRow("Bitycle", 119_000));

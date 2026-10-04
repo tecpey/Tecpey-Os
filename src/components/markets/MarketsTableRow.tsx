@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { publicMarketQuoteCurrency } from "@/lib/public-market-data";
 import Chart from "@/components/charts/chart";
 import { CryptoAssetIcon } from "@/components/crypto/CryptoAssetIcon";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
@@ -26,17 +27,18 @@ export default function MarketsTableRow({
 }: Props) {
   const router = useRouter();
 
+  const quote = publicMarketQuoteCurrency(coin.marketDataSource);
   const rawChange = coin.priceData?.changePercent;
   const change = rawChange === null || rawChange === undefined ? null : Number(rawChange);
   const hasChange = isFresh && change !== null && Number.isFinite(change);
   const isUp = hasChange && change >= 0;
   const rawPrice = coin.priceData?.last;
-  const hasPrice = isFresh && rawPrice !== null && rawPrice !== undefined && Number.isFinite(Number(rawPrice));
+  const hasPrice = isFresh && quote !== null && rawPrice !== null && rawPrice !== undefined && Number.isFinite(Number(rawPrice));
   const rawVolume = coin.priceData?.volume;
   const hasVolume = isFresh && rawVolume !== null && rawVolume !== undefined && Number.isFinite(Number(rawVolume));
 
   const irtPrice =
-    isFresh && USDT_IRT && coin.priceData?.last
+    isFresh && quote === "USDT" && USDT_IRT && coin.priceData?.last
       ? Number(coin.priceData.last) * Number(USDT_IRT)
       : null;
 
@@ -80,12 +82,12 @@ export default function MarketsTableRow({
       </div>
 
       <p aria-label={hasPrice ? undefined : "قیمت در دسترس نیست"} className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
-        {hasPrice ? handleDecimal(rawPrice) : "—"}
+        {hasPrice ? <bdi>{handleDecimal(rawPrice)} {quote}</bdi> : "—"}
       </p>
 
       {isIRTenabled && (
         <p className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
-          {irtPrice ? Math.floor(irtPrice).toLocaleString() : "-"}
+          {irtPrice ? Math.floor(irtPrice).toLocaleString() : "—"}
         </p>
       )}
 

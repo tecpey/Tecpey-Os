@@ -6,6 +6,7 @@ test("market prices expire on an open page and recover through keyboard refresh"
   let timestamp = now;
   let unavailable = false;
   let price = 64000;
+  let provider = "CoinGecko";
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.setViewportSize({ width: 320, height: 760 });
@@ -17,10 +18,10 @@ test("market prices expire on an open page and recover through keyboard refresh"
     if (unavailable) return route.fulfill({ status: 503, json: { error: "fixture_refresh_unavailable" } });
     const upstreamUpdatedAt = new Date(timestamp).toISOString();
     return route.fulfill({ json: {
-      data: [{ id: "bitcoin", symbol: "BTC", name: "Bitcoin", rank: 1, marketDataSource: "CoinGecko", marketDataUpdatedAt: upstreamUpdatedAt,
+      data: [{ id: "bitcoin", symbol: "BTC", name: "Bitcoin", rank: 1, marketDataSource: provider, marketDataUpdatedAt: upstreamUpdatedAt,
         priceData: { symbol: "BTC", last: price, changePercent: 2.5, volume: 123, rank: 1, timestamp: upstreamUpdatedAt } }],
       meta: { current_page: 1, last_page: 1, total: 1 },
-      provenance: { provider: "CoinGecko", upstreamSource: "CoinGecko", currency: "USD", upstreamUpdatedAt, fetchedAt: upstreamUpdatedAt, fallback: true },
+      provenance: { provider, upstreamSource: provider, currency: provider === "CoinGecko" ? "USD" : "USDT", upstreamUpdatedAt, fetchedAt: upstreamUpdatedAt, fallback: true },
     } });
   });
   await page.goto(`${isFa ? "" : "/en"}/markets`);
@@ -29,6 +30,7 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await expect(asset).toHaveCount(1);
   await expect(asset).toHaveAttribute("data-price-current", "true");
   await expect(asset).toContainText(isFa ? "64000.00" : "64,000");
+  await expect(asset).toContainText(isFa ? "USD" : "$64,000");
   unavailable = true;
   await page.clock.fastForward(301000);
   await expect(asset).toHaveAttribute("data-price-current", "false");
@@ -68,9 +70,12 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await expect(status.getByRole("status")).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
   timestamp = await page.evaluate(() => Date.now());
   unavailable = false;
+  provider = "Bitycle";
   await expect(refresh).toHaveAttribute("aria-disabled", "false");
   await refresh.press("Enter");
   await expect(asset).toHaveAttribute("data-price-current", "true");
+  await expect(asset).toContainText("USDT");
+  await expect(asset).not.toContainText("$65,000");
   await page.setViewportSize({ width: 1280, height: 900 });
   // Native viewport containment alone ignores the fixed mobile navigation.
   // Center the evidence region, then keep the strict interior hit-test.

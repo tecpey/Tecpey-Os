@@ -12,12 +12,13 @@ import { useMarketFreshnessClock } from "@/hooks/useMarketFreshnessClock";
 import MarketDataProvenance from "@/components/markets/MarketDataProvenance";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 import { coinSlugForSymbol } from "@/lib/news-taxonomy";
-import { selectFreshPublicMarketRows, normalizeMarketSymbol } from "@/lib/public-market-data";
+import { publicMarketQuoteCurrency, selectFreshPublicMarketRows, normalizeMarketSymbol } from "@/lib/public-market-data";
 
-function formatUsdPrice(value: unknown) {
+function formatQuotedPrice(value: unknown, quote: "USD" | "USDT" | null) {
   const n = Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "—";
-  return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: n < 1 ? 6 : n < 10 ? 4 : 2 }).format(n)}`;
+  if (!quote || !Number.isFinite(n) || n <= 0) return "—";
+  const amount = new Intl.NumberFormat("en-US", { maximumFractionDigits: n < 1 ? 6 : n < 10 ? 4 : 2 }).format(n);
+  return quote === "USD" ? `$${amount}` : `${amount} USDT`;
 }
 
 export default function EnglishMarketsPageClient({
@@ -95,7 +96,7 @@ export default function EnglishMarketsPageClient({
                     const slug = coinSlugForSymbol(symbol);
                     return <a data-market-asset={symbol} data-price-current={isFresh} key={`${coin.id ?? symbol}:${index}`} href={slug ? `/en/coins/${slug}` : "/en/coins"} className="grid grid-cols-[1.25fr_.9fr_.75fr_.65fr] items-center gap-3 px-5 py-3 text-sm focus-visible:outline-2 focus-visible:outline-cyan-600 focus-visible:outline-offset-[-2px] hover:bg-cyan-500/[0.06]">
                       <span className="flex min-w-0 items-center gap-3"><CryptoAssetIcon symbol={symbol} name={coin.name} size="sm" assetSrc={visual.src} assetSource={visual.source} /><span className="min-w-0"><strong className="block truncate text-slate-950 dark:text-white">{symbol}</strong><span className="block truncate text-xs font-bold text-slate-500 dark:text-slate-400">{coin.name}</span></span></span>
-                      <strong aria-label={isFresh ? undefined : "Price unavailable"} className="text-slate-800 dark:text-slate-100">{isFresh ? formatUsdPrice(price) : "—"}</strong>
+                      <strong aria-label={isFresh ? undefined : "Price unavailable"} className="text-slate-800 dark:text-slate-100">{isFresh ? formatQuotedPrice(price, publicMarketQuoteCurrency(coin.marketDataSource)) : "—"}</strong>
                       <strong className={!Number.isFinite(change) ? "text-slate-500" : change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>{Number.isFinite(change) ? `${change > 0 ? "+" : ""}${change.toFixed(2)}%` : "—"}</strong>
                       <span className="font-black text-slate-500">#{Number.isFinite(rank) && rank > 0 ? rank : index + 1}</span>
                     </a>;

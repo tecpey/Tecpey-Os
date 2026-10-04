@@ -54,7 +54,7 @@ export default function MarketsTable({
         <div className="w-full overflow-x-auto table-scroll">
           <div className={`grid min-w-[860px] ${gridClass} items-center gap-2 px-3 sm:px-5 h-[46px] border-b border-cyan-300/15 bg-white/25 dark:bg-white/[0.025]`}>
              <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("coin")}</span>
-             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("priceUsdt")}</span>
+             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">قیمت</span>
              {isIRTenabled && <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("priceIrt")}</span>}
              <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("volume")}</span>
              <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("change")}</span>

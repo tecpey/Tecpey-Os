@@ -9,6 +9,13 @@ export const PUBLIC_MARKET_FUTURE_SKEW_MS = 30_000;
 export const BITYCLE_PUBLIC_MARKET_FRESHNESS_MS = 2 * 60_000;
 export const BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS = 30_000;
 
+/** Quote units of the existing normalized public-provider contracts. */
+export function publicMarketQuoteCurrency(source: unknown): "USD" | "USDT" | null {
+  if (source === PUBLIC_MARKET_SOURCE) return "USD";
+  if (source === BITYCLE_MARKET_SOURCE) return "USDT";
+  return null;
+}
+
 function publicMarketPolicy(source: unknown) {
   if (source === PUBLIC_MARKET_SOURCE) return { freshnessMs: PUBLIC_MARKET_FRESHNESS_MS, skewMs: PUBLIC_MARKET_FUTURE_SKEW_MS, cacheMs: 60_000 };
   if (source === BITYCLE_MARKET_SOURCE) return { freshnessMs: BITYCLE_PUBLIC_MARKET_FRESHNESS_MS, skewMs: BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS, cacheMs: 10_000 };
