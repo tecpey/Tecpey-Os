@@ -4,9 +4,8 @@ import { getNewsImpactDetailPath, getNewsImpactHistoryItems, type NewsImpactHist
 import { getFeaturedTraderTools, type RankedTraderTool } from "./trading-tools-growth";
 
 export type LandingGrowthCoin = CoinPage & {
-  impactNews: NewsImpactHistoryItem;
-  impactRankScore: number;
-  latestImpactTitle: string;
+  newsEvidence: NewsImpactHistoryItem;
+  latestNewsTitle: string;
   newsDetailPath: string;
 };
 
@@ -23,8 +22,7 @@ export type LandingGrowthEvidence = Readonly<{
   requiredToolCount: number;
   coinCount: number;
   toolCount: number;
-  highPriorityNewsCount: number;
-  authorityHighPriorityNewsCount: number;
+  recentNewsEvidenceCount: number;
   authorityFreshnessAgeMs: number | null;
   status: LandingGrowthEvidenceStatus;
 }>;
@@ -32,14 +30,12 @@ export type LandingGrowthEvidence = Readonly<{
 export type LandingGrowthEvidenceInput = Readonly<{
   sourceAuthority?: LandingGrowthSourceAuthority;
   authorityUpdatedAt?: string | null;
-  authorityHighPriorityNewsCount?: number;
   maxAuthorityAgeMs?: number;
   now?: Date | string;
 }>;
 
 const REQUIRED_LANDING_COIN_COUNT = 5;
 const REQUIRED_LANDING_TOOL_COUNT = 5;
-const HIGH_PRIORITY_NEWS_THRESHOLD = 75;
 const LANDING_GROWTH_FALLBACK_UPDATED_AT = "2026-08-09T08:00:00.000Z";
 const LANDING_GROWTH_MAX_AUTHORITY_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -64,11 +60,7 @@ function buildLandingGrowthEvidence({
   newsItems: NewsImpactHistoryItem[];
   input?: LandingGrowthEvidenceInput;
 }): LandingGrowthEvidence {
-  const highPriorityNewsCount = newsItems.filter(
-    (item) => item.priority >= HIGH_PRIORITY_NEWS_THRESHOLD,
-  ).length;
   const sourceAuthority = input?.sourceAuthority ?? "news-impact-history:seed-fallback";
-  const authorityHighPriorityNewsCount = input?.authorityHighPriorityNewsCount ?? 0;
   const authorityUpdatedAt = input?.authorityUpdatedAt ?? null;
   const nowMs = input?.now ? Date.parse(String(input.now)) : Date.now();
   const authorityUpdatedAtMs = authorityUpdatedAt ? Date.parse(authorityUpdatedAt) : Number.NaN;
@@ -78,13 +70,13 @@ function buildLandingGrowthEvidence({
   const maxAuthorityAgeMs = input?.maxAuthorityAgeMs ?? LANDING_GROWTH_MAX_AUTHORITY_AGE_MS;
   const hasFreshMaterializedAuthority =
     sourceAuthority === "news-impact-history:materialized" &&
-    authorityHighPriorityNewsCount >= REQUIRED_LANDING_COIN_COUNT &&
+    newsItems.length >= REQUIRED_LANDING_COIN_COUNT &&
     authorityFreshnessAgeMs !== null &&
     authorityFreshnessAgeMs <= maxAuthorityAgeMs;
   const status =
     coins.length >= REQUIRED_LANDING_COIN_COUNT &&
     tools.length >= REQUIRED_LANDING_TOOL_COUNT &&
-    highPriorityNewsCount >= REQUIRED_LANDING_COIN_COUNT &&
+    newsItems.length >= REQUIRED_LANDING_COIN_COUNT &&
     hasFreshMaterializedAuthority
       ? "ready"
       : "degraded";
@@ -96,8 +88,7 @@ function buildLandingGrowthEvidence({
     requiredToolCount: REQUIRED_LANDING_TOOL_COUNT,
     coinCount: coins.length,
     toolCount: tools.length,
-    highPriorityNewsCount,
-    authorityHighPriorityNewsCount,
+    recentNewsEvidenceCount: newsItems.length,
     authorityFreshnessAgeMs,
     status,
   };
@@ -117,9 +108,11 @@ export function getFeaturedLandingCoinsFromNewsItems(
 ): LandingGrowthCoin[] {
   const selected = new Map<string, LandingGrowthCoin>();
 
-  for (const newsItem of newsItems) {
-    if (newsItem.priority < 75) continue;
+  const chronological = [...newsItems].sort((a, b) =>
+    Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || a.id.localeCompare(b.id),
+  );
 
+  for (const newsItem of chronological) {
     for (const symbol of newsItem.relatedCoinSymbols) {
       if (selected.size >= limit) break;
       const normalized = symbol.trim().toUpperCase();
@@ -129,9 +122,8 @@ export function getFeaturedLandingCoinsFromNewsItems(
 
       selected.set(normalized, {
         ...coin,
-        impactNews: newsItem,
-        impactRankScore: Math.min(1, newsItem.priority / 100),
-        latestImpactTitle: newsItem.title,
+        newsEvidence: newsItem,
+        latestNewsTitle: newsItem.title,
         newsDetailPath: getNewsImpactDetailPath(newsItem),
       });
     }
