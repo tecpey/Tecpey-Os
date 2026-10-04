@@ -5,7 +5,6 @@ import type { NewsTaxonomyMatch } from "./news-taxonomy";
 export const NEWS_STORY_CLUSTER_POLICY_VERSION = "story-cluster-v1";
 const MAX_CANDIDATE_HOURS = 36;
 const MIN_TITLE_JACCARD = 0.62;
-const STRONG_TITLE_JACCARD = 0.78;
 const DISTINCT_VIEWPOINT_JACCARD = 0.40;
 
 export type StoryClusterCandidate = {
@@ -143,10 +142,10 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
         members: [{ archiveId: item.archiveId, membership: "canonical", evidence: null }], independentSourceCount: 1, conflictingViewpointCount: 0, decisionEvidence: [] });
       continue;
     }
-    selected.cluster.members.push({ archiveId: item.archiveId, membership: selected.evidence.conflictSignals.length ? "conflicting_viewpoint" : "corroborating", evidence: selected.evidence });
+    selected.cluster.members.push({ archiveId: item.archiveId, membership: "corroborating", evidence: selected.evidence });
     selected.cluster.decisionEvidence.push(selected.evidence);
     selected.cluster.independentSourceCount = new Set(selected.cluster.members.map((m) => ordered.find((c) => c.archiveId === m.archiveId)?.sourceDomain).filter(Boolean)).size;
-    selected.cluster.conflictingViewpointCount = selected.cluster.members.filter((m) => m.membership === "conflicting_viewpoint").length;
+    selected.cluster.conflictingViewpointCount = 0;
   }
   return clusters;
 }
