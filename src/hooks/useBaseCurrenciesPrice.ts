@@ -8,7 +8,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
-  const usdtIrtAuthority = useQuery({\n    queryKey: ["usdt-irt-authority"],\n    queryFn: async () => {\n      const response = await fetch("/api/markets?source=iran", { cache: "no-store" });\n      if (!response.ok) return null;\n      const payload = await response.json() as { authority?: { price?: unknown; updatedAt?: unknown; source?: unknown } | null };\n      const authority = payload.authority;\n      const price = Number(authority?.price);\n      const updatedAt = typeof authority?.updatedAt === "string" ? authority.updatedAt : "";\n      if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(Date.parse(updatedAt))) return null;\n      return { price, updatedAt, source: typeof authority?.source === "string" ? authority.source : "unknown" };\n    },\n    staleTime: 30_000,\n    refetchInterval: 30_000,\n    refetchOnWindowFocus: true,\n  });\n\n  const USDT_IRT = usdtIrtAuthority.data?.price ?? 0;
+  const usdtIrtAuthority = useQuery({
+    queryKey: ["usdt-irt-authority"],
+    queryFn: async () => {
+      const response = await fetch("/api/markets?source=iran", { cache: "no-store" });
+      if (!response.ok) return null;
+      const payload = await response.json() as { authority?: { price?: unknown; updatedAt?: unknown; source?: unknown } | null };
+      const authority = payload.authority;
+      const price = Number(authority?.price);
+      const updatedAt = typeof authority?.updatedAt === "string" ? authority.updatedAt : "";
+      if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(Date.parse(updatedAt))) return null;
+      return { price, updatedAt, source: typeof authority?.source === "string" ? authority.source : "unknown" };
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const USDT_IRT = usdtIrtAuthority.data?.price ?? 0;
 
 
   const [searchQuery, setSearchQuery] = useState("");
