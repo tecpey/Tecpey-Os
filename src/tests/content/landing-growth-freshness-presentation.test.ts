@@ -24,7 +24,6 @@ describe("Landing growth freshness presentation authority", () => {
       {
         sourceAuthority: "news-impact-history:seed-fallback",
         authorityUpdatedAt: null,
-        authorityHighPriorityNewsCount: 0,
         now: "2026-10-04T12:00:00.000Z",
       },
       fallback,
