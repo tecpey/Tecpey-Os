@@ -569,7 +569,7 @@ async function iranMarketResponse() {
 
   if (comparisons.length === 0) return apiError("iran_market_intelligence_unavailable", 503);
 
-  comparisons.sort((a, b) => a.premiumPercent - b.premiumPercent);
+  const primaryUsdtIrt = comparisons.find((row) => row.source === localSources[0]) ?? null;\n  comparisons.sort((a, b) => a.premiumPercent - b.premiumPercent);
   const observedAt = new Date().toISOString();
   const oldestUpstreamUpdatedAt = new Date(Math.min(
     Date.parse(globalBtcUsdt.updatedAt),
