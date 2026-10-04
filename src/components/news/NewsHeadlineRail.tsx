@@ -96,8 +96,8 @@ export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
       <ul id={`${id}-track`} ref={trackRef} className={styles.track} onScroll={observeScroll}>
         {items.map((item, index) => (
           <li key={item.archiveId} className={styles.card}>
-            <button id={`${id}-card-${index}`} ref={node => { cardsRef.current[index] = node; }} type="button" className={styles.read} data-current={active === index} aria-label={isFa ? `خواندن خبر: ${item.displayTitle}` : `Read story: ${item.displayTitle}`} aria-describedby={`${id}-context-${index} ${id}-freshness-${index} ${id}-summary-${index}`} onFocus={() => reveal(index)} onKeyDown={event => navigate(event, index)} onClick={() => onRead(index)}>
-              <NewsCardMedia item={item} isFa={isFa} />
+            <button id={`${id}-card-${index}`} ref={node => { cardsRef.current[index] = node; }} type="button" className={styles.read} data-current={active === index} aria-label={isFa ? `خواندن خبر: ${item.displayTitle}` : `Read story: ${item.displayTitle}`} aria-describedby={`${id}-media-${index} ${id}-context-${index} ${id}-freshness-${index} ${id}-summary-${index}`} onFocus={() => reveal(index)} onKeyDown={event => navigate(event, index)} onClick={() => onRead(index)}>
+              <NewsCardMedia id={`${id}-media-${index}`} item={item} isFa={isFa} />
               <span id={`${id}-context-${index}`} className={styles.metadata}><bdi>{item.sourceName}</bdi><time dateTime={item.publishedAt}>{Number.isFinite(Date.parse(item.publishedAt)) ? new Intl.DateTimeFormat(isFa ? "fa-IR" : "en-US", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" }).format(new Date(item.publishedAt)) : "—"}</time></span>
               <span id={`${id}-freshness-${index}`} className={styles.freshness}>{publicationLabel(item.publishedAt, now, isFa)}</span>
               <span className={styles.title} dir={isFa && item.translationPending && item.publicSummaryAllowed ? "ltr" : undefined}>{item.displayTitle}</span>
