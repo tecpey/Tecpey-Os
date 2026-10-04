@@ -29,7 +29,7 @@ test("news archive preserves its date on failure and offers explicit recovery", 
     if (new URL(route.request().url()).searchParams.get("date") !== today) return route.continue();
     attempt += 1;
     if (attempt === 1) return route.fulfill({ status: 503, json: { error: "unavailable" } });
-    return route.fulfill({ json: { day: attempt === 2 ? "2024-01-02" : today, today, archiveItems: attempt === 2 ? [] : [item], availableDays: [today, "2024-01-01"] } });
+    return route.fulfill({ json: { day: attempt === 2 ? "2024-01-02" : today, today, archiveItems: attempt === 2 ? [] : [{ ...item, publishedAt: attempt === 3 ? "invalid-publication-time" : item.publishedAt }], availableDays: [today, "2024-01-01"] } });
   });
   const search = archive.getByRole("textbox", { name: isFa ? "جست‌وجوی اخبار این روز" : "Search this day’s news" });
   await search.fill("missing headline");
@@ -54,6 +54,15 @@ test("news archive preserves its date on failure and offers explicit recovery", 
   expect(bounds.height).toBeGreaterThanOrEqual(44);
   await testInfo.attach("news-archive-recovery-320", { body: await page.screenshot(), contentType: "image/png" });
   await retry.press("Enter");
+  await expect.poll(() => attempt).toBe(3);
+  await expect(date).toBeEnabled();
+  await expect(date).toHaveValue("2024-01-01");
+  await expect(heading).toHaveText(originalHeading);
+  await expect(alert).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("date")).toBe("2024-01-01");
+  expect(errors).toEqual([]);
+  await retry.click();
+  await expect.poll(() => attempt).toBe(4);
   await expect(date).toHaveValue(today);
   await expect(alert).toHaveCount(0);
   expect(new URL(page.url()).searchParams.has("date")).toBe(false);

@@ -18,6 +18,7 @@ import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
 import styles from "./DailyNewsArchive.module.css";
 import { NewsHeadlineRail } from "./NewsHeadlineRail";
 import { NewsCardMedia } from "./NewsCardMedia";
+import { parseNewsArchiveResponse } from "@/lib/news-archive-response";
 
 type ArchiveResponse = {
   day: string;
@@ -137,9 +138,9 @@ export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initia
     try {
       const res = await fetch(`/api/crypto-news?locale=${locale}&date=${encodeURIComponent(day)}`, { headers: { accept: "application/json" } });
       if (!res.ok) throw new Error("News archive unavailable");
-      const payload = await res.json() as Partial<ArchiveResponse> & { archiveItems?: NewsArchivePresentationItem[] };
-      if (payload.day === day && typeof payload.today === "string" && Array.isArray(payload.archiveItems) && Array.isArray(payload.availableDays)) {
-        setState({ day: payload.day, today: payload.today, items: payload.archiveItems, availableDays: payload.availableDays });
+      const payload = parseNewsArchiveResponse(await res.json(), day);
+      if (payload) {
+        setState(payload);
         setQuery("");
         syncUrl(payload.day, activeTags);
       } else {
