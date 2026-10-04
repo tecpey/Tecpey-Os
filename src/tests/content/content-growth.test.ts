@@ -33,7 +33,6 @@ import {
   getNewsImpactDetailPath,
   getHighPriorityNewsForCoin,
   getHighPriorityNewsForTool,
-  getNewsImpactScoreForTool,
   type NewsImpactHistoryItem,
 } from "../../lib/news-impact-history";
 import {
@@ -392,7 +391,7 @@ describe("Content growth entity contract", () => {
     );
     assert.equal(faRadar.coins.length, 5);
     assert.equal(faRadar.tools.length, 5);
-    assert.ok(faRadar.coins.every((coin) => coin.impactNews.priority >= 75));
+    assert.ok(faRadar.coins.every((coin) => coin.newsEvidence.publishedAt));
     assert.ok(faRadar.coins.every((coin) => coin.newsDetailPath.startsWith("/crypto-news/")));
     assert.ok(enRadar.coins.every((coin) => coin.newsDetailPath.startsWith("/en/crypto-news/")));
     assert.equal(faRadar.evidence.status, "degraded");
@@ -433,14 +432,13 @@ describe("Content growth entity contract", () => {
     const radar = getLandingGrowthRadarFromNewsItems("fa", newsItems, {
       sourceAuthority: "news-impact-history:materialized",
       authorityUpdatedAt: "2026-08-09T08:00:00.000Z",
-      authorityHighPriorityNewsCount: newsItems.filter((item) => item.priority >= 75).length,
       now: "2026-08-09T08:04:00.000Z",
     });
 
     assert.equal(radar.evidence.status, "ready");
     assert.equal(radar.evidence.sourceAuthority, "news-impact-history:materialized");
     assert.equal(radar.evidence.authorityFreshnessAgeMs, 240000);
-    assert.ok(radar.evidence.authorityHighPriorityNewsCount >= 5);
+    assert.ok(radar.evidence.recentNewsEvidenceCount >= 5);
   });
 
   it("builds landing ItemList schemas for featured coins and tools", () => {
@@ -460,14 +458,10 @@ describe("Content growth entity contract", () => {
     assert.equal(toolItems[0].url, "https://tecpey.ir/en/trading-tools/coinmarketcap");
   });
 
-  it("uses high-priority news impact as ranking evidence for tools", () => {
-    assert.equal(getNewsImpactScoreForTool("tradingview"), 0.94);
-    assert.equal(getNewsImpactScoreForTool("unknown-tool"), 0);
-
-    assert.deepEqual(
-      getHighPriorityNewsForTool("coinglass", "fa", 2).map((item) => item.id),
-      ["fa-security-phishing-risk-tools", "fa-derivatives-liquidation-coinglass"],
-    );
+  it("keeps tool ranking independent from news impact heuristics", () => {
+    const tools = getFeaturedTraderTools(7);
+    assert.equal(tools.length, 7);
+    assert.ok(tools.every((tool) => Number.isFinite(tool.growthRank.rankScore)));
   });
 
   it("returns high-priority news history for coin pages", () => {
@@ -680,9 +674,9 @@ describe("Content growth entity contract", () => {
     );
 
     assert.equal(radar.coins[0].symbol, "BTC");
-    assert.equal(radar.coins[0].latestImpactTitle, "Persisted Bitcoin ETF flows update");
+    assert.equal(radar.coins[0].latestNewsTitle, "Persisted Bitcoin ETF flows update");
     assert.equal(radar.coins[0].newsDetailPath, "/en/crypto-news/btc-etf-flows-tradingview-cmc");
-    assert.equal(radar.coins[0].impactRankScore, 0.98);
+    assert.ok(radar.coins[0].newsEvidence.publishedAt);
     assert.equal(radar.evidence.status, "degraded");
     assert.equal(radar.evidence.coinCount, 1);
     assert.equal(radar.evidence.toolCount, 5);
