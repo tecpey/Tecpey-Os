@@ -161,17 +161,18 @@ export function selectPublicStoryClusterRepresentatives(
     const previousIsFactual = previous.storyEvidenceChannel === "factual_publisher";
     if (
       candidateIsFactual && !previousIsFactual
-      || 
-      candidateTime > previousTime
-      || (
-        candidateTime === previousTime
-        && item.storyClusterMembership === "canonical"
-        && previous.storyClusterMembership !== "canonical"
-      )
-      || (
-        candidateTime === previousTime
-        && item.storyClusterMembership === previous.storyClusterMembership
-        && item.archiveId.localeCompare(previous.archiveId) < 0
+      || candidateIsFactual === previousIsFactual && (
+        candidateTime > previousTime
+        || (
+          candidateTime === previousTime
+          && item.storyClusterMembership === "canonical"
+          && previous.storyClusterMembership !== "canonical"
+        )
+        || (
+          candidateTime === previousTime
+          && item.storyClusterMembership === previous.storyClusterMembership
+          && item.archiveId.localeCompare(previous.archiveId) < 0
+        )
       )
     ) {
       selected.set(key, item);
