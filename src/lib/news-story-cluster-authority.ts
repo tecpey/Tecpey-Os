@@ -27,7 +27,7 @@ export type StoryClusterEvidence = {
 export type StoryCluster = {
   clusterId: string; seedArchiveId: string; canonicalEventKey: string;
   members: Array<{ archiveId: string; membership: StoryClusterMembership; evidence: StoryClusterEvidence | null }>;
-  independentSourceCount: number; conflictingViewpointCount: number; socialEvidenceCount: number; decisionEvidence: StoryClusterEvidence[];
+  independentSourceCount: number; factualSourceCount: number; conflictingViewpointCount: number; socialEvidenceCount: number; decisionEvidence: StoryClusterEvidence[];
 };
 
 function normalize(value: string): string {
@@ -217,6 +217,7 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
         canonicalEventKey: eventKeys(item)[0],
         members: [{ archiveId: item.archiveId, membership: "canonical", evidence: null }],
         independentSourceCount: 1,
+        factualSourceCount: factualCorroborationDecision(evidenceChannel(item)).eligible ? 1 : 0,
         conflictingViewpointCount: 0,
         socialEvidenceCount: factualCorroborationDecision(evidenceChannel(item)).eligible ? 0 : 1,
         decisionEvidence: [],
@@ -231,6 +232,11 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
     });
     selected.cluster.decisionEvidence.push(selected.evidence);
     selected.cluster.independentSourceCount = new Set(
+      selected.cluster.members
+        .map((member) => byId.get(member.archiveId)?.sourceDomain)
+        .filter(Boolean),
+    ).size;
+    selected.cluster.factualSourceCount = new Set(
       selected.cluster.members
         .filter((member) => {
           const candidate = byId.get(member.archiveId);
@@ -303,7 +309,9 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
 
   for (const cluster of clusters) {
     const evidence = { policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION, generatedAt: now, canonicalEventKey: cluster.canonicalEventKey,
-      memberCount: cluster.members.length, independentSourceCount: cluster.independentSourceCount,
+      memberCount: cluster.members.length,
+      independentSourceCount: cluster.independentSourceCount,
+      factualSourceCount: cluster.factualSourceCount,
       conflictingViewpointCount: cluster.conflictingViewpointCount,
       socialEvidenceCount: cluster.socialEvidenceCount,
       decisions: cluster.decisionEvidence,
