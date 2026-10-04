@@ -14,6 +14,7 @@ type Props = {
   itemsPerPage: number;
   isLoading?: boolean;
   now: number;
+  detailsLabel: string;
 };
 
 export default function MarketsTable({
@@ -23,6 +24,7 @@ export default function MarketsTable({
   USDT_IRT,
   isLoading = false,
   now,
+  detailsLabel,
 }: Props) {
   const gridClass = useMemo(() => {
     return isIRTenabled
@@ -70,7 +72,7 @@ export default function MarketsTable({
               isFresh={fresh.has(coin)}
               isIRTenabled={isIRTenabled}
               USDT_IRT={USDT_IRT}
-              detailsLabel={t("chart")}
+              detailsLabel={detailsLabel}
               priceLabel={priceLabel}
               priceIrtLabel={t("priceIrt")}
               volumeLabel={t("volume")}
