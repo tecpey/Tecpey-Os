@@ -142,7 +142,7 @@ describe("news story cluster authority", () => {
       item(),
       item({
         archiveId: "00000000-0000-4000-8000-000000000004",
-        title: "Bitcoin ETF filing reported by regulator",
+        title: "SEC approves Bitcoin ETF application today",
       }),
       { provider: "multilingual-embedding-v1", score: 0.99, usedForDecision: false },
     );
