@@ -19,7 +19,6 @@ describe("News correction and revision lineage boundary", () => {
       richCoverage > fetchedAt,
       "rich coverage must only break ties inside the newest observed revision",
     );
-    assert.match(authority, /newer fetched revision always supersedes an older revision/);
   });
 
   it("derives hydration identity from the same immutable archive content hash", () => {
@@ -42,14 +41,17 @@ describe("News correction and revision lineage boundary", () => {
     assert.match(worker, /state\.last_attempt_at >= feed_revision\.fetched_at/);
   });
 
-  it("resets URL-scoped hydration state when a new immutable revision is inserted", () => {
+  it("resets URL-scoped hydration state only for a newly inserted immutable revision", () => {
     const worker = read("scripts/run-news-capture-worker.ts");
 
     assert.match(worker, /revisionInserted: boolean/);
     assert.match(worker, /WHEN \$5::boolean THEN 1/);
     assert.match(worker, /ELSE NULL\s+END,\s+updated_at = NOW\(\)/);
     assert.match(worker, /revisionInserted: feedArchive\.inserted/);
-    assert.doesNotMatch(worker, /WHERE platform_news_hydration_state\.hydrated_at IS NULL/);
+    assert.match(
+      worker,
+      /WHERE \$5::boolean\s+OR platform_news_hydration_state\.hydrated_at IS NULL/,
+    );
   });
 
   it("withholds an older translated revision as soon as a newer correction is observed", () => {

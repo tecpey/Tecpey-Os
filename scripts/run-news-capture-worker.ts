@@ -426,6 +426,8 @@ async function persistHydrationAttemptTx(
          ELSE NULL
        END,
        updated_at = NOW()
+     WHERE $5::boolean
+        OR platform_news_hydration_state.hydrated_at IS NULL
      RETURNING attempt_count`,
     [
       input.article.articleUrl,
@@ -438,7 +440,9 @@ async function persistHydrationAttemptTx(
 
   const persisted = state.rows[0];
   if (!persisted) {
-    throw new Error("news_hydration_attempt_persist_missing");
+    // A same-revision replay lost the race to terminal rich evidence.
+    // A newly inserted revision bypasses the guard through $5 and resets state.
+    return;
   }
 
   const attemptCount = Number(persisted.attempt_count);
