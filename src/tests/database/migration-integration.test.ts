@@ -410,6 +410,9 @@ describe("PostgreSQL migration authority", () => {
             ADD CONSTRAINT ai_workflow_run_evidence_legacy_status_key
             UNIQUE (tenant_id, run_id, status);
 
+          DROP TABLE IF EXISTS platform_news_story_relations CASCADE;
+          DROP TABLE IF EXISTS platform_news_story_cluster_members CASCADE;
+          DROP TABLE IF EXISTS platform_news_story_clusters CASCADE;
           DROP TABLE IF EXISTS platform_news_ai_provider_attempts CASCADE;
           DROP TABLE IF EXISTS platform_news_ai_budget_daily CASCADE;
           DROP TABLE IF EXISTS platform_news_archive_translations CASCADE;
