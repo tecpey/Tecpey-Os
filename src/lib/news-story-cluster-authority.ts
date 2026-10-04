@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { NewsTaxonomyMatch } from "./news-taxonomy";
+import { classifyNewsEvidenceChannel, factualCorroborationDecision, type NewsEvidenceChannel } from "./news-evidence-channel-authority";
 
 export const NEWS_STORY_CLUSTER_POLICY_VERSION = "story-cluster-v1";
 const MAX_CANDIDATE_HOURS = 36;
@@ -10,6 +11,7 @@ const DISTINCT_VIEWPOINT_JACCARD = 0.40;
 export type StoryClusterCandidate = {
   archiveId: string; sourceName: string; sourceDomain: string; articleUrl: string;
   title: string; lead: string; publishedAt: string; taxonomy: NewsTaxonomyMatch;
+  channel?: NewsEvidenceChannel;
 };
 export type StoryClusterMembership = "canonical" | "corroborating" | "distinct_viewpoint" | "conflicting_viewpoint";
 export type StoryClusterEvidence = {
@@ -17,13 +19,15 @@ export type StoryClusterEvidence = {
   candidateGeneration: { eventKeys: string[]; sharedEntities: string[]; hoursApart: number };
   titleJaccard: number; sharedEntityCount: number; sourceIndependent: boolean;
   conflictSignals: string[];
+  sourceChannel: NewsEvidenceChannel;
+  factualCorroborationEligible: boolean;
   embeddingEvidence: { provider: string | null; score: number | null; usedForDecision: false };
   decision: "merge" | "preserve_distinct";
 };
 export type StoryCluster = {
   clusterId: string; seedArchiveId: string; canonicalEventKey: string;
   members: Array<{ archiveId: string; membership: StoryClusterMembership; evidence: StoryClusterEvidence | null }>;
-  independentSourceCount: number; conflictingViewpointCount: number; decisionEvidence: StoryClusterEvidence[];
+  independentSourceCount: number; conflictingViewpointCount: number; socialEvidenceCount: number; decisionEvidence: StoryClusterEvidence[];
 };
 
 function normalize(value: string): string {
@@ -113,8 +117,14 @@ function candidatePairs(items: readonly StoryClusterCandidate[]): Array<readonly
   );
 }
 function hoursApart(a: string, b: string): number { return Math.abs(Date.parse(a) - Date.parse(b)) / 3_600_000; }
+function evidenceChannel(item: StoryClusterCandidate): NewsEvidenceChannel {
+  return item.channel ?? classifyNewsEvidenceChannel({ url: item.articleUrl });
+}
 function sourceIndependent(a: StoryClusterCandidate, b: StoryClusterCandidate): boolean {
-  return a.sourceDomain !== b.sourceDomain && a.sourceName !== b.sourceName;
+  return factualCorroborationDecision(evidenceChannel(a)).eligible
+    && factualCorroborationDecision(evidenceChannel(b)).eligible
+    && a.sourceDomain !== b.sourceDomain
+    && a.sourceName !== b.sourceName;
 }
 function clusterId(seedArchiveId: string): string {
   const d = createHash("sha256").update(`${NEWS_STORY_CLUSTER_POLICY_VERSION}\0${seedArchiveId}`).digest("hex");
@@ -133,6 +143,8 @@ export function compareStoryClusterCandidate(a: StoryClusterCandidate, b: StoryC
     policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION,
     candidateGeneration: { eventKeys: [canonicalEventKey], sharedEntities: shared, hoursApart: hoursApart(a.publishedAt, b.publishedAt) },
     titleJaccard, sharedEntityCount: shared.length, sourceIndependent: sourceIndependent(a, b), conflictSignals: conflicts,
+    sourceChannel: evidenceChannel(a),
+    factualCorroborationEligible: factualCorroborationDecision(evidenceChannel(a)).eligible,
     embeddingEvidence: { ...embeddingEvidence, usedForDecision: false }, decision: merge ? "merge" : "preserve_distinct",
   };
 }
@@ -206,6 +218,7 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
         members: [{ archiveId: item.archiveId, membership: "canonical", evidence: null }],
         independentSourceCount: 1,
         conflictingViewpointCount: 0,
+        socialEvidenceCount: factualCorroborationDecision(evidenceChannel(item)).eligible ? 0 : 1,
         decisionEvidence: [],
       });
       continue;
@@ -219,9 +232,17 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
     selected.cluster.decisionEvidence.push(selected.evidence);
     selected.cluster.independentSourceCount = new Set(
       selected.cluster.members
+        .filter((member) => {
+          const candidate = byId.get(member.archiveId);
+          return candidate && factualCorroborationDecision(evidenceChannel(candidate)).eligible;
+        })
         .map((member) => byId.get(member.archiveId)?.sourceDomain)
         .filter(Boolean),
     ).size;
+    selected.cluster.socialEvidenceCount = selected.cluster.members.filter((member) => {
+      const candidate = byId.get(member.archiveId);
+      return candidate ? !factualCorroborationDecision(evidenceChannel(candidate)).eligible : false;
+    }).length;
   }
   return clusters;
 }
@@ -283,7 +304,9 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
   for (const cluster of clusters) {
     const evidence = { policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION, generatedAt: now, canonicalEventKey: cluster.canonicalEventKey,
       memberCount: cluster.members.length, independentSourceCount: cluster.independentSourceCount,
-      conflictingViewpointCount: cluster.conflictingViewpointCount, decisions: cluster.decisionEvidence,
+      conflictingViewpointCount: cluster.conflictingViewpointCount,
+      socialEvidenceCount: cluster.socialEvidenceCount,
+      decisions: cluster.decisionEvidence,
       optionalEmbeddingEvidence: "not-used-for-decision" };
     const decisionHash = createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
     await client.query(`INSERT INTO platform_news_story_clusters
