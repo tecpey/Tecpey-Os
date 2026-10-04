@@ -30,6 +30,7 @@ export default function MarketsTable({
       : "grid-cols-[1.25fr_.9fr_.78fr_.62fr_.76fr_.78fr]";
   }, [isIRTenabled]);
   const fresh = new Set(selectFreshPublicMarketRows(rows, now));
+  const priceLabel = t("priceUsdt").replace(/\s*\([^)]*\)\s*$/, "");
 
   if (isLoading) {
     return <PriceTableSkeleton rows={12} hasIRT={isIRTenabled} />;
@@ -49,32 +50,35 @@ export default function MarketsTable({
   }
 
   return (
-    <div className="w-full h-full px-2 sm:px-4 md:px-0">
-      <div className="mx-auto max-w-[1480px] rounded-[26px] border border-cyan-300/20 bg-white/58 backdrop-blur-xl overflow-hidden shadow-[0_18px_65px_rgba(15,23,42,0.08)] dark:bg-slate-950/58">
-        <div className="w-full overflow-x-auto table-scroll">
-          <div className={`grid min-w-[860px] ${gridClass} items-center gap-2 px-3 sm:px-5 h-[46px] border-b border-cyan-300/15 bg-white/25 dark:bg-white/[0.025]`}>
-             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("coin")}</span>
-             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">قیمت</span>
-             {isIRTenabled && <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("priceIrt")}</span>}
-             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("volume")}</span>
-             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("change")}</span>
-             <span className="text-[10px] sm:text-[11px] font-semibold text-muted">{t("chart")}</span>
-             <span></span>
-          </div>
+    <div className="h-full w-full px-2 sm:px-4 md:px-0">
+      <div className="mx-auto max-w-[1480px] overflow-hidden rounded-[26px] border border-cyan-300/20 bg-white/58 shadow-[0_18px_65px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:bg-slate-950/58">
+        <div className={`hidden h-[46px] ${gridClass} items-center gap-2 border-b border-cyan-300/15 bg-white/25 px-5 dark:bg-white/[0.025] lg:grid`}>
+          <span className="text-[11px] font-semibold text-muted">{t("coin")}</span>
+          <span className="text-[11px] font-semibold text-muted">{priceLabel}</span>
+          {isIRTenabled && <span className="text-[11px] font-semibold text-muted">{t("priceIrt")}</span>}
+          <span className="text-[11px] font-semibold text-muted">{t("volume")}</span>
+          <span className="text-[11px] font-semibold text-muted">{t("change")}</span>
+          <span className="text-[11px] font-semibold text-muted">{t("chart")}</span>
+          <span aria-hidden="true" />
+        </div>
 
-          <div className="min-w-[860px] divide-y divide-cyan-300/15">
-            {rows.map((coin) => (
-              <MarketsTableRow
-                key={coin.id}
-                coin={coin}
-                isFresh={fresh.has(coin)}
-                isIRTenabled={isIRTenabled}
-                USDT_IRT={USDT_IRT}
-                detailsLabel={t("chart")}
-                gridClass={gridClass}
-              />
-            ))}
-          </div>
+        <div className="divide-y divide-cyan-300/15">
+          {rows.map((coin) => (
+            <MarketsTableRow
+              key={coin.id}
+              coin={coin}
+              isFresh={fresh.has(coin)}
+              isIRTenabled={isIRTenabled}
+              USDT_IRT={USDT_IRT}
+              detailsLabel={t("chart")}
+              priceLabel={priceLabel}
+              priceIrtLabel={t("priceIrt")}
+              volumeLabel={t("volume")}
+              changeLabel={t("change")}
+              unavailableLabel={t("unavailableTitle")}
+              gridClass={gridClass}
+            />
+          ))}
         </div>
       </div>
     </div>
