@@ -52,7 +52,9 @@ function sharedEntities(a: StoryClusterCandidate, b: StoryClusterCandidate): str
   const left = new Set(entityKeys(a)); const right = new Set(entityKeys(b));
   return [...left].filter((value) => right.has(value)).sort();
 }
-function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): string[] {
+function containsNormalizedTerm(value: string, term: string): boolean {
+  const normalized = normalize(value);
+  const escaped = term.replace(/[.*+?^\${}()|[\]\\]/g, "\\function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): string[] {
   const left = tokens(a.title + " " + a.lead);
   const right = tokens(b.title + " " + b.lead);
   const pairs = [
@@ -67,6 +69,30 @@ function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): st
     if (
       (left.has(affirmative) && right.has(negative))
       || (left.has(negative) && right.has(affirmative))
+    ) {
+      hits.push(affirmative + "↔" + negative);
+    }
+  }
+  return [...new Set(hits)].sort();
+}");
+  return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`, "u").test(normalized);
+}
+
+function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): string[] {
+  const left = a.title + " " + a.lead;
+  const right = b.title + " " + b.lead;
+  const pairs = [
+    ["approve", "reject"], ["approved", "rejected"], ["accept", "deny"], ["confirm", "deny"],
+    ["confirms", "denies"], ["launch", "cancel"], ["launched", "cancelled"], ["wins", "loses"],
+    ["win", "lose"], ["up", "down"], ["rise", "fall"], ["rises", "falls"],
+    ["increase", "decrease"], ["increases", "decreases"],
+    ["تایید", "رد"], ["قبول", "رد"], ["افزایش", "کاهش"],
+  ];
+  const hits: string[] = [];
+  for (const [affirmative, negative] of pairs) {
+    if (
+      (containsNormalizedTerm(left, affirmative) && containsNormalizedTerm(right, negative))
+      || (containsNormalizedTerm(left, negative) && containsNormalizedTerm(right, affirmative))
     ) {
       hits.push(affirmative + "↔" + negative);
     }
