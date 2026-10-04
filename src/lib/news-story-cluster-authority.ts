@@ -127,8 +127,13 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
   const items = rows.rows.map((row) => ({ archiveId: row.archive_id, sourceName: row.source_name, sourceDomain: row.source_domain,
     articleUrl: row.article_url, title: row.title, lead: row.lead, publishedAt: new Date(row.published_at).toISOString(), taxonomy: row.taxonomy }));
   const clusters = buildDeterministicStoryClusters(items);
-  if (items.length) await client.query(`DELETE FROM platform_news_story_cluster_members WHERE archive_id = ANY($1::uuid[])`, [items.map((i) => i.archiveId)]);
-  if (clusters.length) await client.query(`DELETE FROM platform_news_story_clusters WHERE seed_archive_id = ANY($1::uuid[])`, [clusters.map((c) => c.seedArchiveId)]);
+  const existing = await client.query<{ archive_id: string; cluster_id: string; membership: StoryClusterMembership }>(
+    `SELECT archive_id::text, cluster_id::text, membership
+       FROM platform_news_story_cluster_members
+      WHERE archive_id = ANY($1::uuid[])`,
+    [items.map((i) => i.archiveId)],
+  );
+  const existingByArchive = new Map(existing.rows.map((row) => [row.archive_id, row]));
   for (const cluster of clusters) {
     const evidence = { policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION, generatedAt: now, canonicalEventKey: cluster.canonicalEventKey,
       memberCount: cluster.members.length, independentSourceCount: cluster.independentSourceCount,
@@ -144,9 +149,16 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
       decision_hash=EXCLUDED.decision_hash, generated_at=EXCLUDED.generated_at, updated_at=NOW()`,
       [cluster.clusterId, NEWS_STORY_CLUSTER_POLICY_VERSION, cluster.seedArchiveId, cluster.canonicalEventKey, cluster.members.length,
         cluster.independentSourceCount, cluster.conflictingViewpointCount, JSON.stringify(evidence), decisionHash, now]);
-    for (const member of cluster.members) await client.query(`INSERT INTO platform_news_story_cluster_members
-      (cluster_id,archive_id,membership,evidence,assigned_at) VALUES ($1::uuid,$2::uuid,$3,$4::jsonb,$5::timestamptz)`,
-      [cluster.clusterId, member.archiveId, member.membership, JSON.stringify(member.evidence ?? { policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION, decision: "canonical" }), now]);
+    for (const member of cluster.members) {
+      const prior = existingByArchive.get(member.archiveId);
+      if (prior && (prior.cluster_id !== cluster.clusterId || prior.membership !== member.membership)) {
+        throw new Error(`news_story_cluster_reassignment_required:${member.archiveId}`);
+      }
+      if (prior) continue;
+      await client.query(`INSERT INTO platform_news_story_cluster_members
+        (cluster_id,archive_id,membership,evidence,assigned_at) VALUES ($1::uuid,$2::uuid,$3,$4::jsonb,$5::timestamptz)`,
+        [cluster.clusterId, member.archiveId, member.membership, JSON.stringify(member.evidence ?? { policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION, decision: "canonical" }), now]);
+    }
   }
   return { clusterCount: clusters.length, memberCount: items.length };
 }
