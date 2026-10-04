@@ -882,7 +882,8 @@ test("market search resets pagination before requesting the filtered result", as
   await expect(bitcoinRow).toBeVisible();
   await expect(bitcoinRow).toHaveAttribute("href", "/crypto/btc");
 
-  const nextPage = page.locator("button:has(svg.lucide-chevrons-right)");
+  const pagination = page.getByRole("navigation", { name: "صفحه‌بندی بازار" });
+  const nextPage = pagination.getByRole("button", { name: "صفحه بعد", exact: true });
   const pageTwoRequest = page.waitForResponse((candidate) => {
     const url = new URL(candidate.url());
     return url.pathname.endsWith("/api/v1/user/currency/list") &&
