@@ -152,9 +152,19 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
 
 export async function materializeStoryClustersTx(client: PoolClient, now: string, lookbackHours = 48): Promise<{ clusterCount: number; memberCount: number }> {
   const since = new Date(Date.parse(now) - lookbackHours * 3_600_000).toISOString();
-  const rows = await client.query<StoryClusterCandidate & { archive_id: string; published_at: string | Date }>(
-    `SELECT archive_id::text, source_name, source_domain, article_url, source_title AS title,
-            source_lead AS lead, published_at, taxonomy
+  type NewsStoryArchiveRow = {
+    archive_id: string;
+    source_name: string;
+    source_domain: string;
+    article_url: string;
+    source_title: string;
+    source_lead: string;
+    published_at: string | Date;
+    taxonomy: NewsTaxonomyMatch;
+  };
+  const rows = await client.query<NewsStoryArchiveRow>(
+    `SELECT archive_id::text, source_name, source_domain, article_url, source_title,
+            source_lead, published_at, taxonomy
        FROM platform_news_archive_items WHERE published_at >= $1::timestamptz
        ORDER BY published_at ASC, archive_id ASC`, [since]);
   const items = rows.rows.map((row) => ({ archiveId: row.archive_id, sourceName: row.source_name, sourceDomain: row.source_domain,
