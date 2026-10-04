@@ -577,6 +577,15 @@ async function iranMarketResponse() {
     ...comparisons.map((row) => Date.parse(row.updatedAt)),
   )).toISOString();
   const response = apiOk({
+    authority: primaryUsdtIrt
+      ? {
+          source: primaryUsdtIrt.source,
+          market: "USDTIRT",
+          price: primaryUsdtIrt.usdtIrt,
+          updatedAt: primaryUsdtIrt.updatedAt,
+          freshness: "Bitycle source_markets_frame.updated_at under 2 minutes with 30s future-skew guard",
+        }
+      : null,
     reference: {
       source: globalSource,
       market: "BTCUSDT",
