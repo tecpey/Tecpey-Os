@@ -189,7 +189,9 @@ FOR EACH ROW EXECUTE FUNCTION tecpey_reject_news_growth_mutation();
 `;
 
 function checksum(sql: string): string {
-  return createHash("sha256").update(sql.replace(/\r\n?/g, "\n").trim()).digest("hex");
+  return createHash("sha256").update(sql.replace(/\r
+?/g, "
+").trim()).digest("hex");
 }
 
 export async function runNewsArchiveAndGrowthMigrations(client: PoolClient): Promise<void> {
@@ -217,5 +219,6 @@ export async function runNewsArchiveAndGrowthMigrations(client: PoolClient): Pro
   // 0102 is an independent, forward-only authority migration. It must run even
   // on stores where 0098 is already present; changing 0098 itself is forbidden.
   await runNewsAiCostAuthorityMigrations(client);
-  // 0103 is a forward-only derived evidence authority; 0098 and 0102 remain immutable.\n  await runNewsStoryClusterAuthorityMigrations(client);
+  // 0103 is a forward-only derived evidence authority; 0098 and 0102 remain immutable.
+  await runNewsStoryClusterAuthorityMigrations(client);
 }
