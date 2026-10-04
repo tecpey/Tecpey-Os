@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import MarketsTableRow from "./MarketsTableRow";
 import PriceTableSkeleton from "../skeletons/PriceTableSkeletone";
 import type { MarketCurrency } from "@/types/market";
+import { selectFreshPublicMarketRows } from "@/lib/public-market-data";
 
 type Props = {
   t: (key: string) => string;
@@ -12,6 +13,7 @@ type Props = {
   USDT_IRT?: number | string | null;
   itemsPerPage: number;
   isLoading?: boolean;
+  now: number;
 };
 
 export default function MarketsTable({
@@ -20,12 +22,14 @@ export default function MarketsTable({
   isIRTenabled,
   USDT_IRT,
   isLoading = false,
+  now,
 }: Props) {
   const gridClass = useMemo(() => {
     return isIRTenabled
       ? "grid-cols-[1.25fr_.82fr_.9fr_.72fr_.58fr_.72fr_.78fr]"
       : "grid-cols-[1.25fr_.9fr_.78fr_.62fr_.76fr_.78fr]";
   }, [isIRTenabled]);
+  const fresh = new Set(selectFreshPublicMarketRows(rows, now));
 
   if (isLoading) {
     return <PriceTableSkeleton rows={12} hasIRT={isIRTenabled} />;
@@ -63,6 +67,7 @@ export default function MarketsTable({
               <MarketsTableRow
                 key={coin.id}
                 coin={coin}
+                isFresh={fresh.has(coin)}
                 isIRTenabled={isIRTenabled}
                 USDT_IRT={USDT_IRT}
                 detailsLabel={t("chart")}

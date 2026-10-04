@@ -41,6 +41,7 @@ function timestampLabel(value: unknown, locale: "fa" | "en"): string | null {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZone: "Asia/Tehran",
   }).format(date);
 }
 
@@ -56,13 +57,13 @@ export default function MarketDataProvenance({
   const upstream = compactText(provenance?.upstreamSource);
   const currency = compactText(provenance?.currency, 20);
   const updated = timestampLabel(
-    provenance?.upstreamUpdatedAt ?? provenance?.fetchedAt,
+    provenance?.upstreamUpdatedAt,
     locale,
   );
 
   return (
     <p
-      className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] font-bold text-muted"
+      className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs font-bold text-muted"
       role="status"
       aria-live="polite"
     >
@@ -72,7 +73,7 @@ export default function MarketDataProvenance({
           href={providerHref}
           target="_blank"
           rel="noreferrer"
-          className="font-black text-primary underline underline-offset-4"
+          className="inline-flex min-h-11 items-center font-black text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
         >
           {provider}
         </a>
@@ -81,7 +82,7 @@ export default function MarketDataProvenance({
       )}
       {upstream ? <span>· {text.upstream}: {upstream}</span> : null}
       {currency ? <span>· {text.currency}: {currency}</span> : null}
-      {updated ? <span>· {text.updated}: {updated}</span> : null}
+      {updated ? <span>· {text.updated}: <time dateTime={provenance?.upstreamUpdatedAt ?? undefined}>{updated}</time></span> : null}
       {provenance?.fallback === true ? (
         <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-black text-amber-600 dark:text-amber-300">
           {text.fallback}

@@ -8,6 +8,8 @@ import MarketsHero from "../../components/markets/MarketsHero";
 import MarketsSearchBar from "../../components/markets/MarketsSearchBar";
 import MarketsTable from "../../components/markets/MarketsTable";
 import IranMarketIntelligence from "../../components/markets/IranMarketIntelligence";
+import MarketFreshnessStatus from "@/components/markets/MarketFreshnessStatus";
+import { useMarketFreshnessClock } from "@/hooks/useMarketFreshnessClock";
 import MarketDataProvenance from "../../components/markets/MarketDataProvenance";
 
 import { useQuery } from "@tanstack/react-query";
@@ -87,9 +89,18 @@ export default function MarketsPageClient({
   // view (page 1, no search, no filter) — see src/app/markets/page.tsx.
   const isDefaultView = currentPage === 1 && !debouncedQuery && filter === "all";
 
-  const { data, isFetching } = useQuery({
+  const now = useMarketFreshnessClock();
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["market-currencies", currentPage, LIMIT, debouncedQuery, filter],
-    queryFn: () => getCurrencies(currentPage, LIMIT, debouncedQuery),
+    queryFn: async () => {
+      const result = await getCurrencies(currentPage, LIMIT, debouncedQuery);
+      if (!result.data.length && !result.provenance) throw new Error("market_data_unavailable");
+      return result;
+    },
+    retry: false,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: "always",
     staleTime: 15_000,
     gcTime: 5 * 60_000,
     placeholderData: (previousData) => previousData,
@@ -192,7 +203,9 @@ export default function MarketsPageClient({
           <div className="flex flex-col gap-4 lg:flex-row">
             <div className="w-full">
               <div className="relative mt-3">
+                <MarketFreshnessStatus rows={processedCurrencies} now={now} locale="fa" isFetching={isFetching} isError={isError} onRefresh={() => { void refetch(); }} />
                 <MarketsTable
+                  now={now}
                   t={t}
                   rows={processedCurrencies}
                   isIRTenabled={isIRTenabled}
@@ -203,9 +216,6 @@ export default function MarketsPageClient({
 
                 <MarketDataProvenance provenance={effectiveResult?.provenance} locale="fa" />
 
-                {isFetching && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"></div>
-                )}
               </div>
 
               {totalPages > 1 && (

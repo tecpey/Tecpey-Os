@@ -12,7 +12,7 @@ export default function MarketsHero({ t: _t }: Props) {
           مارکت برد آنلاین
         </h1>
         <p className="mt-3 text-sm font-bold leading-7 text-slate-500 dark:text-slate-300">
-          قیمت لحظه‌ای رمزارزها از سرویس بازار تک‌پی؛ جست‌وجو، مقایسه و بررسی قبل از معامله
+          قیمت‌های در دسترس رمزارزها از سرویس بازار تک‌پی؛ جست‌وجو، مقایسه و بررسی قبل از معامله
         </p>
       </div>
     </section>

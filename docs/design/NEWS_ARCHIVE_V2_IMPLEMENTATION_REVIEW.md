@@ -67,3 +67,16 @@ Four policy cases and four route cases cover mixed-provider expiry, cache lifeti
 Scope is the public market-list origin response and its cache directives. Already-rendered client prices, React Query cache/polling/visibility handling, market-row degraded UX, Iranian comparison/other endpoints, actual CDN override validation and complete source-specific freshness acceptance remain open. No market-data, trading, funds or release authority is granted.
 
 Primary references (accessed 2026-10-03): RFC 9111 sections 5.2.2.2 and 5.2.2.10, https://www.rfc-editor.org/rfc/rfc9111.html, specify revalidation and shared-cache lifetime; https://docs.coingecko.com/reference/coins-markets documents the upstream timestamp field. Source thresholds are existing TecPey policy, not provider guarantees.
+
+### Open-page market validity and recovery
+
+| Before | After | Why |
+| --- | --- | --- |
+| Cached prices could remain visible beyond the source validity window. | Both market locales check the existing provider/timestamp policy every second and immediately on focus or visibility changes. Expired or unverifiable prices, movement and dependent charts are masked; asset identity remains. | Fetching a cached snapshot does not renew upstream data age. |
+| Failed fetches could replace the board with an ambiguous empty result. | Failed acquisition becomes a query error, preserving the previous asset list and offering a keyboard-accessible 44px refresh control with an explicit recovery message. | Readers retain context and a direct recovery action. |
+| Fetching was a transparent interaction-blocking overlay in Persian. | A shared bilingual status panel communicates validity and retrieval; refresh retains focus. | State must remain visible and actionable. |
+| Provenance could substitute observation time for source time. | The label uses only the upstream timestamp, rendered deterministically in Asia/Tehran. | Observation is not price publication authority. |
+
+The external-store clock starts from a deterministic unknown server snapshot; values become eligible after client subscription. Its single shared timer is removed when subscribers leave. Visible pages request updates every 30 seconds and on focus; retries are explicit, with no background polling. The one-second check is not a guarantee of zero-latency expiry or accurate device time. Existing server cache deadlines remain authoritative. Unknown providers fail closed. IRT conversion-rate freshness, other price surfaces, physical touch, Safari and complete product accessibility remain outside this slice.
+
+Primary implementation references: [React external-store subscriptions and hydration](https://react.dev/reference/react/useSyncExternalStore), [TanStack Query polling and focus options](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery), and [Playwright controlled clock](https://playwright.dev/docs/clock). The browser fixture checks expiry, failed retrieval, keyboard recovery, focus resumption and viewport overflow in both governed browser engines and locales; it is synthetic evidence, not live-provider certification.

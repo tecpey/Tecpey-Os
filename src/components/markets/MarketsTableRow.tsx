@@ -13,6 +13,7 @@ type Props = {
   USDT_IRT?: number | string | null;
   detailsLabel: string;
   gridClass: string;
+  isFresh: boolean;
 };
 
 export default function MarketsTableRow({
@@ -21,20 +22,21 @@ export default function MarketsTableRow({
   USDT_IRT,
   detailsLabel,
   gridClass,
+  isFresh,
 }: Props) {
   const router = useRouter();
 
   const rawChange = coin.priceData?.changePercent;
   const change = rawChange === null || rawChange === undefined ? null : Number(rawChange);
-  const hasChange = change !== null && Number.isFinite(change);
+  const hasChange = isFresh && change !== null && Number.isFinite(change);
   const isUp = hasChange && change >= 0;
   const rawPrice = coin.priceData?.last;
-  const hasPrice = rawPrice !== null && rawPrice !== undefined && Number.isFinite(Number(rawPrice));
+  const hasPrice = isFresh && rawPrice !== null && rawPrice !== undefined && Number.isFinite(Number(rawPrice));
   const rawVolume = coin.priceData?.volume;
-  const hasVolume = rawVolume !== null && rawVolume !== undefined && Number.isFinite(Number(rawVolume));
+  const hasVolume = isFresh && rawVolume !== null && rawVolume !== undefined && Number.isFinite(Number(rawVolume));
 
   const irtPrice =
-    USDT_IRT && coin.priceData?.last
+    isFresh && USDT_IRT && coin.priceData?.last
       ? Number(coin.priceData.last) * Number(USDT_IRT)
       : null;
 
@@ -43,11 +45,14 @@ export default function MarketsTableRow({
 
   return (
     <div
+      data-market-asset={coin.symbol}
+      data-price-current={isFresh}
       role="button"
       tabIndex={0}
       onClick={() => router.push(href)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
           router.push(href);
         }
       }}
@@ -74,7 +79,7 @@ export default function MarketsTableRow({
         </div>
       </div>
 
-      <p className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
+      <p aria-label={hasPrice ? undefined : "قیمت در دسترس نیست"} className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
         {hasPrice ? handleDecimal(rawPrice) : "—"}
       </p>
 
