@@ -124,3 +124,12 @@ A successful HTTP response previously committed any `archiveItems` array before 
 Twelve direct tests cover valid/empty batches, malformed dates/text/taxonomy/flags/links, mixed batches, duplicate IDs and future archived publication. The existing four-project recovery case now exercises 503 → mismatched day → invalid publication → valid recovery, checking preserved context and no runtime error. Future archived publication remains admissible evidence and retains the independent recent/publication-eligibility rules.
 
 This checks client-rendered fields of fetched responses, not every backend field, initial server props, publisher authority, URL/source licensing or live provider correctness. Server presentation and media rights remain authoritative. Primary language reference: https://tc39.es/ecma402/#sec-datetime-format-functions (finite date-value requirement); status semantics: https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html .
+
+
+### Populated recovery and server-day rollover
+
+The browser recovery fixture now retains a populated archive while a later response contains malformed taxonomy. It verifies the story identity/title/source/publication, search, active tag, displayed day and exact URL survive; a subsequent valid empty day replaces the archive without substituting old stories. The fixture also advances the server's `today` across a day boundary. URL synchronization on successful retrieval now uses the accepted response's `today`, rather than the previous render's captured day. Thus selecting yesterday after midnight retains an explicit date instead of changing reload semantics to today's archive. Later tag/clear actions use the committed state's day authority.
+
+Evidence uses controlled calendar metadata and HTTP responses in all four browser/locale projects; it does not advance the actual provider pipeline or certify physical-device midnight timing. No additional persistence, server authority or release permission is introduced.
+
+Primary state reference: https://react.dev/learn/state-as-a-snapshot — updating React state does not replace the snapshot captured by an in-flight event handler. The accepted response supplies the calendar authority for the successful URL update.

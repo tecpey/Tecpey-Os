@@ -122,9 +122,9 @@ export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initia
   const newer = dayIndex > 0 ? state.availableDays[dayIndex - 1] : null;
   const older = dayIndex >= 0 && dayIndex + 1 < state.availableDays.length ? state.availableDays[dayIndex + 1] : null;
 
-  function syncUrl(day: string, tagsToSync: string[]) {
+  function syncUrl(day: string, tagsToSync: string[], today = state.today) {
     const params = new URLSearchParams();
-    if (day !== state.today) params.set("date", day);
+    if (day !== today) params.set("date", day);
     for (const tag of tagsToSync) params.append("tag", tag.replace(/^topic:/, ""));
     const queryString = params.toString();
     window.history.replaceState(null, "", `${locale === "en" ? "/en" : ""}/crypto-news${queryString ? `?${queryString}` : ""}`);
@@ -142,7 +142,7 @@ export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initia
       if (payload) {
         setState(payload);
         setQuery("");
-        syncUrl(payload.day, activeTags);
+        syncUrl(payload.day, activeTags, payload.today);
       } else {
         throw new Error("Invalid archive response");
       }
