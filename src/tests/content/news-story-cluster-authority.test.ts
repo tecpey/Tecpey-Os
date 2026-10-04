@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   NEWS_STORY_CLUSTER_POLICY_VERSION,
   buildDeterministicStoryClusters,
+  buildStoryRelations,
   compareStoryClusterCandidate,
   type StoryClusterCandidate,
 } from "../../lib/news-story-cluster-authority";
