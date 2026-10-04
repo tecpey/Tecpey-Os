@@ -233,6 +233,10 @@ export async function readNewsArchiveDayForPresentationTx(
             translation.translated_title,
             translation.translated_lead,
             translation.translated_body,
+            story_cluster.cluster_id AS story_cluster_id,
+            story_cluster_members.membership AS story_cluster_membership,
+            story_cluster.member_count AS story_cluster_member_count,
+            story_cluster.independent_source_count AS story_cluster_independent_source_count,
             internal_news.news_url
        FROM latest_article article
        LEFT JOIN LATERAL (
