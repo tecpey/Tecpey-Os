@@ -445,6 +445,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(101, "migration-step-101", CANONICAL_MIGRATION_CONTENT.modelLabExecutionAuthority, "ai-platform-security", "ai-model-lab", runModelLabExecutionAuthorityMigrations),
   entry(102, "migration-step-102", CANONICAL_MIGRATION_CONTENT.modelEvaluationAuthority, "ai-platform-security", "ai-model-lab", runAiModelEvaluationAuthorityMigrations),
   entry(103, "migration-step-103", CANONICAL_MIGRATION_CONTENT.academyV3MissionEvidence, "academy-platform", "academy", runAcademyV3MissionEvidenceMigrations),
+  entry(104, "migration-step-104", CANONICAL_MIGRATION_CONTENT.newsStoryClusterAuthority, "growth-platform", "organic-growth", runNewsStoryClusterAuthorityMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
