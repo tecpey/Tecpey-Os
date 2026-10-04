@@ -14,6 +14,7 @@ import { fetchNewsPublisherEvidence } from "../src/lib/news-publisher-evidence";
 import { validNewsPublishedAt } from "../src/lib/news-published-at";
 import {
   canonicalPublisherUrl,
+  newsArchiveContentHash,
   persistNewsArchiveItemTx,
 } from "../src/lib/news-growth-authority";
 import {
@@ -72,6 +73,12 @@ type SourceCaptureResult = {
 type PreviousSourceHead = {
   articleUrl: string;
   publishedAt: string;
+};
+
+type HydrationResult = {
+  article: CaptureArticle;
+  outcome: NewsHydrationOutcome;
+  sourceRevisionIdentity: string;
 };
 
 function boundedIntegerEnv(name: string, fallback: number, minimum: number, maximum: number): number {
@@ -214,15 +221,30 @@ async function fetchSource(
   throw lastError;
 }
 
-
-type HydrationResult = {
-  article: CaptureArticle;
-  outcome: NewsHydrationOutcome;
-};
+function sourceRevision(article: CaptureArticle): {
+  articleUrl: string;
+  contentHash: string;
+  identity: string;
+} {
+  const articleUrl = canonicalPublisherUrl(article.articleUrl);
+  const contentHash = newsArchiveContentHash({
+    articleUrl,
+    sourceTitle: article.title,
+    sourceLead: article.lead,
+    sourceBody: article.body,
+    sourceCoverage: article.sourceCoverage,
+  });
+  return {
+    articleUrl,
+    contentHash,
+    identity: `${articleUrl}\0${contentHash}`,
+  };
+}
 
 async function hydratePublisherEvidence(
   article: CaptureArticle,
 ): Promise<HydrationResult> {
+  const sourceRevisionIdentity = sourceRevision(article).identity;
   const evidence = await fetchNewsPublisherEvidence({
     source: article.source,
     articleUrl: article.articleUrl,
@@ -247,6 +269,7 @@ async function hydratePublisherEvidence(
     return {
       article,
       outcome: evidence.hydrationOutcome,
+      sourceRevisionIdentity,
     };
   }
 
@@ -259,24 +282,47 @@ async function hydratePublisherEvidence(
       evidenceCharacterCount: evidence.sourceBodyCharacterCount,
     },
     outcome: "hydrated",
+    sourceRevisionIdentity,
   };
 }
 
-async function readAlreadyHydratedArticleUrls(
-  articleUrls: readonly string[],
+async function readAlreadyHydratedArticleIdentities(
+  articles: readonly CaptureArticle[],
 ): Promise<Set<string>> {
-  if (articleUrls.length === 0) return new Set();
+  if (articles.length === 0) return new Set();
+  const requested = articles.map(sourceRevision);
 
   const transaction = await withTx(async (client) => {
-    const result = await client.query<{ article_url: string }>(
-      `SELECT DISTINCT article_url
-         FROM platform_news_archive_items
-        WHERE article_url = ANY($1::text[])
-          AND source_coverage = 'article_full'`,
-      [articleUrls],
+    const result = await client.query<{ article_url: string; content_hash: string }>(
+      `WITH requested AS (
+         SELECT article_url, content_hash
+           FROM jsonb_to_recordset($1::jsonb)
+             AS x(article_url text, content_hash text)
+       ), feed_revision AS (
+         SELECT requested.article_url, requested.content_hash, archive.fetched_at
+           FROM requested
+           JOIN platform_news_archive_items archive
+             ON archive.article_url = requested.article_url
+            AND archive.content_hash = requested.content_hash
+       )
+       SELECT DISTINCT feed_revision.article_url, feed_revision.content_hash
+         FROM feed_revision
+        WHERE EXISTS (
+          SELECT 1
+            FROM platform_news_archive_items rich
+           WHERE rich.article_url = feed_revision.article_url
+             AND rich.source_coverage = 'article_full'
+             AND rich.fetched_at = feed_revision.fetched_at
+        )`,
+      [JSON.stringify(requested.map(({ articleUrl, contentHash }) => ({
+        article_url: articleUrl,
+        content_hash: contentHash,
+      })))],
     );
 
-    return new Set(result.rows.map((row) => row.article_url));
+    return new Set(
+      result.rows.map((row) => `${row.article_url}\0${row.content_hash}`),
+    );
   });
 
   if (!transaction.enabled) {
@@ -298,25 +344,46 @@ export function dedupeCapturedArticles(items: readonly CaptureArticle[]): Captur
   return [...selected.values()].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
 
-
-async function readHydrationCooldownArticleUrls(
-  articleUrls: readonly string[],
+async function readHydrationCooldownArticleIdentities(
+  articles: readonly CaptureArticle[],
   now: string,
 ): Promise<Set<string>> {
-  if (articleUrls.length === 0) return new Set();
+  if (articles.length === 0) return new Set();
+  const requested = articles.map(sourceRevision);
 
   const transaction = await withTx(async (client) => {
-    const result = await client.query<{ article_url: string }>(
-      `SELECT article_url
-         FROM platform_news_hydration_state
-        WHERE article_url = ANY($1::text[])
-          AND hydrated_at IS NULL
-          AND next_retry_at IS NOT NULL
-          AND next_retry_at > $2::timestamptz`,
-      [articleUrls, now],
+    const result = await client.query<{ article_url: string; content_hash: string }>(
+      `WITH requested AS (
+         SELECT article_url, content_hash
+           FROM jsonb_to_recordset($1::jsonb)
+             AS x(article_url text, content_hash text)
+       ), feed_revision AS (
+         SELECT requested.article_url, requested.content_hash, archive.fetched_at
+           FROM requested
+           JOIN platform_news_archive_items archive
+             ON archive.article_url = requested.article_url
+            AND archive.content_hash = requested.content_hash
+       )
+       SELECT DISTINCT feed_revision.article_url, feed_revision.content_hash
+         FROM feed_revision
+         JOIN platform_news_hydration_state state
+           ON state.article_url = feed_revision.article_url
+        WHERE state.hydrated_at IS NULL
+          AND state.next_retry_at IS NOT NULL
+          AND state.next_retry_at > $2::timestamptz
+          AND state.last_attempt_at >= feed_revision.fetched_at`,
+      [
+        JSON.stringify(requested.map(({ articleUrl, contentHash }) => ({
+          article_url: articleUrl,
+          content_hash: contentHash,
+        }))),
+        now,
+      ],
     );
 
-    return new Set(result.rows.map((row) => row.article_url));
+    return new Set(
+      result.rows.map((row) => `${row.article_url}\0${row.content_hash}`),
+    );
   });
 
   if (!transaction.enabled) {
@@ -332,6 +399,7 @@ async function persistHydrationAttemptTx(
     article: CaptureArticle;
     outcome: NewsHydrationOutcome;
     attemptedAt: string;
+    revisionInserted: boolean;
   },
 ): Promise<void> {
   const state = await client.query<{ attempt_count: number }>(
@@ -345,33 +413,32 @@ async function persistHydrationAttemptTx(
      )
      ON CONFLICT (article_url) DO UPDATE SET
        source_name = EXCLUDED.source_name,
-       attempt_count = LEAST(
-         platform_news_hydration_state.attempt_count + 1,
-         1000
-       ),
+       attempt_count = CASE
+         WHEN $5::boolean THEN 1
+         ELSE LEAST(platform_news_hydration_state.attempt_count + 1, 1000)
+       END,
        last_outcome = EXCLUDED.last_outcome,
        last_attempt_at = EXCLUDED.last_attempt_at,
        next_retry_at = NULL,
        hydrated_at = CASE
          WHEN EXCLUDED.last_outcome = 'hydrated'
            THEN EXCLUDED.last_attempt_at
-         ELSE platform_news_hydration_state.hydrated_at
+         ELSE NULL
        END,
        updated_at = NOW()
-     WHERE platform_news_hydration_state.hydrated_at IS NULL
      RETURNING attempt_count`,
     [
       input.article.articleUrl,
       input.article.source.name,
       input.outcome,
       input.attemptedAt,
+      input.revisionInserted,
     ],
   );
 
   const persisted = state.rows[0];
   if (!persisted) {
-    // A concurrent capture already committed terminal rich evidence.
-    return;
+    throw new Error("news_hydration_attempt_persist_missing");
   }
 
   const attemptCount = Number(persisted.attempt_count);
@@ -392,7 +459,6 @@ async function persistHydrationAttemptTx(
       WHERE article_url = $1`,
     [input.article.articleUrl, nextRetryAt],
   );
-
 }
 
 async function main(): Promise<void> {
@@ -451,49 +517,47 @@ async function main(): Promise<void> {
       && article.source.allowFullArticleFetch,
   );
 
-  const hydrationEligibleUrls = hydrationEligibleArticles.map(
-    (article) => article.articleUrl,
+  const alreadyHydrated = await readAlreadyHydratedArticleIdentities(
+    hydrationEligibleArticles,
   );
 
-  const alreadyHydrated = await readAlreadyHydratedArticleUrls(
-    hydrationEligibleUrls,
-  );
-
-  const cooldownBlocked = await readHydrationCooldownArticleUrls(
-    hydrationEligibleUrls,
+  const cooldownBlocked = await readHydrationCooldownArticleIdentities(
+    hydrationEligibleArticles,
     fetchedAt,
   );
 
   const hydrationReadyCount = hydrationEligibleArticles.filter(
-    (article) =>
-      !alreadyHydrated.has(article.articleUrl)
-      && !cooldownBlocked.has(article.articleUrl),
+    (article) => {
+      const identity = sourceRevision(article).identity;
+      return !alreadyHydrated.has(identity) && !cooldownBlocked.has(identity);
+    },
   ).length;
 
   const hydrationResults = await executeNewsHydrationPlan({
     articles: articles.map((article) => ({
       article,
       articleUrl: article.articleUrl,
+      hydrationIdentity: sourceRevision(article).identity,
       sourceCoverage: article.sourceCoverage,
       allowFullArticleFetch: article.source.allowFullArticleFetch,
     })),
-    alreadyHydratedArticleUrls: alreadyHydrated,
-    cooldownBlockedArticleUrls: cooldownBlocked,
+    alreadyHydratedArticleIdentities: alreadyHydrated,
+    cooldownBlockedArticleIdentities: cooldownBlocked,
     concurrency: NEWS_ARTICLE_FETCH_CONCURRENCY,
     hydrate: async ({ article }) => hydratePublisherEvidence(article),
   });
 
-  const hydrationResultByUrl = new Map(
+  const hydrationResultByIdentity = new Map(
     hydrationResults.map(
-      (result) => [result.article.articleUrl, result] as const,
+      (result) => [result.sourceRevisionIdentity, result] as const,
     ),
   );
 
-  const hydratedByUrl = new Map(
+  const hydratedByIdentity = new Map(
     hydrationResults
       .filter((result) => result.outcome === "hydrated")
       .map(
-        (result) => [result.article.articleUrl, result.article] as const,
+        (result) => [result.sourceRevisionIdentity, result.article] as const,
       ),
   );
 
@@ -576,6 +640,7 @@ async function main(): Promise<void> {
     );
 
     for (const article of articles) {
+      const revisionIdentity = sourceRevision(article).identity;
       const feedArchive = await persistNewsArchiveItemTx(client, {
         sourceName: article.source.name,
         feedUrl: article.source.feedUrl,
@@ -600,8 +665,8 @@ async function main(): Promise<void> {
         else result.replayedCount += 1;
       }
 
-      const hydrationResult = hydrationResultByUrl.get(article.articleUrl);
-      const hydrated = hydratedByUrl.get(article.articleUrl);
+      const hydrationResult = hydrationResultByIdentity.get(revisionIdentity);
+      const hydrated = hydratedByIdentity.get(revisionIdentity);
 
       if (!hydrated || hydrated.sourceCoverage !== "article_full") {
         if (hydrationResult) {
@@ -609,6 +674,7 @@ async function main(): Promise<void> {
             article: hydrationResult.article,
             outcome: hydrationResult.outcome,
             attemptedAt: fetchedAt,
+            revisionInserted: feedArchive.inserted,
           });
         }
         continue;
@@ -642,6 +708,7 @@ async function main(): Promise<void> {
         article: hydrated,
         outcome: richArchive.inserted ? "hydrated" : "identity_collision",
         attemptedAt: fetchedAt,
+        revisionInserted: feedArchive.inserted,
       });
     }
 
