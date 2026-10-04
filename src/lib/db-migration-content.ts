@@ -109,6 +109,7 @@ import { MODEL_LAB_COUNCIL_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-counc
 import { MODEL_LAB_EXECUTION_AUTHORITY_SQL } from "./db-migrate-ai-model-lab-execution";
 import { AI_MODEL_EVALUATION_AUTHORITY_SQL } from "./db-migrate-ai-model-evaluation";
 import { ACADEMY_V3_MISSION_EVIDENCE_SQL } from "./db-migrate-academy-v3-mission-evidence";
+import { NEWS_STORY_CLUSTER_AUTHORITY_SQL } from "./db-migrate-news-story-cluster-authority";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -496,5 +497,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyV3MissionEvidence: one(
     "0119_academy_v3_mission_evidence.sql",
     ACADEMY_V3_MISSION_EVIDENCE_SQL,
+  ),
+  newsStoryClusterAuthority: one(
+    "0120_news_story_cluster_authority.sql",
+    NEWS_STORY_CLUSTER_AUTHORITY_SQL,
   ),
 });
