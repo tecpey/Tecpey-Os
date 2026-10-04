@@ -12,10 +12,11 @@ type DiscoveryMode = "coins" | "tools";
 const copy = {
   fa: {
     badge: "کشف امروز",
+    degradedBadge: "مسیرهای آموزشی منتخب",
     title: "کوین‌ها، ابزارها و خبرها؛ بدون شلوغی",
-    partialTitle: "مسیرهای معتبرِ امروز",
+    partialTitle: "مسیرهای آموزشی برای بررسی",
     description: "چند مسیر منتخب برای ادامهٔ بررسی؛ فشرده، قابل پیگیری و به‌روز.",
-    partialDescription: "فقط مسیرهای دارای شواهد معتبر نمایش داده می‌شوند؛ موارد دیگر پس از تکمیل بررسی اضافه خواهند شد.",
+    partialDescription: "شواهد جاری برای برچسب «امروز» کامل نیست؛ مسیرهای موجود به‌عنوان انتخاب آموزشی نمایش داده می‌شوند، نه به‌عنوان سیگنال یا زمینهٔ تازهٔ بازار.",
     groupLabel: "انتخاب نوع مسیرهای کشف",
     coins: "کوین‌ها",
     tools: "ابزارها",
@@ -28,15 +29,16 @@ const copy = {
     available: "مسیر موجود",
     viewCoins: "همه کوین‌ها",
     viewTools: "همه ابزارها",
-    viewNews: "خبرهای روز",
+    viewNews: "مرور خبرها",
     educational: "انتخاب آموزشی؛ نه توصیه مالی.",
   },
   en: {
     badge: "Explore today",
+    degradedBadge: "Curated learning routes",
     title: "Coins, tools and news—without the noise",
-    partialTitle: "Verified routes available today",
+    partialTitle: "Learning routes for review",
     description: "A small set of current routes for deeper research, kept compact and traceable.",
-    partialDescription: "Only routes backed by current evidence are shown; additional routes appear after review is complete.",
+    partialDescription: "Current evidence is not complete enough to label these routes as today's market context. Available items are shown as curated learning fallbacks, not as fresh market signals.",
     groupLabel: "Choose a discovery route type",
     coins: "Coins",
     tools: "Tools",
@@ -49,7 +51,7 @@ const copy = {
     available: "routes available",
     viewCoins: "All coins",
     viewTools: "All tools",
-    viewNews: "Live news",
+    viewNews: "Browse news",
     educational: "Educational selection; not financial advice.",
   },
 } as const;
@@ -78,7 +80,9 @@ export function HomeDiscoveryStrip({
   const coins = radar?.coins.slice(0, 5) ?? [];
   const tools = radar?.tools.slice(0, 5) ?? [];
   const hasAnyItems = coins.length > 0 || tools.length > 0;
-  const isPartial = coins.length < 5 || tools.length < 5;
+  const isEvidenceReady = radar?.evidence?.status === "ready";
+  const hasPartialInventory = coins.length < 5 || tools.length < 5;
+  const isPartial = !isEvidenceReady || hasPartialInventory;
   const activeMode: DiscoveryMode = mode === "coins" && coins.length > 0
     ? "coins"
     : mode === "tools" && tools.length > 0
@@ -100,6 +104,7 @@ export function HomeDiscoveryStrip({
   return (
     <section
       data-home-section="discovery"
+      data-evidence-status={radar?.evidence?.status ?? "unknown"}
       aria-labelledby={`home-discovery-title-${locale}`}
       className="tecpey-section relative z-10 py-5 sm:px-6 sm:py-7 lg:px-8"
     >
@@ -108,7 +113,7 @@ export function HomeDiscoveryStrip({
           <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-black text-cyan-800 dark:text-cyan-100 sm:text-xs">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              {strings.badge}
+              {isEvidenceReady ? strings.badge : strings.degradedBadge}
             </div>
             <h2
               id={`home-discovery-title-${locale}`}
@@ -234,9 +239,9 @@ export function HomeDiscoveryStrip({
             <span>{strings.educational}</span>
             {radar?.evidence ? (
               <span className="inline-flex items-center gap-1">
-                <span className={`h-1.5 w-1.5 rounded-full ${!isPartial && radar.evidence.status === "ready" ? "bg-emerald-500" : "bg-amber-500"}`} aria-hidden="true" />
-                {strings.updated}: {evidenceDate(radar.evidence.updatedAt, locale)} · {!isPartial && radar.evidence.status === "ready" ? strings.ready : strings.degraded}
-                {isPartial ? ` · ${rankLabel(activeItemCount, locale)}/${rankLabel(5, locale)} ${strings.available}` : null}
+                <span className={`h-1.5 w-1.5 rounded-full ${isEvidenceReady ? "bg-emerald-500" : "bg-amber-500"}`} aria-hidden="true" />
+                {strings.updated}: {evidenceDate(radar.evidence.updatedAt, locale)} · {isEvidenceReady ? strings.ready : strings.degraded}
+                {hasPartialInventory ? ` · ${rankLabel(activeItemCount, locale)}/${rankLabel(5, locale)} ${strings.available}` : null}
               </span>
             ) : null}
           </div>
