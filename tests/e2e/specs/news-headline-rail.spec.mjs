@@ -18,8 +18,8 @@ test("news headlines preserve RTL keyboard navigation and the reading return pat
     publicSummaryAllowed: true, persianEditorialAllowed: true,
     taxonomy: { coinSymbols: [], topicTags: [], toolSlugs: [] },
     sourceTitle: "Synthetic news fixture",
-    displayTitle: isFa ? `خبر آزمایشی ${index + 1}: بررسی گزارش بازار` : `Test story ${index + 1}: checking a market report`,
-    displayLead: isFa ? "این متن آزمایشی برای بررسی رابط کاربری است." : "This synthetic text tests the interface only.",
+    displayTitle: isFa ? `خبر آزمایشی ${index + 1}: بررسی دقیق گزارش بازار و شواهد منتشرشده دربارهٔ دارایی‌های دیجیتال` : `Test story ${index + 1}: checking a detailed market report and its published evidence about digital assets`,
+    displayLead: isFa ? "این متن آزمایشی برای بررسی رابط کاربری، منبع خبر و خوانایی خلاصهٔ بلند در مسیر بازگشت به خبر است." : "This synthetic text tests the interface, news source and readability of a longer summary when returning to a story.",
     displayBody: "",
   }));
   await page.route("**/api/crypto-news?**", route => {
@@ -41,6 +41,23 @@ test("news headlines preserve RTL keyboard navigation and the reading return pat
     expect(card.x).toBeGreaterThanOrEqual(viewport.x - 2);
     expect(card.x + card.width).toBeLessThanOrEqual(viewport.x + viewport.width + 2);
   }
+  async function exposedFocus(index) {
+    await expect(cards.nth(index)).toBeFocused();
+    const bounds = await cards.nth(index).boundingBox();
+    expect(bounds.y).toBeGreaterThanOrEqual(86);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(640);
+    expect(await cards.nth(index).evaluate(node => {
+      const bounds = node.getBoundingClientRect();
+      return [[8, 8], [bounds.width - 8, 8], [8, bounds.height - 8], [bounds.width - 8, bounds.height - 8], [bounds.width / 2, bounds.height / 2]]
+        .every(([x, y]) => node.contains(document.elementFromPoint(bounds.left + x, bounds.top + y)));
+    })).toBe(true);
+    const status = await position.boundingBox();
+    expect(status.y + status.height).toBeLessThanOrEqual(670);
+    expect(await position.evaluate(node => {
+      const bounds = node.getBoundingClientRect();
+      return node.contains(document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2));
+    })).toBe(true);
+  }
   const previous = rail.getByRole("button", { name: isFa ? "تیتر قبلی" : "Previous headline" });
   const next = rail.getByRole("button", { name: isFa ? "تیتر بعدی" : "Next headline" });
   await expect(previous).toHaveAttribute("aria-disabled", "true");
@@ -51,10 +68,12 @@ test("news headlines preserve RTL keyboard navigation and the reading return pat
   await contained(1);
   expect((await next.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await cards.nth(1).focus();
+  await exposedFocus(1);
   await cards.nth(1).press(isFa ? "ArrowLeft" : "ArrowRight");
   await expect(cards.nth(2)).toBeFocused();
   await expect(position).toHaveText(label(3));
   await contained(2);
+  await exposedFocus(2);
   await expect(next).toHaveAttribute("aria-disabled", "true");
   await cards.nth(2).press("Home");
   await expect(cards.nth(0)).toBeFocused();
@@ -63,6 +82,7 @@ test("news headlines preserve RTL keyboard navigation and the reading return pat
   await expect(cards.nth(1)).toBeFocused();
   await expect(position).toHaveText(label(2));
   await contained(1);
+  await exposedFocus(1);
   await cards.nth(1).press("Enter");
   const story = archive.getByRole("article").nth(1);
   const heading = story.getByRole("heading", { level: 2 });
@@ -75,6 +95,13 @@ test("news headlines preserve RTL keyboard navigation and the reading return pat
   await expect(cards.nth(1)).toBeFocused();
   await expect(position).toHaveText(label(2));
   await contained(1);
+  await exposedFocus(1);
+  // Pointer focus must not vertically move its target between down/up events.
+  await next.focus();
+  await cards.nth(1).click();
+  await expect(heading).toBeFocused();
+  await story.getByRole("button", { name: isFa ? "بازگشت به تیترها" : "Back to headlines" }).click();
+  await exposedFocus(1);
   await testInfo.attach("news-headlines-320", { body: await page.screenshot(), contentType: "image/png" });
   await cards.nth(1).press("Home");
   await track.hover();

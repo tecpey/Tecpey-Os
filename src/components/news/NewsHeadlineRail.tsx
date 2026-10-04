@@ -37,10 +37,13 @@ export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
   const isFa = locale === "fa";
   const number = new Intl.NumberFormat(isFa ? "fa-IR" : "en-US");
 
-  function reveal(index: number) {
+  function reveal(index: number, exposeFocus = false) {
     const track = trackRef.current;
     const card = cardsRef.current[index];
     if (!track || !card) return;
+    // Focus must reveal the whole card vertically as well as in the RTL/LTR strip.
+    // CSS scroll margins reserve fixed shell chrome and the position label.
+    if (exposeFocus) card.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
     const viewport = track.getBoundingClientRect();
     const bounds = card.getBoundingClientRect();
     // Physical geometry avoids relying on browser-specific RTL scrollLeft signs.
@@ -74,7 +77,7 @@ export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
     event.preventDefault();
     target = Math.max(0, Math.min(items.length - 1, target));
     cardsRef.current[target]?.focus({ preventScroll: true });
-    reveal(target);
+    reveal(target, true);
   }
 
   return (
@@ -96,7 +99,7 @@ export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
       <ul id={`${id}-track`} ref={trackRef} className={styles.track} onScroll={observeScroll}>
         {items.map((item, index) => (
           <li key={item.archiveId} className={styles.card}>
-            <button id={`${id}-card-${index}`} ref={node => { cardsRef.current[index] = node; }} type="button" className={styles.read} data-current={active === index} aria-label={isFa ? `خواندن خبر: ${item.displayTitle}` : `Read story: ${item.displayTitle}`} aria-describedby={`${id}-media-${index} ${id}-context-${index} ${id}-freshness-${index} ${id}-summary-${index}`} onFocus={() => reveal(index)} onKeyDown={event => navigate(event, index)} onClick={() => onRead(index)}>
+            <button id={`${id}-card-${index}`} ref={node => { cardsRef.current[index] = node; }} type="button" className={styles.read} data-current={active === index} aria-label={isFa ? `خواندن خبر: ${item.displayTitle}` : `Read story: ${item.displayTitle}`} aria-describedby={`${id}-media-${index} ${id}-context-${index} ${id}-freshness-${index} ${id}-summary-${index}`} onFocus={event => reveal(index, event.currentTarget.matches(":focus-visible"))} onKeyDown={event => navigate(event, index)} onClick={() => onRead(index)}>
               <NewsCardMedia id={`${id}-media-${index}`} item={item} isFa={isFa} />
               <span id={`${id}-context-${index}`} className={styles.metadata}><bdi>{item.sourceName}</bdi><time dateTime={item.publishedAt}>{Number.isFinite(Date.parse(item.publishedAt)) ? new Intl.DateTimeFormat(isFa ? "fa-IR" : "en-US", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" }).format(new Date(item.publishedAt)) : "—"}</time></span>
               <span id={`${id}-freshness-${index}`} className={styles.freshness}>{publicationLabel(item.publishedAt, now, isFa)}</span>

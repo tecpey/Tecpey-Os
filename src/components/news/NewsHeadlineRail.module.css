@@ -15,7 +15,7 @@
 .metadata { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 12px; line-height: 1.7; color: #475569; }
 .title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: 16px; font-weight: 800; line-height: 1.7; color: #0f172a; }
 .action { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; font-size: 12px; font-weight: 700; color: #0e7490; }
-.position { margin: 8px; font-size: 12px; color: #475569; }
+.position { text-align: center; margin: 8px; font-size: 12px; color: #475569; }
 :global(.dark) .heading, :global(.dark) .title { color: #f8fafc; }
 :global(.dark) .description, :global(.dark) .metadata, :global(.dark) .position { color: #cbd5e1; }
 :global(.dark) .read { background: #0f172a; border-color: #475569; }
@@ -28,3 +28,6 @@
 :global(.dark) .summary { color: #cbd5e1; }
 :global(.dark) .freshness { color: #67e8f9; }
 @media (min-width: 800px) { .track { --card-width: calc((100% - 24px) / 2); } .read { padding: 18px; } }
+
+/* Focus reveal reserves the header, fixed mobile shell and the position label. */
+.rail .read { scroll-margin-block: 6rem calc(8.5rem + env(safe-area-inset-bottom)); }
