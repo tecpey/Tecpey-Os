@@ -163,7 +163,7 @@
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
       "gitObjectId": "5bd0b0a009f11f10171b07da7795a2839632ab0a",
-      "sha256": "e9e99d94d229ffbd0c6bafc136b2c19d0c7c555c1709269a707ebecb50fc854b",
+      "sha256": "7159f7d1e82767538bae586c3714c72afc11446d97e50d620c1677a821408702",
       "lines": 615,
       "reviewedRanges": [
         {
