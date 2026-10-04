@@ -17,8 +17,6 @@ import {
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
 import { isRecentNewsPublication, NEWS_FEED_PUBLICATION_POLICY, selectPublishedNewsForFeed } from "@/lib/news-published-at";
 
-type NewsTone = "bullish" | "bearish" | "neutral";
-
 type NewsItem = {
   id: string;
   title: string;
@@ -28,11 +26,7 @@ type NewsItem = {
   sourceUrl: string;
   publishedAt: string;
   category: string;
-  tone: NewsTone;
-  impact: number;
   isBreaking?: boolean;
-  trendScore?: number;
-  editorPick?: boolean;
   relatedLesson?: string;
   thumbnailUrl?: string | null;
   thumbnailAlt?: string | null;
@@ -42,20 +36,6 @@ type NewsItem = {
 function boundedInteger(raw: string | null, fallback: number, maximum: number): number {
   const parsed = Number(raw);
   return Number.isSafeInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
-}
-
-function inferTone(value: string): NewsTone {
-  const lower = value.toLowerCase();
-  if (/(?:\b(?:surge|rally|gain|approval|inflow|bull|record|rise|up)\b|صعود|رشد|افزایش|تایید|ورود سرمایه)/i.test(lower)) return "bullish";
-  if (/(?:\b(?:fall|drop|hack|lawsuit|outflow|bear|crash|fraud|ban|down)\b|ریزش|هک|کلاهبرداری|سقوط|ممنوعیت|خروج سرمایه)/i.test(lower)) return "bearish";
-  return "neutral";
-}
-
-function impactFor(item: NewsArchivePresentationItem): number {
-  const coinWeight = Math.min(3, item.taxonomy.coinSymbols.length);
-  const topicWeight = Math.min(2, item.taxonomy.topicTags.length);
-  const toolWeight = Math.min(1, item.taxonomy.toolSlugs.length);
-  return Math.max(4, Math.min(10, 4 + coinWeight + topicWeight + toolWeight));
 }
 
 function relatedLesson(item: NewsArchivePresentationItem, locale: "fa" | "en"): string {
@@ -69,8 +49,6 @@ function relatedLesson(item: NewsArchivePresentationItem, locale: "fa" | "en"): 
 }
 
 function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now: number): NewsItem {
-  const text = `${item.displayTitle} ${item.displayLead} ${item.displayBody}`;
-  const impact = impactFor(item);
   const categoryTag = item.taxonomy.topicTags[0]
     ? `topic:${item.taxonomy.topicTags[0]}`
     : item.taxonomy.coinSymbols[0]
@@ -86,11 +64,7 @@ function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now:
     sourceUrl,
     publishedAt: item.publishedAt,
     category: categoryTag ? newsTaxonomyTagLabel(categoryTag, locale) : (locale === "fa" ? "بازار" : "Market"),
-    tone: inferTone(text),
-    impact,
     isBreaking: isRecentNewsPublication(item.publishedAt, now),
-    trendScore: impact * 10 + Math.min(20, item.taxonomy.entityTags.length),
-    editorPick: impact >= 8,
     relatedLesson: relatedLesson(item, locale),
     thumbnailUrl: item.thumbnailUrl,
     thumbnailAlt: item.thumbnailAlt,
@@ -99,20 +73,23 @@ function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now:
 }
 
 function marketIntelligence(locale: "fa" | "en", items: NewsItem[]) {
-  const top = [...items].sort((left, right) => right.impact - left.impact || Date.parse(right.publishedAt) - Date.parse(left.publishedAt))[0];
+  const latest = [...items].sort((left, right) => {
+    const leftTime = Date.parse(left.publishedAt);
+    const rightTime = Date.parse(right.publishedAt);
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  })[0];
+
   if (locale === "fa") {
     return {
-      headline: top ? `مهم‌ترین زمینه خبری امروز: ${top.category}` : "بازار را با نظم، نه هیجان، دنبال کنید.",
-      risk: top ? `اثر آموزشی این خبر ${top.impact}/10 است؛ منبع و سناریوی ریسک را قبل از هر تصمیم بررسی کنید.` : "خبر تازه باید با منبع و داده بازار بررسی شود.",
-      action: top ? `مسیر پیشنهادی مطالعه: ${top.relatedLesson}` : "در نبود خبر ترجمه‌شده، محتوای قدیمی را به‌عنوان خبر امروز نمایش نمی‌دهیم.",
-      tone: top?.tone ?? "neutral",
+      headline: latest ? `آخرین زمینه خبری منتشرشده: ${latest.category}` : "بازار را با نظم، نه هیجان، دنبال کنید.",
+      risk: latest ? "منبع، زمان انتشار و سناریوی ریسک را قبل از هر تصمیم بررسی کنید؛ این بخش امتیاز یا سیگنال معاملاتی تولید نمی‌کند." : "خبر تازه باید با منبع و داده بازار بررسی شود.",
+      action: latest ? `مسیر پیشنهادی مطالعه: ${latest.relatedLesson}` : "در نبود خبر ترجمه‌شده، محتوای قدیمی را به‌عنوان خبر امروز نمایش نمی‌دهیم.",
     };
   }
   return {
-    headline: top ? `Today’s highest-impact news context: ${top.category}` : "Follow the market with discipline, not emotion.",
-    risk: top ? `Educational impact is ${top.impact}/10. Verify the source and risk context before acting.` : "Fresh news should be checked against source evidence and market data.",
-    action: top ? `Suggested learning path: ${top.relatedLesson}` : "Older content is never presented as today's live news.",
-    tone: top?.tone ?? "neutral",
+    headline: latest ? `Latest governed news context: ${latest.category}` : "Follow the market with discipline, not emotion.",
+    risk: latest ? "Review the source, publication time and risk context before acting; this surface does not generate impact scores or trading signals." : "Fresh news should be checked against source evidence and market data.",
+    action: latest ? `Suggested learning path: ${latest.relatedLesson}` : "Older content is never presented as today's live news.",
   };
 }
 
