@@ -12,6 +12,7 @@ import {
 } from "../src/lib/news-full-evidence-capture";
 import { fetchNewsPublisherEvidence } from "../src/lib/news-publisher-evidence";
 import { validNewsPublishedAt } from "../src/lib/news-published-at";
+import { materializeStoryClustersTx } from "../src/lib/news-story-cluster-authority";
 import {
   canonicalPublisherUrl,
   newsArchiveContentHash,
@@ -605,7 +606,7 @@ async function main(): Promise<void> {
     outcomes: hydrationOutcomeCounts,
   };
 
-  const sourceResults = new Map<string, SourceCaptureResult>();
+  let storyClusterAudit = { clusterCount: 0, memberCount: 0 };\n\n  const sourceResults = new Map<string, SourceCaptureResult>();
   for (const source of NEWS_SOURCE_REGISTRY) {
     sourceResults.set(source.name, {
       sourceName: source.name,
