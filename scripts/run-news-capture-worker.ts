@@ -606,7 +606,9 @@ async function main(): Promise<void> {
     outcomes: hydrationOutcomeCounts,
   };
 
-  let storyClusterAudit = { clusterCount: 0, memberCount: 0 };\n\n  const sourceResults = new Map<string, SourceCaptureResult>();
+  let storyClusterAudit = { clusterCount: 0, memberCount: 0 };
+
+  const sourceResults = new Map<string, SourceCaptureResult>();
   for (const source of NEWS_SOURCE_REGISTRY) {
     sourceResults.set(source.name, {
       sourceName: source.name,
