@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { runNewsAiCostAuthorityMigrations } from "./db-migrate-news-ai-cost-authority";
+import { runNewsStoryClusterAuthorityMigrations } from "./db-migrate-news-story-cluster-authority";
 
 const FILENAME = "0098_news_archive_and_growth_intelligence.sql";
 
@@ -216,4 +217,5 @@ export async function runNewsArchiveAndGrowthMigrations(client: PoolClient): Pro
   // 0102 is an independent, forward-only authority migration. It must run even
   // on stores where 0098 is already present; changing 0098 itself is forbidden.
   await runNewsAiCostAuthorityMigrations(client);
+  // 0103 is a forward-only derived evidence authority; 0098 and 0102 remain immutable.\n  await runNewsStoryClusterAuthorityMigrations(client);
 }
