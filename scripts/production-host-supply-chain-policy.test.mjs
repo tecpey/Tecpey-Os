@@ -428,7 +428,7 @@ test("production runtime requires the reviewed Alpine base and exact OpenSSL rem
   );
 
   const mutableOpenSslUpgrade = sources.dockerfile.replace(
-    "RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0",
+    "RUN apk add --no-cache --upgrade libcrypto3=3.5.9-r0 libssl3=3.5.9-r0",
     "RUN apk add --no-cache --upgrade libcrypto3 libssl3",
   );
   assert.match(
