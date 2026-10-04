@@ -46,6 +46,18 @@ function governedArchiveId(value: unknown, locale: "fa" | "en"): string | null {
   return match[1].toLowerCase();
 }
 
+export function extractGovernedPublishedArchiveIds(
+  decisions: unknown,
+  locale: "fa" | "en",
+): string[] {
+  const selected = new Set<string>();
+  for (const decision of parseDecisions(decisions)) {
+    const archiveId = governedArchiveId(decision, locale);
+    if (archiveId) selected.add(archiveId);
+  }
+  return [...selected].sort();
+}
+
 export async function readGovernedPublicationSnapshotAuthority(
   locale: "fa" | "en",
 ): Promise<GovernedPublicationSnapshotAuthority> {
@@ -70,11 +82,9 @@ export async function readGovernedPublicationSnapshotAuthority(
     const snapshotHash = String(row.snapshot_hash).toLowerCase();
     if (!Number.isFinite(Date.parse(generatedAt)) || !HASH_RE.test(snapshotHash)) return null;
 
-    const publishedArchiveIds = new Set<string>();
-    for (const decision of parseDecisions(row.decisions)) {
-      const archiveId = governedArchiveId(decision, locale);
-      if (archiveId) publishedArchiveIds.add(archiveId);
-    }
+    const publishedArchiveIds = new Set(
+      extractGovernedPublishedArchiveIds(row.decisions, locale),
+    );
 
     return { generatedAt, snapshotHash, publishedArchiveIds };
   });
