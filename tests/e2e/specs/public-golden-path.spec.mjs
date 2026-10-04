@@ -517,13 +517,30 @@ async function expectCtasClearOfFixedControls(page, contract) {
   }
 }
 
+async function expectMobileTouchTargets(page, contract) {
+  if (contract.formFactor !== "mobile") return;
+  const targets = [
+    ...contract.primaryCtas.map((name) => page.getByRole("link", { name, exact: true })),
+    page.getByRole("button", { name: contract.menu }),
+    page.getByRole("button", { name: contract.mentor }),
+  ];
+  for (const target of targets) {
+    await expect(target).toBeVisible();
+    const box = await target.boundingBox();
+    expect(box, "mobile primary interaction has no rendered box").not.toBeNull();
+    if (!box) continue;
+    expect(box.width, "mobile primary interaction width is below 44px").toBeGreaterThanOrEqual(44);
+    expect(box.height, "mobile primary interaction height is below 44px").toBeGreaterThanOrEqual(44);
+  }
+}
+
 async function collectGovernedInternalTargets(page, contract) {
   const ctas = await governedPrimaryCtas(page, contract);
   const groups = [page.locator("nav"), page.locator("footer")];
   const hrefs = [];
   if (contract.formFactor === "desktop") {
     const knowledgeTrigger = page.getByRole("button", { name: contract.knowledge });
-    await knowledgeTrigger.click();
+    await knowledgeTrigger.tap();
     await expect(page.getByRole("menu", { name: contract.knowledge })).toBeVisible();
   } else {
     const menuTrigger = page.getByRole("button", { name: contract.menu });
@@ -752,7 +769,7 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     await expect(trigger).toBeFocused();
   } else {
     const menuTrigger = page.getByRole("button", { name: contract.menu });
-    await menuTrigger.click();
+    await menuTrigger.tap();
     const knowledgeTrigger = page.getByRole("button", { name: contract.knowledge });
     await knowledgeTrigger.click();
     await expect(
@@ -766,10 +783,15 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
 
   await expectGovernedTargetsHealthy(page, contract);
   await expectCtasClearOfFixedControls(page, contract);
+  await expectMobileTouchTargets(page, contract);
 
   const mentorTrigger = page.getByRole("button", { name: contract.mentor });
   await expect(mentorTrigger).toBeVisible();
-  await mentorTrigger.click();
+  if (contract.formFactor === "mobile") {
+    await mentorTrigger.tap();
+  } else {
+    await mentorTrigger.click();
+  }
   const dialog = page.getByRole("dialog", { name: contract.mentorTitle });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(
