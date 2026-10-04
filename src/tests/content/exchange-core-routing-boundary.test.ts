@@ -9,6 +9,7 @@ const faSignin = read("src/app/signin/page.tsx");
 const faSignup = read("src/app/signup/page.tsx");
 const enSignin = read("src/app/en/signin/page.tsx");
 const enSignup = read("src/app/en/signup/page.tsx");
+const marketsPage = read("src/app/markets/MarketsPageClient.tsx");
 const marketsTable = read("src/components/markets/MarketsTable.tsx");
 const marketsRow = read("src/components/markets/MarketsTableRow.tsx");
 
@@ -30,6 +31,8 @@ test("public market rows keep users inside Core research instead of opening exch
   assert.doesNotMatch(marketsRow, /my\.tecpey\.ir/);
   assert.doesNotMatch(marketsRow, /https:\/\//);
   assert.match(marketsRow, /href=\{href\}/);
-  assert.match(marketsTable, /detailsLabel=\{t\("chart"\)\}/);
+  assert.match(marketsRow, /data-market-asset=\{coin\.symbol\}/);
+  assert.match(marketsPage, /detailsLabel=\{marketTabs\("viewMore"\)\}/);
+  assert.match(marketsTable, /detailsLabel=\{detailsLabel\}/);
   assert.doesNotMatch(marketsTable, /tradeLabel=\{t\("trade"\)\}/);
 });
