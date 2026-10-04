@@ -28,9 +28,24 @@ test("market prices expire on an open page and recover through keyboard refresh"
   const asset = page.locator('[data-market-asset="BTC"]');
   const status = page.getByRole("region", { name: isFa ? "وضعیت قیمت‌های بازار" : "Market price status" });
   await expect(asset).toHaveCount(1);
+  await expect(asset).toHaveAttribute("href", "/crypto/btc");
   await expect(asset).toHaveAttribute("data-price-current", "true");
   await expect(asset).toContainText(isFa ? "64000.00" : "64,000");
   await expect(asset).toContainText(isFa ? "USD" : "$64,000");
+  await expect(asset.getByText(isFa ? "قیمت" : "Price", { exact: true })).toBeVisible();
+  await expect(asset.getByText(isFa ? "تغییر" : "Change", { exact: true })).toBeVisible();
+  await expect(asset.getByText(isFa ? "حجم" : "Volume", { exact: true })).toBeVisible();
+  await expect(asset.locator("a")).toHaveCount(0);
+  expect(await asset.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await asset.focus();
+  await expect(asset).toBeFocused();
+  await asset.evaluate(node => node.scrollIntoView({ block: "center", behavior: "instant" }));
+  expect(await asset.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const point = document.elementFromPoint(rect.x + rect.width / 2, rect.y + Math.min(rect.height / 2, 44));
+    return Boolean(point && (point === node || node.contains(point)));
+  })).toBe(true);
+
   unavailable = true;
   await page.clock.fastForward(301000);
   await expect(asset).toHaveAttribute("data-price-current", "false");
