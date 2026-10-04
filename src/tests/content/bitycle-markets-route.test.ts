@@ -176,6 +176,7 @@ describe("Bitycle Markets route authority", () => {
       local: Array<{ source: string; impliedBtcUsdt: number; premiumPercent: number; maxSkewMs: number }>;
       summary: { sourcesAvailable: number; sourcesRequested: number; maxComparisonSkewMs: number };
       provenance: { upstreamUpdatedAt: string; timestampAuthority: string };
+      authority: { source: string; market: string; price: number; updatedAt: string; freshness: string } | null;
     };
 
     assert.equal(payload.ok, true);
@@ -193,6 +194,13 @@ describe("Bitycle Markets route authority", () => {
     assert.equal(payload.summary.maxComparisonSkewMs, 2_000);
     assert.equal(payload.provenance.upstreamUpdatedAt, globalAt < localAt ? globalAt : localAt);
     assert.equal(payload.provenance.timestampAuthority, "source_markets_frame.updated_at");
+    assert.deepEqual(payload.authority, {
+      source: "nobitex_spot",
+      market: "USDTIRT",
+      price: 100_000,
+      updatedAt: localAt,
+      freshness: "Bitycle source_markets_frame.updated_at under 2 minutes with 30s future-skew guard",
+    });
   });
 
   it("fails closed when the global reference response does not match the requested source", async () => {
