@@ -36,7 +36,9 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await expect(asset).not.toContainText("2.50%");
   await expect(asset).toContainText("BTC");
   await expect(status.getByRole("status")).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
-  await status.scrollIntoViewIfNeeded();
+  // Native viewport containment alone ignores the fixed mobile navigation.
+  // Center the evidence region, then keep the strict interior hit-test.
+  await status.evaluate(panel => panel.scrollIntoView({ block: "center", behavior: "instant" }));
   await testInfo.attach("market-expired-320", { body: await page.screenshot(), contentType: "image/png" });
   const refresh = status.getByRole("button", { name: isFa ? "تازه‌سازی قیمت‌ها" : "Refresh prices", exact: true });
   expect((await refresh.boundingBox()).height).toBeGreaterThanOrEqual(44);
@@ -70,7 +72,9 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await refresh.press("Enter");
   await expect(asset).toHaveAttribute("data-price-current", "true");
   await page.setViewportSize({ width: 1280, height: 900 });
-  await status.scrollIntoViewIfNeeded();
+  // Native viewport containment alone ignores the fixed mobile navigation.
+  // Center the evidence region, then keep the strict interior hit-test.
+  await status.evaluate(panel => panel.scrollIntoView({ block: "center", behavior: "instant" }));
   await refresh.focus();
   await testInfo.attach("market-restored-1280", { body: await page.screenshot(), contentType: "image/png" });
   expect(errors).toEqual([]);
