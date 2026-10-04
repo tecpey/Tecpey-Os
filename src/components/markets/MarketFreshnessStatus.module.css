@@ -4,7 +4,8 @@
 .icon { width: 20px; height: 20px; flex-shrink: 0; margin-block-start: 3px; }
 .title { margin: 0; font-size: 14px; font-weight: 800; line-height: 1.8; }
 .detail { margin: 4px 0 0; font-size: 12px; line-height: 1.9; font-weight: 400; }
-.refresh { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid currentColor; border-radius: 14px; font-size: 12px; font-weight: 800; cursor: pointer; background: transparent; color: inherit; }
+/* The shared mentor launcher is physically left in both locales. */
+.refresh { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid currentColor; border-radius: 14px; font-size: 12px; font-weight: 800; cursor: pointer; background: transparent; color: inherit; }
 .refresh svg { width: 16px; height: 16px; }
 .refresh[aria-disabled="true"] { cursor: default; }
 .refresh:focus-visible { outline: 2px solid #0e7490; outline-offset: 4px; }

@@ -40,6 +40,11 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await testInfo.attach("market-expired-320", { body: await page.screenshot(), contentType: "image/png" });
   const refresh = status.getByRole("button", { name: isFa ? "تازه‌سازی قیمت‌ها" : "Refresh prices", exact: true });
   expect((await refresh.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect(await refresh.evaluate(button => {
+    const rect = button.getBoundingClientRect();
+    return [[8, 8], [rect.width - 8, 8], [8, rect.height - 8], [rect.width - 8, rect.height - 8], [rect.width / 2, rect.height / 2]]
+      .every(([x, y]) => button.contains(document.elementFromPoint(rect.x + x, rect.y + y)));
+  })).toBe(true);
   unavailable = false;
   timestamp = await page.evaluate(() => Date.now());
   price = 65000;
