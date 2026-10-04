@@ -189,9 +189,7 @@ FOR EACH ROW EXECUTE FUNCTION tecpey_reject_news_growth_mutation();
 `;
 
 function checksum(sql: string): string {
-  return createHash("sha256").update(sql.replace(/\r
-?/g, "
-").trim()).digest("hex");
+  return createHash("sha256").update(sql.replace(/\r\n?/g, "\n").trim()).digest("hex");
 }
 
 export async function runNewsArchiveAndGrowthMigrations(client: PoolClient): Promise<void> {
