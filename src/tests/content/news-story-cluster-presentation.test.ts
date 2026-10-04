@@ -99,6 +99,31 @@ describe("public story cluster presentation authority", () => {
     assert.equal(result.length, 2);
   });
 
+
+  it("never lets a newer social record displace factual publisher evidence", () => {
+    const factual = item({
+      archiveId: "00000000-0000-4000-8000-000000000008",
+      fetchedAt: "2026-10-04T10:00:00.000Z",
+      storyClusterId: "cluster-social",
+      storyClusterMembership: "canonical",
+      storyEvidenceChannel: "factual_publisher",
+    });
+    const social = item({
+      archiveId: "00000000-0000-4000-8000-000000000009",
+      sourceName: "X",
+      sourceDomain: "x.com",
+      articleUrl: "https://x.com/example/status/9",
+      fetchedAt: "2026-10-04T12:00:00.000Z",
+      storyClusterId: "cluster-social",
+      storyClusterMembership: "corroborating",
+      storyEvidenceChannel: "social_x",
+    });
+    const result = selectPublicStoryClusterRepresentatives([factual, social]);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].archiveId, factual.archiveId);
+    assert.equal(result[0].storyEvidenceChannel, "factual_publisher");
+  });
+
   it("is deterministic when fetch timestamps tie", () => {
     const a = item({
       archiveId: "00000000-0000-4000-8000-000000000006",
