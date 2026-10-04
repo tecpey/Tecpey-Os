@@ -14,6 +14,7 @@ import {
   isApprovedNewsSourceHost,
 } from "../../lib/news-source-registry";
 import type { NewsTaxonomyMatch } from "../../lib/news-taxonomy";
+import { classifyNewsEvidenceChannel, type NewsEvidenceChannel } from "../../lib/news-evidence-channel-authority";
 
 export type NewsArchivePresentationItem = Omit<NewsArchiveItem, "sourceBody"> & {
   sourceCoverage: "feed_full" | "feed_summary" | "article_full" | null;
@@ -28,6 +29,7 @@ export type NewsArchivePresentationItem = Omit<NewsArchiveItem, "sourceBody"> & 
   storyClusterMembership: "canonical" | "corroborating" | "distinct_viewpoint" | "conflicting_viewpoint" | null;
   storyClusterMemberCount: number | null;
   storyClusterIndependentSourceCount: number | null;
+  storyEvidenceChannel: NewsEvidenceChannel;
 };
 
 function sourceForArticleUrl(articleUrl: string) {
@@ -137,6 +139,7 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
       : null,
     storyClusterMemberCount: row.story_cluster_member_count == null ? null : Number(row.story_cluster_member_count),
     storyClusterIndependentSourceCount: row.story_cluster_independent_source_count == null ? null : Number(row.story_cluster_independent_source_count),
+    storyEvidenceChannel: classifyNewsEvidenceChannel({ url: articleUrl }),
   };
 }
 
@@ -154,7 +157,11 @@ export function selectPublicStoryClusterRepresentatives(
 
     const candidateTime = Date.parse(item.fetchedAt);
     const previousTime = Date.parse(previous.fetchedAt);
+    const candidateIsFactual = item.storyEvidenceChannel === "factual_publisher";
+    const previousIsFactual = previous.storyEvidenceChannel === "factual_publisher";
     if (
+      candidateIsFactual && !previousIsFactual
+      || 
       candidateTime > previousTime
       || (
         candidateTime === previousTime
