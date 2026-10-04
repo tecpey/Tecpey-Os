@@ -6,6 +6,7 @@ export const NEWS_STORY_CLUSTER_POLICY_VERSION = "story-cluster-v1";
 const MAX_CANDIDATE_HOURS = 36;
 const MIN_TITLE_JACCARD = 0.62;
 const STRONG_TITLE_JACCARD = 0.78;
+const DISTINCT_VIEWPOINT_JACCARD = 0.40;
 
 export type StoryClusterCandidate = {
   archiveId: string; sourceName: string; sourceDomain: string; articleUrl: string;
@@ -90,6 +91,39 @@ export function compareStoryClusterCandidate(a: StoryClusterCandidate, b: StoryC
   };
 }
 
+export type StoryRelation = {
+  leftArchiveId: string;
+  rightArchiveId: string;
+  relation: "conflicting_viewpoint" | "distinct_viewpoint";
+  evidence: StoryClusterEvidence;
+};
+
+export function buildStoryRelations(items: readonly StoryClusterCandidate[]): StoryRelation[] {
+  const ordered = [...items].sort((a, b) => a.archiveId.localeCompare(b.archiveId));
+  const relations: StoryRelation[] = [];
+  for (let i = 0; i < ordered.length; i += 1) {
+    for (let j = i + 1; j < ordered.length; j += 1) {
+      const left = ordered[i];
+      const right = ordered[j];
+      const evidence = compareStoryClusterCandidate(left, right);
+      const conflict = evidence.conflictSignals.length > 0;
+      const viewpoint = evidence.candidateGeneration.hoursApart <= MAX_CANDIDATE_HOURS
+        && evidence.sharedEntityCount > 0
+        && evidence.titleJaccard >= DISTINCT_VIEWPOINT_JACCARD
+        && evidence.decision === "preserve_distinct";
+      if (conflict || viewpoint) {
+        relations.push({
+          leftArchiveId: left.archiveId,
+          rightArchiveId: right.archiveId,
+          relation: conflict ? "conflicting_viewpoint" : "distinct_viewpoint",
+          evidence,
+        });
+      }
+    }
+  }
+  return relations;
+}
+
 export function buildDeterministicStoryClusters(items: readonly StoryClusterCandidate[]): StoryCluster[] {
   const ordered = [...items].sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt) || a.archiveId.localeCompare(b.archiveId));
   const clusters: StoryCluster[] = [];
@@ -127,6 +161,7 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
   const items = rows.rows.map((row) => ({ archiveId: row.archive_id, sourceName: row.source_name, sourceDomain: row.source_domain,
     articleUrl: row.article_url, title: row.title, lead: row.lead, publishedAt: new Date(row.published_at).toISOString(), taxonomy: row.taxonomy }));
   const clusters = buildDeterministicStoryClusters(items);
+  const relations = buildStoryRelations(items);
   const existing = await client.query<{ archive_id: string; cluster_id: string; membership: StoryClusterMembership }>(
     `SELECT archive_id::text, cluster_id::text, membership
        FROM platform_news_story_cluster_members
@@ -134,6 +169,26 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
     [items.map((i) => i.archiveId)],
   );
   const existingByArchive = new Map(existing.rows.map((row) => [row.archive_id, row]));
+  for (const relation of relations) {
+    const evidence = {
+      ...relation.evidence,
+      relation: relation.relation,
+      leftArchiveId: relation.leftArchiveId,
+      rightArchiveId: relation.rightArchiveId,
+    };
+    const decisionHash = createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
+    const relationId = createHash("sha256")
+      .update(`${NEWS_STORY_CLUSTER_POLICY_VERSION}\0${relation.leftArchiveId}\0${relation.rightArchiveId}\0${relation.relation}`)
+      .digest("hex")
+      .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).*$/, "$1-$2-4$4-8$5-$6");
+    await client.query(`INSERT INTO platform_news_story_relations
+      (relation_id,left_archive_id,right_archive_id,relation,evidence,policy_version,decision_hash,created_at)
+      VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5::jsonb,$6,$7,$8::timestamptz)
+      ON CONFLICT (left_archive_id,right_archive_id,relation) DO NOTHING`,
+      [relationId, relation.leftArchiveId, relation.rightArchiveId, relation.relation,
+        JSON.stringify(evidence), NEWS_STORY_CLUSTER_POLICY_VERSION, decisionHash, now]);
+  }
+
   for (const cluster of clusters) {
     const evidence = { policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION, generatedAt: now, canonicalEventKey: cluster.canonicalEventKey,
       memberCount: cluster.members.length, independentSourceCount: cluster.independentSourceCount,
