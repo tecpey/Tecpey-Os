@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 
-const FILENAME = "0103_news_story_cluster_authority.sql";
+const FILENAME = "0120_news_story_cluster_authority.sql";
 
 export const NEWS_STORY_CLUSTER_AUTHORITY_SQL = `
 CREATE TABLE IF NOT EXISTS platform_news_story_clusters (
