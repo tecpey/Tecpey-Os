@@ -109,7 +109,7 @@ export function TrendRadarWidget({ data, locale }: { data: GrowthTrendRadarAutho
               {highlights.length ? highlights.map((item) => (
                 <Link key={item.id} href={item.newsUrl ?? `${isFa ? "" : "/en"}/crypto-news?date=${encodeURIComponent(item.day)}`} className="group block rounded-2xl border border-white/10 bg-black/15 p-3 transition hover:border-cyan-300/30">
                   <p className="line-clamp-2 text-xs font-black leading-6 text-white">{item.title}</p>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] font-bold text-slate-400"><span>{item.sourceName}</span><span>{isFa ? "اثر" : "Impact"} {item.impactScore}/10</span></div>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] font-bold text-slate-400"><span>{item.sourceName}</span><time dateTime={item.publishedAt}>{new Date(item.publishedAt).toLocaleString(isFa ? "fa-IR" : "en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tehran" })}</time></div>
                 </Link>
               )) : <p className="text-xs font-bold leading-6 text-slate-400">{isFa ? "خبر آرشیوشده کافی برای این بازه هنوز موجود نیست." : "No archived news evidence is available for this window yet."}</p>}
             </div>
