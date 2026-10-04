@@ -136,6 +136,7 @@ import { runDeepResearchProvenanceMigrations } from "./db-migrate-deep-research-
 import { runModelLabCouncilAuthorityMigrations } from "./db-migrate-ai-model-lab-council";
 import { runModelLabExecutionAuthorityMigrations } from "./db-migrate-ai-model-lab-execution";
 import { runAiModelEvaluationAuthorityMigrations } from "./db-migrate-ai-model-evaluation";
+import { runNewsStoryClusterAuthorityMigrations } from "./db-migrate-news-story-cluster-authority";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
