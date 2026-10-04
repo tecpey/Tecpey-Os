@@ -69,6 +69,9 @@ describe("news story cluster authority", () => {
     const evidence = compareStoryClusterCandidate(a, b);
     assert.equal(evidence.decision, "preserve_distinct");
     assert.ok(evidence.conflictSignals.length > 0);
+    const relations = buildStoryRelations([a, b]);
+    assert.equal(relations.length, 1);
+    assert.equal(relations[0].relation, "conflicting_viewpoint");
     assert.equal(buildDeterministicStoryClusters([a, b]).length, 2);
   });
 
