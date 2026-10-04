@@ -53,17 +53,59 @@ function sharedEntities(a: StoryClusterCandidate, b: StoryClusterCandidate): str
   return [...left].filter((value) => right.has(value)).sort();
 }
 function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): string[] {
-  const text = normalize(`${a.title} ${a.lead} ${b.title} ${b.lead}`);
+  const left = tokens(a.title + " " + a.lead);
+  const right = tokens(b.title + " " + b.lead);
   const pairs = [
     ["approve", "reject"], ["approved", "rejected"], ["accept", "deny"], ["confirm", "deny"],
     ["confirms", "denies"], ["launch", "cancel"], ["launched", "cancelled"], ["wins", "loses"],
     ["win", "lose"], ["up", "down"], ["rise", "fall"], ["rises", "falls"],
     ["increase", "decrease"], ["increases", "decreases"],
+    ["تایید", "رد"], ["قبول", "رد"], ["افزایش", "کاهش"],
   ];
   const hits: string[] = [];
-  for (const [left, right] of pairs) if (text.includes(left) && text.includes(right)) hits.push(`${left}↔${right}`);
-  if (/\b(no|not|never|without|denies|denied|رد|نمی|نه)\b/u.test(text)) hits.push("negation");
+  for (const [affirmative, negative] of pairs) {
+    if (
+      (left.has(affirmative) && right.has(negative))
+      || (left.has(negative) && right.has(affirmative))
+    ) {
+      hits.push(affirmative + "↔" + negative);
+    }
+  }
   return [...new Set(hits)].sort();
+}
+
+function candidatePairKey(a: StoryClusterCandidate, b: StoryClusterCandidate): string {
+  return [a.archiveId, b.archiveId].sort().join("\0");
+}
+
+function candidatePairs(items: readonly StoryClusterCandidate[]): Array<readonly [StoryClusterCandidate, StoryClusterCandidate]> {
+  const byEntity = new Map<string, StoryClusterCandidate[]>();
+  for (const item of items) {
+    for (const entity of entityKeys(item)) {
+      const bucket = byEntity.get(entity) ?? [];
+      bucket.push(item);
+      byEntity.set(entity, bucket);
+    }
+  }
+
+  const pairs = new Map<string, readonly [StoryClusterCandidate, StoryClusterCandidate]>();
+  for (const bucket of byEntity.values()) {
+    const ordered = [...bucket].sort(
+      (a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt) || a.archiveId.localeCompare(b.archiveId),
+    );
+    for (let i = 0; i < ordered.length; i += 1) {
+      for (let j = i + 1; j < ordered.length; j += 1) {
+        if (hoursApart(ordered[i].publishedAt, ordered[j].publishedAt) > MAX_CANDIDATE_HOURS) break;
+        const left = ordered[i];
+        const right = ordered[j];
+        pairs.set(candidatePairKey(left, right), [left, right]);
+      }
+    }
+  }
+
+  return [...pairs.values()].sort(
+    (a, b) => candidatePairKey(a[0], a[1]).localeCompare(candidatePairKey(b[0], b[1])),
+  );
 }
 function hoursApart(a: string, b: string): number { return Math.abs(Date.parse(a) - Date.parse(b)) / 3_600_000; }
 function sourceIndependent(a: StoryClusterCandidate, b: StoryClusterCandidate): boolean {
@@ -98,54 +140,83 @@ export type StoryRelation = {
 };
 
 export function buildStoryRelations(items: readonly StoryClusterCandidate[]): StoryRelation[] {
-  const ordered = [...items].sort((a, b) => a.archiveId.localeCompare(b.archiveId));
   const relations: StoryRelation[] = [];
-  for (let i = 0; i < ordered.length; i += 1) {
-    for (let j = i + 1; j < ordered.length; j += 1) {
-      const left = ordered[i];
-      const right = ordered[j];
-      const evidence = compareStoryClusterCandidate(left, right);
-      const conflict = evidence.conflictSignals.length > 0;
-      const viewpoint = evidence.candidateGeneration.hoursApart <= MAX_CANDIDATE_HOURS
-        && evidence.sharedEntityCount > 0
-        && evidence.titleJaccard >= DISTINCT_VIEWPOINT_JACCARD
-        && evidence.decision === "preserve_distinct";
-      if (conflict || viewpoint) {
-        relations.push({
-          leftArchiveId: left.archiveId,
-          rightArchiveId: right.archiveId,
-          relation: conflict ? "conflicting_viewpoint" : "distinct_viewpoint",
-          evidence,
-        });
-      }
+  for (const [left, right] of candidatePairs(items)) {
+    const evidence = compareStoryClusterCandidate(left, right);
+    const conflict = evidence.conflictSignals.length > 0;
+    const viewpoint = evidence.titleJaccard >= DISTINCT_VIEWPOINT_JACCARD
+      && evidence.decision === "preserve_distinct";
+    if (conflict || viewpoint) {
+      relations.push({
+        leftArchiveId: left.archiveId,
+        rightArchiveId: right.archiveId,
+        relation: conflict ? "conflicting_viewpoint" : "distinct_viewpoint",
+        evidence,
+      });
     }
   }
   return relations;
 }
 
 export function buildDeterministicStoryClusters(items: readonly StoryClusterCandidate[]): StoryCluster[] {
-  const ordered = [...items].sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt) || a.archiveId.localeCompare(b.archiveId));
+  const ordered = [...items].sort(
+    (a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt) || a.archiveId.localeCompare(b.archiveId),
+  );
+  const byId = new Map(ordered.map((item) => [item.archiveId, item]));
+  const candidateIds = new Map<string, Set<string>>();
+  for (const [left, right] of candidatePairs(ordered)) {
+    const leftSet = candidateIds.get(left.archiveId) ?? new Set<string>();
+    leftSet.add(right.archiveId);
+    candidateIds.set(left.archiveId, leftSet);
+    const rightSet = candidateIds.get(right.archiveId) ?? new Set<string>();
+    rightSet.add(left.archiveId);
+    candidateIds.set(right.archiveId, rightSet);
+  }
+
   const clusters: StoryCluster[] = [];
   for (const item of ordered) {
-    let selected: { cluster: StoryCluster; evidence: StoryClusterEvidence } | null = null;
+    const options: Array<{ cluster: StoryCluster; evidence: StoryClusterEvidence }> = [];
+    const candidates = candidateIds.get(item.archiveId) ?? new Set<string>();
+
     for (const cluster of clusters) {
-      for (const member of cluster.members) {
-        const candidate = ordered.find((entry) => entry.archiveId === member.archiveId);
-        if (!candidate) continue;
-        const evidence = compareStoryClusterCandidate(candidate, item);
-        if (evidence.decision === "merge") { selected = { cluster, evidence }; break; }
-      }
-      if (selected) break;
+      const seed = byId.get(cluster.seedArchiveId);
+      if (!seed || !candidates.has(seed.archiveId)) continue;
+      const evidence = compareStoryClusterCandidate(seed, item);
+      if (evidence.decision === "merge") options.push({ cluster, evidence });
     }
+
+    options.sort((a, b) =>
+      b.evidence.titleJaccard - a.evidence.titleJaccard
+      || b.evidence.sharedEntityCount - a.evidence.sharedEntityCount
+      || Number(b.evidence.sourceIndependent) - Number(a.evidence.sourceIndependent)
+      || a.cluster.clusterId.localeCompare(b.cluster.clusterId),
+    );
+
+    const selected = options[0];
     if (!selected) {
-      clusters.push({ clusterId: clusterId(item.archiveId), seedArchiveId: item.archiveId, canonicalEventKey: eventKeys(item)[0],
-        members: [{ archiveId: item.archiveId, membership: "canonical", evidence: null }], independentSourceCount: 1, conflictingViewpointCount: 0, decisionEvidence: [] });
+      clusters.push({
+        clusterId: clusterId(item.archiveId),
+        seedArchiveId: item.archiveId,
+        canonicalEventKey: eventKeys(item)[0],
+        members: [{ archiveId: item.archiveId, membership: "canonical", evidence: null }],
+        independentSourceCount: 1,
+        conflictingViewpointCount: 0,
+        decisionEvidence: [],
+      });
       continue;
     }
-    selected.cluster.members.push({ archiveId: item.archiveId, membership: "corroborating", evidence: selected.evidence });
+
+    selected.cluster.members.push({
+      archiveId: item.archiveId,
+      membership: "corroborating",
+      evidence: selected.evidence,
+    });
     selected.cluster.decisionEvidence.push(selected.evidence);
-    selected.cluster.independentSourceCount = new Set(selected.cluster.members.map((m) => ordered.find((c) => c.archiveId === m.archiveId)?.sourceDomain).filter(Boolean)).size;
-    selected.cluster.conflictingViewpointCount = 0;
+    selected.cluster.independentSourceCount = new Set(
+      selected.cluster.members
+        .map((member) => byId.get(member.archiveId)?.sourceDomain)
+        .filter(Boolean),
+    ).size;
   }
   return clusters;
 }
@@ -168,7 +239,7 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
        FROM platform_news_archive_items WHERE published_at >= $1::timestamptz
        ORDER BY published_at ASC, archive_id ASC`, [since]);
   const items = rows.rows.map((row) => ({ archiveId: row.archive_id, sourceName: row.source_name, sourceDomain: row.source_domain,
-    articleUrl: row.article_url, title: row.title, lead: row.lead, publishedAt: new Date(row.published_at).toISOString(), taxonomy: row.taxonomy }));
+    articleUrl: row.article_url, title: row.source_title, lead: row.source_lead, publishedAt: new Date(row.published_at).toISOString(), taxonomy: row.taxonomy }));
   const clusters = buildDeterministicStoryClusters(items);
   const relations = buildStoryRelations(items);
   const existing = await client.query<{ archive_id: string; cluster_id: string; membership: StoryClusterMembership }>(
