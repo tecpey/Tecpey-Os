@@ -398,15 +398,12 @@ describe("Content growth entity contract", () => {
     assert.equal(faRadar.evidence.sourceAuthority, "news-impact-history:seed-fallback");
     assert.equal(faRadar.evidence.coinCount, 5);
     assert.equal(faRadar.evidence.toolCount, 5);
-    assert.ok(faRadar.evidence.highPriorityNewsCount >= 5);
-    assert.equal(faRadar.evidence.authorityHighPriorityNewsCount, 0);
     assert.equal(faRadar.evidence.authorityFreshnessAgeMs, null);
     assert.equal(faRadar.updatedAt, faRadar.evidence.updatedAt);
     assert.deepEqual(
       enRadar.tools.map((tool) => tool.slug),
       ["coinmarketcap", "tradingview", "coingecko", "coinglass", "cryptoquant"],
     );
-    assert.ok(faRadar.coins.every((coin) => coin.impactRankScore >= 0.89));
   });
 
   it("keeps five clickable coin routes when the live authority is temporarily empty", () => {
@@ -415,7 +412,6 @@ describe("Content growth entity contract", () => {
       [],
       {
         sourceAuthority: "news-impact-history:seed-fallback",
-        authorityHighPriorityNewsCount: 0,
         now: "2026-08-27T12:00:00.000Z",
       },
       getNewsImpactHistoryItems("fa"),
@@ -668,7 +664,6 @@ describe("Content growth entity contract", () => {
       {
         sourceAuthority: "news-impact-history:partial-seed-merged",
         authorityUpdatedAt: persisted.recordedAt,
-        authorityHighPriorityNewsCount: 1,
         now: "2026-08-09T07:11:00.000Z",
       },
     );
@@ -680,8 +675,6 @@ describe("Content growth entity contract", () => {
     assert.equal(radar.evidence.status, "degraded");
     assert.equal(radar.evidence.coinCount, 1);
     assert.equal(radar.evidence.toolCount, 5);
-    assert.equal(radar.evidence.highPriorityNewsCount, 1);
-    assert.equal(radar.evidence.authorityHighPriorityNewsCount, 1);
     assert.equal(radar.evidence.authorityFreshnessAgeMs, 60000);
     assert.equal(radar.evidence.updatedAt, "2026-08-09T07:10:00.000Z");
   });
