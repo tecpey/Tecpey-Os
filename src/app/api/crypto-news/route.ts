@@ -9,6 +9,7 @@ import {
   getNewsArchiveDayForPresentation,
   type NewsArchivePresentationItem,
 } from "@/services/news/archive-presentation-authority";
+import { readGovernedPublicationSnapshotAuthority } from "@/services/news/publication-snapshot-authority";
 import {
   getNewsArchiveDaysFromAuthority,
   isValidArchiveDay,
@@ -83,13 +84,13 @@ function marketIntelligence(locale: "fa" | "en", items: NewsItem[]) {
     return {
       headline: latest ? `آخرین زمینه خبری منتشرشده: ${latest.category}` : "بازار را با نظم، نه هیجان، دنبال کنید.",
       risk: latest ? "منبع، زمان انتشار و سناریوی ریسک را قبل از هر تصمیم بررسی کنید؛ این بخش امتیاز یا سیگنال معاملاتی تولید نمی‌کند." : "خبر تازه باید با منبع و داده بازار بررسی شود.",
-      action: latest ? `مسیر پیشنهادی مطالعه: ${latest.relatedLesson}` : "در نبود خبر ترجمه‌شده، محتوای قدیمی را به‌عنوان خبر امروز نمایش نمی‌دهیم.",
+      action: latest ? `مسیر پیشنهادی مطالعه: ${latest.relatedLesson}` : "در نبود خبر انتشار‌یافته و تأییدشده، محتوای آرشیوی را به‌عنوان خبر جاری نمایش نمی‌دهیم.",
     };
   }
   return {
     headline: latest ? `Latest governed news context: ${latest.category}` : "Follow the market with discipline, not emotion.",
     risk: latest ? "Review the source, publication time and risk context before acting; this surface does not generate impact scores or trading signals." : "Fresh news should be checked against source evidence and market data.",
-    action: latest ? `Suggested learning path: ${latest.relatedLesson}` : "Older content is never presented as today's live news.",
+    action: latest ? `Suggested learning path: ${latest.relatedLesson}` : "Archive evidence is never presented as current news until governed publication accepts it.",
   };
 }
 
@@ -138,26 +139,34 @@ export async function GET(request: NextRequest) {
     const limit = boundedInteger(request.nextUrl.searchParams.get("limit"), 24, 100);
     const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
     const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
-    const [archiveItems, historicalDays] = await Promise.all([
+    const [archiveItems, historicalDays, publicationAuthority] = await Promise.all([
       getNewsArchiveDayForPresentation(requestedDay, locale),
       getNewsArchiveDaysFromAuthority(180),
+      readGovernedPublicationSnapshotAuthority(locale),
     ]);
     const now = Date.now();
 
-    // Archive visibility is intentionally broader than downstream authority.
-    // Pending Persian rows remain visible in archiveItems, but they cannot feed
-    // landing news, Academy quizzes or automation previews until a governed
-    // Persian translation exists.
-    const downstreamArchiveItems = locale === "fa"
+    // Archive visibility is intentionally broader than downstream publication.
+    // The archive remains a no-loss evidence surface, while landing/news feed,
+    // Academy quiz and automation preview require the exact immutable archive
+    // revision to appear as publishable in the latest persisted governed snapshot.
+    const localizedArchiveItems = locale === "fa"
       ? archiveItems.filter((item) => !item.translationPending)
       : archiveItems;
-    const publishedArchiveItems = selectPublishedNewsForFeed(downstreamArchiveItems, now);
+    const governedArchiveItems = publicationAuthority.status === "ready"
+      ? localizedArchiveItems.filter((item) =>
+          publicationAuthority.publishedArchiveIds.has(item.archiveId.toLowerCase()),
+        )
+      : [];
+    const publishedArchiveItems = selectPublishedNewsForFeed(governedArchiveItems, now);
     const allItems = publishedArchiveItems.map((item) => toNewsItem(item, locale, now));
     const items = allItems.slice(0, limit);
     const updatedAt = new Date().toISOString();
     const availableDays = Array.from(new Set([today, requestedDay, ...historicalDays]))
       .filter((day) => isValidArchiveDay(day) && day <= today)
       .sort((left, right) => right.localeCompare(left));
+    const publicationTimeWithheldCount = governedArchiveItems.length - publishedArchiveItems.length;
+    const publicationGovernanceWithheldCount = localizedArchiveItems.length - governedArchiveItems.length;
 
     const response = apiOk({
       locale,
@@ -166,10 +175,18 @@ export async function GET(request: NextRequest) {
       availableDays,
       updatedAt,
       publicationPolicy: NEWS_FEED_PUBLICATION_POLICY,
-      publicationWithheldCount: downstreamArchiveItems.length - publishedArchiveItems.length,
+      publicationAuthority: {
+        status: publicationAuthority.status,
+        generatedAt: publicationAuthority.generatedAt,
+        snapshotHash: publicationAuthority.snapshotHash,
+        publishedArchiveCount: governedArchiveItems.length,
+      },
+      publicationWithheldCount: publicationGovernanceWithheldCount + publicationTimeWithheldCount,
+      publicationGovernanceWithheldCount,
+      publicationTimeWithheldCount,
       mode: items.length ? "live" : "fallback" as const,
       archiveItemCount: archiveItems.length,
-      localizedItemCount: downstreamArchiveItems.length,
+      localizedItemCount: localizedArchiveItems.length,
       pendingTranslationCount: archiveItems.filter((item) => item.translationPending).length,
       marketIntelligence: marketIntelligence(locale, items),
       archiveItems,
