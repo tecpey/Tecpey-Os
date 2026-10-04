@@ -35,7 +35,7 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await expect(asset).not.toContainText(isFa ? "64000.00" : "64,000");
   await expect(asset).not.toContainText("2.50%");
   await expect(asset).toContainText("BTC");
-  await expect(status).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
+  await expect(status.getByRole("status")).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
   await status.scrollIntoViewIfNeeded();
   await testInfo.attach("market-expired-320", { body: await page.screenshot(), contentType: "image/png" });
   const refresh = status.getByRole("button", { name: isFa ? "تازه‌سازی قیمت‌ها" : "Refresh prices", exact: true });
@@ -63,7 +63,7 @@ test("market prices expire on an open page and recover through keyboard refresh"
   // TanStack v5 resumes queries through visibilitychange; the clock also
   // independently responds to window focus. Exercise both contracts.
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange", { bubbles: true })));
-  await expect(status).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
+  await expect(status.getByRole("status")).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
   timestamp = await page.evaluate(() => Date.now());
   unavailable = false;
   await expect(refresh).toHaveAttribute("aria-disabled", "false");

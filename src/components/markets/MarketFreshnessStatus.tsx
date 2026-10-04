@@ -31,7 +31,7 @@ export default function MarketFreshnessStatus({ rows, now, locale, isFetching, i
     <section className={styles.panel} data-degraded={degraded} aria-label={isFa ? "وضعیت قیمت‌های بازار" : "Market price status"} aria-busy={isFetching}>
       <div className={styles.copy}>
         <Clock3 aria-hidden="true" className={styles.icon} />
-        <div><p className={styles.title} role="status" aria-live="polite" aria-atomic="true">{title}</p><p className={styles.detail}>{detail}</p></div>
+        <div role="status" aria-live="polite" aria-atomic="true"><p className={styles.title}>{title}</p><p className={styles.detail}>{detail}</p></div>
       </div>
       <button type="button" className={styles.refresh} aria-disabled={isFetching} onClick={() => { if (!isFetching) onRefresh(); }}>
         <RefreshCw aria-hidden="true" />{isFetching ? (isFa ? "در حال دریافت" : "Fetching prices") : (isFa ? "تازه‌سازی قیمت‌ها" : "Refresh prices")}
