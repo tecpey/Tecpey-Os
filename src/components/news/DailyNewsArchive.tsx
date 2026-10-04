@@ -18,7 +18,7 @@ import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
 import styles from "./DailyNewsArchive.module.css";
 import { NewsHeadlineRail } from "./NewsHeadlineRail";
 import { NewsCardMedia } from "./NewsCardMedia";
-import { parseNewsArchiveResponse } from "@/lib/news-archive-response";
+import { parseNewsArchiveResponse } from "./news-archive-response";
 
 type ArchiveResponse = {
   day: string;

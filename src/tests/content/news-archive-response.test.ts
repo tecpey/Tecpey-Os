@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseNewsArchiveResponse } from "../../lib/news-archive-response";
+import { parseNewsArchiveResponse } from "../../components/news/news-archive-response";
 
 const day = "2026-10-04";
 const item = { archiveId: "one", sourceName: "Source", articleUrl: "https://example.com/story", publishedAt: `${day}T08:00:00Z`, sourceTitle: "Title", displayTitle: "Title", displayLead: "Lead", displayBody: "Body", thumbnailAlt: "Title", translationStatus: "completed", translationPending: false, publicSummaryAllowed: true, persianEditorialAllowed: true, thumbnailAttributionRequired: false, newsUrl: null, thumbnailUrl: null, taxonomy: { coinSymbols: [], toolSlugs: [], topicTags: [] } };

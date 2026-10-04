@@ -1,4 +1,4 @@
-import type { NewsArchivePresentationItem } from "../services/news/archive-presentation-authority";
+import type { NewsArchivePresentationItem } from "../../services/news/archive-presentation-authority";
 
 // Validate fields consumed by archive rendering before committing a fetched day.
 // This is a client continuity boundary, not publisher-rights or source authority.
