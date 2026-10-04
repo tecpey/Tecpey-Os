@@ -187,8 +187,8 @@ export function buildLandingGrowthSchemasFromRadar(radar: LandingGrowthRadarMode
     name: isEn ? `${coin.name} (${coin.symbol})` : `${coin.faName} (${coin.symbol})`,
     url: `${url.replace(/\/en$/, "")}${isEn ? "/en" : ""}/coins/${coin.slug}`,
     description: isEn
-      ? `TecPey educational guide for ${coin.name}, surfaced by high-priority news impact evidence.`
-      : `برجسته‌شده بر اساس خبر اثرگذار: ${coin.latestImpactTitle}`,
+      ? `TecPey educational guide for ${coin.name}, surfaced by recent governed news evidence.`
+      : `برجسته‌شده بر اساس شواهد خبری تازه: ${coin.latestNewsTitle}`,
   }));
   const toolItems = radar.tools.map((tool, index) => ({
     "@type": "ListItem",
