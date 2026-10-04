@@ -139,6 +139,12 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
  * reduce an item to metadata-only, and only a governed Persian rendering may
  * expose a full localized body. None of these presentation states grants a
  * detail URL, ranking, sitemap or indexing authority.
+ *
+ * Revision authority is capture-first: for one canonical article URL, a newer
+ * fetched revision always supersedes an older revision for presentation. Rich
+ * coverage is preferred only among rows captured at that same newest observed
+ * instant. This prevents an older article_full row from masking a later source
+ * correction while preserving immutable older evidence in the archive.
  */
 export async function readNewsArchiveDayForPresentationTx(
   client: PoolClient,
@@ -156,13 +162,14 @@ export async function readNewsArchiveDayForPresentationTx(
          FROM platform_news_archive_items
         WHERE published_day_tehran = $1::date
         ORDER BY article_url,
+                 fetched_at DESC,
                  CASE source_coverage
                    WHEN 'article_full' THEN 3
                    WHEN 'feed_full' THEN 2
                    WHEN 'feed_summary' THEN 1
                    ELSE 0
                  END DESC,
-                 fetched_at DESC, created_at DESC
+                 created_at DESC
      )
      SELECT article.*,
             translation.status AS translation_status,
