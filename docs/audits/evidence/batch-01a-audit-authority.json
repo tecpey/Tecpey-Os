@@ -301,11 +301,11 @@
       "path": "scripts/repository-audit-policy.mjs",
       "gitObjectId": "1a7c1d1fc48832e4c37872c02678bf98fdeab6bd",
       "sha256": "b7848354e0d9d3070e01a21a06adeb52e742a799118c760720ceff5f411c06c7",
-      "lines": 297,
+      "lines": 296,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 297
+          "endLine": 296
         }
       ],
       "findingDisposition": "no-confirmed-findings",
