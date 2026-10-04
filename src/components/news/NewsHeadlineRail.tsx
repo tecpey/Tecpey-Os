@@ -2,16 +2,26 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { NewsArchivePresentationItem } from "@/services/news/archive-presentation-authority";
+import { useFreshnessClock } from "@/hooks/useFreshnessClock";
+import { isRecentNewsPublication } from "@/lib/news-published-at";
+import { NewsCardMedia } from "./NewsCardMedia";
 import styles from "./NewsHeadlineRail.module.css";
 
-type Headline = {
-  archiveId: string;
-  displayTitle: string;
-  sourceName: string;
-  publishedAt: string;
-  translationPending: boolean;
-  publicSummaryAllowed: boolean;
-};
+type Headline = Pick<NewsArchivePresentationItem,
+  "archiveId" | "displayTitle" | "displayLead" | "sourceName" | "publishedAt" |
+  "translationPending" | "publicSummaryAllowed" | "thumbnailUrl" | "thumbnailAlt" |
+  "thumbnailPolicy" | "thumbnailAttributionRequired"
+>;
+
+function publicationLabel(publishedAt: string, now: number, isFa: boolean) {
+  const published = Date.parse(publishedAt);
+  if (!Number.isFinite(published)) return isFa ? "زمان انتشار نامعتبر" : "Publication time unavailable";
+  if (!now) return isFa ? "در حال بررسی زمان انتشار" : "Checking publication time";
+  if (published > now) return isFa ? "زمان انتشار در آینده است" : "Future publication timestamp";
+  if (isRecentNewsPublication(publishedAt, now)) return isFa ? "انتشار در ۱۲ ساعت گذشته" : "Published within 12 hours";
+  return isFa ? "انتشار قدیمی‌تر" : "Earlier publication";
+}
 
 export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
   items: Headline[];
@@ -23,6 +33,7 @@ export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
   const trackRef = useRef<HTMLUListElement>(null);
   const cardsRef = useRef<Array<HTMLButtonElement | null>>([]);
   const [active, setActive] = useState(0);
+  const now = useFreshnessClock();
   const isFa = locale === "fa";
   const number = new Intl.NumberFormat(isFa ? "fa-IR" : "en-US");
 
@@ -85,9 +96,12 @@ export function NewsHeadlineRail({ items, totalCount, locale, id, onRead }: {
       <ul id={`${id}-track`} ref={trackRef} className={styles.track} onScroll={observeScroll}>
         {items.map((item, index) => (
           <li key={item.archiveId} className={styles.card}>
-            <button id={`${id}-card-${index}`} ref={node => { cardsRef.current[index] = node; }} type="button" className={styles.read} data-current={active === index} aria-label={isFa ? `خواندن خبر: ${item.displayTitle}` : `Read story: ${item.displayTitle}`} onFocus={() => reveal(index)} onKeyDown={event => navigate(event, index)} onClick={() => onRead(index)}>
-              <span className={styles.metadata}><bdi>{item.sourceName}</bdi><time dateTime={item.publishedAt}>{new Intl.DateTimeFormat(isFa ? "fa-IR" : "en-US", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" }).format(new Date(item.publishedAt))}</time></span>
+            <button id={`${id}-card-${index}`} ref={node => { cardsRef.current[index] = node; }} type="button" className={styles.read} data-current={active === index} aria-label={isFa ? `خواندن خبر: ${item.displayTitle}` : `Read story: ${item.displayTitle}`} aria-describedby={`${id}-context-${index} ${id}-freshness-${index} ${id}-summary-${index}`} onFocus={() => reveal(index)} onKeyDown={event => navigate(event, index)} onClick={() => onRead(index)}>
+              <NewsCardMedia item={item} isFa={isFa} />
+              <span id={`${id}-context-${index}`} className={styles.metadata}><bdi>{item.sourceName}</bdi><time dateTime={item.publishedAt}>{Number.isFinite(Date.parse(item.publishedAt)) ? new Intl.DateTimeFormat(isFa ? "fa-IR" : "en-US", { timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit" }).format(new Date(item.publishedAt)) : "—"}</time></span>
+              <span id={`${id}-freshness-${index}`} className={styles.freshness}>{publicationLabel(item.publishedAt, now, isFa)}</span>
               <span className={styles.title} dir={isFa && item.translationPending && item.publicSummaryAllowed ? "ltr" : undefined}>{item.displayTitle}</span>
+              <span id={`${id}-summary-${index}`} className={styles.summary} dir={isFa && item.translationPending && item.publicSummaryAllowed ? "ltr" : undefined}>{item.displayLead}</span>
               <span className={styles.action}>{isFa ? "خواندن این خبر" : "Read this story"}<span aria-hidden="true">{isFa ? "←" : "→"}</span></span>
             </button>
           </li>

@@ -9,9 +9,7 @@ import {
   ChevronRight,
   ExternalLink,
   FileText,
-  ImageIcon,
   Languages,
-  Newspaper,
   Search,
   Tags,
 } from "lucide-react";
@@ -19,6 +17,7 @@ import type { NewsArchivePresentationItem } from "@/services/news/archive-presen
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
 import styles from "./DailyNewsArchive.module.css";
 import { NewsHeadlineRail } from "./NewsHeadlineRail";
+import { NewsCardMedia } from "./NewsCardMedia";
 
 type ArchiveResponse = {
   day: string;
@@ -90,28 +89,6 @@ function translationLabel(item: NewsArchivePresentationItem, isFa: boolean): str
   return "ترجمه در صف · خلاصه مجاز منبع";
 }
 
-function NewsCardMedia({ item, isFa }: { item: NewsArchivePresentationItem; isFa: boolean }) {
-  return (
-    <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[22px] border border-cyan-300/15 bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900">
-      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-        <div className="flex flex-col items-center gap-3 text-center text-white/70">
-          <div className="rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur"><Newspaper className="h-7 w-7" /></div>
-          <span className="max-w-[80%] text-xs font-black tracking-wide">{item.sourceName}</span>
-        </div>
-      </div>
-      {item.thumbnailUrl && (
-        // The media path is a governed same-origin redirect to provider-approved source media.
-        // eslint-disable-next-line @next/next/no-img-element -- #643: governed same-origin source media requires native fallback handling.
-        <img src={item.thumbnailUrl} alt={item.thumbnailAlt} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover object-center" onError={(event) => { event.currentTarget.style.display = "none"; }} />
-      )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/80 to-transparent" />
-      <div className="absolute bottom-3 start-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-xs font-black text-white backdrop-blur-md"><ImageIcon className="h-3 w-3" />{item.thumbnailUrl ? (isFa ? "تصویر مجاز منبع" : "Governed source media") : (isFa ? "نمای امن تک‌پی" : "TecPey safe fallback")}</span>
-        {item.thumbnailUrl && item.thumbnailAttributionRequired && <span className="rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-xs font-black text-white backdrop-blur-md">{isFa ? `اعتبار تصویر: ${item.sourceName}` : `Media: ${item.sourceName}`}</span>}
-      </div>
-    </div>
-  );
-}
 
 export function DailyNewsArchive({ initial, locale, initialTags = [] }: { initial: ArchiveResponse; locale: "fa" | "en"; initialTags?: string[] }) {
   const headlineId = useId();

@@ -74,9 +74,11 @@ describe("news no-loss archive and media authority", () => {
 
   it("renders responsive 16:9 source media with explicit translation state", async () => {
     const archive = await source("src/components/news/DailyNewsArchive.tsx");
-    assert.match(archive, /aspect-\[16\/9\]/);
-    assert.match(archive, /object-cover/);
-    assert.match(archive, /referrerPolicy="no-referrer"/);
+    const media = await source("src/components/news/NewsCardMedia.tsx");
+    assert.match(archive, /<NewsCardMedia/);
+    assert.match(media, /aspect-\[16\/9\]/);
+    assert.match(media, /object-cover/);
+    assert.match(media, /referrerPolicy="no-referrer"/);
     assert.match(archive, /ترجمه در بازپردازش/);
     assert.match(archive, /سیاست بازنشر منبع اجازه داده باشد/);
   });
