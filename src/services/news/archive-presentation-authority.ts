@@ -24,6 +24,10 @@ export type NewsArchivePresentationItem = Omit<NewsArchiveItem, "sourceBody"> & 
   thumbnailAlt: string;
   thumbnailPolicy: NewsProviderThumbnailPolicy;
   thumbnailAttributionRequired: boolean;
+  storyClusterId: string | null;
+  storyClusterMembership: "canonical" | "corroborating" | "distinct_viewpoint" | "conflicting_viewpoint" | null;
+  storyClusterMemberCount: number | null;
+  storyClusterIndependentSourceCount: number | null;
 };
 
 function sourceForArticleUrl(articleUrl: string) {
@@ -127,7 +131,50 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
     thumbnailAlt: displayTitle,
     thumbnailPolicy: thumbnail.policy,
     thumbnailAttributionRequired: thumbnail.attributionRequired,
+    storyClusterId: row.story_cluster_id ? String(row.story_cluster_id) : null,
+    storyClusterMembership: row.story_cluster_membership
+      ? String(row.story_cluster_membership) as NewsArchivePresentationItem["storyClusterMembership"]
+      : null,
+    storyClusterMemberCount: row.story_cluster_member_count == null ? null : Number(row.story_cluster_member_count),
+    storyClusterIndependentSourceCount: row.story_cluster_independent_source_count == null ? null : Number(row.story_cluster_independent_source_count),
   };
+}
+
+export function selectPublicStoryClusterRepresentatives(
+  items: readonly NewsArchivePresentationItem[],
+): NewsArchivePresentationItem[] {
+  const selected = new Map<string, NewsArchivePresentationItem>();
+  for (const item of items) {
+    const key = item.storyClusterId ?? item.archiveId;
+    const previous = selected.get(key);
+    if (!previous) {
+      selected.set(key, item);
+      continue;
+    }
+
+    const candidateTime = Date.parse(item.fetchedAt);
+    const previousTime = Date.parse(previous.fetchedAt);
+    if (
+      candidateTime > previousTime
+      || (
+        candidateTime === previousTime
+        && item.storyClusterMembership === "canonical"
+        && previous.storyClusterMembership !== "canonical"
+      )
+      || (
+        candidateTime === previousTime
+        && item.storyClusterMembership === previous.storyClusterMembership
+        && item.archiveId.localeCompare(previous.archiveId) < 0
+      )
+    ) {
+      selected.set(key, item);
+    }
+  }
+  return [...selected.values()].sort((a, b) =>
+    Date.parse(b.publishedAt) - Date.parse(a.publishedAt)
+    || a.sourceName.localeCompare(b.sourceName)
+    || a.articleUrl.localeCompare(b.articleUrl)
+  );
 }
 
 /**
@@ -189,6 +236,10 @@ export async function readNewsArchiveDayForPresentationTx(
           ORDER BY (status = 'completed') DESC, generated_at DESC, created_at DESC
           LIMIT 1
        ) translation ON TRUE
+       LEFT JOIN platform_news_story_cluster_members story_cluster_members
+         ON story_cluster_members.archive_id = article.archive_id
+       LEFT JOIN platform_news_story_clusters story_cluster
+         ON story_cluster.cluster_id = story_cluster_members.cluster_id
        LEFT JOIN LATERAL (
          SELECT history.news_url
            FROM platform_news_impact_history_items history
@@ -202,7 +253,7 @@ export async function readNewsArchiveDayForPresentationTx(
     [day, locale],
   );
 
-  return result.rows.map((row) => mapRow(row, locale));
+  return selectPublicStoryClusterRepresentatives(result.rows.map((row) => mapRow(row, locale)));
 }
 
 export async function getNewsArchiveDayForPresentation(
