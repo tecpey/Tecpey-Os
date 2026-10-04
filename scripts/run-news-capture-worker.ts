@@ -719,6 +719,8 @@ async function main(): Promise<void> {
       });
     }
 
+    storyClusterAudit = await materializeStoryClustersTx(client, fetchedAt, 48);
+
     for (const source of NEWS_SOURCE_REGISTRY) {
       const result = sourceResults.get(source.name);
       if (!result) continue;
@@ -760,6 +762,7 @@ async function main(): Promise<void> {
     successfulSourceCount: NEWS_SOURCE_REGISTRY.length - failures.length,
     fetchedArticleCount: articles.length,
     hydrationAudit,
+    storyClusterAudit,
     insertedCount,
     replayedCount,
     continuityRiskCount,
