@@ -75,7 +75,7 @@ function FeaturedCoinRow({
           {coinTitle(coin, locale)}
         </span>
         <span className="mt-1 block text-xs font-bold leading-6 text-[color:var(--tp-muted)]">
-          {showCurrentEvidence ? coin.latestImpactTitle : coinCategory(coin, locale)}
+          {showCurrentEvidence ? coin.latestNewsTitle : coinCategory(coin, locale)}
         </span>
       </span>
       <Arrow
