@@ -39,6 +39,7 @@ function item(overrides: Partial<NewsArchivePresentationItem> = {}): NewsArchive
     storyClusterMembership: null,
     storyClusterMemberCount: null,
     storyClusterIndependentSourceCount: null,
+    storyEvidenceChannel: "factual_publisher",
     ...overrides,
   };
 }
