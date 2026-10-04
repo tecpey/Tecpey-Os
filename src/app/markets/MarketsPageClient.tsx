@@ -170,6 +170,7 @@ export default function MarketsPageClient({
     () => getPageNumbers(currentPage, totalPages),
     [currentPage, totalPages],
   );
+  const faNumber = useMemo(() => new Intl.NumberFormat("fa-IR"), []);
 
   const goToPrevPage = () => setCurrentPage((p) => Math.max(p - 1, 1));
   const goToNextPage = () => setCurrentPage((p) => Math.min(p + 1, totalPages));
@@ -219,61 +220,93 @@ export default function MarketsPageClient({
               </div>
 
               {totalPages > 1 && (
-                <div className="mt-6 flex justify-center overflow-x-auto">
-                  <div className="flex min-w-max items-center gap-2 sm:gap-4">
+                <nav className="mt-6" aria-label="صفحه‌بندی بازار">
+                  <div className="flex items-center justify-center gap-3 sm:hidden">
                     <button
+                      type="button"
                       onClick={goToPrevPage}
                       aria-label="صفحه قبل"
                       disabled={currentPage === 1 || isFetching}
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-white sm:h-10 sm:w-10 ${
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl border text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${
                         currentPage === 1 || isFetching
-                          ? "cursor-not-allowed bg-gray-500"
-                          : "bg-primary hover:bg-blue-700"
+                          ? "cursor-not-allowed border-slate-400/20 bg-slate-500/60"
+                          : "border-primary/20 bg-primary hover:bg-blue-700"
                       }`}
                     >
-                      <ChevronsLeft className="size-4 rtl-flip" />
+                      <ChevronsLeft aria-hidden="true" className="size-4 rtl-flip" />
+                    </button>
+                    <p className="min-w-[9rem] text-center text-sm font-bold text-muted" aria-live="polite" aria-atomic="true">
+                      صفحه {faNumber.format(currentPage)} از {faNumber.format(totalPages)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={goToNextPage}
+                      aria-label="صفحه بعد"
+                      disabled={currentPage === totalPages || isFetching}
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl border text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${
+                        currentPage === totalPages || isFetching
+                          ? "cursor-not-allowed border-slate-400/20 bg-slate-400/60"
+                          : "border-blue-500/20 bg-blue-600 hover:bg-blue-700"
+                      }`}
+                    >
+                      <ChevronsRight aria-hidden="true" className="size-4 rtl-flip" />
+                    </button>
+                  </div>
+
+                  <div className="hidden items-center justify-center gap-3 overflow-x-auto sm:flex">
+                    <button
+                      type="button"
+                      onClick={goToPrevPage}
+                      aria-label="صفحه قبل"
+                      disabled={currentPage === 1 || isFetching}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${
+                        currentPage === 1 || isFetching
+                          ? "cursor-not-allowed border-slate-400/20 bg-slate-500/60"
+                          : "border-primary/20 bg-primary hover:bg-blue-700"
+                      }`}
+                    >
+                      <ChevronsLeft aria-hidden="true" className="size-4 rtl-flip" />
                     </button>
 
-                    <div className="flex items-center gap-1 sm:gap-2">
+                    <div className="flex min-w-max items-center gap-2">
                       {pageNumbers.map((p, idx) =>
                         p === "..." ? (
-                          <span
-                            key={`dots-${idx}`}
-                            className="px-1 text-gray-500 sm:px-2"
-                          >
-                            ...
-                          </span>
+                          <span key={`dots-${idx}`} aria-hidden="true" className="px-1 text-gray-500">…</span>
                         ) : (
                           <button
+                            type="button"
                             key={p}
                             onClick={() => typeof p === "number" && goToPage(p)}
                             disabled={isFetching}
-                            className={`h-8 min-w-8 rounded-lg border px-2 text-xs font-medium transition-colors sm:h-9 sm:min-w-9 sm:px-3 sm:text-sm ${
+                            aria-label={`صفحه ${faNumber.format(Number(p))}`}
+                            aria-current={p === currentPage ? "page" : undefined}
+                            className={`h-11 min-w-11 rounded-xl border px-3 text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${
                               p === currentPage
                                 ? "border-primary/20 bg-primary text-white"
                                 : "border-primary/30 bg-[var(--card-1)] text-muted hover:bg-white/5"
                             }`}
                           >
-                            {p}
+                            {faNumber.format(Number(p))}
                           </button>
                         ),
                       )}
                     </div>
 
                     <button
+                      type="button"
                       onClick={goToNextPage}
                       aria-label="صفحه بعد"
                       disabled={currentPage === totalPages || isFetching}
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-white sm:h-10 sm:w-10 ${
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 ${
                         currentPage === totalPages || isFetching
-                          ? "cursor-not-allowed bg-gray-400"
-                          : "bg-blue-600 hover:bg-blue-700"
+                          ? "cursor-not-allowed border-slate-400/20 bg-slate-400/60"
+                          : "border-blue-500/20 bg-blue-600 hover:bg-blue-700"
                       }`}
                     >
-                      <ChevronsRight className="size-4 rtl-flip" />
+                      <ChevronsRight aria-hidden="true" className="size-4 rtl-flip" />
                     </button>
                   </div>
-                </div>
+                </nav>
               )}
             </div>
           </div>
