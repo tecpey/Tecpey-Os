@@ -62,7 +62,7 @@ describe("Landing growth freshness presentation authority", () => {
     assert.match(radarSource, /نباید به‌عنوان سیگنال یا زمینهٔ تازهٔ بازار تفسیر شوند/);
     assert.match(
       radarSource,
-      /showCurrentEvidence \? coin\.latestImpactTitle : coinCategory\(coin, locale\)/,
+      /showCurrentEvidence \? coin\.latestNewsTitle : coinCategory\(coin, locale\)/,
     );
     assert.match(radarSource, /showCurrentEvidence=\{isEvidenceReady\}/);
     assert.match(radarSource, /<time dateTime=\{radar\.evidence\.updatedAt\}>/);
