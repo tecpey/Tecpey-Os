@@ -15,8 +15,6 @@ export type GrowthTrendNewsHighlight = {
   articleUrl: string;
   publishedAt: string;
   day: string;
-  impactScore: number;
-  priority: number;
   newsUrl: string | null;
   coinSymbols: string[];
   topicTags: string[];
@@ -59,15 +57,13 @@ async function readHighlights(locale: ContentLocale, window: TrendWindow): Promi
                 source_url,
                 published_at,
                 ((published_at AT TIME ZONE 'Asia/Tehran')::date)::text AS published_day_tehran,
-                priority,
-                impact_score,
                 news_url,
                 related_coin_symbols
            FROM platform_news_impact_history_items
           WHERE locale = $2
             AND published_at >= NOW() - $1::interval
             AND source_name = ANY($3::text[])
-          ORDER BY priority DESC, impact_score DESC, published_at DESC, recorded_at DESC
+          ORDER BY published_at DESC, recorded_at DESC, history_id DESC
           LIMIT 40`,
         [WINDOW_INTERVAL[window], locale, eligibleSourceNames],
       );
@@ -76,8 +72,6 @@ async function readHighlights(locale: ContentLocale, window: TrendWindow): Promi
         const articleUrl = String(row.source_url ?? "");
         if (!isNewsPublicationSourceEligible(articleUrl)) return [];
 
-        const impactScore = Math.max(0, Math.min(10, Number(row.impact_score) || 0));
-        const priority = Math.max(0, Math.min(100, Number(row.priority) || 0));
         const newsUrl = typeof row.news_url === "string" && /^\/(?:en\/)?crypto-news\/[a-z0-9-]+$/.test(row.news_url)
           ? row.news_url
           : null;
@@ -88,8 +82,6 @@ async function readHighlights(locale: ContentLocale, window: TrendWindow): Promi
           articleUrl,
           publishedAt: new Date(row.published_at as string | Date).toISOString(),
           day: String(row.published_day_tehran),
-          impactScore,
-          priority,
           newsUrl,
           coinSymbols: boundedSymbols(row.related_coin_symbols),
           topicTags: [],
