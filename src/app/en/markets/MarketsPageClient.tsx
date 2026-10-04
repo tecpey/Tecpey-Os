@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, TrendingUp } from "lucide-react";
 import { EnglishShell } from "../components/EnglishUI";
@@ -13,6 +13,15 @@ import MarketDataProvenance from "@/components/markets/MarketDataProvenance";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 import { coinSlugForSymbol } from "@/lib/news-taxonomy";
 import { publicMarketQuoteCurrency, selectFreshPublicMarketRows, normalizeMarketSymbol } from "@/lib/public-market-data";
+
+function useDebouncedValue<T>(value: T, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 
 function formatQuotedPrice(value: unknown, quote: "USD" | "USDT" | null) {
   const n = Number(value ?? 0);
@@ -33,13 +42,14 @@ export default function EnglishMarketsPageClient({
   initialCurrencies: CurrencyListResult | undefined;
 }) {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 400);
   // initialCurrencies was prefetched on the server for exactly this default
   // view (empty query) — see src/app/en/markets/page.tsx.
   const now = useMarketFreshnessClock();
   const { data, isFetching, isError, refetch } = useQuery({
-    queryKey: ["english-market-board", query],
+    queryKey: ["english-market-board", debouncedQuery],
     queryFn: async () => {
-      const result = await getCurrencies(1, 30, query.trim());
+      const result = await getCurrencies(1, 30, debouncedQuery.trim());
       if (!result.data.length && !result.provenance) throw new Error("market_data_unavailable");
       return result;
     },
@@ -60,7 +70,7 @@ export default function EnglishMarketsPageClient({
   // hydration mismatch, reproduced while building this. Used here only as a
   // plain rendering fallback, which is deterministic per-request since it
   // comes straight from a prop.
-  const effectiveResult = data ?? (query.trim() === "" ? initialCurrencies : undefined);
+  const effectiveResult = data ?? (debouncedQuery.trim() === "" ? initialCurrencies : undefined);
   const rows = useMemo(() => (effectiveResult?.data ?? []).filter((coin) => !["IRT", "USD"].includes(String(coin.symbol ?? ""))), [effectiveResult]);
 
   const fresh = new Set(selectFreshPublicMarketRows(rows, now));
