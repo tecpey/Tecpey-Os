@@ -878,7 +878,9 @@ test("market search resets pagination before requesting the filtered result", as
 
   const response = await page.goto("/markets", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Bitcoin" })).toBeVisible();
+  const bitcoinRow = page.locator('a[data-market-asset="BTC"]');
+  await expect(bitcoinRow).toBeVisible();
+  await expect(bitcoinRow).toHaveAttribute("href", "/crypto/btc");
 
   const nextPage = page.locator("button:has(svg.lucide-chevrons-right)");
   const pageTwoRequest = page.waitForResponse((candidate) => {
@@ -889,7 +891,9 @@ test("market search resets pagination before requesting the filtered result", as
   });
   await nextPage.click();
   await pageTwoRequest;
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toBeVisible();
+  const toncoinRow = page.locator('a[data-market-asset="TON"]');
+  await expect(toncoinRow).toBeVisible();
+  await expect(toncoinRow).toHaveAttribute("href", "/crypto/ton");
 
   const firstPageSearch = page.waitForResponse((candidate) => {
     const url = new URL(candidate.url());
@@ -899,8 +903,10 @@ test("market search resets pagination before requesting the filtered result", as
   });
   await page.getByPlaceholder("جستجو بر اساس نام ارز یا نماد...").fill("ETH");
   await firstPageSearch;
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Ethereum" })).toBeVisible();
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toHaveCount(0);
+  const ethereumRow = page.locator('a[data-market-asset="ETH"]');
+  await expect(ethereumRow).toBeVisible();
+  await expect(ethereumRow).toHaveAttribute("href", "/crypto/eth");
+  await expect(page.locator('a[data-market-asset="TON"]')).toHaveCount(0);
 });
 
 test("CSP evidence remains available after a document reload", async ({ page }, testInfo) => {
