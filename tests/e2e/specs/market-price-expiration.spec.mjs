@@ -20,7 +20,7 @@ test("market prices expire on an open page and recover through keyboard refresh"
     return route.fulfill({ json: {
       data: [{ id: "bitcoin", symbol: "BTC", name: "Bitcoin", rank: 1, marketDataSource: provider, marketDataUpdatedAt: upstreamUpdatedAt,
         priceData: { symbol: "BTC", last: price, changePercent: 2.5, volume: 123, rank: 1, timestamp: upstreamUpdatedAt } }],
-      meta: { current_page: 1, last_page: 1, total: 1 },
+      meta: { current_page: 1, last_page: 3, total: 3 },
       provenance: { provider, upstreamSource: provider, currency: provider === "CoinGecko" ? "USD" : "USDT", upstreamUpdatedAt, fetchedAt: upstreamUpdatedAt, fallback: true },
     } });
   });
@@ -45,6 +45,17 @@ test("market prices expire on an open page and recover through keyboard refresh"
     const point = document.elementFromPoint(rect.x + rect.width / 2, rect.y + Math.min(rect.height / 2, 44));
     return Boolean(point && (point === node || node.contains(point)));
   })).toBe(true);
+
+  if (isFa) {
+    const pagination = page.getByRole("navigation", { name: "صفحه‌بندی بازار" });
+    await expect(pagination).toContainText("صفحه ۱ از ۳");
+    const previous = pagination.getByRole("button", { name: "صفحه قبل" });
+    const next = pagination.getByRole("button", { name: "صفحه بعد" });
+    await expect(previous).toBeVisible();
+    await expect(next).toBeVisible();
+    expect((await previous.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    expect((await next.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  }
 
   unavailable = true;
   await page.clock.fastForward(301000);
