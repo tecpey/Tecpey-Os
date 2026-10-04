@@ -14,8 +14,8 @@ export function NewsCardMedia({ item, isFa, id }: { item: MediaItem; isFa: boole
 
   return (
     <span id={id} className="relative block aspect-[16/9] w-full overflow-hidden rounded-[22px] border border-cyan-300/15 bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900" data-news-media={showImage ? "source" : "fallback"}>
-      {!showImage && <span className="absolute inset-0 flex items-center justify-center text-white/70" aria-hidden="true">
-        <Newspaper className="h-6 w-6" />
+      {!showImage && <span className="absolute inset-0 flex items-start justify-center pt-2 text-white/70 sm:items-center sm:pt-0" aria-hidden="true">
+        <Newspaper data-news-media-icon className="h-6 w-6" />
       </span>}
       {showImage && governedUrl && (
         // Native media preserves the governed redirect and handles failed source images.
@@ -24,7 +24,7 @@ export function NewsCardMedia({ item, isFa, id }: { item: MediaItem; isFa: boole
       )}
       <span className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/80 to-transparent" />
       <span className="absolute bottom-2 start-2 flex max-w-[calc(100%-1rem)] flex-wrap gap-1">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/90 px-2 py-1 text-xs font-black text-white"><ImageIcon className="h-3 w-3" aria-hidden="true" />{showImage ? (isFa ? "تصویر مجاز منبع" : "Governed source media") : (isFa ? "نمای امن تک‌پی" : "TecPey safe fallback")}</span>
+        <span data-news-media-caption={showImage ? "source" : "fallback"} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/90 px-2 py-1 text-xs font-black text-white"><ImageIcon className="h-3 w-3" aria-hidden="true" />{showImage ? (isFa ? "تصویر مجاز منبع" : "Governed source media") : (isFa ? "نمای امن تک‌پی" : "TecPey safe fallback")}</span>
         {showImage && item.thumbnailAttributionRequired && <span className="rounded-full border border-white/15 bg-slate-950/90 px-2 py-1 text-xs font-black text-white">{isFa ? `اعتبار تصویر: ${item.sourceName}` : `Media: ${item.sourceName}`}</span>}
       </span>
     </span>

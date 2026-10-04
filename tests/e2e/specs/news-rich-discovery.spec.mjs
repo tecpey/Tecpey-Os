@@ -68,6 +68,9 @@ test("news discovery shows governed media, honest fallback and publication age",
   await expect(cards.nth(1)).toContainText(fallback);
   await expect(cards.nth(1)).toHaveAccessibleDescription(new RegExp(fallback));
   await expect(cards.nth(1).locator("img")).toHaveCount(0);
+  const fallbackIcon = await cards.nth(1).locator("[data-news-media-icon]").boundingBox();
+  const fallbackCaption = await cards.nth(1).locator('[data-news-media-caption="fallback"]').boundingBox();
+  expect(fallbackIcon.y + fallbackIcon.height).toBeLessThanOrEqual(fallbackCaption.y - 2);
   await expect(cards.nth(1)).not.toContainText(isFa ? "اعتبار تصویر:" : "Media: QA Source");
   await expect(cards.nth(2)).toContainText(future);
   await expect(cards.nth(2).locator("img")).toHaveCount(0);
