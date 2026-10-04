@@ -100,7 +100,7 @@ const DOMAIN_RULES = [
       /(?:^|\/)(?:database|postgres|redis|bullmq|migration|persistence|outbox)(?:[./_-]|$)/i,
       /^src\/(?:.+\/)?(?:repository|repositories)(?:[./_-]|$)/i,
       /^src\/lib\/db(?:[./_-]|$)/i,
-      /^src\/lib\/news-materialization-persistence\.ts$/,
+      /^src\/lib\/news-materialization-persistence\.ts$/,\n      /^src\/lib\/db-migrate-news-story-cluster-authority\.ts$/,
       /^src\/lib\/offline-sync(?:[./_-]|$)/i,
     ],
   },
@@ -150,7 +150,7 @@ const DOMAIN_RULES = [
     riskTier: "P2",
     reviewBatch: 10,
     patterns: [
-      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|growth-analytics-contract|growth-trend-authority|growth-trend-intelligence|indexnow|landing-growth|landing-growth-authority|news-article-evidence|news-automation|news-detail-pages|news-detail-body-authority|news-feed-evidence|news-full-evidence-capture|news-growth-authority|news-publisher-evidence|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|news-published-at|news-source-registry|news-taxonomy|news-translation|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
+      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|growth-analytics-contract|growth-trend-authority|growth-trend-intelligence|indexnow|landing-growth|landing-growth-authority|news-article-evidence|news-automation|news-detail-pages|news-detail-body-authority|news-feed-evidence|news-full-evidence-capture|news-growth-authority|news-publisher-evidence|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|news-published-at|news-source-registry|news-taxonomy|news-translation|news-evidence-channel-authority|news-story-cluster-authority|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
     ],
   },
   {
