@@ -177,10 +177,16 @@ export async function materializeStoryClustersTx(client: PoolClient, now: string
       rightArchiveId: relation.rightArchiveId,
     };
     const decisionHash = createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
-    const relationId = createHash("sha256")
+    const relationDigest = createHash("sha256")
       .update(`${NEWS_STORY_CLUSTER_POLICY_VERSION}\0${relation.leftArchiveId}\0${relation.rightArchiveId}\0${relation.relation}`)
-      .digest("hex")
-      .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12}).*$/, "$1-$2-4$4-8$5-$6");
+      .digest("hex");
+    const relationId = [
+      relationDigest.slice(0, 8),
+      relationDigest.slice(8, 12),
+      `4${relationDigest.slice(13, 16)}`,
+      `${((parseInt(relationDigest.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0")}${relationDigest.slice(18, 20)}`,
+      relationDigest.slice(20, 32),
+    ].join("-");
     await client.query(`INSERT INTO platform_news_story_relations
       (relation_id,left_archive_id,right_archive_id,relation,evidence,policy_version,decision_hash,created_at)
       VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5::jsonb,$6,$7,$8::timestamptz)
