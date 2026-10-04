@@ -373,7 +373,7 @@ describe("Content growth entity contract", () => {
   it("features the governed trader tools deterministically", () => {
     assert.deepEqual(
       getFeaturedTraderTools(5).map((tool) => tool.slug),
-      ["coinmarketcap", "tradingview", "coingecko", "coinglass", "cryptoquant"],
+      ["coinmarketcap", "tradingview", "coingecko", "coincodex", "coinglass"],
     );
   });
 
@@ -402,7 +402,7 @@ describe("Content growth entity contract", () => {
     assert.equal(faRadar.updatedAt, faRadar.evidence.updatedAt);
     assert.deepEqual(
       enRadar.tools.map((tool) => tool.slug),
-      ["coinmarketcap", "tradingview", "coingecko", "coinglass", "cryptoquant"],
+      ["coinmarketcap", "tradingview", "coingecko", "coincodex", "coinglass"],
     );
   });
 
