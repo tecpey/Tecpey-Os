@@ -6,7 +6,6 @@ import {
   type ToolRankingInput,
   type ToolRankingResult,
 } from "./content-growth";
-import { getNewsImpactScoreForTool } from "./news-impact-history";
 import {
   readPublishedToolGrowthRecords,
   slugifyToolName,
@@ -131,7 +130,6 @@ function buildToolRankingInput(tool: TraderTool): ToolRankingInput {
     slug,
     name: tool.name,
     featuredWeight: FEATURED_WEIGHTS[slug] ?? (tool.automation ? Math.min(0.5, tool.automation.score) : 0.32),
-    newsImpactScore: getNewsImpactScoreForTool(slug),
     safetyScore: officialLinkCompleteness(tool),
     beginnerUsefulness: BEGINNER_USEFULNESS[categoryKey] ?? 0.62,
     proUsefulness: PRO_USEFULNESS[categoryKey] ?? 0.66,
