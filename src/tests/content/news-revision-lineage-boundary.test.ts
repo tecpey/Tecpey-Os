@@ -51,4 +51,18 @@ describe("News correction and revision lineage boundary", () => {
     assert.match(worker, /revisionInserted: feedArchive\.inserted/);
     assert.doesNotMatch(worker, /WHERE platform_news_hydration_state\.hydrated_at IS NULL/);
   });
+
+  it("withholds an older translated revision as soon as a newer correction is observed", () => {
+    const publication = read("src/lib/ops/news-publication-authority.ts");
+    const latestArchive = publication.indexOf("WITH latest_archive AS");
+    const translationJoin = publication.indexOf("JOIN LATERAL", latestArchive);
+    const fetchedAt = publication.indexOf("archive.fetched_at DESC", latestArchive);
+    const exactHash = publication.indexOf("source_content_hash = archive.content_hash", translationJoin);
+
+    assert.ok(latestArchive >= 0, "publication must choose latest archive revision first");
+    assert.ok(fetchedAt > latestArchive, "latest publication revision must use observed recency");
+    assert.ok(translationJoin > fetchedAt, "translation eligibility must be evaluated after revision selection");
+    assert.ok(exactHash > translationJoin, "translation must match the selected correction hash");
+    assert.match(publication, /withheld rather than silently falling back/);
+  });
 });
