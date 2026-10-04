@@ -64,7 +64,7 @@ Shared-cache lifetime is the minimum remaining upstream validity across returned
 
 Four policy cases and four route cases cover mixed-provider expiry, cache lifetime from the oldest row, exact age/skew boundaries, malformed authority, invalid clock, near-expiry/no-store CoinGecko responses, stale matched searches, Bitycle cache limits and expiry while a companion response is processed. Route fixtures exercise GET with controlled provider HTTP responses and clock; they do not query live providers or prove deployed CDN behavior.
 
-Scope is the public market-list origin response and its cache directives. Already-rendered client prices, React Query cache/polling/visibility handling, market-row degraded UX, Iranian comparison/other endpoints, actual CDN override validation and complete source-specific freshness acceptance remain open. No market-data, trading, funds or release authority is granted.
+Scope is the public market-list origin response and its cache directives. The origin-only slice left already-rendered client prices and market-row recovery open; the client slice below now covers the two market-list pages. Iranian comparison/other endpoints, actual CDN override validation and complete source-specific freshness acceptance remain open. No market-data, trading, funds or release authority is granted.
 
 Primary references (accessed 2026-10-03): RFC 9111 sections 5.2.2.2 and 5.2.2.10, https://www.rfc-editor.org/rfc/rfc9111.html, specify revalidation and shared-cache lifetime; https://docs.coingecko.com/reference/coins-markets documents the upstream timestamp field. Source thresholds are existing TecPey policy, not provider guarantees.
 

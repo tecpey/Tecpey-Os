@@ -55,6 +55,9 @@ test("market prices expire on an open page and recover through keyboard refresh"
   await page.clock.setSystemTime(timestamp + 301000);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(asset).toHaveAttribute("data-price-current", "false");
+  // TanStack v5 resumes queries through visibilitychange; the clock also
+  // independently responds to window focus. Exercise both contracts.
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange", { bubbles: true })));
   await expect(status).toContainText(isFa ? "دریافت قیمت‌ها انجام نشد" : "Prices could not be retrieved");
   timestamp = await page.evaluate(() => Date.now());
   unavailable = false;
