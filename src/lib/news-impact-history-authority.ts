@@ -320,7 +320,6 @@ export async function getNewsImpactHistoryAuthoritySnapshot(
       : "news-impact-history:partial-seed-merged",
     persistedCount: persisted.length,
     seededCount: seeded.length,
-    highPriorityPersistedCount: persisted.filter((item) => item.priority >= 75).length,
     latestPersistedRecordedAt: latestPersistedRecordedAt
       ? new Date(latestPersistedRecordedAt).toISOString()
       : null,
