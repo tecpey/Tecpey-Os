@@ -28,7 +28,7 @@ test("market prices expire on an open page and recover through keyboard refresh"
   const asset = page.locator('[data-market-asset="BTC"]');
   const status = page.getByRole("region", { name: isFa ? "وضعیت قیمت‌های بازار" : "Market price status" });
   await expect(asset).toHaveCount(1);
-  await expect(asset).toHaveAttribute("href", "/crypto/btc");
+  await expect(asset).toHaveAttribute("href", isFa ? "/crypto/btc" : "/en/coins/bitcoin");
   await expect(asset).toHaveAttribute("data-price-current", "true");
   await expect(asset).toContainText(isFa ? "64000.00" : "64,000");
   await expect(asset).toContainText(isFa ? "USD" : "$64,000");
