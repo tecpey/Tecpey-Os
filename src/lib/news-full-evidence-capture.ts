@@ -106,8 +106,12 @@ export async function executeNewsHydrationPlan<
   R,
 >(input: {
   articles: readonly T[];
-  alreadyHydratedArticleIdentities: ReadonlySet<string>;
+  alreadyHydratedArticleIdentities?: ReadonlySet<string>;
   cooldownBlockedArticleIdentities?: ReadonlySet<string>;
+  /** @deprecated Use revision-scoped `alreadyHydratedArticleIdentities`. */
+  alreadyHydratedArticleUrls?: ReadonlySet<string>;
+  /** @deprecated Use revision-scoped `cooldownBlockedArticleIdentities`. */
+  cooldownBlockedArticleUrls?: ReadonlySet<string>;
   concurrency: number;
   hydrate: (article: T) => Promise<R>;
 }): Promise<R[]> {
@@ -115,10 +119,17 @@ export async function executeNewsHydrationPlan<
     throw new Error("news_hydration_concurrency_invalid");
   }
 
+  const alreadyHydrated = input.alreadyHydratedArticleIdentities
+    ?? input.alreadyHydratedArticleUrls
+    ?? new Set<string>();
+  const cooldownBlocked = input.cooldownBlockedArticleIdentities
+    ?? input.cooldownBlockedArticleUrls
+    ?? new Set<string>();
+
   const candidates = selectNewsHydrationCandidates(
     input.articles,
-    input.alreadyHydratedArticleIdentities,
-    input.cooldownBlockedArticleIdentities ?? new Set(),
+    alreadyHydrated,
+    cooldownBlocked,
   );
 
   if (candidates.length === 0) return [];
