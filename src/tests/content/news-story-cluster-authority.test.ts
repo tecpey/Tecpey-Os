@@ -138,6 +138,25 @@ describe("news story cluster authority", () => {
     assert.equal(evidence.sharedEntityCount, 2);
   });
 
+  it("does not count syndication under one publisher identity as independent sources", () => {
+    const a = item({
+      sourceName: "CoinDesk",
+      sourceDomain: "coindesk.com",
+      articleUrl: "https://www.coindesk.com/story-a",
+    });
+    const b = item({
+      archiveId: "00000000-0000-4000-8000-000000000011",
+      sourceName: "CoinDesk",
+      sourceDomain: "www.coindesk.com",
+      articleUrl: "https://www.coindesk.com/story-b",
+      title: "SEC approves Bitcoin ETF application today",
+    });
+    const clusters = buildDeterministicStoryClusters([a, b]);
+    assert.equal(clusters.length, 1);
+    assert.equal(clusters[0].independentSourceCount, 1);
+    assert.equal(clusters[0].factualSourceCount, 1);
+  });
+
   it("keeps social evidence in a separate channel from factual publisher evidence", () => {
     const factual = item();
     const social = item({
