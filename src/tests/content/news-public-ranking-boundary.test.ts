@@ -28,7 +28,7 @@ describe("Public news ranking boundary", () => {
     assert.doesNotMatch(route, /\bimpact:\s*impact\b/);
     assert.doesNotMatch(route, /highest-impact/i);
     assert.doesNotMatch(route, /Educational impact/i);
-    assert.match(route, /Latest governed news context/);
+    assert.doesNotMatch(route, /\\btopCoinImpacts\\b/);\n    assert.doesNotMatch(route, /\\bpriorityScore\\b/);\n    assert.match(route, /Latest governed news context/);
     assert.match(route, /does not generate impact scores or trading signals/);
     assert.match(route, /publicationPolicy: NEWS_FEED_PUBLICATION_POLICY/);
   });
