@@ -137,7 +137,8 @@ export function compareStoryClusterCandidate(a: StoryClusterCandidate, b: StoryC
   const titleJaccard = jaccard(tokens(a.title), tokens(b.title));
   const shared = sharedEntities(a, b); const conflicts = conflictSignals(a, b);
   const closeEnough = hoursApart(a.publishedAt, b.publishedAt) <= MAX_CANDIDATE_HOURS;
-  const merge = closeEnough && conflicts.length === 0 && shared.length > 0 && titleJaccard >= MIN_TITLE_JACCARD;
+  const channelsCompatible = evidenceChannel(a) === evidenceChannel(b);
+  const merge = closeEnough && channelsCompatible && conflicts.length === 0 && shared.length > 0 && titleJaccard >= MIN_TITLE_JACCARD;
   const canonicalEventKey = eventKeys(a).find((key) => eventKeys(b).includes(key)) ?? eventKeys(a)[0];
   return {
     policyVersion: NEWS_STORY_CLUSTER_POLICY_VERSION,
