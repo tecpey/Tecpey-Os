@@ -117,11 +117,6 @@ function automationPreview(items: NewsItem[], locale: "fa" | "en", fetchedAt: st
     publishable: decisions.filter((decision) => decision.status === "publishable").length,
     needsReview: decisions.filter((decision) => decision.status === "needs_review").length,
     rejected: decisions.filter((decision) => decision.status === "rejected").length,
-    topCoinImpacts: decisions.flatMap((decision) => decision.coinImpacts)
-      .sort((left, right) => right.priorityScore - left.priorityScore || left.symbol.localeCompare(right.symbol))
-      .slice(0, 12),
-    historyItems: materialized?.historyItems ?? [],
-    materialized,
   };
 }
 
