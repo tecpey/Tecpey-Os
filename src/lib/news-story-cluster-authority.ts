@@ -254,7 +254,7 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
     ).size;
     selected.cluster.factualSourceCount = new Set(
       selected.cluster.members
-        .map((member) => byId.get(member))
+        .map((member) => byId.get(member.archiveId))
         .filter((candidate): candidate is StoryClusterCandidate => Boolean(candidate))
         .filter((candidate) => factualCorroborationDecision(evidenceChannel(candidate)).eligible)
         .map((candidate) => sourceIdentity(candidate)),
