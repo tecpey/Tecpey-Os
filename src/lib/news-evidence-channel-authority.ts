@@ -1,3 +1,5 @@
+import { NEWS_SOURCE_REGISTRY, isApprovedNewsSourceHost } from "./news-source-registry";
+
 export type NewsEvidenceChannel = "factual_publisher" | "social_x" | "other";
 
 export type NewsEvidenceRecord = {
@@ -30,10 +32,12 @@ export function classifyNewsEvidenceChannel(input: {
     if (host === "x.com" || host.endsWith(".x.com") || host === "twitter.com" || host.endsWith(".twitter.com")) {
       return "social_x";
     }
+    return NEWS_SOURCE_REGISTRY.some((source) => isApprovedNewsSourceHost(host, source))
+      ? "factual_publisher"
+      : "other";
   } catch {
     return "other";
   }
-  return "factual_publisher";
 }
 
 export function factualCorroborationDecision(channel: NewsEvidenceChannel): FactualCorroborationDecision {
