@@ -540,7 +540,7 @@ async function collectGovernedInternalTargets(page, contract) {
   const hrefs = [];
   if (contract.formFactor === "desktop") {
     const knowledgeTrigger = page.getByRole("button", { name: contract.knowledge });
-    await knowledgeTrigger.tap();
+    await knowledgeTrigger.click();
     await expect(page.getByRole("menu", { name: contract.knowledge })).toBeVisible();
   } else {
     const menuTrigger = page.getByRole("button", { name: contract.menu });
