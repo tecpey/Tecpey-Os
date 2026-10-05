@@ -50,7 +50,7 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/admin/CommandCenterDashboard.tsx:134:10",
   "react-hooks/set-state-in-effect:src/components/crypto/SwapPanel.tsx:120:7",
   "react-hooks/set-state-in-effect:src/components/learning-os/NotificationCenter.tsx:106:5",
-  "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:87:5",
+  "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:90:5",
   "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:101:7",
 ]);
 
