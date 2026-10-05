@@ -149,3 +149,8 @@ Draft until exact-head tests and content QA pass. No merge/deploy is authorized 
 Current-main implementation now routes `src/app/sitemap.ts` through `getAllIndexableSitemapEntries()` in `src/lib/sitemap-publication-authority.ts`. The authority is fail-closed on publication state, visible-content evidence, canonical identity, and unsafe query/fragment paths. News delegates to the existing News publication authority; curated learning, tools, coins, Academy, and static-route families are represented explicitly in the same sitemap-facing record model. Automated coin records are admitted only when their automation state is `published_content`; curated records are explicit rather than pretending a hidden workflow state exists.
 
 Regression coverage is in `src/tests/content/sitemap-publication-authority.test.ts` and proves exclusion of draft/needs-review/archived records, canonical/visible-content failures, and non-canonical query/fragment URLs. Exact-head CI remains the release authority; this implementation does not authorize merge or deployment.
+
+
+### Exact-head implementation checkpoint
+
+The latest implementation head is `1d9085eeacabf0e587b6ab66999dfa877282cf1d`. An earlier exact-head CI failure was caused by incorrect `RankedTraderTool` field assumptions in the new sitemap adapter (`description`/`category`); the adapter has been corrected to use the governed `summaryFa`/`categoryFa` fields from `TraderToolRecord`. Fresh CI is required on this new head; no prior failed or successful result is reused.
