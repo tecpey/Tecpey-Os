@@ -4,7 +4,6 @@ import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
 import { buildNewsAutomationBatch, type RawNewsInput } from "@/lib/news-automation";
-import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
 import {
   getNewsArchiveDayForPresentation,
   type NewsArchivePresentationItem,
@@ -110,9 +109,6 @@ function toAutomationInput(item: NewsItem, locale: "fa" | "en", fetchedAt: strin
 
 function automationPreview(items: NewsItem[], locale: "fa" | "en", fetchedAt: string) {
   const decisions = buildNewsAutomationBatch(items.slice(0, 100).map((item) => toAutomationInput(item, locale, fetchedAt)));
-  const materialized = decisions.length
-    ? materializeNewsAutomationDecisions(decisions, { locale, generatedAt: fetchedAt, historyLimit: 100, topCoinLimit: 12 })
-    : null;
   return {
     publishable: decisions.filter((decision) => decision.status === "publishable").length,
     needsReview: decisions.filter((decision) => decision.status === "needs_review").length,
