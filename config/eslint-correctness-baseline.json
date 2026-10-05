@@ -198,7 +198,7 @@
     {
       "rule": "react-hooks/set-state-in-effect",
       "path": "src/hooks/useBaseCurrenciesPrice.ts",
-      "line": 87,
+      "line": 90,
       "column": 5,
       "domain": "market-ui",
       "reason": "socket ticker projection into current market rows"
