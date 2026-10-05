@@ -26,6 +26,7 @@ function item(overrides: Partial<StoryClusterCandidate> = {}): StoryClusterCandi
       entityTags: ["coin:btc", "topic:regulation"],
       keywords: ["BTC", "bitcoin"],
     },
+    channel: "public_web",
     ...overrides,
   };
 }
