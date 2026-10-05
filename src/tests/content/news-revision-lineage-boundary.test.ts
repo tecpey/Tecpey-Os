@@ -14,6 +14,14 @@ describe("News correction and revision lineage boundary", () => {
     const richCoverage = authority.indexOf("WHEN 'article_full' THEN 3", orderStart);
 
     assert.ok(orderStart >= 0, "latest_article ordering is missing");
+    const cteClose = authority.indexOf("SELECT article.*", orderStart);
+    const outerDayFilter = authority.indexOf("WHERE article.published_day_tehran = $1::date", cteClose);
+    const innerDayFilter = authority.indexOf("WHERE published_day_tehran = $1::date", orderStart);
+
+    assert.ok(cteClose > orderStart, "latest revision CTE must exist before presentation filtering");
+    assert.ok(outerDayFilter > cteClose, "archive day filtering must happen after global latest-revision selection");
+    assert.equal(innerDayFilter, -1, "day filtering must not restrict revision selection to the requested day");
+
     assert.ok(fetchedAt > orderStart, "revision recency is missing from presentation ordering");
     assert.ok(
       richCoverage > fetchedAt,
