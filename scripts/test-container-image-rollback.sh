@@ -34,9 +34,28 @@ CANDIDATE_ID="$(docker image inspect --format '{{.Id}}' "$CANDIDATE_IMAGE")"
 PREVIOUS_ID="$(docker image inspect --format '{{.Id}}' "$PREVIOUS_IMAGE")"
 test "$CANDIDATE_ID" != "$PREVIOUS_ID"
 
+PREVIOUS_SHA="${PREVIOUS_IMAGE##*:}"
+printf '%s\n' "$PREVIOUS_SHA" | grep -Eq '^[0-9a-f]{40}$'
+PREVIOUS_REPO_DIGEST="$(
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$PREVIOUS_IMAGE" \
+    | grep -E '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$' \
+    | sed -n '1p'
+)"
+test -n "$PREVIOUS_REPO_DIGEST"
+command -v gh >/dev/null
+
+gh attestation verify "oci://$PREVIOUS_REPO_DIGEST" \
+  --repo tecpey/Tecpey-Os \
+  --bundle-from-oci \
+  --signer-workflow tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml \
+  --source-digest "$PREVIOUS_SHA" \
+  --source-ref refs/heads/main \
+  --format json > "$EVIDENCE_DIR/previous-provenance-verification.json"
+
 probe_image "$CANDIDATE_IMAGE" candidate
 probe_image "$PREVIOUS_IMAGE" previous
 
 printf '%s\n' "$CANDIDATE_ID" > "$EVIDENCE_DIR/candidate-image-id.txt"
 printf '%s\n' "$PREVIOUS_ID" > "$EVIDENCE_DIR/previous-image-id.txt"
-printf '{"environment":"ephemeral-staging","candidate":"served","rollback":"previous-release-served"}\n' > "$EVIDENCE_DIR/rollback-result.json"
+printf '%s\n' "$PREVIOUS_REPO_DIGEST" > "$EVIDENCE_DIR/previous-provenance-subject.txt"
+printf '{"environment":"ephemeral-staging","candidate":"served","rollback":"previous-release-served","provenance":"verified"}\n' > "$EVIDENCE_DIR/rollback-result.json"
