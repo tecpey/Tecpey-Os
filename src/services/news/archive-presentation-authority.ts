@@ -180,6 +180,7 @@ export function selectPublicStoryClusterRepresentatives(
   }
   return [...selected.values()].sort((a, b) =>
     Date.parse(b.publishedAt) - Date.parse(a.publishedAt)
+    || Number(Boolean(b.storyClusterId)) - Number(Boolean(a.storyClusterId))
     || a.sourceName.localeCompare(b.sourceName)
     || a.articleUrl.localeCompare(b.articleUrl)
   );
