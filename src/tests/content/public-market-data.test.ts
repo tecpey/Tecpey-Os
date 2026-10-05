@@ -8,6 +8,7 @@ import {
   publicMarketCacheControl,
   publicMarketQuoteCurrency,
   selectFreshPublicMarketRows,
+  isFreshBitycleAuthorityTimestamp,
 } from "../../lib/public-market-data";
 
 describe("public market data authority", () => {
@@ -21,6 +22,16 @@ describe("public market data authority", () => {
     assert.equal(publicMarketQuoteCurrency("CoinGecko"), "USD");
     assert.equal(publicMarketQuoteCurrency("Bitycle"), "USDT");
     for (const source of ["coingecko", "Unknown", undefined, null]) assert.equal(publicMarketQuoteCurrency(source), null);
+  });
+
+  it("rechecks Bitycle fiat-conversion freshness at point of use", () => {
+    const updated = new Date(fixedNow - 119_999).toISOString();
+    assert.equal(isFreshBitycleAuthorityTimestamp(updated, fixedNow), true);
+    assert.equal(isFreshBitycleAuthorityTimestamp(new Date(fixedNow - 120_001).toISOString(), fixedNow), false);
+    assert.equal(isFreshBitycleAuthorityTimestamp(new Date(fixedNow + 30_000).toISOString(), fixedNow), true);
+    assert.equal(isFreshBitycleAuthorityTimestamp(new Date(fixedNow + 30_001).toISOString(), fixedNow), false);
+    assert.equal(isFreshBitycleAuthorityTimestamp("not-a-date", fixedNow), false);
+    assert.equal(isFreshBitycleAuthorityTimestamp(updated, NaN), false);
   });
 
   it("rechecks provider-specific freshness after a row has waited in memory", () => {
