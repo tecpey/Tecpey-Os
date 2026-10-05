@@ -60,7 +60,7 @@ function sharedEntities(a: StoryClusterCandidate, b: StoryClusterCandidate): str
 function containsNormalizedTerm(value: string, term: string): boolean {
   const normalized = normalize(value);
   const escaped = term.replace(/[.*+?^\${}()|[\\]\\\\]/g, "\\$&");
-  return new RegExp("(^|\\\\s)" + escaped + "(?=$|\\\\s)", "u").test(normalized);
+  return new RegExp("(^|\\s)" + escaped + "(?=$|\\s)", "u").test(normalized);
 }
 
 function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): string[] {
