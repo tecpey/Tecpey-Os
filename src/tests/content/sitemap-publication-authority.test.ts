@@ -7,6 +7,7 @@ import {
 
 const base = {
   family: "test",
+  path: "/learn/example",
   state: "published" as const,
   canonicalPath: "/learn/example",
   visibleContent: true,
