@@ -26,7 +26,7 @@ export function classifyNewsEvidenceChannel(input: {
   url: string;
 }): NewsEvidenceChannel {
   if (input.channel === "social_x") return "social_x";
-  if (input.channel === "public_web" || input.channel === "factual_publisher") return "factual_publisher";
+  if (input.channel === "factual_publisher") return "factual_publisher";
   try {
     const host = new URL(input.url).hostname.toLowerCase();
     if (host === "x.com" || host.endsWith(".x.com") || host === "twitter.com" || host.endsWith(".twitter.com")) {
