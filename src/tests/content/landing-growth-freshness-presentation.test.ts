@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildLandingGrowthSchemasFromRadar,
   getLandingGrowthRadarFromNewsItems,
 } from "../../lib/landing-growth";
 import { getNewsImpactHistoryItems } from "../../lib/news-impact-history";
@@ -48,6 +49,26 @@ describe("Landing growth freshness presentation authority", () => {
     assert.match(stripSource, /not as fresh market signals/);
     assert.match(stripSource, /مسیرهای آموزشی منتخب/);
     assert.match(stripSource, /نه به‌عنوان سیگنال یا زمینهٔ تازهٔ بازار/);
+  });
+
+  it("does not describe degraded fallback routes as recent governed evidence in SEO schema", () => {
+    const fallback = getNewsImpactHistoryItems("en");
+    const radar = getLandingGrowthRadarFromNewsItems(
+      "en",
+      [],
+      {
+        sourceAuthority: "news-impact-history:seed-fallback",
+        authorityUpdatedAt: null,
+        now: "2026-10-04T12:00:00.000Z",
+      },
+      fallback,
+    );
+
+    const schemas = buildLandingGrowthSchemasFromRadar(radar);
+    const serialized = JSON.stringify(schemas);
+    assert.match(serialized, /educational learning route/);
+    assert.doesNotMatch(serialized, /surfaced by recent governed news evidence/);
+    assert.doesNotMatch(serialized, /fresh market signal/);
   });
 
   it("makes desktop degraded context explicit and suppresses stale impact headlines", () => {
