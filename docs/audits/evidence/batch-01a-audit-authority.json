@@ -43,7 +43,7 @@
     {
       "path": "package.json",
       "gitObjectId": "5827124e15e2e5c806741e6753c1e2eb93fad593",
-      "sha256": "6d58f324e0a51aae74fe45867fa3aba6ae43afcccdacca31a4c125a61ba9ca81",
+      "sha256": "d690cf9882a7e3f672c7109f992b618060cb7329896c9b0e8c403fe824a8370d",
       "lines": 294,
       "reviewedRanges": [
         {
@@ -145,7 +145,8 @@
         "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
         "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
         "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority.",
-        "2026-10-04: re-reviewed after upgrading Next.js from 16.3.3 to patched 16.3.8 to address the current critical next/og ImageResponse advisory; no unrelated dependency or runtime authority change was introduced."
+        "2026-10-04: re-reviewed after upgrading Next.js from 16.3.3 to patched 16.3.8 to address the current critical next/og ImageResponse advisory; no unrelated dependency or runtime authority change was introduced.",
+        "2026-10-05: re-reviewed the exact current package.json after News & Market Intelligence v2 gate reconciliation. The tracked package script surface and dependency/override authority remain unchanged in security meaning; this refresh binds the semantic review record to the current immutable Git blob and digest so the repository audit cannot silently rely on historical package content."
       ],
       "findings": [
         {
