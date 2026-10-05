@@ -137,6 +137,26 @@ describe("news story cluster authority", () => {
     assert.equal(evidence.sharedEntityCount, 2);
   });
 
+  it("keeps social evidence in a separate channel from factual publisher evidence", () => {
+    const factual = item();
+    const social = item({
+      archiveId: "00000000-0000-4000-8000-000000000005",
+      sourceName: "X",
+      sourceDomain: "x.com",
+      articleUrl: "https://x.com/example/status/5",
+      channel: "social_x",
+      title: "SEC approves Bitcoin ETF application today",
+      lead: "A social post claims the Bitcoin ETF was approved.",
+    });
+    const evidence = compareStoryClusterCandidate(factual, social);
+    assert.equal(evidence.sourceChannel, "factual_publisher");
+    assert.equal(evidence.decision, "preserve_distinct");
+    assert.equal(buildDeterministicStoryClusters([factual, social]).length, 2);
+
+    const socialDuplicate = { ...social, archiveId: "00000000-0000-4000-8000-000000000010", articleUrl: "https://x.com/example/status/10" };
+    assert.equal(compareStoryClusterCandidate(social, socialDuplicate).decision, "merge");
+  });
+
   it("does not use embedding evidence as a decision authority", () => {
     const evidence = compareStoryClusterCandidate(
       item(),
