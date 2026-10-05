@@ -5,6 +5,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { MarketCurrency } from "@/types/market";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isFreshBitycleAuthorityTimestamp } from "@/lib/public-market-data";
 
 export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
@@ -25,7 +26,9 @@ export const useBaseCurrenciesPrice = (_pair: string[]) => {
     refetchOnWindowFocus: true,
   });
 
-  const USDT_IRT = usdtIrtAuthority.data?.price ?? 0;
+  const USDT_IRT = usdtIrtAuthority.data && isFreshBitycleAuthorityTimestamp(usdtIrtAuthority.data.updatedAt)
+    ? usdtIrtAuthority.data.price
+    : 0;
 
 
   const [searchQuery, setSearchQuery] = useState("");
