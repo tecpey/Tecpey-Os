@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { NewsTaxonomyMatch } from "./news-taxonomy";
 import { classifyNewsEvidenceChannel, factualCorroborationDecision, type NewsEvidenceChannel } from "./news-evidence-channel-authority";
+import { NEWS_SOURCE_REGISTRY, isApprovedNewsSourceHost } from "./news-source-registry";
 
 export const NEWS_STORY_CLUSTER_POLICY_VERSION = "story-cluster-v1";
 const MAX_CANDIDATE_HOURS = 36;
@@ -120,6 +121,20 @@ function hoursApart(a: string, b: string): number { return Math.abs(Date.parse(a
 function evidenceChannel(item: StoryClusterCandidate): NewsEvidenceChannel {
   return item.channel ?? classifyNewsEvidenceChannel({ url: item.articleUrl });
 }
+function sourceIdentity(item: StoryClusterCandidate): string {
+  const channel = evidenceChannel(item);
+  try {
+    const host = new URL(item.articleUrl).hostname.toLowerCase();
+    if (channel === "factual_publisher") {
+      const source = NEWS_SOURCE_REGISTRY.find((entry) => isApprovedNewsSourceHost(host, entry));
+      if (source) return `registry:${source.id}`;
+    }
+  } catch {
+    // Fall through to conservative source-name/domain identity.
+  }
+  return `source:${item.sourceName.trim().toLowerCase()}|domain:${item.sourceDomain.trim().toLowerCase()}`;
+}
+
 function sourceIndependent(a: StoryClusterCandidate, b: StoryClusterCandidate): boolean {
   return factualCorroborationDecision(evidenceChannel(a)).eligible
     && factualCorroborationDecision(evidenceChannel(b)).eligible
@@ -234,8 +249,9 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
     selected.cluster.decisionEvidence.push(selected.evidence);
     selected.cluster.independentSourceCount = new Set(
       selected.cluster.members
-        .map((member) => byId.get(member.archiveId)?.sourceDomain)
-        .filter(Boolean),
+        .map((member) => byId.get(member.archiveId))
+        .filter((candidate): candidate is StoryClusterCandidate => Boolean(candidate))
+        .map((candidate) => sourceIdentity(candidate)),
     ).size;
     selected.cluster.factualSourceCount = new Set(
       selected.cluster.members
