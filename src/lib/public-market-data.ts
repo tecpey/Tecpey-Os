@@ -9,6 +9,15 @@ export const PUBLIC_MARKET_FUTURE_SKEW_MS = 30_000;
 export const BITYCLE_PUBLIC_MARKET_FRESHNESS_MS = 2 * 60_000;
 export const BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS = 30_000;
 
+/** Validate a Bitycle-derived fiat conversion authority at its point of use. */
+export function isFreshBitycleAuthorityTimestamp(updatedAt: unknown, now = Date.now()): boolean {
+  const updatedMs = typeof updatedAt === "string" ? Date.parse(updatedAt) : NaN;
+  if (!Number.isFinite(updatedMs) || !Number.isFinite(now)) return false;
+  const ageMs = now - updatedMs;
+  return ageMs <= BITYCLE_PUBLIC_MARKET_FRESHNESS_MS
+    && ageMs >= -BITYCLE_MARKET_FRAME_FUTURE_SKEW_MS;
+}
+
 /** Quote units of the existing normalized public-provider contracts. */
 export function publicMarketQuoteCurrency(source: unknown): "USD" | "USDT" | null {
   if (source === PUBLIC_MARKET_SOURCE) return "USD";
