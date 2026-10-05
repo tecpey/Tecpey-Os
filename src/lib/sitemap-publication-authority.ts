@@ -89,7 +89,7 @@ export async function getAllIndexableSitemapEntries(now = new Date()): Promise<M
     )),
     ...getRankedTraderTools().flatMap((tool) => {
       const visible = hasText(tool.slug) && hasText(tool.name) &&
-        hasText(tool.description) && hasText(tool.category);
+        hasText(tool.summaryFa) && hasText(tool.categoryFa);
       return [
         curated("trader-tool", `/trading-tools/${tool.slug}`, visible, {
           lastModified: now, changeFrequency: "monthly", priority: 0.78,
