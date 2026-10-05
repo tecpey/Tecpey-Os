@@ -216,7 +216,6 @@ export async function readNewsArchiveDayForPresentationTx(
               source_title, source_lead, source_coverage, published_at,
               fetched_at, published_day_tehran, content_hash, taxonomy, created_at
          FROM platform_news_archive_items
-        WHERE published_day_tehran = $1::date
         ORDER BY article_url,
                  fetched_at DESC,
                  CASE source_coverage
@@ -261,6 +260,7 @@ export async function readNewsArchiveDayForPresentationTx(
           ORDER BY history.recorded_at DESC, history.published_at DESC
           LIMIT 1
        ) internal_news ON TRUE
+      WHERE article.published_day_tehran = $1::date
       ORDER BY article.published_at DESC, article.source_name, article.article_url
       LIMIT 1000`,
     [day, locale],
