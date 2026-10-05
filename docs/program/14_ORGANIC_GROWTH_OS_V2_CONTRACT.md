@@ -28,7 +28,22 @@ Implementation consequences:
 - publication/modified dates shown to users and machine-readable metadata stay consistent;
 - AEO/GEO summaries are derived from canonical visible content and cannot contain claims/qualifiers absent from the page;
 - no crawler/LLM-only copy, cloaking, doorway generation or schema inflation;
-- sitemap/indexability validation is coupled to canonical content state so draft/retired content cannot leak as active authority.
+- sitemap/indexability validation must be coupled to an authoritative publication/indexability decision for any generated content surface.
+
+## Current-main reconciliation: publication authority → sitemap
+
+The current-main audit distinguishes **proven authority** from architectural intent:
+
+1. `src/lib/news-automation.ts` already constructs governed content objects and requires publishability/Organic Growth readiness before a materialized news item can be publishable.
+2. `src/lib/news-impact-history-authority.ts` is the effective public News authority. Its archive/read paths re-apply publication-source eligibility and freshness constraints before returning items; `src/app/sitemap.ts` consumes `getNewsDetailSitemapEntriesFromAuthority()`.
+3. The remaining sitemap families—curated static routes, `learningSeoPages`, trader-tool catalogs, coin catalogs and Academy articles—are not currently passed through the generic `ContentPublicationStatus` / `decideLocalizationPublication()` authority. They are trusted catalog/static sources rather than demonstrated examples of draft/retired leakage.
+4. Therefore, the audit **does not claim an observed draft/retired sitemap leak** on current-main. The actual integration gap is architectural: the generic publication/indexability authority is not yet the single contract for every sitemap-producing family.
+5. PR #743 remains Draft until this boundary is either:
+   - closed by a real adapter that maps each sitemap-producing family to explicit published/indexable/canonical/hreflang authority, with exact-head regression coverage; or
+   - explicitly accepted as a bounded architecture exception with owner, evidence, review date and a follow-up implementation PR.
+6. No second competing sitemap source of truth should be introduced merely to satisfy this contract. The preferred implementation is one shared publication/indexability boundary consumed by sitemap generation.
+
+This reconciliation is intentionally fail-closed: absence of evidence of leakage is not treated as proof that every generated URL is governed.
 
 ## Entity / information architecture
 
