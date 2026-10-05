@@ -23,7 +23,8 @@ describe("news evidence channel authority", () => {
 
   it("fails closed for unregistered web domains unless the channel is explicitly governed", () => {
     assert.equal(classifyNewsEvidenceChannel({ url: "https://unknown.example/story" }), "other");
-    assert.equal(classifyNewsEvidenceChannel({ channel: "public_web", url: "https://unknown.example/story" }), "factual_publisher");
+    assert.equal(classifyNewsEvidenceChannel({ channel: "public_web", url: "https://unknown.example/story" }), "other");
+    assert.equal(classifyNewsEvidenceChannel({ channel: "public_web", url: "https://www.coindesk.com/news/story" }), "factual_publisher");
   });
 
   it("does not let an unknown channel become factual authority", () => {
