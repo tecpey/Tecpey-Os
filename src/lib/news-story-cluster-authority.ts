@@ -59,8 +59,8 @@ function sharedEntities(a: StoryClusterCandidate, b: StoryClusterCandidate): str
 }
 function containsNormalizedTerm(value: string, term: string): boolean {
   const normalized = normalize(value);
-  const escaped = term.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&");
-  return new RegExp("(^|\\s)" + escaped + "(?=$|\\s)", "u").test(normalized);
+  const escaped = term.replace(/[.*+?^\${}()|[\\]\\\\]/g, "\\$&");
+  return new RegExp("(^|\\\\s)" + escaped + "(?=$|\\\\s)", "u").test(normalized);
 }
 
 function conflictSignals(a: StoryClusterCandidate, b: StoryClusterCandidate): string[] {
@@ -138,12 +138,11 @@ function sourceIdentity(item: StoryClusterCandidate): string {
 function sourceIndependent(a: StoryClusterCandidate, b: StoryClusterCandidate): boolean {
   return factualCorroborationDecision(evidenceChannel(a)).eligible
     && factualCorroborationDecision(evidenceChannel(b)).eligible
-    && a.sourceDomain !== b.sourceDomain
-    && a.sourceName !== b.sourceName;
+    && sourceIdentity(a) !== sourceIdentity(b);
 }
 function clusterId(seedArchiveId: string): string {
   const d = createHash("sha256").update(`${NEWS_STORY_CLUSTER_POLICY_VERSION}\0${seedArchiveId}`).digest("hex");
-  return [d.slice(0, 8), d.slice(8, 12), `4${d.slice(13, 16)}`, 
+  return [d.slice(0, 8), d.slice(8, 12), `4${d.slice(13, 16)}`,
     (((parseInt(d.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0") + d.slice(18, 20)), d.slice(20, 32)].join("-");
 }
 
@@ -255,12 +254,10 @@ export function buildDeterministicStoryClusters(items: readonly StoryClusterCand
     ).size;
     selected.cluster.factualSourceCount = new Set(
       selected.cluster.members
-        .filter((member) => {
-          const candidate = byId.get(member.archiveId);
-          return candidate && factualCorroborationDecision(evidenceChannel(candidate)).eligible;
-        })
-        .map((member) => byId.get(member.archiveId)?.sourceDomain)
-        .filter(Boolean),
+        .map((member) => byId.get(member))
+        .filter((candidate): candidate is StoryClusterCandidate => Boolean(candidate))
+        .filter((candidate) => factualCorroborationDecision(evidenceChannel(candidate)).eligible)
+        .map((candidate) => sourceIdentity(candidate)),
     ).size;
     selected.cluster.socialEvidenceCount = selected.cluster.members.filter((member) => {
       const candidate = byId.get(member.archiveId);
