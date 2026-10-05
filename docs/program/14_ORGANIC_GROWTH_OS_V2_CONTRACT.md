@@ -45,6 +45,24 @@ The current-main audit distinguishes **proven authority** from architectural int
 
 This reconciliation is intentionally fail-closed: absence of evidence of leakage is not treated as proof that every generated URL is governed.
 
+### Adapter matrix for closing the boundary
+
+The closure must distinguish **stateful generated content** from **curated catalog content**; treating every static catalog as if it had a hidden draft state would create false authority rather than real governance.
+
+| Sitemap family | Current source | Required publication adapter | Minimum indexability evidence |
+|---|---|---|---|
+| News detail | `getNewsDetailSitemapEntriesFromAuthority()` | existing News authority | publication/source eligibility + canonical detail identity + locale authority |
+| Learning SEO | `learningSeoPages` | curated-content adapter | non-empty canonical identity, visible title/description/body, explicit curated-published state |
+| Trader tools | `getTraderToolSlugs()` / tool growth snapshot | tool publication adapter | published tool record, valid official destination, canonical route, locale availability |
+| Coins / price / crypto | `coinPages` | coin catalog adapter | published catalog record, stable slug/symbol, canonical route, explicit locale availability |
+| Academy articles | `academyArticles` | academy article adapter | published article record, `updatedAt`, canonical route, visible content identity |
+| Static product/trust routes | `staticPaths` / `englishPaths` | static-route registry | explicit route ownership; no generated-content state implied |
+
+The adapter contract must be deterministic and fail closed. A family must not enter the sitemap merely because a URL can be constructed. For stateful/generated records, the adapter must consume the authoritative publication decision; for curated records, the adapter must make the curated-publication assumption explicit in code so a future draft/retired state cannot silently bypass the boundary.
+
+The implementation should expose one sitemap-facing function (for example `getIndexableSitemapEntries`) rather than letting `src/app/sitemap.ts` independently decide publication for each family. Regression tests must prove: draft/needs-review/archived state is excluded where such state exists; missing canonical identity is excluded; unavailable locale alternates are not emitted; and every emitted generated URL has a corresponding publication decision.
+
+
 ## Entity / information architecture
 
 - one canonical entity profile for each important TecPey concept/product/course/coin/topic;
