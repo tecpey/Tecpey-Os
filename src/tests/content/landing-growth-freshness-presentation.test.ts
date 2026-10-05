@@ -68,7 +68,7 @@ describe("Landing growth freshness presentation authority", () => {
     const serialized = JSON.stringify(schemas);
     assert.match(serialized, /educational learning route/);
     assert.doesNotMatch(serialized, /surfaced by recent governed news evidence/);
-    assert.doesNotMatch(serialized, /fresh market signal/);
+    assert.doesNotMatch(serialized, /برجسته‌شده بر اساس شواهد خبری تازه/);
   });
 
   it("makes desktop degraded context explicit and suppresses stale impact headlines", () => {
