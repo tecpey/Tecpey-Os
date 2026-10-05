@@ -180,15 +180,20 @@ export function buildLandingGrowthSchemas(locale: ContentLocale) {
 export function buildLandingGrowthSchemasFromRadar(radar: LandingGrowthRadarModel) {
   const locale = radar.locale;
   const isEn = locale === "en";
+  const isEvidenceReady = radar.evidence.status === "ready";
   const url = isEn ? "https://tecpey.ir/en" : "https://tecpey.ir";
   const coinItems = radar.coins.map((coin, index) => ({
     "@type": "ListItem",
     position: index + 1,
     name: isEn ? `${coin.name} (${coin.symbol})` : `${coin.faName} (${coin.symbol})`,
     url: `${url.replace(/\/en$/, "")}${isEn ? "/en" : ""}/coins/${coin.slug}`,
-    description: isEn
-      ? `TecPey educational guide for ${coin.name}, surfaced by recent governed news evidence.`
-      : `برجسته‌شده بر اساس شواهد خبری تازه: ${coin.latestNewsTitle}`,
+    description: isEvidenceReady
+      ? isEn
+        ? `TecPey educational guide for ${coin.name}, surfaced by recent governed news evidence.`
+        : `برجسته‌شده بر اساس شواهد خبری تازه: ${coin.latestNewsTitle}`
+      : isEn
+        ? `TecPey educational learning route for ${coin.name}; current market evidence is incomplete and this route is not a fresh market signal.`
+        : `مسیر آموزشی منتخب برای ${coin.faName}؛ شواهد جاری بازار کامل نیست و این انتخاب سیگنال یا زمینهٔ تازهٔ بازار نیست.`,
   }));
   const toolItems = radar.tools.map((tool, index) => ({
     "@type": "ListItem",
