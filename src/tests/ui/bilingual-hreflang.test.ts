@@ -8,6 +8,7 @@ import {
 } from "../../services/sitemap-publication-authority";
 import { buildLocalizedAlternates } from "../../i18n/seo";
 import { getAlternateLocales } from "../../lib/seo";
+import { pageMetadata } from "../../components/seo/metadata";
 
 // Every indexable page that ships in both Farsi and English must declare hreflang
 // alternates, or Google cannot associate the two editions and may serve the wrong
@@ -55,9 +56,29 @@ describe("indexable bilingual pages declare hreflang", () => {
     });
     assert.deepEqual(getAlternateLocales("/coins/bitcoin", "/en/coins/bitcoin"), {
       "fa-IR": "https://tecpey.ir/coins/bitcoin",
-      "en-US": "https://tecpey.ir/en/coins/bitcoin",
+      "en": "https://tecpey.ir/en/coins/bitcoin",
       "x-default": "https://tecpey.ir/coins/bitcoin",
     });
+  });
+
+  it("keeps legacy metadata helpers aligned with the shared hreflang registry", () => {
+    assert.equal(getAlternateLocales("/academy", "/en/academy")["en"], "https://tecpey.ir/en/academy");
+    assert.equal(getAlternateLocales("/academy", "/en/academy")["en-US"], undefined);
+
+    const faMetadata = pageMetadata({
+      title: "Academy",
+      description: "Academy",
+      path: "/academy",
+      enPath: "/en/academy",
+    });
+    const enMetadata = pageMetadata({
+      title: "Academy",
+      description: "Academy",
+      path: "/en/academy",
+      enPath: "/en/academy",
+    });
+    assert.equal(faMetadata.alternates?.languages?.en, "https://tecpey.ir/en/academy");
+    assert.equal(enMetadata.alternates?.languages?.en, "https://tecpey.ir/en/academy");
   });
 
   it("does not advertise a locale that was not supplied as available", () => {
