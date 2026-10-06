@@ -98,13 +98,15 @@ export async function getAllIndexableSitemapEntries(): Promise<MetadataRoute.Sit
       { changeFrequency: "monthly", priority: 0.86 },
     )),
     ...getRankedTraderTools().flatMap((tool) => {
-      const visible = hasText(tool.slug) && hasText(tool.name) &&
+      const visibleFa = hasText(tool.slug) && hasText(tool.name) &&
         hasText(tool.summaryFa) && hasText(tool.categoryFa);
+      const visibleEn = hasText(tool.slug) && hasText(tool.name) &&
+        hasText(tool.summaryEn) && hasText(tool.categoryEn);
       return [
-        curated("trader-tool", `/trading-tools/${tool.slug}`, visible, {
+        curated("trader-tool", `/trading-tools/${tool.slug}`, visibleFa, {
           changeFrequency: "monthly", priority: 0.78,
         }),
-        curated("trader-tool", `/en/trading-tools/${tool.slug}`, visible, {
+        curated("trader-tool", `/en/trading-tools/${tool.slug}`, visibleEn, {
           changeFrequency: "monthly", priority: 0.66,
         }),
       ];
