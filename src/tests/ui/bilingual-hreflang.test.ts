@@ -51,7 +51,7 @@ describe("indexable bilingual pages declare hreflang", () => {
   });
 
   it("every authoritative sitemap fa/en pair declares hreflang on both sides", () => {
-    const pairs = await getBilingualPairs();
+    const pairs = getBilingualPairs();
     const missing: string[] = [];
     for (const { fa, en } of pairs) {
       if (!providesHreflang(fa)) missing.push(`${fa || "/"} (fa)`);
