@@ -1,6 +1,7 @@
 import { coinGrowthCandidates, type CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
 import {
   buildOrganicGrowthProfile,
+  isOrganicGrowthSnapshotFresh,
   type OrganicGrowthProfile,
 } from "./organic-growth-automation";
 
