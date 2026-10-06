@@ -362,6 +362,20 @@ describe("Content growth entity contract", () => {
             { name: "CoinDesk", url: "https://www.coindesk.com/example", role: "primary" },
             { name: "TecPey", url: "https://tecpey.ir/crypto-news/btc-etf-flow", role: "tecpey" },
           ],
+          claimSourceMap: [
+            {
+              claim: "The Bitcoin ETF flow is presented as market context rather than a trading signal.",
+              sourceName: "CoinDesk",
+              sourceUrl: "https://www.coindesk.com/example",
+              role: "primary",
+            },
+            {
+              claim: "TecPey adds educational context, entity mapping and risk framing to the source report.",
+              sourceName: "TecPey",
+              sourceUrl: "https://tecpey.ir/crypto-news/btc-etf-flow",
+              role: "tecpey",
+            },
+          ],
           contentValue: "تک‌پی علاوه بر منبع، اثر خبر، موجودیت‌های مرتبط، ریسک‌ها و لینک‌های آموزشی را متصل می‌کند تا محتوا از بازنویسی ساده خبر ارزشمندتر باشد.",
           safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله یا وعده سود نیست.",
           freshnessTag: "fresh",
