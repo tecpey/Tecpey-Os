@@ -211,7 +211,7 @@ export function buildOrganicGrowthProfile(input: OrganicGrowthProfileInput): Org
     questionIntents: uniqueStrings(input.questionIntents ?? [], 16),
     keyFacts: uniqueStrings(input.keyFacts ?? [], 20),
     sourceAttributions: safeSourceAttributions(input.sourceAttributions ?? []),
-    claimSourceMap: input.claimSourceMap.map((entry) => ({ ...entry, claim: compact(entry.claim).slice(0, 320), sourceName: compact(entry.sourceName).slice(0, 160), sourceUrl: compact(entry.sourceUrl) })).filter((entry) => entry.claim && entry.sourceName && /^https:\/\//i.test(entry.sourceUrl)).slice(0, 32),
+    claimSourceMap: input.claimSourceMap.map((entry) => ({ ...entry, claim: compact(entry.claim).slice(0, 320), sourceName: compact(entry.sourceName).slice(0, 160), sourceUrl: (() => { try { const url = new URL(compact(entry.sourceUrl)); url.hash = ""; url.username = ""; url.password = ""; return url.toString(); } catch { return compact(entry.sourceUrl); } })() })).filter((entry) => entry.claim && entry.sourceName && /^https:\/\//i.test(entry.sourceUrl)).slice(0, 32),
     contentValue: truncate(input.contentValue ?? input.answerSummary, 600),
     safetyDisclaimer: truncate(input.safetyDisclaimer, 360),
     freshnessTag: input.freshnessTag ?? "evergreen",
