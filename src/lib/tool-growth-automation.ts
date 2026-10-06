@@ -430,11 +430,8 @@ export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): Au
   if (effectiveSnapshot.schemaVersion !== 1) return [];
   if (effectiveSnapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
   if (effectiveSnapshot.stats.externalEnabled !== 0) return [];
-  return effectiveSnapshot.tools
 
-  if (snapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
-  if (snapshot.stats.externalEnabled !== 0) return [];
-  return snapshot.tools
+  return effectiveSnapshot.tools
     .filter(
       (tool) =>
         tool.automation.status === "published_content" &&
@@ -443,8 +440,6 @@ export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): Au
         officialSiteMatchesDomain(tool.site, tool.domain),
     )
     .map((tool) => {
-      // Keep committed snapshots append-only while serving the newest
-      // SEO/AEO/GEO contract from the same governed candidate catalog.
       const candidate = toolGrowthCandidates.find(
         (item) => slugifyToolName(item.name) === slugifyToolName(tool.name),
       );
