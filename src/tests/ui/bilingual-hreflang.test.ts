@@ -6,6 +6,8 @@ import {
   ENGLISH_SITEMAP_PATHS,
   STATIC_SITEMAP_PATHS,
 } from "../../services/sitemap-publication-authority";
+import { buildLocalizedAlternates } from "../../i18n/seo";
+import { getAlternateLocales } from "../../lib/seo";
 
 // Every indexable page that ships in both Farsi and English must declare hreflang
 // alternates, or Google cannot associate the two editions and may serve the wrong
@@ -45,6 +47,25 @@ function providesHreflang(route: string): boolean {
 }
 
 describe("indexable bilingual pages declare hreflang", () => {
+  it("uses reciprocal absolute URLs for the maintained fa/en alternate set", () => {
+    assert.deepEqual(buildLocalizedAlternates("/coins/bitcoin"), {
+      "fa-IR": "https://tecpey.ir/coins/bitcoin",
+      "en-US": "https://tecpey.ir/en/coins/bitcoin",
+      "x-default": "https://tecpey.ir/coins/bitcoin",
+    });
+    assert.deepEqual(getAlternateLocales("/coins/bitcoin", "/en/coins/bitcoin"), {
+      "fa-IR": "https://tecpey.ir/coins/bitcoin",
+      "en-US": "https://tecpey.ir/en/coins/bitcoin",
+      "x-default": "https://tecpey.ir/coins/bitcoin",
+    });
+  });
+
+  it("does not advertise a locale that was not supplied as available", () => {
+    assert.deepEqual(buildLocalizedAlternates("/coins/bitcoin", ["fa"]), {
+      "fa-IR": "https://tecpey.ir/coins/bitcoin",
+      "x-default": "https://tecpey.ir/coins/bitcoin",
+    });
+  });
   it("derives a non-trivial set of bilingual pairs from the authoritative sitemap route registry", () => {
     const pairs = getBilingualPairs();
     assert.ok(pairs.length >= 10, `expected many bilingual pairs, found ${pairs.length}`);
