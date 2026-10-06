@@ -20,8 +20,6 @@ export function pageMetadata({
   keywords?: string[];
 }): Metadata {
   const canonical = `${base}${path}`;
-  const faUrl = `${base}${path.startsWith("/en") && enPath ? enPath : path.replace(/^\/en/, "") || "/"}`;
-  const enUrl = `${base}${path.startsWith("/en") ? path : (enPath ?? `/en${path === "/" ? "" : path}`)}`;
   return {
     title,
     description,
