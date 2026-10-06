@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
   ENGLISH_SITEMAP_PATHS,
   STATIC_SITEMAP_PATHS,
-} from "../../lib/sitemap-publication-authority";
+} from "../../services/sitemap-publication-authority";
 
 // Every indexable page that ships in both Farsi and English must declare hreflang
 // alternates, or Google cannot associate the two editions and may serve the wrong
