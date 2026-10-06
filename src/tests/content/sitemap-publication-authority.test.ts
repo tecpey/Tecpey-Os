@@ -58,3 +58,11 @@ test("sitemap entries contain only authoritative records", () => {
     ["https://tecpey.ir/learn/example"],
   );
 });
+
+
+test("sitemap authority rejects duplicate indexable paths", () => {
+  assert.throws(
+    () => getIndexableSitemapEntries([base, { ...base }]),
+    /Duplicate indexable sitemap path: \/learn\/example/,
+  );
+});
