@@ -3,11 +3,12 @@ import Link from "next/link";
 import { EnglishShell } from "../components/EnglishUI";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
 import { HelpCircle, ShieldCheck, ArrowRight } from "lucide-react";
+import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "TecPey FAQ | Bitcoin, USDT, security and fees",
   description: "Clear answers to common TecPey questions about registration, crypto security, Bitcoin, Tether, fees, transfers and starting safely.",
-  alternates: { canonical: "https://tecpey.ir/en/faq" },
+  alternates: { canonical: "https://tecpey.ir/en/faq", languages: getAlternateLocales("/faq", "/en/faq") },
 };
 
 const faqs = [
