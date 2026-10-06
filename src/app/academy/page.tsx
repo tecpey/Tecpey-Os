@@ -12,11 +12,12 @@ import { AcademyEngagementHub } from "@/components/academy/AcademyEngagementHub"
 import { academyCaseStudies } from "@/data/academyCaseStudies";
 import { AcademyWorldClassUpgrade } from "@/components/academy/AcademyWorldClassUpgrade";
 import { safeJsonLd } from "@/lib/json-ld";
+import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "آکادمی تک‌پی | نقطه امن یادگیری و ورود به بازار رمزارز",
   description: "آکادمی تک‌پی بر پایه یک هدف شکل گرفته است: ایجاد نقطه‌ای امن برای ورود آگاهانه به بازار رمزارز؛ از آموزش و ارزیابی تا شروع حرفه‌ای.",
-  alternates: { canonical: "https://tecpey.ir/academy" },
+  alternates: { canonical: "https://tecpey.ir/academy", languages: getAlternateLocales("/academy", "/en/academy") },
   keywords: ["آموزش ارز دیجیتال", "آکادمی تک‌پی", "خرید تتر", "بیت کوین چیست", "امنیت رمزارز"],
   openGraph: {
     title: "آکادمی تک‌پی",
