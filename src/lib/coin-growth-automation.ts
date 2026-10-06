@@ -326,6 +326,7 @@ export function materializeCoinGrowthSnapshot(
 }
 
 export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): AutomatedCoinPage[] {
+  if (!isOrganicGrowthSnapshotFresh(snapshot.generatedAt)) return [];
   if (snapshot.schemaVersion !== 1) return [];
   if (snapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
   if (snapshot.stats.exchangeEnabled !== 0) return [];
