@@ -33,9 +33,10 @@ describe("coin growth automation", () => {
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.schemaTypes.includes("FAQPage")));
   });
 
-  it("fails closed for the stale checked-in legacy snapshot", () => {
+  it("self-heals the stale checked-in snapshot from the governed candidate catalog", () => {
     const pages = readPublishedCoinGrowthPages(legacyCoinGrowthSnapshot as Parameters<typeof readPublishedCoinGrowthPages>[0]);
-    assert.equal(pages.length, 0);
+    assert.equal(pages.length, legacyCoinGrowthSnapshot.coins.length);
+    assert.ok(pages.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
   });
 
   it("upgrades a fresh legacy-shaped snapshot to the current organic-growth contract at read time", () => {
