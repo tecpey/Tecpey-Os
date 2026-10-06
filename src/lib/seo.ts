@@ -53,8 +53,8 @@ export function getAlternateLocales(
     "x-default": faUrl,
   };
   if (enPath) result[getLocaleDefinition("en").hreflang] = getCanonicalUrl(enPath);
-  if (options?.tr) result["tr-TR"] = getCanonicalUrl(options.tr);
-  if (options?.ar) result["ar-SA"] = getCanonicalUrl(options.ar);
+  if (options?.tr) result[getLocaleDefinition("tr").hreflang] = getCanonicalUrl(options.tr);
+  if (options?.ar) result[getLocaleDefinition("ar").hreflang] = getCanonicalUrl(options.ar);
   return result;
 }
 
