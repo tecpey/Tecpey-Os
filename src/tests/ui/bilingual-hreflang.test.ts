@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { getAllIndexableSitemapEntries } from "../../lib/sitemap-publication-authority";
+import {
+  ENGLISH_SITEMAP_PATHS,
+  STATIC_SITEMAP_PATHS,
+} from "../../lib/sitemap-publication-authority";
 
 // Every indexable page that ships in both Farsi and English must declare hreflang
 // alternates, or Google cannot associate the two editions and may serve the wrong
@@ -12,13 +15,11 @@ import { getAllIndexableSitemapEntries } from "../../lib/sitemap-publication-aut
 // helpers (which all emit alternates.languages) or a literal languages block, in
 // the page or its layout.
 
-async function getBilingualPairs(): Promise<Array<{ fa: string; en: string }>> {
-  const entries = await getAllIndexableSitemapEntries();
-  const paths = new Set(entries.map((entry) => new URL(entry.url).pathname));
-  const faPaths = [...paths].filter((route) => route === "/" || !route.startsWith("/en/"));
-  return faPaths
+function getBilingualPairs(): Array<{ fa: string; en: string }> {
+  const english = new Set<string>(ENGLISH_SITEMAP_PATHS);
+  return STATIC_SITEMAP_PATHS
     .map((fa) => ({ fa, en: fa === "/" ? "/en" : `/en${fa}` }))
-    .filter((pair) => paths.has(pair.en));
+    .filter((pair) => english.has(pair.en));
 }
 
 // A page "declares hreflang" when its source uses any helper that emits
@@ -44,12 +45,12 @@ function providesHreflang(route: string): boolean {
 }
 
 describe("indexable bilingual pages declare hreflang", () => {
-  it("derives a non-trivial set of bilingual pairs from the authoritative sitemap", async () => {
-    const pairs = await getBilingualPairs();
+  it("derives a non-trivial set of bilingual pairs from the authoritative sitemap route registry", () => {
+    const pairs = getBilingualPairs();
     assert.ok(pairs.length >= 10, `expected many bilingual pairs, found ${pairs.length}`);
   });
 
-  it("every authoritative sitemap fa/en pair declares hreflang on both sides", async () => {
+  it("every authoritative sitemap fa/en pair declares hreflang on both sides", () => {
     const pairs = await getBilingualPairs();
     const missing: string[] = [];
     for (const { fa, en } of pairs) {
