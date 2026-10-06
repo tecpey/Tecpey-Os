@@ -344,13 +344,6 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
   const strictPinnedHosts = effectiveSnapshot.hostPinVersion === 1;
 
   return effectiveSnapshot.coins
-
-  if (snapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
-  if (snapshot.stats.exchangeEnabled !== 0) return [];
-
-  const strictPinnedHosts = snapshot.hostPinVersion === 1;
-
-  return snapshot.coins
     .filter((coin) => {
       if (coin.automation.status !== "published_content") return false;
       if (coin.automation.exchangeCapability !== "manual_review_required") return false;
@@ -362,9 +355,6 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
       return officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, pinnedHost);
     })
     .map((coin) => {
-      // Published snapshots are immutable evidence and may predate the current
-      // organic-growth contract. Upgrade the in-memory profile from the same
-      // governed candidate source instead of rewriting historical evidence.
       const candidate = coinGrowthCandidates.find((item) => item.slug === coin.slug);
       return candidate ? { ...coin, organicGrowth: buildCoinOrganicGrowthProfile(candidate) } : coin;
     });
