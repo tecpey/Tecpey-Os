@@ -198,6 +198,11 @@ function buildCoinOrganicGrowthProfile(candidate: CoinGrowthCandidate): OrganicG
       { name: `${candidate.name} official`, url: candidate.officialWebsite, role: "official" },
       ...(candidate.docs ? [{ name: `${candidate.name} documentation`, url: candidate.docs, role: "official" as const }] : []),
     ],
+    claimSourceMap: [
+      { claim: `${candidate.faName} official identity and technical reference`, sourceName: `${candidate.name} official`, sourceUrl: candidate.officialWebsite, role: "official" },
+      ...(candidate.docs ? [{ claim: `${candidate.faName} documentation reference`, sourceName: `${candidate.name} documentation`, sourceUrl: candidate.docs, role: "official" as const }] : []),
+      { claim: `${candidate.faName} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir${canonicalPath}`, role: "tecpey" },
+    ],
     contentValue: `تک‌پی صفحه ${candidate.faName} را به یک پرونده تصمیم آموزشی تبدیل می‌کند: تعریف دارایی، کاربردهای واقعی، ریسک‌ها، منابع رسمی، خبرهای مرتبط، ابزارهای بررسی و مسیر آموزشی در یک canonical واحد جمع می‌شوند.`,
     safetyDisclaimer: "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
     freshnessTag: "scheduled_refresh",
