@@ -7,6 +7,7 @@ import {
 } from "@/data/toolGrowthCandidates";
 import {
   buildOrganicGrowthProfile,
+  isOrganicGrowthSnapshotFresh,
   type OrganicGrowthProfile,
 } from "./organic-growth-automation";
 
