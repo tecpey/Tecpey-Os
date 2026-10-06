@@ -136,7 +136,7 @@ describe("tool growth automation", () => {
       integrationRisk: "none",
     };
     const snapshot = materializeToolGrowthSnapshot([base], {
-      generatedAt: "2026-08-21T00:00:00.000Z",
+      generatedAt: freshGeneratedAt(),
       publishThreshold: 0,
     });
 
