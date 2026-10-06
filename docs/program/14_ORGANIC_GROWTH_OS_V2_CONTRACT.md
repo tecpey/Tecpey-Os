@@ -163,3 +163,10 @@ The latest implementation checkpoint before governance refresh was `2c1dbb0c3304
 ### Governance freshness checkpoint — 2026-10-06
 
 The exact-head CI gate exposed stale accepted-risk review deadlines in the branch inherited from current-main. This was a governance freshness failure, not a sitemap/runtime regression. The accepted-risk registry was refreshed using the already-recorded 2026-10-02 accountable review, moving R-01/R-02/R-04/R-05/R-06/R-07/R-09/R-10 to the next 2026-10-09 weekly review and R-08 to 2026-10-14 biweekly review. This refresh does not create owner sign-off, does not satisfy NOG-08, does not change any NO-GO boundary, and does not authorize merge or deployment.
+
+
+### Freshness / retirement authority
+
+For automated coin/tool snapshot families marked `scheduled_refresh`, freshness is now a publication prerequisite rather than descriptive metadata. A committed snapshot is eligible for the publication/runtime surface only while its top-level `generatedAt` is within the governed 72-hour window. Invalid, future-dated, or older snapshots fail closed and therefore disappear from the derived automated route/sitemap surface until a real materialization run produces a fresh snapshot. The repository deliberately does not rewrite an old `generatedAt` merely to satisfy the freshness gate.
+
+The 72-hour window is a resilience allowance over the daily materialization timers; it is not a claim that content is factually current for 72 hours. Source verification, editorial review and retirement decisions remain separate evidence boundaries.
