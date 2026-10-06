@@ -24,6 +24,10 @@ function strongProfile() {
       { name: "CoinDesk", url: "https://www.coindesk.com/example", role: "primary" },
       { name: "TecPey", url: "https://tecpey.ir/crypto-news/bitcoin-etf-liquidity", role: "tecpey" },
     ],
+    claimSourceMap: [
+      { claim: "Bitcoin ETF flow report", sourceName: "CoinDesk", sourceUrl: "https://www.coindesk.com/example", role: "primary" },
+      { claim: "TecPey educational context", sourceName: "TecPey", sourceUrl: "https://tecpey.ir/crypto-news/bitcoin-etf-liquidity", role: "tecpey" },
+    ],
     contentValue: "تک‌پی تیتر را صرفاً بازنویسی نمی‌کند؛ خبر را به موجودیت‌ها، ابزارها، ریسک، داده بازار و مسیر آموزشی متصل می‌کند تا کاربر بتواند آن را بررسی و راستی‌آزمایی کند.",
     safetyDisclaimer: "این محتوا توصیه مالی یا سیگنال معامله نیست.",
     freshnessTag: "fresh",
@@ -42,6 +46,11 @@ describe("SEO/GEO/AEO organic growth authority v2", () => {
 
   it("fails closed without source attribution and answer intent", () => {
     const profile = { ...strongProfile(), sourceAttributions: [], questionIntents: [], readiness: { ...strongProfile().readiness, ready: true, blockers: [] } };
+    assert.equal(validateOrganicGrowthProfile(profile), false);
+  });
+
+  it("rejects an unmapped claim even when source attribution exists", () => {
+    const profile = { ...strongProfile(), claimSourceMap: [{ claim: "Unmapped claim", sourceName: "Other", sourceUrl: "https://example.com/source", role: "primary" as const }] };
     assert.equal(validateOrganicGrowthProfile(profile), false);
   });
 
