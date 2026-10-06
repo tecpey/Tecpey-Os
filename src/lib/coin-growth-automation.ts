@@ -197,6 +197,7 @@ function buildCoinOrganicGrowthProfile(candidate: CoinGrowthCandidate): OrganicG
     sourceAttributions: [
       { name: `${candidate.name} official`, url: candidate.officialWebsite, role: "official" },
       ...(candidate.docs ? [{ name: `${candidate.name} documentation`, url: candidate.docs, role: "official" as const }] : []),
+      { name: "TecPey", url: `https://tecpey.ir${canonicalPath}`, role: "tecpey" },
     ],
     claimSourceMap: [
       { claim: `${candidate.faName} official identity and technical reference`, sourceName: `${candidate.name} official`, sourceUrl: candidate.officialWebsite, role: "official" },
