@@ -108,7 +108,7 @@ describe("coin growth automation", () => {
       officialWebsite: "https://trusted.example/project",
     };
     const snapshot = materializeCoinGrowthSnapshot([base], {
-      generatedAt: "2026-08-21T00:00:00.000Z",
+      generatedAt: freshGeneratedAt(),
       publishThreshold: 0,
     });
 
@@ -130,7 +130,7 @@ describe("coin growth automation", () => {
 
   it("migrates the checked-in legacy shape through curated candidate host pins", () => {
     const snapshot = materializeCoinGrowthSnapshot(coinGrowthCandidates, {
-      generatedAt: "2026-08-10T12:29:21.460Z",
+      generatedAt: freshGeneratedAt(),
       existingSymbols: coreCoinPages.map((coin) => coin.symbol),
       existingSlugs: coreCoinPages.map((coin) => coin.slug),
     });
