@@ -50,6 +50,20 @@ describe("indexable bilingual pages declare hreflang", () => {
     assert.ok(pairs.length >= 10, `expected many bilingual pairs, found ${pairs.length}`);
   });
 
+  it("dynamic coin routes are covered by the same reciprocal hreflang contract", () => {
+    const dynamicFiles = [
+      "src/app/coins/[slug]/page.tsx",
+      "src/app/en/coins/[slug]/page.tsx",
+    ];
+    const missing = dynamicFiles.filter((file) => {
+      const abs = path.join(process.cwd(), file);
+      if (!existsSync(abs)) return file;
+      const src = readFileSync(abs, "utf8");
+      return !src.includes("languages:");
+    });
+    assert.deepEqual(missing, [], "dynamic bilingual coin routes must declare alternates.languages");
+  });
+
   it("every authoritative sitemap fa/en pair declares hreflang on both sides", () => {
     const pairs = getBilingualPairs();
     const missing: string[] = [];
