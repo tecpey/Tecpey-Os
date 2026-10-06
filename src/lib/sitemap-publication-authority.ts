@@ -32,7 +32,15 @@ export function decideSitemapPublication(record: SitemapPublicationRecord): bool
 export function getIndexableSitemapEntries(
   records: readonly SitemapPublicationRecord[],
 ): MetadataRoute.Sitemap {
-  return records.filter(decideSitemapPublication).map((record) => ({
+  const indexable = records.filter(decideSitemapPublication);
+  const seenPaths = new Set<string>();
+  for (const record of indexable) {
+    if (seenPaths.has(record.path)) {
+      throw new Error(`Duplicate indexable sitemap path: ${record.path}`);
+    }
+    seenPaths.add(record.path);
+  }
+  return indexable.map((record) => ({
     url: `https://tecpey.ir${record.path}`,
     lastModified: record.lastModified,
     changeFrequency: record.changeFrequency,
@@ -53,7 +61,7 @@ function hasText(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export async function getAllIndexableSitemapEntries(now = new Date()): Promise<MetadataRoute.Sitemap> {
+export async function getAllIndexableSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const staticPaths = [
     "/", "/academy", "/academy/free", "/academy/curriculum", "/learn", "/price", "/markets",
     "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide",
@@ -74,10 +82,10 @@ export async function getAllIndexableSitemapEntries(now = new Date()): Promise<M
 
   const records: SitemapPublicationRecord[] = [
     ...staticPaths.map((path) => curated("static-route", path, true, {
-      lastModified: now, changeFrequency: "weekly", priority: path === "/" ? 1 : 0.75,
+      changeFrequency: "weekly", priority: path === "/" ? 1 : 0.75,
     })),
     ...englishPaths.map((path) => curated("static-route", path, true, {
-      lastModified: now, changeFrequency: "weekly", priority: path === "/en" ? 0.86 : 0.68,
+      changeFrequency: "weekly", priority: path === "/en" ? 0.86 : 0.68,
     })),
     ...learningSeoPages.map((page) => curated(
       "learning-seo",
@@ -85,14 +93,14 @@ export async function getAllIndexableSitemapEntries(now = new Date()): Promise<M
       hasText(page.slug) && hasText(page.title) && hasText(page.h1) &&
         hasText(page.description) && page.sections.length > 0 &&
         page.sections.every((section) => hasText(section.title) && hasText(section.body)),
-      { lastModified: now, changeFrequency: "monthly", priority: 0.86 },
+      { changeFrequency: "monthly", priority: 0.86 },
     )),
     ...getRankedTraderTools().flatMap((tool) => {
       const visible = hasText(tool.slug) && hasText(tool.name) &&
         hasText(tool.summaryFa) && hasText(tool.categoryFa);
       return [
         curated("trader-tool", `/trading-tools/${tool.slug}`, visible, {
-          lastModified: now, changeFrequency: "monthly", priority: 0.78,
+          changeFrequency: "monthly", priority: 0.78,
         }),
         curated("trader-tool", `/en/trading-tools/${tool.slug}`, visible, {
           lastModified: now, changeFrequency: "monthly", priority: 0.66,
@@ -106,16 +114,16 @@ export async function getAllIndexableSitemapEntries(now = new Date()): Promise<M
         coin.useCases.length > 0 && coin.risks.length > 0;
       return [
         curated("coin-catalog", `/price/${coin.slug}`, visible, {
-          lastModified: now, changeFrequency: "hourly", priority: 0.9,
+          changeFrequency: "hourly", priority: 0.9,
         }),
         curated("coin-catalog", `/coins/${coin.slug}`, visible, {
-          lastModified: now, changeFrequency: "weekly", priority: 0.82,
+          changeFrequency: "weekly", priority: 0.82,
         }),
         curated("coin-catalog", `/en/coins/${coin.slug}`, visible, {
-          lastModified: now, changeFrequency: "weekly", priority: 0.68,
+          changeFrequency: "weekly", priority: 0.68,
         }),
         curated("coin-catalog", `/crypto/${coin.symbol}`, visible, {
-          lastModified: now, changeFrequency: "hourly", priority: 0.84,
+          changeFrequency: "hourly", priority: 0.84,
         }),
       ];
     }),
@@ -124,6 +132,7 @@ export async function getAllIndexableSitemapEntries(now = new Date()): Promise<M
       `/academy/${article.slug}`,
       hasText(article.slug) && hasText(article.title) && hasText(article.description) &&
         hasText(article.summary) && hasText(article.updatedAt) &&
+        !Number.isNaN(new Date(article.updatedAt).getTime()) &&
         article.sections.length > 0 &&
         article.sections.every((section) => hasText(section.heading) && section.body.length > 0),
       { lastModified: new Date(article.updatedAt), changeFrequency: "monthly", priority: 0.78 },
