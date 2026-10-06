@@ -103,7 +103,7 @@ export async function getAllIndexableSitemapEntries(): Promise<MetadataRoute.Sit
           changeFrequency: "monthly", priority: 0.78,
         }),
         curated("trader-tool", `/en/trading-tools/${tool.slug}`, visible, {
-          lastModified: now, changeFrequency: "monthly", priority: 0.66,
+          changeFrequency: "monthly", priority: 0.66,
         }),
       ];
     }),
