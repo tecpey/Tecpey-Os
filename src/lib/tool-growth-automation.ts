@@ -416,6 +416,7 @@ export function materializeToolGrowthSnapshot(
 }
 
 export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): AutomatedTraderToolRecord[] {
+  if (!isOrganicGrowthSnapshotFresh(snapshot.generatedAt)) return [];
   if (snapshot.schemaVersion !== 1) return [];
   if (snapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
   if (snapshot.stats.externalEnabled !== 0) return [];
