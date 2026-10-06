@@ -153,4 +153,4 @@ Regression coverage is in `src/tests/content/sitemap-publication-authority.test.
 
 ### Exact-head implementation checkpoint
 
-The latest implementation head is `1d9085eeacabf0e587b6ab66999dfa877282cf1d`. An earlier exact-head CI failure was caused by incorrect `RankedTraderTool` field assumptions in the new sitemap adapter (`description`/`category`); the adapter has been corrected to use the governed `summaryFa`/`categoryFa` fields from `TraderToolRecord`. Fresh CI is required on this new head; no prior failed or successful result is reused.
+The latest implementation head is `2cd371ee03e4585302cb2069246a48cc8b6f954d`. An earlier exact-head CI failure was caused by incorrect `RankedTraderTool` field assumptions in the new sitemap adapter (`description`/`category`); the adapter has been corrected to use the governed `summaryFa`/`categoryFa` fields from `TraderToolRecord`. Fresh CI is required on this new head; no prior failed or successful result is reused.
