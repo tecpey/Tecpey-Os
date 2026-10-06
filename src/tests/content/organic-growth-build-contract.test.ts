@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 test("production build materializes fresh organic-growth snapshots before Next build", async () => {
   const packageJson = JSON.parse(
-    await readFile(new URL("../../../../package.json", import.meta.url), "utf8"),
+    await readFile(new URL("../../../package.json", import.meta.url), "utf8"),
   ) as { scripts?: Record<string, string> };
 
   assert.equal(
