@@ -35,9 +35,11 @@ describe("tool growth automation", () => {
     assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.canonicalPath === `/en/trading-tools/${slugifyToolName(tool.name)}`));
   });
 
-  it("fails closed for the stale checked-in legacy snapshot", () => {
+  it("self-heals the stale checked-in snapshot from the governed candidate catalog", () => {
     const tools = readPublishedToolGrowthRecords(legacyToolGrowthSnapshot as Parameters<typeof readPublishedToolGrowthRecords>[0]);
-    assert.equal(tools.length, 0);
+    assert.equal(tools.length, legacyToolGrowthSnapshot.tools.length);
+    assert.ok(tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v2"));
+    assert.ok(tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v2"));
   });
 
   it("upgrades a fresh legacy-shaped snapshot to SEO/AEO/GEO v2 at read time", () => {
