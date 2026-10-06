@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildOrganicGrowthProfile, validateOrganicGrowthProfile } from "../../lib/organic-growth-automation";
+import { buildOrganicGrowthProfile, isOrganicGrowthSnapshotFresh, validateOrganicGrowthProfile } from "../../lib/organic-growth-automation";
 import { extractNewsTaxonomy } from "../../lib/news-taxonomy";
 
 function strongProfile() {
@@ -35,6 +35,13 @@ function strongProfile() {
 }
 
 describe("SEO/GEO/AEO organic growth authority v2", () => {
+  it("fails closed for stale scheduled-refresh snapshots", () => {
+    const now = Date.parse("2026-10-06T00:00:00.000Z");
+    assert.equal(isOrganicGrowthSnapshotFresh("2026-10-05T12:00:00.000Z", now), true);
+    assert.equal(isOrganicGrowthSnapshotFresh("2026-10-01T00:00:00.000Z", now), false);
+    assert.equal(isOrganicGrowthSnapshotFresh("not-a-date", now), false);
+  });
+
   it("requires all three readiness dimensions before publication", () => {
     const profile = strongProfile();
     assert.equal(validateOrganicGrowthProfile(profile), true);
