@@ -31,8 +31,15 @@ describe("coin growth automation", () => {
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.schemaTypes.includes("FAQPage")));
   });
 
-  it("upgrades immutable legacy published snapshots to the current organic-growth contract at read time", () => {
+  it("fails closed for the stale checked-in legacy snapshot", () => {
     const pages = readPublishedCoinGrowthPages(legacyCoinGrowthSnapshot as Parameters<typeof readPublishedCoinGrowthPages>[0]);
+    assert.equal(pages.length, 0);
+  });
+
+  it("upgrades a fresh legacy-shaped snapshot to the current organic-growth contract at read time", () => {
+    const fresh = structuredClone(legacyCoinGrowthSnapshot);
+    fresh.generatedAt = freshGeneratedAt();
+    const pages = readPublishedCoinGrowthPages(fresh as Parameters<typeof readPublishedCoinGrowthPages>[0]);
     assert.ok(pages.length > 0);
     assert.ok(pages.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(pages.every((coin) => coin.organicGrowth.readiness.ready));
@@ -154,7 +161,7 @@ describe("coin growth automation", () => {
         faName: "پین دامنه الزامی",
         officialWebsite: "https://trusted.example/project",
       }],
-      { generatedAt: "2026-08-21T00:00:00.000Z", publishThreshold: 0 },
+      { generatedAt: freshGeneratedAt(), publishThreshold: 0 },
     );
 
     delete snapshot.coins[0]!.automation.officialHost;
