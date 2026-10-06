@@ -327,8 +327,21 @@ export function materializeCoinGrowthSnapshot(
 }
 
 export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): AutomatedCoinPage[] {
-  if (!isOrganicGrowthSnapshotFresh(snapshot.generatedAt)) return [];
-  if (snapshot.schemaVersion !== 1) return [];
+  const effectiveSnapshot = isOrganicGrowthSnapshotFresh(snapshot.generatedAt)
+    ? snapshot
+    : materializeCoinGrowthSnapshot(coinGrowthCandidates, {
+        sourceMode: "curated_seed",
+        existingSymbols: coreCoinPages.map((coin) => coin.symbol),
+        existingSlugs: coreCoinPages.map((coin) => coin.slug),
+      });
+  if (effectiveSnapshot.schemaVersion !== 1) return [];
+  if (effectiveSnapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
+  if (effectiveSnapshot.stats.exchangeEnabled !== 0) return [];
+
+  const strictPinnedHosts = effectiveSnapshot.hostPinVersion === 1;
+
+  return effectiveSnapshot.coins
+
   if (snapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
   if (snapshot.stats.exchangeEnabled !== 0) return [];
 
