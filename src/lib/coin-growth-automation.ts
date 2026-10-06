@@ -329,11 +329,14 @@ export function materializeCoinGrowthSnapshot(
 export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): AutomatedCoinPage[] {
   const effectiveSnapshot = isOrganicGrowthSnapshotFresh(snapshot.generatedAt)
     ? snapshot
-    : materializeCoinGrowthSnapshot(coinGrowthCandidates, {
-        sourceMode: "curated_seed",
-        existingSymbols: coreCoinPages.map((coin) => coin.symbol),
-        existingSlugs: coreCoinPages.map((coin) => coin.slug),
-      });
+    : materializeCoinGrowthSnapshot(
+        coinGrowthCandidates.filter((candidate) =>
+          snapshot.coins.some(
+            (coin) => coin.slug === candidate.slug && coin.symbol === candidate.symbol,
+          ),
+        ),
+        { sourceMode: "curated_seed" },
+      );
   if (effectiveSnapshot.schemaVersion !== 1) return [];
   if (effectiveSnapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
   if (effectiveSnapshot.stats.exchangeEnabled !== 0) return [];
