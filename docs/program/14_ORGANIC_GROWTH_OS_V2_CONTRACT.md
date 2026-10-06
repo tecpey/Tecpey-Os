@@ -36,12 +36,10 @@ The current-main audit distinguishes **proven authority** from architectural int
 
 1. `src/lib/news-automation.ts` already constructs governed content objects and requires publishability/Organic Growth readiness before a materialized news item can be publishable.
 2. `src/lib/news-impact-history-authority.ts` is the effective public News authority. Its archive/read paths re-apply publication-source eligibility and freshness constraints before returning items; `src/app/sitemap.ts` consumes `getNewsDetailSitemapEntriesFromAuthority()`.
-3. The remaining sitemap families—curated static routes, `learningSeoPages`, trader-tool catalogs, coin catalogs and Academy articles—are not currently passed through the generic `ContentPublicationStatus` / `decideLocalizationPublication()` authority. They are trusted catalog/static sources rather than demonstrated examples of draft/retired leakage.
-4. Therefore, the audit **does not claim an observed draft/retired sitemap leak** on current-main. The actual integration gap is architectural: the generic publication/indexability authority is not yet the single contract for every sitemap-producing family.
-5. PR #743 remains Draft until this boundary is either:
-   - closed by a real adapter that maps each sitemap-producing family to explicit published/indexable/canonical/hreflang authority, with exact-head regression coverage; or
-   - explicitly accepted as a bounded architecture exception with owner, evidence, review date and a follow-up implementation PR.
-6. No second competing sitemap source of truth should be introduced merely to satisfy this contract. The preferred implementation is one shared publication/indexability boundary consumed by sitemap generation.
+3. The sitemap-producing families are now normalized behind `getAllIndexableSitemapEntries()` and the shared `SitemapPublicationRecord` / `getIndexableSitemapEntries()` decision boundary. News continues to delegate to its existing publication authority; curated learning, trader tools, coins, Academy articles and static routes are represented explicitly as curated publication records rather than inventing hidden workflow states.
+4. Therefore, this PR does **not** claim an observed draft/retired sitemap leak on current-main, and the former architectural integration gap is closed for the sitemap surface covered by this PR. The closure is deterministic and fail-closed: non-published states, missing visible content, canonical mismatches, unsafe query/fragment paths and duplicate indexable paths are rejected.
+5. Exact-head regression coverage proves the shared decision boundary and the trader-tool locale gate. The implementation remains intentionally scoped: acquisition measurement is still an independent dependency, and editorial/source quality remains a separate authority from sitemap indexability.
+6. No second competing sitemap source of truth should be introduced. Future sitemap families must adapt into the same publication/indexability boundary rather than adding local publication decisions in `src/app/sitemap.ts`.
 
 This reconciliation is intentionally fail-closed: absence of evidence of leakage is not treated as proof that every generated URL is governed.
 
