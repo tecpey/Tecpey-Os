@@ -82,6 +82,10 @@ The implementation should expose one sitemap-facing function (for example `getIn
 - source attribution for current market/news content;
 - “updated at” on time-sensitive pages.
 
+### Claim/source evidence boundary
+
+Every publishable Organic Growth profile now carries an explicit `claimSourceMap`. Each mapped claim must reference a source URL already present in `sourceAttributions`; URLs are canonicalized before comparison and the validator fails closed on unmapped or unsupported claims. This is evidence binding, not a claim-truth oracle: editorial review and source quality remain required, and the mapping does not authorize publication by itself.
+
 ## GEO / AI retrieval readiness
 
 - clear entity names, aliases, relationships and disambiguation;
