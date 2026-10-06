@@ -79,6 +79,13 @@ describe("indexable bilingual pages declare hreflang", () => {
     });
     assert.equal(faMetadata.alternates?.languages?.en, "https://tecpey.ir/en/academy");
     assert.equal(enMetadata.alternates?.languages?.en, "https://tecpey.ir/en/academy");
+
+    const faOnlyMetadata = pageMetadata({
+      title: "Persian only",
+      description: "Persian only",
+      path: "/academy/news-quiz",
+    });
+    assert.equal(faOnlyMetadata.alternates?.languages?.en, undefined);
   });
 
   it("does not advertise a locale that was not supplied as available", () => {
