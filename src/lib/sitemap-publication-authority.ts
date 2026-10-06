@@ -5,6 +5,25 @@ import { learningSeoPages } from "@/data/organicSeo";
 import { getNewsDetailSitemapEntriesFromAuthority } from "@/lib/news-detail-pages";
 import { getRankedTraderTools } from "@/lib/trading-tools-growth";
 
+export const STATIC_SITEMAP_PATHS = [
+  "/", "/academy", "/academy/free", "/academy/curriculum", "/learn", "/price", "/markets",
+  "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide",
+  "/trading-tools", "/crypto-news", "/llms.txt", "/llms-full.txt", "/academy/news-quiz",
+  "/about", "/contact-us", "/fees", "/rules", "/privacy", "/risk-disclosure", "/transparency",
+  "/methodology", "/editorial-policy", "/support", "/swap", "/academy/certificates",
+  "/academy/hall-of-fame", "/academy/simulator", "/academy/specialized-program",
+  "/academy/community", "/academy/graduation", "/academy/achievements",
+] as const;
+
+export const ENGLISH_SITEMAP_PATHS = [
+  "/en", "/en/academy", "/en/academy/free", "/en/markets", "/en/coins", "/en/glossary",
+  "/en/faq", "/en/compare", "/en/compare-exchanges", "/en/security", "/en/why-tecpey",
+  "/en/start-guide", "/en/trading-tools", "/en/crypto-news", "/en/academy/news-quiz",
+  "/en/about", "/en/contact-us", "/en/fees", "/en/rules", "/en/privacy", "/en/risk-disclosure",
+  "/en/transparency", "/en/methodology", "/en/editorial-policy", "/en/support", "/en/swap",
+  "/en/business", "/en/careers", "/en/listing", "/en/media", "/en/partners",
+] as const;
+
 export type SitemapPublicationState = "published" | "draft" | "needs_review" | "archived";
 
 export type SitemapPublicationRecord = Readonly<{
@@ -62,29 +81,12 @@ function hasText(value: string | undefined): boolean {
 }
 
 export async function getAllIndexableSitemapEntries(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = [
-    "/", "/academy", "/academy/free", "/academy/curriculum", "/learn", "/price", "/markets",
-    "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide",
-    "/trading-tools", "/crypto-news", "/llms.txt", "/llms-full.txt", "/academy/news-quiz",
-    "/about", "/contact-us", "/fees", "/rules", "/privacy", "/risk-disclosure", "/transparency",
-    "/methodology", "/editorial-policy", "/support", "/swap", "/academy/certificates",
-    "/academy/hall-of-fame", "/academy/simulator", "/academy/specialized-program",
-    "/academy/community", "/academy/graduation", "/academy/achievements",
-  ];
-  const englishPaths = [
-    "/en", "/en/academy", "/en/academy/free", "/en/markets", "/en/coins", "/en/glossary",
-    "/en/faq", "/en/compare", "/en/compare-exchanges", "/en/security", "/en/why-tecpey",
-    "/en/start-guide", "/en/trading-tools", "/en/crypto-news", "/en/academy/news-quiz",
-    "/en/about", "/en/contact-us", "/en/fees", "/en/rules", "/en/privacy", "/en/risk-disclosure",
-    "/en/transparency", "/en/methodology", "/en/editorial-policy", "/en/support", "/en/swap",
-    "/en/business", "/en/careers", "/en/listing", "/en/media", "/en/partners",
-  ];
-
   const records: SitemapPublicationRecord[] = [
-    ...staticPaths.map((path) => curated("static-route", path, true, {
+
+    ...STATIC_SITEMAP_PATHS.map((path) => curated("static-route", path, true, {
       changeFrequency: "weekly", priority: path === "/" ? 1 : 0.75,
     })),
-    ...englishPaths.map((path) => curated("static-route", path, true, {
+    ...ENGLISH_SITEMAP_PATHS.map((path) => curated("static-route", path, true, {
       changeFrequency: "weekly", priority: path === "/en" ? 0.86 : 0.68,
     })),
     ...learningSeoPages.map((page) => curated(
