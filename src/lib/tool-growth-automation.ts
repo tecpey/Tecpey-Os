@@ -241,7 +241,10 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
         `ریسک یکپارچه‌سازی: ${candidate.integrationRisk}`,
         `سطح ریسک آموزشی: ${candidate.riskLevel}`,
       ],
-      sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
+      sourceAttributions: [
+        { name: `${candidate.name} official`, url: candidate.site, role: "official" },
+        { name: "TecPey", url: `https://tecpey.ir/trading-tools/${slug}`, role: "tecpey" },
+      ],
       claimSourceMap: [
         { claim: `${candidate.name} official identity and domain`, sourceName: `${candidate.name} official`, sourceUrl: candidate.site, role: "official" },
         { claim: `${candidate.name} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir/trading-tools/${slug}`, role: "tecpey" },
@@ -289,7 +292,10 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
         `Integration risk: ${candidate.integrationRisk}`,
         `Educational risk level: ${candidate.riskLevel}`,
       ],
-      sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
+      sourceAttributions: [
+        { name: `${candidate.name} official`, url: candidate.site, role: "official" },
+        { name: "TecPey", url: `https://tecpey.ir/en/trading-tools/${slug}`, role: "tecpey" },
+      ],
       claimSourceMap: [
         { claim: `${candidate.name} official identity and domain`, sourceName: `${candidate.name} official`, sourceUrl: candidate.site, role: "official" },
         { claim: `${candidate.name} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir/en/trading-tools/${slug}`, role: "tecpey" },
