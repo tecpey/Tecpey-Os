@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { coinPages } from "@/data/coins";
+import { buildLocalizedAlternates } from "@/i18n/seo";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
@@ -34,7 +35,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${coin.faName} (${coin.symbol}) | قیمت، معرفی، کاربردها و ریسک‌ها در تک‌پی`,
     description: coin.description,
     keywords: coin.seoKeywords,
-    alternates: { canonical: `https://tecpey.ir/coins/${coin.slug}` },
+    alternates: {
+      canonical: `https://tecpey.ir/coins/${coin.slug}`,
+      languages: buildLocalizedAlternates(`/coins/${coin.slug}`),
+    },
     openGraph: {
       title: `${coin.faName} (${coin.symbol}) | تک‌پی`,
       description: coin.description,
