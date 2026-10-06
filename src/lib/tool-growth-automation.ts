@@ -419,11 +419,14 @@ export function materializeToolGrowthSnapshot(
 export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): AutomatedTraderToolRecord[] {
   const effectiveSnapshot = isOrganicGrowthSnapshotFresh(snapshot.generatedAt)
     ? snapshot
-    : materializeToolGrowthSnapshot(toolGrowthCandidates, {
-        sourceMode: "curated_seed",
-        existingSlugs: coreTools.map((tool) => slugifyToolName(tool.name)),
-        existingDomains: coreTools.map((tool) => tool.domain),
-      });
+    : materializeToolGrowthSnapshot(
+        toolGrowthCandidates.filter((candidate) =>
+          snapshot.tools.some(
+            (tool) => tool.name === candidate.name && tool.domain === candidate.domain,
+          ),
+        ),
+        { sourceMode: "curated_seed" },
+      );
   if (effectiveSnapshot.schemaVersion !== 1) return [];
   if (effectiveSnapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
   if (effectiveSnapshot.stats.externalEnabled !== 0) return [];
