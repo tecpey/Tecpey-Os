@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   decideSitemapPublication,
   getIndexableSitemapEntries,
-} from "../../lib/sitemap-publication-authority";
+} from "../../services/sitemap-publication-authority";
 
 const base = {
   family: "test",
