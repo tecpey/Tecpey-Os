@@ -8,11 +8,12 @@ import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowRight } from "lucide-react";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
+import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Crypto coin guides | TecPey",
   description: "English guides for Bitcoin, Tether, Ethereum, Toncoin, Solana and other crypto assets: use cases, risks and key considerations.",
-  alternates: { canonical: "https://tecpey.ir/en/coins" },
+  alternates: { canonical: "https://tecpey.ir/en/coins", languages: getAlternateLocales("/coins", "/en/coins") },
 };
 
 const schema = {
