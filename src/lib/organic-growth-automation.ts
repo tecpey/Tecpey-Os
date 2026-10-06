@@ -76,6 +76,20 @@ export type OrganicGrowthProfileInput = {
   freshnessTag?: OrganicGrowthProfile["freshnessTag"];
 };
 
+export const ORGANIC_GROWTH_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
+
+export function isOrganicGrowthSnapshotFresh(
+  generatedAt: string,
+  now = Date.now(),
+  maxAgeMs = ORGANIC_GROWTH_SNAPSHOT_MAX_AGE_MS,
+): boolean {
+  const generatedMs = Date.parse(generatedAt);
+  if (!Number.isFinite(generatedMs)) return false;
+  if (!Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) return false;
+  const ageMs = now - generatedMs;
+  return ageMs >= 0 && ageMs <= maxAgeMs;
+}
+
 const SITE_URL = "https://tecpey.ir";
 const TAG_RE = /^[a-z0-9][a-z0-9:_-]{1,80}$/;
 const ENTITY_TYPES = new Set<ContentEntityType>([
