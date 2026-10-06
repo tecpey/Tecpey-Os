@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishShell } from "../components/EnglishUI";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
+import { getAlternateLocales } from "@/lib/seo";
 import { ShieldCheck, Lock, AlertTriangle, Eye, Key, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Security Center | TecPey",
   description: "TecPey Security Center: account protection, anti-phishing guidance, safe transfers, verification habits and crypto risk reduction.",
-  alternates: { canonical: "https://tecpey.ir/en/security" },
+  alternates: { canonical: "https://tecpey.ir/en/security", languages: getAlternateLocales("/security", "/en/security") },
 };
 
 const protections = [
