@@ -595,7 +595,7 @@ describe("Content growth entity contract", () => {
 
     assert.equal(faHub.url, "https://tecpey.ir/crypto-news");
     assert.equal(enHub.url, "https://tecpey.ir/en/crypto-news");
-    assert.equal(faMetadata.alternates.languages["en-US"], "https://tecpey.ir/en/crypto-news");
+    assert.equal(faMetadata.alternates.languages.en, "https://tecpey.ir/en/crypto-news");
     assert.equal(collection["@type"], "CollectionPage");
     assert.equal(collection.url, "https://tecpey.ir/en/crypto-news");
     assert.equal(itemList["@type"], "ItemList");
