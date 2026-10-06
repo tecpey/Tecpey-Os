@@ -80,6 +80,15 @@ function hasText(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+export function isTraderToolLocaleVisible(
+  tool: { slug: string; name: string; summaryFa: string; categoryFa: string; summaryEn: string; categoryEn: string },
+  locale: "fa" | "en",
+): boolean {
+  return locale === "en"
+    ? hasText(tool.slug) && hasText(tool.name) && hasText(tool.summaryEn) && hasText(tool.categoryEn)
+    : hasText(tool.slug) && hasText(tool.name) && hasText(tool.summaryFa) && hasText(tool.categoryFa);
+}
+
 export async function getAllIndexableSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const records: SitemapPublicationRecord[] = [
 
@@ -98,10 +107,8 @@ export async function getAllIndexableSitemapEntries(): Promise<MetadataRoute.Sit
       { changeFrequency: "monthly", priority: 0.86 },
     )),
     ...getRankedTraderTools().flatMap((tool) => {
-      const visibleFa = hasText(tool.slug) && hasText(tool.name) &&
-        hasText(tool.summaryFa) && hasText(tool.categoryFa);
-      const visibleEn = hasText(tool.slug) && hasText(tool.name) &&
-        hasText(tool.summaryEn) && hasText(tool.categoryEn);
+      const visibleFa = isTraderToolLocaleVisible(tool, "fa");
+      const visibleEn = isTraderToolLocaleVisible(tool, "en");
       return [
         curated("trader-tool", `/trading-tools/${tool.slug}`, visibleFa, {
           changeFrequency: "monthly", priority: 0.78,
