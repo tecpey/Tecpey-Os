@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { getAllIndexableSitemapEntries } from "../../lib/sitemap-publication-authority";
 
 // Every indexable page that ships in both Farsi and English must declare hreflang
 // alternates, or Google cannot associate the two editions and may serve the wrong
@@ -42,17 +43,18 @@ function providesHreflang(route: string): boolean {
 }
 
 describe("indexable bilingual pages declare hreflang", () => {
-  const staticPaths = sitemapPaths("staticPaths");
-  const english = new Set(sitemapPaths("englishPaths"));
-  const pairs = staticPaths
-    .map((fa) => ({ fa, en: fa === "" || fa === "/" ? "/en" : `/en${fa}` }))
-    .filter((pair) => english.has(pair.en));
+  const entries = await getAllIndexableSitemapEntries(new Date("2026-10-06T00:00:00.000Z"));
+  const paths = new Set(entries.map((entry) => new URL(entry.url).pathname));
+  const faPaths = [...paths].filter((route) => route === "/" || !route.startsWith("/en/"));
+  const pairs = faPaths
+    .map((fa) => ({ fa, en: fa === "/" ? "/en" : `/en${fa}` }))
+    .filter((pair) => paths.has(pair.en));
 
-  it("derives a non-trivial set of bilingual pairs from the sitemap", () => {
+  it("derives a non-trivial set of bilingual pairs from the authoritative sitemap", () => {
     assert.ok(pairs.length >= 10, `expected many bilingual pairs, found ${pairs.length}`);
   });
 
-  it("every sitemap fa/en pair declares hreflang on both sides", () => {
+  it("every authoritative sitemap fa/en pair declares hreflang on both sides", () => {
     const missing: string[] = [];
     for (const { fa, en } of pairs) {
       if (!providesHreflang(fa)) missing.push(`${fa || "/"} (fa)`);
