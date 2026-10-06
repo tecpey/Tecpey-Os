@@ -5,11 +5,12 @@ import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI"
 import { ClipboardCheck, CheckCircle2 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { AcademyEngagementHub } from "@/components/academy/AcademyEngagementHub";
+import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "TecPey Academy | Safe crypto learning path",
   description: "TecPey — Your Safe Entry Point to the Crypto Market. A structured learning path for safer crypto understanding, security, risk management and responsible market entry.",
-  alternates: { canonical: "https://tecpey.ir/en/academy" },
+  alternates: { canonical: "https://tecpey.ir/en/academy", languages: getAlternateLocales("/academy", "/en/academy") },
 };
 
 
