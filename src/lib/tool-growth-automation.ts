@@ -242,6 +242,10 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
         `سطح ریسک آموزشی: ${candidate.riskLevel}`,
       ],
       sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
+      claimSourceMap: [
+        { claim: `${candidate.name} official identity and domain`, sourceName: `${candidate.name} official`, sourceUrl: candidate.site, role: "official" },
+        { claim: `${candidate.name} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir/trading-tools/${slug}`, role: "tecpey" },
+      ],
       contentValue: `تک‌پی ${candidate.name} را صرفاً فهرست نمی‌کند؛ کاربرد، مزایا، محدودیت‌ها، ریسک مجوزها، مسیر استفاده امن، خبرهای مرتبط و جایگاه آن در workflow تصمیم‌گیری را کنار هم ارائه می‌دهد.`,
       safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله، تأیید سرمایه‌گذاری یا مجوز اتصال کیف‌پول/API نیست.",
       freshnessTag: "scheduled_refresh",
@@ -286,6 +290,10 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
         `Educational risk level: ${candidate.riskLevel}`,
       ],
       sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
+      claimSourceMap: [
+        { claim: `${candidate.name} official identity and domain`, sourceName: `${candidate.name} official`, sourceUrl: candidate.site, role: "official" },
+        { claim: `${candidate.name} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir/en/trading-tools/${slug}`, role: "tecpey" },
+      ],
       contentValue: `TecPey goes beyond a directory entry by combining ${candidate.name} use cases, limitations, permission risks, a safe-use workflow, related news and learning context on one canonical page.`,
       safetyDisclaimer: "This page is not financial advice, a trading signal, investment endorsement or permission to connect a wallet/API key.",
       freshnessTag: "scheduled_refresh",
