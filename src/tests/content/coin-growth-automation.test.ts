@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
+
+const freshGeneratedAt = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
 import legacyCoinGrowthSnapshot from "@/data/generated/coinGrowthSnapshot.json";
 import { coreCoinPages } from "@/data/coins";
 import {
