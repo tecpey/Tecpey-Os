@@ -26,7 +26,7 @@ export function pageMetadata({
     ...(keywords?.length ? { keywords } : {}),
     alternates: {
       canonical,
-      languages: buildLocalizedAlternates(path, ["fa", "en"]),
+      languages: buildLocalizedAlternates(path, enPath ? ["fa", "en"] : ["fa"]),
     },
     openGraph: {
       title,
