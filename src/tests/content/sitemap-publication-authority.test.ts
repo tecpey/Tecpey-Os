@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   decideSitemapPublication,
   getIndexableSitemapEntries,
+  isTraderToolLocaleVisible,
 } from "../../services/sitemap-publication-authority";
 
 const base = {
@@ -64,5 +65,32 @@ test("sitemap authority rejects duplicate indexable paths", () => {
   assert.throws(
     () => getIndexableSitemapEntries([base, { ...base }]),
     /Duplicate indexable sitemap path: \/learn\/example/,
+  );
+});
+
+
+test("trader-tool sitemap publication requires localized content for each locale", () => {
+  const tool = {
+    slug: "example-tool",
+    name: "Example Tool",
+    summaryFa: "توضیح فارسی",
+    categoryFa: "دسته",
+    summaryEn: "English description",
+    categoryEn: "Research",
+  };
+
+  assert.equal(isTraderToolLocaleVisible(tool, "fa"), true);
+  assert.equal(isTraderToolLocaleVisible(tool, "en"), true);
+  assert.equal(
+    isTraderToolLocaleVisible({ ...tool, summaryEn: "" }, "en"),
+    false,
+  );
+  assert.equal(
+    isTraderToolLocaleVisible({ ...tool, categoryEn: "" }, "en"),
+    false,
+  );
+  assert.equal(
+    isTraderToolLocaleVisible({ ...tool, summaryFa: "" }, "fa"),
+    false,
   );
 });
