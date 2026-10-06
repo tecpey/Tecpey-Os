@@ -50,7 +50,7 @@ describe("indexable bilingual pages declare hreflang", () => {
   it("uses reciprocal absolute URLs for the maintained fa/en alternate set", () => {
     assert.deepEqual(buildLocalizedAlternates("/coins/bitcoin"), {
       "fa-IR": "https://tecpey.ir/coins/bitcoin",
-      "en-US": "https://tecpey.ir/en/coins/bitcoin",
+      "en": "https://tecpey.ir/en/coins/bitcoin",
       "x-default": "https://tecpey.ir/coins/bitcoin",
     });
     assert.deepEqual(getAlternateLocales("/coins/bitcoin", "/en/coins/bitcoin"), {
