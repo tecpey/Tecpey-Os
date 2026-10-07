@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "8eb1814a3cc98521f05bbd6aa6df20081613820e",
-      "sha256": "6d998efc5975ce847ef68098dca866bdd9acf554c446290119fab0826ea4eb69",
-      "lines": 601,
+      "gitObjectId": "b91cab75fb60e924de7722d804ed0476a47663ed",
+      "sha256": "cf22bc041ff567c7f0113d7ac8e7d4e4daf417807d006c4b95ab932a48db8e5c",
+      "lines": 288,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 601
+          "endLine": 288
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -50,7 +50,8 @@
         "2026-10-07: re-reviewed after closing the rollback SHA validation regex and binding rollback selection to the governed published candidate ledger. The final workflow remains fail-closed and source reconstruction remains prohibited.",
         "2026-10-07: final exact-head re-review marker added after closing the rollback SHA validation and atomicizing the workflow/evidence update. The immutable rollback candidate ledger, artifact identity verification, provenance binding and fail-closed release dependencies remain reviewed together.",
         "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound.",
-        "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts."
+        "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts.",
+        "2026-10-07: final workflow was reconstructed from the exact #731 blob, validated independently by the runner as valid YAML, and reduced to the canonical 3-job structure. Required pull_request path filtering was removed to prevent required-check starvation; rollback now resolves the governed immutable published candidate from current-controlled-launch-candidate.json and never reconstructs a historical source tree."
       ],
       "findings": [
         {
