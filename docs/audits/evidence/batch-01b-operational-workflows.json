@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "25d479d49162d17ee923d075378345ffe0af727f",
-      "sha256": "990b41a3aefeb6941e5de61f027058279415e3b5ffae2367d7c1cd23a2149dda",
-      "lines": 435,
+      "gitObjectId": "d764581b534c000ae2cf8b9f4273bf1afbca4d98",
+      "sha256": "cb04a4461b2c77871c3376d58813ae52d1ca7329b0826aa9646353133c0dedf9",
+      "lines": 660,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 435
+          "endLine": 660
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -46,7 +46,8 @@
         "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
         "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
         "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
-        "2026-10-07: re-reviewed after recovering supply-chain remediation onto current main. Rollback verification now consumes the immutable published release recorded by current-controlled-launch-candidate.json instead of assuming the PR base SHA has a GHCR tag; source reconstruction remains prohibited. The workflow also records the governed rollback SHA in recovery evidence. Dependency remediation pins sharp 0.35.5 and source-map-js 1.2.2; no deployment or product authority is introduced."
+        "2026-10-07: re-reviewed after recovering supply-chain remediation onto current main. Rollback verification now consumes the immutable published release recorded by current-controlled-launch-candidate.json instead of assuming the PR base SHA has a GHCR tag; source reconstruction remains prohibited. The workflow also records the governed rollback SHA in recovery evidence. Dependency remediation pins sharp 0.35.5 and source-map-js 1.2.2; no deployment or product authority is introduced.",
+        "2026-10-07: re-reviewed after closing the rollback SHA validation regex and binding rollback selection to the governed published candidate ledger. The final workflow remains fail-closed and source reconstruction remains prohibited."
       ],
       "findings": [
         {
