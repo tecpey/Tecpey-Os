@@ -1,3 +1,4 @@
+import rawTools from "@/data/traderTools.json";
 import {
   toolGrowthCandidates,
   type ToolGrowthCandidate,
