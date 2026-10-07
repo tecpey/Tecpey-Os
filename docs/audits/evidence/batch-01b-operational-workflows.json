@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "a608f321c00ff3f2df52bd0ae4bf0227e8576884",
-      "sha256": "0af9597bcadcd20c08db6dfd526e0d2ba40a746d0e24705b3be549fdfadd0b64",
-      "lines": 633,
+      "gitObjectId": "8eb1814a3cc98521f05bbd6aa6df20081613820e",
+      "sha256": "6d998efc5975ce847ef68098dca866bdd9acf554c446290119fab0826ea4eb69",
+      "lines": 601,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 633
+          "endLine": 601
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -49,7 +49,8 @@
         "2026-10-07: re-reviewed after recovering supply-chain remediation onto current main. Rollback verification now consumes the immutable published release recorded by current-controlled-launch-candidate.json instead of assuming the PR base SHA has a GHCR tag; source reconstruction remains prohibited. The workflow also records the governed rollback SHA in recovery evidence. Dependency remediation pins sharp 0.35.5 and source-map-js 1.2.2; no deployment or product authority is introduced.",
         "2026-10-07: re-reviewed after closing the rollback SHA validation regex and binding rollback selection to the governed published candidate ledger. The final workflow remains fail-closed and source reconstruction remains prohibited.",
         "2026-10-07: final exact-head re-review marker added after closing the rollback SHA validation and atomicizing the workflow/evidence update. The immutable rollback candidate ledger, artifact identity verification, provenance binding and fail-closed release dependencies remain reviewed together.",
-        "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound."
+        "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound.",
+        "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts."
       ],
       "findings": [
         {
