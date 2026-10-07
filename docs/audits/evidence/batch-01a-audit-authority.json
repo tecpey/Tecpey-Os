@@ -251,11 +251,11 @@
       "path": "scripts/repository-audit-manifest.mjs",
       "gitObjectId": "f1c4c62c486983adf057102885974d29043473ef",
       "sha256": "443322df4407460a3abd8eccb3c2496b0da13e02dfadadb2a6c2ea9ed31282eb",
-      "lines": 577,
+      "lines": 576,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 577
+          "endLine": 576
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
