@@ -42,9 +42,9 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5827124e15e2e5c806741e6753c1e2eb93fad593",
-      "sha256": "d690cf9882a7e3f672c7109f992b618060cb7329896c9b0e8c403fe824a8370d",
-      "lines": 294,
+      "gitObjectId": "2df01204cf1fd1b2c576e62a70ad929997d37b47",
+      "sha256": "78ce44d4488ef4a75fb159cd4ac3a5ef7a8b409d9fa0b1cb56b6195787b530ea",
+      "lines": 295,
       "reviewedRanges": [
         {
           "startLine": 1,
@@ -145,7 +145,8 @@
         "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
         "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
         "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority.",
-        "2026-10-02: re-reviewed the complete package manifest after integrating the exact Next.js 16.3.8 security patch into the OpenSSL 3.5.9 supply-chain remediation. The runtime vulnerability gate had rejected Next.js 16.3.3 for GHSA-vcvr-r3jv-pc5j. The dependency remains exact-version pinned, the npm 10 lockfile is registry-generated, and no scanner exception, mutable range, script/engine/override change, launch approval, deployment authority or product capability is introduced."
+        "2026-10-02: re-reviewed the complete package manifest after integrating the exact Next.js 16.3.8 security patch into the OpenSSL 3.5.9 supply-chain remediation. The runtime vulnerability gate had rejected Next.js 16.3.3 for GHSA-vcvr-r3jv-pc5j. The dependency remains exact-version pinned, the npm 10 lockfile is registry-generated, and no scanner exception, mutable range, script/engine/override change, launch approval, deployment authority or product capability is introduced.",
+        "2026-10-07: re-reviewed after supply-chain remediation on current main. The exact package pins now include next 16.3.8, sharp 0.35.5 and source-map-js 1.2.2; the lockfile was regenerated with npm 10 and the change remains security-only. No release authority, runtime capability, deployment or product activation was introduced."
       ],
       "findings": [
         {
