@@ -5,6 +5,8 @@ import { buildTradingToolsSchemas } from "@/lib/trading-tools-growth";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "جعبه ابزار معامله‌گر تک‌پی | ابزار تحلیل، آنچین، امنیت و تحقیق رمزارز",
   description:
