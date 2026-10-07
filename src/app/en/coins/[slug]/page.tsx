@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function CoinPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const coin = coinMap.get(slug);
+  const coin = getCoinPages().find((item) => item.slug === slug);
   if (!coin) return notFound();
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.name);
   const impactNews = getHighPriorityNewsForCoin(coin.symbol, "en", 4);
