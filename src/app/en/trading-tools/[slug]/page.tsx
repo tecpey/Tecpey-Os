@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       canonical: `https://tecpey.ir/en/trading-tools/${tool.slug}`,
       languages: {
         "fa-IR": `https://tecpey.ir/trading-tools/${tool.slug}`,
-        "en-US": `https://tecpey.ir/en/trading-tools/${tool.slug}`,
+        "en": `https://tecpey.ir/en/trading-tools/${tool.slug}`,
         "x-default": `https://tecpey.ir/trading-tools/${tool.slug}`,
       },
     },

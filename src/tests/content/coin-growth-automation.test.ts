@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
+
+const freshGeneratedAt = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
 import legacyCoinGrowthSnapshot from "@/data/generated/coinGrowthSnapshot.json";
 import { coreCoinPages } from "@/data/coins";
 import {
@@ -31,8 +33,16 @@ describe("coin growth automation", () => {
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.schemaTypes.includes("FAQPage")));
   });
 
-  it("upgrades immutable legacy published snapshots to the current organic-growth contract at read time", () => {
+  it("self-heals the stale checked-in snapshot from the governed candidate catalog", () => {
     const pages = readPublishedCoinGrowthPages(legacyCoinGrowthSnapshot as Parameters<typeof readPublishedCoinGrowthPages>[0]);
+    assert.equal(pages.length, legacyCoinGrowthSnapshot.coins.length);
+    assert.ok(pages.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
+  });
+
+  it("upgrades a fresh legacy-shaped snapshot to the current organic-growth contract at read time", () => {
+    const fresh = structuredClone(legacyCoinGrowthSnapshot);
+    fresh.generatedAt = freshGeneratedAt();
+    const pages = readPublishedCoinGrowthPages(fresh as Parameters<typeof readPublishedCoinGrowthPages>[0]);
     assert.ok(pages.length > 0);
     assert.ok(pages.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(pages.every((coin) => coin.organicGrowth.readiness.ready));
@@ -99,7 +109,7 @@ describe("coin growth automation", () => {
       officialWebsite: "https://trusted.example/project",
     };
     const snapshot = materializeCoinGrowthSnapshot([base], {
-      generatedAt: "2026-08-21T00:00:00.000Z",
+      generatedAt: freshGeneratedAt(),
       publishThreshold: 0,
     });
 
@@ -121,7 +131,7 @@ describe("coin growth automation", () => {
 
   it("migrates the checked-in legacy shape through curated candidate host pins", () => {
     const snapshot = materializeCoinGrowthSnapshot(coinGrowthCandidates, {
-      generatedAt: "2026-08-10T12:29:21.460Z",
+      generatedAt: freshGeneratedAt(),
       existingSymbols: coreCoinPages.map((coin) => coin.symbol),
       existingSlugs: coreCoinPages.map((coin) => coin.slug),
     });
@@ -154,7 +164,7 @@ describe("coin growth automation", () => {
         faName: "پین دامنه الزامی",
         officialWebsite: "https://trusted.example/project",
       }],
-      { generatedAt: "2026-08-21T00:00:00.000Z", publishThreshold: 0 },
+      { generatedAt: freshGeneratedAt(), publishThreshold: 0 },
     );
 
     delete snapshot.coins[0]!.automation.officialHost;

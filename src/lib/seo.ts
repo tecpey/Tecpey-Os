@@ -1,10 +1,11 @@
 // SEO & GEO helper library — server-only, no client-side imports.
 // Provides typed builders for Next.js Metadata, JSON-LD schemas, and hreflang.
 //
-// Supports fa-IR (active), en-US (active), tr-TR (future), ar-SA (future).
+// Hreflang tags are sourced from the shared globalization locale registry.
 // All functions are pure — no async, no DB, no side effects.
 
 import type { Metadata } from "next";
+import { getLocaleDefinition } from "@/i18n/config";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ export const OG_IMAGE_DIMS = {
 
 // ── Locale types ───────────────────────────────────────────────────────────────
 
-/** BCP 47 locale tags supported by TecPey. fa-IR and en-US are active; others are future. */
+/** BCP 47 locale tags supported by the legacy SEO helper surface. */
 export type SupportedLocale = "fa-IR" | "en-US" | "tr-TR" | "ar-SA";
 
 /** OG locale format (underscored). */
@@ -38,8 +39,8 @@ export function getCanonicalUrl(path: string): string {
  * Build the `alternates.languages` object for Next.js Metadata.
  * Only includes locales whose paths are explicitly provided.
  *
- * fa-IR and en-US are active.
- * tr-TR and ar-SA are accepted but optional — pass only when the page exists.
+ * Active locale hreflang values come from the shared locale registry.
+ * tr-TR and ar-SA remain optional — pass only when the page exists.
  */
 export function getAlternateLocales(
   faPath: string,
@@ -51,9 +52,9 @@ export function getAlternateLocales(
     "fa-IR": faUrl,
     "x-default": faUrl,
   };
-  if (enPath) result["en-US"] = getCanonicalUrl(enPath);
-  if (options?.tr) result["tr-TR"] = getCanonicalUrl(options.tr);
-  if (options?.ar) result["ar-SA"] = getCanonicalUrl(options.ar);
+  if (enPath) result[getLocaleDefinition("en").hreflang] = getCanonicalUrl(enPath);
+  if (options?.tr) result[getLocaleDefinition("tr").hreflang] = getCanonicalUrl(options.tr);
+  if (options?.ar) result[getLocaleDefinition("ar").hreflang] = getCanonicalUrl(options.ar);
   return result;
 }
 

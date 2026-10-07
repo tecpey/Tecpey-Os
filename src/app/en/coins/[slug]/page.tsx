@@ -7,6 +7,7 @@ import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { coinPages } from "@/data/coins";
+import { buildLocalizedAlternates } from "@/i18n/seo";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
 import {
   buildNewsImpactItemListSchema,
@@ -34,7 +35,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${coin.name} (${coin.symbol}) guide | TecPey`,
     description: `Learn what ${coin.name} is, common use cases, risks and important checks before trading or transferring ${coin.symbol}.`,
-    alternates: { canonical: `https://tecpey.ir/en/coins/${slug}` },
+    alternates: {
+      canonical: `https://tecpey.ir/en/coins/${slug}`,
+      languages: buildLocalizedAlternates(`/coins/${slug}`),
+    },
   };
 }
 

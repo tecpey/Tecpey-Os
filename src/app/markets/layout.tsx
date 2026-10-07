@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     canonical: "https://tecpey.ir/markets",
     languages: {
       "fa-IR": "https://tecpey.ir/markets",
-      "en-US": "https://tecpey.ir/en/markets",
+      "en": "https://tecpey.ir/en/markets",
       "x-default": "https://tecpey.ir/markets",
     },
   },

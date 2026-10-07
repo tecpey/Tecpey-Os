@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     canonical: "https://tecpey.ir/trading-tools",
     languages: {
       "fa-IR": "https://tecpey.ir/trading-tools",
-      "en-US": "https://tecpey.ir/en/trading-tools",
+      "en": "https://tecpey.ir/en/trading-tools",
       "x-default": "https://tecpey.ir/trading-tools",
     },
   },

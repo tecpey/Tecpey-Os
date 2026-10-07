@@ -1,6 +1,7 @@
 import { coinGrowthCandidates, type CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
 import {
   buildOrganicGrowthProfile,
+  isOrganicGrowthSnapshotFresh,
   type OrganicGrowthProfile,
 } from "./organic-growth-automation";
 
@@ -197,6 +198,12 @@ function buildCoinOrganicGrowthProfile(candidate: CoinGrowthCandidate): OrganicG
     sourceAttributions: [
       { name: `${candidate.name} official`, url: candidate.officialWebsite, role: "official" },
       ...(candidate.docs ? [{ name: `${candidate.name} documentation`, url: candidate.docs, role: "official" as const }] : []),
+      { name: "TecPey", url: `https://tecpey.ir${canonicalPath}`, role: "tecpey" },
+    ],
+    claimSourceMap: [
+      { claim: `${candidate.faName} official identity and technical reference`, sourceName: `${candidate.name} official`, sourceUrl: candidate.officialWebsite, role: "official" },
+      ...(candidate.docs ? [{ claim: `${candidate.faName} documentation reference`, sourceName: `${candidate.name} documentation`, sourceUrl: candidate.docs, role: "official" as const }] : []),
+      { claim: `${candidate.faName} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir${canonicalPath}`, role: "tecpey" },
     ],
     contentValue: `تک‌پی صفحه ${candidate.faName} را به یک پرونده تصمیم آموزشی تبدیل می‌کند: تعریف دارایی، کاربردهای واقعی، ریسک‌ها، منابع رسمی، خبرهای مرتبط، ابزارهای بررسی و مسیر آموزشی در یک canonical واحد جمع می‌شوند.`,
     safetyDisclaimer: "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
@@ -320,13 +327,23 @@ export function materializeCoinGrowthSnapshot(
 }
 
 export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): AutomatedCoinPage[] {
-  if (snapshot.schemaVersion !== 1) return [];
-  if (snapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
-  if (snapshot.stats.exchangeEnabled !== 0) return [];
+  const effectiveSnapshot = isOrganicGrowthSnapshotFresh(snapshot.generatedAt)
+    ? snapshot
+    : materializeCoinGrowthSnapshot(
+        coinGrowthCandidates.filter((candidate) =>
+          snapshot.coins.some(
+            (coin) => coin.slug === candidate.slug && coin.symbol === candidate.symbol,
+          ),
+        ),
+        { sourceMode: "curated_seed" },
+      );
+  if (effectiveSnapshot.schemaVersion !== 1) return [];
+  if (effectiveSnapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
+  if (effectiveSnapshot.stats.exchangeEnabled !== 0) return [];
 
-  const strictPinnedHosts = snapshot.hostPinVersion === 1;
+  const strictPinnedHosts = effectiveSnapshot.hostPinVersion === 1;
 
-  return snapshot.coins
+  return effectiveSnapshot.coins
     .filter((coin) => {
       if (coin.automation.status !== "published_content") return false;
       if (coin.automation.exchangeCapability !== "manual_review_required") return false;
@@ -338,9 +355,6 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
       return officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, pinnedHost);
     })
     .map((coin) => {
-      // Published snapshots are immutable evidence and may predate the current
-      // organic-growth contract. Upgrade the in-memory profile from the same
-      // governed candidate source instead of rewriting historical evidence.
       const candidate = coinGrowthCandidates.find((item) => item.slug === coin.slug);
       return candidate ? { ...coin, organicGrowth: buildCoinOrganicGrowthProfile(candidate) } : coin;
     });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildOrganicGrowthProfile, validateOrganicGrowthProfile } from "../../lib/organic-growth-automation";
+import { buildOrganicGrowthProfile, isOrganicGrowthSnapshotFresh, validateOrganicGrowthProfile } from "../../lib/organic-growth-automation";
 import { extractNewsTaxonomy } from "../../lib/news-taxonomy";
 
 function strongProfile() {
@@ -24,6 +24,10 @@ function strongProfile() {
       { name: "CoinDesk", url: "https://www.coindesk.com/example", role: "primary" },
       { name: "TecPey", url: "https://tecpey.ir/crypto-news/bitcoin-etf-liquidity", role: "tecpey" },
     ],
+    claimSourceMap: [
+      { claim: "Bitcoin ETF flow report", sourceName: "CoinDesk", sourceUrl: "https://www.coindesk.com/example", role: "primary" },
+      { claim: "TecPey educational context", sourceName: "TecPey", sourceUrl: "https://tecpey.ir/crypto-news/bitcoin-etf-liquidity", role: "tecpey" },
+    ],
     contentValue: "تک‌پی تیتر را صرفاً بازنویسی نمی‌کند؛ خبر را به موجودیت‌ها، ابزارها، ریسک، داده بازار و مسیر آموزشی متصل می‌کند تا کاربر بتواند آن را بررسی و راستی‌آزمایی کند.",
     safetyDisclaimer: "این محتوا توصیه مالی یا سیگنال معامله نیست.",
     freshnessTag: "fresh",
@@ -31,6 +35,13 @@ function strongProfile() {
 }
 
 describe("SEO/GEO/AEO organic growth authority v2", () => {
+  it("fails closed for stale scheduled-refresh snapshots", () => {
+    const now = Date.parse("2026-10-06T00:00:00.000Z");
+    assert.equal(isOrganicGrowthSnapshotFresh("2026-10-05T12:00:00.000Z", now), true);
+    assert.equal(isOrganicGrowthSnapshotFresh("2026-10-01T00:00:00.000Z", now), false);
+    assert.equal(isOrganicGrowthSnapshotFresh("not-a-date", now), false);
+  });
+
   it("requires all three readiness dimensions before publication", () => {
     const profile = strongProfile();
     assert.equal(validateOrganicGrowthProfile(profile), true);
@@ -42,6 +53,11 @@ describe("SEO/GEO/AEO organic growth authority v2", () => {
 
   it("fails closed without source attribution and answer intent", () => {
     const profile = { ...strongProfile(), sourceAttributions: [], questionIntents: [], readiness: { ...strongProfile().readiness, ready: true, blockers: [] } };
+    assert.equal(validateOrganicGrowthProfile(profile), false);
+  });
+
+  it("rejects an unmapped claim even when source attribution exists", () => {
+    const profile = { ...strongProfile(), claimSourceMap: [{ claim: "Unmapped claim", sourceName: "Other", sourceUrl: "https://example.com/source", role: "primary" as const }] };
     assert.equal(validateOrganicGrowthProfile(profile), false);
   });
 

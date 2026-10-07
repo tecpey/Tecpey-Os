@@ -14,12 +14,13 @@ import {
 } from "lucide-react";
 import { ContentShell } from "@/components/content/ContentUI";
 import { safeJsonLd } from "@/lib/json-ld";
+import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "امنیت حساب و دارایی در تک‌پی | تک‌پی",
   description:
     "امنیت در تک‌پی؛ راهنمای احراز هویت، ورود امن، ضد فیشینگ، مدیریت دستگاه‌ها، نکات نگهداری رمزارز و کاهش ریسک کاربران ایرانی.",
-  alternates: { canonical: "https://tecpey.ir/security" },
+  alternates: { canonical: "https://tecpey.ir/security", languages: getAlternateLocales("/security", "/en/security") },
   keywords: ["امنیت تک پی", "امنیت صرافی ارز دیجیتال", "فیشینگ رمزارز", "احراز هویت دو مرحله‌ای", "امنیت حساب کاربری"],
 };
 

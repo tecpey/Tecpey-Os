@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildLocalizedAlternates } from "@/i18n/seo";
 
 const base = "https://tecpey.ir";
 const ogImage = `${base}/images/tecpey-og.png`;
@@ -19,19 +20,13 @@ export function pageMetadata({
   keywords?: string[];
 }): Metadata {
   const canonical = `${base}${path}`;
-  const faUrl = `${base}${path.startsWith("/en") && enPath ? enPath : path.replace(/^\/en/, "") || "/"}`;
-  const enUrl = `${base}${path.startsWith("/en") ? path : (enPath ?? `/en${path === "/" ? "" : path}`)}`;
   return {
     title,
     description,
     ...(keywords?.length ? { keywords } : {}),
     alternates: {
       canonical,
-      languages: {
-        "fa-IR": faUrl,
-        "en-US": enUrl,
-        "x-default": faUrl,
-      },
+      languages: buildLocalizedAlternates(path, enPath ? ["fa", "en"] : ["fa"]),
     },
     openGraph: {
       title,

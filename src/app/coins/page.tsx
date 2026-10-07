@@ -7,13 +7,14 @@ import { ContentHero, ContentShell, TrustStrip } from "@/components/content/Cont
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft } from "lucide-react";
 import { safeJsonLd } from "@/lib/json-ld";
+import { getAlternateLocales } from "@/lib/seo";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
 export const metadata: Metadata = {
   title: "خرید و راهنمای رمزارزها | تک‌پی",
   description: "راهنمای ساده خرید و شناخت بیت‌کوین، تتر، اتریوم، تون‌کوین، سولانا و ده‌ها رمزارز دیگر در تک‌پی؛ کاربردها، ریسک‌ها، نکات امنیتی و مسیر شروع.",
-  alternates: { canonical: "https://tecpey.ir/coins" },
+  alternates: { canonical: "https://tecpey.ir/coins", languages: getAlternateLocales("/coins", "/en/coins") },
   keywords: ["قیمت ارز دیجیتال", "قیمت بیت کوین", "قیمت تتر", "خرید رمزارز", "صفحات کوین"],
 };
 
