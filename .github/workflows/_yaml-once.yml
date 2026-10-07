@@ -12,4 +12,4 @@ jobs:
         with:
           ref: fix/recover-supply-chain-current-main
           persist-credentials: false
-      - run: ruby -e 'require "yaml"; YAML.load_file(".github/workflows/container-supply-chain.yml"); puts "YAML_OK"'
+      - run: ruby -e 'require "yaml"; YAML.load_file("docs/_candidate-container-workflow.txt"); puts "YAML_OK"'
