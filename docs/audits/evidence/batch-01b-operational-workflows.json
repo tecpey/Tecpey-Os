@@ -170,13 +170,13 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "7b6b35ea1628d5c6c1b6a2e4520ea7a686bbcbbb",
-      "sha256": "15f54d2234c3b815806b6bbb1c5eaaafaf00cc71e402b9dd2c20c1c1d645e262",
-      "lines": 625,
+      "gitObjectId": "cc4c17849500766a8df34b83be443dec5aac76e4",
+      "sha256": "b33804b0e18a2e651b8be965a0fc17d7b4dea330b5f037558089ed420d9923e5",
+      "lines": 629,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 625
+          "endLine": 629
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -186,7 +186,8 @@
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
         "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
         "2026-10-07: re-reviewed after the OpenSSL 3.5.9 supply-chain recovery was reconstructed onto current main. The host-policy authority now binds the fixed OpenSSL runtime and remains fail-closed; no deployment, exchange or launch authority is introduced.",
-        "2026-10-07: re-reviewed the policy after changing rollback authority from the PR base SHA to a governed immutable runtime-image release SHA plus exact GHCR manifest digest. The policy now requires evidence-backed rollback selection and digest equality while retaining fail-closed provenance and publication dependencies; no source reconstruction or deployment authority is introduced."
+        "2026-10-07: re-reviewed the policy after changing rollback authority from the PR base SHA to a governed immutable runtime-image release SHA plus exact GHCR manifest digest. The policy now requires evidence-backed rollback selection and digest equality while retaining fail-closed provenance and publication dependencies; no source reconstruction or deployment authority is introduced.",
+        "2026-10-07: re-reviewed the final rollback contract after adding explicit policy requirements for the governed runtime-image evidence path, release SHA, image digest equality and baked-commit binding. This makes the immutable-artifact authority enforceable by the permanent policy itself, not only by the workflow checker."
       ],
       "findings": []
     }
