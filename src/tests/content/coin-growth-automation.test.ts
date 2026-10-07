@@ -49,16 +49,15 @@ describe("coin growth automation", () => {
     assert.ok(pages.every((coin) => coin.organicGrowth.readiness.ready));
   });
 
-  it("does not republish a stale candidate that has since entered the curated core catalog", () => {
-    const promoted = coinGrowthCandidates.find((coin) => CORE_COIN_SYMBOL_SET.has(coin.symbol));
-    assert.ok(promoted);
-
-    const staleSnapshot = materializeCoinGrowthSnapshot([promoted], {
+  it("does not republish a stale candidate when its symbol is now curated", () => {
+    const candidate = coinGrowthCandidates[0];
+    const staleSnapshot = materializeCoinGrowthSnapshot([candidate], {
       generatedAt: "2026-08-10T00:00:00.000Z",
       publishThreshold: 0,
+      existingSymbols: [candidate.symbol],
     });
 
-    assert.equal(staleSnapshot.stats.publishedContent, 1);
+    assert.equal(staleSnapshot.stats.publishedContent, 0);
     assert.equal(readPublishedCoinGrowthPages(staleSnapshot).length, 0);
   });
 
