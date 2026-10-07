@@ -30,9 +30,9 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "b91cab75fb60e924de7722d804ed0476a47663ed",
-      "sha256": "cf22bc041ff567c7f0113d7ac8e7d4e4daf417807d006c4b95ab932a48db8e5c",
-      "lines": 289,
+      "gitObjectId": "f87a91559f11a1b649a53b3c781dfbff870938c9",
+      "sha256": "3c23cecee699b389f8f6539f5d2b7b663366c53164e213b886097b59c99ff6d3",
+      "lines": 644,
       "reviewedRanges": [
         {
           "startLine": 1,
@@ -51,13 +51,14 @@
         "2026-10-07: final exact-head re-review marker added after closing the rollback SHA validation and atomicizing the workflow/evidence update. The immutable rollback candidate ledger, artifact identity verification, provenance binding and fail-closed release dependencies remain reviewed together.",
         "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound.",
         "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts.",
-        "2026-10-07: final workflow was reconstructed from the exact #731 blob, validated independently by the runner as valid YAML, and reduced to the canonical 3-job structure. Required pull_request path filtering was removed to prevent required-check starvation; rollback now resolves the governed immutable published candidate from current-controlled-launch-candidate.json and never reconstructs a historical source tree."
+        "2026-10-07: final workflow was reconstructed from the exact #731 blob, validated independently by the runner as valid YAML, and reduced to the canonical 3-job structure. Required pull_request path filtering was removed to prevent required-check starvation; rollback now resolves the governed immutable published candidate from current-controlled-launch-candidate.json and never reconstructs a historical source tree.",
+        "2026-10-07: re-reviewed the final current-main recovery workflow after replacing base-SHA rollback assumptions with the governed immutable runtime-image digest evidence. The recovery step now derives the rollback release SHA and manifest digest from runtime-image-digest-evidence-20260826.json, pulls the SHA-tagged GHCR image, verifies the resolved RepoDigest equals the governed digest, verifies the baked commit, and then runs the provenance-bound rollback drill. Historical source reconstruction remains rejected."
       ],
       "findings": [
         {
           "id": "B01B-P1-001",
           "severity": "P1",
-          "line": 223,
+          "line": 243,
           "attackPath": "A push to main could publish, attest and sign an immutable production image after artifact verification while the rollback or persistent-volume recovery job had failed.",
           "affectedInvariant": "No production image may be published unless both artifact verification and recovery evidence succeed for the same release workflow.",
           "evidence": "The former publish job declared needs: verify only; the remediated job declares the exact dependency set [verify, recovery].",
@@ -71,7 +72,7 @@
         {
           "id": "B01B-P1-002",
           "severity": "P1",
-          "line": 135,
+          "line": 136,
           "attackPath": "An image containing a known HIGH or CRITICAL runtime vulnerability could pass the release gate solely because the vulnerability had no upstream fix.",
           "affectedInvariant": "The production vulnerability gate must reject every detected HIGH or CRITICAL runtime finding regardless of fix availability.",
           "evidence": "The former Trivy step set ignore-unfixed: true; the remediated effective step sets ignore-unfixed: false.",
@@ -168,9 +169,9 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "5bd0b0a009f11f10171b07da7795a2839632ab0a",
-      "sha256": "7159f7d1e82767538bae586c3714c72afc11446d97e50d620c1677a821408702",
-      "lines": 615,
+      "gitObjectId": "7b6b35ea1628d5c6c1b6a2e4520ea7a686bbcbbb",
+      "sha256": "15f54d2234c3b815806b6bbb1c5eaaafaf00cc71e402b9dd2c20c1c1d645e262",
+      "lines": 626,
       "reviewedRanges": [
         {
           "startLine": 1,
@@ -183,7 +184,8 @@
         "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
         "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
-        "2026-10-07: re-reviewed after the OpenSSL 3.5.9 supply-chain recovery was reconstructed onto current main. The host-policy authority now binds the fixed OpenSSL runtime and remains fail-closed; no deployment, exchange or launch authority is introduced."
+        "2026-10-07: re-reviewed after the OpenSSL 3.5.9 supply-chain recovery was reconstructed onto current main. The host-policy authority now binds the fixed OpenSSL runtime and remains fail-closed; no deployment, exchange or launch authority is introduced.",
+        "2026-10-07: re-reviewed the policy after changing rollback authority from the PR base SHA to a governed immutable runtime-image release SHA plus exact GHCR manifest digest. The policy now requires evidence-backed rollback selection and digest equality while retaining fail-closed provenance and publication dependencies; no source reconstruction or deployment authority is introduced."
       ],
       "findings": []
     }
