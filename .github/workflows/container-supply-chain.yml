@@ -3,7 +3,38 @@ name: Container Supply Chain
 on:
   pull_request:
     branches: [main]
-    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.production.yml
+      - package.json
+      - package-lock.json
+      - .env.production.example
+      - next.config.ts
+      - server.ts
+      - src/lib/runtime-readiness.ts
+      - src/lib/runtime-shutdown.ts
+      - src/app/api/health/**
+      - scripts/check-production-supply-chain.mjs
+      - scripts/check-container-rollback-artifact.mjs
+      - scripts/validate-env.mjs
+      - scripts/resolve-build-identity.ts
+      - scripts/test-container-volume-recovery.sh
+      - scripts/test-container-image-rollback.sh
+      - deploy/systemd/tecpey-web.service
+      - ecosystem.config.cjs
+      - VERIFY_PRODUCTION.sh
+      - scripts/production-host-supply-chain-policy.mjs
+      - scripts/production-host-supply-chain-policy.test.mjs
+      - scripts/ubuntu24-install-base.sh
+      - scripts/ubuntu24-deploy-pm2.sh
+      - scripts/ubuntu24-preflight.sh
+      - DEPLOY_UBUNTU_24.md
+      - DEPLOY_UBUNTU_24_PRODUCTION.md
+      - docs/Deployment.md
+      - docs/TECPEY_PROJECT_INDEX.md
+      - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
+      - .github/workflows/**
 
 permissions:
   contents: read
