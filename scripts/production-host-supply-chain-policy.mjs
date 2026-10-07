@@ -535,7 +535,11 @@ export function productionHostSupplyChainFindings({
     );
   }
   for (const contract of [
+    'ROLLBACK_EVIDENCE="docs/launch/generated/runtime-image-digest-evidence-20260826.json"',
+    'ROLLBACK_RELEASE_SHA="$(node -p',
+    'ROLLBACK_IMAGE_DIGEST="$(node -p',
     'previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"',
+    'test "$previous_digest" = "ghcr.io/tecpey/tecpey-os@$ROLLBACK_IMAGE_DIGEST"',
     'test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"',
   ]) {
     requireText(
