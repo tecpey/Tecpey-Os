@@ -32,7 +32,7 @@
       "path": ".github/workflows/container-supply-chain.yml",
       "gitObjectId": "f87a91559f11a1b649a53b3c781dfbff870938c9",
       "sha256": "3c23cecee699b389f8f6539f5d2b7b663366c53164e213b886097b59c99ff6d3",
-      "lines": 644,
+      "lines": 643,
       "reviewedRanges": [
         {
           "startLine": 1,
@@ -171,7 +171,7 @@
       "path": "scripts/production-host-supply-chain-policy.mjs",
       "gitObjectId": "7b6b35ea1628d5c6c1b6a2e4520ea7a686bbcbbb",
       "sha256": "15f54d2234c3b815806b6bbb1c5eaaafaf00cc71e402b9dd2c20c1c1d645e262",
-      "lines": 626,
+      "lines": 625,
       "reviewedRanges": [
         {
           "startLine": 1,
