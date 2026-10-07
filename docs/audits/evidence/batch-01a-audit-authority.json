@@ -48,7 +48,7 @@
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 294
+          "endLine": 295
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
