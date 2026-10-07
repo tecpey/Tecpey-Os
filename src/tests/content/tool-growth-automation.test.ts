@@ -52,6 +52,19 @@ describe("tool growth automation", () => {
     assert.ok(tools.every((tool) => tool.organicGrowth?.fa.readiness.ready && tool.organicGrowth?.en.readiness.ready));
   });
 
+  it("does not republish a stale tool when its slug/domain is now curated", () => {
+    const candidate = toolGrowthCandidates[0];
+    const staleSnapshot = materializeToolGrowthSnapshot([candidate], {
+      generatedAt: "2026-08-10T00:00:00.000Z",
+      publishThreshold: 0,
+      existingSlugs: [slugifyToolName(candidate.name)],
+      existingDomains: [candidate.domain],
+    });
+
+    assert.equal(staleSnapshot.stats.publishedContent, 0);
+    assert.equal(readPublishedToolGrowthRecords(staleSnapshot).length, 0);
+  });
+
   it("scores high-trust research and security tools above the publication threshold", () => {
     const l2beat = toolGrowthCandidates.find((tool) => tool.name === "L2Beat");
     const tokenSniffer = toolGrowthCandidates.find((tool) => tool.name === "Token Sniffer");

@@ -16,6 +16,8 @@ import {
   getTraderToolSlugs,
 } from "@/lib/trading-tools-growth";
 
+export const revalidate = 3600;
+
 type Props = { params: Promise<{ slug: string }> };
 
 export function generateStaticParams() {

@@ -6,7 +6,7 @@ import { StructuredData } from "@/components/seo/StructuredData";
 import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
-import { coinPages } from "@/data/coins";
+import { getCoinPages } from "@/data/coins";
 import { buildLocalizedAlternates } from "@/i18n/seo";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
 import {
@@ -15,22 +15,15 @@ import {
 } from "@/lib/news-impact-history";
 import { BookOpen } from "lucide-react";
 
-const coins = coinPages.map((coin) => ({
-  slug: coin.slug,
-  symbol: coin.symbol,
-  name: coin.name,
-  faName: coin.faName,
-  automation: coin.automation,
-}));
-const coinMap = new Map(coins.map((coin) => [coin.slug, coin]));
+export const revalidate = 3600;
 
 export function generateStaticParams() {
-  return coins.map((coin) => ({ slug: coin.slug }));
+  return getCoinPages().map((coin) => ({ slug: coin.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const coin = coinMap.get(slug);
+  const coin = getCoinPages().find((item) => item.slug === slug);
   if (!coin) return { title: "Coin guide | TecPey" };
   return {
     title: `${coin.name} (${coin.symbol}) guide | TecPey`,
@@ -44,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function CoinPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const coin = coinMap.get(slug);
+  const coin = getCoinPages().find((item) => item.slug === slug);
   if (!coin) return notFound();
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.name);
   const impactNews = getHighPriorityNewsForCoin(coin.symbol, "en", 4);

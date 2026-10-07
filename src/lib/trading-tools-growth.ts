@@ -35,8 +35,11 @@ export type TraderToolSurfaceContract = {
 };
 
 const coreTraderTools = rawTools as TraderTool[];
-const automatedTraderTools = readPublishedToolGrowthRecords(toolGrowthSnapshot as ToolGrowthSnapshot);
-const traderTools = [...coreTraderTools, ...automatedTraderTools];
+
+function getTraderTools(): TraderTool[] {
+  const automatedTraderTools = readPublishedToolGrowthRecords(toolGrowthSnapshot as ToolGrowthSnapshot);
+  return [...coreTraderTools, ...automatedTraderTools];
+}
 
 const FEATURED_WEIGHTS: Record<string, number> = {
   tradingview: 1,
@@ -142,11 +145,11 @@ function buildToolRankingInput(tool: TraderTool): ToolRankingInput {
   };
 }
 
-const rankedTools = rankTools(traderTools.map(buildToolRankingInput), traderTools.length);
-
-const rankBySlug = new Map(rankedTools.map((rank) => [rank.slug, rank]));
-
 export function getRankedTraderTools(): RankedTraderTool[] {
+  const traderTools = getTraderTools();
+  const rankedTools = rankTools(traderTools.map(buildToolRankingInput), traderTools.length);
+  const rankBySlug = new Map(rankedTools.map((rank) => [rank.slug, rank]));
+
   return traderTools
     .map((tool) => {
       const slug = toolSlug(tool);

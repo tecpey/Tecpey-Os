@@ -48,6 +48,18 @@ describe("coin growth automation", () => {
     assert.ok(pages.every((coin) => coin.organicGrowth.readiness.ready));
   });
 
+  it("does not republish a stale candidate when its symbol is now curated", () => {
+    const candidate = coinGrowthCandidates[0];
+    const staleSnapshot = materializeCoinGrowthSnapshot([candidate], {
+      generatedAt: "2026-08-10T00:00:00.000Z",
+      publishThreshold: 0,
+      existingSymbols: [candidate.symbol],
+    });
+
+    assert.equal(staleSnapshot.stats.publishedContent, 0);
+    assert.equal(readPublishedCoinGrowthPages(staleSnapshot).length, 0);
+  });
+
   it("scores core stablecoin and high-trend AI candidates above the publication threshold", () => {
     const usdc = coinGrowthCandidates.find((coin) => coin.symbol === "USDC");
     const tao = coinGrowthCandidates.find((coin) => coin.symbol === "TAO");

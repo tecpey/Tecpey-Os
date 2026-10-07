@@ -3,12 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
-import { coinPages } from "@/data/coins";
+import { getCoinPages } from "@/data/coins";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowRight } from "lucide-react";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 import { getAlternateLocales } from "@/lib/seo";
+
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Crypto coin guides | TecPey",
@@ -46,7 +48,7 @@ export default async function CoinsPage() {
       </section>
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {coinPages.map((coin) => (
+          {getCoinPages().map((coin) => (
             <Link
               key={coin.slug}
               href={`/en/coins/${coin.slug}`}
