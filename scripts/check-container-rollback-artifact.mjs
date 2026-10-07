@@ -41,8 +41,8 @@ for (const [token, message] of [
   ["previous-image-digest.txt", "recovery must persist the resolved immutable previous-image digest"],
   ["previous-baked-commit.txt", "recovery must persist the artifact-baked previous commit"],
   ["TECPEY_IMMUTABLE_BUILD_COMMIT_SHA", "recovery must verify artifact-baked release identity"],
-  ['test "$baked_commit" = "$PREVIOUS_SHA"', "recovery must fail closed on previous-image identity mismatch"],
-  ['docker tag "$previous_digest" "tecpey-previous:$PREVIOUS_SHA"', "rollback drill must consume the verified digest, not the mutable tag"],
+  ['test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"', "recovery must fail closed on rollback-image identity mismatch"],
+  ['docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"', "rollback drill must consume the verified digest, not the mutable tag"],
 ]) {
   requireText(recovery, token, message);
 }
