@@ -1,0 +1,41 @@
+name: Mentor Rive v2 Contract
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/living-mentor-rive-v2.ts"
+      - "src/components/mentor/LivingMentorAvatar.tsx"
+      - "docs/mentor/**"
+      - "scripts/*mentor-rive*"
+      - ".github/workflows/mentor-rive-v2-contract.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mentor-rive-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
+
+jobs:
+  contract:
+    name: Contract and activation boundary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Verify v2 host contract
+        run: node --test scripts/mentor-rive-v2-contract.test.mjs
+
+      - name: Verify Rive activation remains fail-closed
+        run: node scripts/check-mentor-rive-activation-gate.mjs
