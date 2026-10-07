@@ -196,8 +196,6 @@ jobs:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA" --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
 
-      # Legacy authority sentinel only; source reconstruction is prohibited below:
-      # TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA
       - name: Authenticate to GHCR for rollback artifact
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -205,24 +203,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull and verify exact previous release image
+      - name: Pull and verify governed previous release image
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/container-recovery
-          previous_tag="ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA"
+          ROLLBACK_EVIDENCE="docs/launch/generated/runtime-image-digest-evidence-20260826.json"
+          ROLLBACK_RELEASE_SHA="$(node -p "require('./$ROLLBACK_EVIDENCE').releaseCandidate.sha")"
+          ROLLBACK_IMAGE_DIGEST="$(node -p "require('./$ROLLBACK_EVIDENCE').containerImage.imageDigest")"
+          printf '%s\n' "$ROLLBACK_RELEASE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$ROLLBACK_IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"
           docker pull "$previous_tag"
           previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"
           printf '%s\n' "$previous_digest" | grep -Eq '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'
+          test "$previous_digest" = "ghcr.io/tecpey/tecpey-os@$ROLLBACK_IMAGE_DIGEST"
           baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
-          test "$baked_commit" = "$PREVIOUS_SHA"
+          test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"
           printf '%s\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt
+          printf '%s\n' "$ROLLBACK_IMAGE_DIGEST" > artifacts/container-recovery/rollback-image-digest.txt
           printf '%s\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt
-          docker tag "$previous_digest" "tecpey-previous:$PREVIOUS_SHA"
-          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
+          docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
         env:
@@ -239,7 +243,6 @@ jobs:
           path: artifacts/container-recovery/**
           if-no-files-found: error
           retention-days: 30
-
   publish:
     name: Publish, attest and sign immutable image
     if: ${{ github.event_name == 'push' }}
