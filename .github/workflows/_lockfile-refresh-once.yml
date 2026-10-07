@@ -27,3 +27,4 @@ jobs:
           fi
           git commit -m "chore(security): refresh lockfile for supply-chain remediation"
           git push origin HEAD:fix/recover-supply-chain-current-main
+# trigger lock refresh
