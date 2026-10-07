@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "34fc0cd78647cb3f5bcaa9b3b0c415d0021016c4",
-      "sha256": "abfd193a461bd5d20f052047442cda0ccb744fb700f760c97e28f46d287f2d1a",
-      "lines": 662,
+      "gitObjectId": "a608f321c00ff3f2df52bd0ae4bf0227e8576884",
+      "sha256": "0af9597bcadcd20c08db6dfd526e0d2ba40a746d0e24705b3be549fdfadd0b64",
+      "lines": 633,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 662
+          "endLine": 633
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -48,7 +48,8 @@
         "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
         "2026-10-07: re-reviewed after recovering supply-chain remediation onto current main. Rollback verification now consumes the immutable published release recorded by current-controlled-launch-candidate.json instead of assuming the PR base SHA has a GHCR tag; source reconstruction remains prohibited. The workflow also records the governed rollback SHA in recovery evidence. Dependency remediation pins sharp 0.35.5 and source-map-js 1.2.2; no deployment or product authority is introduced.",
         "2026-10-07: re-reviewed after closing the rollback SHA validation regex and binding rollback selection to the governed published candidate ledger. The final workflow remains fail-closed and source reconstruction remains prohibited.",
-        "2026-10-07: final exact-head re-review marker added after closing the rollback SHA validation and atomicizing the workflow/evidence update. The immutable rollback candidate ledger, artifact identity verification, provenance binding and fail-closed release dependencies remain reviewed together."
+        "2026-10-07: final exact-head re-review marker added after closing the rollback SHA validation and atomicizing the workflow/evidence update. The immutable rollback candidate ledger, artifact identity verification, provenance binding and fail-closed release dependencies remain reviewed together.",
+        "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound."
       ],
       "findings": [
         {

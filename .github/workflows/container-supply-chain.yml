@@ -321,34 +321,6 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-          mkdir -p artifacts/container-recovery
-          previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"
-          docker pull "$previous_tag"
-          previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"
-          printf '%s\n' "$previous_digest" | grep -Eq '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'
-          baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
-          test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"
-          printf '%s\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt
-          printf '%s\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt
-          printf '%s\n' "$ROLLBACK_RELEASE_SHA" > artifacts/container-recovery/rollback-release-sha.txt
-          docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
-          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
-
-      - name: Restore PostgreSQL and Redis persistent volumes
-        env:
-          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          TECPEY_RECOVERY_RTO_SECONDS: '300'
-        run: bash scripts/test-container-volume-recovery.sh "tecpey-candidate:$CANDIDATE_SHA"
-
-      - name: Upload recovery evidence
-        if: ${{ always() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        with:
-          name: container-recovery-${{ github.event.pull_request.head.sha || github.sha }}
-          path: artifacts/container-recovery/**
-          if-no-files-found: error
-          retention-days: 30
 
   publish:
     name: Publish, attest and sign immutable image
