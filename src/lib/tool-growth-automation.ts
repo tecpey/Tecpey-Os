@@ -425,7 +425,11 @@ export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): Au
             (tool) => tool.name === candidate.name && tool.domain === candidate.domain,
           ),
         ),
-        { sourceMode: "curated_seed" },
+        {
+          sourceMode: "curated_seed",
+          existingSlugs: (rawTools as TraderToolRecord[]).map((tool) => slugifyToolName(tool.name)),
+          existingDomains: (rawTools as TraderToolRecord[]).map((tool) => tool.domain),
+        },
       );
   if (effectiveSnapshot.schemaVersion !== 1) return [];
   if (effectiveSnapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
