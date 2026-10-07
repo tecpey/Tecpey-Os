@@ -409,7 +409,7 @@ function applySemanticReviewEvidence(files, blobs, sourceCommitSha) {
       );
       requireEvidence(target.reviewBatch === declaration.reviewBatch, `${entry.path} is in the wrong batch`);
       requireEvidence(target.gitObjectId === entry.gitObjectId, `${entry.path} Git blob changed after review`);
-      requireEvidence(target.sha256 === entry.sha256, `${entry.path} digest changed after review`);
+      requireEvidence(target.sha256 === entry.sha256, `${entry.path} digest changed after review: expected=${entry.sha256} actual=${target.sha256}`);
       requireEvidence(target.lines === entry.lines, `${entry.path} line count changed after review`);
       validateReviewedRanges(entry.reviewedRanges, target.lines, entry.path);
       requireEvidence(
