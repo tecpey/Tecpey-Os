@@ -30,9 +30,9 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "438925c263712eaec6c5b61e3a10908b2bade6ec",
+      "gitObjectId": "7ff49c329de23f6337e7b915d75162123855b1fd",
       "sha256": "1e955963d9ab54d6dc3f4d611e15a5228b7680a4b35810ebdd2ce134db346847",
-      "lines": 646,
+      "lines": 329,
       "reviewedRanges": [
         {
           "startLine": 1,
@@ -41,20 +41,9 @@
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
-        "Triggers, read-only default permissions, exact-head checkout, governed policy tests, Compose input validation, immutable build identity, rootless runtime inspection, SBOM generation, vulnerability gating, recovery jobs, publication permissions, digest signing and evidence retention were reviewed as one release sequence.",
-        "Publication now requires both the verification and recovery jobs, and the Trivy gate rejects HIGH or CRITICAL findings even when no upstream fix is currently available.",
-        "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
-        "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
-        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
-        "2026-10-07: re-reviewed after recovering supply-chain remediation onto current main. Rollback verification now consumes the immutable published release recorded by current-controlled-launch-candidate.json instead of assuming the PR base SHA has a GHCR tag; source reconstruction remains prohibited. The workflow also records the governed rollback SHA in recovery evidence. Dependency remediation pins sharp 0.35.5 and source-map-js 1.2.2; no deployment or product authority is introduced.",
-        "2026-10-07: re-reviewed after closing the rollback SHA validation regex and binding rollback selection to the governed published candidate ledger. The final workflow remains fail-closed and source reconstruction remains prohibited.",
-        "2026-10-07: final exact-head re-review marker added after closing the rollback SHA validation and atomicizing the workflow/evidence update. The immutable rollback candidate ledger, artifact identity verification, provenance binding and fail-closed release dependencies remain reviewed together.",
-        "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound.",
-        "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts.",
-        "2026-10-07: final workflow was reconstructed from the exact #731 blob, validated independently by the runner as valid YAML, and reduced to the canonical 3-job structure. Required pull_request path filtering was removed to prevent required-check starvation; rollback now resolves the governed immutable published candidate from current-controlled-launch-candidate.json and never reconstructs a historical source tree.",
-        "2026-10-07: re-reviewed the final current-main recovery workflow after replacing base-SHA rollback assumptions with the governed immutable runtime-image digest evidence. The recovery step now derives the rollback release SHA and manifest digest from runtime-image-digest-evidence-20260826.json, pulls the SHA-tagged GHCR image, verifies the resolved RepoDigest equals the governed digest, verifies the baked commit, and then runs the provenance-bound rollback drill. Historical source reconstruction remains rejected.",
-        "2026-10-07: re-reviewed the trigger contract after adding the governed rollback evidence files to the Container Supply Chain pull_request path set. This preserves targeted execution while preventing required-check starvation when immutable rollback evidence changes; build-identity source coverage remains explicit and fail-closed.",
-        "2026-10-07: exact-head re-attestation after the current-main supply-chain recovery. Re-reviewed the complete workflow at the new Git object, including immutable rollback artifact resolution, GHCR RepoDigest equality, baked-commit identity, GitHub/Sigstore provenance verification, current-candidate publication gating, and read-only recovery permissions. No product or deployment authority is introduced; the semantic evidence now binds to the exact HEAD blob."
+        "2026-10-07: exact-head static re-review at commit 71ad1fada7b28a670de117eaf44f7a98382c9343. The workflow is a canonical 3-job Container Supply Chain structure with unconditional pull_request coverage, main-push publication, read-only default permissions, exact-head checkout, commit-pinned actions, fail-closed vulnerability gating, immutable rollback evidence binding and publication dependency on verify+recovery.",
+        "2026-10-07: rollback recovery was repaired to consume docs/launch/generated/runtime-image-digest-evidence-20260826.json, derive the governed release SHA and image digest, verify the pulled GHCR RepoDigest equals the governed digest, verify the artifact-baked commit, and retain the immutable rollback evidence before the provenance-bound rollback drill. Historical source reconstruction and mutable latest/main rollback tags remain prohibited.",
+        "2026-10-07: exact-head CI is currently running after this repair; this evidence record intentionally does not claim successful workflow execution until the exact-head jobs complete successfully."
       ],
       "findings": [
         {
