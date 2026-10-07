@@ -205,9 +205,24 @@ jobs:
         run: |
           set -euo pipefail
           ROLLBACK_EVIDENCE="docs/launch/generated/runtime-image-digest-evidence-20260826.json"
-          ROLLBACK_RELEASE_SHA="$(node -p \"require('./$ROLLBACK_EVIDENCE').releaseCandidate.sha\")"
-          ROLLBACK_IMAGE_DIGEST="$(node -p \"require('./$ROLLBACK_EVIDENCE').containerImage.imageDigest\")"
-          printf '%s\\n' "$ROLLBACK_RELEASE_SHA" | grep -Eq '^[0-9a-f]{40}
+          ROLLBACK_RELEASE_SHA="$(node -p "require('./$ROLLBACK_EVIDENCE').releaseCandidate.sha")"
+          ROLLBACK_IMAGE_DIGEST="$(node -p "require('./$ROLLBACK_EVIDENCE').containerImage.imageDigest")"
+          printf '%s\n' "$ROLLBACK_RELEASE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s\n' "$ROLLBACK_IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          mkdir -p artifacts/container-recovery
+          previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"
+          docker pull "$previous_tag"
+          previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"
+          printf '%s\n' "$previous_digest" | grep -Eq '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'
+          test "$previous_digest" = "ghcr.io/tecpey/tecpey-os@$ROLLBACK_IMAGE_DIGEST"
+          baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
+          test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"
+          printf '%s\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt
+          printf '%s\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt
+          printf '%s\n' "$ROLLBACK_RELEASE_SHA" > artifacts/container-recovery/rollback-release-sha.txt
+          printf '%s\n' "$ROLLBACK_IMAGE_DIGEST" > artifacts/container-recovery/rollback-image-digest.txt
+          docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
         env:
