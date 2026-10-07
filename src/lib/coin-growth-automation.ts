@@ -1,4 +1,5 @@
 import { coinGrowthCandidates, type CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
+import { CORE_COIN_SYMBOL_SET } from "@/data/coreCoinSymbols";
 import {
   buildOrganicGrowthProfile,
   isOrganicGrowthSnapshotFresh,
@@ -335,7 +336,10 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
             (coin) => coin.slug === candidate.slug && coin.symbol === candidate.symbol,
           ),
         ),
-        { sourceMode: "curated_seed" },
+        {
+          sourceMode: "curated_seed",
+          existingSymbols: [...CORE_COIN_SYMBOL_SET],
+        },
       );
   if (effectiveSnapshot.schemaVersion !== 1) return [];
   if (effectiveSnapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
