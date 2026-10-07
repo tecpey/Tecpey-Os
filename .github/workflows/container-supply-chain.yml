@@ -433,3 +433,228 @@ jobs:
           path: artifacts/container-release/**
           if-no-files-found: error
           retention-days: 90
+
+          previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"
+          docker pull "$previous_tag"
+          previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"
+          printf '%s\n' "$previous_digest" | grep -Eq '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'
+          baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
+          test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"
+          printf '%s\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt
+          printf '%s\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt
+          printf '%s\n' "$ROLLBACK_RELEASE_SHA" > artifacts/container-recovery/rollback-release-sha.txt
+          docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+
+      - name: Restore PostgreSQL and Redis persistent volumes
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_RTO_SECONDS: '300'
+        run: bash scripts/test-container-volume-recovery.sh "tecpey-candidate:$CANDIDATE_SHA"
+
+      - name: Upload recovery evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: container-recovery-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/container-recovery/**
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish, attest and sign immutable image
+    if: ${{ github.event_name == 'push' }}
+    needs: [verify, recovery]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish final image with SBOM and provenance attestations
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: ghcr.io/tecpey/tecpey-os:${{ github.sha }}
+          build-args: |
+            TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}
+            NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+            NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+            NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+            NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir
+          sbom: true
+          provenance: mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
+
+      - name: Sign exact image digest
+        env:
+          IMAGE: ghcr.io/tecpey/tecpey-os@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-name: ghcr.io/tecpey/tecpey-os
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Retain final digest evidence
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p artifacts/container-release
+          printf '%s\n' "$DIGEST" > artifacts/container-release/image-digest.txt
+          cosign verify \
+            --certificate-identity-regexp '^https://github.com/tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml@refs/heads/main$' \
+            --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+            "ghcr.io/tecpey/tecpey-os@$DIGEST" > artifacts/container-release/signature-verification.json
+
+      - name: Upload release digest and signature evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: container-release-${{ github.sha }}
+          path: artifacts/container-release/**
+          if-no-files-found: error
+          retention-days: 90
+
+          mkdir -p artifacts/container-recovery
+          previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"
+          docker pull "$previous_tag"
+          previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"
+          printf '%s\n' "$previous_digest" | grep -Eq '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'
+          baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
+          test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"
+          printf '%s\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt
+          printf '%s\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt
+          printf '%s\n' "$ROLLBACK_RELEASE_SHA" > artifacts/container-recovery/rollback-release-sha.txt
+          docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+
+      - name: Restore PostgreSQL and Redis persistent volumes
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_RTO_SECONDS: '300'
+        run: bash scripts/test-container-volume-recovery.sh "tecpey-candidate:$CANDIDATE_SHA"
+
+      - name: Upload recovery evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: container-recovery-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/container-recovery/**
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish, attest and sign immutable image
+    if: ${{ github.event_name == 'push' }}
+    needs: [verify, recovery]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish final image with SBOM and provenance attestations
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: ghcr.io/tecpey/tecpey-os:${{ github.sha }}
+          build-args: |
+            TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}
+            NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+            NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+            NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+            NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir
+          sbom: true
+          provenance: mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
+
+      - name: Sign exact image digest
+        env:
+          IMAGE: ghcr.io/tecpey/tecpey-os@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-name: ghcr.io/tecpey/tecpey-os
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Retain final digest evidence
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p artifacts/container-release
+          printf '%s\n' "$DIGEST" > artifacts/container-release/image-digest.txt
+          cosign verify \
+            --certificate-identity-regexp '^https://github.com/tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml@refs/heads/main$' \
+            --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+            "ghcr.io/tecpey/tecpey-os@$DIGEST" > artifacts/container-release/signature-verification.json
+
+      - name: Upload release digest and signature evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: container-release-${{ github.sha }}
+          path: artifacts/container-release/**
+          if-no-files-found: error
+          retention-days: 90
