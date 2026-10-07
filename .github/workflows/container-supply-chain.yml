@@ -193,8 +193,7 @@ jobs:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA" --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
 
-      # Legacy authority sentinel only; source reconstruction is prohibited below:
-      # TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA
+      # Rollback must consume an already-published immutable release artifact; never reconstruct historical source.
       - name: Authenticate to GHCR for rollback artifact
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -206,20 +205,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ROLLBACK_RELEASE_SHA: $(node -p "require('./docs/launch/generated/current-controlled-launch-candidate.json').currentCandidate.sha")
         run: |
           set -euo pipefail
           mkdir -p artifacts/container-recovery
-          previous_tag="ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA"
+          previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"
           docker pull "$previous_tag"
           previous_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$previous_tag")"
           printf '%s\n' "$previous_digest" | grep -Eq '^ghcr\.io/tecpey/tecpey-os@sha256:[0-9a-f]{64}$'
           baked_commit="$(docker run --rm --entrypoint node "$previous_digest" -e "const x=require('./.next/required-server-files.json'); process.stdout.write(String(x.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? ''))")"
-          test "$baked_commit" = "$PREVIOUS_SHA"
+          test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"
           printf '%s\n' "$previous_digest" > artifacts/container-recovery/previous-image-digest.txt
           printf '%s\n' "$baked_commit" > artifacts/container-recovery/previous-baked-commit.txt
-          docker tag "$previous_digest" "tecpey-previous:$PREVIOUS_SHA"
-          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
+          printf '%s\n' "$ROLLBACK_RELEASE_SHA" > artifacts/container-recovery/rollback-release-sha.txt
+          docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$ROLLBACK_RELEASE_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
         env:
