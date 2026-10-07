@@ -4,6 +4,8 @@ const workflowPath = ".github/workflows/container-supply-chain.yml";
 const rollbackPath = "scripts/test-container-image-rollback.sh";
 const source = fs.readFileSync(workflowPath, "utf8");
 const rollbackSource = fs.readFileSync(rollbackPath, "utf8");
+const rollbackEvidencePath = "docs/launch/generated/runtime-image-digest-evidence-20260826.json";
+const rollbackEvidence = JSON.parse(fs.readFileSync(rollbackEvidencePath, "utf8"));
 const failures = [];
 
 function block(sourceText, key) {
@@ -30,6 +32,16 @@ function reject(text, pattern, message) {
 
 const recovery = block(source, "recovery");
 if (!recovery) failures.push("container workflow must define recovery job");
+
+for (const [condition, message] of [
+  [rollbackEvidence?.releaseCandidate?.sha && /^[0-9a-f]{40}$/.test(rollbackEvidence.releaseCandidate.sha), "rollback evidence must declare an exact release SHA"],
+  [rollbackEvidence?.containerImage?.imageDigest && /^sha256:[0-9a-f]{64}$/.test(rollbackEvidence.containerImage.imageDigest), "rollback evidence must declare an exact image digest"],
+  [rollbackEvidence?.signatureVerification?.status === "verified", "rollback evidence must carry verified image signature status"],
+  [rollbackEvidence?.signatureVerification?.githubWorkflowRepository === "tecpey/Tecpey-Os", "rollback evidence must bind provenance to the TecPey repository"],
+  [rollbackEvidence?.signatureVerification?.githubWorkflowRef === "refs/heads/main", "rollback evidence must bind provenance to main"],
+]) {
+  if (!condition) failures.push(message);
+}
 
 for (const [token, message] of [
   ["packages: read", "recovery job must have read-only package-registry access"],
