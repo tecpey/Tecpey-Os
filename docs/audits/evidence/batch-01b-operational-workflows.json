@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/container-supply-chain.yml",
       "gitObjectId": "7ff49c329de23f6337e7b915d75162123855b1fd",
-      "sha256": "1e955963d9ab54d6dc3f4d611e15a5228b7680a4b35810ebdd2ce134db346847",
+      "sha256": "6122bb5198f54b58d93e36f6071242d666580a6134390cee6c98bbcbe7a5a5fd",
       "lines": 329,
       "reviewedRanges": [
         {
@@ -43,7 +43,7 @@
       "reviewNotes": [
         "2026-10-07: exact-head static re-review at commit 71ad1fada7b28a670de117eaf44f7a98382c9343. The workflow is a canonical 3-job Container Supply Chain structure with unconditional pull_request coverage, main-push publication, read-only default permissions, exact-head checkout, commit-pinned actions, fail-closed vulnerability gating, immutable rollback evidence binding and publication dependency on verify+recovery.",
         "2026-10-07: rollback recovery was repaired to consume docs/launch/generated/runtime-image-digest-evidence-20260826.json, derive the governed release SHA and image digest, verify the pulled GHCR RepoDigest equals the governed digest, verify the artifact-baked commit, and retain the immutable rollback evidence before the provenance-bound rollback drill. Historical source reconstruction and mutable latest/main rollback tags remain prohibited.",
-        "2026-10-07: exact-head CI is currently running after this repair; this evidence record intentionally does not claim successful workflow execution until the exact-head jobs complete successfully."
+        "2026-10-07: the workflow blob recorded above is the canonical file under review; exact-head CI remains the execution authority and this evidence record does not claim successful workflow execution until the exact-head jobs complete successfully."
       ],
       "findings": [
         {
