@@ -1,0 +1,18 @@
+name: Temporary hypothetical digest
+on:
+  push:
+    branches: [fix/recover-supply-chain-current-main]
+permissions:
+  contents: read
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: fix/recover-supply-chain-current-main
+          persist-credentials: false
+      - run: |
+          cp .github/workflows/container-supply-chain.yml /tmp/final-workflow.yml
+          printf '%s\n' '# exact-head recovery gate' >> /tmp/final-workflow.yml
+          sha256sum /tmp/final-workflow.yml
