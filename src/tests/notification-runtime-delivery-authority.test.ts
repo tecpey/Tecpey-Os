@@ -149,7 +149,7 @@ test(
 );
 
 test(
-  "fatigue caps count delivered notifications rather than pending outbox rows",
+  "fatigue caps reserve pending interruptions and remain occupied after delivery",
   { skip: !databaseUrl },
   async () => {
     await withRolledBackTest(async (client) => {
@@ -167,12 +167,17 @@ test(
         pending.push(created);
       }
 
+      // Pending interruptive work owns a temporary reservation. This prevents a
+      // concurrent burst from admitting more than the optional class budget
+      // before delivery has had a chance to commit its historical consumption.
       const beforeDelivery = await createInAppNotification(
         client,
         principal,
         academyRequest(`academy:fatigue-before-delivery:${crypto.randomUUID()}`),
       );
-      assert.equal(beforeDelivery.decision, "allow");
+      assert.equal(beforeDelivery.decision, "digest");
+      assert.equal(beforeDelivery.reason, "frequency_cap");
+      assert.ok(beforeDelivery.scheduledFor);
 
       const claims = await claimNotificationOutbox(client, {
         workerId: "fatigue-worker",
@@ -185,6 +190,9 @@ test(
         await acceptInAppNotificationDelivery(client, claim, "fatigue-worker");
       }
 
+      // Accepted delivery replaces the pending reservation with delivered
+      // history. The same four interruptions therefore continue to occupy four
+      // slots rather than being double-counted or reopening capacity.
       const afterDelivery = await createInAppNotification(
         client,
         principal,

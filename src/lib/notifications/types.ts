@@ -131,6 +131,7 @@ export type RecipientNotificationPolicy = {
   digestEnabled: boolean;
   duplicateSeen: boolean;
   recentCategoryDeliveries: number;
+  pendingCategoryReservations: number;
   categoryFrequencyCap: number | null;
 };
 

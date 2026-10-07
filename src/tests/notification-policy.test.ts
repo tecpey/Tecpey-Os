@@ -45,6 +45,7 @@ function baseRecipient(
     digestEnabled: true,
     duplicateSeen: false,
     recentCategoryDeliveries: 0,
+    pendingCategoryReservations: 0,
     categoryFrequencyCap: 5,
     ...overrides,
   };
@@ -227,6 +228,39 @@ test("optional notification moves to digest after frequency cap", () => {
   assert.equal(result.reason, "frequency_cap");
 });
 
+test("pending reservations count against the instant interruption budget", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      { notificationClass: "academy" },
+      {
+        recentCategoryDeliveries: 1,
+        pendingCategoryReservations: 3,
+        categoryFrequencyCap: 4,
+        inQuietHours: true,
+        quietHoursEndAt: "2026-07-19T20:00:00.000Z",
+      },
+    ),
+  );
+
+  assert.equal(result.decision, "digest");
+  assert.equal(result.reason, "frequency_cap");
+});
+
+test("explicit digest cadence stays digest during quiet hours", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      { cadence: "digest" },
+      {
+        inQuietHours: true,
+        quietHoursEndAt: "2026-07-19T20:00:00.000Z",
+      },
+    ),
+  );
+
+  assert.equal(result.decision, "digest");
+  assert.equal(result.reason, "policy_allowed");
+});
+
 test("duplicate correlation is suppressed before channel delivery", () => {
   const result = evaluateNotificationPolicy(
     input({}, { duplicateSeen: true }),
@@ -319,4 +353,74 @@ test("malformed recipient policy fails closed without exposing a send path", () 
     notBefore: null,
     shouldTryFallbackChannel: false,
   });
+});
+
+test("critical urgency cannot let an optional class bypass quiet hours", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      {
+        notificationClass: "academy",
+        urgency: "critical",
+      },
+      {
+        inQuietHours: true,
+        quietHoursEndAt: "2026-07-19T20:00:00.000Z",
+      },
+    ),
+  );
+
+  assert.equal(result.decision, "defer");
+  assert.equal(result.reason, "quiet_hours");
+  assert.equal(result.mandatory, false);
+  assert.equal(result.notBefore, "2026-07-19T20:00:00.000Z");
+});
+
+test("critical urgency cannot let an optional class bypass category opt-out", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      {
+        notificationClass: "mentor_ai",
+        urgency: "critical",
+        dispatchMode: "automation",
+      },
+      { categoryEnabled: false },
+    ),
+  );
+
+  assert.equal(result.decision, "suppress");
+  assert.equal(result.reason, "category_disabled");
+  assert.equal(result.mandatory, false);
+});
+
+test("critical urgency cannot let an optional class bypass the fatigue cap", () => {
+  const result = evaluateNotificationPolicy(
+    input(
+      {
+        notificationClass: "social",
+        urgency: "critical",
+      },
+      {
+        recentCategoryDeliveries: 5,
+        categoryFrequencyCap: 5,
+        digestEnabled: true,
+      },
+    ),
+  );
+
+  assert.equal(result.decision, "digest");
+  assert.equal(result.reason, "frequency_cap");
+  assert.equal(result.mandatory, false);
+});
+
+test("critical urgency cannot let marketing bypass explicit consent", () => {
+  const result = evaluateNotificationPolicy(
+    input({
+      notificationClass: "marketing_campaign",
+      urgency: "critical",
+    }),
+  );
+
+  assert.equal(result.decision, "suppress");
+  assert.equal(result.reason, "marketing_consent_required");
+  assert.equal(result.mandatory, false);
 });
