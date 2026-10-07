@@ -16,3 +16,4 @@ jobs:
           cp .github/workflows/container-supply-chain.yml /tmp/final-workflow.yml
           printf '%s\n' '# exact-head recovery gate' >> /tmp/final-workflow.yml
           sha256sum /tmp/final-workflow.yml
+# trigger
