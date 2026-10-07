@@ -34,6 +34,8 @@ on:
       - docs/Deployment.md
       - docs/TECPEY_PROJECT_INDEX.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
+      - docs/audits/evidence/batch-01b-operational-workflows.json
+      - docs/launch/generated/runtime-image-digest-evidence-20260826.json
       - .github/workflows/**
 
 permissions:
