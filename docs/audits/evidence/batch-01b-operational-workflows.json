@@ -31,7 +31,7 @@
     {
       "path": ".github/workflows/container-supply-chain.yml",
       "gitObjectId": "25d479d49162d17ee923d075378345ffe0af727f",
-      "sha256": "a3193176e98da9d3c45d0ffd9bdd2075dac852b2f7a0bbb4bbbda0cf29500fd7",
+      "sha256": "990b41a3aefeb6941e5de61f027058279415e3b5ffae2367d7c1cd23a2149dda",
       "lines": 435,
       "reviewedRanges": [
         {
