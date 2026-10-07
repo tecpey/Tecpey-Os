@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-30",
+  "reviewedAt": "2026-10-07",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -30,13 +30,13 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "fc8877f93d3a8e76533a0b92f94e3972f578782d",
-      "sha256": "202c1c726622c15e174b6bcc1c43095fa4c6d02fc2d3a045f6fd24064f3223c5",
-      "lines": 645,
+      "gitObjectId": "438925c263712eaec6c5b61e3a10908b2bade6ec",
+      "sha256": "1e955963d9ab54d6dc3f4d611e15a5228b7680a4b35810ebdd2ce134db346847",
+      "lines": 646,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 645
+          "endLine": 646
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -53,7 +53,8 @@
         "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts.",
         "2026-10-07: final workflow was reconstructed from the exact #731 blob, validated independently by the runner as valid YAML, and reduced to the canonical 3-job structure. Required pull_request path filtering was removed to prevent required-check starvation; rollback now resolves the governed immutable published candidate from current-controlled-launch-candidate.json and never reconstructs a historical source tree.",
         "2026-10-07: re-reviewed the final current-main recovery workflow after replacing base-SHA rollback assumptions with the governed immutable runtime-image digest evidence. The recovery step now derives the rollback release SHA and manifest digest from runtime-image-digest-evidence-20260826.json, pulls the SHA-tagged GHCR image, verifies the resolved RepoDigest equals the governed digest, verifies the baked commit, and then runs the provenance-bound rollback drill. Historical source reconstruction remains rejected.",
-        "2026-10-07: re-reviewed the trigger contract after adding the governed rollback evidence files to the Container Supply Chain pull_request path set. This preserves targeted execution while preventing required-check starvation when immutable rollback evidence changes; build-identity source coverage remains explicit and fail-closed."
+        "2026-10-07: re-reviewed the trigger contract after adding the governed rollback evidence files to the Container Supply Chain pull_request path set. This preserves targeted execution while preventing required-check starvation when immutable rollback evidence changes; build-identity source coverage remains explicit and fail-closed.",
+        "2026-10-07: exact-head re-attestation after the current-main supply-chain recovery. Re-reviewed the complete workflow at the new Git object, including immutable rollback artifact resolution, GHCR RepoDigest equality, baked-commit identity, GitHub/Sigstore provenance verification, current-candidate publication gating, and read-only recovery permissions. No product or deployment authority is introduced; the semantic evidence now binds to the exact HEAD blob."
       ],
       "findings": [
         {
