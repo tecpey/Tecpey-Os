@@ -1,0 +1,15 @@
+name: Temporary workflow digest
+on:
+  push:
+    branches: [fix/recover-supply-chain-current-main]
+permissions:
+  contents: read
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: fix/recover-supply-chain-current-main
+          persist-credentials: false
+      - run: sha256sum .github/workflows/container-supply-chain.yml
