@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
+import { CORE_COIN_SYMBOL_SET } from "@/data/coreCoinSymbols";
 
 const freshGeneratedAt = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
 import legacyCoinGrowthSnapshot from "@/data/generated/coinGrowthSnapshot.json";
@@ -46,6 +47,19 @@ describe("coin growth automation", () => {
     assert.ok(pages.length > 0);
     assert.ok(pages.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(pages.every((coin) => coin.organicGrowth.readiness.ready));
+  });
+
+  it("does not republish a stale candidate that has since entered the curated core catalog", () => {
+    const promoted = coinGrowthCandidates.find((coin) => CORE_COIN_SYMBOL_SET.has(coin.symbol));
+    assert.ok(promoted);
+
+    const staleSnapshot = materializeCoinGrowthSnapshot([promoted], {
+      generatedAt: "2026-08-10T00:00:00.000Z",
+      publishThreshold: 0,
+    });
+
+    assert.equal(staleSnapshot.stats.publishedContent, 1);
+    assert.equal(readPublishedCoinGrowthPages(staleSnapshot).length, 0);
   });
 
   it("scores core stablecoin and high-trend AI candidates above the publication threshold", () => {
