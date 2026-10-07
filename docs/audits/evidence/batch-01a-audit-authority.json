@@ -249,13 +249,13 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
+      "gitObjectId": "f1c4c62c486983adf057102885974d29043473ef",
       "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
-      "lines": 576,
+      "lines": 577,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 576
+          "endLine": 577
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -266,7 +266,8 @@
         "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
         "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
         "Summary recomputation occurs after evidence application and completionClaim remains false.",
-        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted."
+        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted.",
+        "2026-10-07: re-reviewed the fail-closed digest-mismatch diagnostic improvement. Audit failures now expose expected and actual SHA-256 digests for the affected reviewed source path, without changing acceptance semantics or relaxing exact-blob binding."
       ],
       "findings": [
         {
