@@ -30,9 +30,9 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "f87a91559f11a1b649a53b3c781dfbff870938c9",
-      "sha256": "3c23cecee699b389f8f6539f5d2b7b663366c53164e213b886097b59c99ff6d3",
-      "lines": 643,
+      "gitObjectId": "fc8877f93d3a8e76533a0b92f94e3972f578782d",
+      "sha256": "202c1c726622c15e174b6bcc1c43095fa4c6d02fc2d3a045f6fd24064f3223c5",
+      "lines": 644,
       "reviewedRanges": [
         {
           "startLine": 1,
@@ -52,7 +52,8 @@
         "2026-10-07: final syntax-root-cause repair removed the orphaned 28-line recovery block left after publish during the #731 reconstruction. Runner YAML validation now parses the final 633-line workflow successfully; rollback remains immutable-artifact-only and provenance-bound.",
         "2026-10-07: final trigger-authority repair removes pull_request path filtering from this required Container Supply Chain workflow. This prevents required-check starvation on docs-only/evidence-only follow-up commits while preserving the push-on-main publication trigger and fail-closed job contracts.",
         "2026-10-07: final workflow was reconstructed from the exact #731 blob, validated independently by the runner as valid YAML, and reduced to the canonical 3-job structure. Required pull_request path filtering was removed to prevent required-check starvation; rollback now resolves the governed immutable published candidate from current-controlled-launch-candidate.json and never reconstructs a historical source tree.",
-        "2026-10-07: re-reviewed the final current-main recovery workflow after replacing base-SHA rollback assumptions with the governed immutable runtime-image digest evidence. The recovery step now derives the rollback release SHA and manifest digest from runtime-image-digest-evidence-20260826.json, pulls the SHA-tagged GHCR image, verifies the resolved RepoDigest equals the governed digest, verifies the baked commit, and then runs the provenance-bound rollback drill. Historical source reconstruction remains rejected."
+        "2026-10-07: re-reviewed the final current-main recovery workflow after replacing base-SHA rollback assumptions with the governed immutable runtime-image digest evidence. The recovery step now derives the rollback release SHA and manifest digest from runtime-image-digest-evidence-20260826.json, pulls the SHA-tagged GHCR image, verifies the resolved RepoDigest equals the governed digest, verifies the baked commit, and then runs the provenance-bound rollback drill. Historical source reconstruction remains rejected.",
+        "2026-10-07: re-reviewed the trigger contract after adding the governed rollback evidence files to the Container Supply Chain pull_request path set. This preserves targeted execution while preventing required-check starvation when immutable rollback evidence changes; build-identity source coverage remains explicit and fail-closed."
       ],
       "findings": [
         {
