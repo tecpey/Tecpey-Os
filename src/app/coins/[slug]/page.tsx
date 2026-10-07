@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { coinPages } from "@/data/coins";
+import { getCoinPages } from "@/data/coins";
 import { buildLocalizedAlternates } from "@/i18n/seo";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
 import { StructuredData } from "@/components/seo/StructuredData";
@@ -17,14 +17,16 @@ import { ArrowLeft, CheckCircle2, AlertTriangle, BookOpen } from "lucide-react";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { safeJsonLd } from "@/lib/json-ld";
 
+export const revalidate = 3600;
+
 type Props = { params: Promise<{ slug: string }> };
 
 function getCoin(slug: string) {
-  return coinPages.find((coin) => coin.slug === slug);
+  return getCoinPages().find((coin) => coin.slug === slug);
 }
 
 export async function generateStaticParams() {
-  return coinPages.map((coin) => ({ slug: coin.slug }));
+  return getCoinPages().map((coin) => ({ slug: coin.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
