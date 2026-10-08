@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-09-21",
+  "reviewedAt": "2026-10-02",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -42,13 +42,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "fa4e87d8ff1d68bb562f93f6ae8f1af2896fc023",
-      "sha256": "8f1645741c0570bcb2070746fdc99c6af2bf7cf0eff83a68a4773ffef3ac02a8",
-      "lines": 294,
+      "gitObjectId": "2df01204cf1fd1b2c576e62a70ad929997d37b47",
+      "sha256": "78ce44d4488ef4a75fb159cd4ac3a5ef7a8b409d9fa0b1cb56b6195787b530ea",
+      "lines": 295,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 294
+          "endLine": 295
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -144,7 +144,9 @@
         "2026-09-21: re-reviewed the complete 294-line package after adding test:staging-promotion and composing it into test:ops-staging-evidence. The new command runs only local node:test policy/authority checks for the protected staging promotion workflow and script; it adds no dependency, engine or override, performs no workflow dispatch or host mutation itself, preserves the existing release/launch composition, and does not authorize merge, staging promotion or Production deployment.",
         "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
         "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
-        "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority."
+        "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority.",
+        "2026-10-02: re-reviewed the complete package manifest after integrating the exact Next.js 16.3.8 security patch into the OpenSSL 3.5.9 supply-chain remediation. The runtime vulnerability gate had rejected Next.js 16.3.3 for GHSA-vcvr-r3jv-pc5j. The dependency remains exact-version pinned, the npm 10 lockfile is registry-generated, and no scanner exception, mutable range, script/engine/override change, launch approval, deployment authority or product capability is introduced.",
+        "2026-10-07: re-reviewed after supply-chain remediation on current main. The exact package pins now include next 16.3.8, sharp 0.35.5 and source-map-js 1.2.2; the lockfile was regenerated with npm 10 and the change remains security-only. No release authority, runtime capability, deployment or product activation was introduced."
       ],
       "findings": [
         {
@@ -247,8 +249,8 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
-      "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
+      "gitObjectId": "f1c4c62c486983adf057102885974d29043473ef",
+      "sha256": "443322df4407460a3abd8eccb3c2496b0da13e02dfadadb2a6c2ea9ed31282eb",
       "lines": 576,
       "reviewedRanges": [
         {
@@ -264,7 +266,8 @@
         "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
         "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
         "Summary recomputation occurs after evidence application and completionClaim remains false.",
-        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted."
+        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted.",
+        "2026-10-07: re-reviewed the fail-closed digest-mismatch diagnostic improvement. Audit failures now expose expected and actual SHA-256 digests for the affected reviewed source path, without changing acceptance semantics or relaxing exact-blob binding."
       ],
       "findings": [
         {
