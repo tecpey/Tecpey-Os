@@ -24,7 +24,7 @@ export default function AcademyAiGuidePage() {
         <div className="mx-auto max-w-[1600px]">
           <Link
             href="/academy"
-            className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-xs font-black text-cyan-300 outline-none transition-[color,background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[.98] focus-visible:ring-2 focus-visible:ring-cyan-300 motion-reduce:transition-none motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-cyan-300/10 [@media(hover:hover)_and_(pointer:fine)]:hover:text-cyan-100"
+            className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-xs font-black text-[color:var(--tp-primary-strong)] outline-none transition-[color,background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[.98] focus-visible:ring-2 focus-visible:ring-[color:var(--tp-primary-strong)] motion-reduce:transition-none motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-cyan-300/10 [@media(hover:hover)_and_(pointer:fine)]:hover:text-[color:var(--tp-text)]"
           >
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
             بازگشت به آکادمی

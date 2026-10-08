@@ -44,6 +44,11 @@
   padding: 20px;
 }
 
+.sceneHeader > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .sceneEyebrow {
   margin: 0;
   font-size: 12px;
@@ -86,6 +91,7 @@
 
 .planBadge {
   display: inline-flex;
+  flex-shrink: 0;
   min-height: 36px;
   align-items: center;
   gap: 7px;
@@ -323,7 +329,7 @@
 
 .mentorStation {
   position: absolute;
-  bottom: 86px;
+  bottom: 112px;
   left: 50%;
   z-index: 5;
   width: 206px;
@@ -344,7 +350,7 @@
 }
 
 .scene[data-pose^="standing"] .mentorStation {
-  bottom: 74px;
+  bottom: 112px;
   width: 270px;
   height: 405px;
 }
@@ -364,7 +370,7 @@
 .desk {
   position: absolute;
   right: 8%;
-  bottom: 70px;
+  bottom: 112px;
   left: 8%;
   z-index: 6;
   height: 80px;
@@ -434,8 +440,9 @@
 
 .surfaceButton {
   display: flex;
+  flex-direction: column;
   min-width: 0;
-  min-height: 44px;
+  min-height: 76px;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -443,9 +450,10 @@
   border-radius: 12px;
   background: rgb(15 23 42 / 0.74);
   padding: 8px;
-  font-size: 8px;
+  font-size: 12px;
+  line-height: 1.5;
   font-weight: 900;
-  color: rgb(148 163 184);
+  color: rgb(203 213 225);
   backdrop-filter: blur(10px);
   transition:
     border-color 160ms var(--office-ease-out),
@@ -462,9 +470,15 @@
 }
 
 .surfaceButton span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.surfaceButton small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .surfaceButton[data-active="true"] {
@@ -475,7 +489,7 @@
 
 .surfaceButton[data-locked="true"] {
   cursor: not-allowed;
-  opacity: 0.58;
+  opacity: 1;
 }
 
 .surfaceButton:active:not(:disabled) {
@@ -490,14 +504,15 @@
 .sceneFooter {
   position: absolute;
   right: 18px;
-  bottom: 72px;
+  bottom: 96px;
   left: 18px;
   z-index: 7;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
   color: rgb(148 163 184);
 }
@@ -525,7 +540,7 @@
 
 @media (max-width: 1179px) {
   .scene {
-    min-height: 390px;
+    min-height: var(--mentor-office-height, 520px);
   }
 
   .credentials {
@@ -568,7 +583,7 @@
   }
 
   .mentorStation {
-    bottom: 67px;
+    bottom: 112px;
     width: 190px;
     height: 174px;
     transform: translateX(94%);
@@ -576,7 +591,7 @@
 
   .scene[data-pose^="standing"] .mentorStation {
     right: 7%;
-    bottom: 60px;
+    bottom: 112px;
     left: auto;
     width: 210px;
     height: 315px;
@@ -585,13 +600,13 @@
 
   .desk {
     right: 3%;
-    bottom: 62px;
+    bottom: 112px;
     left: 48%;
     height: 66px;
   }
 
   .sceneFooter {
-    bottom: 66px;
+    bottom: 96px;
     left: 3%;
     width: 42%;
     justify-content: flex-start;
@@ -600,7 +615,7 @@
 
 @media (max-width: 640px) {
   .scene {
-    min-height: 340px;
+    min-height: var(--mentor-office-height, 420px);
     border-radius: 24px;
   }
 
@@ -668,7 +683,7 @@
 
   .mentorStation {
     right: 1%;
-    bottom: 61px;
+    bottom: 112px;
     left: auto;
     width: 132px;
     height: 121px;
@@ -677,14 +692,14 @@
 
   .scene[data-pose^="standing"] .mentorStation {
     right: 0;
-    bottom: 56px;
+    bottom: 112px;
     width: 150px;
     height: 225px;
   }
 
   .desk {
     right: 2%;
-    bottom: 61px;
+    bottom: 112px;
     left: 65%;
     height: 58px;
   }
@@ -706,7 +721,7 @@
 
   .surfaceButton {
     padding: 7px 5px;
-    font-size: 7px;
+    font-size: 12px;
   }
 }
 
@@ -742,4 +757,10 @@
 @keyframes office-pose-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@media (forced-colors: active) {
+  .surfaceButton { border-color: ButtonText; background: ButtonFace; color: ButtonText; }
+  .surfaceButton:disabled { color: GrayText; }
+  .surfaceButton:focus-visible { outline-color: Highlight; }
 }

@@ -79,5 +79,27 @@ export default defineConfig({
         hasTouch: true,
       },
     },
+    {
+      name: "chromium-fa-mentor-compact-320",
+      testMatch: "**/mentor-workspace-v2-acceptance.spec.mjs",
+      metadata: { locale: "fa", formFactor: "mobile", mentorWorkspaceCompact: true },
+      use: {
+        browserName: "chromium",
+        viewport: { width: 320, height: 760 },
+        deviceScaleFactor: 1,
+        hasTouch: true,
+      },
+    },
+    {
+      name: "chromium-en-mentor-compact-320",
+      testMatch: "**/mentor-workspace-v2-acceptance.spec.mjs",
+      metadata: { locale: "en", formFactor: "mobile", mentorWorkspaceCompact: true },
+      use: {
+        browserName: "chromium",
+        viewport: { width: 320, height: 760 },
+        deviceScaleFactor: 1,
+        hasTouch: true,
+      },
+    },
   ],
 });

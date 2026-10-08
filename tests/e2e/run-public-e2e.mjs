@@ -60,6 +60,8 @@ const projects = [
   "chromium-en-desktop",
   "firefox-fa-desktop",
   "firefox-en-mobile",
+  "chromium-fa-mentor-compact-320",
+  "chromium-en-mentor-compact-320",
 ];
 
 function boundedAppend(current, chunk) {
@@ -196,10 +198,9 @@ async function runPlaywrightProject(project, onOutput) {
         ...process.env,
         TECPEY_E2E_BASE_URL: baseURL,
         TECPEY_E2E_PROJECT: project,
-        // One identifier shared by all four projects of this invocation. The
-        // QA-051 collector refuses to merge shards that do not name the same
-        // run, which is what stops a shard left behind by an earlier, partial
-        // run from being folded into a later bundle.
+        // One identifier shared by all projects of this invocation. The QA-051
+        // collector refuses to merge shards that do not name the same run,
+        // which prevents stale partial evidence from entering a later bundle.
         TECPEY_A11Y_RUN_ID: runId,
       },
       detached: process.platform !== "win32",

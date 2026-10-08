@@ -9,6 +9,8 @@ import {
   ChartNoAxesCombined,
   CheckCircle2,
   Crown,
+  ChevronDown,
+  ArrowUpRight,
   ExternalLink,
   History,
   Loader2,
@@ -27,6 +29,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type FocusEvent as ReactFocusEvent,
 } from "react";
 import { MentorArenaDock } from "@/components/mentor/MentorArenaDock";
 import { MentorOfficeScene } from "@/components/mentor/MentorOfficeScene";
@@ -74,6 +77,24 @@ type AiMentorExperienceProps = {
   plan?: MentorWorkspacePlan;
 };
 
+function publicSourceLink(value: string) {
+  if (typeof value !== "string" || value.length > 2_048) return null;
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
+    return { href: url.href, host: url.host };
+  } catch {
+    return null;
+  }
+}
+
+function revealFocusedEvidence(event: ReactFocusEvent<HTMLAnchorElement>) {
+  // Keyboard focus must clear fixed navigation without moving a pointer target.
+  if (event.currentTarget.matches(":focus-visible")) {
+    event.currentTarget.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+  }
+}
+
 const COPY = {
   fa: {
     eyebrow: "فضای کاری شخصی شما",
@@ -83,8 +104,27 @@ const COPY = {
     premiumPlan: "نسخه پرمیوم",
     safety: "آموزشی و ریسک‌محور",
     history: "گفت‌وگوهای قبلی",
-    historyDescription: "تاریخچه از رکورد امن سمت سرور خوانده می‌شود.",
+    historyDescription: "گفت‌وگوهای ذخیره‌شده را از همان‌جا ادامه بده.",
+    office: "دفتر منتور",
+    hideOffice: "جمع‌کردن دفتر منتور",
+    privacyLink: "حریم خصوصی",
+    support: "پشتیبانی",
+    welcome: "یک سؤال، یک قدم روشن‌تر.",
+    welcomeText: "مفهوم را بفهم، تصمیم را تمرین کن و با آگاهی جلو برو. از یکی از این مسیرها شروع کن یا سؤال خودت را بنویس.",
+    draftHint: "پیشنهادها فقط متن سؤال را آماده می‌کنند؛ ارسال با شماست.",
+    learnTitle: "ساده‌تر یاد بگیر",
+    learnText: "یک مفهوم، یک مثال، یک تمرین",
+    learnPrompt: "تفاوت نگهداری رمزارز در کیف پول شخصی و صرافی را با یک مثال ساده توضیح بده و یک سؤال برای سنجش فهم من بپرس.",
+    riskTitle: "تصمیمت را مرور کن",
+    riskText: "قبل از تمرین، ریسک را روشن کن",
+    riskPrompt: "برای یک معامله فرضی، چک‌لیست دلیل ورود، نقطه ابطال و مدیریت ریسک بساز. هیچ پیشنهاد خرید یا فروش نده.",
+    practiceTitle: "دانشت را امتحان کن",
+    practiceText: "یک موقعیت آموزشی، بدون پول واقعی",
+    practicePrompt: "یک سناریوی آموزشی درباره فومو بساز. ابتدا از من بخواه تصمیمم را توضیح بدهم و بعد بازخورد بده؛ معامله واقعی پیشنهاد نکن.",
+    modeLabel: "حالت گفت‌وگو",
     historyUnavailable: "تاریخچه فعلاً در دسترس نیست؛ گفت‌وگوی جاری بدون ادعای ذخیره ادامه می‌یابد.",
+    loadingThreads: "در حال دریافت فهرست گفت‌وگوها…",
+    loadingConversation: "در حال دریافت پیام‌های ذخیره‌شده…",
     historyEmpty: "هنوز گفت‌وگویی ثبت نشده است.",
     newConversation: "گفت‌وگوی جدید",
     closeHistory: "بستن تاریخچه",
@@ -98,6 +138,8 @@ const COPY = {
     researching: "در حال پژوهش عمومی و کنترل منابع…",
     sourceLessons: "درس‌های مرتبط",
     publicSources: "منابع عمومی",
+    sourceFreshnessUnknown: "زمان انتشار و تازگی این منابع تأیید نشده است؛ این پاسخ خبرِ به‌روزِ تأییدشده نیست.",
+    newTab: "زبانهٔ جدید",
     checklist: "چک‌لیست پیشنهادی",
     suggested: "ادامه پیشنهادی",
     inputLabel: "پیام شما به منتور",
@@ -107,8 +149,14 @@ const COPY = {
     standardMode: "حالت آموزشی؛ پاسخ از داده‌های مجاز مسیر یادگیری استفاده می‌کند.",
     researchMode: "پژوهش عمومی؛ فقط متن همین سؤال خارج می‌شود و تاریخچه، پروفایل، ضعف‌ها و اطلاعات مالی ارسال نمی‌شوند.",
     privacy: "رمز، Seed Phrase، کد 2FA، کلید خصوصی یا اطلاعات هویتی را در چت وارد نکنید.",
-    profileUnavailable: "داده شخصی‌سازی در دسترس نیست؛ منتور چیزی را حدس نمی‌زند.",
+    profileUnavailable: "پروفایل در دسترس نیست؛ امتیاز آموزشی نمایش داده نمی‌شود.",
+    profileLoading: "در حال بررسی شواهد پروفایل…",
+    profileInsufficient: "هنوز شواهد کافی برای نمایش امتیاز آموزشی ثبت نشده است.",
+    profileReady: "شواهد ثبت‌شدهٔ امتیاز آموزشی دریافت شد.",
+    profileRefresh: "بررسی دوبارهٔ پروفایل",
     completedTerms: "ترم تکمیل‌شده",
+    progressLoading: "در حال بررسی پیشرفت…",
+    progressUnavailable: "پیشرفت در دسترس نیست",
     confidence: "اعتماد آموزشی",
     currentSurface: "نمایشگر فعال",
     academy: "آکادمی",
@@ -126,9 +174,9 @@ const COPY = {
     errorRateLimited: "تعداد درخواست‌ها زیاد بوده؛ چند لحظه دیگر دوباره امتحان کنید.",
     errorThreadGone: "این گفت‌وگو دیگر در دسترس نیست. یک گفت‌وگوی جدید شروع کنید.",
     errorNetwork: "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی و دوباره تلاش کنید.",
-    errorGeneric: "پاسخ زنده در دسترس نبود؛ پاسخ زیر راهنمای آموزشی از‌پیش‌آماده است، نه پاسخ زنده هوش مصنوعی.",
+    errorGeneric: "پاسخ مدل در دسترس نبود؛ متن زیر راهنمای آموزشی از‌پیش‌آماده است.",
     errorDismiss: "متوجه شدم",
-    liveAnswer: "پاسخ زنده هوش مصنوعی",
+    modelAnswer: "پاسخ تولیدشده با هوش مصنوعی",
     preparedAnswer: "راهنمای آموزشی آماده",
     notSaved: "این گفت‌وگو ذخیره نشد",
   },
@@ -140,8 +188,27 @@ const COPY = {
     premiumPlan: "Premium plan",
     safety: "Education and risk first",
     history: "Conversation history",
-    historyDescription: "History is read from authenticated server records.",
+    historyDescription: "Pick up where you left off in a saved conversation.",
+    office: "Mentor office",
+    hideOffice: "Collapse mentor office",
+    privacyLink: "Privacy",
+    support: "Support",
+    welcome: "One question. A clearer next step.",
+    welcomeText: "Understand a concept, practise a decision and move forward with context. Choose a starting point or ask your own question.",
+    draftHint: "Starting points prepare a draft. You decide when to send it.",
+    learnTitle: "Make it make sense",
+    learnText: "One concept, one example, one exercise",
+    learnPrompt: "Explain the difference between holding crypto in a personal wallet and on an exchange with a simple example, then ask a question to check my understanding.",
+    riskTitle: "Review a decision",
+    riskText: "Understand risk before practising",
+    riskPrompt: "Build an entry-thesis, invalidation and risk-management checklist for a hypothetical trade. Do not recommend buying or selling.",
+    practiceTitle: "Put learning to work",
+    practiceText: "An educational scenario, no real money",
+    practicePrompt: "Create an educational FOMO scenario. Ask me to explain my decision first, then give feedback. Do not suggest a real trade.",
+    modeLabel: "Conversation mode",
     historyUnavailable: "History is temporarily unavailable. The current chat can continue without claiming it was saved.",
+    loadingThreads: "Loading conversation list…",
+    loadingConversation: "Loading saved messages…",
     historyEmpty: "No saved conversations yet.",
     newConversation: "New conversation",
     closeHistory: "Close history",
@@ -155,6 +222,8 @@ const COPY = {
     researching: "Researching public sources and checking evidence…",
     sourceLessons: "Related lessons",
     publicSources: "Public sources",
+    sourceFreshnessUnknown: "Publication times and source freshness are unverified; this answer is not verified current news.",
+    newTab: "New tab",
     checklist: "Suggested checklist",
     suggested: "Suggested follow-up",
     inputLabel: "Your message to the mentor",
@@ -164,8 +233,14 @@ const COPY = {
     standardMode: "Learning mode uses only permitted learning-path context.",
     researchMode: "Public research sends only this query—not history, profile, weak areas, financial data or identity documents.",
     privacy: "Never enter passwords, seed phrases, 2FA codes, private keys or identity documents in chat.",
-    profileUnavailable: "Personalization evidence is unavailable, so the mentor will not guess.",
+    profileUnavailable: "Profile unavailable; the learning score is not shown.",
+    profileLoading: "Checking profile evidence…",
+    profileInsufficient: "There is not enough recorded evidence to show a learning score yet.",
+    profileReady: "Recorded learning-score evidence received.",
+    profileRefresh: "Refresh profile evidence",
     completedTerms: "completed terms",
+    progressLoading: "Checking progress…",
+    progressUnavailable: "Progress unavailable",
     confidence: "Learning confidence",
     currentSurface: "Active monitor",
     academy: "Academy",
@@ -183,9 +258,9 @@ const COPY = {
     errorRateLimited: "Too many requests. Please try again in a moment.",
     errorThreadGone: "This conversation is no longer available. Start a new one.",
     errorNetwork: "Could not reach the server. Check your connection and try again.",
-    errorGeneric: "A live answer was not available; the reply below is prepared academy guidance, not a live AI answer.",
+    errorGeneric: "The model response was unavailable; the text below is prepared academy guidance.",
     errorDismiss: "Got it",
-    liveAnswer: "Live AI answer",
+    modelAnswer: "AI-generated answer",
     preparedAnswer: "Prepared academy guidance",
     notSaved: "This reply was not saved",
   },
@@ -231,7 +306,7 @@ export function AiMentorExperience({
   const copy = mentorLocale === "fa" ? COPY.fa : COPY.en;
   const direction = mentorWorkspaceDirection(locale);
   const officialProgress = useAcademyPathProgress(mentorLocale);
-  const { data: mentorInsights } = useMentorInsights({ enabled: true });
+  const { data: mentorInsights, loading: profileLoading, error: profileError, retry: refreshProfile } = useMentorInsights({ enabled: true });
 
   const [serverPlan, setServerPlan] = useState<MentorWorkspacePlan>(plan);
   const [capabilityReady, setCapabilityReady] = useState(false);
@@ -249,8 +324,12 @@ export function AiMentorExperience({
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [threadsLoading, setThreadsLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [threadIndexUnavailable, setThreadIndexUnavailable] = useState(false);
+  const [conversationHistoryUnavailable, setConversationHistoryUnavailable] = useState(false);
+  const [historyRetry, setHistoryRetry] = useState(0);
+  const historyUnavailable = threadIndexUnavailable || conversationHistoryUnavailable;
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [officeExpanded, setOfficeExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -263,9 +342,10 @@ export function AiMentorExperience({
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const historyTriggerRef = useRef<HTMLButtonElement | null>(null);
   const arenaTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const historySheetRef = useRef<HTMLDivElement | null>(null);
+  const historySheetRef = useRef<HTMLDialogElement | null>(null);
   const explainTimerRef = useRef<number | null>(null);
   const conversationEpochRef = useRef(0);
+  const currentChatThreadRef = useRef<string | null>(null);
   const deepLinkContextRef = useRef<{ term?: number; lesson?: number } | null>(null);
 
   const handleDeepLinkParams = useCallback((params: { term?: number; lesson?: number; q?: string }) => {
@@ -280,12 +360,25 @@ export function AiMentorExperience({
   }, []);
 
   const completedTerms = useMemo(
-    () =>
-      Object.values(officialProgress.termProgress).filter((item) => item.completed)
-        .length,
-    [officialProgress.termProgress],
+    () => officialProgress.loaded && !officialProgress.error
+      ? Object.values(officialProgress.termProgress).filter((item) => item.completed).length
+      : null,
+    [officialProgress.termProgress, officialProgress.loaded, officialProgress.error],
   );
-  const confidence = mentorInsights?.profile?.confidenceScore ?? null;
+  const profile = mentorInsights?.profile;
+  const confidence = profile?.confidenceEvidenceState === "observed" &&
+    typeof profile.confidenceScore === "number" &&
+    Number.isFinite(profile.confidenceScore) &&
+    profile.confidenceScore >= 0 && profile.confidenceScore <= 100
+      ? profile.confidenceScore
+      : null;
+  const profileStatus = profileLoading
+    ? copy.profileLoading
+    : profileError
+      ? copy.profileUnavailable
+      : confidence === null
+        ? copy.profileInsufficient
+        : copy.profileReady;
   const publicResearch =
     mentorResearchModeForSurface(effectivePlan, activeSurface) === "public";
 
@@ -326,15 +419,15 @@ export function AiMentorExperience({
   const applyThreadsPayload = useCallback((responseOk: boolean, data: unknown) => {
     const payload = data as { ok?: boolean; threads?: MentorThread[] } | null;
     if (!responseOk || !payload?.ok || !Array.isArray(payload.threads)) {
-      setHistoryUnavailable(true);
+      setThreadIndexUnavailable(true);
       return;
     }
     const localized = payload.threads.filter(
       (thread) => thread.status === "active" && thread.locale === mentorLocale,
     );
     setThreads(localized);
-    if (!localized.length) setMessages([]);
-    setHistoryUnavailable(false);
+    // The saved-thread index does not own the current, possibly unsaved chat.
+    setThreadIndexUnavailable(false);
     setActiveThreadId((current) => {
       if (current && localized.some((thread) => thread.id === current)) {
         return current;
@@ -346,13 +439,16 @@ export function AiMentorExperience({
   }, [mentorLocale]);
 
   const loadThreads = useCallback(async () => {
+    const requestConversationEpoch = conversationEpochRef.current;
     setThreadsLoading(true);
     try {
       const response = await fetch("/api/mentor-threads", { cache: "no-store" });
       const data = await response.json();
-      applyThreadsPayload(response.ok, data);
+      if (requestConversationEpoch === conversationEpochRef.current) {
+        applyThreadsPayload(response.ok, data);
+      }
     } catch {
-      setHistoryUnavailable(true);
+      if (requestConversationEpoch === conversationEpochRef.current) setThreadIndexUnavailable(true);
     } finally {
       setThreadsLoading(false);
     }
@@ -368,15 +464,17 @@ export function AiMentorExperience({
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestConversationEpoch = conversationEpochRef.current;
     fetch("/api/mentor-threads", { cache: "no-store", signal: controller.signal })
       .then(async (response) => ({ response, data: await response.json() }))
       .then(({ response, data }) => {
-        if (!controller.signal.aborted) applyThreadsPayload(response.ok, data);
+        if (!controller.signal.aborted && requestConversationEpoch === conversationEpochRef.current) {
+          applyThreadsPayload(response.ok, data);
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) {
-          setMessages([]);
-          setHistoryUnavailable(true);
+        if (!controller.signal.aborted && requestConversationEpoch === conversationEpochRef.current) {
+          setThreadIndexUnavailable(true);
         }
       })
       .finally(() => {
@@ -386,7 +484,7 @@ export function AiMentorExperience({
   }, [applyThreadsPayload]);
 
   useEffect(() => {
-    if (!activeThreadId) {
+    if (!activeThreadId || currentChatThreadRef.current === activeThreadId) {
       return;
     }
     const controller = new AbortController();
@@ -402,7 +500,7 @@ export function AiMentorExperience({
         if (controller.signal.aborted) return;
         if (!response.ok || !data?.ok || !Array.isArray(data.conversations)) {
           setMessages([]);
-          setHistoryUnavailable(true);
+          setConversationHistoryUnavailable(true);
           return;
         }
         const history = data.conversations
@@ -415,63 +513,38 @@ export function AiMentorExperience({
           .filter((item: WorkspaceMessage) => item.content.trim().length > 0)
           .reverse();
         setMessages(history);
-        setHistoryUnavailable(data.storage === "unavailable");
+        setConversationHistoryUnavailable(data.storage === "unavailable");
       })
       .catch(() => {
-        if (!controller.signal.aborted) setHistoryUnavailable(true);
+        if (!controller.signal.aborted) setConversationHistoryUnavailable(true);
       })
       .finally(() => {
         if (!controller.signal.aborted) setHistoryLoading(false);
       });
     return () => controller.abort();
-  }, [activeThreadId]);
+  }, [activeThreadId, historyRetry]);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ block: "end" });
   }, [historyLoading, loading, messages]);
 
-  const closeHistory = useCallback(() => {
+  const closeHistory = useCallback((restoreFocus = true) => {
     setHistoryOpen(false);
-    window.requestAnimationFrame(() => historyTriggerRef.current?.focus());
+    if (restoreFocus) window.requestAnimationFrame(() => historyTriggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
     if (!historyOpen) return;
+    const dialog = historySheetRef.current;
+    if (!dialog) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const sheet = historySheetRef.current;
-    const focusable = () =>
-      Array.from(
-        sheet?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
-        ) ?? [],
-      );
-    focusable()[0]?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeHistory();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const items = focusable();
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
+    dialog.showModal();
     return () => {
+      dialog.close();
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
     };
-  }, [closeHistory, historyOpen]);
+  }, [historyOpen]);
 
   useEffect(
     () => () => {
@@ -481,17 +554,18 @@ export function AiMentorExperience({
   );
 
   const newConversation = useCallback(() => {
+    currentChatThreadRef.current = null;
     conversationEpochRef.current += 1;
     setLoading(false);
     setIsExplaining(false);
     setHistoryLoading(false);
-    setHistoryUnavailable(false);
+    setConversationHistoryUnavailable(false);
     setRequestError(null);
     setActiveThreadId(null);
     setMessages([]);
     setQuestion("");
-    closeHistory();
-    window.setTimeout(() => textareaRef.current?.focus(), 0);
+    closeHistory(false);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
   }, [closeHistory]);
 
   const selectThread = useCallback(
@@ -500,11 +574,12 @@ export function AiMentorExperience({
         closeHistory();
         return;
       }
+      currentChatThreadRef.current = null;
       conversationEpochRef.current += 1;
       setLoading(false);
       setIsExplaining(false);
       setHistoryLoading(true);
-      setHistoryUnavailable(false);
+      setConversationHistoryUnavailable(false);
       setRequestError(null);
       setMessages([]);
       setActiveThreadId(threadId);
@@ -535,7 +610,7 @@ export function AiMentorExperience({
     const clean = question.trim();
     if (clean.length < 2 || loading || historyLoading) return;
     const askedMode = detectMentorMode(clean);
-    const requestConversationEpoch = conversationEpochRef.current;
+    const requestConversationEpoch = ++conversationEpochRef.current;
     const userMessage: WorkspaceMessage = {
       id: safeMessageId("user"),
       role: "user",
@@ -575,7 +650,6 @@ export function AiMentorExperience({
           ? { ...local, ...data, answer: data.answer }
           : local;
       if (conversationEpochRef.current !== requestConversationEpoch) {
-        void loadThreads();
         return;
       }
       setMessages((current) => [
@@ -588,7 +662,12 @@ export function AiMentorExperience({
           reply: nextReply,
         },
       ]);
-      if (nextReply.threadId) setActiveThreadId(nextReply.threadId);
+      if (typeof nextReply.threadId === "string" && nextReply.threadId) {
+        // Bind the already rendered chat; only a history selection needs hydration.
+        currentChatThreadRef.current = nextReply.threadId;
+        setConversationHistoryUnavailable(false);
+        setActiveThreadId(nextReply.threadId);
+      }
       setIsExplaining(true);
       if (explainTimerRef.current) window.clearTimeout(explainTimerRef.current);
       explainTimerRef.current = window.setTimeout(() => setIsExplaining(false), 1_200);
@@ -667,6 +746,18 @@ export function AiMentorExperience({
     reducedMotion: prefersReducedMotion,
   });
   const mentorAct = stageDirection.act;
+  const prepareDraft = (prompt: string) => {
+    if (loading || historyLoading) return;
+    setSelectedSurface("academy");
+    setScenarioCue(null);
+    setQuestion(prompt);
+    textareaRef.current?.focus();
+  };
+  const startingPoints = [
+    { title: copy.learnTitle, detail: copy.learnText, prompt: copy.learnPrompt, Icon: BookOpenCheck },
+    { title: copy.riskTitle, detail: copy.riskText, prompt: copy.riskPrompt, Icon: ShieldCheck },
+    { title: copy.practiceTitle, detail: copy.practiceText, prompt: copy.practicePrompt, Icon: BrainCircuit },
+  ];
   const renderThreadList = () => (
     <div className={styles.threadList}>
       <button type="button" className={styles.newThreadButton} onClick={newConversation}>
@@ -674,8 +765,9 @@ export function AiMentorExperience({
         <span>{copy.newConversation}</span>
       </button>
       {threadsLoading ? (
-        <div className={styles.threadState}>
+        <div className={styles.threadState} role="status">
           <Loader2 className={styles.spinner} aria-hidden="true" />
+          <span>{copy.loadingThreads}</span>
         </div>
       ) : threads.length ? (
         threads.map((thread) => (
@@ -689,8 +781,8 @@ export function AiMentorExperience({
           >
             <MessageCircle aria-hidden="true" />
             <span>
-              <strong>{thread.title}</strong>
-              <small>{dateFormatter.format(new Date(thread.lastMessageAt))}</small>
+              <strong><bdi>{thread.title}</bdi></strong>
+              <small>{Number.isFinite(Date.parse(thread.lastMessageAt)) ? dateFormatter.format(new Date(thread.lastMessageAt)) : "—"}</small>
             </span>
           </button>
         ))
@@ -701,7 +793,12 @@ export function AiMentorExperience({
         <div className={styles.historyWarning} role="status">
           <WifiOff aria-hidden="true" />
           <p>{copy.historyUnavailable}</p>
-          <button type="button" onClick={() => void loadThreads()}>
+          <button type="button" disabled={threadsLoading || historyLoading} onClick={() => {
+            void loadThreads();
+            if (conversationHistoryUnavailable && activeThreadId && messages.length === 0) {
+              setHistoryRetry((current) => current + 1);
+            }
+          }}>
             {copy.retryHistory}
           </button>
         </div>
@@ -738,8 +835,15 @@ export function AiMentorExperience({
         </div>
       </header>
 
-      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel}>
-        <div className={styles.officeCell}>
+      <div className={styles.mobilePresence}>
+        <LivingMentorAvatar act={mentorAct} locale={locale} size="header" />
+        <span><strong>{copy.mentor}</strong><small>{loading ? copy.thinking : copy.safety}</small></span>
+        <button type="button" aria-expanded={officeExpanded} aria-controls="mentor-office" onClick={() => setOfficeExpanded((open) => !open)}>
+          {officeExpanded ? copy.hideOffice : copy.office}<ChevronDown aria-hidden="true" />
+        </button>
+      </div>
+      <div className={styles.workspaceGrid} data-arena-panel={arenaPanel} data-office-expanded={officeExpanded}>
+        <div className={styles.officeCell} id="mentor-office">
           <MentorOfficeScene
             activeSurface={activeSurface}
             completedTerms={completedTerms}
@@ -772,7 +876,7 @@ export function AiMentorExperience({
             <div>
               <p>{copy.conversation}</p>
               <div className={styles.chatEvidence}>
-                <span><BookOpenCheck aria-hidden="true" />{completedTerms}/7 {copy.completedTerms}</span>
+                <span role="status" aria-atomic="true"><BookOpenCheck aria-hidden="true" />{officialProgress.error ? copy.progressUnavailable : !officialProgress.loaded ? copy.progressLoading : `${completedTerms}/7 ${copy.completedTerms}`}</span>
                 <span><BrainCircuit aria-hidden="true" />{copy.confidence}: {confidence === null ? "—" : `${Math.round(confidence)}%`}</span>
               </div>
             </div>
@@ -795,6 +899,8 @@ export function AiMentorExperience({
                 onClick={() => setHistoryOpen(true)}
                 aria-label={copy.history}
                 aria-haspopup="dialog"
+                aria-expanded={historyOpen}
+                aria-controls="mentor-history-dialog"
               >
                 <History aria-hidden="true" />
                 <span>{copy.history}</span>
@@ -805,17 +911,18 @@ export function AiMentorExperience({
             </div>
           </header>
 
+          <div className={styles.profileEvidence} data-profile-state={profileLoading ? "loading" : profileError ? "unavailable" : confidence === null ? "insufficient" : "observed"}>
+            <p role="status" aria-atomic="true">{profileStatus}</p>
+            <button
+              type="button"
+              aria-disabled={profileLoading}
+              onClick={() => { if (!profileLoading) refreshProfile(); }}
+            >
+              {copy.profileRefresh}
+            </button>
+          </div>
+
           <div className={styles.chatBody}>
-            <aside className={styles.historyRail} dir={direction} aria-label={copy.history}>
-              <div className={styles.historyRailHeader}>
-                <History aria-hidden="true" />
-                <div>
-                  <strong>{copy.history}</strong>
-                  <p>{copy.historyDescription}</p>
-                </div>
-              </div>
-              {renderThreadList()}
-            </aside>
 
             <div className={styles.conversation} dir={direction}>
               <div
@@ -825,8 +932,9 @@ export function AiMentorExperience({
                 aria-relevant="additions"
               >
                 {historyLoading ? (
-                  <div className={styles.conversationLoading}>
+                  <div className={styles.conversationLoading} role="status">
                     <Loader2 className={styles.spinner} aria-hidden="true" />
+                    <span>{copy.loadingConversation}</span>
                   </div>
                 ) : messages.length ? (
                   messages.map((message) => (
@@ -850,7 +958,7 @@ export function AiMentorExperience({
                           className={styles.answerBadge}
                           data-source={message.reply.externalProviderUsed ? "live" : "prepared"}
                         >
-                          {message.reply.externalProviderUsed ? copy.liveAnswer : copy.preparedAnswer}
+                          {message.reply.externalProviderUsed ? copy.modelAnswer : copy.preparedAnswer}
                           {message.reply.memoryMode === "ephemeral" ? ` · ${copy.notSaved}` : ""}
                         </span>
                       ) : null}
@@ -869,7 +977,7 @@ export function AiMentorExperience({
                           <strong>{copy.sourceLessons}</strong>
                           <div>
                             {message.reply.sourceLessons.slice(0, 4).map((source) => (
-                              <Link key={source.href} href={source.href}>
+                              <Link key={source.href} href={source.href} onFocus={revealFocusedEvidence}>
                                 <BookOpenCheck aria-hidden="true" />{source.title}
                               </Link>
                             ))}
@@ -877,16 +985,24 @@ export function AiMentorExperience({
                         </div>
                       ) : null}
 
-                      {message.reply?.sources?.length ? (
+                      {message.reply?.sources?.some(source => publicSourceLink(source.url)) ? (
                         <div className={styles.replyLinks}>
                           <strong>{copy.publicSources}</strong>
+                          <p className={styles.sourceFreshness} data-source-freshness="unverified">{copy.sourceFreshnessUnknown}</p>
                           <div>
-                            {message.reply.sources.slice(0, 6).map((source, index) => (
-                              <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink aria-hidden="true" />
-                                {source.title || `${copy.publicSources} ${index + 1}`}
-                              </a>
-                            ))}
+                            {message.reply.sources.slice(0, 6).map((source) => {
+                              const link = publicSourceLink(source.url);
+                              if (!link) return null;
+                              return (
+                                <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.publicSourceLink} onFocus={revealFocusedEvidence}>
+                                  <ExternalLink aria-hidden="true" />
+                                  <span>
+                                    <strong><bdi>{source.title || link.host}</bdi></strong>
+                                    <small><bdi dir="ltr">{link.host}</bdi><span> · {copy.newTab}</span></small>
+                                  </span>
+                                </a>
+                              );
+                            })}
                           </div>
                         </div>
                       ) : null}
@@ -895,8 +1011,17 @@ export function AiMentorExperience({
                   ))
                 ) : (
                   <div className={styles.emptyConversation}>
-                    <h2>{isFa ? "امروز چه چیزی را با هم یاد بگیریم؟" : "What would you like to explore?"}</h2>
-                    <p>{isFa ? "دربارهٔ درس‌ها و تمرین‌هایت بپرس. گفت‌وگوهای ذخیره‌شده را از تاریخچه ادامه بده." : "Ask about your lessons and practice. Continue saved conversations from your history."}</p>
+                    <span className={styles.welcomeMark} aria-hidden="true"><BookOpenCheck /></span>
+                    <h2>{copy.welcome}</h2>
+                    <p>{copy.welcomeText}</p>
+                    <div className={styles.startingPoints} aria-label={copy.starterQuestions}>
+                      {startingPoints.map(({ title, detail, prompt, Icon }) => (
+                        <button key={title} type="button" onClick={() => prepareDraft(prompt)} disabled={loading || historyLoading}>
+                          <Icon aria-hidden="true" /><span><strong>{title}</strong><small>{detail}</small></span><ArrowUpRight aria-hidden="true" />
+                        </button>
+                      ))}
+                    </div>
+                    <p className={styles.draftHint}>{copy.draftHint}</p>
                   </div>
                 )}
 
@@ -927,7 +1052,11 @@ export function AiMentorExperience({
               ) : null}
 
               <div className={styles.composer} id="mentor-chat">
-                <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
+                <div className={styles.composerHeading}>
+                  <label htmlFor="mentor-workspace-question">{copy.inputLabel}</label>
+                  <span aria-label={copy.modeLabel}>{copy[activeSurface]}</span>
+                </div>
+                {publicResearch ? <p className={styles.researchNotice}>{copy.researchMode}</p> : null}
                 <div className={styles.composerInput}>
                   <textarea
                     id="mentor-workspace-question"
@@ -954,7 +1083,13 @@ export function AiMentorExperience({
                     </button>
                   </div>
                 </div>
-                <p className={styles.privacyNote}><ShieldCheck aria-hidden="true" />{copy.privacy}</p>
+                <div className={styles.composerFooter}>
+                  <p className={styles.privacyNote}><ShieldCheck aria-hidden="true" />{copy.privacy}</p>
+                  <nav aria-label={copy.privacyLink}>
+                    <Link href={isFa ? "/academy/account#mentor-privacy" : "/en/academy/account#mentor-privacy"}>{copy.privacyLink}</Link>
+                    <Link href={isFa ? "/support" : "/en/support"}>{copy.support}</Link>
+                  </nav>
+                </div>
               </div>
             </div>
           </div>
@@ -976,13 +1111,11 @@ export function AiMentorExperience({
       </div>
 
       {historyOpen ? (
-        <div className={styles.historyOverlay} data-direction={direction}>
-          <button type="button" className={styles.historyBackdrop} onClick={closeHistory} aria-label={copy.closeHistory} />
-          <div
+          <dialog
             ref={historySheetRef}
-            className={styles.historySheet}
-            role="dialog"
-            aria-modal="true"
+            id="mentor-history-dialog"
+            className={styles.historyDialog}
+            onCancel={(event) => { event.preventDefault(); closeHistory(); }}
             aria-labelledby="mentor-history-title"
             dir={direction}
           >
@@ -994,13 +1127,12 @@ export function AiMentorExperience({
                   <small>{copy.historyDescription}</small>
                 </span>
               </div>
-              <button type="button" onClick={closeHistory} aria-label={copy.closeHistory}>
+              <button type="button" onClick={() => closeHistory()} aria-label={copy.closeHistory}>
                 <X aria-hidden="true" />
               </button>
             </header>
             {renderThreadList()}
-          </div>
-        </div>
+          </dialog>
       ) : null}
     </section>
   );
