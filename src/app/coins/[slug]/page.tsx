@@ -2,8 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getCoinPages } from "@/data/coins";
-import { buildLocalizedAlternates } from "@/i18n/seo";
+import { coinPages } from "@/data/coins";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
@@ -17,16 +16,14 @@ import { ArrowLeft, CheckCircle2, AlertTriangle, BookOpen } from "lucide-react";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { safeJsonLd } from "@/lib/json-ld";
 
-export const revalidate = 3600;
-
 type Props = { params: Promise<{ slug: string }> };
 
 function getCoin(slug: string) {
-  return getCoinPages().find((coin) => coin.slug === slug);
+  return coinPages.find((coin) => coin.slug === slug);
 }
 
 export async function generateStaticParams() {
-  return getCoinPages().map((coin) => ({ slug: coin.slug }));
+  return coinPages.map((coin) => ({ slug: coin.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -37,10 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${coin.faName} (${coin.symbol}) | قیمت، معرفی، کاربردها و ریسک‌ها در تک‌پی`,
     description: coin.description,
     keywords: coin.seoKeywords,
-    alternates: {
-      canonical: `https://tecpey.ir/coins/${coin.slug}`,
-      languages: buildLocalizedAlternates(`/coins/${coin.slug}`),
-    },
+    alternates: { canonical: `https://tecpey.ir/coins/${coin.slug}` },
     openGraph: {
       title: `${coin.faName} (${coin.symbol}) | تک‌پی`,
       description: coin.description,

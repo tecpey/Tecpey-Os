@@ -12,7 +12,6 @@ import {
 } from "@/lib/tool-growth-automation";
 
 const coreTools = rawTools as TraderToolRecord[];
-const freshGeneratedAt = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
 describe("tool growth automation", () => {
   it("materializes educational tool pages without enabling external integrations", () => {
@@ -35,34 +34,12 @@ describe("tool growth automation", () => {
     assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.canonicalPath === `/en/trading-tools/${slugifyToolName(tool.name)}`));
   });
 
-  it("self-heals the stale checked-in snapshot from the governed candidate catalog", () => {
+  it("upgrades immutable legacy tool snapshots to SEO/AEO/GEO v2 at read time", () => {
     const tools = readPublishedToolGrowthRecords(legacyToolGrowthSnapshot as Parameters<typeof readPublishedToolGrowthRecords>[0]);
-    assert.equal(tools.length, legacyToolGrowthSnapshot.tools.length);
-    assert.ok(tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v2"));
-    assert.ok(tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v2"));
-  });
-
-  it("upgrades a fresh legacy-shaped snapshot to SEO/AEO/GEO v2 at read time", () => {
-    const fresh = structuredClone(legacyToolGrowthSnapshot);
-    fresh.generatedAt = freshGeneratedAt();
-    const tools = readPublishedToolGrowthRecords(fresh as Parameters<typeof readPublishedToolGrowthRecords>[0]);
     assert.ok(tools.length > 0);
     assert.ok(tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v2"));
     assert.ok(tools.every((tool) => tool.organicGrowth?.fa.readiness.ready && tool.organicGrowth?.en.readiness.ready));
-  });
-
-  it("does not republish a stale tool when its slug/domain is now curated", () => {
-    const candidate = toolGrowthCandidates[0];
-    const staleSnapshot = materializeToolGrowthSnapshot([candidate], {
-      generatedAt: "2026-08-10T00:00:00.000Z",
-      publishThreshold: 0,
-      existingSlugs: [slugifyToolName(candidate.name)],
-      existingDomains: [candidate.domain],
-    });
-
-    assert.equal(staleSnapshot.stats.publishedContent, 0);
-    assert.equal(readPublishedToolGrowthRecords(staleSnapshot).length, 0);
   });
 
   it("scores high-trust research and security tools above the publication threshold", () => {
@@ -121,7 +98,7 @@ describe("tool growth automation", () => {
 
     const valid = materializeToolGrowthSnapshot(
       [{ ...base, site: "https://research.trusted.example/path" }],
-      { generatedAt: freshGeneratedAt(), publishThreshold: 0 },
+      { generatedAt: "2026-08-21T00:00:00.000Z", publishThreshold: 0 },
     );
     assert.equal(valid.stats.publishedContent, 1);
     assert.equal(valid.rejected.length, 0);
@@ -151,7 +128,7 @@ describe("tool growth automation", () => {
       integrationRisk: "none",
     };
     const snapshot = materializeToolGrowthSnapshot([base], {
-      generatedAt: freshGeneratedAt(),
+      generatedAt: "2026-08-21T00:00:00.000Z",
       publishThreshold: 0,
     });
 

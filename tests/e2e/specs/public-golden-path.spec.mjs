@@ -517,6 +517,23 @@ async function expectCtasClearOfFixedControls(page, contract) {
   }
 }
 
+async function expectMobileTouchTargets(page, contract) {
+  if (contract.formFactor !== "mobile") return;
+  const targets = [
+    ...contract.primaryCtas.map((name) => page.getByRole("link", { name, exact: true })),
+    page.getByRole("button", { name: contract.menu }),
+    page.getByRole("button", { name: contract.mentor }),
+  ];
+  for (const target of targets) {
+    await expect(target).toBeVisible();
+    const box = await target.boundingBox();
+    expect(box, "mobile primary interaction has no rendered box").not.toBeNull();
+    if (!box) continue;
+    expect(box.width, "mobile primary interaction width is below 44px").toBeGreaterThanOrEqual(44);
+    expect(box.height, "mobile primary interaction height is below 44px").toBeGreaterThanOrEqual(44);
+  }
+}
+
 async function collectGovernedInternalTargets(page, contract) {
   const ctas = await governedPrimaryCtas(page, contract);
   const groups = [page.locator("nav"), page.locator("footer")];
@@ -752,7 +769,7 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     await expect(trigger).toBeFocused();
   } else {
     const menuTrigger = page.getByRole("button", { name: contract.menu });
-    await menuTrigger.click();
+    await menuTrigger.tap();
     const knowledgeTrigger = page.getByRole("button", { name: contract.knowledge });
     await knowledgeTrigger.click();
     await expect(
@@ -766,10 +783,15 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
 
   await expectGovernedTargetsHealthy(page, contract);
   await expectCtasClearOfFixedControls(page, contract);
+  await expectMobileTouchTargets(page, contract);
 
   const mentorTrigger = page.getByRole("button", { name: contract.mentor });
   await expect(mentorTrigger).toBeVisible();
-  await mentorTrigger.click();
+  if (contract.formFactor === "mobile") {
+    await mentorTrigger.tap();
+  } else {
+    await mentorTrigger.click();
+  }
   const dialog = page.getByRole("dialog", { name: contract.mentorTitle });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(
@@ -878,9 +900,12 @@ test("market search resets pagination before requesting the filtered result", as
 
   const response = await page.goto("/markets", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBeLessThan(400);
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Bitcoin" })).toBeVisible();
+  const bitcoinRow = page.locator('a[data-market-asset="BTC"]');
+  await expect(bitcoinRow).toBeVisible();
+  await expect(bitcoinRow).toHaveAttribute("href", "/crypto/btc");
 
-  const nextPage = page.locator("button:has(svg.lucide-chevrons-right)");
+  const pagination = page.getByRole("navigation", { name: "صفحه‌بندی بازار" });
+  const nextPage = pagination.getByRole("button", { name: "صفحه بعد", exact: true });
   const pageTwoRequest = page.waitForResponse((candidate) => {
     const url = new URL(candidate.url());
     return url.pathname.endsWith("/api/v1/user/currency/list") &&
@@ -889,7 +914,9 @@ test("market search resets pagination before requesting the filtered result", as
   });
   await nextPage.click();
   await pageTwoRequest;
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toBeVisible();
+  const toncoinRow = page.locator('a[data-market-asset="TON"]');
+  await expect(toncoinRow).toBeVisible();
+  await expect(toncoinRow).toHaveAttribute("href", "/crypto/ton");
 
   const firstPageSearch = page.waitForResponse((candidate) => {
     const url = new URL(candidate.url());
@@ -899,8 +926,10 @@ test("market search resets pagination before requesting the filtered result", as
   });
   await page.getByPlaceholder("جستجو بر اساس نام ارز یا نماد...").fill("ETH");
   await firstPageSearch;
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Ethereum" })).toBeVisible();
-  await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toHaveCount(0);
+  const ethereumRow = page.locator('a[data-market-asset="ETH"]');
+  await expect(ethereumRow).toBeVisible();
+  await expect(ethereumRow).toHaveAttribute("href", "/crypto/eth");
+  await expect(page.locator('a[data-market-asset="TON"]')).toHaveCount(0);
 });
 
 test("CSP evidence remains available after a document reload", async ({ page }, testInfo) => {

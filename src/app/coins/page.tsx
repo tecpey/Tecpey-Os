@@ -2,21 +2,18 @@
 import { ArticleSchema } from "@/components/seo/ArticleSchema";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getCoinPages } from "@/data/coins";
+import { coinPages } from "@/data/coins";
 import { ContentHero, ContentShell, TrustStrip } from "@/components/content/ContentUI";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft } from "lucide-react";
 import { safeJsonLd } from "@/lib/json-ld";
-import { getAlternateLocales } from "@/lib/seo";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
-
-export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "خرید و راهنمای رمزارزها | تک‌پی",
   description: "راهنمای ساده خرید و شناخت بیت‌کوین، تتر، اتریوم، تون‌کوین، سولانا و ده‌ها رمزارز دیگر در تک‌پی؛ کاربردها، ریسک‌ها، نکات امنیتی و مسیر شروع.",
-  alternates: { canonical: "https://tecpey.ir/coins", languages: getAlternateLocales("/coins", "/en/coins") },
+  alternates: { canonical: "https://tecpey.ir/coins" },
   keywords: ["قیمت ارز دیجیتال", "قیمت بیت کوین", "قیمت تتر", "خرید رمزارز", "صفحات کوین"],
 };
 
@@ -68,7 +65,7 @@ export default async function CoinsPage() {
       <TrendRadarWidget data={trendRadar} locale="fa" />
       <section className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {getCoinPages().map((coin) => (
+          {coinPages.map((coin) => (
             <Link
               key={coin.slug}
               href={`/coins/${coin.slug}`}

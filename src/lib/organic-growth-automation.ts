@@ -8,13 +8,6 @@ export type GrowthSourceAttribution = {
   role: "primary" | "official" | "corroborating" | "tecpey";
 };
 
-export type GrowthClaimSource = {
-  claim: string;
-  sourceName: string;
-  sourceUrl: string;
-  role: "primary" | "official" | "corroborating" | "editorial" | "tecpey";
-};
-
 export type OrganicGrowthReadiness = {
   seoScore: number;
   aeoScore: number;
@@ -46,7 +39,6 @@ export type OrganicGrowthProfile = {
   questionIntents: string[];
   keyFacts: string[];
   sourceAttributions: GrowthSourceAttribution[];
-  claimSourceMap: GrowthClaimSource[];
   contentValue: string;
   safetyDisclaimer: string;
   freshnessTag: "evergreen" | "fresh" | "scheduled_refresh";
@@ -70,25 +62,10 @@ export type OrganicGrowthProfileInput = {
   questionIntents?: string[];
   keyFacts?: string[];
   sourceAttributions?: GrowthSourceAttribution[];
-  claimSourceMap: GrowthClaimSource[];
   contentValue?: string;
   safetyDisclaimer: string;
   freshnessTag?: OrganicGrowthProfile["freshnessTag"];
 };
-
-export const ORGANIC_GROWTH_SNAPSHOT_MAX_AGE_MS = 72 * 60 * 60 * 1000;
-
-export function isOrganicGrowthSnapshotFresh(
-  generatedAt: string,
-  now = Date.now(),
-  maxAgeMs = ORGANIC_GROWTH_SNAPSHOT_MAX_AGE_MS,
-): boolean {
-  const generatedMs = Date.parse(generatedAt);
-  if (!Number.isFinite(generatedMs)) return false;
-  if (!Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) return false;
-  const ageMs = now - generatedMs;
-  return ageMs >= 0 && ageMs <= maxAgeMs;
-}
 
 const SITE_URL = "https://tecpey.ir";
 const TAG_RE = /^[a-z0-9][a-z0-9:_-]{1,80}$/;
@@ -225,7 +202,6 @@ export function buildOrganicGrowthProfile(input: OrganicGrowthProfileInput): Org
     questionIntents: uniqueStrings(input.questionIntents ?? [], 16),
     keyFacts: uniqueStrings(input.keyFacts ?? [], 20),
     sourceAttributions: safeSourceAttributions(input.sourceAttributions ?? []),
-    claimSourceMap: input.claimSourceMap.map((entry) => ({ ...entry, claim: compact(entry.claim).slice(0, 320), sourceName: compact(entry.sourceName).slice(0, 160), sourceUrl: (() => { try { const url = new URL(compact(entry.sourceUrl)); url.hash = ""; url.username = ""; url.password = ""; return url.toString(); } catch { return compact(entry.sourceUrl); } })() })).filter((entry) => entry.claim && entry.sourceName && /^https:\/\//i.test(entry.sourceUrl)).slice(0, 32),
     contentValue: truncate(input.contentValue ?? input.answerSummary, 600),
     safetyDisclaimer: truncate(input.safetyDisclaimer, 360),
     freshnessTag: input.freshnessTag ?? "evergreen",
@@ -265,9 +241,6 @@ export function validateOrganicGrowthProfile(profile: unknown): profile is Organ
   if (!Array.isArray(value.questionIntents) || value.questionIntents.length < 1) return false;
   if (!Array.isArray(value.keyFacts) || value.keyFacts.length < 1) return false;
   if (!Array.isArray(value.sourceAttributions) || value.sourceAttributions.length < 1) return false;
-  if (!Array.isArray(value.claimSourceMap) || value.claimSourceMap.length < 1) return false;
-  const attributedUrls = new Set(value.sourceAttributions.map((source) => source.url));
-  if (!value.claimSourceMap.every((entry) => entry && typeof entry.claim === "string" && entry.claim.length >= 12 && typeof entry.sourceName === "string" && entry.sourceName.length > 0 && /^https:\/\//i.test(entry.sourceUrl) && attributedUrls.has(entry.sourceUrl) && ["primary", "official", "corroborating", "editorial", "tecpey"].includes(entry.role))) return false;
   if (!value.sourceAttributions.every((source) =>
     source && typeof source.name === "string" && /^https:\/\//i.test(source.url) &&
     ["primary", "official", "corroborating", "tecpey"].includes(source.role))) return false;

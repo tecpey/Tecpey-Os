@@ -37,12 +37,21 @@ function toolSummary(tool: LandingGrowthTool, locale: ContentLocale) {
   return locale === "fa" ? tool.summaryFa : tool.summaryEn;
 }
 
+function evidenceDate(value: string, locale: ContentLocale) {
+  return new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : "en-GB", {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(value));
+}
+
 function FeaturedCoinRow({
   coin,
   locale,
+  showCurrentEvidence,
 }: {
   coin: LandingGrowthCoin;
   locale: ContentLocale;
+  showCurrentEvidence: boolean;
 }) {
   const isFa = locale === "fa";
   const Arrow = isFa ? ArrowLeft : ArrowRight;
@@ -66,7 +75,7 @@ function FeaturedCoinRow({
           {coinTitle(coin, locale)}
         </span>
         <span className="mt-1 block text-xs font-bold leading-6 text-[color:var(--tp-muted)]">
-          {coin.latestImpactTitle || coinCategory(coin, locale)}
+          {showCurrentEvidence ? coin.latestNewsTitle : coinCategory(coin, locale)}
         </span>
       </span>
       <Arrow
@@ -129,11 +138,20 @@ export function LandingGrowthRadar({
   const isFa = locale === "fa";
   const radar = providedRadar ?? getLandingGrowthRadar(locale);
   const prefix = isFa ? "" : "/en";
+  const isEvidenceReady = radar.evidence.status === "ready";
+  const evidenceLabel = isEvidenceReady
+    ? isFa
+      ? "شواهد جاری تأیید شده‌اند"
+      : "Current evidence is verified"
+    : isFa
+      ? "شواهد جاری کامل نیست؛ مسیرهای آموزشی منتخب نمایش داده می‌شوند"
+      : "Current evidence is incomplete; curated learning routes are shown";
 
   return (
     <section
       id="growth-radar"
       data-home-section="growth-radar"
+      data-evidence-status={radar.evidence.status}
       data-major-section-visibility="desktop-only"
       className="hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 md:block lg:px-8 lg:pb-24"
     >
@@ -142,7 +160,9 @@ export function LandingGrowthRadar({
           <div>
             <div className="tecpey-kicker">
               <CircleGauge className="h-4 w-4" aria-hidden="true" />
-              {isFa ? "زمینهٔ امروز بازار" : "Today's market context"}
+              {isEvidenceReady
+                ? isFa ? "زمینهٔ امروز بازار" : "Today's market context"
+                : isFa ? "زمینهٔ آموزشی منتخب" : "Curated learning context"}
             </div>
             <h2 className="mt-5 text-balance text-3xl font-black leading-tight text-[color:var(--tp-text)] sm:text-4xl">
               {isFa
@@ -150,10 +170,30 @@ export function LandingGrowthRadar({
                 : "Before following price, understand what is worth investigating."}
             </h2>
             <p className="mt-4 text-sm font-semibold leading-8 text-[color:var(--tp-muted)]">
-              {isFa
-                ? "این بخش چند مسیر آموزشی را از میان خبرها، داده‌ها و ابزارهای دارای شواهد تازه بیرون می‌کشد؛ نه برای پیشنهاد معامله، بلکه برای اینکه بدانی امروز چه چیزی را بهتر است بفهمی."
-                : "This section surfaces a small set of learning routes from current evidence, news and tools—not to suggest a trade, but to make today's research starting point clearer."}
+              {isEvidenceReady
+                ? isFa
+                  ? "این بخش چند مسیر آموزشی را از میان خبرها، داده‌ها و ابزارهای دارای شواهد تازه بیرون می‌کشد؛ نه برای پیشنهاد معامله، بلکه برای اینکه بدانی امروز چه چیزی را بهتر است بفهمی."
+                  : "This section surfaces a small set of learning routes from current evidence, news and tools—not to suggest a trade, but to make today's research starting point clearer."
+                : isFa
+                  ? "شواهد جاری برای ساختن یک رادار «امروز» کافی نیست. مسیرهای زیر صرفاً انتخاب‌های آموزشی پشتیبان‌اند تا مسیر یادگیری قطع نشود و نباید به‌عنوان سیگنال یا زمینهٔ تازهٔ بازار تفسیر شوند."
+                  : "Current evidence is not sufficient to present a today-view of the market. The routes below are curated learning fallbacks that preserve continuity and must not be interpreted as fresh market context or signals."}
             </p>
+
+            <div
+              className={`mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border px-3 py-2 text-xs font-bold ${
+                isEvidenceReady
+                  ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-800 dark:text-emerald-200"
+                  : "border-amber-400/25 bg-amber-500/[0.07] text-amber-900 dark:text-amber-100"
+              }`}
+              aria-label={evidenceLabel}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{evidenceLabel}</span>
+              <span aria-hidden="true">·</span>
+              <time dateTime={radar.evidence.updatedAt}>
+                {isFa ? "به‌روزرسانی شواهد" : "Evidence updated"}: {evidenceDate(radar.evidence.updatedAt, locale)}
+              </time>
+            </div>
 
             <div className="mt-7 space-y-4 border-s border-[color:var(--tp-border)] ps-5">
               <div>
@@ -183,7 +223,9 @@ export function LandingGrowthRadar({
             <div className="mt-7 flex flex-wrap gap-3">
               <Link href={`${prefix}/crypto-news`} className="tecpey-action-secondary tecpey-action-compact">
                 <Newspaper className="h-4 w-4" aria-hidden="true" />
-                {isFa ? "خبرهای امروز" : "Today's news"}
+                {isEvidenceReady
+                  ? isFa ? "خبرهای امروز" : "Today's news"
+                  : isFa ? "مرور خبرها" : "Browse news"}
               </Link>
               <Link href={`${prefix}/trading-tools`} className="tecpey-action-ghost tecpey-action-compact">
                 <Wrench className="h-4 w-4" aria-hidden="true" />
@@ -205,7 +247,12 @@ export function LandingGrowthRadar({
               </div>
               <div>
                 {radar.coins.map((coin) => (
-                  <FeaturedCoinRow key={coin.symbol} coin={coin} locale={locale} />
+                  <FeaturedCoinRow
+                    key={coin.symbol}
+                    coin={coin}
+                    locale={locale}
+                    showCurrentEvidence={isEvidenceReady}
+                  />
                 ))}
               </div>
             </div>

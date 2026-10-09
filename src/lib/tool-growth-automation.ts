@@ -1,4 +1,3 @@
-import rawTools from "@/data/traderTools.json";
 import {
   toolGrowthCandidates,
   type ToolGrowthCandidate,
@@ -8,7 +7,6 @@ import {
 } from "@/data/toolGrowthCandidates";
 import {
   buildOrganicGrowthProfile,
-  isOrganicGrowthSnapshotFresh,
   type OrganicGrowthProfile,
 } from "./organic-growth-automation";
 
@@ -243,14 +241,7 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
         `ریسک یکپارچه‌سازی: ${candidate.integrationRisk}`,
         `سطح ریسک آموزشی: ${candidate.riskLevel}`,
       ],
-      sourceAttributions: [
-        { name: `${candidate.name} official`, url: candidate.site, role: "official" },
-        { name: "TecPey", url: `https://tecpey.ir/trading-tools/${slug}`, role: "tecpey" },
-      ],
-      claimSourceMap: [
-        { claim: `${candidate.name} official identity and domain`, sourceName: `${candidate.name} official`, sourceUrl: candidate.site, role: "official" },
-        { claim: `${candidate.name} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir/trading-tools/${slug}`, role: "tecpey" },
-      ],
+      sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
       contentValue: `تک‌پی ${candidate.name} را صرفاً فهرست نمی‌کند؛ کاربرد، مزایا، محدودیت‌ها، ریسک مجوزها، مسیر استفاده امن، خبرهای مرتبط و جایگاه آن در workflow تصمیم‌گیری را کنار هم ارائه می‌دهد.`,
       safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله، تأیید سرمایه‌گذاری یا مجوز اتصال کیف‌پول/API نیست.",
       freshnessTag: "scheduled_refresh",
@@ -294,14 +285,7 @@ function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
         `Integration risk: ${candidate.integrationRisk}`,
         `Educational risk level: ${candidate.riskLevel}`,
       ],
-      sourceAttributions: [
-        { name: `${candidate.name} official`, url: candidate.site, role: "official" },
-        { name: "TecPey", url: `https://tecpey.ir/en/trading-tools/${slug}`, role: "tecpey" },
-      ],
-      claimSourceMap: [
-        { claim: `${candidate.name} official identity and domain`, sourceName: `${candidate.name} official`, sourceUrl: candidate.site, role: "official" },
-        { claim: `${candidate.name} educational risk framing`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir/en/trading-tools/${slug}`, role: "tecpey" },
-      ],
+      sourceAttributions: [{ name: `${candidate.name} official`, url: candidate.site, role: "official" }],
       contentValue: `TecPey goes beyond a directory entry by combining ${candidate.name} use cases, limitations, permission risks, a safe-use workflow, related news and learning context on one canonical page.`,
       safetyDisclaimer: "This page is not financial advice, a trading signal, investment endorsement or permission to connect a wallet/API key.",
       freshnessTag: "scheduled_refresh",
@@ -418,25 +402,10 @@ export function materializeToolGrowthSnapshot(
 }
 
 export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): AutomatedTraderToolRecord[] {
-  const effectiveSnapshot = isOrganicGrowthSnapshotFresh(snapshot.generatedAt)
-    ? snapshot
-    : materializeToolGrowthSnapshot(
-        toolGrowthCandidates.filter((candidate) =>
-          snapshot.tools.some(
-            (tool) => tool.name === candidate.name && tool.domain === candidate.domain,
-          ),
-        ),
-        {
-          sourceMode: "curated_seed",
-          existingSlugs: (rawTools as TraderToolRecord[]).map((tool) => slugifyToolName(tool.name)),
-          existingDomains: (rawTools as TraderToolRecord[]).map((tool) => tool.domain),
-        },
-      );
-  if (effectiveSnapshot.schemaVersion !== 1) return [];
-  if (effectiveSnapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
-  if (effectiveSnapshot.stats.externalEnabled !== 0) return [];
-
-  return effectiveSnapshot.tools
+  if (snapshot.schemaVersion !== 1) return [];
+  if (snapshot.policyVersion !== TOOL_GROWTH_POLICY_VERSION) return [];
+  if (snapshot.stats.externalEnabled !== 0) return [];
+  return snapshot.tools
     .filter(
       (tool) =>
         tool.automation.status === "published_content" &&
@@ -445,6 +414,8 @@ export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): Au
         officialSiteMatchesDomain(tool.site, tool.domain),
     )
     .map((tool) => {
+      // Keep committed snapshots append-only while serving the newest
+      // SEO/AEO/GEO contract from the same governed candidate catalog.
       const candidate = toolGrowthCandidates.find(
         (item) => slugifyToolName(item.name) === slugifyToolName(tool.name),
       );

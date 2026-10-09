@@ -292,14 +292,6 @@ export function getHighPriorityNewsForCoin(
   );
 }
 
-export function getNewsImpactScoreForTool(toolSlug: string): number {
-  const top = highPriority(
-    impactHistory.filter((item) => item.locale === "fa" && item.relatedToolSlugs.includes(toolSlug)),
-    1,
-  )[0];
-  return top ? Math.min(1, top.priority / 100) : 0;
-}
-
 export function formatNewsImpactDateTime(value: string, locale: ContentLocale): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return locale === "fa" ? "زمان نامشخص" : "Unknown time";

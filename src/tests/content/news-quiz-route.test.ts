@@ -46,6 +46,16 @@ describe("crypto-news DB-only route", () => {
     assert.equal(body.ok, true);
     assert.ok(Array.isArray(body.items));
     assert.ok(Array.isArray(body.archiveItems));
+    assert.equal(body.publicationPolicy, "published-at-desc-v1");
+    assert.ok(Number.isInteger(body.publicationWithheldCount));
+    assert.ok(Number(body.publicationWithheldCount) >= 0);
+    const items = body.items as { publishedAt: string; isBreaking: boolean }[];
+    assert.equal(body.mode, items.length ? "live" : "fallback");
+    for (const item of items) {
+      assert.ok(Number.isFinite(Date.parse(item.publishedAt)));
+      assert.ok(Date.parse(item.publishedAt) <= TEST_NOW);
+      if (item.isBreaking) assert.ok(TEST_NOW - Date.parse(item.publishedAt) <= 12 * 60 * 60 * 1_000);
+    }
     assert.equal(contentProviderFetches, 0);
   });
 

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     canonical: courseUrl,
     languages: {
       "fa-IR": courseUrl,
-      "en": "https://tecpey.ir/en/academy/free",
+      "en-US": "https://tecpey.ir/en/academy/free",
       "x-default": courseUrl,
     },
   },

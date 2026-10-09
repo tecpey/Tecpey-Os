@@ -45,7 +45,6 @@ export type NewsImpactHistoryAuthoritySnapshot = Readonly<{
   sourceAuthority: NewsImpactHistoryAuthoritySource;
   persistedCount: number;
   seededCount: number;
-  highPriorityPersistedCount: number;
   latestPersistedRecordedAt: string | null;
 }>;
 
@@ -122,7 +121,7 @@ export async function readNewsImpactHistoryItemsTx(
             related_tool_slugs, related_coin_symbols, related_lesson_href
        FROM platform_news_impact_history_items
        ${where}
-      ORDER BY priority DESC, recorded_at DESC, published_at DESC, history_id ASC
+      ORDER BY published_at DESC, recorded_at DESC, history_id ASC
       LIMIT 240`,
     params,
   );
@@ -212,7 +211,11 @@ export function mergeNewsImpactHistoryItems(
   const bySlug = new Map<string, NewsImpactHistoryItem>();
   for (const item of seeded) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
   for (const item of persisted) bySlug.set(`${item.locale}:${getNewsImpactSlug(item)}`, item);
-  return Array.from(bySlug.values()).sort(sortNewsImpactHistoryItems);
+  return Array.from(bySlug.values()).sort((a, b) =>
+    Date.parse(b.publishedAt) - Date.parse(a.publishedAt) ||
+    Date.parse(b.recordedAt) - Date.parse(a.recordedAt) ||
+    a.id.localeCompare(b.id),
+  );
 }
 
 export async function getPostgresNewsImpactHistoryItems(
@@ -288,8 +291,8 @@ export async function getNewsImpactHistoryItemsFromAuthority(
 export async function getNewsImpactHistoryAuthoritySnapshot(
   locale?: ContentLocale,
 ): Promise<NewsImpactHistoryAuthoritySnapshot> {
-  // This authority powers public live cards, rankings and sitemap/detail reads.
-  // Stored history is immutable, but current source/provider policy is evaluated
+  // This authority powers public evidence cards and sitemap/detail reads.
+  // It is not a public ranking/impact authority. Stored history is immutable, but current source/provider policy is evaluated
   // again so a quarantine or rights downgrade cannot remain publicly visible.
   const seeded = filterCurrentNewsImpactItems(
     filterGovernedNewsImpactItems(getNewsImpactHistoryItems(locale)),
@@ -301,7 +304,6 @@ export async function getNewsImpactHistoryAuthoritySnapshot(
       sourceAuthority: "news-impact-history:seed-fallback",
       persistedCount: 0,
       seededCount: seeded.length,
-      highPriorityPersistedCount: 0,
       latestPersistedRecordedAt: null,
     };
   }
@@ -318,7 +320,6 @@ export async function getNewsImpactHistoryAuthoritySnapshot(
       : "news-impact-history:partial-seed-merged",
     persistedCount: persisted.length,
     seededCount: seeded.length,
-    highPriorityPersistedCount: persisted.filter((item) => item.priority >= 75).length,
     latestPersistedRecordedAt: latestPersistedRecordedAt
       ? new Date(latestPersistedRecordedAt).toISOString()
       : null,

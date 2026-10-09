@@ -18,6 +18,12 @@ export type NewsHydrationOutcome =
 
 export type NewsHydrationPlanningItem = {
   articleUrl: string;
+  /**
+   * Optional immutable revision identity. When present, hydration skip/cooldown
+   * decisions are scoped to this exact source revision rather than the URL as a
+   * whole. Older callers remain URL-scoped by default.
+   */
+  hydrationIdentity?: string;
   sourceCoverage: NewsSourceCoverage;
   allowFullArticleFetch: boolean;
 };
@@ -43,20 +49,26 @@ const LONG_COOLDOWN_OUTCOMES = new Set<NewsHydrationOutcome>([
   "identity_collision",
 ]);
 
+function hydrationIdentity(article: NewsHydrationPlanningItem): string {
+  return article.hydrationIdentity ?? article.articleUrl;
+}
+
 export function selectNewsHydrationCandidates<
   T extends NewsHydrationPlanningItem,
 >(
   articles: readonly T[],
-  alreadyHydratedArticleUrls: ReadonlySet<string>,
-  cooldownBlockedArticleUrls: ReadonlySet<string> = new Set(),
+  alreadyHydratedArticleIdentities: ReadonlySet<string>,
+  cooldownBlockedArticleIdentities: ReadonlySet<string> = new Set(),
 ): T[] {
   return articles
     .filter(
-      (article) =>
-        article.sourceCoverage === "feed_summary"
-        && article.allowFullArticleFetch
-        && !alreadyHydratedArticleUrls.has(article.articleUrl)
-        && !cooldownBlockedArticleUrls.has(article.articleUrl),
+      (article) => {
+        const identity = hydrationIdentity(article);
+        return article.sourceCoverage === "feed_summary"
+          && article.allowFullArticleFetch
+          && !alreadyHydratedArticleIdentities.has(identity)
+          && !cooldownBlockedArticleIdentities.has(identity);
+      },
     )
     .slice(0, MAX_NEWS_HYDRATION_CANDIDATES_PER_RUN);
 }
@@ -94,7 +106,11 @@ export async function executeNewsHydrationPlan<
   R,
 >(input: {
   articles: readonly T[];
-  alreadyHydratedArticleUrls: ReadonlySet<string>;
+  alreadyHydratedArticleIdentities?: ReadonlySet<string>;
+  cooldownBlockedArticleIdentities?: ReadonlySet<string>;
+  /** @deprecated Use revision-scoped `alreadyHydratedArticleIdentities`. */
+  alreadyHydratedArticleUrls?: ReadonlySet<string>;
+  /** @deprecated Use revision-scoped `cooldownBlockedArticleIdentities`. */
   cooldownBlockedArticleUrls?: ReadonlySet<string>;
   concurrency: number;
   hydrate: (article: T) => Promise<R>;
@@ -103,10 +119,17 @@ export async function executeNewsHydrationPlan<
     throw new Error("news_hydration_concurrency_invalid");
   }
 
+  const alreadyHydrated = input.alreadyHydratedArticleIdentities
+    ?? input.alreadyHydratedArticleUrls
+    ?? new Set<string>();
+  const cooldownBlocked = input.cooldownBlockedArticleIdentities
+    ?? input.cooldownBlockedArticleUrls
+    ?? new Set<string>();
+
   const candidates = selectNewsHydrationCandidates(
     input.articles,
-    input.alreadyHydratedArticleUrls,
-    input.cooldownBlockedArticleUrls ?? new Set(),
+    alreadyHydrated,
+    cooldownBlocked,
   );
 
   if (candidates.length === 0) return [];

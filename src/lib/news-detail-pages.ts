@@ -18,7 +18,6 @@ import {
   getNewsImpactHistoryItemsFromAuthority,
 } from "./news-impact-history-authority";
 import { getTraderToolBySlug, type RankedTraderTool } from "./trading-tools-growth";
-import { getLocaleDefinition } from "@/i18n/config";
 
 const SITE_URL = "https://tecpey.ir";
 
@@ -159,8 +158,8 @@ export function getNewsHubMetadata(model: NewsHubPageModel) {
     alternates: {
       canonical: model.url,
       languages: {
-        [getLocaleDefinition("fa").hreflang]: isEn ? model.counterpartUrl : model.url,
-        [getLocaleDefinition("en").hreflang]: isEn ? model.url : model.counterpartUrl,
+        "fa-IR": isEn ? model.counterpartUrl : model.url,
+        "en-US": isEn ? model.url : model.counterpartUrl,
         "x-default": isEn ? model.counterpartUrl : model.url,
       },
     },
@@ -220,8 +219,8 @@ export function buildNewsHubSchemas(model: NewsHubPageModel): Record<string, unk
 
 export function getNewsDetailMetadata(model: NewsDetailPageModel, locale: ContentLocale) {
   const isEn = locale === "en";
-  const counterpartLanguage = isEn ? getLocaleDefinition("fa").hreflang : getLocaleDefinition("en").hreflang;
-  const currentLanguage = isEn ? getLocaleDefinition("en").hreflang : getLocaleDefinition("fa").hreflang;
+  const counterpartLanguage = isEn ? "fa-IR" : "en-US";
+  const currentLanguage = isEn ? "en-US" : "fa-IR";
   const languages: Record<string, string> = {
     [currentLanguage]: model.url,
     "x-default": model.counterpartUrl ?? model.url,

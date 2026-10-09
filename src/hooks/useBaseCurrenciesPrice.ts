@@ -1,15 +1,34 @@
 import { useSocketioMarketPriceSpot } from "./useLiveTicker";
 import { getCurrencies } from "@/services/swap.services";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { useUsdPrice } from "@/helper/spot/usdPrice";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { MarketCurrency } from "@/types/market";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isFreshBitycleAuthorityTimestamp } from "@/lib/public-market-data";
 
 export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
-  const USDT_IRT = useUsdPrice();
+  const usdtIrtAuthority = useQuery({
+    queryKey: ["usdt-irt-authority"],
+    queryFn: async () => {
+      const response = await fetch("/api/markets?source=iran", { cache: "no-store" });
+      if (!response.ok) return null;
+      const payload = await response.json() as { authority?: { price?: unknown; updatedAt?: unknown; source?: unknown } | null };
+      const authority = payload.authority;
+      const price = Number(authority?.price);
+      const updatedAt = typeof authority?.updatedAt === "string" ? authority.updatedAt : "";
+      if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(Date.parse(updatedAt))) return null;
+      return { price, updatedAt, source: typeof authority?.source === "string" ? authority.source : "unknown" };
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const USDT_IRT = usdtIrtAuthority.data && isFreshBitycleAuthorityTimestamp(usdtIrtAuthority.data.updatedAt)
+    ? usdtIrtAuthority.data.price
+    : 0;
 
 
   const [searchQuery, setSearchQuery] = useState("");

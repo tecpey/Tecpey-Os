@@ -1,0 +1,18 @@
+.archive { overflow-wrap: anywhere; padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+.archive h1 { letter-spacing: -.025em; line-height: 1.45; }
+.archive h2 { font-weight: 800; }
+.archive p { font-weight: 400; }
+.archive :is(button, select, input, a, summary, h2):focus-visible { outline: 2px solid #0891b2; outline-offset: 4px; }
+.archive :is(a, button, select, input, summary) { scroll-margin-block: 6rem; }
+.archive select { max-width: 100%; }
+.archive summary { min-height: 44px; align-content: center; }
+.story { scroll-margin-block: 6rem; }
+.story h2 { scroll-margin-block: 6rem; }
+.story h2:focus-visible { outline: 2px solid #0891b2; outline-offset: 4px; }
+.story :is(h2, p) { max-width: 65ch; }
+.filters { padding: 6px 4px 10px; scroll-padding-inline: 8px; }
+.clear { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 12px; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; color: #0e7490; text-decoration: underline; text-underline-offset: 4px; }
+.notice { margin-top: 16px; border: 1px solid #0891b2; border-radius: 16px; padding: 16px; font-size: 14px; line-height: 1.8; }
+:global(.dark) .clear { color: #67e8f9; }
+@media (prefers-reduced-motion: reduce) { .archive *, .archive *::before, .archive *::after { transition: none; animation: none; scroll-behavior: auto; } }
+@media (forced-colors: active) { .archive :is(button, select, input, a, summary, h2):focus-visible { outline-color: Highlight; } .notice { border-color: CanvasText; } .clear { color: LinkText; } }

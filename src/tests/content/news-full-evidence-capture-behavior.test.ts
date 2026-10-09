@@ -18,13 +18,13 @@ describe("news full-evidence hydration planning", () => {
       }),
     );
 
-    const alreadyHydratedArticleUrls = new Set(
+    const alreadyHydratedArticleIdentities = new Set(
       archive.map((article) => article.articleUrl),
     );
 
     const selected = selectNewsHydrationCandidates(
       archive,
-      alreadyHydratedArticleUrls,
+      alreadyHydratedArticleIdentities,
     );
 
     assert.equal(selected.length, 0);
@@ -89,9 +89,59 @@ describe("news full-evidence hydration planning", () => {
       ["https://publisher.example/fresh"],
     );
   });
+
+  it("rehydrates a corrected revision at the same URL while skipping the older hydrated revision", () => {
+    const articleUrl = "https://publisher.example/corrected-story";
+    const oldRevision = `${articleUrl}\0old-hash`;
+    const correctedRevision = `${articleUrl}\0new-hash`;
+    const articles: NewsHydrationPlanningItem[] = [
+      {
+        articleUrl,
+        hydrationIdentity: oldRevision,
+        sourceCoverage: "feed_summary",
+        allowFullArticleFetch: true,
+      },
+      {
+        articleUrl,
+        hydrationIdentity: correctedRevision,
+        sourceCoverage: "feed_summary",
+        allowFullArticleFetch: true,
+      },
+    ];
+
+    const selected = selectNewsHydrationCandidates(
+      articles,
+      new Set([oldRevision]),
+    );
+
+    assert.deepEqual(
+      selected.map((article) => article.hydrationIdentity),
+      [correctedRevision],
+    );
+  });
+
+  it("does not let an older revision cooldown block a corrected revision", () => {
+    const articleUrl = "https://publisher.example/correction-after-timeout";
+    const oldRevision = `${articleUrl}\0old-hash`;
+    const correctedRevision = `${articleUrl}\0corrected-hash`;
+
+    const selected = selectNewsHydrationCandidates(
+      [{
+        articleUrl,
+        hydrationIdentity: correctedRevision,
+        sourceCoverage: "feed_summary",
+        allowFullArticleFetch: true,
+      }],
+      new Set(),
+      new Set([oldRevision]),
+    );
+
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].hydrationIdentity, correctedRevision);
+  });
 });
 
-it("already hydrated URLs cause zero publisher hydration calls", async () => {
+it("already hydrated identities cause zero publisher hydration calls", async () => {
   let hydrationCalls = 0;
 
   const results = await executeNewsHydrationPlan({
@@ -100,7 +150,7 @@ it("already hydrated URLs cause zero publisher hydration calls", async () => {
       sourceCoverage: "feed_summary" as const,
       allowFullArticleFetch: true,
     }],
-    alreadyHydratedArticleUrls: new Set([
+    alreadyHydratedArticleIdentities: new Set([
       "https://example.com/already-rich",
     ]),
     concurrency: 4,
@@ -114,7 +164,7 @@ it("already hydrated URLs cause zero publisher hydration calls", async () => {
   assert.deepEqual(results, []);
 });
 
-it("cooldown blocked URLs cause zero publisher hydration calls", async () => {
+it("cooldown blocked identities cause zero publisher hydration calls", async () => {
   let hydrationCalls = 0;
 
   const results = await executeNewsHydrationPlan({
@@ -123,8 +173,8 @@ it("cooldown blocked URLs cause zero publisher hydration calls", async () => {
       sourceCoverage: "feed_summary" as const,
       allowFullArticleFetch: true,
     }],
-    alreadyHydratedArticleUrls: new Set(),
-    cooldownBlockedArticleUrls: new Set([
+    alreadyHydratedArticleIdentities: new Set(),
+    cooldownBlockedArticleIdentities: new Set([
       "https://example.com/in-cooldown",
     ]),
     concurrency: 4,
@@ -159,8 +209,8 @@ it("hydration executor calls only eligible publisher candidates", async () => {
         allowFullArticleFetch: false,
       },
     ],
-    alreadyHydratedArticleUrls: new Set(),
-    cooldownBlockedArticleUrls: new Set(),
+    alreadyHydratedArticleIdentities: new Set(),
+    cooldownBlockedArticleIdentities: new Set(),
     concurrency: 4,
     hydrate: async (article) => {
       called.push(article.articleUrl);

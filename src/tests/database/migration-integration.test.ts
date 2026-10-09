@@ -410,6 +410,9 @@ describe("PostgreSQL migration authority", () => {
             ADD CONSTRAINT ai_workflow_run_evidence_legacy_status_key
             UNIQUE (tenant_id, run_id, status);
 
+          DROP TABLE IF EXISTS platform_news_story_relations CASCADE;
+          DROP TABLE IF EXISTS platform_news_story_cluster_members CASCADE;
+          DROP TABLE IF EXISTS platform_news_story_clusters CASCADE;
           DROP TABLE IF EXISTS platform_news_ai_provider_attempts CASCADE;
           DROP TABLE IF EXISTS platform_news_ai_budget_daily CASCADE;
           DROP TABLE IF EXISTS platform_news_archive_translations CASCADE;
@@ -433,7 +436,8 @@ describe("PostgreSQL migration authority", () => {
              '0098_news_archive_and_growth_intelligence.sql',
              '0102_news_ai_cost_authority.sql',
              '0103_news_full_evidence_capture_authority.sql',
-             '0117_ai_model_lab_execution_authority.sql'
+             '0117_ai_model_lab_execution_authority.sql',
+             '0120_news_story_cluster_authority.sql'
            ]::text[]);
           UPDATE _migrations
              SET checksum = '3bb54ffbdae67711ac7508a27e8d0b4846dba2d8dd0e319ed2edbe842584c7a8'

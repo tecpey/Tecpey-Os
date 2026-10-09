@@ -49,7 +49,7 @@ describe("News publication authority regressions", () => {
     const metadata = getNewsDetailMetadata(detailModel(null), "en");
 
     assert.equal(metadata.alternates.canonical, "https://tecpey.ir/en/crypto-news/governed-news-authority-regression");
-    assert.equal(metadata.alternates.languages.en, metadata.alternates.canonical);
+    assert.equal(metadata.alternates.languages["en-US"], metadata.alternates.canonical);
     assert.equal(metadata.alternates.languages["fa-IR"], undefined);
     assert.equal(metadata.alternates.languages["x-default"], metadata.alternates.canonical);
     assert.deepEqual(metadata.openGraph.alternateLocale, []);

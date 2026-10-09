@@ -4,12 +4,11 @@ import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredDat
 import { globalFaqs } from "@/data/academy";
 import { ContentHero, ContentShell, FaqList, TrustStrip } from "@/components/content/ContentUI";
 import { safeJsonLd } from "@/lib/json-ld";
-import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "سوالات پرتکرار تک‌پی | FAQ خرید تتر، بیت‌کوین، امنیت و کارمزد",
   description: "پایگاه سوالات پرتکرار تک‌پی برای پاسخ به سوالات کاربران درباره رمزارز، خرید تتر، بیت‌کوین، امنیت، کارمزد و شروع معامله.",
-  alternates: { canonical: "https://tecpey.ir/faq", languages: getAlternateLocales("/faq", "/en/faq") },
+  alternates: { canonical: "https://tecpey.ir/faq" },
   keywords: ["سوالات پرتکرار تک پی", "FAQ ارز دیجیتال", "خرید تتر", "امنیت صرافی", "کارمزد صرافی"],
 };
 

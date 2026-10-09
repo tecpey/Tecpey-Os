@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     canonical: "https://tecpey.ir/en",
     languages: {
       "fa-IR": "https://tecpey.ir",
-      "en": "https://tecpey.ir/en",
+      "en-US": "https://tecpey.ir/en",
       "x-default": "https://tecpey.ir",
     },
   },

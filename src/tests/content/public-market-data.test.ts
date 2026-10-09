@@ -5,9 +5,75 @@ import {
   normalizeBitycleCurrencyInfo,
   normalizeBitycleMarketFrames,
   normalizeCoinGeckoMarkets,
+  publicMarketCacheControl,
+  publicMarketQuoteCurrency,
+  selectFreshPublicMarketRows,
+  isFreshBitycleAuthorityTimestamp,
 } from "../../lib/public-market-data";
 
 describe("public market data authority", () => {
+  const fixedNow = Date.parse("2026-10-03T19:00:00.000Z");
+  const timedRow = (source: string, ageMs: number) => {
+    const updated = new Date(fixedNow - ageMs).toISOString();
+    return { marketDataSource: source, marketDataUpdatedAt: updated, priceData: { timestamp: updated, last: 1 } };
+  };
+
+  it("keeps normalized provider quote units distinct and rejects unknown units", () => {
+    assert.equal(publicMarketQuoteCurrency("CoinGecko"), "USD");
+    assert.equal(publicMarketQuoteCurrency("Bitycle"), "USDT");
+    for (const source of ["coingecko", "Unknown", undefined, null]) assert.equal(publicMarketQuoteCurrency(source), null);
+  });
+
+  it("rechecks Bitycle fiat-conversion freshness at point of use", () => {
+    const updated = new Date(fixedNow - 119_999).toISOString();
+    assert.equal(isFreshBitycleAuthorityTimestamp(updated, fixedNow), true);
+    assert.equal(isFreshBitycleAuthorityTimestamp(new Date(fixedNow - 120_001).toISOString(), fixedNow), false);
+    assert.equal(isFreshBitycleAuthorityTimestamp(new Date(fixedNow + 30_000).toISOString(), fixedNow), true);
+    assert.equal(isFreshBitycleAuthorityTimestamp(new Date(fixedNow + 30_001).toISOString(), fixedNow), false);
+    assert.equal(isFreshBitycleAuthorityTimestamp("not-a-date", fixedNow), false);
+    assert.equal(isFreshBitycleAuthorityTimestamp(updated, NaN), false);
+  });
+
+  it("rechecks provider-specific freshness after a row has waited in memory", () => {
+    const bitycle = Object.freeze(timedRow("Bitycle", 119_000));
+    const coinGecko = Object.freeze(timedRow("CoinGecko", 119_000));
+    const rows = Object.freeze([bitycle, coinGecko]);
+    assert.deepEqual(selectFreshPublicMarketRows(rows, fixedNow + 1_001), [coinGecko]);
+    assert.deepEqual(selectFreshPublicMarketRows(rows, fixedNow + 181_001), []);
+    assert.equal(rows.length, 2);
+  });
+
+  it("bounds shared cache lifetime by the oldest row and provider cap", () => {
+    assert.equal(publicMarketCacheControl([timedRow("CoinGecko", 0)], fixedNow), "public, max-age=0, s-maxage=60, must-revalidate");
+    assert.equal(publicMarketCacheControl([timedRow("Bitycle", 0)], fixedNow), "public, max-age=0, s-maxage=10, must-revalidate");
+    assert.equal(publicMarketCacheControl([timedRow("CoinGecko", 0), timedRow("CoinGecko", 298_750)], fixedNow), "public, max-age=0, s-maxage=1, must-revalidate");
+    assert.equal(publicMarketCacheControl([timedRow("Bitycle", 119_001)], fixedNow), "no-store");
+    assert.equal(publicMarketCacheControl([timedRow("CoinGecko", 300_000)], fixedNow), "no-store");
+  });
+
+  it("fails closed for unknown source, missing or conflicting timestamps and invalid observation clock", () => {
+    const invalid = [
+      timedRow("Unknown", 0),
+      { ...timedRow("CoinGecko", 0), marketDataUpdatedAt: "not-a-date" },
+      { ...timedRow("CoinGecko", 0), priceData: { last: 1 } },
+      { ...timedRow("CoinGecko", 0), priceData: { timestamp: new Date(fixedNow - 1).toISOString(), last: 1 } },
+      timedRow("Bitycle", -30_001),
+    ];
+    assert.deepEqual(selectFreshPublicMarketRows(invalid, fixedNow), []);
+    assert.equal(publicMarketCacheControl(invalid, fixedNow), "no-store");
+    assert.deepEqual(selectFreshPublicMarketRows([timedRow("CoinGecko", 0)], NaN), []);
+    assert.equal(publicMarketCacheControl([timedRow("CoinGecko", 0)], NaN), "no-store");
+    assert.equal(publicMarketCacheControl([], fixedNow), "no-store");
+  });
+
+  it("preserves exact source age/skew boundaries without extending expiry", () => {
+    for (const [source, maxAge] of [["CoinGecko", 300_000], ["Bitycle", 120_000]] as const) {
+      assert.equal(selectFreshPublicMarketRows([timedRow(source, maxAge)], fixedNow).length, 1);
+      assert.equal(selectFreshPublicMarketRows([timedRow(source, maxAge + 1)], fixedNow).length, 0);
+      assert.equal(selectFreshPublicMarketRows([timedRow(source, -30_000)], fixedNow).length, 1);
+      assert.equal(selectFreshPublicMarketRows([timedRow(source, -30_001)], fixedNow).length, 0);
+    }
+  });
   it("maps fresh CoinGecko provider data with explicit provenance", () => {
     const rows = normalizeCoinGeckoMarkets([{
       id: "bitcoin",

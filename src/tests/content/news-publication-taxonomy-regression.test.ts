@@ -128,14 +128,6 @@ describe("news publication taxonomy regression", () => {
       sourceAttributions: [
         { name: "TecPey", url: "https://tecpey.ir/en/crypto-news/search-intent-contract", role: "tecpey" },
       ],
-      claimSourceMap: [
-        {
-          claim: "This fixture verifies that missing search intent blocks organic-growth readiness.",
-          sourceName: "TecPey",
-          sourceUrl: "https://tecpey.ir/en/crypto-news/search-intent-contract",
-          role: "tecpey",
-        },
-      ],
       contentValue:
         "The fixture protects consistency between readiness scoring and final validation so diagnostics expose the real publication blocker.",
       safetyDisclaimer: "This regression fixture is not financial advice or a trading signal.",

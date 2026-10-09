@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-10-07",
+  "reviewedAt": "2026-10-09",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -160,13 +160,13 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "cc4c17849500766a8df34b83be443dec5aac76e4",
-      "sha256": "c4da7eb161eae8074658136f29d755441cce8a3c1bf3308096e9248e2a1e15eb",
-      "lines": 629,
+      "gitObjectId": "83ba0470495d2bff43739858f169fb21f51d3e90",
+      "sha256": "ee681f63847a9bb6c17b7f72faa8555a743339deffef3b18c53f57a47154503a",
+      "lines": 615,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 629
+          "endLine": 615
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -177,7 +177,8 @@
         "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
         "2026-10-07: re-reviewed after the OpenSSL 3.5.9 supply-chain recovery was reconstructed onto current main. The host-policy authority now binds the fixed OpenSSL runtime and remains fail-closed; no deployment, exchange or launch authority is introduced.",
         "2026-10-07: re-reviewed the policy after changing rollback authority from the PR base SHA to a governed immutable runtime-image release SHA plus exact GHCR manifest digest. The policy now requires evidence-backed rollback selection and digest equality while retaining fail-closed provenance and publication dependencies; no source reconstruction or deployment authority is introduced.",
-        "2026-10-07: re-reviewed the final rollback contract after adding explicit policy requirements for the governed runtime-image evidence path, release SHA, image digest equality and baked-commit binding. This makes the immutable-artifact authority enforceable by the permanent policy itself, not only by the workflow checker."
+        "2026-10-07: re-reviewed the final rollback contract after adding explicit policy requirements for the governed runtime-image evidence path, release SHA, image digest equality and baked-commit binding. This makes the immutable-artifact authority enforceable by the permanent policy itself, not only by the workflow checker.",
+        "2026-10-09: re-reviewed the exact 616-line policy after the rollback contract was aligned to compare the baked commit identity with ROLLBACK_RELEASE_SHA. This binds rollback to the selected immutable runtime image rather than the prior candidate/base identity and retains fail-closed artifact/digest provenance; no merge, deployment or production mutation authority is granted."
       ],
       "findings": []
     }

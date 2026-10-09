@@ -6,7 +6,6 @@ import {
   type ToolRankingInput,
   type ToolRankingResult,
 } from "./content-growth";
-import { getNewsImpactScoreForTool } from "./news-impact-history";
 import {
   readPublishedToolGrowthRecords,
   slugifyToolName,
@@ -35,11 +34,8 @@ export type TraderToolSurfaceContract = {
 };
 
 const coreTraderTools = rawTools as TraderTool[];
-
-function getTraderTools(): TraderTool[] {
-  const automatedTraderTools = readPublishedToolGrowthRecords(toolGrowthSnapshot as ToolGrowthSnapshot);
-  return [...coreTraderTools, ...automatedTraderTools];
-}
+const automatedTraderTools = readPublishedToolGrowthRecords(toolGrowthSnapshot as ToolGrowthSnapshot);
+const traderTools = [...coreTraderTools, ...automatedTraderTools];
 
 const FEATURED_WEIGHTS: Record<string, number> = {
   tradingview: 1,
@@ -134,7 +130,6 @@ function buildToolRankingInput(tool: TraderTool): ToolRankingInput {
     slug,
     name: tool.name,
     featuredWeight: FEATURED_WEIGHTS[slug] ?? (tool.automation ? Math.min(0.5, tool.automation.score) : 0.32),
-    newsImpactScore: getNewsImpactScoreForTool(slug),
     safetyScore: officialLinkCompleteness(tool),
     beginnerUsefulness: BEGINNER_USEFULNESS[categoryKey] ?? 0.62,
     proUsefulness: PRO_USEFULNESS[categoryKey] ?? 0.66,
@@ -145,11 +140,11 @@ function buildToolRankingInput(tool: TraderTool): ToolRankingInput {
   };
 }
 
-export function getRankedTraderTools(): RankedTraderTool[] {
-  const traderTools = getTraderTools();
-  const rankedTools = rankTools(traderTools.map(buildToolRankingInput), traderTools.length);
-  const rankBySlug = new Map(rankedTools.map((rank) => [rank.slug, rank]));
+const rankedTools = rankTools(traderTools.map(buildToolRankingInput), traderTools.length);
 
+const rankBySlug = new Map(rankedTools.map((rank) => [rank.slug, rank]));
+
+export function getRankedTraderTools(): RankedTraderTool[] {
   return traderTools
     .map((tool) => {
       const slug = toolSlug(tool);

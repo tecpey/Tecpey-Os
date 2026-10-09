@@ -10,7 +10,6 @@ import {
   buildWebPageSchema,
 } from "@/lib/seo";
 import { safeJsonLd } from "@/lib/json-ld";
-import { getAlternateLocales } from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tecpey.ir"),
@@ -36,7 +35,6 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: "https://tecpey.ir",
-    languages: getAlternateLocales("/", "/en"),
   },
   openGraph: {
     title: "تک‌پی، نقطه امن ورود آگاهانه به بازار رمزارز",

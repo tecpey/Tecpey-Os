@@ -319,10 +319,6 @@ function buildNewsOrganicGrowthProfile(article: NormalizedNewsArticle): OrganicG
       { name: article.sourceName, url: article.canonicalUrl, role: "primary" },
       { name: "TecPey", url: `https://tecpey.ir${newsDetailPath(article)}`, role: "tecpey" },
     ],
-    claimSourceMap: [
-      { claim: `Publisher source: ${article.sourceName}`, sourceName: article.sourceName, sourceUrl: article.canonicalUrl, role: "primary" },
-      { claim: `TecPey context for ${article.title}`, sourceName: "TecPey", sourceUrl: `https://tecpey.ir${newsDetailPath(article)}`, role: "tecpey" },
-    ],
     contentValue: isEn
       ? "TecPey adds original value through source attribution, entity and topic mapping, impact/risk framing, related coin and tool links, and a learning path instead of merely rewriting the headline."
       : "تک‌پی به‌جای بازنویسی ساده تیتر، منبع را شفاف نگه می‌دارد و با نگاشت کوین/ابزار/موضوع، چارچوب اثر و ریسک، لینک‌های داخلی و مسیر آموزشی ارزش مستقل ایجاد می‌کند.",

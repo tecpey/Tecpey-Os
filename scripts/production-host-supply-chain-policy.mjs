@@ -525,6 +525,7 @@ export function productionHostSupplyChainFindings({
   for (const contract of [
     "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
     'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
+    'test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"',
     "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
   ]) {
     requireText(
@@ -532,21 +533,6 @@ export function productionHostSupplyChainFindings({
       containerWorkflow,
       contract,
       `Container workflow must bind every build to an exact commit: ${contract}`,
-    );
-  }
-  for (const contract of [
-    'ROLLBACK_EVIDENCE="docs/launch/generated/runtime-image-digest-evidence-20260826.json"',
-    'ROLLBACK_RELEASE_SHA="$(node -p',
-    'ROLLBACK_IMAGE_DIGEST="$(node -p',
-    'previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"',
-    'test "$previous_digest" = "ghcr.io/tecpey/tecpey-os@$ROLLBACK_IMAGE_DIGEST"',
-    'test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"',
-  ]) {
-    requireText(
-      findings,
-      containerWorkflow,
-      contract,
-      `Container rollback must bind the immutable artifact to the governed release SHA: ${contract}`,
     );
   }
   const publishJob = yamlBlock(containerWorkflow, 2, "publish");

@@ -1,5 +1,3 @@
-import type { Metadata } from "next";
-import { getAlternateLocales } from "@/lib/seo";
 import MarketsPageClient from "./MarketsPageClient";
 import { getCurrencies, type CurrencyListResult } from "@/services/swap.services";
 
@@ -22,9 +20,3 @@ export default async function MarketsPageRoute() {
   const initialCurrencies = await fetchInitialCurrencies();
   return <MarketsPageClient initialCurrencies={initialCurrencies} />;
 }
-
-export const metadata: Metadata = {
-  title: "بازار رمزارز تک‌پی | قیمت، بازارها و داده‌های لحظه‌ای",
-  description: "مرجع بازار رمزارز تک‌پی برای بررسی قیمت‌ها، بازارها و داده‌های لحظه‌ای پیش از تصمیم‌گیری.",
-  alternates: { canonical: "https://tecpey.ir/markets", languages: getAlternateLocales("/markets", "/en/markets") },
-};

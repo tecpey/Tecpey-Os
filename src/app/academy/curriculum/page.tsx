@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     canonical: "https://tecpey.ir/academy/curriculum",
     languages: {
       "fa-IR": "https://tecpey.ir/academy/curriculum",
-      "en": "https://tecpey.ir/en/academy/curriculum",
+      "en-US": "https://tecpey.ir/en/academy/curriculum",
       "x-default": "https://tecpey.ir/academy/curriculum",
     },
   },

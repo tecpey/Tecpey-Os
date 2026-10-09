@@ -2,22 +2,20 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getCoinPages } from "@/data/coins";
+import { coinPages } from "@/data/coins";
 import { ContentShell, FaqList } from "@/components/content/ContentUI";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft, BarChart3, BookOpen, ShieldAlert, TrendingUp } from "lucide-react";
 import { safeJsonLd } from "@/lib/json-ld";
 
-export const revalidate = 3600;
-
 type Props = { params: Promise<{ slug: string }> };
 
 function getCoin(slug: string) {
-  return getCoinPages().find((coin) => coin.slug === slug);
+  return coinPages.find((coin) => coin.slug === slug);
 }
 
 export function generateStaticParams() {
-  return getCoinPages().slice(0, 16).map((coin) => ({ slug: coin.slug }));
+  return coinPages.slice(0, 16).map((coin) => ({ slug: coin.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

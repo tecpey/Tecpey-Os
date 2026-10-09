@@ -163,7 +163,7 @@ export async function generateMetadata() {
       canonical: "https://tecpey.ir",
       languages: {
         "fa-IR": "https://tecpey.ir",
-        "en": "https://tecpey.ir/en",
+        "en-US": "https://tecpey.ir/en",
         "x-default": "https://tecpey.ir",
       },
     },

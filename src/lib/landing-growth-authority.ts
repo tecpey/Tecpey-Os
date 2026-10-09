@@ -14,7 +14,6 @@ export async function getLandingGrowthRadarFromAuthority(
   return getLandingGrowthRadarFromNewsItems(locale, authority.items, {
     sourceAuthority: authority.sourceAuthority,
     authorityUpdatedAt: authority.latestPersistedRecordedAt,
-    authorityHighPriorityNewsCount: authority.highPriorityPersistedCount,
   }, getNewsImpactHistoryItems(locale));
 }
 

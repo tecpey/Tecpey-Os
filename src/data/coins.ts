@@ -520,11 +520,4 @@ export const automatedCoinPages: CoinPage[] = readPublishedCoinGrowthPages(
   coinGrowthSnapshot as CoinGrowthSnapshot,
 );
 
-export function getCoinPages(): CoinPage[] {
-  return [
-    ...coreCoinPages,
-    ...readPublishedCoinGrowthPages(coinGrowthSnapshot as CoinGrowthSnapshot),
-  ];
-}
-
-export const coinPages: CoinPage[] = getCoinPages();
+export const coinPages: CoinPage[] = [...coreCoinPages, ...automatedCoinPages];

@@ -142,7 +142,7 @@ test("publisher rich versions cannot influence feed continuity counters", () => 
   );
 });
 
-test("committed terminal hydration state cannot be overwritten by a racing capture", () => {
+test("same-revision terminal hydration cannot be overwritten by a racing capture", () => {
   const helperStart = capture.indexOf(
     "async function persistHydrationAttemptTx(",
   );
@@ -157,7 +157,7 @@ test("committed terminal hydration state cannot be overwritten by a racing captu
 
   assert.match(
     helper,
-    /WHERE platform_news_hydration_state\.hydrated_at IS NULL/,
+    /WHERE \$5::boolean\s+OR platform_news_hydration_state\.hydrated_at IS NULL/,
   );
   assert.match(
     helper,

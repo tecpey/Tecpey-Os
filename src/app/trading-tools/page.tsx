@@ -5,8 +5,6 @@ import { buildTradingToolsSchemas } from "@/lib/trading-tools-growth";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
 
-export const revalidate = 3600;
-
 export const metadata: Metadata = {
   title: "جعبه ابزار معامله‌گر تک‌پی | ابزار تحلیل، آنچین، امنیت و تحقیق رمزارز",
   description:
@@ -15,7 +13,7 @@ export const metadata: Metadata = {
     canonical: "https://tecpey.ir/trading-tools",
     languages: {
       "fa-IR": "https://tecpey.ir/trading-tools",
-      "en": "https://tecpey.ir/en/trading-tools",
+      "en-US": "https://tecpey.ir/en/trading-tools",
       "x-default": "https://tecpey.ir/trading-tools",
     },
   },

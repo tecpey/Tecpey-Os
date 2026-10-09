@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { NextRequest } from "next/server";
 import { GET } from "../../app/api/markets/route";
 
@@ -44,11 +44,45 @@ describe("public market search fallback", () => {
   });
 
   afterEach(() => {
+    mock.timers.reset();
     globalThis.fetch = ORIGINAL_FETCH;
     for (const name of Object.keys(SAVED_ENV) as Array<keyof typeof SAVED_ENV>) {
       restoreEnv(name);
     }
     (globalThis as RateLimitGlobal).tecpeyRateLimitBuckets = new Map();
+  });
+
+  it("limits the public price response cache to remaining upstream validity", async () => {
+    const now = Date.parse("2030-03-15T12:00:00.000Z");
+    mock.timers.enable({ apis: ["Date"], now });
+    for (const [age, expected] of [[299_000, "public, max-age=0, s-maxage=1, must-revalidate"], [299_500, "no-store"]] as const) {
+      globalThis.fetch = async () => jsonResponse([{
+        id: "bitcoin", symbol: "btc", name: "Bitcoin", current_price: 64_000,
+        last_updated: new Date(now - age).toISOString(),
+      }]);
+      const response = await GET(new NextRequest("https://tecpey.test/api/markets?source=public"));
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Cache-Control"), expected);
+      const payload = await response.json();
+      assert.equal(payload.data.length, 1);
+      assert.equal(payload.provenance.upstreamUpdatedAt, new Date(now - age).toISOString());
+    }
+  });
+
+  it("rejects stale price results for a matched search while preserving real empty searches", async () => {
+    const now = Date.parse("2030-03-15T12:00:00.000Z");
+    mock.timers.enable({ apis: ["Date"], now });
+    globalThis.fetch = async (input) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      return url.pathname === "/api/v3/search"
+        ? jsonResponse({ coins: [{ id: "expired-price" }] })
+        : jsonResponse([{ id: "expired-price", symbol: "old", name: "Old", current_price: 1, last_updated: new Date(now - 300_001).toISOString() }]);
+    };
+    const response = await GET(new NextRequest("https://tecpey.test/api/markets?source=public&search=expiry-proof"));
+    assert.equal(response.status, 503);
+    const payload = await response.json();
+    assert.equal(payload.error, "market_data_unavailable");
+    assert.equal(payload.data, undefined);
   });
 
   it("uses CoinGecko search IDs before market lookup and paginates search results", async () => {

@@ -6,8 +6,7 @@ import { StructuredData } from "@/components/seo/StructuredData";
 import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
-import { getCoinPages } from "@/data/coins";
-import { buildLocalizedAlternates } from "@/i18n/seo";
+import { coinPages } from "@/data/coins";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
 import {
   buildNewsImpactItemListSchema,
@@ -15,29 +14,33 @@ import {
 } from "@/lib/news-impact-history";
 import { BookOpen } from "lucide-react";
 
-export const revalidate = 3600;
+const coins = coinPages.map((coin) => ({
+  slug: coin.slug,
+  symbol: coin.symbol,
+  name: coin.name,
+  faName: coin.faName,
+  automation: coin.automation,
+}));
+const coinMap = new Map(coins.map((coin) => [coin.slug, coin]));
 
 export function generateStaticParams() {
-  return getCoinPages().map((coin) => ({ slug: coin.slug }));
+  return coins.map((coin) => ({ slug: coin.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const coin = getCoinPages().find((item) => item.slug === slug);
+  const coin = coinMap.get(slug);
   if (!coin) return { title: "Coin guide | TecPey" };
   return {
     title: `${coin.name} (${coin.symbol}) guide | TecPey`,
     description: `Learn what ${coin.name} is, common use cases, risks and important checks before trading or transferring ${coin.symbol}.`,
-    alternates: {
-      canonical: `https://tecpey.ir/en/coins/${slug}`,
-      languages: buildLocalizedAlternates(`/coins/${slug}`),
-    },
+    alternates: { canonical: `https://tecpey.ir/en/coins/${slug}` },
   };
 }
 
 export default async function CoinPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const coin = getCoinPages().find((item) => item.slug === slug);
+  const coin = coinMap.get(slug);
   if (!coin) return notFound();
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.name);
   const impactNews = getHighPriorityNewsForCoin(coin.symbol, "en", 4);

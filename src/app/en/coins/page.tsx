@@ -3,19 +3,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
-import { getCoinPages } from "@/data/coins";
+import { coinPages } from "@/data/coins";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowRight } from "lucide-react";
 import { TrendRadarWidget } from "@/components/growth/TrendRadarWidget";
 import { getGrowthTrendRadarFromAuthority } from "@/lib/growth-trend-authority";
-import { getAlternateLocales } from "@/lib/seo";
-
-export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Crypto coin guides | TecPey",
   description: "English guides for Bitcoin, Tether, Ethereum, Toncoin, Solana and other crypto assets: use cases, risks and key considerations.",
-  alternates: { canonical: "https://tecpey.ir/en/coins", languages: getAlternateLocales("/coins", "/en/coins") },
+  alternates: { canonical: "https://tecpey.ir/en/coins" },
 };
 
 const schema = {
@@ -48,7 +45,7 @@ export default async function CoinsPage() {
       </section>
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {getCoinPages().map((coin) => (
+          {coinPages.map((coin) => (
             <Link
               key={coin.slug}
               href={`/en/coins/${coin.slug}`}

@@ -4,19 +4,18 @@ import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
 import { buildNewsAutomationBatch, type RawNewsInput } from "@/lib/news-automation";
-import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
 import {
   getNewsArchiveDayForPresentation,
   type NewsArchivePresentationItem,
 } from "@/services/news/archive-presentation-authority";
+import { readGovernedPublicationSnapshotAuthority } from "@/services/news/publication-snapshot-authority";
 import {
   getNewsArchiveDaysFromAuthority,
   isValidArchiveDay,
   tehranCalendarDay,
 } from "@/lib/news-growth-authority";
 import { newsTaxonomyTagLabel } from "@/lib/news-taxonomy";
-
-type NewsTone = "bullish" | "bearish" | "neutral";
+import { isRecentNewsPublication, NEWS_FEED_PUBLICATION_POLICY, selectPublishedNewsForFeed } from "@/lib/news-published-at";
 
 type NewsItem = {
   id: string;
@@ -27,11 +26,7 @@ type NewsItem = {
   sourceUrl: string;
   publishedAt: string;
   category: string;
-  tone: NewsTone;
-  impact: number;
   isBreaking?: boolean;
-  trendScore?: number;
-  editorPick?: boolean;
   relatedLesson?: string;
   thumbnailUrl?: string | null;
   thumbnailAlt?: string | null;
@@ -41,20 +36,6 @@ type NewsItem = {
 function boundedInteger(raw: string | null, fallback: number, maximum: number): number {
   const parsed = Number(raw);
   return Number.isSafeInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
-}
-
-function inferTone(value: string): NewsTone {
-  const lower = value.toLowerCase();
-  if (/(?:\b(?:surge|rally|gain|approval|inflow|bull|record|rise|up)\b|صعود|رشد|افزایش|تایید|ورود سرمایه)/i.test(lower)) return "bullish";
-  if (/(?:\b(?:fall|drop|hack|lawsuit|outflow|bear|crash|fraud|ban|down)\b|ریزش|هک|کلاهبرداری|سقوط|ممنوعیت|خروج سرمایه)/i.test(lower)) return "bearish";
-  return "neutral";
-}
-
-function impactFor(item: NewsArchivePresentationItem): number {
-  const coinWeight = Math.min(3, item.taxonomy.coinSymbols.length);
-  const topicWeight = Math.min(2, item.taxonomy.topicTags.length);
-  const toolWeight = Math.min(1, item.taxonomy.toolSlugs.length);
-  return Math.max(4, Math.min(10, 4 + coinWeight + topicWeight + toolWeight));
 }
 
 function relatedLesson(item: NewsArchivePresentationItem, locale: "fa" | "en"): string {
@@ -68,8 +49,6 @@ function relatedLesson(item: NewsArchivePresentationItem, locale: "fa" | "en"): 
 }
 
 function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now: number): NewsItem {
-  const text = `${item.displayTitle} ${item.displayLead} ${item.displayBody}`;
-  const impact = impactFor(item);
   const categoryTag = item.taxonomy.topicTags[0]
     ? `topic:${item.taxonomy.topicTags[0]}`
     : item.taxonomy.coinSymbols[0]
@@ -85,11 +64,7 @@ function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now:
     sourceUrl,
     publishedAt: item.publishedAt,
     category: categoryTag ? newsTaxonomyTagLabel(categoryTag, locale) : (locale === "fa" ? "بازار" : "Market"),
-    tone: inferTone(text),
-    impact,
-    isBreaking: Math.max(0, now - Date.parse(item.publishedAt)) <= 12 * 60 * 60 * 1_000,
-    trendScore: impact * 10 + Math.min(20, item.taxonomy.entityTags.length),
-    editorPick: impact >= 8,
+    isBreaking: isRecentNewsPublication(item.publishedAt, now),
     relatedLesson: relatedLesson(item, locale),
     thumbnailUrl: item.thumbnailUrl,
     thumbnailAlt: item.thumbnailAlt,
@@ -98,20 +73,23 @@ function toNewsItem(item: NewsArchivePresentationItem, locale: "fa" | "en", now:
 }
 
 function marketIntelligence(locale: "fa" | "en", items: NewsItem[]) {
-  const top = [...items].sort((left, right) => right.impact - left.impact || Date.parse(right.publishedAt) - Date.parse(left.publishedAt))[0];
+  const latest = [...items].sort((left, right) => {
+    const leftTime = Date.parse(left.publishedAt);
+    const rightTime = Date.parse(right.publishedAt);
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  })[0];
+
   if (locale === "fa") {
     return {
-      headline: top ? `مهم‌ترین زمینه خبری امروز: ${top.category}` : "بازار را با نظم، نه هیجان، دنبال کنید.",
-      risk: top ? `اثر آموزشی این خبر ${top.impact}/10 است؛ منبع و سناریوی ریسک را قبل از هر تصمیم بررسی کنید.` : "خبر تازه باید با منبع و داده بازار بررسی شود.",
-      action: top ? `مسیر پیشنهادی مطالعه: ${top.relatedLesson}` : "در نبود خبر ترجمه‌شده، محتوای قدیمی را به‌عنوان خبر امروز نمایش نمی‌دهیم.",
-      tone: top?.tone ?? "neutral",
+      headline: latest ? `آخرین زمینه خبری منتشرشده: ${latest.category}` : "بازار را با نظم، نه هیجان، دنبال کنید.",
+      risk: latest ? "منبع، زمان انتشار و سناریوی ریسک را قبل از هر تصمیم بررسی کنید؛ این بخش امتیاز یا سیگنال معاملاتی تولید نمی‌کند." : "خبر تازه باید با منبع و داده بازار بررسی شود.",
+      action: latest ? `مسیر پیشنهادی مطالعه: ${latest.relatedLesson}` : "در نبود خبر انتشار‌یافته و تأییدشده، محتوای آرشیوی را به‌عنوان خبر جاری نمایش نمی‌دهیم.",
     };
   }
   return {
-    headline: top ? `Today’s highest-impact news context: ${top.category}` : "Follow the market with discipline, not emotion.",
-    risk: top ? `Educational impact is ${top.impact}/10. Verify the source and risk context before acting.` : "Fresh news should be checked against source evidence and market data.",
-    action: top ? `Suggested learning path: ${top.relatedLesson}` : "Older content is never presented as today's live news.",
-    tone: top?.tone ?? "neutral",
+    headline: latest ? `Latest governed news context: ${latest.category}` : "Follow the market with discipline, not emotion.",
+    risk: latest ? "Review the source, publication time and risk context before acting; this surface does not generate impact scores or trading signals." : "Fresh news should be checked against source evidence and market data.",
+    action: latest ? `Suggested learning path: ${latest.relatedLesson}` : "Archive evidence is never presented as current news until governed publication accepts it.",
   };
 }
 
@@ -131,18 +109,10 @@ function toAutomationInput(item: NewsItem, locale: "fa" | "en", fetchedAt: strin
 
 function automationPreview(items: NewsItem[], locale: "fa" | "en", fetchedAt: string) {
   const decisions = buildNewsAutomationBatch(items.slice(0, 100).map((item) => toAutomationInput(item, locale, fetchedAt)));
-  const materialized = decisions.length
-    ? materializeNewsAutomationDecisions(decisions, { locale, generatedAt: fetchedAt, historyLimit: 100, topCoinLimit: 12 })
-    : null;
   return {
     publishable: decisions.filter((decision) => decision.status === "publishable").length,
     needsReview: decisions.filter((decision) => decision.status === "needs_review").length,
     rejected: decisions.filter((decision) => decision.status === "rejected").length,
-    topCoinImpacts: decisions.flatMap((decision) => decision.coinImpacts)
-      .sort((left, right) => right.priorityScore - left.priorityScore || left.symbol.localeCompare(right.symbol))
-      .slice(0, 12),
-    historyItems: materialized?.historyItems ?? [],
-    materialized,
   };
 }
 
@@ -160,33 +130,34 @@ export async function GET(request: NextRequest) {
     const limit = boundedInteger(request.nextUrl.searchParams.get("limit"), 24, 100);
     const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
     const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
-    const [archiveItems, historicalDays] = await Promise.all([
+    const [archiveItems, historicalDays, publicationAuthority] = await Promise.all([
       getNewsArchiveDayForPresentation(requestedDay, locale),
       getNewsArchiveDaysFromAuthority(180),
+      readGovernedPublicationSnapshotAuthority(locale),
     ]);
     const now = Date.now();
 
-    // Archive visibility is intentionally broader than downstream authority.
-    // Pending Persian rows remain visible in archiveItems, but they cannot feed
-    // landing news, Academy quizzes or automation previews until a governed
-    // Persian translation exists.
-    const downstreamArchiveItems = locale === "fa"
+    // Archive visibility is intentionally broader than downstream publication.
+    // The archive remains a no-loss evidence surface, while landing/news feed,
+    // Academy quiz and automation preview require the exact immutable archive
+    // revision to appear as publishable in the latest persisted governed snapshot.
+    const localizedArchiveItems = locale === "fa"
       ? archiveItems.filter((item) => !item.translationPending)
       : archiveItems;
-    const allItems = downstreamArchiveItems
-      .map((item) => toNewsItem(item, locale, now))
-      .sort((left, right) => {
-        const leftTime = Date.parse(left.publishedAt);
-        const rightTime = Date.parse(right.publishedAt);
-        const leftSafe = Number.isFinite(leftTime) ? leftTime : 0;
-        const rightSafe = Number.isFinite(rightTime) ? rightTime : 0;
-        return rightSafe - leftSafe;
-      });
+    const governedArchiveItems = publicationAuthority.status === "ready"
+      ? localizedArchiveItems.filter((item) =>
+          publicationAuthority.publishedArchiveIds.has(item.archiveId.toLowerCase()),
+        )
+      : [];
+    const publishedArchiveItems = selectPublishedNewsForFeed(governedArchiveItems, now);
+    const allItems = publishedArchiveItems.map((item) => toNewsItem(item, locale, now));
     const items = allItems.slice(0, limit);
     const updatedAt = new Date().toISOString();
     const availableDays = Array.from(new Set([today, requestedDay, ...historicalDays]))
       .filter((day) => isValidArchiveDay(day) && day <= today)
       .sort((left, right) => right.localeCompare(left));
+    const publicationTimeWithheldCount = governedArchiveItems.length - publishedArchiveItems.length;
+    const publicationGovernanceWithheldCount = localizedArchiveItems.length - governedArchiveItems.length;
 
     const response = apiOk({
       locale,
@@ -194,9 +165,19 @@ export async function GET(request: NextRequest) {
       today,
       availableDays,
       updatedAt,
-      mode: archiveItems.length ? "live" : "fallback" as const,
+      publicationPolicy: NEWS_FEED_PUBLICATION_POLICY,
+      publicationAuthority: {
+        status: publicationAuthority.status,
+        generatedAt: publicationAuthority.generatedAt,
+        snapshotHash: publicationAuthority.snapshotHash,
+        publishedArchiveCount: governedArchiveItems.length,
+      },
+      publicationWithheldCount: publicationGovernanceWithheldCount + publicationTimeWithheldCount,
+      publicationGovernanceWithheldCount,
+      publicationTimeWithheldCount,
+      mode: items.length ? "live" : "fallback" as const,
       archiveItemCount: archiveItems.length,
-      localizedItemCount: downstreamArchiveItems.length,
+      localizedItemCount: localizedArchiveItems.length,
       pendingTranslationCount: archiveItems.filter((item) => item.translationPending).length,
       marketIntelligence: marketIntelligence(locale, items),
       archiveItems,

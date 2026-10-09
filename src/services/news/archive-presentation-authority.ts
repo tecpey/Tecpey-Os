@@ -14,6 +14,7 @@ import {
   isApprovedNewsSourceHost,
 } from "../../lib/news-source-registry";
 import type { NewsTaxonomyMatch } from "../../lib/news-taxonomy";
+import { classifyNewsEvidenceChannel, type NewsEvidenceChannel } from "../../lib/news-evidence-channel-authority";
 
 export type NewsArchivePresentationItem = Omit<NewsArchiveItem, "sourceBody"> & {
   sourceCoverage: "feed_full" | "feed_summary" | "article_full" | null;
@@ -24,6 +25,11 @@ export type NewsArchivePresentationItem = Omit<NewsArchiveItem, "sourceBody"> & 
   thumbnailAlt: string;
   thumbnailPolicy: NewsProviderThumbnailPolicy;
   thumbnailAttributionRequired: boolean;
+  storyClusterId: string | null;
+  storyClusterMembership: "canonical" | "corroborating" | "distinct_viewpoint" | "conflicting_viewpoint" | null;
+  storyClusterMemberCount: number | null;
+  storyClusterIndependentSourceCount: number | null;
+  storyEvidenceChannel: NewsEvidenceChannel;
 };
 
 function sourceForArticleUrl(articleUrl: string) {
@@ -127,7 +133,57 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
     thumbnailAlt: displayTitle,
     thumbnailPolicy: thumbnail.policy,
     thumbnailAttributionRequired: thumbnail.attributionRequired,
+    storyClusterId: row.story_cluster_id ? String(row.story_cluster_id) : null,
+    storyClusterMembership: row.story_cluster_membership
+      ? String(row.story_cluster_membership) as NewsArchivePresentationItem["storyClusterMembership"]
+      : null,
+    storyClusterMemberCount: row.story_cluster_member_count == null ? null : Number(row.story_cluster_member_count),
+    storyClusterIndependentSourceCount: row.story_cluster_independent_source_count == null ? null : Number(row.story_cluster_independent_source_count),
+    storyEvidenceChannel: classifyNewsEvidenceChannel({ url: articleUrl }),
   };
+}
+
+export function selectPublicStoryClusterRepresentatives(
+  items: readonly NewsArchivePresentationItem[],
+): NewsArchivePresentationItem[] {
+  const selected = new Map<string, NewsArchivePresentationItem>();
+  for (const item of items) {
+    const key = item.storyClusterId ?? item.archiveId;
+    const previous = selected.get(key);
+    if (!previous) {
+      selected.set(key, item);
+      continue;
+    }
+
+    const candidateTime = Date.parse(item.fetchedAt);
+    const previousTime = Date.parse(previous.fetchedAt);
+    const candidateIsFactual = item.storyEvidenceChannel === "factual_publisher";
+    const previousIsFactual = previous.storyEvidenceChannel === "factual_publisher";
+    if (
+      candidateIsFactual && !previousIsFactual
+      || candidateIsFactual === previousIsFactual && (
+        candidateTime > previousTime
+        || (
+          candidateTime === previousTime
+          && item.storyClusterMembership === "canonical"
+          && previous.storyClusterMembership !== "canonical"
+        )
+        || (
+          candidateTime === previousTime
+          && item.storyClusterMembership === previous.storyClusterMembership
+          && item.archiveId.localeCompare(previous.archiveId) < 0
+        )
+      )
+    ) {
+      selected.set(key, item);
+    }
+  }
+  return [...selected.values()].sort((a, b) =>
+    Date.parse(b.publishedAt) - Date.parse(a.publishedAt)
+    || Number(Boolean(b.storyClusterId)) - Number(Boolean(a.storyClusterId))
+    || a.sourceName.localeCompare(b.sourceName)
+    || a.articleUrl.localeCompare(b.articleUrl)
+  );
 }
 
 /**
@@ -139,6 +195,12 @@ function mapRow(row: Record<string, unknown>, locale: ContentLocale): NewsArchiv
  * reduce an item to metadata-only, and only a governed Persian rendering may
  * expose a full localized body. None of these presentation states grants a
  * detail URL, ranking, sitemap or indexing authority.
+ *
+ * Revision authority is capture-first: for one canonical article URL, a newer
+ * fetched revision always supersedes an older revision for presentation. Rich
+ * coverage is preferred only among rows captured at that same newest observed
+ * instant. This prevents an older article_full row from masking a later source
+ * correction while preserving immutable older evidence in the archive.
  */
 export async function readNewsArchiveDayForPresentationTx(
   client: PoolClient,
@@ -154,15 +216,15 @@ export async function readNewsArchiveDayForPresentationTx(
               source_title, source_lead, source_coverage, published_at,
               fetched_at, published_day_tehran, content_hash, taxonomy, created_at
          FROM platform_news_archive_items
-        WHERE published_day_tehran = $1::date
         ORDER BY article_url,
+                 fetched_at DESC,
                  CASE source_coverage
                    WHEN 'article_full' THEN 3
                    WHEN 'feed_full' THEN 2
                    WHEN 'feed_summary' THEN 1
                    ELSE 0
                  END DESC,
-                 fetched_at DESC, created_at DESC
+                 created_at DESC
      )
      SELECT article.*,
             translation.status AS translation_status,
@@ -171,6 +233,10 @@ export async function readNewsArchiveDayForPresentationTx(
             translation.translated_title,
             translation.translated_lead,
             translation.translated_body,
+            story_cluster.cluster_id AS story_cluster_id,
+            story_cluster_members.membership AS story_cluster_membership,
+            story_cluster.member_count AS story_cluster_member_count,
+            story_cluster.independent_source_count AS story_cluster_independent_source_count,
             internal_news.news_url
        FROM latest_article article
        LEFT JOIN LATERAL (
@@ -182,6 +248,10 @@ export async function readNewsArchiveDayForPresentationTx(
           ORDER BY (status = 'completed') DESC, generated_at DESC, created_at DESC
           LIMIT 1
        ) translation ON TRUE
+       LEFT JOIN platform_news_story_cluster_members story_cluster_members
+         ON story_cluster_members.archive_id = article.archive_id
+       LEFT JOIN platform_news_story_clusters story_cluster
+         ON story_cluster.cluster_id = story_cluster_members.cluster_id
        LEFT JOIN LATERAL (
          SELECT history.news_url
            FROM platform_news_impact_history_items history
@@ -190,12 +260,13 @@ export async function readNewsArchiveDayForPresentationTx(
           ORDER BY history.recorded_at DESC, history.published_at DESC
           LIMIT 1
        ) internal_news ON TRUE
+      WHERE article.published_day_tehran = $1::date
       ORDER BY article.published_at DESC, article.source_name, article.article_url
       LIMIT 1000`,
     [day, locale],
   );
 
-  return result.rows.map((row) => mapRow(row, locale));
+  return selectPublicStoryClusterRepresentatives(result.rows.map((row) => mapRow(row, locale)));
 }
 
 export async function getNewsArchiveDayForPresentation(
