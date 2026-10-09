@@ -63,6 +63,9 @@ export function safeNewsThumbnailUrl(raw: string, baseUrl?: string): string | nu
     url.password = "";
     url.hash = "";
     const hostname = url.hostname.toLowerCase();
+    // WHATWG URL keeps brackets around IPv6 literals in hostname; strip them
+    // before asking Node's IP parser so loopback, mapped, and ULA literals match.
+    const hostnameAddress = hostname.replace(/^\[|\]$/g, "");
     // Thumbnail URLs are browser redirect targets. Reject all IP literals (not only
     // familiar private ranges) to avoid parser variants and IPv4-mapped IPv6 gaps.
     // Hostname-to-address DNS safety still requires network-level egress controls.
@@ -71,7 +74,7 @@ export function safeNewsThumbnailUrl(raw: string, baseUrl?: string): string | nu
       || hostname.endsWith(".localhost")
       || hostname.endsWith(".local")
       || hostname.endsWith(".internal")
-      || isIP(hostname) !== 0
+      || isIP(hostnameAddress) !== 0
     ) return null;
     const normalized = url.toString();
     return normalized.length <= 2_048 ? normalized : null;
