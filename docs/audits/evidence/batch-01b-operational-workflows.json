@@ -162,11 +162,11 @@
       "path": "scripts/production-host-supply-chain-policy.mjs",
       "gitObjectId": "83ba0470495d2bff43739858f169fb21f51d3e90",
       "sha256": "ee681f63847a9bb6c17b7f72faa8555a743339deffef3b18c53f57a47154503a",
-      "lines": 616,
+      "lines": 615,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 616
+          "endLine": 615
         }
       ],
       "findingDisposition": "no-confirmed-findings",
