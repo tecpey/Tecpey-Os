@@ -4,6 +4,8 @@ const workflowPath = ".github/workflows/container-supply-chain.yml";
 const rollbackPath = "scripts/test-container-image-rollback.sh";
 const source = fs.readFileSync(workflowPath, "utf8");
 const rollbackSource = fs.readFileSync(rollbackPath, "utf8");
+const rollbackEvidencePath = "docs/launch/generated/runtime-image-digest-evidence-20260826.json";
+const rollbackEvidence = JSON.parse(fs.readFileSync(rollbackEvidencePath, "utf8"));
 const failures = [];
 
 function block(sourceText, key) {
@@ -31,18 +33,33 @@ function reject(text, pattern, message) {
 const recovery = block(source, "recovery");
 if (!recovery) failures.push("container workflow must define recovery job");
 
+for (const [condition, message] of [
+  [rollbackEvidence?.releaseCandidate?.sha && /^[0-9a-f]{40}$/.test(rollbackEvidence.releaseCandidate.sha), "rollback evidence must declare an exact release SHA"],
+  [rollbackEvidence?.containerImage?.imageDigest && /^sha256:[0-9a-f]{64}$/.test(rollbackEvidence.containerImage.imageDigest), "rollback evidence must declare an exact image digest"],
+  [rollbackEvidence?.signatureVerification?.status === "verified", "rollback evidence must carry verified image signature status"],
+  [rollbackEvidence?.signatureVerification?.githubWorkflowRepository === "tecpey/Tecpey-Os", "rollback evidence must bind provenance to the TecPey repository"],
+  [rollbackEvidence?.signatureVerification?.githubWorkflowRef === "refs/heads/main", "rollback evidence must bind provenance to main"],
+]) {
+  if (!condition) failures.push(message);
+}
+
 for (const [token, message] of [
   ["packages: read", "recovery job must have read-only package-registry access"],
   ["attestations: read", "recovery job must have read-only attestation access"],
   ["GH_TOKEN: ${{ github.token }}", "rollback verification must use the scoped workflow token"],
   ["docker/login-action@dbcb813823bdd20940b903addbd779551569679f", "GHCR authentication action must remain commit-pinned"],
-  ['previous_tag="ghcr.io/tecpey/tecpey-os:$PREVIOUS_SHA"', "previous image must be selected by exact base commit SHA"],
+  ['ROLLBACK_EVIDENCE="docs/launch/generated/runtime-image-digest-evidence-20260826.json"', "rollback must consume governed immutable runtime-image evidence"],
+  ['ROLLBACK_RELEASE_SHA="$(node -p', "rollback must derive the release SHA from governed runtime-image evidence"],
+  ['ROLLBACK_IMAGE_DIGEST="$(node -p', "rollback must derive the image digest from governed runtime-image evidence"],
+  ['previous_tag="ghcr.io/tecpey/tecpey-os:$ROLLBACK_RELEASE_SHA"', "previous image must be selected by governed release SHA"],
   ['docker pull "$previous_tag"', "recovery must pull the published previous image"],
+  ['test "$previous_digest" = "ghcr.io/tecpey/tecpey-os@$ROLLBACK_IMAGE_DIGEST"', "rollback must verify the pulled manifest matches the governed image digest"],
   ["previous-image-digest.txt", "recovery must persist the resolved immutable previous-image digest"],
+  ["rollback-image-digest.txt", "recovery must persist the governed immutable rollback-image digest"],
   ["previous-baked-commit.txt", "recovery must persist the artifact-baked previous commit"],
   ["TECPEY_IMMUTABLE_BUILD_COMMIT_SHA", "recovery must verify artifact-baked release identity"],
-  ['test "$baked_commit" = "$PREVIOUS_SHA"', "recovery must fail closed on previous-image identity mismatch"],
-  ['docker tag "$previous_digest" "tecpey-previous:$PREVIOUS_SHA"', "rollback drill must consume the verified digest, not the mutable tag"],
+  ['test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"', "recovery must fail closed on rollback-image identity mismatch"],
+  ['docker tag "$previous_digest" "tecpey-previous:$ROLLBACK_RELEASE_SHA"', "rollback drill must consume the verified digest, not the mutable tag"],
 ]) {
   requireText(recovery, token, message);
 }

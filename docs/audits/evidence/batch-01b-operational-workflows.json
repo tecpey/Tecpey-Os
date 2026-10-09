@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-10-05",
+  "reviewedAt": "2026-10-07",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -30,29 +30,26 @@
   "files": [
     {
       "path": ".github/workflows/container-supply-chain.yml",
-      "gitObjectId": "16b5336056495304df167da574e500308e0c5cc4",
-      "sha256": "c01b52b306d17648b86e9138d8682b5ee47688fc69ef1bdd355123f10484411a",
-      "lines": 322,
+      "gitObjectId": "7ff49c329de23f6337e7b915d75162123855b1fd",
+      "sha256": "60fd6bf37339eb8e672cb4f7ba7741f87cc10c4f0c64e87a93718c8bae2436d3",
+      "lines": 328,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 322
+          "endLine": 328
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
-        "Triggers, read-only default permissions, exact-head checkout, governed policy tests, Compose input validation, immutable build identity, rootless runtime inspection, SBOM generation, vulnerability gating, recovery jobs, publication permissions, digest signing and evidence retention were reviewed as one release sequence.",
-        "Publication now requires both the verification and recovery jobs, and the Trivy gate rejects HIGH or CRITICAL findings even when no upstream fix is currently available.",
-        "The effective image gate exposed the former Debian runtime package surface; production stages now inherit one digest-pinned Alpine Node hardening stage with exact fixed OpenSSL packages and the image-owned non-root identity.",
-        "2026-08-26: re-reviewed the always-run Trivy failure summary. It reads only the local JSON result for the exact candidate image and prints target, severity, vulnerability id, package, installed version and fixed version; permissions, scan enforcement, artifact retention, recovery dependencies and publication authority are unchanged.",
-        "2026-09-18: re-reviewed the complete workflow for the Node 24 GitHub Actions migration. Only immutable action commit pins and version annotations changed; workflow triggers, permissions, exact-head/source selection, fail-closed guards, artifact/evidence semantics, production/staging authority boundaries and security controls remain unchanged. No mutable action reference, insecure Node fallback, product behavior, deploy authorization or launch authority was introduced.",
-        "2026-10-05: re-reviewed the exact rollback authority after replacing historical-source reconstruction with authenticated immutable GHCR retrieval of the exact base-release image. The recovery job now captures the RepoDigest, verifies the artifact-baked previous commit, consumes only the resolved digest, and requires fail-closed GitHub/Sigstore provenance bound to tecpey/Tecpey-Os, the governed container-supply-chain workflow, the exact previous source SHA and refs/heads/main. The dedicated rollback guard rejects source reconstruction and mutable latest/main tags."
+        "2026-10-07: exact-head static re-review at the current reviewed workflow blob; the prior rollback-repair commit 71ad1fada7b28a670de117eaf44f7a98382c9343 is superseded by the current evidence record. The workflow is a canonical 3-job Container Supply Chain structure with unconditional pull_request coverage, main-push publication, read-only default permissions, exact-head checkout, commit-pinned actions, fail-closed vulnerability gating, immutable rollback evidence binding and publication dependency on verify+recovery.",
+        "2026-10-07: rollback recovery was repaired to consume docs/launch/generated/runtime-image-digest-evidence-20260826.json, derive the governed release SHA and image digest, verify the pulled GHCR RepoDigest equals the governed digest, verify the artifact-baked commit, and retain the immutable rollback evidence before the provenance-bound rollback drill. Historical source reconstruction and mutable latest/main rollback tags remain prohibited.",
+        "2026-10-07: the workflow blob recorded above is the canonical file under review; exact-head CI remains the execution authority and this evidence record does not claim successful workflow execution until the exact-head jobs complete successfully."
       ],
       "findings": [
         {
           "id": "B01B-P1-001",
           "severity": "P1",
-          "line": 223,
+          "line": 243,
           "attackPath": "A push to main could publish, attest and sign an immutable production image after artifact verification while the rollback or persistent-volume recovery job had failed.",
           "affectedInvariant": "No production image may be published unless both artifact verification and recovery evidence succeed for the same release workflow.",
           "evidence": "The former publish job declared needs: verify only; the remediated job declares the exact dependency set [verify, recovery].",
@@ -66,7 +63,7 @@
         {
           "id": "B01B-P1-002",
           "severity": "P1",
-          "line": 135,
+          "line": 136,
           "attackPath": "An image containing a known HIGH or CRITICAL runtime vulnerability could pass the release gate solely because the vulnerability had no upstream fix.",
           "affectedInvariant": "The production vulnerability gate must reject every detected HIGH or CRITICAL runtime finding regardless of fix availability.",
           "evidence": "The former Trivy step set ignore-unfixed: true; the remediated effective step sets ignore-unfixed: false.",
@@ -163,13 +160,13 @@
     },
     {
       "path": "scripts/production-host-supply-chain-policy.mjs",
-      "gitObjectId": "5bd0b0a009f11f10171b07da7795a2839632ab0a",
-      "sha256": "7159f7d1e82767538bae586c3714c72afc11446d97e50d620c1677a821408702",
-      "lines": 615,
+      "gitObjectId": "cc4c17849500766a8df34b83be443dec5aac76e4",
+      "sha256": "c4da7eb161eae8074658136f29d755441cce8a3c1bf3308096e9248e2a1e15eb",
+      "lines": 629,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 615
+          "endLine": 629
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -178,7 +175,9 @@
         "The authority parses the effective publish job and named Trivy step to require recovery before publication and reject unfixed HIGH or CRITICAL findings; negative tests include misleading comments so substring-only enforcement cannot pass.",
         "The production-dependency and runner stages must inherit one reviewed digest-pinned official Node 22 Alpine hardening stage with exact libcrypto3 and libssl3 3.5.8-r0 remediation. Stage-specific checks reject base substitutions, bypasses, mutable package versions and every additional apk add or upgrade mutation.",
         "2026-09-21: re-reviewed the complete 615-line policy after separating the immutable production-documentation readiness contract from the governed host-preflight runtime probe. Production deployment documentation remains pinned to the loopback /api/health endpoint, while host preflight must use RUNTIME_HEALTH_URL with curl --fail/--silent/--show-error, bounded timeout and deterministic retries. The staging promotion policy separately constrains admissible runtime health URLs; no fail-open, arbitrary-host, mutable image, deployment authorization or Production mutation authority is introduced.",
-        "2026-10-04: re-reviewed the complete policy after the governed Alpine 3.24 OpenSSL remediation moved the enforced libcrypto3/libssl3 pin from 3.5.8-r0 to 3.5.9-r0. The change is confined to the active supply-chain contract; fail-closed package pinning and no-mutation production boundaries remain intact."
+        "2026-10-07: re-reviewed after the OpenSSL 3.5.9 supply-chain recovery was reconstructed onto current main. The host-policy authority now binds the fixed OpenSSL runtime and remains fail-closed; no deployment, exchange or launch authority is introduced.",
+        "2026-10-07: re-reviewed the policy after changing rollback authority from the PR base SHA to a governed immutable runtime-image release SHA plus exact GHCR manifest digest. The policy now requires evidence-backed rollback selection and digest equality while retaining fail-closed provenance and publication dependencies; no source reconstruction or deployment authority is introduced.",
+        "2026-10-07: re-reviewed the final rollback contract after adding explicit policy requirements for the governed runtime-image evidence path, release SHA, image digest equality and baked-commit binding. This makes the immutable-artifact authority enforceable by the permanent policy itself, not only by the workflow checker."
       ],
       "findings": []
     }

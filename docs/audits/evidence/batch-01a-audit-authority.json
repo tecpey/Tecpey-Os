@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-10-04",
+  "reviewedAt": "2026-10-02",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -42,13 +42,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5827124e15e2e5c806741e6753c1e2eb93fad593",
-      "sha256": "d690cf9882a7e3f672c7109f992b618060cb7329896c9b0e8c403fe824a8370d",
-      "lines": 294,
+      "gitObjectId": "2df01204cf1fd1b2c576e62a70ad929997d37b47",
+      "sha256": "78ce44d4488ef4a75fb159cd4ac3a5ef7a8b409d9fa0b1cb56b6195787b530ea",
+      "lines": 295,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 294
+          "endLine": 295
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -145,8 +145,8 @@
         "2026-09-21: re-reviewed after build:server additionally production-bundles scripts/print-database-migration-plan-hash.ts for protected staging promotion. The probe imports the canonical migration registry, validates it and prints only DATABASE_MIGRATION_PLAN_HASH; it adds no dependency, engine, override, database/network mutation, secret output or capability activation. It exists so the protected promotion authority can compare the active health plan hash with the target release fingerprint before deciding whether app rollback is safe or a forward-fix/verified-restore boundary is required.",
         "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
         "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority.",
-        "2026-10-04: re-reviewed after upgrading Next.js from 16.3.3 to patched 16.3.8 to address the current critical next/og ImageResponse advisory; no unrelated dependency or runtime authority change was introduced.",
-        "2026-10-05: re-reviewed the exact current package.json after News & Market Intelligence v2 gate reconciliation. The tracked package script surface and dependency/override authority remain unchanged in security meaning; this refresh binds the semantic review record to the current immutable Git blob and digest so the repository audit cannot silently rely on historical package content."
+        "2026-10-02: re-reviewed the complete package manifest after integrating the exact Next.js 16.3.8 security patch into the OpenSSL 3.5.9 supply-chain remediation. The runtime vulnerability gate had rejected Next.js 16.3.3 for GHSA-vcvr-r3jv-pc5j. The dependency remains exact-version pinned, the npm 10 lockfile is registry-generated, and no scanner exception, mutable range, script/engine/override change, launch approval, deployment authority or product capability is introduced.",
+        "2026-10-07: re-reviewed after supply-chain remediation on current main. The exact package pins now include next 16.3.8, sharp 0.35.5 and source-map-js 1.2.2; the lockfile was regenerated with npm 10 and the change remains security-only. No release authority, runtime capability, deployment or product activation was introduced."
       ],
       "findings": [
         {
@@ -249,8 +249,8 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
-      "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
+      "gitObjectId": "f1c4c62c486983adf057102885974d29043473ef",
+      "sha256": "443322df4407460a3abd8eccb3c2496b0da13e02dfadadb2a6c2ea9ed31282eb",
       "lines": 576,
       "reviewedRanges": [
         {
@@ -266,7 +266,8 @@
         "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
         "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
         "Summary recomputation occurs after evidence application and completionClaim remains false.",
-        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted."
+        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted.",
+        "2026-10-07: re-reviewed the fail-closed digest-mismatch diagnostic improvement. Audit failures now expose expected and actual SHA-256 digests for the affected reviewed source path, without changing acceptance semantics or relaxing exact-blob binding."
       ],
       "findings": [
         {
@@ -301,13 +302,13 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "1a7c1d1fc48832e4c37872c02678bf98fdeab6bd",
-      "sha256": "b7848354e0d9d3070e01a21a06adeb52e742a799118c760720ceff5f411c06c7",
-      "lines": 296,
+      "gitObjectId": "98ddd09a8f250f81352938ae57a7e6a5d340dfba",
+      "sha256": "8041d6f76abd03573001704cf57a671608e9500218780649ac4c7370b920526c",
+      "lines": 295,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 296
+          "endLine": 295
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -334,8 +335,7 @@
         "2026-09-11: re-reviewed the complete policy for Policy v23 after explicitly classifying src/lib/news-detail-body-authority.ts, src/lib/news-full-evidence-capture.ts and src/lib/news-publisher-evidence.ts in the existing product-ui Batch 10 News rule. The additions are exact named-module classifications rather than a broad News wildcard; existing rule ordering and fail-closed handling of unknown src paths remain intact. The reviewed authorities govern public News detail-body presentation, bounded full-evidence capture planning and governed publisher-evidence acquisition respectively; this policy change does not enable credentials, financial execution authority or an otherwise unclassified runtime surface.",
         "2026-09-21: re-reviewed the complete Policy v24 after explicitly classifying src/lib/living-profile-intelligence.ts under the existing mentor-ai P2 / Batch 8 rule. The change is limited to one exact named-module classification and the policy version constant; it preserves source-path fail-closed behavior, existing rule ordering, provenance semantics and all product/runtime authority boundaries. The module governs deterministic Living Profile presentation and observed-evidence exposure only; it adds no model-selected animation authority, subscription unlock, financial execution path, credential access, network access or runtime activation surface. scripts/repository-audit-manifest.test.mjs includes a focused classification assertion for the new path.",
         "2026-09-21: independently approved on PR #699 by xrayman6zfm-ux after complete re-review of Policy v25. The change adds the explicit commerce-payments P0 / Batch 6 classifier for commerce, billing, subscription, entitlement, payment, checkout and refund authorities. The ordered rule remains ahead of database-persistence and repository-supply-chain fallbacks; unknown src paths remain fail-closed; provenance semantics and all twelve review batches remain unchanged. Focused regression assertions bind both src/lib/commerce/commerce-authority.ts and src/lib/db-migrate-pro-commerce-authority.ts to commerce-payments / P0 / Batch 6. No confirmed finding was recorded by the independent approval.",
-        "2026-09-21: independently re-approved on PR #699 by xrayman6zfm-ux against exact head 68ae0ccbe0ed80a8902530866a2b667bca51cb4a after Policy v26 narrowed the Commerce P0 / Batch 6 authority with one exact migration-path classifier: src/lib/db-migrate-pro-commerce-authority.ts. This resolves the focused regression finding where the Pro commercial migration previously fell through to generic database-persistence P1 / Batch 2. The complete policy was re-reviewed with Commerce still preceding database-persistence, unknown src paths still fail-closed, provenance and twelve-batch semantics unchanged, and no broad migration wildcard or unrelated authority expansion introduced. No confirmed finding remains from this bounded policy correction.",
-        "2026-10-04: re-reviewed after adding explicit Batch 10 routing for news-evidence-channel-authority.ts and news-story-cluster-authority.ts and Batch 2 routing for db-migrate-news-story-cluster-authority.ts. The source-path fail-closed invariant remains intact; no new findings."
+        "2026-09-21: independently re-approved on PR #699 by xrayman6zfm-ux against exact head 68ae0ccbe0ed80a8902530866a2b667bca51cb4a after Policy v26 narrowed the Commerce P0 / Batch 6 authority with one exact migration-path classifier: src/lib/db-migrate-pro-commerce-authority.ts. This resolves the focused regression finding where the Pro commercial migration previously fell through to generic database-persistence P1 / Batch 2. The complete policy was re-reviewed with Commerce still preceding database-persistence, unknown src paths still fail-closed, provenance and twelve-batch semantics unchanged, and no broad migration wildcard or unrelated authority expansion introduced. No confirmed finding remains from this bounded policy correction."
       ],
       "findings": []
     },
