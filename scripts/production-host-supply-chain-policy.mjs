@@ -525,7 +525,7 @@ export function productionHostSupplyChainFindings({
   for (const contract of [
     "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
     'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
-    'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
+    'test "$baked_commit" = "$ROLLBACK_RELEASE_SHA"',
     "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
   ]) {
     requireText(
