@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-10-04",
+  "reviewedAt": "2026-10-09",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -42,13 +42,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5827124e15e2e5c806741e6753c1e2eb93fad593",
-      "sha256": "d690cf9882a7e3f672c7109f992b618060cb7329896c9b0e8c403fe824a8370d",
-      "lines": 294,
+      "gitObjectId": "2df01204cf1fd1b2c576e62a70ad929997d37b47",
+      "sha256": "78ce44d4488ef4a75fb159cd4ac3a5ef7a8b409d9fa0b1cb56b6195787b530ea",
+      "lines": 296,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 294
+          "endLine": 296
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -146,7 +146,8 @@
         "2026-09-21: re-reviewed the complete 294-line package after the staging promotion test composition and migration-plan probe were both present in their final combined form. The resulting package delta adds no dependency, engine or override; all new commands remain local fail-closed test/build authority, perform no workflow dispatch or host mutation, and grant no merge, staging or Production authorization.",
         "2026-09-25: re-reviewed the complete package after test:academy-progress additionally enrolled src/tests/security/academy-v3-mission-evidence-cross-tenant-postgres.test.ts. This is test-only wiring that makes the existing PostgreSQL cross-tenant, revoked-binding and append-only Mission V3 evidence proof mandatory in the Academy gate; it adds no dependency, engine, override, network/provider/spend authority, runtime activation surface, merge or deployment authority.",
         "2026-10-04: re-reviewed after upgrading Next.js from 16.3.3 to patched 16.3.8 to address the current critical next/og ImageResponse advisory; no unrelated dependency or runtime authority change was introduced.",
-        "2026-10-05: re-reviewed the exact current package.json after News & Market Intelligence v2 gate reconciliation. The tracked package script surface and dependency/override authority remain unchanged in security meaning; this refresh binds the semantic review record to the current immutable Git blob and digest so the repository audit cannot silently rely on historical package content."
+        "2026-10-05: re-reviewed the exact current package.json after News & Market Intelligence v2 gate reconciliation. The tracked package script surface and dependency/override authority remain unchanged in security meaning; this refresh binds the semantic review record to the current immutable Git blob and digest so the repository audit cannot silently rely on historical package content.",
+        "2026-10-09: re-reviewed package scripts/dependencies/engines and updated only the existing next->sharp override from 0.35.4 to 0.35.5 plus an explicit source-map-js 1.2.2 override, matching the reviewed mainline security pins. No direct dependency, script, engine or release-authority change; the matching mainline lockfile has identical root dependencies/devDependencies/engines and resolves sharp 0.35.5 and source-map-js 1.2.2."
       ],
       "findings": [
         {
