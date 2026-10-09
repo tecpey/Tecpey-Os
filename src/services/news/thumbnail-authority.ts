@@ -54,30 +54,6 @@ function attribute(tag: string, name: string): string {
   return decodeMarkup(match?.[1] ?? "").trim();
 }
 
-function privateIpv4(hostname: string): boolean {
-  const parts = hostname.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-  const [a, b] = parts;
-  return a === 10
-    || a === 127
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168)
-    || a === 0;
-}
-
-function privateIpv6(hostname: string): boolean {
-  const value = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  return value === "::1"
-    || value === "::"
-    || value.startsWith("fc")
-    || value.startsWith("fd")
-    || value.startsWith("fe8")
-    || value.startsWith("fe9")
-    || value.startsWith("fea")
-    || value.startsWith("feb");
-}
-
 export function safeNewsThumbnailUrl(raw: string, baseUrl?: string): string | null {
   if (!raw || raw.length > 4_096) return null;
   try {
@@ -87,13 +63,15 @@ export function safeNewsThumbnailUrl(raw: string, baseUrl?: string): string | nu
     url.password = "";
     url.hash = "";
     const hostname = url.hostname.toLowerCase();
+    // Thumbnail URLs are browser redirect targets. Reject all IP literals (not only
+    // familiar private ranges) to avoid parser variants and IPv4-mapped IPv6 gaps.
+    // Hostname-to-address DNS safety still requires network-level egress controls.
     if (
       hostname === "localhost"
       || hostname.endsWith(".localhost")
       || hostname.endsWith(".local")
       || hostname.endsWith(".internal")
-      || privateIpv4(hostname)
-      || (isIP(hostname) === 6 && privateIpv6(hostname))
+      || isIP(hostname) !== 0
     ) return null;
     const normalized = url.toString();
     return normalized.length <= 2_048 ? normalized : null;

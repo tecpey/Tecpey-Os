@@ -22,6 +22,9 @@ describe("news no-loss archive and media authority", () => {
     assert.equal(safeNewsThumbnailUrl("https://127.0.0.1/image.jpg"), null);
     assert.equal(safeNewsThumbnailUrl("https://192.168.1.8/image.jpg"), null);
     assert.equal(safeNewsThumbnailUrl("https://localhost/image.jpg"), null);
+    assert.equal(safeNewsThumbnailUrl("https://[::1]/image.jpg"), null);
+    assert.equal(safeNewsThumbnailUrl("https://[::ffff:127.0.0.1]/image.jpg"), null);
+    assert.equal(safeNewsThumbnailUrl("https://[fd00::1]/image.jpg"), null);
     assert.equal(
       safeNewsThumbnailUrl("https://cdn.example.com/news/image.jpg#tracking"),
       "https://cdn.example.com/news/image.jpg",
