@@ -44,11 +44,11 @@
       "path": "package.json",
       "gitObjectId": "2df01204cf1fd1b2c576e62a70ad929997d37b47",
       "sha256": "78ce44d4488ef4a75fb159cd4ac3a5ef7a8b409d9fa0b1cb56b6195787b530ea",
-      "lines": 296,
+      "lines": 295,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 296
+          "endLine": 295
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
