@@ -5,7 +5,7 @@ import {
   R08_EVIDENCE_SCHEMA_VERSION,
   R08_POLICY_VERSION,
   verifyR08DetachedDigest,
-} from "../../lib/r08-evidence-contract";
+} from "../../lib/crm/r08-evidence-contract";
 
 const validInput = () => ({
   schemaVersion: R08_EVIDENCE_SCHEMA_VERSION,
