@@ -109,6 +109,8 @@ accepted-risk evidence without that reconciliation.
 
 > **Reconciliation update (2026-08-01).** Still accurate for *displayed* prices (TradingView + WebSocket, client-reported via `/api/internal/price-feed-status`). A server-side, multi-provider price **consensus** now exists for the gated withdrawal/financial path only (`src/lib/security/withdrawal-price-producer.ts`); it does not govern chart display. See `docs/PRODUCTION_DECISIONS.md` D-03.
 
+> **Accountable product decision recorded (2026-10-10; R-02 only).** The project owner confirms that TradingView remains the charting solution for now; the product goal is to keep charts, live market displays, timeframes and supported analysis tools functional for education and virtual Arena use, rather than disabling them merely because independent price verification is incomplete. This is not a claim that chart prices are independently verified or execution-grade. Market-data freshness/connection health must be surfaced where possible, and stale or unhealthy data must trigger clear warning and restriction of dependent features. Real-money trading remains out of scope until its separate financial-data and launch gates are satisfied. This decision does not prove implementation or operational health, does not refresh the risk's review deadline, does not accept other risk rows, and does not change the controlled-launch NO-GO.
+
 ---
 
 ## R-03 — Schema-on-Connect Risk (Superseded)
