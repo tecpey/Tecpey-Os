@@ -94,6 +94,9 @@ accepted-risk evidence without that reconciliation.
 
 > **Reconciliation update (2026-08-01).** Reduced in scope, **not resolved.** Canonical Academy progress, assessments, and certificates are now PostgreSQL-authoritative (`src/lib/academy-progress.ts`, `src/lib/academy-assessment.ts`, `src/lib/academy-certificates.ts`, with `academy-progress-*-postgres` authority tests), so the loss premise no longer applies to that canonical state. **However, this risk remains fully in force for the Academy engagement/gamification layer:** `src/components/academy/AcademyEngagementHub.tsx` — mounted on the live `/academy` and `/academy/daily-challenge` routes — stores user-earned XP, streaks, completed missions, and unlocked badges **exclusively in `localStorage`**, with no server persistence, and clearing browser data or switching devices still loses that state. For those browser-owned features R-01's warning, export, and mitigation obligations still apply; the reduction above must not be read as removing them. See `docs/PRODUCTION_DECISIONS.md` D-02.
 
+
+> **Accountable product decision recorded (2026-10-10; R-01 only).** The project owner confirms that user-earned Academy engagement/reward history must not remain solely browser-owned as the intended product contract. XP, streaks, completed missions and badges must become server-persisted and recoverable across devices, with server-side authorization/integrity controls and regression coverage. Until that implementation is complete and verified, these features must be restricted/disabled or clearly presented only as temporary, non-authoritative browser state; the launch must not imply durable storage or cloud sync. This decision does not claim the migration is implemented, does not satisfy export/notice verification, does not refresh the risk's review deadline, does not accept other risk rows, and does not change the controlled-launch NO-GO.
+
 ---
 
 ## R-02 — Price / Market Data Health Is Entirely Client-Reported
@@ -109,6 +112,8 @@ accepted-risk evidence without that reconciliation.
 | **Rollback Condition** | If client-reported price feed down events exceed N per week or if any material user harm is traced to stale/manipulated displayed prices, server-side price source must be accelerated or trading restricted to paper only until resolved. |
 
 > **Reconciliation update (2026-08-01).** Still accurate for *displayed* prices (TradingView + WebSocket, client-reported via `/api/internal/price-feed-status`). A server-side, multi-provider price **consensus** now exists for the gated withdrawal/financial path only (`src/lib/security/withdrawal-price-producer.ts`); it does not govern chart display. See `docs/PRODUCTION_DECISIONS.md` D-03.
+
+> **Accountable product decision recorded (2026-10-10; R-02 only).** The project owner confirms that TradingView remains the charting solution for now; the product goal is to keep charts, live market displays, timeframes and supported analysis tools functional for education and virtual Arena use, rather than disabling them merely because independent price verification is incomplete. This is not a claim that chart prices are independently verified or execution-grade. Market-data freshness/connection health must be surfaced where possible, and stale or unhealthy data must trigger clear warning and restriction of dependent features. Real-money trading remains out of scope until its separate financial-data and launch gates are satisfied. This decision does not prove implementation or operational health, does not refresh the risk's review deadline, does not accept other risk rows, and does not change the controlled-launch NO-GO.
 
 ---
 
@@ -248,3 +253,18 @@ accepted-risk evidence without that reconciliation.
 ---
 
 *Persian-first governance. English engineering terminology preserved.*
+
+
+> **Accountable decision note — R-06 (2026-10-10).** The project owner approved the proposed certificate-trust boundary: halt certificate issuance if signing-key compromise is suspected, a certificate is shown forgeable, or a legitimate certificate fails verification; verify certificate status against the server-side authority; define and test key rotation and revocation/re-issuance before claiming these controls are operational. Until the controls are implemented and evidenced, do not make unverified institutional/security claims about certificates. This decision does not assert the controls are already implemented, does not authorize paid or institutional certificate programs, and does not change the controlled-launch NO-GO boundary.
+
+
+> **Accountable decision note — R-07 (2026-10-10).** The project owner approved keeping real-money orders, deposits, withdrawals, custody and settlement disabled until independent, auditable reconciliation among the ledger, user balances and wallet records is evidenced. Any UI, API, route or worker that can activate real-money financial operations before those gates are satisfied is a hard NO-GO. Education and virtual Arena flows may continue only while isolated from real assets. This records a risk boundary, not evidence that reconciliation controls exist or a Go/merge/deploy authorization.
+
+
+> **Accountable decision note — R-09 (2026-10-10).** The project owner approved the controlled-launch support boundary: published support hours remain 09:00–23:00 Asia/Tehran daily unless an actual 24/7 rota is established and verified; P0 acknowledgement targets are 15 minutes during support hours and 60 minutes outside them, and P1 acknowledgement target is four hours. A missed P0 acknowledgement target or material user harm pauses launch expansion until incident ownership and coverage are corrected. Do not claim 24/7 support without evidence. This records a risk boundary, not proof that operational coverage is staffed or a Go/merge/deploy authorization.
+
+
+> **Accountable decision note — R-10 (2026-10-10).** The project owner approved keeping custody, hot-wallet operations and withdrawals disabled until the required security controls and independent reconciliation evidence are complete. Do not claim hot-wallet balances or withdrawal readiness without verifiable evidence. Any UI, API, route or worker that activates real custody or withdrawals before the required gates are satisfied is a hard NO-GO. Re-enablement requires documented alert thresholds, access controls, an emergency stop procedure and independent review. This records a risk boundary; it does not assert implementation or authorize Go, merge or deployment.
+
+
+> **Accountable decision note — R-05 (2026-10-10).** The project owner approved the Redis degraded-mode boundary: real-money withdrawals remain disabled; Redis is limited to non-custodial controlled-launch functions; an outage exceeding five minutes requires degraded-mode messaging and review; any route, worker or alternate path able to create a real withdrawal while Redis is degraded is a hard NO-GO. Queue recovery and degraded-mode behavior still require candidate-bound operational testing before any Go decision. This records a risk boundary, not proof of runtime behavior or authorization to merge, deploy, or activate real-money capabilities.
