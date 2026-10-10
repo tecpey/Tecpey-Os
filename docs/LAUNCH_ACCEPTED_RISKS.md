@@ -249,3 +249,6 @@ accepted-risk evidence without that reconciliation.
 ---
 
 *Persian-first governance. English engineering terminology preserved.*
+
+
+> **Accountable decision note — R-06 (2026-10-10).** The project owner approved the proposed certificate-trust boundary: halt certificate issuance if signing-key compromise is suspected, a certificate is shown forgeable, or a legitimate certificate fails verification; verify certificate status against the server-side authority; define and test key rotation and revocation/re-issuance before claiming these controls are operational. Until the controls are implemented and evidenced, do not make unverified institutional/security claims about certificates. This decision does not assert the controls are already implemented, does not authorize paid or institutional certificate programs, and does not change the controlled-launch NO-GO boundary.
