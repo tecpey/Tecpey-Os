@@ -47,8 +47,10 @@ function isCount(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0;
 }
 
-function validTimestamp(value: string): boolean {
-  return Number.isFinite(Date.parse(value)) && value === new Date(value).toISOString();
+function validTimestamp(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && value === new Date(parsed).toISOString();
 }
 
 function canonicalJson(value: unknown): string {
@@ -103,13 +105,17 @@ export function evaluateR08Evidence(input: R08EvidenceInput): R08EvidenceResult 
   const reasons: string[] = [];
   if (input.schemaVersion !== R08_EVIDENCE_SCHEMA_VERSION) reasons.push("unknown_schema_version");
   if (input.policyVersion !== R08_POLICY_VERSION) reasons.push("unknown_policy_version");
-  if (!/^[a-f0-9]{40}$/.test(input.candidateSha)) reasons.push("candidate_sha_invalid");
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(input.scopeToken)) reasons.push("scope_token_invalid");
+  if (typeof input.candidateSha !== "string" || !/^[a-f0-9]{40}$/.test(input.candidateSha)) {
+    reasons.push("candidate_sha_invalid");
+  }
+  if (typeof input.scopeToken !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(input.scopeToken)) {
+    reasons.push("scope_token_invalid");
+  }
   if (!validTimestamp(input.windowStart) || !validTimestamp(input.windowEnd)
     || Date.parse(input.windowStart) >= Date.parse(input.windowEnd)) reasons.push("window_invalid");
-  if (!input.activitySourceAvailable) reasons.push("canonical_activity_source_missing");
-  if (!input.qualificationAuthorityAvailable) reasons.push("qualification_authority_missing");
-  if (!input.localeCoverageComplete) reasons.push("locale_coverage_incomplete");
+  if (input.activitySourceAvailable !== true) reasons.push("canonical_activity_source_missing");
+  if (input.qualificationAuthorityAvailable !== true) reasons.push("qualification_authority_missing");
+  if (input.localeCoverageComplete !== true) reasons.push("locale_coverage_incomplete");
   if (!Number.isSafeInteger(input.minimumSampleSize) || (input.minimumSampleSize ?? 0) < 1) {
     reasons.push("minimum_sample_size_not_governed");
   }
