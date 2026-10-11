@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-export const R08_EVIDENCE_SCHEMA_VERSION = "tecpey-r08-aggregate-evidence-v1";
-export const R08_POLICY_VERSION = "r08-language-growth-policy-v1";
+export const R08_EVIDENCE_SCHEMA_VERSION: "tecpey-r08-aggregate-evidence-v1" = "tecpey-r08-aggregate-evidence-v1";
+export const R08_POLICY_VERSION: "r08-language-growth-policy-v1" = "r08-language-growth-policy-v1";
 
 export type LanguageCounts = {
   total: number;
