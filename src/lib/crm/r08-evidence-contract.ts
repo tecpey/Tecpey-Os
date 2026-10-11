@@ -70,6 +70,12 @@ function canonicalJson(value: unknown): string {
 
 function validCounts(counts: unknown): counts is LanguageCounts {
   if (counts === null || typeof counts !== "object" || Array.isArray(counts)) return false;
+  const prototype = Object.getPrototypeOf(counts);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const keys = Object.keys(counts).sort();
+  if (keys.length !== 3 || keys[0] !== "fa" || keys[1] !== "nonPersian" || keys[2] !== "total") {
+    return false;
+  }
   const value = counts as Partial<LanguageCounts>;
   return isCount(value.total as number) && isCount(value.fa as number) && isCount(value.nonPersian as number)
     && value.total === (value.fa as number) + (value.nonPersian as number);
