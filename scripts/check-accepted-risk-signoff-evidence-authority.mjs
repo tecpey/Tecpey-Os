@@ -92,6 +92,9 @@ const originVerificationMode =
   || process.env.TECPEY_ACCEPTED_RISK_ORIGIN_VERIFICATION === "static-only"
     ? "static-only"
     : "required";
+// General PR CI checks structural and evidence integrity without pretending to
+// refresh accountable review. Release:check omits this flag and enforces freshness.
+const freshnessMode = process.argv.includes("--structural-only") ? "structural-only" : "strict";
 
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
@@ -159,7 +162,10 @@ if (historicalAcceptedRiskRegister) {
     }).map((failure) => `historical register: ${failure}`),
   );
 }
-failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: new Date() }));
+failures.push(...evaluateAcceptedRiskRegisterAuthority(
+  source.acceptedRisks,
+  freshnessMode === "strict" ? { referenceDate: new Date() } : {},
+));
 
 const approvalOwners = [...new Set(
   Object.values(historicalEvidence.riskOwnerSignoffs ?? {})
@@ -383,12 +389,15 @@ requireEqual(
 requireText("package", source.packageJson, "npm run launch:accepted-risk-evidence:check");
 requireText("package", source.packageJson, "npm run test:accepted-risk-signoff-evidence");
 requireText("workflow", source.workflow, "Accepted-risk signoff evidence authority guard");
-requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:check");
+requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:check -- --structural-only");
 requireText(
   "workflow",
   source.workflow,
-  "Accepted-risk signoff evidence authority guard env: GITHUB_TOKEN: ${{ github.token }} run: npm run launch:accepted-risk-evidence:check",
+  "Accepted-risk signoff evidence authority guard env: GITHUB_TOKEN: ${{ github.token }} run: npm run launch:accepted-risk-evidence:check -- --structural-only",
 );
+if (packageJson.scripts?.["launch:decision:check"]?.includes("--structural-only")) {
+  failures.push("package launch:decision:check must enforce strict accepted-risk freshness");
+}
 
 for (const [label, value] of [
   [HISTORICAL_EVIDENCE_PATH, historicalEvidence],
