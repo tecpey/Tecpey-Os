@@ -94,7 +94,10 @@ const originVerificationMode =
     : "required";
 // General PR CI checks structural and evidence integrity without pretending to
 // refresh accountable review. Release:check omits this flag and enforces freshness.
-const freshnessMode = process.argv.includes("--structural-only") ? "structural-only" : "strict";
+const freshnessMode = process.argv.includes("--structural-only")
+  || process.env.TECPEY_ACCEPTED_RISK_FRESHNESS_MODE === "structural-only"
+    ? "structural-only"
+    : "strict";
 
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
@@ -393,10 +396,19 @@ requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:
 requireText(
   "workflow",
   source.workflow,
+  "Controlled launch decision authority guard env: GITHUB_TOKEN: ${{ github.token }} TECPEY_ACCEPTED_RISK_FRESHNESS_MODE: structural-only TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION: static-only run: npm run launch:decision:check",
+);
+requireText(
+  "workflow",
+  source.workflow,
   "Accepted-risk signoff evidence authority guard env: GITHUB_TOKEN: ${{ github.token }} run: npm run launch:accepted-risk-evidence:check -- --structural-only",
 );
-if (packageJson.scripts?.["launch:decision:check"]?.includes("--structural-only")) {
+if (packageJson.scripts?.["launch:decision:check"]?.includes("--structural-only")
+  || packageJson.scripts?.["launch:decision:check"]?.includes("TECPEY_ACCEPTED_RISK_FRESHNESS_MODE")) {
   failures.push("package launch:decision:check must enforce strict accepted-risk freshness");
+}
+if (packageJson.scripts?.["release:check"]?.includes("TECPEY_ACCEPTED_RISK_FRESHNESS_MODE")) {
+  failures.push("package release:check must not opt out of strict accepted-risk freshness");
 }
 
 for (const [label, value] of [
