@@ -54,6 +54,7 @@ const files = {
   verifierTest: "scripts/accepted-risk-signoff-evidence.test.mjs",
   packageJson: "package.json",
   workflow: ".github/workflows/ci.yml",
+  checker: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
 };
 
 const source = Object.fromEntries(
@@ -397,7 +398,7 @@ requireEqual(
 );
 requireText("package", source.packageJson, "npm run launch:accepted-risk-evidence:check");
 requireText("package", source.packageJson, "npm run test:accepted-risk-signoff-evidence");
-requireText("checker source", c, 'process.env.GITHUB_ACTIONS === "true"');
+requireText("checker source", source.checker, 'process.env.GITHUB_ACTIONS === "true"');
 requireText("checker source", c, 'process.env.GITHUB_WORKFLOW === "CI"');
 requireText("checker source", c, 'process.env.GITHUB_EVENT_NAME === "pull_request"');
 requireText("workflow", source.workflow, "Accepted-risk signoff evidence authority guard");
