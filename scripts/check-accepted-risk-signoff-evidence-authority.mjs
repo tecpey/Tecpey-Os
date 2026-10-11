@@ -54,6 +54,7 @@ const files = {
   verifierTest: "scripts/accepted-risk-signoff-evidence.test.mjs",
   packageJson: "package.json",
   workflow: ".github/workflows/ci.yml",
+  checker: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
 };
 
 const source = Object.fromEntries(
@@ -92,6 +93,17 @@ const originVerificationMode =
   || process.env.TECPEY_ACCEPTED_RISK_ORIGIN_VERIFICATION === "static-only"
     ? "static-only"
     : "required";
+// General PR CI checks structural and evidence integrity without pretending to
+// refresh accountable review. Release:check omits this flag and enforces freshness.
+const requestedStructuralOnly = process.argv.includes("--structural-only")
+  || process.env.TECPEY_ACCEPTED_RISK_FRESHNESS_MODE === "structural-only";
+const trustedPullRequestCi =
+  process.env.GITHUB_ACTIONS === "true"
+  && process.env.GITHUB_WORKFLOW === "CI"
+  && process.env.GITHUB_EVENT_NAME === "pull_request";
+const freshnessMode = requestedStructuralOnly && trustedPullRequestCi
+  ? "structural-only"
+  : "strict";
 
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
@@ -159,7 +171,10 @@ if (historicalAcceptedRiskRegister) {
     }).map((failure) => `historical register: ${failure}`),
   );
 }
-failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: new Date() }));
+failures.push(...evaluateAcceptedRiskRegisterAuthority(
+  source.acceptedRisks,
+  freshnessMode === "strict" ? { referenceDate: new Date() } : {},
+));
 
 const approvalOwners = [...new Set(
   Object.values(historicalEvidence.riskOwnerSignoffs ?? {})
@@ -382,13 +397,30 @@ requireEqual(
 );
 requireText("package", source.packageJson, "npm run launch:accepted-risk-evidence:check");
 requireText("package", source.packageJson, "npm run test:accepted-risk-signoff-evidence");
+requireText("checker source", source.checker, 'process.env.GITHUB_ACTIONS === "true"');
+requireText("checker source", source.checker, 'process.env.GITHUB_WORKFLOW === "CI"');
+requireText("checker source", source.checker, 'process.env.GITHUB_EVENT_NAME === "pull_request"');
+requireText("checker source", source.checker, 'requestedStructuralOnly && trustedPullRequestCi');
+requireText("checker source", source.checker, 'const freshnessMode = requestedStructuralOnly && trustedPullRequestCi');
 requireText("workflow", source.workflow, "Accepted-risk signoff evidence authority guard");
-requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:check");
+requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:check -- --structural-only");
 requireText(
   "workflow",
   source.workflow,
-  "Accepted-risk signoff evidence authority guard env: GITHUB_TOKEN: ${{ github.token }} run: npm run launch:accepted-risk-evidence:check",
+  "Controlled launch decision authority guard env: GITHUB_TOKEN: ${{ github.token }} TECPEY_ACCEPTED_RISK_FRESHNESS_MODE: structural-only TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION: static-only run: npm run launch:decision:check",
 );
+requireText(
+  "workflow",
+  source.workflow,
+  "Accepted-risk signoff evidence authority guard env: GITHUB_TOKEN: ${{ github.token }} run: npm run launch:accepted-risk-evidence:check -- --structural-only",
+);
+if (packageJson.scripts?.["launch:decision:check"]?.includes("--structural-only")
+  || packageJson.scripts?.["launch:decision:check"]?.includes("TECPEY_ACCEPTED_RISK_FRESHNESS_MODE")) {
+  failures.push("package launch:decision:check must enforce strict accepted-risk freshness");
+}
+if (packageJson.scripts?.["release:check"]?.includes("TECPEY_ACCEPTED_RISK_FRESHNESS_MODE")) {
+  failures.push("package release:check must not opt out of strict accepted-risk freshness");
+}
 
 for (const [label, value] of [
   [HISTORICAL_EVIDENCE_PATH, historicalEvidence],
