@@ -105,6 +105,26 @@ test("truthy non-boolean source attestations and non-string identifiers fail clo
   }
 });
 
+test("unexpected aggregate fields and cyclic count objects fail closed", () => {
+  const evaluate = evaluateR08Evidence as (input: unknown) => ReturnType<typeof evaluateR08Evidence>;
+  const withExtraField = evaluate({
+    ...validInput(),
+    wau: { total: 100, fa: 88, nonPersian: 12, principalIds: ["must-not-leak"] },
+  });
+  assert.equal(withExtraField.status, "INSUFFICIENT_EVIDENCE");
+  if (withExtraField.status === "INSUFFICIENT_EVIDENCE") {
+    assert.ok(withExtraField.reasons.includes("wau_counts_invalid"));
+  }
+
+  const cyclicCounts: Record<string, unknown> = { total: 100, fa: 88, nonPersian: 12 };
+  cyclicCounts.unexpected = cyclicCounts;
+  const cyclic = evaluate({ ...validInput(), wau: cyclicCounts });
+  assert.equal(cyclic.status, "INSUFFICIENT_EVIDENCE");
+  if (cyclic.status === "INSUFFICIENT_EVIDENCE") {
+    assert.ok(cyclic.reasons.includes("wau_counts_invalid"));
+  }
+});
+
 test("malformed runtime payloads fail closed without throwing", () => {
   const evaluate = evaluateR08Evidence as (input: unknown) => ReturnType<typeof evaluateR08Evidence>;
   assert.deepEqual(evaluate(null), {
