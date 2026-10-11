@@ -105,6 +105,14 @@ test("truthy non-boolean source attestations and non-string identifiers fail clo
   }
 });
 
+test("detached digest verification rejects malformed evidence without throwing", () => {
+  const verify = verifyR08DetachedDigest as (evidence: never, digest: string) => boolean;
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+  assert.equal(verify(cyclic as never, "a".repeat(64)), false);
+  assert.equal(verify(validInput() as never, "not-a-digest"), false);
+});
+
 test("unexpected aggregate fields and cyclic count objects fail closed", () => {
   const evaluate = evaluateR08Evidence as (input: unknown) => ReturnType<typeof evaluateR08Evidence>;
   const withExtraField = evaluate({
