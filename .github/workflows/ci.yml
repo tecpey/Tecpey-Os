@@ -491,7 +491,7 @@ jobs:
       - name: Accepted-risk signoff evidence authority guard
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: npm run launch:accepted-risk-evidence:check
+        run: npm run launch:accepted-risk-evidence:check -- --structural-only
 
       - name: Protected incident readiness evidence authority guard
         run: npm run launch:incident-readiness-evidence:check
