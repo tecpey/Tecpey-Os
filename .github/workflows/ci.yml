@@ -552,6 +552,7 @@ jobs:
       - name: Controlled launch decision authority guard
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          TECPEY_ACCEPTED_RISK_FRESHNESS_MODE: structural-only
           TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION: static-only
         run: npm run launch:decision:check
 
