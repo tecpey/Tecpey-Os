@@ -89,10 +89,14 @@ export function verifyR08DetachedDigest(
   evidence: Omit<Extract<R08EvidenceResult, { status: "EVALUABLE" }>, "detachedSha256">,
   digest: string,
 ): boolean {
-  if (!/^[a-f0-9]{64}$/.test(digest)) return false;
-  const expected = createHash("sha256").update(canonicalJson(evidence)).digest();
-  const supplied = Buffer.from(digest, "hex");
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+  if (typeof digest !== "string" || !/^[a-f0-9]{64}$/.test(digest)) return false;
+  try {
+    const expected = createHash("sha256").update(canonicalJson(evidence)).digest();
+    const supplied = Buffer.from(digest, "hex");
+    return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+  } catch {
+    return false;
+  }
 }
 
 /**
