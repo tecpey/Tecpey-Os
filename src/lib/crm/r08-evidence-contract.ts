@@ -6,7 +6,7 @@ export const R08_POLICY_VERSION: "r08-language-growth-policy-v1" = "r08-language
 export type LanguageCounts = {
   total: number;
   fa: number;
-  en: number;
+  nonPersian: number;
 };
 
 export type R08EvidenceInput = {
@@ -69,12 +69,12 @@ function canonicalJson(value: unknown): string {
 function validCounts(counts: unknown): counts is LanguageCounts {
   if (counts === null || typeof counts !== "object" || Array.isArray(counts)) return false;
   const value = counts as Partial<LanguageCounts>;
-  return isCount(value.total as number) && isCount(value.fa as number) && isCount(value.en as number)
-    && value.total === (value.fa as number) + (value.en as number);
+  return isCount(value.total as number) && isCount(value.fa as number) && isCount(value.nonPersian as number)
+    && value.total === (value.fa as number) + (value.nonPersian as number);
 }
 
 function percentage(counts: LanguageCounts): number {
-  return Math.round((counts.en / counts.total) * 10_000) / 100;
+  return Math.round((counts.nonPersian / counts.total) * 10_000) / 100;
 }
 
 export function verifyR08DetachedDigest(
