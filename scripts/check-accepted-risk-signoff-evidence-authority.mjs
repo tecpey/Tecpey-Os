@@ -101,10 +101,9 @@ const trustedPullRequestCi =
   process.env.GITHUB_ACTIONS === "true"
   && process.env.GITHUB_WORKFLOW === "CI"
   && process.env.GITHUB_EVENT_NAME === "pull_request";
-const freshnessMode = process.argv.includes("--structural-only")
-  || (requestedStructuralOnly && trustedPullRequestCi)
-    ? "structural-only"
-    : "strict";
+const freshnessMode = requestedStructuralOnly && trustedPullRequestCi
+  ? "structural-only"
+  : "strict";
 
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
@@ -401,6 +400,8 @@ requireText("package", source.packageJson, "npm run test:accepted-risk-signoff-e
 requireText("checker source", source.checker, 'process.env.GITHUB_ACTIONS === "true"');
 requireText("checker source", source.checker, 'process.env.GITHUB_WORKFLOW === "CI"');
 requireText("checker source", source.checker, 'process.env.GITHUB_EVENT_NAME === "pull_request"');
+requireText("checker source", source.checker, 'requestedStructuralOnly && trustedPullRequestCi');
+requireText("checker source", source.checker, 'const freshnessMode = requestedStructuralOnly && trustedPullRequestCi');
 requireText("workflow", source.workflow, "Accepted-risk signoff evidence authority guard");
 requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:check -- --structural-only");
 requireText(
