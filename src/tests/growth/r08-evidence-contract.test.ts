@@ -85,6 +85,26 @@ test("missing governed minimum sample size fails closed", () => {
   }
 });
 
+test("truthy non-boolean source attestations and non-string identifiers fail closed", () => {
+  const evaluate = evaluateR08Evidence as (input: unknown) => ReturnType<typeof evaluateR08Evidence>;
+  const result = evaluate({
+    ...validInput(),
+    activitySourceAvailable: "true",
+    qualificationAuthorityAvailable: 1,
+    localeCoverageComplete: {},
+    candidateSha: null,
+    scopeToken: 42,
+  });
+  assert.equal(result.status, "INSUFFICIENT_EVIDENCE");
+  if (result.status === "INSUFFICIENT_EVIDENCE") {
+    assert.ok(result.reasons.includes("canonical_activity_source_missing"));
+    assert.ok(result.reasons.includes("qualification_authority_missing"));
+    assert.ok(result.reasons.includes("locale_coverage_incomplete"));
+    assert.ok(result.reasons.includes("candidate_sha_invalid"));
+    assert.ok(result.reasons.includes("scope_token_invalid"));
+  }
+});
+
 test("malformed runtime payloads fail closed without throwing", () => {
   const evaluate = evaluateR08Evidence as (input: unknown) => ReturnType<typeof evaluateR08Evidence>;
   assert.deepEqual(evaluate(null), {
