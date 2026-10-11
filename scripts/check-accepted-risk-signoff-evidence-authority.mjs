@@ -94,8 +94,14 @@ const originVerificationMode =
     : "required";
 // General PR CI checks structural and evidence integrity without pretending to
 // refresh accountable review. Release:check omits this flag and enforces freshness.
+const requestedStructuralOnly = process.argv.includes("--structural-only")
+  || process.env.TECPEY_ACCEPTED_RISK_FRESHNESS_MODE === "structural-only";
+const trustedPullRequestCi =
+  process.env.GITHUB_ACTIONS === "true"
+  && process.env.GITHUB_WORKFLOW === "CI"
+  && process.env.GITHUB_EVENT_NAME === "pull_request";
 const freshnessMode = process.argv.includes("--structural-only")
-  || process.env.TECPEY_ACCEPTED_RISK_FRESHNESS_MODE === "structural-only"
+  || (requestedStructuralOnly && trustedPullRequestCi)
     ? "structural-only"
     : "strict";
 
@@ -391,6 +397,9 @@ requireEqual(
 );
 requireText("package", source.packageJson, "npm run launch:accepted-risk-evidence:check");
 requireText("package", source.packageJson, "npm run test:accepted-risk-signoff-evidence");
+requireText("checker source", c, 'process.env.GITHUB_ACTIONS === "true"');
+requireText("checker source", c, 'process.env.GITHUB_WORKFLOW === "CI"');
+requireText("checker source", c, 'process.env.GITHUB_EVENT_NAME === "pull_request"');
 requireText("workflow", source.workflow, "Accepted-risk signoff evidence authority guard");
 requireText("workflow", source.workflow, "npm run launch:accepted-risk-evidence:check -- --structural-only");
 requireText(
