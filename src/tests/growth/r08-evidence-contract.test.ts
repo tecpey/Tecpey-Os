@@ -84,3 +84,17 @@ test("missing governed minimum sample size fails closed", () => {
     assert.ok(result.reasons.includes("minimum_sample_size_not_governed"));
   }
 });
+
+test("malformed runtime payloads fail closed without throwing", () => {
+  const evaluate = evaluateR08Evidence as (input: unknown) => ReturnType<typeof evaluateR08Evidence>;
+  assert.deepEqual(evaluate(null), {
+    status: "INSUFFICIENT_EVIDENCE",
+    schemaVersion: R08_EVIDENCE_SCHEMA_VERSION,
+    reasons: ["input_invalid"],
+  });
+  const result = evaluate({ ...validInput(), wau: null });
+  assert.equal(result.status, "INSUFFICIENT_EVIDENCE");
+  if (result.status === "INSUFFICIENT_EVIDENCE") {
+    assert.ok(result.reasons.includes("wau_counts_invalid"));
+  }
+});
