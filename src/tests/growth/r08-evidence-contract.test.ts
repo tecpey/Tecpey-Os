@@ -17,8 +17,8 @@ const validInput = () => ({
   activitySourceAvailable: true,
   qualificationAuthorityAvailable: true,
   localeCoverageComplete: true,
-  wau: { total: 100, fa: 88, en: 12 },
-  qualifiedLeads: { total: 40, fa: 37, en: 3 },
+  wau: { total: 100, fa: 88, nonPersian: 12 },
+  qualifiedLeads: { total: 40, fa: 37, nonPersian: 3 },
   minimumSampleSize: 20,
 });
 
@@ -51,8 +51,8 @@ test("missing canonical sources and locale coverage fail closed instead of becom
 test("zero and undersized denominators are insufficient evidence", () => {
   const result = evaluateR08Evidence({
     ...validInput(),
-    wau: { total: 0, fa: 0, en: 0 },
-    qualifiedLeads: { total: 19, fa: 18, en: 1 },
+    wau: { total: 0, fa: 0, nonPersian: 0 },
+    qualifiedLeads: { total: 19, fa: 18, nonPersian: 1 },
   });
   assert.equal(result.status, "INSUFFICIENT_EVIDENCE");
   if (result.status === "INSUFFICIENT_EVIDENCE") {
@@ -65,7 +65,7 @@ test("unknown versions, malformed counts, and invalid time windows fail closed",
   const result = evaluateR08Evidence({
     ...validInput(),
     schemaVersion: "unknown",
-    wau: { total: 10, fa: 7, en: 2 },
+    wau: { total: 10, fa: 7, nonPersian: 2 },
     windowStart: "2026-10-10T00:00:00.000Z",
     windowEnd: "2026-10-03T00:00:00.000Z",
   });
