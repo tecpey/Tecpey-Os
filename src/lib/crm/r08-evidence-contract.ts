@@ -66,9 +66,11 @@ function canonicalJson(value: unknown): string {
   throw new Error("r08_unsupported_canonical_value");
 }
 
-function validCounts(counts: LanguageCounts): boolean {
-  return isCount(counts.total) && isCount(counts.fa) && isCount(counts.en)
-    && counts.total === counts.fa + counts.en;
+function validCounts(counts: unknown): counts is LanguageCounts {
+  if (counts === null || typeof counts !== "object" || Array.isArray(counts)) return false;
+  const value = counts as Partial<LanguageCounts>;
+  return isCount(value.total as number) && isCount(value.fa as number) && isCount(value.en as number)
+    && value.total === (value.fa as number) + (value.en as number);
 }
 
 function percentage(counts: LanguageCounts): number {
@@ -91,6 +93,13 @@ export function verifyR08DetachedDigest(
  * explicit source/coverage attestations. Missing inputs never become zero.
  */
 export function evaluateR08Evidence(input: R08EvidenceInput): R08EvidenceResult {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return {
+      status: "INSUFFICIENT_EVIDENCE",
+      schemaVersion: R08_EVIDENCE_SCHEMA_VERSION,
+      reasons: ["input_invalid"],
+    };
+  }
   const reasons: string[] = [];
   if (input.schemaVersion !== R08_EVIDENCE_SCHEMA_VERSION) reasons.push("unknown_schema_version");
   if (input.policyVersion !== R08_POLICY_VERSION) reasons.push("unknown_policy_version");
@@ -104,13 +113,16 @@ export function evaluateR08Evidence(input: R08EvidenceInput): R08EvidenceResult 
   if (!Number.isSafeInteger(input.minimumSampleSize) || (input.minimumSampleSize ?? 0) < 1) {
     reasons.push("minimum_sample_size_not_governed");
   }
-  if (!validCounts(input.wau)) reasons.push("wau_counts_invalid");
-  if (!validCounts(input.qualifiedLeads)) reasons.push("qualified_lead_counts_invalid");
-  if (input.wau.total === 0 || (input.minimumSampleSize !== null && input.wau.total < input.minimumSampleSize)) {
+  const wauCountsValid = validCounts(input.wau);
+  const qualifiedLeadCountsValid = validCounts(input.qualifiedLeads);
+  if (!wauCountsValid) reasons.push("wau_counts_invalid");
+  if (!qualifiedLeadCountsValid) reasons.push("qualified_lead_counts_invalid");
+  if (wauCountsValid && (input.wau.total === 0
+    || (input.minimumSampleSize !== null && input.wau.total < input.minimumSampleSize))) {
     reasons.push("wau_denominator_insufficient");
   }
-  if (input.qualifiedLeads.total === 0
-    || (input.minimumSampleSize !== null && input.qualifiedLeads.total < input.minimumSampleSize)) {
+  if (qualifiedLeadCountsValid && (input.qualifiedLeads.total === 0
+    || (input.minimumSampleSize !== null && input.qualifiedLeads.total < input.minimumSampleSize))) {
     reasons.push("qualified_lead_denominator_insufficient");
   }
   if (reasons.length) {
