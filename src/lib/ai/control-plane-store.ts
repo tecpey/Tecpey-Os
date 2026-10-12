@@ -1565,15 +1565,13 @@ export type AiUsageAdmissionInput = {
   limits: AiAgentLimits;
 };
 
-/**
- * Transaction-composable request/token quota admission. Callers must already
- * own a signed tenant transaction; failures roll back with adjacent spend and
- * evidence mutations.
- */
-export async function admitAiAgentUsageWithinAuthorityTransaction(
-  client: PoolClient,
+type AiUsageAdmissionPreflight =
+  | { ok: true; inputTokens: number; outputTokens: number; reservation: number }
+  | { ok: false; reason: "input_limit" | "output_limit" | "token_limit" };
+
+function preflightAiUsageAdmission(
   input: AiUsageAdmissionInput,
-): Promise<AiUsageAdmission> {
+): AiUsageAdmissionPreflight {
   const inputTokens = Number.isFinite(input.estimatedInputTokens)
     ? Math.max(1, Math.trunc(input.estimatedInputTokens))
     : input.limits.maxInputTokens + 1;
@@ -1587,6 +1585,20 @@ export async function admitAiAgentUsageWithinAuthorityTransaction(
   const reservation = inputTokens + outputTokens;
   if (reservation > input.limits.dailyTokens)
     return { ok: false, reason: "token_limit" };
+  return { ok: true, inputTokens, outputTokens, reservation };
+}
+
+/**
+ * Transaction-composable request/token quota admission. Callers must already
+ * own a signed tenant transaction; failures roll back with adjacent spend and
+ * evidence mutations.
+ */
+export async function admitAiAgentUsageWithinAuthorityTransaction(
+  client: PoolClient,
+  input: AiUsageAdmissionInput,
+): Promise<AiUsageAdmission> {
+  const preflight = preflightAiUsageAdmission(input);
+  if (!preflight.ok) return preflight;
 
   const admitted = await client.query<{
     request_count: string | number;
@@ -1606,7 +1618,7 @@ export async function admitAiAgentUsageWithinAuthorityTransaction(
       input.tenantId,
       input.workspaceId,
       input.agentId,
-      reservation,
+      preflight.reservation,
       input.limits.dailyRequests,
       input.limits.dailyTokens,
     ],
@@ -1645,6 +1657,8 @@ export async function admitAiAgentUsageWithinAuthorityTransaction(
 export async function admitAiAgentUsage(
   input: AiUsageAdmissionInput,
 ): Promise<AiUsageAdmission> {
+  const preflight = preflightAiUsageAdmission(input);
+  if (!preflight.ok) return preflight;
   try {
     const result = await withAiTenantTransaction(input, (client) =>
       admitAiAgentUsageWithinAuthorityTransaction(client, input)
