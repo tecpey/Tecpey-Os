@@ -71,9 +71,9 @@ export async function storeAcademyProfileAvatar(input: {
 
   const owner = profileAvatarOwnerKey(input.studentId);
   const filename = `${randomUUID()}.${extension}`;
-  const ownerDir = path.join(storageRoot(), owner);
+  const ownerDir = path.join(/* turbopackIgnore: true */ storageRoot(), owner);
   await mkdir(ownerDir, { recursive: true, mode: 0o750 });
-  await writeFile(path.join(ownerDir, filename), bytes, { flag: "wx", mode: 0o640 });
+  await writeFile(path.join(/* turbopackIgnore: true */ ownerDir, filename), bytes, { flag: "wx", mode: 0o640 });
 
   return {
     url: `/api/academy-profile-avatar/${owner}/${filename}`,
@@ -100,7 +100,7 @@ export async function readAcademyProfileAvatar(owner: string, filename: string):
       ? "image/png"
       : "image/webp";
   try {
-    const bytes = await readFile(path.join(storageRoot(), owner, filename));
+    const bytes = await readFile(path.join(/* turbopackIgnore: true */ storageRoot(), owner, filename));
     if (bytes.length < 1 || bytes.length > MAX_PROFILE_AVATAR_BYTES) return null;
     if (!hasValidMagic(bytes, contentType)) return null;
     return { bytes, contentType };
@@ -136,9 +136,9 @@ export async function deleteAcademyProfileAvatar(input: {
   if (!input.url) return { removed: false };
   const filename = filenameFromOwnedAvatarUrl(input.url, input.studentId);
   if (!filename) throw new Error("profile_avatar_not_owned");
-  const ownerDir = path.join(storageRoot(), profileAvatarOwnerKey(input.studentId));
+  const ownerDir = path.join(/* turbopackIgnore: true */ storageRoot(), profileAvatarOwnerKey(input.studentId));
   try {
-    await rm(path.join(ownerDir, filename), { force: true });
+    await rm(path.join(/* turbopackIgnore: true */ ownerDir, filename), { force: true });
     return { removed: true };
   } catch {
     return { removed: false };
@@ -159,7 +159,7 @@ export async function reconcileAcademyProfileAvatars(input: {
   const keep = input.keepUrl ? filenameFromOwnedAvatarUrl(input.keepUrl, input.studentId) : null;
   if (input.keepUrl && !keep) throw new Error("profile_avatar_not_owned");
 
-  const ownerDir = path.join(storageRoot(), owner);
+  const ownerDir = path.join(/* turbopackIgnore: true */ storageRoot(), owner);
   let entries: string[];
   try {
     entries = await readdir(ownerDir);
@@ -173,7 +173,7 @@ export async function reconcileAcademyProfileAvatars(input: {
   let removed = 0;
   for (const filename of entries) {
     if (!FILE_RE.test(filename) || filename === keep) continue;
-    const filePath = path.join(ownerDir, filename);
+    const filePath = path.join(/* turbopackIgnore: true */ ownerDir, filename);
     if (minAgeMs > 0) {
       try {
         const metadata = await stat(filePath);
