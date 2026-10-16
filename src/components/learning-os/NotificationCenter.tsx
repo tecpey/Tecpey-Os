@@ -295,6 +295,9 @@ export function NotificationCenter({
       className={rootClass}
       dir={isFa ? "rtl" : "ltr"}
     >
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {isFa ? `${unread} اعلان خوانده‌نشده` : `${unread} unread notifications`}
+      </span>
       <button
         ref={triggerRef}
         type="button"
