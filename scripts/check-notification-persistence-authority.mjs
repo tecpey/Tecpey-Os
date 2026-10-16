@@ -97,6 +97,8 @@ requireText("notificationCenter", 'loadState: "error"', "Notification Center mus
 requireText("notificationCenter", 'previous.loadState === "ready"', "Notification Center refresh failures must retain the last verified inbox instead of replacing it with fabricated emptiness");
 requireText("notificationCenter", "`/api/notifications/${encodeURIComponent(id)}`", "Notification Center must mutate the authoritative platform notification endpoint");
 requireText("notificationCenter", 'JSON.stringify({ action: "read" })', "Notification Center must use the typed read lifecycle mutation");
+requireText("notificationCenter", 'aria-live="polite"', "unread-count changes must be announced politely to assistive technology");
+requireText("notificationCenter", 'aria-atomic="true"', "unread-count live announcements must be read as a complete status");
 requireText("notificationCenter", "aria-expanded={open}", "Notification Center trigger must expose open state");
 requireText("notificationCenter", 'event.key !== "Escape"', "Notification Center must support Escape dismissal");
 requireText("notificationCenter", 'credentials: "same-origin"', "Notification Center requests must remain session-bound");
