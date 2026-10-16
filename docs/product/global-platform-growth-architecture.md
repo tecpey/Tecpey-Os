@@ -99,3 +99,34 @@ Use role-based access, audit logs, idempotency, rate limits, provider budgets, s
 - No mass machine-translated publishing without editorial validation.
 - No unapproved paid advertising, social posting, production deployment, merge, or activation of real-money exchange/custody functionality.
 - No global smooth scrolling that compromises the Arena, charting, accessibility, or mobile experience.
+
+
+## Notification experience and delivery architecture
+
+### Decision on `rit3zh/expo-dynamic-notifications`
+
+- Treat `expo-dynamic-notifications` as a visual/interaction reference for a premium, compact in-app alert—not as the notification system for the current TecPey web application.
+- The project is explicitly a React Native / Expo component and its documented stack includes Skia, Reanimated 4, Worklets, Gesture Handler, Expo Blur, Expo Image, Expo Symbols, and Safe Area Context. TecPey's current application is a Next.js web app; adding this library directly would introduce a platform mismatch and a substantial native dependency surface without delivering a working web notification architecture.
+- The repository is very new and currently shows a small commit history with no published test suite or CI evidence in the repository overview. Require a compatibility/build/security review and real-device validation before considering it for a future Expo mobile client.
+- If TecPey later ships a React Native / Expo app, evaluate it behind a small proof-of-concept branch. Check current Expo/React Native versions, Android and iOS builds, accessibility, reduced motion, RTL, safe areas, notification bursts, queue behavior, bundle/build size, licensing, and maintenance before adoption. Do not couple business events or delivery guarantees to this presentation component.
+- For the current web app, build a TecPey-native, accessible in-app toast/alert layer using the existing React and design-token stack. A Dynamic-Island-inspired animation may be adapted as an optional visual treatment, but it must degrade gracefully to a conventional toast and never be required to understand or dismiss a message.
+
+### One event model, multiple delivery channels
+
+- Separate notification creation and delivery from presentation. Use a server-owned notification/event record as the source of truth; the client animation is transient and must never be the only place a user can retrieve an important alert.
+- Define typed categories such as account/security, learning/Academy, Arena/competition, AI Mentor, market/news, and product/service. Each event should have an ID, category, priority, created/expiry times, locale, deduplication key, read/dismissed state, safe destination, and delivery preferences where applicable.
+- Provide an in-app inbox/history and unread count, with deep links that are authorized server-side. Use idempotency and deduplication to prevent repeated events from workers, retries, reconnects, or multiple delivery channels.
+- Treat web push, future native push, and transient in-app toasts as separate delivery adapters over the same event model. Browser/native permission prompts must be contextual and opt-in; do not request permission on first page load.
+- Never expose sensitive account, identity, wallet, or trading details in lock-screen previews by default. Security-critical alerts should remain clear and actionable without implying that a trade was executed unless the server confirms it.
+- Establish priority and interruption rules: critical security notices are persistent in the inbox and may use a stronger presentation; time-sensitive but non-critical updates are concise; routine Academy/Arena/social events are batched or quiet by default. Market volatility alerts must be user-configured, rate-limited, and clearly distinguished from financial advice.
+- Prevent toast overload: coalesce repeated events, rate-limit low-priority categories, respect quiet hours and per-category preferences, allow dismissal, and ensure screen-reader announcements are not repeated. Never replace the only queued important notification silently.
+- Support RTL/LTR, keyboard navigation, visible focus, reduced motion, high contrast, mobile safe areas, offline/reconnect recovery, expiry, and stale-link handling. The notification should not steal focus, block chart interactions, or interfere with TradingView, Arena controls, dialogs, or form submission.
+- Validate delivery and UX separately: unit tests for event policy/deduplication/expiry, integration tests for read state and authorized deep links, accessibility and locale tests, and manual mobile/desktop checks for burst behavior, reduced motion, and chart/keyboard interactions. Track delivery failures and interaction quality without collecting unnecessary personal data.
+
+### Rollout sequence
+
+1. Audit the existing notification schema, inbox UI, delivery workers, user preferences, and event sources before adding a parallel system.
+2. For the current web product, pilot the accessible toast presentation on a low-risk route while preserving the durable inbox and server-side source of truth.
+3. Add deduplication, priority, preferences, quiet hours, and observability before enabling more categories or push delivery.
+4. Evaluate web push independently; evaluate `expo-notifications` for a future Expo client's actual push/local delivery needs, and `expo-dynamic-notifications` only for its optional in-app presentation layer.
+5. Gate wider rollout on accessibility, RTL/LTR, mobile performance, privacy, delivery reliability, and user opt-out acceptance tests.
