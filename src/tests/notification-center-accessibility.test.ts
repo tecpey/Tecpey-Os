@@ -11,7 +11,10 @@ test("notification unread count is announced accessibly in Persian and English",
   const source = await readFile(notificationCenterPath, "utf8");
 
   assert.match(source, /className="sr-only"\s+aria-live="polite"\s+aria-atomic="true"/);
-  assert.match(source, /isFa\s*\?\s*`${unread} اعلان خوانده‌نشده`\s*:\s*`${unread} unread notifications`/);
+  assert.ok(
+    source.includes('isFa ? `${unread} اعلان خوانده‌نشده` : `${unread} unread notifications`'),
+    "the live announcement must preserve the exact Persian and English unread-count copy",
+  );
 });
 
 test("notification unread announcement remains a status, not an assertive interruption", async () => {
